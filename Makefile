@@ -41,7 +41,7 @@ IOSOURCES := $(shell find $(IODIR) -type f -name '*.$(SRCEXT)')
 IOOBJECTS := $(patsubst %, %.o, $(basename $(IOSOURCES)))
 
 CPPFLAGS := -std=gnu++11 -Wall -pedantic -Wno-long-long $(GSL_INCL) $(OPT)
-LDLIBS := -lgsl -lgslcblas $(GSL_LIBS)
+LDLIBS := -lfftw3 -lgsl -lgslcblas $(GSL_LIBS)
 	
 all: LyaPowerEstimate
 	

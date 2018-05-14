@@ -1,17 +1,17 @@
-K0 -3.9
+K0 -3
 K1 0.1
-NumberOfBins 30
+NumberOfBins 15
 LinLog 10
 
-#K0 0.001
-#K1 0.001
-#NumberOfBins 40
-#LinLog 1
+# K0 0.001
+# K1 0.001
+# NumberOfBins 40
+# LinLog 1
 
 
-FileName /Users/nk452/repos/data/Quadratic_test/NoZEvo_QSO_mock_long/qso_0.dat
+FileNameList /Users/nk452/repos/data/Quadratic_test/NoZEvo_QSO_mock_short/qso_list.txt
 
 OutputDir /Users/nk452/repos/data/Quadratic_test
 OutputFileBase test1
 
-NumberOfIterations 10
+NumberOfIterations 100
