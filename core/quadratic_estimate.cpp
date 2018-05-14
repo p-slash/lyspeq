@@ -13,6 +13,7 @@
 #include <cassert>
 
 #define PI 3.14159265359
+#define CONVERGENCE_EPS 1E-5
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, \
                                                         int no_bands, \
@@ -22,8 +23,9 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     kband_edges = k_edges;
 
     /* Allocate memory */
-    ps_before_fisher_estimate_vector_sum = gsl_vector_alloc(NUMBER_OF_BANDS);
-    power_spectrum_estimate_vector   = gsl_vector_calloc(NUMBER_OF_BANDS);
+    ps_before_fisher_estimate_vector_sum    = gsl_vector_alloc(NUMBER_OF_BANDS);
+    previous_power_spectrum_estimate_vector = gsl_vector_alloc(NUMBER_OF_BANDS);
+    power_spectrum_estimate_vector          = gsl_vector_calloc(NUMBER_OF_BANDS);
 
     fisher_matrix_sum             = gsl_matrix_alloc(NUMBER_OF_BANDS, NUMBER_OF_BANDS);
     inverse_fisher_matrix_sum     = fisher_matrix_sum;
@@ -50,6 +52,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 {
     gsl_vector_free(ps_before_fisher_estimate_vector_sum);
+    gsl_vector_free(previous_power_spectrum_estimate_vector);
     gsl_vector_free(power_spectrum_estimate_vector);
 
     gsl_matrix_free(fisher_matrix_sum);
@@ -105,6 +108,8 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimate()
     printf("Estimating power spectrum.\n");
     fflush(stdout);
 
+    gsl_vector_memcpy(previous_power_spectrum_estimate_vector, power_spectrum_estimate_vector);
+
     //gsl_blas_dsymv( CblasUpper, 0.5, 
     gsl_blas_dgemv( CblasNoTrans, 0.5, \
                     inverse_fisher_matrix_sum, ps_before_fisher_estimate_vector_sum, \
@@ -130,7 +135,34 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
 
         invertTotalFisherMatrix();
         computePowerSpectrumEstimate();
+
+        if (hasConverged())
+        {
+            printf("Iteration has converged.\n");
+            break;
+        }
     }
+}
+
+bool OneDQuadraticPowerEstimate::hasConverged()
+{
+    double diff, mx, p1, p2;
+
+    for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+    {
+        p1 = gsl_vector_get(power_spectrum_estimate_vector, kn);
+        p2 = gsl_vector_get(previous_power_spectrum_estimate_vector, kn);
+        
+        diff = abs(p1 - p2);
+        mx = std::max(p1, p2);
+
+        if (diff > CONVERGENCE_EPS * mx)
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void OneDQuadraticPowerEstimate::write_spectrum_estimate(const char *fname)

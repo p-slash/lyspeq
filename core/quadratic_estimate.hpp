@@ -16,6 +16,7 @@ class OneDQuadraticPowerEstimate
 
     /* NUMBER_OF_BANDS sized vector */ 
     gsl_vector  *ps_before_fisher_estimate_vector_sum, \
+                *previous_power_spectrum_estimate_vector, \
                 *power_spectrum_estimate_vector;
 
     /* NUMBER_OF_BANDS x NUMBER_OF_BANDS sized matrices 
@@ -36,11 +37,10 @@ public:
     void setInitialPSestimateFFT();
 
     void invertTotalFisherMatrix();
-
     void computePowerSpectrumEstimate();
-
     void iterate(int number_of_iterations);
-
+    bool hasConverged();
+    
     void write_spectrum_estimate(const char *fname);
 };
 
