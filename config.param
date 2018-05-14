@@ -1,6 +1,6 @@
-K0 -3
+K0 -3.5
 K1 0.1
-NumberOfBins 15
+NumberOfBins 24
 LinLog 10
 
 # K0 0.001
