@@ -1,67 +1,41 @@
 #ifndef QUADRATIC_ESTIMATE_H
 #define QUADRATIC_ESTIMATE_H
 
-#include <gsl/gsl_matrix.h> 
+#include "one_qso_estimate.hpp"
 
 class OneDQuadraticPowerEstimate
 {
-    int          DATA_SIZE, \
-                 NUMBER_OF_BANDS;
+    int NUMBER_OF_BANDS, \
+        NUMBER_OF_QSOS;
 
     const double *kband_edges;
 
-    /* DATA_SIZE sized vectors 
-       These are NOT stored!
-    */ 
-    const double *xspace_array, \
-                 *data_array, \
-                 *noise_array;
+    //double redshift_bin;
 
-    /* DATA_SIZE x DATA_SIZE sized matrices 
-       Note that noise matrix is diagonal and stored as pointer to its array 
-       inverse_covariance_matrix is not allocated; it points to covariance_matrix
-    */
-    gsl_matrix  *covariance_matrix, \
-                *inverse_covariance_matrix, \
-                *signal_matrix;
-
-    /* NUMBER_OF_BANDS many DATA_SIZE x DATA_SIZE sized matrices */
-    gsl_matrix  **derivative_of_signal_matrices, \
-                **modified_derivative_of_signal_matrices;
+    OneQSOEstimate **qso_estimators;
 
     /* NUMBER_OF_BANDS sized vector */ 
-    gsl_vector  *ps_before_fisher_estimate_vector, \
+    gsl_vector  *ps_before_fisher_estimate_vector_sum, \
                 *power_spectrum_estimate_vector;
 
     /* NUMBER_OF_BANDS x NUMBER_OF_BANDS sized matrices 
        inverse_fisher_matrix points to fisher_matrix
     */
-    gsl_matrix  *fisher_matrix, \
-                *inverse_fisher_matrix;
+    gsl_matrix  *fisher_matrix_sum, \
+                *inverse_fisher_matrix_sum;
 
-    bool isFisherInverted, isCovInverted, isQMatricesSet;
+    bool isFisherInverted;
 
 public:
-    OneDQuadraticPowerEstimate( int data_size, \
-                                const double *xspace, \
-                                const double *delta, \
-                                const double *noise, \
+    OneDQuadraticPowerEstimate( const char *fname_list, \
                                 int no_bands, \
                                 const double *k_edges);
 
     ~OneDQuadraticPowerEstimate();
     
-    void setFiducialPSestimate(const double *ps);
+    void setInitialPSestimateFFT();
 
-    void setDerivativeSMatrices();
-
-    void computeCSMatrices();
-    void invertCovarianceMatrix();
-    void computeModifiedDSMatrices();
-
-    void computePSbeforeFvector();
-    void computeFisherMatrix();
-    void invertFisherMatrix();
+    void invertTotalFisherMatrix();
 
     void computePowerSpectrumEstimate();
 
