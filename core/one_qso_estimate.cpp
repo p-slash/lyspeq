@@ -13,7 +13,7 @@
 #include <cstdlib>
 #include <cassert>
 
-#define ADDED_CONST_TO_C 0.
+#define ADDED_CONST_TO_C 10.
 #define PI 3.14159265359
 
 double sinc(double x)
@@ -91,7 +91,7 @@ OneQSOEstimate::OneQSOEstimate( const char *fname_qso, int n, const double *k)
     for (int i = 0; i < DATA_SIZE; i++)
     {
         fscanf(toRead, "%le %le\n", &xspace_array[i], &data_array[i]);
-        noise_array[i] = 0.01;
+        noise_array[i] = 0;
 
         mean_f += data_array[i] / DATA_SIZE;
     }
@@ -162,7 +162,7 @@ void OneQSOEstimate::setDerivativeSMatrices()
     //printf("Setting derivative of signal matrices Q_ij(k).\n");
 
     double  dv_kms = abs(xspace_array[1] - xspace_array[0]), \
-            R_smooth = 20.;
+            R_smooth = 5.;
 
     double temp, kvalue_1, kvalue_2;
 
@@ -259,7 +259,7 @@ void OneQSOEstimate::computeModifiedDSMatrices()
 
     assert(isCovInverted);
 
-    gsl_matrix *temp_matrix = gsl_matrix_calloc(DATA_SIZE, DATA_SIZE);
+    gsl_matrix *temp_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
 
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
