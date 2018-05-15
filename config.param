@@ -12,6 +12,6 @@ LinLog 10
 FileNameList /Users/nk452/repos/data/Quadratic_test/NoZEvo_QSO_mock_short/qso_list.txt
 
 OutputDir /Users/nk452/repos/data/Quadratic_test
-OutputFileBase test1
+OutputFileBase test1_100it
 
 NumberOfIterations 100

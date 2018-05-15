@@ -60,6 +60,9 @@ int main(int argc, char const *argv[])
         qps = new OneDQuadraticPowerEstimate(FNAME_LIST, NBin, k_edges);
 
         qps->setInitialPSestimateFFT();
+        sprintf(buf, "%s/%s_qso_fft_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
+        qps->write_spectrum_estimate(buf);
+
         qps->iterate(NUMBER_OF_ITERATIONS);
 
         sprintf(buf, "%s/%s_qso_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
