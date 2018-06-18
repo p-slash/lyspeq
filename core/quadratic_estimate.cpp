@@ -76,7 +76,7 @@ void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
     {
         qso_estimators[q]->getFFTEstimate(temp_ps);
 
-        gsl_vector_scale(&temp_ps_view.vector, 1./NUMBER_OF_BANDS);
+        gsl_vector_scale(&temp_ps_view.vector, 1./NUMBER_OF_QSOS);
         gsl_vector_add(power_spectrum_estimate_vector, &temp_ps_view.vector);
     }
 
