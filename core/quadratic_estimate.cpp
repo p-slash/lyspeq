@@ -105,8 +105,8 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimate()
 {
     assert(isFisherInverted);
 
-    printf("Estimating power spectrum.\n");
-    fflush(stdout);
+    // printf("Estimating power spectrum.\n");
+    // fflush(stdout);
 
     gsl_vector_memcpy(previous_power_spectrum_estimate_vector, power_spectrum_estimate_vector);
 
@@ -120,7 +120,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
 {
     for (int i = 0; i < number_of_iterations; i++)
     {
-        printf("Start iteration number %d of %d.\n", i+1, number_of_iterations);
+        printf("Iteration number %d of %d.\n", i+1, number_of_iterations);
 
         gsl_vector_set_zero(ps_before_fisher_estimate_vector_sum);
         gsl_matrix_set_zero(fisher_matrix_sum);
