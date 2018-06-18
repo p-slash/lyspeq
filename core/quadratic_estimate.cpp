@@ -177,7 +177,9 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimate(const char *fname)
     {
         double k_center = (kband_edges[i] + kband_edges[i + 1]) / 2.;
 
-        fprintf(toWrite, "%e %e\n", k_center, gsl_vector_get(power_spectrum_estimate_vector, i));
+        fprintf(toWrite, "%e %e %e\n",  k_center, \
+                                        gsl_vector_get(power_spectrum_estimate_vector, i), \
+                                        sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i, i)) );
     }
 
     fclose(toWrite);
