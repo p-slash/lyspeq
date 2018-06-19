@@ -192,6 +192,22 @@ void RealField1D::getPowerSpectrum(double *ps, const double *kband_edges, int nu
     delete [] bincount;
 }
 
+void RealField1D::deconvolve(double (*f)(double, void*), void *params)
+{
+    if (current_space == X_SPACE)
+    {
+        fftX2K();
+    }
+
+    double k;
+
+    for (int i = 0; i < N_BIN_COMPLEX; i++)
+    {
+        k = i * (2. * PI / L_BOX);
+
+        field_k[i] /= f(k, params);
+    }
+}
 // void RealField1D::applyGaussSmoothing(double r)
 // {
 //     assert(current_space == K_SPACE);

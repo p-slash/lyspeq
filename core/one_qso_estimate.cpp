@@ -15,6 +15,7 @@
 
 #define ADDED_CONST_TO_C 10.
 #define PI 3.14159265359
+#define R_spectograph 5.
 
 double sinc(double x)
 {
@@ -47,20 +48,29 @@ void convert_lambda2v(double *lambda, int size)
 struct windowfn_params
 {
     double delta_v_ij;
-    double dv_kms;
-    double R;
+    double pixel_width;
+    double spectrograph_resolution;
 };
+
+double spectral_response_window_fn(double k, void *params)
+{
+    struct windowfn_params *wp = (struct windowfn_params*) params;
+
+    double  R = wp->spectrograph_resolution, \
+            dv_kms = wp->pixel_width;
+
+    return exp(-k*k * R*R / 2.) * sinc(k * dv_kms / 2.);
+}
 
 double q_matrix_integrand(double k, void *params)
 {
     struct windowfn_params *wp = (struct windowfn_params*) params;
-    double result = cos(k * wp->delta_v_ij) / PI;
-    result *= exp(-k*k * wp->R*wp->R);
-    result *= sinc(k * wp->dv_kms / 2.) * sinc(k * wp->dv_kms / 2.);
+    double result = spectral_response_window_fn(k, params);
+
+    result *= result * cos(k * wp->delta_v_ij) / PI;
 
     return result;
 }
-
 
 void printf_matrix(const gsl_matrix *m, int size)
 {
@@ -161,12 +171,11 @@ void OneQSOEstimate::setDerivativeSMatrices()
 
     //printf("Setting derivative of signal matrices Q_ij(k).\n");
 
-    double  dv_kms = abs(xspace_array[1] - xspace_array[0]), \
-            R_smooth = 5.;
+    double  dv_kms = abs(xspace_array[1] - xspace_array[0]);
 
     double temp, kvalue_1, kvalue_2;
 
-    struct windowfn_params win_params = {0, dv_kms, R_smooth};
+    struct windowfn_params win_params = {0, dv_kms, R_spectograph};
 
     Integrator q_integrator(GSL_QAG, q_matrix_integrand, &win_params);
 
@@ -250,7 +259,6 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
     isCovInverted    = true;
 }
-
 
 void OneQSOEstimate::computeModifiedDSMatrices()
 {
@@ -364,6 +372,10 @@ void OneQSOEstimate::getFFTEstimate(double *ps)
     RealField1D rf(data_array, DATA_SIZE, length_v);
 
     rf.fftX2K();
+
+    struct windowfn_params win_params = {0, dv_kms, R_spectograph};
+    
+    rf.deconvolve(spectral_response_window_fn, &win_params);
 
     rf.getPowerSpectrum(ps, kband_edges, NUMBER_OF_BANDS);
 }

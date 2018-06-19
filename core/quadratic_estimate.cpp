@@ -13,7 +13,7 @@
 #include <cassert>
 
 #define PI 3.14159265359
-#define CONVERGENCE_EPS 1E-5
+#define CONVERGENCE_EPS 1E-2
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, \
                                                         int no_bands, \
@@ -27,7 +27,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     previous_power_spectrum_estimate_vector = gsl_vector_alloc(NUMBER_OF_BANDS);
     power_spectrum_estimate_vector          = gsl_vector_calloc(NUMBER_OF_BANDS);
 
-    fisher_matrix_sum             = gsl_matrix_alloc(NUMBER_OF_BANDS, NUMBER_OF_BANDS);
+    fisher_matrix_sum             = gsl_matrix_calloc(NUMBER_OF_BANDS, NUMBER_OF_BANDS);
     inverse_fisher_matrix_sum     = fisher_matrix_sum;
 
     isFisherInverted = false; 
@@ -179,7 +179,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimate(const char *fname)
 
         fprintf(toWrite, "%e %e %e\n",  k_center, \
                                         gsl_vector_get(power_spectrum_estimate_vector, i), \
-                                        sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i, i)) );
+                                        sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i, i) / NUMBER_OF_QSOS) );
     }
 
     fclose(toWrite);
