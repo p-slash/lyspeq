@@ -92,7 +92,7 @@ OneQSOEstimate::OneQSOEstimate( const char *fname_qso, int n, const double *k)
     // Construct and read data arrays
     FILE *toRead = open_file(fname_qso, "r");
     fscanf(toRead, "%d\n", &DATA_SIZE);
-
+    printf("DATA_SIZE: %d\n", DATA_SIZE);
     xspace_array    = new double[DATA_SIZE];
     data_array      = new double[DATA_SIZE];
     noise_array     = new double[DATA_SIZE];
