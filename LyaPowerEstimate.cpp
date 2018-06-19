@@ -55,6 +55,10 @@ int main(int argc, char const *argv[])
         else
             printf("Using linearly spaced k bands\n");
         
+        for (int i = 0; i < NBin + 1; ++i)
+        {
+            printf("%le ", k_edges[i]);
+        }
         gsl_set_error_handler_off();
 
         qps = new OneDQuadraticPowerEstimate(FNAME_LIST, NBin, k_edges);
