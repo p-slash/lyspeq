@@ -154,22 +154,17 @@ void RealField1D::getPowerSpectrum(double *ps, const double *kband_edges, int nu
         ps[n]       = 0;
     }
 
-    for (int i = 0; i < N_BIN_COMPLEX; i++)
+    for (int i = 1; i < N_BIN_COMPLEX; i++)
     {
         temp = i * (2. * PI / L_BOX);
 
-        if (temp < kband_edges[0] )
-        {
-            continue;
-        }
+        if (temp < kband_edges[0] )             continue;
+        if (temp > kband_edges[number_of_bins]) break;
 
-        if (temp > kband_edges[number_of_bins]) 
+        while (kband_edges[bin_no + 1] < temp) 
         {
-            break;
-        }
-
-        while (kband_edges[bin_no + 1] < temp)
-        {
+            printf("temp: %le\n", temp);
+            printf("kband_edges[%d + 1]: %le\n", bin_no, kband_edges[bin_no + 1]);
             bin_no++;
         }
 
