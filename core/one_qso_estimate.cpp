@@ -369,6 +369,7 @@ void OneQSOEstimate::getFFTEstimate(double *ps)
     double  dv_kms = abs(xspace_array[1] - xspace_array[0]), \
             length_v = dv_kms * DATA_SIZE;
 
+    printf("dv : %le\n", dv_kms);
     RealField1D rf(data_array, DATA_SIZE, length_v);
 
     rf.fftX2K();
