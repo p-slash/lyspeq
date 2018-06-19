@@ -42,6 +42,8 @@ public:
     void fftK2X();
 
     void getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins);
+    void deconvolve(double (*f)(double, void*), void *params);
+
     //void applyGaussSmoothing(double r);
 };
 
