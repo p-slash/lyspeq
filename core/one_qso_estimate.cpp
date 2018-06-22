@@ -141,9 +141,6 @@ void OneQSOEstimate::setDerivativeSMatrices()
 
                 temp  = q_integrator.evaluate(kvalue_1, kvalue_2);
 
-                // temp  = kvalue_2 * sinc(kvalue_2 * delta_x_ij) - kvalue_1 * sinc(kvalue_1 * delta_x_ij);
-                // temp /= PI;
-
                 gsl_matrix_set(derivative_of_signal_matrices[kn], i, j, temp);
                 gsl_matrix_set(derivative_of_signal_matrices[kn], j, i, temp);
             }
@@ -312,7 +309,6 @@ void OneQSOEstimate::getFFTEstimate(double *ps)
     double  dv_kms = fabs(xspace_array[1] - xspace_array[0]), \
             length_v = dv_kms * DATA_SIZE;
 
-    printf("dv : %le\n", dv_kms);
     RealField1D rf(data_array, DATA_SIZE, length_v);
 
     rf.fftX2K();

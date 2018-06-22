@@ -42,3 +42,15 @@ int invert_matrix_cholesky(gsl_matrix *A)
     return r;
 }
 
+void printf_matrix(const gsl_matrix *m, int size)
+{
+    for (int i = 0; i < size; i++)
+    {
+        for (int j = 0; j < size; j++)
+        {
+            printf("%le ", gsl_matrix_get(m, i, j));
+        }
+        printf("\n");
+    }
+}
+
