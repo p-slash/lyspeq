@@ -153,7 +153,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         p1 = gsl_vector_get(power_spectrum_estimate_vector, kn);
         p2 = gsl_vector_get(previous_power_spectrum_estimate_vector, kn);
         
-        diff = abs(p1 - p2);
+        diff = fabs(p1 - p2);
         mx = std::max(p1, p2);
 
         if (diff > CONVERGENCE_EPS * mx)
