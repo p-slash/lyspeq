@@ -34,7 +34,7 @@ void convert_lambda2v(double *lambda, int size)
 
 double spectral_response_window_fn(double k, void *params)
 {
-    struct windowfn_params *wp = (struct windowfn_params*) params;
+    struct spectograph_windowfn_params *wp = (struct spectograph_windowfn_params*) params;
 
     double  R = R_SPECTOGRAPH, \
             dv_kms = wp->pixel_width;
