@@ -1,6 +1,7 @@
 #include "spectograph_functions.hpp"
 
 #include <cmath>
+#include <cstdlib>
 
 double R_SPECTOGRAPH;
 
