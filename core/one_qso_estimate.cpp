@@ -126,7 +126,7 @@ void OneQSOEstimate::setDerivativeSMatrices()
 
     //printf("Setting derivative of signal matrices Q_ij(k).\n");
 
-    double  dv_kms = abs(xspace_array[1] - xspace_array[0]);
+    double  dv_kms = fabs(xspace_array[1] - xspace_array[0]);
 
     double temp, kvalue_1, kvalue_2;
 
@@ -321,7 +321,7 @@ void OneQSOEstimate::oneQSOiteration(const gsl_vector *ps_estimate)
 
 void OneQSOEstimate::getFFTEstimate(double *ps)
 {
-    double  dv_kms = abs(xspace_array[1] - xspace_array[0]), \
+    double  dv_kms = fabs(xspace_array[1] - xspace_array[0]), \
             length_v = dv_kms * DATA_SIZE;
 
     printf("dv : %le\n", dv_kms);

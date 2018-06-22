@@ -1,13 +1,12 @@
 #include "spectograph_functions.hpp"
 
 #include <cmath>
-#include <cstdlib>
 
 double R_SPECTOGRAPH;
 
 double sinc(double x)
 {
-    if (abs(x) < 1E-10)
+    if (fabs(x) < 1E-10)
     {
         return 1.;
     }
@@ -24,7 +23,7 @@ void convert_lambda2v(double *lambda, int size)
 
     for (int i = 0; i < size; i++)
     {
-        mean_lambda += lambda[i] / size;
+        mean_lambda += lambda[i] / (1.0 * size);
     }
 
     for (int i = 0; i < size; i++)
