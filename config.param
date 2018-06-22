@@ -3,6 +3,8 @@ K1 0.1
 NumberOfBins 24
 LinLog 10
 
+SpectographRes 70.
+
 # K0 0.001
 # K1 0.001
 # NumberOfBins 40

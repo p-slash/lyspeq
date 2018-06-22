@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "core/quadratic_estimate.hpp"
+#include "core/spectograph_functions.hpp"
 #include "io/config_file.hpp"
 #include "io/io_helper_functions.hpp"
 
@@ -30,6 +31,8 @@ int main(int argc, char const *argv[])
         cFile.addKey("NumberOfBins", &NBin, INTEGER);
         cFile.addKey("LinLog", &LINEAR_LOG, INTEGER);
 
+        cFile.addKey("SpectographRes", &R_SPECTOGRAPH, DOUBLE);
+        
         cFile.addKey("FileNameList", FNAME_LIST, STRING);
 
         cFile.addKey("OutputDir", OUTPUT_DIR, STRING);

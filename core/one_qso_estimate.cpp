@@ -1,4 +1,5 @@
 #include "one_qso_estimate.hpp"
+#include "spectograph_functions.hpp"
 #include "matrix_helper.hpp"
 #include "real_field_1d.hpp"
 
@@ -15,56 +16,10 @@
 
 #define ADDED_CONST_TO_C 10.
 #define PI 3.14159265359
-#define R_spectograph 5.
-
-double sinc(double x)
-{
-    if (abs(x) < 1E-10)
-    {
-        return 1.;
-    }
-
-    return sin(x) / x;
-}
-
-void convert_lambda2v(double *lambda, int size)
-{
-    #define SPEED_OF_LIGHT 299792.458
-    #define LYA_REST 1215.67
-
-    double mean_lambda = 0;
-
-    for (int i = 0; i < size; i++)
-    {
-        mean_lambda += lambda[i] / size;
-    }
-
-    for (int i = 0; i < size; i++)
-    {
-        lambda[i] = 2. * SPEED_OF_LIGHT * (1 - sqrt(mean_lambda / lambda[i]));
-    }
-}
-
-struct windowfn_params
-{
-    double delta_v_ij;
-    double pixel_width;
-    double spectrograph_resolution;
-};
-
-double spectral_response_window_fn(double k, void *params)
-{
-    struct windowfn_params *wp = (struct windowfn_params*) params;
-
-    double  R = wp->spectrograph_resolution, \
-            dv_kms = wp->pixel_width;
-
-    return exp(-k*k * R*R / 2.) * sinc(k * dv_kms / 2.);
-}
 
 double q_matrix_integrand(double k, void *params)
 {
-    struct windowfn_params *wp = (struct windowfn_params*) params;
+    struct spectograph_windowfn_params *wp = (struct spectograph_windowfn_params*) params;
     double result = spectral_response_window_fn(k, params);
 
     result *= result * cos(k * wp->delta_v_ij) / PI;
@@ -175,7 +130,7 @@ void OneQSOEstimate::setDerivativeSMatrices()
 
     double temp, kvalue_1, kvalue_2;
 
-    struct windowfn_params win_params = {0, dv_kms, R_spectograph};
+    struct spectograph_windowfn_params win_params = {0, dv_kms};
 
     Integrator q_integrator(GSL_QAG, q_matrix_integrand, &win_params);
 
@@ -374,7 +329,7 @@ void OneQSOEstimate::getFFTEstimate(double *ps)
 
     rf.fftX2K();
 
-    struct windowfn_params win_params = {0, dv_kms, R_spectograph};
+    struct spectograph_windowfn_params win_params = {0, dv_kms};
     
     rf.deconvolve(spectral_response_window_fn, &win_params);
 
