@@ -27,18 +27,6 @@ double q_matrix_integrand(double k, void *params)
     return result;
 }
 
-void printf_matrix(const gsl_matrix *m, int size)
-{
-    for (int i = 0; i < size; i++)
-    {
-        for (int j = 0; j < size; j++)
-        {
-            printf("%le ", gsl_matrix_get(m, i, j));
-        }
-        printf("\n");
-    }
-}
-
 OneQSOEstimate::OneQSOEstimate( const char *fname_qso, int n, const double *k)
 {
     NUMBER_OF_BANDS = n;
