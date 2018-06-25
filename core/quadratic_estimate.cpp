@@ -121,6 +121,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
     for (int i = 0; i < number_of_iterations; i++)
     {
         printf("Iteration number %d of %d.\n", i+1, number_of_iterations);
+        fflush(stdout);
 
         gsl_vector_set_zero(ps_before_fisher_estimate_vector_sum);
         gsl_matrix_set_zero(fisher_matrix_sum);
@@ -185,6 +186,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimate(const char *fname)
     fclose(toWrite);
     
     printf("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+    fflush(stdout);
 }
 
 

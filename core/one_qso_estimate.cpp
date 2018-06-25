@@ -35,7 +35,7 @@ OneQSOEstimate::OneQSOEstimate( const char *fname_qso, int n, const double *k)
     // Construct and read data arrays
     FILE *toRead = open_file(fname_qso, "r");
     fscanf(toRead, "%d\n", &DATA_SIZE);
-    printf("DATA_SIZE: %d\n", DATA_SIZE);
+    
     xspace_array    = new double[DATA_SIZE];
     data_array      = new double[DATA_SIZE];
     noise_array     = new double[DATA_SIZE];
@@ -310,7 +310,7 @@ void OneQSOEstimate::getFFTEstimate(double *ps)
             length_v = dv_kms * DATA_SIZE;
 
     RealField1D rf(data_array, DATA_SIZE, length_v);
-
+    
     rf.fftX2K();
 
     struct spectograph_windowfn_params win_params = {0, dv_kms};
