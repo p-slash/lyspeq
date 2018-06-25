@@ -154,7 +154,6 @@ void RealField1D::getPowerSpectrum(double *ps, const double *kband_edges, int nu
         ps[n]       = 0;
     }
 
-    printf("lbox = %le\n", L_BOX);
     for (int i = 1; i < N_BIN_COMPLEX; i++)
     {
         temp = i * (2. * PI / L_BOX);

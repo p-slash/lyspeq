@@ -1,6 +1,7 @@
 #include "spectograph_functions.hpp"
 
 #include <cmath>
+#include <cstdio>
 
 double R_SPECTOGRAPH;
 
@@ -14,12 +15,37 @@ double sinc(double x)
     return sin(x) / x;
 }
 
+bool check_linearly_spaced(double *v, int size)
+{
+    double dv, cv = v[1]-v[0], eps = 1e-3;
+
+    printf("first 5 dv: %lf", cv);
+
+    for (int i = 1; i < size-1; i++)
+    {
+        dv = v[i+1] - v[i];
+
+        if (i < 5)
+        {
+            printf(" %lf", dv);
+        }
+
+        if (fabs(dv - cv) > cv * eps)
+        {
+            printf("\n");
+            return false;
+        }
+    }
+    printf("\n");
+    return true;
+}
+
 void convert_lambda2v(double *lambda, int size)
 {
     #define SPEED_OF_LIGHT 299792.458
     #define LYA_REST 1215.67
 
-    double mean_lambda = 0.;
+    double mean_lambda = 0; //lambda[size/2];
 
     for (int i = 0; i < size; i++)
     {
@@ -30,6 +56,9 @@ void convert_lambda2v(double *lambda, int size)
     {
         lambda[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(mean_lambda / lambda[i]));
     }
+
+    if (!check_linearly_spaced(lambda, size))
+        printf("WARNING: NOT Linearly spaced!\n");
 }
 
 double spectral_response_window_fn(double k, void *params)
