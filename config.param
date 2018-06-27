@@ -5,6 +5,8 @@ LinLog 10
 
 SpectographRes 70.
 
+PolynomialDegree 2
+
 # K0 0.001
 # K1 0.001
 # NumberOfBins 40
@@ -16,4 +18,4 @@ FileNameList /Users/nk452/repos/data/Quadratic_test/NoZEvo_QSO_mock_short/qso_li
 OutputDir /Users/nk452/repos/data/Quadratic_test
 OutputFileBase test1_100it
 
-NumberOfIterations 100
+NumberOfIterations 10

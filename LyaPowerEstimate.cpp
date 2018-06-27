@@ -31,6 +31,8 @@ int main(int argc, char const *argv[])
         cFile.addKey("NumberOfBins", &NBin, INTEGER);
         cFile.addKey("LinLog", &LINEAR_LOG, INTEGER);
 
+        cFile.addKey("PolynomialDegree", &POLYNOMIAL_FIT_DEGREE, INTEGER);
+        
         cFile.addKey("SpectographRes", &R_SPECTOGRAPH, DOUBLE);
         
         cFile.addKey("FileNameList", FNAME_LIST, STRING);
