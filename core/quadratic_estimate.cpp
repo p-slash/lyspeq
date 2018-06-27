@@ -2,7 +2,6 @@
 
 #include "quadratic_estimate.hpp"
 #include "matrix_helper.hpp"
-#include "real_field_1d.hpp"
 
 #include "../io/io_helper_functions.hpp"
 
@@ -13,7 +12,9 @@
 #include <cassert>
 
 #define PI 3.14159265359
-#define CONVERGENCE_EPS 1E-2
+#define CONVERGENCE_EPS 1E-7
+
+int POLYNOMIAL_FIT_DEGREE;
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, \
                                                         int no_bands, \
@@ -36,6 +37,8 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     FILE *toRead = open_file(fname_list, "r");
     fscanf(toRead, "%d\n", &NUMBER_OF_QSOS);
 
+    printf("Number of QSOs: %d\n", NUMBER_OF_QSOS);
+    
     qso_estimators = new OneQSOEstimate*[NUMBER_OF_QSOS];
 
     char buf[1024];
@@ -47,6 +50,17 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     }
     
     fclose(toRead);
+
+    weights_ps_bands      = new double[NUMBER_OF_BANDS];
+    k_centers             = new double[NUMBER_OF_BANDS];
+
+    for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+    {
+        k_centers[kn] = (kband_edges[kn] + kband_edges[kn + 1]) / 2.;
+    }
+
+    fit_to_power_spectrum = new LnPolynomialFit(POLYNOMIAL_FIT_DEGREE, 1, NUMBER_OF_BANDS);
+    fit_to_power_spectrum->initialize(k_centers);
 }
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
@@ -63,29 +77,52 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
     }
 
     delete [] qso_estimators;
+    delete [] weights_ps_bands;
+    delete [] k_centers;
+    delete fit_to_power_spectrum;
 }
-
 
 void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
 {
     double *temp_ps = new double[NUMBER_OF_BANDS];
 
     gsl_vector_view temp_ps_view = gsl_vector_view_array(temp_ps, NUMBER_OF_BANDS);
+    
+    int *bincount_q     = new int[NUMBER_OF_BANDS], \
+        *bincount_total = new int[NUMBER_OF_BANDS];
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
-        qso_estimators[q]->getFFTEstimate(temp_ps);
+        qso_estimators[q]->getFFTEstimate(temp_ps, bincount_q);
 
         gsl_vector_scale(&temp_ps_view.vector, 1./NUMBER_OF_QSOS);
         gsl_vector_add(power_spectrum_estimate_vector, &temp_ps_view.vector);
+
+        for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+        {
+            if (q == 0) bincount_total[kn]  = bincount_q[kn];
+            else        bincount_total[kn] += bincount_q[kn];
+        }
     }
 
     printf("Initial guess for the power spectrum from FFT:\n");
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
-        printf("%e ", gsl_vector_get(power_spectrum_estimate_vector, kn));
+        double psev = gsl_vector_get(power_spectrum_estimate_vector, kn) + 1E-10;
+        printf("%.2le ", psev);
+
+        weights_ps_bands[kn] = bincount_total[kn] / (psev * psev);
+
+        gsl_matrix_set(inverse_fisher_matrix_sum, kn, kn, 1./weights_ps_bands[kn]);
+
     }
     printf("\n");
+
+    delete [] bincount_q;
+    delete [] bincount_total;
+
+    fit_to_power_spectrum->fit(power_spectrum_estimate_vector->data, weights_ps_bands);
+    fit_to_power_spectrum->printFit();
 }
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
@@ -128,7 +165,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
 
         for (int q = 0; q < NUMBER_OF_QSOS; q++)
         {
-            qso_estimators[q]->oneQSOiteration(power_spectrum_estimate_vector);
+            qso_estimators[q]->oneQSOiteration(fit_to_power_spectrum->fitted_values);
 
             gsl_matrix_add(fisher_matrix_sum, qso_estimators[q]->fisher_matrix);
             gsl_vector_add(ps_before_fisher_estimate_vector_sum, qso_estimators[q]->ps_before_fisher_estimate_vector);
@@ -136,6 +173,16 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
 
         invertTotalFisherMatrix();
         computePowerSpectrumEstimate();
+
+        for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+        {
+            if (weights_ps_bands[kn] < 1E-15)   continue;
+
+            weights_ps_bands[kn] = 1. / gsl_matrix_get(inverse_fisher_matrix_sum, kn, kn);
+        }
+
+        fit_to_power_spectrum->fit(power_spectrum_estimate_vector->data, weights_ps_bands);
+        fit_to_power_spectrum->printFit();
 
         if (hasConverged())
         {
@@ -148,7 +195,9 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
 bool OneDQuadraticPowerEstimate::hasConverged()
 {
     double diff, mx, p1, p2;
+    bool ifConverged = true;
 
+    printf("Relative change in ps estimate: ");
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
         p1 = gsl_vector_get(power_spectrum_estimate_vector, kn);
@@ -157,13 +206,18 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         diff = fabs(p1 - p2);
         mx = std::max(p1, p2);
 
-        if (diff > CONVERGENCE_EPS * mx)
+        if (diff / mx > CONVERGENCE_EPS)
         {
-            return false;
+            ifConverged = false;
         }
+
+        printf("%.1le ", diff/mx);
     }
 
-    return true;
+    printf("\n");
+    fflush(stdout);
+
+    return ifConverged;
 }
 
 void OneDQuadraticPowerEstimate::write_spectrum_estimate(const char *fname)
@@ -176,11 +230,9 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimate(const char *fname)
     
     for (int i = 0; i < NUMBER_OF_BANDS; i++)
     {
-        double k_center = (kband_edges[i] + kband_edges[i + 1]) / 2.;
-
-        fprintf(toWrite, "%e %e %e\n",  k_center, \
+        fprintf(toWrite, "%e %e %e\n",  k_centers[i], \
                                         gsl_vector_get(power_spectrum_estimate_vector, i), \
-                                        sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i, i) / NUMBER_OF_QSOS) );
+                                        sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i, i)) );
     }
 
     fclose(toWrite);

@@ -39,17 +39,17 @@ public:
     OneQSOEstimate(const char *fname_qso, int n, const double *k);
     ~OneQSOEstimate();
 
-    void getFFTEstimate(double *ps);
+    void getFFTEstimate(double *ps, int *bincount);
 
     void setDerivativeSMatrices();
-    void computeCSMatrices(const gsl_vector *ps_estimate);
+    void computeCSMatrices(const double *ps_estimate);
     void invertCovarianceMatrix();
     void computeModifiedDSMatrices();
 
     void computePSbeforeFvector();
     void computeFisherMatrix();
 
-    void oneQSOiteration(const gsl_vector *ps_estimate);
+    void oneQSOiteration(const double *ps_estimate);
 };
 
 #endif

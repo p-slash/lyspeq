@@ -150,7 +150,7 @@ void OneQSOEstimate::setDerivativeSMatrices()
     isQMatricesSet = true;
 }
 
-void OneQSOEstimate::computeCSMatrices(const gsl_vector *ps_estimate)
+void OneQSOEstimate::computeCSMatrices(const double *ps_estimate)
 {
     gsl_matrix_set_zero(signal_matrix);
 
@@ -159,7 +159,7 @@ void OneQSOEstimate::computeCSMatrices(const gsl_vector *ps_estimate)
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
         gsl_matrix_memcpy(temp_matrix, derivative_of_signal_matrices[kn]);
-        gsl_matrix_scale(temp_matrix, gsl_vector_get(ps_estimate, kn));
+        gsl_matrix_scale(temp_matrix, ps_estimate[kn]);
 
         gsl_matrix_add(signal_matrix, temp_matrix);
     }
@@ -271,7 +271,6 @@ void OneQSOEstimate::computePSbeforeFvector()
     gsl_vector_free(temp_vector);
 }
 
-
 void OneQSOEstimate::computeFisherMatrix()
 {
     // printf("Computing fisher matrix.\n");
@@ -293,7 +292,7 @@ void OneQSOEstimate::computeFisherMatrix()
     }
 }
 
-void OneQSOEstimate::oneQSOiteration(const gsl_vector *ps_estimate)
+void OneQSOEstimate::oneQSOiteration(const double *ps_estimate)
 {
     setDerivativeSMatrices();
     computeCSMatrices(ps_estimate);
@@ -304,7 +303,7 @@ void OneQSOEstimate::oneQSOiteration(const gsl_vector *ps_estimate)
     computeFisherMatrix();
 }
 
-void OneQSOEstimate::getFFTEstimate(double *ps)
+void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
 {
     double  dv_kms = fabs(xspace_array[1] - xspace_array[0]), \
             length_v = dv_kms * DATA_SIZE;
@@ -315,9 +314,17 @@ void OneQSOEstimate::getFFTEstimate(double *ps)
 
     struct spectograph_windowfn_params win_params = {0, dv_kms};
     
-    rf.deconvolve(spectral_response_window_fn, &win_params);
+    // rf.deconvolve(spectral_response_window_fn, &win_params);
 
-    rf.getPowerSpectrum(ps, kband_edges, NUMBER_OF_BANDS);
+    rf.getPowerSpectrum(ps, kband_edges, NUMBER_OF_BANDS, bincount);
+
+    for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+    {
+        double k = (kband_edges[kn + 1] + kband_edges[kn]) / 2.;
+        double w = spectral_response_window_fn(k, &win_params);
+
+        ps[kn] /= w*w;
+    }
 }
 
 

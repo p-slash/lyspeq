@@ -2,6 +2,9 @@
 #define QUADRATIC_ESTIMATE_H
 
 #include "one_qso_estimate.hpp"
+#include "../gsltools/ln_poly_fit.hpp"
+
+extern int POLYNOMIAL_FIT_DEGREE;
 
 class OneDQuadraticPowerEstimate
 {
@@ -26,6 +29,9 @@ class OneDQuadraticPowerEstimate
                 *inverse_fisher_matrix_sum;
 
     bool isFisherInverted;
+
+    LnPolynomialFit *fit_to_power_spectrum;
+    double *weights_ps_bands, *k_centers;
 
 public:
     OneDQuadraticPowerEstimate( const char *fname_list, \
