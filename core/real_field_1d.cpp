@@ -86,8 +86,6 @@ RealField1D::~RealField1D()
     // printf("RealField1D destructor called.\n");
 }
 
-
-
 void RealField1D::setFFTWSpace(FFTW_CURRENT_SPACE which_space)
 {
     current_space = which_space;
@@ -138,6 +136,14 @@ void RealField1D::fftK2X()
 
 void RealField1D::getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins)
 {
+    int *bincount = new int[number_of_bins];
+
+    getPowerSpectrum(ps, kband_edges, number_of_bins, bincount);
+    delete [] bincount;
+}
+
+void RealField1D::getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins, int *bincount)
+{
     if (current_space == X_SPACE)
     {
         fftX2K();
@@ -146,7 +152,6 @@ void RealField1D::getPowerSpectrum(double *ps, const double *kband_edges, int nu
     int bin_no = 0;
 
     double temp;
-    int *bincount = new int[number_of_bins];
 
     for (int n = 0; n < number_of_bins; n++)
     {
@@ -183,13 +188,12 @@ void RealField1D::getPowerSpectrum(double *ps, const double *kband_edges, int nu
     for (int n = 0; n < number_of_bins; n++)
     {
         ps[n] /= L_BOX * bincount[n];
-        if (bincount[n]==0)
+        
+        if (bincount[n] == 0)
         {
             ps[n] = 0;
         }
     }
-
-    delete [] bincount;
 }
 
 void RealField1D::deconvolve(double (*f)(double, void*), void *params)
