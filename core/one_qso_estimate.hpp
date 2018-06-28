@@ -9,7 +9,8 @@ class OneQSOEstimate
         NUMBER_OF_BANDS;
 
     const double *kband_edges;
-
+    double mean_redshift;
+    
     /* DATA_SIZE sized vectors */ 
     double *xspace_array, \
            *data_array, \

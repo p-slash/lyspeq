@@ -27,7 +27,7 @@ double q_matrix_integrand(double k, void *params)
     return result;
 }
 
-OneQSOEstimate::OneQSOEstimate( const char *fname_qso, int n, const double *k)
+OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
 {
     NUMBER_OF_BANDS = n;
     kband_edges     = k;
@@ -57,7 +57,7 @@ OneQSOEstimate::OneQSOEstimate( const char *fname_qso, int n, const double *k)
         data_array[i] = (data_array[i] / mean_f) - 1.;
     }
 
-    convert_lambda2v(xspace_array, DATA_SIZE);
+    convert_lambda2v(mean_redshift, xspace_array, DATA_SIZE);
 
     /* Allocate memory */
 

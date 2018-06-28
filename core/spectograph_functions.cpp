@@ -40,7 +40,7 @@ bool check_linearly_spaced(double *v, int size)
     return true;
 }
 
-void convert_lambda2v(double *lambda, int size)
+void convert_lambda2v(double &mean_z, double *lambda, int size)
 {
     #define SPEED_OF_LIGHT 299792.458
     #define LYA_REST 1215.67
@@ -52,6 +52,8 @@ void convert_lambda2v(double *lambda, int size)
         mean_lambda += lambda[i] / (1.0 * size);
     }
 
+    mean_z = (mean_lambda / LYA_REST) - 1.;
+    
     for (int i = 0; i < size; i++)
     {
         lambda[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(mean_lambda / lambda[i]));
