@@ -54,10 +54,13 @@ void LnPolynomialFit::fit(const double *y, const double *w)
 
 double LnPolynomialFit::getValue(double x)
 {
-    double xx2n = pow(x, y_times_x2n);
-    double result = PolynomialFit::getValue(log(x)) * xx2n;
+    int temp = y_times_x2n;
+    y_times_x2n = 0;
 
-    result = exp(result) / xx2n;
+    double result = PolynomialFit::getValue(log(x));
+
+    y_times_x2n = temp;
+    result = exp(result) / pow(x, y_times_x2n);
 
     return result;
 }
