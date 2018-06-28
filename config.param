@@ -16,6 +16,6 @@ PolynomialDegree 2
 FileNameList /Users/nk452/repos/data/Quadratic_test/NoZEvo_QSO_mock_short/100mocks/qso_list.txt
 
 OutputDir /Users/nk452/repos/data/Quadratic_test
-OutputFileBase test1_100it
+OutputFileBase lya_qde_100mocks_PD2
 
 NumberOfIterations 10
