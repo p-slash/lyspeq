@@ -17,6 +17,7 @@ PolynomialFit::PolynomialFit(int degree, int x2n, int size)
 
     fitted_values   = new double[number_of_data];
     x_array         = new double[number_of_data];
+    mask_array      = new bool[number_of_data];
 
     fit_values_view = gsl_vector_view_array(fitted_values, number_of_data);
 
@@ -36,19 +37,32 @@ PolynomialFit::~PolynomialFit()
     
     delete [] fitted_values;
     delete [] x_array;
+    delete [] mask_array;
 }
 
 void PolynomialFit::initialize(const double *x)
 {
     for (int i = 0; i < number_of_data; i++)
     {
-        x_array[i] = x[i];
+        x_array[i]    = x[i];
+        mask_array[i] = false;
 
         gsl_matrix_set(x_matrix, i, 0, 1.);
 
         for (int p = 1; p <= polynomial_degree; p++)
         {
             gsl_matrix_set(x_matrix, i, p, pow(x_array[i], p));
+        }
+    }
+}
+
+void PolynomialFit::applyMask()
+{
+    for (int i = 0; i < number_of_data; i++)
+    {
+        if (mask_array[i])
+        {
+            gsl_vector_set(weight_vector, i, 0);
         }
     }
 }
@@ -78,6 +92,8 @@ void PolynomialFit::setYW(const double *y, const double *w)
 
         delete [] x2n_array;
     }
+
+    applyMask();
 }
 
 void PolynomialFit::fit(const double *y, const double *w)
@@ -119,7 +135,7 @@ void PolynomialFit::printFit()
     {
         printf("+ %.2le x^%d ", gsl_vector_get(fit_parameters_vector, p), p);
     }
-    printf("; chi^2 / dof = %.2le \n", chi_square / (number_of_data - polynomial_degree - 1));
+    printf("; chi^2 / dof = %.3lf \n", getChiSquarePDOF());
     
     printf("Power spectrum fit : ");
     for (int i = 0; i < number_of_data; i++)
@@ -129,5 +145,26 @@ void PolynomialFit::printFit()
     printf("\n");
     fflush(stdout);
 }
+
+double PolynomialFit::getChiSquarePDOF()
+{
+    int non_zero_w = 0;
+
+    for (int i = 0; i < number_of_data; i++)
+    {
+        if (!mask_array[i])
+        {
+            non_zero_w++;
+        }
+    }
+
+    return chi_square / (non_zero_w - polynomial_degree - 1);
+}
+
+
+
+
+
+
 
 

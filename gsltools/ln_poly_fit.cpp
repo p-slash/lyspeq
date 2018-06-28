@@ -78,7 +78,7 @@ void LnPolynomialFit::printFit()
     {
         printf("+ %.2le (ln x)^%d ", gsl_vector_get(fit_parameters_vector, p), p);
     }
-    printf("; chi^2 / dof = %.3lf \n", chi_square / (number_of_data - polynomial_degree - 1));
+    printf("; chi^2 / dof = %.3lf \n", getChiSquarePDOF());
     
     printf("Power spectrum fit : ");
     for (int i = 0; i < number_of_data; i++)
