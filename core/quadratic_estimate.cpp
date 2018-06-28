@@ -112,6 +112,8 @@ void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
         printf("%.2le ", psev);
 
         weights_ps_bands[kn] = bincount_total[kn] / (psev * psev);
+        
+        fit_to_power_spectrum->mask_array[kn] = (bincount_total[kn] == 0);
 
         gsl_matrix_set(inverse_fisher_matrix_sum, kn, kn, 1./weights_ps_bands[kn]);
 
@@ -176,8 +178,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
 
         for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
         {
-            if (weights_ps_bands[kn] < 1E-15)   continue;
-
             weights_ps_bands[kn] = 1. / gsl_matrix_get(inverse_fisher_matrix_sum, kn, kn);
         }
 

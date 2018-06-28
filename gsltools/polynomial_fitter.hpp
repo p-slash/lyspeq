@@ -18,8 +18,12 @@ protected:
 
     gsl_multifit_linear_workspace *mf_lin_ws;
 
+    void applyMask();
     void setYW(const double *y, const double *w);
+    double getChiSquarePDOF();
+
 public:
+    bool *mask_array;
     double *fitted_values;
     gsl_vector_view fit_values_view;
 
