@@ -114,7 +114,7 @@ void OneQSOEstimate::setDerivativeSMatrices()
 
     //printf("Setting derivative of signal matrices Q_ij(k).\n");
 
-    double  dv_kms = fabs(xspace_array[1] - xspace_array[0]);
+    double dv_kms = fabs(xspace_array[1] - xspace_array[0]);
 
     double temp, kvalue_1, kvalue_2;
 
@@ -318,6 +318,7 @@ void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
 
     rf.getPowerSpectrum(ps, kband_edges, NUMBER_OF_BANDS, bincount);
 
+    // deconvolve power spectrum with spectrograph window function.
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
         double k = (kband_edges[kn + 1] + kband_edges[kn]) / 2.;

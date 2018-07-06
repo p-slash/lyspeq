@@ -1,3 +1,10 @@
+/* Fits a polynomial of the form y*x^n = Poly(x, p) to the data.
+ * Assumes x values are fixed, but by changing y and weights can refit multiple times.
+ * Can mask data points by assigning true to the corresponding element if mask_array.
+ *      applyMask() sets the weight to zero for that point.
+ * fitted_values stores the fit function evaluated at saved x_array
+ */
+
 #ifndef POLYNOMIAL_FITTER_H
 #define POLYNOMIAL_FITTER_H
 
