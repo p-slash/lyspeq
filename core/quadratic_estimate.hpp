@@ -1,3 +1,10 @@
+/* This umbrella class manages the quadratic estimator by 
+ *          storing the total Fisher matrix,
+ *          computing the power spectrum estimate,
+ *          and fitting a smooth function to the power spectrum estimate.
+ * It takes file that starts with number of quasars followed by a list of quasar files.
+ */
+
 #ifndef QUADRATIC_ESTIMATE_H
 #define QUADRATIC_ESTIMATE_H
 
@@ -12,8 +19,6 @@ class OneDQuadraticPowerEstimate
         NUMBER_OF_QSOS;
 
     const double *kband_edges;
-
-    //double redshift_bin;
 
     OneQSOEstimate **qso_estimators;
 

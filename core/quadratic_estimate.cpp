@@ -122,7 +122,8 @@ void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
 
     delete [] bincount_q;
     delete [] bincount_total;
-
+    delete [] temp_ps;
+    
     fit_to_power_spectrum->fit(power_spectrum_estimate_vector->data, weights_ps_bands);
     fit_to_power_spectrum->printFit();
 }
