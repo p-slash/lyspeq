@@ -40,6 +40,21 @@ bool check_linearly_spaced(double *v, int size)
     return true;
 }
 
+void convert_flux2deltaf(double *flux, int size)
+{
+    double mean_f = 0;
+
+    for (int i = 0; i < size; i++)
+    {
+        mean_f += flux[i] / size;
+    }
+
+    for (int i = 0; i < size; i++)
+    {
+        flux[i] = (flux[i] / mean_f) - 1.;
+    }
+}
+
 void convert_lambda2v(double &mean_z, double *lambda, int size)
 {
     #define SPEED_OF_LIGHT 299792.458
