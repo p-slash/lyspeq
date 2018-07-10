@@ -4,6 +4,8 @@
 #include "real_field_1d.hpp"
 
 #include "../io/io_helper_functions.hpp"
+#include "../io/qso_file.hpp"
+
 #include "../gsltools/integrator.hpp"
 
 #include <gsl/gsl_blas.h>
@@ -33,29 +35,19 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
     kband_edges     = k;
 
     // Construct and read data arrays
-    FILE *toRead = open_file(fname_qso, "r");
-    fscanf(toRead, "%d\n", &DATA_SIZE);
+    QSOFile qFile(fname_qso);
+
+    double dummy_qso_z, dummy_spect_res, dummy_s2n;
+
+    qFile.readParameters(DATA_SIZE, dummy_qso_z, dummy_spect_res, dummy_s2n);
     
     xspace_array    = new double[DATA_SIZE];
     data_array      = new double[DATA_SIZE];
     noise_array     = new double[DATA_SIZE];
 
-    double mean_f = 0;
-    for (int i = 0; i < DATA_SIZE; i++)
-    {
-        fscanf(toRead, "%le %le\n", &xspace_array[i], &data_array[i]);
-        noise_array[i] = 0;
+    qFile.readData(xspace_array, data_array, noise_array);
 
-        mean_f += data_array[i] / DATA_SIZE;
-    }
-
-    fclose(toRead);
-
-    // Convert to mean flux
-    for (int i = 0; i < DATA_SIZE; i++)
-    {
-        data_array[i] = (data_array[i] / mean_f) - 1.;
-    }
+    convert_flux2deltaf(data_array, DATA_SIZE);
 
     convert_lambda2v(mean_redshift, xspace_array, DATA_SIZE);
 
