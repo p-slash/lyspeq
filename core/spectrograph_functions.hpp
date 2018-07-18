@@ -1,12 +1,11 @@
-#ifndef SPECTOGRAPH_FUNCTIONS_H
-#define SPECTOGRAPH_FUNCTIONS_H
+#ifndef SPECTROGRAPH_FUNCTIONS_H
+#define SPECTROGRAPH_FUNCTIONS_H
 
-extern double R_SPECTOGRAPH;
-
-struct spectograph_windowfn_params
+struct spectrograph_windowfn_params
 {
     double delta_v_ij;
     double pixel_width;
+    double spectrograph_res;
 };
 
 void convert_flux2deltaf(double *flux, int size);

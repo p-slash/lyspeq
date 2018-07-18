@@ -1,5 +1,5 @@
 #include "one_qso_estimate.hpp"
-#include "spectograph_functions.hpp"
+#include "spectrograph_functions.hpp"
 #include "matrix_helper.hpp"
 #include "real_field_1d.hpp"
 
@@ -16,12 +16,12 @@
 #include <cstdlib>
 #include <cassert>
 
-#define ADDED_CONST_TO_C 10.
+#define ADDED_CONST_TO_C 0
 #define PI 3.14159265359
 
 double q_matrix_integrand(double k, void *params)
 {
-    struct spectograph_windowfn_params *wp = (struct spectograph_windowfn_params*) params;
+    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
     double result = spectral_response_window_fn(k, params);
 
     result *= result * cos(k * wp->delta_v_ij) / PI;
@@ -37,9 +37,9 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
     // Construct and read data arrays
     QSOFile qFile(fname_qso);
 
-    double dummy_qso_z, dummy_spect_res, dummy_s2n;
+    double dummy_qso_z, dummy_s2n;
 
-    qFile.readParameters(DATA_SIZE, dummy_qso_z, dummy_spect_res, dummy_s2n);
+    qFile.readParameters(DATA_SIZE, dummy_qso_z, spect_res, dummy_s2n);
     
     xspace_array    = new double[DATA_SIZE];
     data_array      = new double[DATA_SIZE];
@@ -110,7 +110,7 @@ void OneQSOEstimate::setDerivativeSMatrices()
 
     double temp, kvalue_1, kvalue_2;
 
-    struct spectograph_windowfn_params win_params = {0, dv_kms};
+    struct spectrograph_windowfn_params win_params = {0, dv_kms, spect_res};
 
     Integrator q_integrator(GSL_QAG, q_matrix_integrand, &win_params);
 
@@ -304,7 +304,7 @@ void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
     
     rf.fftX2K();
 
-    struct spectograph_windowfn_params win_params = {0, dv_kms};
+    struct spectrograph_windowfn_params win_params = {0, dv_kms, spect_res};
     
     // rf.deconvolve(spectral_response_window_fn, &win_params);
 
