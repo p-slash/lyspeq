@@ -1,9 +1,9 @@
-#include "spectograph_functions.hpp"
+#include "spectrograph_functions.hpp"
 
 #include <cmath>
 #include <cstdio>
 
-double R_SPECTOGRAPH;
+// double R_SPECTOGRAPH;
 
 double sinc(double x)
 {
@@ -80,9 +80,9 @@ void convert_lambda2v(double &mean_z, double *lambda, int size)
 
 double spectral_response_window_fn(double k, void *params)
 {
-    struct spectograph_windowfn_params *wp = (struct spectograph_windowfn_params*) params;
+    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
 
-    double  R = R_SPECTOGRAPH, \
+    double  R = wp->spectrograph_res, \
             dv_kms = wp->pixel_width;
 
     return exp(-k*k * R*R / 2.) * sinc(k * dv_kms / 2.);

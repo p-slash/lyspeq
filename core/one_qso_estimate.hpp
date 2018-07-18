@@ -1,15 +1,14 @@
 /* TODO:   1. When estimating power bands, there is no need to store signal matrix. 
               Can directly compute covariance matrix. 
               However, can save computational time by storing the fiducial signal matrix when that method is used. 
-           2. Instead of constructing covariance matrix from scratch, just add difference between estimations
-           3. Come up with a reasonable convention for quasar spectrum file.
  */
 
 /* This object stores and computes C, S, Q, Q-slash matrices,
  * as well as a power spectrum estimate and a fisher matrix for individual quasar spectra.
  * This object is called in OneDQuadraticPowerEstimate in quadratic_estimate.hpp
  * It takes the file for quasar spectra, n=NUMBER_OF_BANDS and k points to kband_edges.
- * Quasar spectrum file consists of lambda and flux. Wavelength is then converted into v spacing around the mean lambda.
+ * Quasar spectrum file consists of a header followed by lambda, flux and noise. 
+ * Wavelength is then converted into v spacing around the mean lambda.
  */
 
 #ifndef ONE_QSO_ESTIMATE_H
@@ -23,7 +22,7 @@ class OneQSOEstimate
         NUMBER_OF_BANDS;
 
     const double *kband_edges;
-    double mean_redshift;
+    double mean_redshift, spect_res;
     
     /* DATA_SIZE sized vectors */ 
     double *xspace_array, \
