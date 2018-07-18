@@ -2,7 +2,7 @@
  *          storing the total Fisher matrix,
  *          computing the power spectrum estimate,
  *          and fitting a smooth function to the power spectrum estimate.
- * It takes file that starts with number of quasars followed by a list of quasar files.
+ * It reads a file which should start with number of quasars followed by a list of quasar files.
  */
 
 #ifndef QUADRATIC_ESTIMATE_H
@@ -39,7 +39,7 @@ class OneDQuadraticPowerEstimate
     double *weights_ps_bands, *k_centers;
 
 public:
-    OneDQuadraticPowerEstimate( const char *fname_list, \
+    OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
                                 int no_bands, \
                                 const double *k_edges);
 

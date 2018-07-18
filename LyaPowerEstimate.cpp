@@ -3,7 +3,7 @@
 #include <cmath>
 
 #include "core/quadratic_estimate.hpp"
-#include "core/spectograph_functions.hpp"
+#include "core/spectrograph_functions.hpp"
 #include "io/config_file.hpp"
 #include "io/io_helper_functions.hpp"
 
@@ -12,6 +12,7 @@ int main(int argc, char const *argv[])
     const char *FNAME_CONFIG = argv[1];
     
     char FNAME_LIST[300], \
+         INPUT_DIR[300], \
          OUTPUT_DIR[300], \
          OUTPUT_FILEBASE[300],\
          buf[500];
@@ -33,9 +34,10 @@ int main(int argc, char const *argv[])
 
         cFile.addKey("PolynomialDegree", &POLYNOMIAL_FIT_DEGREE, INTEGER);
         
-        cFile.addKey("SpectographRes", &R_SPECTOGRAPH, DOUBLE);
+        // cFile.addKey("SpectographRes", &R_SPECTOGRAPH, DOUBLE);
         
         cFile.addKey("FileNameList", FNAME_LIST, STRING);
+        cFile.addKey("FileInputDir", INPUT_DIR, STRING);
 
         cFile.addKey("OutputDir", OUTPUT_DIR, STRING);
         cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
@@ -56,17 +58,18 @@ int main(int argc, char const *argv[])
         }
         
         if (LINEAR_LOG == 10)
-            printf("Using log spaced k bands.\n");
+            printf("Using log spaced k bands:\n");
         else
-            printf("Using linearly spaced k bands\n");
+            printf("Using linearly spaced k bands:\n");
         
         for (int i = 0; i < NBin + 1; ++i)
         {
             printf("%le ", k_edges[i]);
         }
+        printf("\n");
         gsl_set_error_handler_off();
 
-        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, NBin, k_edges);
+        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR, NBin, k_edges);
 
         qps->setInitialPSestimateFFT();
         sprintf(buf, "%s/%s_qso_fft_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);

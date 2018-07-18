@@ -16,7 +16,7 @@
 
 int POLYNOMIAL_FIT_DEGREE;
 
-OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, \
+OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
                                                         int no_bands, \
                                                         const double *k_edges)
 {
@@ -41,11 +41,13 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     
     qso_estimators = new OneQSOEstimate*[NUMBER_OF_QSOS];
 
-    char buf[1024];
+    char buf[1024], temp_fname[700];
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
-        fscanf(toRead, "%s\n", buf);
+        fscanf(toRead, "%s\n", temp_fname);
+        sprintf(buf, "%s/%s", dir, temp_fname);
+        
         qso_estimators[q] = new OneQSOEstimate(buf, NUMBER_OF_BANDS, kband_edges);
     }
     
