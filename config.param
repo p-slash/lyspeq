@@ -1,9 +1,9 @@
-K0 -3.6
+K0 -5.0
 K1 0.1
 NumberOfBins 24
 LinLog 10
 
-SpectographRes 70.
+# SpectographRes 70.
 
 PolynomialDegree 2
 
@@ -13,9 +13,10 @@ PolynomialDegree 2
 # LinLog 1
 
 
-FileNameList /Users/nk452/repos/data/Quadratic_test/NoZEvo_QSO_mock_short/100mocks/qso_list.txt
+FileNameList /Users/nk452/repos/data/Quadratic_test/Binary_SimpleG_Mocks/qso_list.txt
+FileInputDir /Users/nk452/repos/data/Quadratic_test/Binary_SimpleG_Mocks
 
 OutputDir /Users/nk452/repos/data/Quadratic_test
-OutputFileBase lya_qde_100mocks_PD2
+OutputFileBase lya_qde_10mocks_binary
 
 NumberOfIterations 10
