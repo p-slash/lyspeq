@@ -16,15 +16,35 @@
 #include <cstdlib>
 #include <cassert>
 
-#define ADDED_CONST_TO_C 0
+#define ADDED_CONST_TO_C 10.0
 #define PI 3.14159265359
+
+// double fiducial_power_spectrum(double lnk)
+// {
+//     double  c0 = -7.89e-01, \
+//             c1 = 1.30e-01, \
+//             c2 = -1.87e-02;
+
+//     double lnkP = c0 + c1 * lnk + c2 * lnk*lnk;
+
+//     return exp(lnkP);
+// }
+
+double fiducial_power_spectrum(double k, double dv)
+{
+    double kc = PI / dv / 3.0;
+
+    double r = k/kc;
+
+    return 1E6 * k * exp(- r*r);
+}
 
 double q_matrix_integrand(double k, void *params)
 {
     struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
-    double result = spectral_response_window_fn(k, params);
+    double result = 1.; //spectral_response_window_fn(k, params);
 
-    result *= result * cos(k * wp->delta_v_ij) / PI;
+    result *= fiducial_power_spectrum(k, wp->pixel_width) * result * cos(k * wp->delta_v_ij) / PI;
 
     return result;
 }
@@ -49,7 +69,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
 
     convert_flux2deltaf(data_array, DATA_SIZE);
 
-    convert_lambda2v(mean_redshift, xspace_array, DATA_SIZE);
+    convert_lambda2v(median_redshift, xspace_array, DATA_SIZE);
 
     /* Allocate memory */
 
@@ -104,7 +124,8 @@ void OneQSOEstimate::setDerivativeSMatrices()
         return;
     }
 
-    //printf("Setting derivative of signal matrices Q_ij(k).\n");
+    // printf("Setting derivative of signal matrices Q_ij(k).\n");
+    // fflush(stdout);
 
     double dv_kms = fabs(xspace_array[1] - xspace_array[0]);
 
@@ -123,20 +144,24 @@ void OneQSOEstimate::setDerivativeSMatrices()
         {
             win_params.delta_v_ij = 0;
 
-            temp = q_integrator.evaluate(kvalue_1, kvalue_2);
-
+            // temp = q_integrator.evaluate(kvalue_1, kvalue_2);
+            temp = q_integrator.evaluateAToInfty(0);
             gsl_matrix_set(derivative_of_signal_matrices[kn], i, i, temp);
 
             for (int j = i + 1; j < DATA_SIZE; j++)
             {
                 win_params.delta_v_ij = xspace_array[i] - xspace_array[j];
 
-                temp  = q_integrator.evaluate(kvalue_1, kvalue_2);
-
+                temp = q_integrator.evaluateAToInfty(0);
+                
                 gsl_matrix_set(derivative_of_signal_matrices[kn], i, j, temp);
                 gsl_matrix_set(derivative_of_signal_matrices[kn], j, i, temp);
             }
+
+            // printf("Progress: %.3f\n", (i+1.) / DATA_SIZE);
+            // fflush(stdout);
         }
+        // printf("done!\n");
     }
 
     isQMatricesSet = true;
@@ -144,6 +169,7 @@ void OneQSOEstimate::setDerivativeSMatrices()
 
 void OneQSOEstimate::computeCSMatrices(const double *ps_estimate)
 {
+    printf("Theta: %.3e\n", ps_estimate[0]);
     gsl_matrix_set_zero(signal_matrix);
 
     gsl_matrix *temp_matrix = gsl_matrix_calloc(DATA_SIZE, DATA_SIZE);
@@ -156,7 +182,7 @@ void OneQSOEstimate::computeCSMatrices(const double *ps_estimate)
         gsl_matrix_add(signal_matrix, temp_matrix);
     }
 
-    //printf_matrix(signal_matrix, DATA_SIZE);
+    // printf_matrix(signal_matrix, DATA_SIZE);
 
     gsl_matrix_free(temp_matrix);
 
@@ -245,7 +271,7 @@ void OneQSOEstimate::computePSbeforeFvector()
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
         temp_bk = trace_of_2matrices(modified_derivative_of_signal_matrices[kn], noise_array, DATA_SIZE);
-
+        printf("Noise b: %.3e\n", temp_bk);
         /*
         gsl_blas_dsymv( CblasUpper, 1.0, \
                         modified_derivative_of_signal_matrices[kn], &data_view.vector, \
@@ -260,6 +286,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         gsl_vector_set(ps_before_fisher_estimate_vector, kn, temp_d - temp_bk);
     }
 
+    printf("PS before f: %.3e\n", gsl_vector_get(ps_before_fisher_estimate_vector, 0));
     gsl_vector_free(temp_vector);
 }
 
@@ -272,16 +299,24 @@ void OneQSOEstimate::computeFisherMatrix()
 
     for (int k = 0; k < NUMBER_OF_BANDS; k++)
     {
-        for (int q = k; q < NUMBER_OF_BANDS; q++)
-        {
-            temp = trace_of_2matrices(  modified_derivative_of_signal_matrices[k], \
-                                        derivative_of_signal_matrices[q], \
+        temp = 0.5 * trace_of_2matrices(modified_derivative_of_signal_matrices[k], \
+                                        derivative_of_signal_matrices[k], \
                                         DATA_SIZE);
 
-            gsl_matrix_set(fisher_matrix, k, q, temp/2.0);
-            gsl_matrix_set(fisher_matrix, q, k, temp/2.0);
+        gsl_matrix_set(fisher_matrix, k, k, temp);
+
+        for (int q = k + 1; q < NUMBER_OF_BANDS; q++)
+        {
+            temp = 0.5 * trace_of_2matrices(modified_derivative_of_signal_matrices[k], \
+                                            derivative_of_signal_matrices[q], \
+                                            DATA_SIZE);
+
+            gsl_matrix_set(fisher_matrix, k, q, temp);
+            gsl_matrix_set(fisher_matrix, q, k, temp);
         }
     }
+
+    printf("Fisher: %.3e\n", gsl_matrix_get(fisher_matrix, 0, 0));
 }
 
 void OneQSOEstimate::oneQSOiteration(const double *ps_estimate)
