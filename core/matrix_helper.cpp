@@ -4,7 +4,7 @@
 
 double trace_of_2matrices(const gsl_matrix *A, const gsl_matrix *B, int size)
 {
-    double result = 0;
+    double result = 0.;
 
     for (int i = 0; i < size; i++)
     {
@@ -19,7 +19,7 @@ double trace_of_2matrices(const gsl_matrix *A, const gsl_matrix *B, int size)
 
 double trace_of_2matrices(const gsl_matrix *A, const double *noise, int size)
 {
-    double result = 0, nn;
+    double result = 0., nn;
 
     for (int i = 0; i < size; i++)
     {
