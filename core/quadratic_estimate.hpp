@@ -46,7 +46,8 @@ public:
     ~OneDQuadraticPowerEstimate();
     
     void setInitialPSestimateFFT();
-
+    void setInitialScaling();
+    
     void invertTotalFisherMatrix();
     void computePowerSpectrumEstimate();
     void iterate(int number_of_iterations);
