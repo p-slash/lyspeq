@@ -2,12 +2,12 @@
 
 #include <new>
 
-#define WORKSPACE_SIZE 3000
-#define TABLE_SIZE 100
+#define WORKSPACE_SIZE 2000
+#define TABLE_SIZE 300
 #define GL_INFINTY 1E10
 
 #define ABS_ERROR 0
-#define REL_ERROR 1E-8
+#define REL_ERROR 1E-7
 
 Integrator::Integrator( GSL_TYPE gsl_type_key, \
 						double (*integrand_function)(double, void *), void *params)
@@ -24,7 +24,7 @@ Integrator::Integrator( GSL_TYPE gsl_type_key, \
 		}
 	}
 
-	else
+	else if (gsl_type == GSL_QAG || gsl_type == GSL_QAGS)
 	{
 		w = gsl_integration_workspace_alloc(WORKSPACE_SIZE);
 
@@ -45,7 +45,7 @@ Integrator::~Integrator()
 		gsl_integration_glfixed_table_free(t);
 	}
 
-	else
+	else if (gsl_type == GSL_QAG || gsl_type == GSL_QAGS)
 	{
 		gsl_integration_workspace_free(w);
 	}
@@ -55,17 +55,27 @@ double Integrator::evaluateInftyToInfty()
 {
 	double result = 0, error = 0;
 	
-	if (gsl_type == GSL_GL)
+	if (gsl_type == GSL_QNG)
+	{
+		size_t neval;
+
+		gsl_integration_qng(&F, -GL_INFINTY, GL_INFINTY, \
+							ABS_ERROR, REL_ERROR, \
+							&result, &error, \
+							&neval);
+	}
+
+	else if (gsl_type == GSL_GL)
 	{
 		result = gsl_integration_glfixed(&F, -GL_INFINTY, GL_INFINTY, t);
 	}
 
-	else
+	else // if (gsl_type == GSL_QAG || gsl_type == GSL_QAGS)
 	{
-	gsl_integration_qagi(	&F, \
-							ABS_ERROR, REL_ERROR, \
-							WORKSPACE_SIZE, w, \
-							&result, &error);
+		gsl_integration_qagi(	&F, \
+								ABS_ERROR, REL_ERROR, \
+								WORKSPACE_SIZE, w, \
+								&result, &error);
 	}
 
 	return result;
@@ -75,7 +85,17 @@ double Integrator::evaluateAToInfty(double lower_limit)
 {
 	double result = 0, error = 0;
 
-	if (gsl_type == GSL_GL)
+	if (gsl_type == GSL_QNG)
+	{
+		size_t neval;
+
+		gsl_integration_qng(&F, lower_limit, GL_INFINTY, \
+							ABS_ERROR, REL_ERROR, \
+							&result, &error, \
+							&neval);
+	}
+
+	else if (gsl_type == GSL_GL)
 	{
 		result = gsl_integration_glfixed(&F, lower_limit, GL_INFINTY, t);
 	}
@@ -95,7 +115,17 @@ double Integrator::evaluate(double lower_limit, double upper_limit)
 {
 	double result = 0, error = 0;
 
-	if (gsl_type == GSL_QAG)
+	if (gsl_type == GSL_QNG)
+	{
+		size_t neval;
+
+		gsl_integration_qng(&F, lower_limit, upper_limit, \
+							ABS_ERROR, REL_ERROR, \
+							&result, &error, \
+							&neval);
+	}
+
+	else if (gsl_type == GSL_QAG)
 	{
 		gsl_integration_qag(	&F, lower_limit, upper_limit, \
 								ABS_ERROR, REL_ERROR, \

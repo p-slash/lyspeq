@@ -5,6 +5,7 @@
 
 enum GSL_TYPE
 {
+	GSL_QNG,
 	GSL_QAG,
 	GSL_QAGS,
 	GSL_GL
