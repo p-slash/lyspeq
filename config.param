@@ -1,6 +1,6 @@
-K0 -5.0
-K1 0.1
-NumberOfBins 24
+K0 -6.
+K1 5
+NumberOfBins 1
 LinLog 10
 
 # SpectographRes 70.
