@@ -7,7 +7,7 @@
 
 double sinc(double x)
 {
-    if (fabs(x) < 1E-10)
+    if (fabs(x) < 1E-6)
     {
         return 1.;
     }
@@ -19,24 +19,24 @@ bool check_linearly_spaced(double *v, int size)
 {
     double dv, cv = v[1]-v[0], eps = 1e-3;
 
-    printf("first 5 dv: %lf", cv);
+    // printf("first 5 dv: %lf", cv);
 
     for (int i = 1; i < size-1; i++)
     {
         dv = v[i+1] - v[i];
 
-        if (i < 5)
-        {
-            printf(" %lf", dv);
-        }
+        // if (i < 5)
+        // {
+        //     printf(" %lf", dv);
+        // }
 
         if (fabs(dv - cv) > cv * eps)
         {
-            printf("\n");
+            // printf("\n");
             return false;
         }
     }
-    printf("\n");
+    // printf("\n");
     return true;
 }
 
@@ -55,23 +55,23 @@ void convert_flux2deltaf(double *flux, int size)
     }
 }
 
-void convert_lambda2v(double &mean_z, double *lambda, int size)
+void convert_lambda2v(double &median_z, double *lambda, int size)
 {
     #define SPEED_OF_LIGHT 299792.458
     #define LYA_REST 1215.67
 
-    double mean_lambda = 0; //lambda[size/2];
+    double median_lambda = lambda[size / 2];
 
-    for (int i = 0; i < size; i++)
-    {
-        mean_lambda += lambda[i] / (1.0 * size);
-    }
+    // for (int i = 0; i < size; i++)
+    // {
+    //     mean_lambda += lambda[i] / (1.0 * size);
+    // }
 
-    mean_z = (mean_lambda / LYA_REST) - 1.;
+    median_z = (median_lambda / LYA_REST) - 1.;
     
     for (int i = 0; i < size; i++)
     {
-        lambda[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(mean_lambda / lambda[i]));
+        lambda[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(median_lambda / lambda[i]));
     }
 
     if (!check_linearly_spaced(lambda, size))
@@ -85,7 +85,7 @@ double spectral_response_window_fn(double k, void *params)
     double  R = wp->spectrograph_res, \
             dv_kms = wp->pixel_width;
 
-    return exp(-k*k * R*R / 2.) * sinc(k * dv_kms / 2.);
+    return sinc(k * dv_kms / 2.);// * exp(-k*k * R*R / 2.) ;
 }
 
 
