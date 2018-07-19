@@ -130,6 +130,13 @@ void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
     fit_to_power_spectrum->printFit();
 }
 
+void OneDQuadraticPowerEstimate::setInitialScaling()
+{
+    gsl_vector_set(power_spectrum_estimate_vector, 0, 1.);
+    fit_to_power_spectrum->fitted_values[0] = 1.;
+}
+
+
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 {
     int status = invert_matrix_cholesky(fisher_matrix_sum);
@@ -176,16 +183,21 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
             gsl_vector_add(ps_before_fisher_estimate_vector_sum, qso_estimators[q]->ps_before_fisher_estimate_vector);
         }
 
+        printf("PS before f average: %.3e\n", gsl_vector_get(ps_before_fisher_estimate_vector_sum, 0) / NUMBER_OF_QSOS);
+        printf("Fisher average: %.3e\n", gsl_matrix_get(fisher_matrix_sum, 0, 0) / NUMBER_OF_QSOS);
+
         invertTotalFisherMatrix();
         computePowerSpectrumEstimate();
 
-        for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
-        {
-            weights_ps_bands[kn] = 1. / gsl_matrix_get(inverse_fisher_matrix_sum, kn, kn);
-        }
+        // for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+        // {
+        //     weights_ps_bands[kn] = 1. / gsl_matrix_get(inverse_fisher_matrix_sum, kn, kn);
+        // }
 
-        fit_to_power_spectrum->fit(power_spectrum_estimate_vector->data, weights_ps_bands);
-        fit_to_power_spectrum->printFit();
+        // fit_to_power_spectrum->fit(power_spectrum_estimate_vector->data, weights_ps_bands);
+        // fit_to_power_spectrum->printFit();
+        fit_to_power_spectrum->fitted_values[0] = gsl_vector_get(power_spectrum_estimate_vector, 0);
+        printf("%.2e\n", fit_to_power_spectrum->fitted_values[0]);
 
         if (hasConverged())
         {
