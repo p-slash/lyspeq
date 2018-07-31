@@ -13,7 +13,7 @@ QSOFile::~QSOFile()
     fclose(qso_file);
 }
 
-void QSOFile::readParameters(int &data_number, double &z, double &resolution, double &sig2noi)
+void QSOFile::readParameters(int &data_number, double &z, double &resolution, double &sig2noi, double &dv_kms)
 {
     #define SPEED_OF_LIGHT 299792.458
 
@@ -25,6 +25,7 @@ void QSOFile::readParameters(int &data_number, double &z, double &resolution, do
     z           = header.redshift;
     resolution  = SPEED_OF_LIGHT  / (1.0 * header.spectrograph_resolution);
     sig2noi     = header.signal_to_noise;
+    dv_kms      = header.pixel_width;
 }
 
 void QSOFile::readData(double *lambda, double *flux, double *noise)
