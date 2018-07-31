@@ -1,0 +1,40 @@
+LyaPowerEstimate iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method.
+
+==========================================
+Takes one config file.
+Parameters for binning are:
+////
+K0 
+K1 
+NumberOfBins 
+LinLog 
+\\\\
+Bin edges are defined as K0 + K1 * n, where n is from 0 to NumberOfBins+1. If LinLog is 10, then these are powers of 10.
+
+If the power spectrum is fitted with a smooth polynomial of ln k, its degree is
+////
+PolynomialDegree 
+\\\\
+
+The location of the file list, and the directory where those files live:
+////
+FileNameList qso_list.txt
+FileInputDir ./qso_dir/
+\\\\
+
+The directory for output files and file name base:
+////
+OutputDir /Users/nk452/repos/data/Quadratic_test
+OutputFileBase lya_qde_10mocks_binary
+\\\\
+
+////
+NumberOfIterations 10
+\\\\
+
+==========================================
+Config file has one file list for qso spectra. This txt file should start with number of qso and then have relative file paths.
+
+==========================================
+Quasar spectrum file is in binary format. It starts with a header (see io/qso_file.hpp), then has wavelength, flux and noise in double arrays.
+
