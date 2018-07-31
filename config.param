@@ -12,7 +12,7 @@ FileNameList /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mock
 FileInputDir /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks
 
 OutputDir /Users/nk452/repos/data/Quadratic_test
-OutputFileBase simpleps_30mocks
+OutputFileBase simpleps_100mocks
 
 NumberOfIterations 10
 
