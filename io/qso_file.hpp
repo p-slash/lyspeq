@@ -19,6 +19,7 @@ class QSOFile
 
         int spectrograph_resolution;
         double signal_to_noise;
+        double pixel_width;
 
         double lower_observed_lambda;
         double upper_observed_lambda;
@@ -31,7 +32,7 @@ public:
     QSOFile(const char *fname);
     ~QSOFile();
 
-    void readParameters(int &data_number, double &z, double &resolution, double &sig2noi);
+    void readParameters(int &data_number, double &z, double &resolution, double &sig2noi, double &dv_kms);
 
     void readData(double *lambda, double *flux, double *noise);
     
