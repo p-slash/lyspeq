@@ -17,8 +17,8 @@ int main(int argc, char const *argv[])
          OUTPUT_FILEBASE[300],\
          buf[500];
 
-    int NBin, NUMBER_OF_ITERATIONS, LINEAR_LOG;
-    double K_0, K_1, *k_edges;
+    int N_LIN_BIN, N_LOG_BIN, N_TOTAL_BINS, NUMBER_OF_ITERATIONS;
+    double K_0, LIN_K_SPACING, LOG_K_SPACING, *k_edges;
 
     OneDQuadraticPowerEstimate *qps;
 
@@ -28,9 +28,14 @@ int main(int argc, char const *argv[])
         ConfigFile cFile(FNAME_CONFIG);
 
         cFile.addKey("K0", &K_0, DOUBLE);
-        cFile.addKey("K1", &K_1, DOUBLE);
-        cFile.addKey("NumberOfBins", &NBin, INTEGER);
-        cFile.addKey("LinLog", &LINEAR_LOG, INTEGER);
+
+        cFile.addKey("LinearKBinWidth", &LIN_K_SPACING, DOUBLE);
+        cFile.addKey("Log10KBinWidth", &LOG_K_SPACING, DOUBLE);
+
+        cFile.addKey("NumberOfLinearBins", &N_LIN_BIN, INTEGER);
+        cFile.addKey("NumberOfLog10Bins", &N_LOG_BIN, INTEGER);
+
+        // cFile.addKey("LinLog", &LINEAR_LOG, INTEGER);
 
         cFile.addKey("PolynomialDegree", &POLYNOMIAL_FIT_DEGREE, INTEGER);
         
@@ -47,29 +52,40 @@ int main(int argc, char const *argv[])
         cFile.readAll();
 
         // Construct k edges
-        k_edges = new double[NBin + 1];
+        N_TOTAL_BINS = N_LIN_BIN + N_LOG_BIN;
 
-        for (int i = 0; i < NBin + 1; i++)
+        k_edges = new double[N_TOTAL_BINS + 1];
+
+        for (int i = 0; i < N_LIN_BIN + 1; i++)
         {
-            k_edges[i] = K_0 + K_1 * i;
-
-            if (LINEAR_LOG == 10)
-                k_edges[i] = pow(10., k_edges[i]);
+            k_edges[i] = K_0 + LIN_K_SPACING * i;
         }
+        for (int i = 1, j = N_LIN_BIN + 1; i < N_LOG_BIN + 1; i++, j++)
+        {
+            k_edges[j] = k_edges[N_LIN_BIN] * pow(10., i * LOG_K_SPACING);
+        }
+
+        // for (int i = 0; i < N_TOTAL_BINS + 1; i++)
+        // {
+        //     k_edges[i] = K_0 + K_1 * i;
+
+        //     if (LINEAR_LOG == 10)
+        //         k_edges[i] = pow(10., k_edges[i]);
+        // }
         
-        if (LINEAR_LOG == 10)
-            printf("Using log spaced k bands:\n");
-        else
-            printf("Using linearly spaced k bands:\n");
+        // if (LINEAR_LOG == 10)
+        //     printf("Using log spaced k bands:\n");
+        // else
+        //     printf("Using linearly spaced k bands:\n");
         
-        for (int i = 0; i < NBin + 1; ++i)
+        for (int i = 0; i < N_TOTAL_BINS + 1; ++i)
         {
             printf("%le ", k_edges[i]);
         }
         printf("\n");
         gsl_set_error_handler_off();
 
-        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR, NBin, k_edges);
+        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR, N_TOTAL_BINS, k_edges);
 
         // qps->setInitialScaling();
         // qps->setInitialPSestimateFFT();

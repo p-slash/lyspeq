@@ -1,17 +1,12 @@
-K0 -3.8
-K1 0.1
-NumberOfBins 23
-LinLog 10
+K0 0.
 
-# SpectographRes 70.
+NumberOfLinearBins 3
+NumberOfLog10Bins 14
+
+LinearKBinWidth 4E-4
+Log10KBinWidth 0.1
 
 PolynomialDegree 2
-
-# K0 0.001
-# K1 0.001
-# NumberOfBins 40
-# LinLog 1
-
 
 FileNameList /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks/qso_list.txt
 FileInputDir /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks
@@ -20,3 +15,14 @@ OutputDir /Users/nk452/repos/data/Quadratic_test
 OutputFileBase simpleps_30mocks
 
 NumberOfIterations 10
+
+# K0 0.001
+# K1 0.001
+# NumberOfBins 40
+# LinLog 1
+
+# K0 -3.8
+# K1 0.1
+# NumberOfBins 23
+# LinLog 10
+# SpectographRes 70.
