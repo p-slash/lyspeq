@@ -200,10 +200,10 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
             gsl_vector_add(ps_before_fisher_estimate_vector_sum, qso_estimators[q]->ps_before_fisher_estimate_vector);
         }
 
-        // invertTotalFisherMatrix();
-        // computePowerSpectrumEstimate();
+        invertTotalFisherMatrix();
+        computePowerSpectrumEstimate();
 
-        filteredEstimates();
+        // filteredEstimates();
 
         for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
         {
