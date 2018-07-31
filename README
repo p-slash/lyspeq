@@ -4,12 +4,16 @@ LyaPowerEstimate iterates over multiple qso spectra and estimates one-dimensiona
 Takes one config file.
 Parameters for binning are:
 ////
-K0 
-K1 
-NumberOfBins 
-LinLog 
+K0 1E-4
+
+NumberOfLinearBins 5
+NumberOfLog10Bins 13
+
+LinearKBinWidth 2E-4
+Log10KBinWidth 0.1
 \\\\
-Bin edges are defined as K0 + K1 * n, where n is from 0 to NumberOfBins+1. If LinLog is 10, then these are powers of 10.
+Bin edges start with linear spacing: K0 + LinearKBinWidth * n, where n =[0, NumberOfLinearBins].
+Then continues with log spacing: K_edgde[NumberOfLinearBins] * 10^(Log10KBinWidth * n)
 
 If the power spectrum is fitted with a smooth polynomial of ln k, its degree is
 ////
