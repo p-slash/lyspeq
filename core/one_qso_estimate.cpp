@@ -54,7 +54,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
 
     double dummy_qso_z, dummy_s2n;
 
-    qFile.readParameters(DATA_SIZE, dummy_qso_z, spect_res, dummy_s2n);
+    qFile.readParameters(DATA_SIZE, dummy_qso_z, spect_res, dummy_s2n, dv_kms);
     
     xspace_array    = new double[DATA_SIZE];
     data_array      = new double[DATA_SIZE];
@@ -114,27 +114,42 @@ OneQSOEstimate::~OneQSOEstimate()
 
 void OneQSOEstimate::setFiducialSignalMatrix()
 {
-    double  dv_kms   = fabs(xspace_array[1] - xspace_array[0]), temp;
+    // double  dv_kms   = fabs(xspace_array[1] - xspace_array[0]), temp;
 
     struct spectrograph_windowfn_params win_params = {0, dv_kms, spect_res};
 
     Integrator s_integrator(GSL_QAG, signal_matrix_integrand, &win_params);
 
+    int s_array_size = (xspace_array[DATA_SIZE-1] - xspace_array[0]) / dv_kms + 1, temp_index;
+    double *s_ij_array = new double[s_array_size], temp;
+
+    for (int i = 0; i < s_array_size; i++)
+    {
+        win_params.delta_v_ij = i * dv_kms;
+
+        s_ij_array[i] = s_integrator.evaluateAToInfty(0);
+    }
+
     for (int i = 0; i < DATA_SIZE; i++)
     {
-        win_params.delta_v_ij = 0;
+        // win_params.delta_v_ij = 0;
 
-        // temp = s_integrator.evaluate(kvalue_1, kvalue_2);
-        temp = s_integrator.evaluateAToInfty(0);
+        // // temp = s_integrator.evaluate(kvalue_1, kvalue_2);
+        // temp = s_integrator.evaluateAToInfty(0);
+        temp = s_ij_array[0];
+
         gsl_matrix_set(fiducial_signal_matrix, i, i, temp);
 
         for (int j = i + 1; j < DATA_SIZE; j++)
         {
-            win_params.delta_v_ij = xspace_array[i] - xspace_array[j];
+            // win_params.delta_v_ij = xspace_array[i] - xspace_array[j];
 
-            // temp = s_integrator.evaluate(kvalue_1, kvalue_2);
-            temp = s_integrator.evaluateAToInfty(0);
-            
+            // // temp = s_integrator.evaluate(kvalue_1, kvalue_2);
+            // temp = s_integrator.evaluateAToInfty(0);
+            temp_index = int((xspace_array[j] - xspace_array[i]) / dv_kms + 0.5);
+
+            temp = s_ij_array[temp_index];
+
             gsl_matrix_set(fiducial_signal_matrix, i, j, temp);
             gsl_matrix_set(fiducial_signal_matrix, j, i, temp);
         }
@@ -142,6 +157,8 @@ void OneQSOEstimate::setFiducialSignalMatrix()
         // printf("Progress: %.3f\n", (i+1.) / DATA_SIZE);
         // fflush(stdout);
     }
+
+    delete [] s_ij_array;
     // printf("done!\n");
 }
 
@@ -150,7 +167,7 @@ void OneQSOEstimate::setDerivativeSMatrices()
     // printf("Setting derivative of signal matrices Q_ij(k).\n");
     // fflush(stdout);
 
-    double dv_kms = fabs(xspace_array[1] - xspace_array[0]);
+    // double dv_kms = fabs(xspace_array[1] - xspace_array[0]);
 
     double temp, kvalue_1, kvalue_2;
 
@@ -158,25 +175,40 @@ void OneQSOEstimate::setDerivativeSMatrices()
 
     Integrator q_integrator(GSL_QAG, q_matrix_integrand, &win_params);
 
+    int q_array_size = (xspace_array[DATA_SIZE-1] - xspace_array[0]) / dv_kms + 1, temp_index;
+    double *q_ij_array = new double[q_array_size];
+
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
         kvalue_1 = kband_edges[kn];
         kvalue_2 = kband_edges[kn + 1];
 
+        for (int i = 0; i < q_array_size; i++)
+        {
+            win_params.delta_v_ij = i * dv_kms;
+
+            q_ij_array[i] = q_integrator.evaluate(kvalue_1, kvalue_2);
+        }
+
         for (int i = 0; i < DATA_SIZE; i++)
         {
-            win_params.delta_v_ij = 0;
+            // win_params.delta_v_ij = 0;
 
-            temp = q_integrator.evaluate(kvalue_1, kvalue_2);
-            // temp = q_integrator.evaluateAToInfty(0);
+            // temp = q_integrator.evaluate(kvalue_1, kvalue_2);
+            // // temp = q_integrator.evaluateAToInfty(0);
+
+            temp = q_ij_array[0];
             gsl_matrix_set(derivative_of_signal_matrices[kn], i, i, temp);
 
             for (int j = i + 1; j < DATA_SIZE; j++)
             {
-                win_params.delta_v_ij = xspace_array[i] - xspace_array[j];
+                // win_params.delta_v_ij = xspace_array[i] - xspace_array[j];
 
-                temp = q_integrator.evaluate(kvalue_1, kvalue_2);
-                // temp = q_integrator.evaluateAToInfty(0);
+                // temp = q_integrator.evaluate(kvalue_1, kvalue_2);
+                // // temp = q_integrator.evaluateAToInfty(0);
+
+                temp_index = int((xspace_array[j] - xspace_array[i]) / dv_kms + 0.5);
+                temp = q_ij_array[temp_index];
                 
                 gsl_matrix_set(derivative_of_signal_matrices[kn], i, j, temp);
                 gsl_matrix_set(derivative_of_signal_matrices[kn], j, i, temp);
@@ -187,6 +219,8 @@ void OneQSOEstimate::setDerivativeSMatrices()
         }
         // printf("done!\n");
     }
+
+    delete [] q_ij_array;
 }
 
 void OneQSOEstimate::computeCSMatrices(const double *ps_estimate)
@@ -361,8 +395,7 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate)
 
 void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
 {
-    double  dv_kms = fabs(xspace_array[1] - xspace_array[0]), \
-            length_v = dv_kms * DATA_SIZE;
+    double length_v = dv_kms * DATA_SIZE;
 
     RealField1D rf(data_array, DATA_SIZE, length_v);
     
