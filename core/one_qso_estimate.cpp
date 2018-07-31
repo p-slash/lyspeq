@@ -1,4 +1,5 @@
 #include "one_qso_estimate.hpp"
+#include "fiducial_cosmology.hpp"
 #include "spectrograph_functions.hpp"
 #include "matrix_helper.hpp"
 #include "real_field_1d.hpp"
@@ -19,35 +20,29 @@
 #define ADDED_CONST_TO_C 10.0
 #define PI 3.14159265359
 
-// double fiducial_power_spectrum(double lnk)
-// {
-//     double  c0 = -7.89e-01, \
-//             c1 = 1.30e-01, \
-//             c2 = -1.87e-02;
-
-//     double lnkP = c0 + c1 * lnk + c2 * lnk*lnk;
-
-//     return exp(lnkP);
-// }
-
-double fiducial_power_spectrum(double k, double dv)
-{
-    double kc = PI / dv / 3.0;
-
-    double r = k/kc;
-
-    return 1E6 * k * exp(- r*r);
-}
-
+// Internal functions and variables
+//------------------------------
 double q_matrix_integrand(double k, void *params)
 {
     struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
-    double result = 1.; //spectral_response_window_fn(k, params);
+    double result = spectral_response_window_fn(k, params);
 
-    result *= fiducial_power_spectrum(k, wp->pixel_width) * result * cos(k * wp->delta_v_ij) / PI;
+    result *= result * cos(k * wp->delta_v_ij) / PI;
 
     return result;
 }
+
+double signal_matrix_integrand(double k, void *params)
+{
+    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
+    double result = spectral_response_window_fn(k, params);
+
+    result *= debuggin_power_spectrum(k, wp->pixel_width) * result * cos(k * wp->delta_v_ij) / PI;
+
+    return result;
+}
+//------------------------------
+// End of internal functions and variables
 
 OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
 {
@@ -78,7 +73,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
     fisher_matrix             = gsl_matrix_alloc(NUMBER_OF_BANDS, NUMBER_OF_BANDS);
 
     covariance_matrix         = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-    signal_matrix             = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
+    fiducial_signal_matrix    = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
     inverse_covariance_matrix = covariance_matrix;
 
     derivative_of_signal_matrices          = new gsl_matrix*[NUMBER_OF_BANDS];
@@ -91,7 +86,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
     }  
 
     isCovInverted    = false;
-    isQMatricesSet   = false;
+    areSQMatricesSet = false;
 }
 
 OneQSOEstimate::~OneQSOEstimate()
@@ -101,7 +96,7 @@ OneQSOEstimate::~OneQSOEstimate()
     gsl_matrix_free(fisher_matrix);
 
     gsl_matrix_free(covariance_matrix);
-    gsl_matrix_free(signal_matrix);
+    gsl_matrix_free(fiducial_signal_matrix);
 
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
@@ -117,13 +112,41 @@ OneQSOEstimate::~OneQSOEstimate()
     delete [] noise_array;
 }
 
+void OneQSOEstimate::setFiducialSignalMatrix()
+{
+    double  dv_kms   = fabs(xspace_array[1] - xspace_array[0]), temp;
+
+    struct spectrograph_windowfn_params win_params = {0, dv_kms, spect_res};
+
+    Integrator s_integrator(GSL_QAG, signal_matrix_integrand, &win_params);
+
+    for (int i = 0; i < DATA_SIZE; i++)
+    {
+        win_params.delta_v_ij = 0;
+
+        // temp = s_integrator.evaluate(kvalue_1, kvalue_2);
+        temp = s_integrator.evaluateAToInfty(0);
+        gsl_matrix_set(fiducial_signal_matrix, i, i, temp);
+
+        for (int j = i + 1; j < DATA_SIZE; j++)
+        {
+            win_params.delta_v_ij = xspace_array[i] - xspace_array[j];
+
+            // temp = s_integrator.evaluate(kvalue_1, kvalue_2);
+            temp = s_integrator.evaluateAToInfty(0);
+            
+            gsl_matrix_set(fiducial_signal_matrix, i, j, temp);
+            gsl_matrix_set(fiducial_signal_matrix, j, i, temp);
+        }
+
+        // printf("Progress: %.3f\n", (i+1.) / DATA_SIZE);
+        // fflush(stdout);
+    }
+    // printf("done!\n");
+}
+
 void OneQSOEstimate::setDerivativeSMatrices()
 {
-    if (isQMatricesSet)
-    {
-        return;
-    }
-
     // printf("Setting derivative of signal matrices Q_ij(k).\n");
     // fflush(stdout);
 
@@ -144,15 +167,16 @@ void OneQSOEstimate::setDerivativeSMatrices()
         {
             win_params.delta_v_ij = 0;
 
-            // temp = q_integrator.evaluate(kvalue_1, kvalue_2);
-            temp = q_integrator.evaluateAToInfty(0);
+            temp = q_integrator.evaluate(kvalue_1, kvalue_2);
+            // temp = q_integrator.evaluateAToInfty(0);
             gsl_matrix_set(derivative_of_signal_matrices[kn], i, i, temp);
 
             for (int j = i + 1; j < DATA_SIZE; j++)
             {
                 win_params.delta_v_ij = xspace_array[i] - xspace_array[j];
 
-                temp = q_integrator.evaluateAToInfty(0);
+                temp = q_integrator.evaluate(kvalue_1, kvalue_2);
+                // temp = q_integrator.evaluateAToInfty(0);
                 
                 gsl_matrix_set(derivative_of_signal_matrices[kn], i, j, temp);
                 gsl_matrix_set(derivative_of_signal_matrices[kn], j, i, temp);
@@ -163,32 +187,28 @@ void OneQSOEstimate::setDerivativeSMatrices()
         }
         // printf("done!\n");
     }
-
-    isQMatricesSet = true;
 }
 
 void OneQSOEstimate::computeCSMatrices(const double *ps_estimate)
 {
-    printf("Theta: %.3e\n", ps_estimate[0]);
-    gsl_matrix_set_zero(signal_matrix);
+    // printf("Theta: %.3e\n", ps_estimate[0]);
+    gsl_matrix_memcpy(covariance_matrix, fiducial_signal_matrix);
 
-    gsl_matrix *temp_matrix = gsl_matrix_calloc(DATA_SIZE, DATA_SIZE);
+    gsl_matrix *temp_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
 
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
         gsl_matrix_memcpy(temp_matrix, derivative_of_signal_matrices[kn]);
         gsl_matrix_scale(temp_matrix, ps_estimate[kn]);
 
-        gsl_matrix_add(signal_matrix, temp_matrix);
+        gsl_matrix_add(covariance_matrix, temp_matrix);
     }
 
-    // printf_matrix(signal_matrix, DATA_SIZE);
+    // printf_matrix(fiducial_signal_matrix, DATA_SIZE);
 
     gsl_matrix_free(temp_matrix);
 
     double temp, nn;
-
-    gsl_matrix_memcpy(covariance_matrix, signal_matrix);
 
     for (int i = 0; i < DATA_SIZE; i++)
     {
@@ -262,16 +282,18 @@ void OneQSOEstimate::computePSbeforeFvector()
     // printf("Power estimate before inverse Fisher weighting.\n");
     // fflush(stdout);
 
-    gsl_vector *temp_vector = gsl_vector_calloc(DATA_SIZE);
+    gsl_vector *temp_vector = gsl_vector_alloc(DATA_SIZE);
 
     gsl_vector_const_view data_view = gsl_vector_const_view_array(data_array, DATA_SIZE);
 
-    double temp_bk, temp_d;
+    double temp_bk, temp_tk, temp_d;
 
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
         temp_bk = trace_of_2matrices(modified_derivative_of_signal_matrices[kn], noise_array, DATA_SIZE);
-        printf("Noise b: %.3e\n", temp_bk);
+        temp_tk = trace_of_2matrices(modified_derivative_of_signal_matrices[kn], fiducial_signal_matrix, DATA_SIZE);
+
+        // printf("Noise b: %.3e\n", temp_bk);
         /*
         gsl_blas_dsymv( CblasUpper, 1.0, \
                         modified_derivative_of_signal_matrices[kn], &data_view.vector, \
@@ -283,10 +305,10 @@ void OneQSOEstimate::computePSbeforeFvector()
 
         gsl_blas_ddot(&data_view.vector, temp_vector, &temp_d);
 
-        gsl_vector_set(ps_before_fisher_estimate_vector, kn, temp_d - temp_bk);
+        gsl_vector_set(ps_before_fisher_estimate_vector, kn, temp_d - temp_bk - temp_tk);
     }
 
-    printf("PS before f: %.3e\n", gsl_vector_get(ps_before_fisher_estimate_vector, 0));
+    // printf("PS before f: %.3e\n", gsl_vector_get(ps_before_fisher_estimate_vector, 0));
     gsl_vector_free(temp_vector);
 }
 
@@ -316,12 +338,19 @@ void OneQSOEstimate::computeFisherMatrix()
         }
     }
 
-    printf("Fisher: %.3e\n", gsl_matrix_get(fisher_matrix, 0, 0));
+    // printf("Fisher: %.3e\n", gsl_matrix_get(fisher_matrix, 0, 0));
 }
 
 void OneQSOEstimate::oneQSOiteration(const double *ps_estimate)
 {
-    setDerivativeSMatrices();
+    if (!areSQMatricesSet)
+    {
+        setFiducialSignalMatrix();
+        setDerivativeSMatrices();
+        
+        areSQMatricesSet = true;
+    }
+    
     computeCSMatrices(ps_estimate);
     invertCovarianceMatrix();
     computeModifiedDSMatrices();

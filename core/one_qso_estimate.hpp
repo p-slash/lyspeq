@@ -1,8 +1,3 @@
-/* TODO:   1. When estimating power bands, there is no need to store signal matrix. 
-              Can directly compute covariance matrix. 
-              However, can save computational time by storing the fiducial signal matrix when that method is used. 
- */
-
 /* This object stores and computes C, S, Q, Q-slash matrices,
  * as well as a power spectrum estimate and a fisher matrix for individual quasar spectra.
  * This object is called in OneDQuadraticPowerEstimate in quadratic_estimate.hpp
@@ -35,13 +30,13 @@ class OneQSOEstimate
     */
     gsl_matrix  *covariance_matrix, \
                 *inverse_covariance_matrix, \
-                *signal_matrix;
+                *fiducial_signal_matrix;
 
     /* NUMBER_OF_BANDS many DATA_SIZE x DATA_SIZE sized matrices */
     gsl_matrix  **derivative_of_signal_matrices, \
                 **modified_derivative_of_signal_matrices;
 
-    bool isCovInverted, isQMatricesSet;
+    bool isCovInverted, areSQMatricesSet;
 
 public:
     /* NUMBER_OF_BANDS sized vector */ 
@@ -55,6 +50,7 @@ public:
 
     void getFFTEstimate(double *ps, int *bincount);
 
+    void setFiducialSignalMatrix();
     void setDerivativeSMatrices();
     void computeCSMatrices(const double *ps_estimate);
     void invertCovarianceMatrix();
