@@ -27,6 +27,8 @@ class OneDQuadraticPowerEstimate
                 *previous_power_spectrum_estimate_vector, \
                 *power_spectrum_estimate_vector;
 
+    gsl_vector  *fisher_filter;
+
     /* NUMBER_OF_BANDS x NUMBER_OF_BANDS sized matrices 
        inverse_fisher_matrix points to fisher_matrix
     */
@@ -50,6 +52,7 @@ public:
     
     void invertTotalFisherMatrix();
     void computePowerSpectrumEstimate();
+    void filteredEstimates();
     void iterate(int number_of_iterations);
     bool hasConverged();
     

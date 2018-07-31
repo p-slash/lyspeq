@@ -27,8 +27,9 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     ps_before_fisher_estimate_vector_sum    = gsl_vector_alloc(NUMBER_OF_BANDS);
     previous_power_spectrum_estimate_vector = gsl_vector_alloc(NUMBER_OF_BANDS);
     power_spectrum_estimate_vector          = gsl_vector_calloc(NUMBER_OF_BANDS);
+    fisher_filter                           = gsl_vector_alloc(NUMBER_OF_BANDS);
 
-    fisher_matrix_sum             = gsl_matrix_calloc(NUMBER_OF_BANDS, NUMBER_OF_BANDS);
+    fisher_matrix_sum             = gsl_matrix_alloc(NUMBER_OF_BANDS, NUMBER_OF_BANDS);
     inverse_fisher_matrix_sum     = fisher_matrix_sum;
 
     isFisherInverted = false; 
@@ -53,7 +54,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     
     fclose(toRead);
 
-    weights_ps_bands      = new double[NUMBER_OF_BANDS];
+    // weights_ps_bands      = new double[NUMBER_OF_BANDS];
     k_centers             = new double[NUMBER_OF_BANDS];
 
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
@@ -61,8 +62,8 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
         k_centers[kn] = (kband_edges[kn] + kband_edges[kn + 1]) / 2.;
     }
 
-    fit_to_power_spectrum = new LnPolynomialFit(POLYNOMIAL_FIT_DEGREE, 1, NUMBER_OF_BANDS);
-    fit_to_power_spectrum->initialize(k_centers);
+    // fit_to_power_spectrum = new LnPolynomialFit(POLYNOMIAL_FIT_DEGREE, 1, NUMBER_OF_BANDS);
+    // fit_to_power_spectrum->initialize(k_centers);
 }
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
@@ -79,9 +80,9 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
     }
 
     delete [] qso_estimators;
-    delete [] weights_ps_bands;
+    // delete [] weights_ps_bands;
     delete [] k_centers;
-    delete fit_to_power_spectrum;
+    // delete fit_to_power_spectrum;
 }
 
 void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
@@ -133,9 +134,8 @@ void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
 void OneDQuadraticPowerEstimate::setInitialScaling()
 {
     gsl_vector_set(power_spectrum_estimate_vector, 0, 1.);
-    fit_to_power_spectrum->fitted_values[0] = 1.;
+    // fit_to_power_spectrum->fitted_values[0] = 1.;
 }
-
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 {
@@ -165,6 +165,22 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimate()
                     0, power_spectrum_estimate_vector);
 }
 
+void OneDQuadraticPowerEstimate::filteredEstimates()
+{
+    gsl_vector *ones_vector = gsl_vector_alloc(NUMBER_OF_BANDS);
+    gsl_vector_set_all(ones_vector, 1.);
+
+    gsl_blas_dgemv( CblasNoTrans, 2.0, \
+                    fisher_matrix_sum, ones_vector, \
+                    0, fisher_filter);
+
+    gsl_vector_free(ones_vector);
+
+    gsl_vector_div(ps_before_fisher_estimate_vector_sum, fisher_filter);
+    gsl_vector_memcpy(previous_power_spectrum_estimate_vector, power_spectrum_estimate_vector);
+    gsl_vector_memcpy(power_spectrum_estimate_vector, ps_before_fisher_estimate_vector_sum);
+}
+
 void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
 {
     for (int i = 0; i < number_of_iterations; i++)
@@ -177,27 +193,29 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
 
         for (int q = 0; q < NUMBER_OF_QSOS; q++)
         {
-            qso_estimators[q]->oneQSOiteration(fit_to_power_spectrum->fitted_values);
+            // qso_estimators[q]->oneQSOiteration(fit_to_power_spectrum->fitted_values);
+            qso_estimators[q]->oneQSOiteration(power_spectrum_estimate_vector->data);
 
             gsl_matrix_add(fisher_matrix_sum, qso_estimators[q]->fisher_matrix);
             gsl_vector_add(ps_before_fisher_estimate_vector_sum, qso_estimators[q]->ps_before_fisher_estimate_vector);
         }
 
-        printf("PS before f average: %.3e\n", gsl_vector_get(ps_before_fisher_estimate_vector_sum, 0) / NUMBER_OF_QSOS);
-        printf("Fisher average: %.3e\n", gsl_matrix_get(fisher_matrix_sum, 0, 0) / NUMBER_OF_QSOS);
+        // invertTotalFisherMatrix();
+        // computePowerSpectrumEstimate();
 
-        invertTotalFisherMatrix();
-        computePowerSpectrumEstimate();
+        filteredEstimates();
 
-        // for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
-        // {
-        //     weights_ps_bands[kn] = 1. / gsl_matrix_get(inverse_fisher_matrix_sum, kn, kn);
-        // }
+        for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+        {
+            printf("%.3e ", power_spectrum_estimate_vector->data[kn]);
+            // weights_ps_bands[kn] = 1. / gsl_matrix_get(inverse_fisher_matrix_sum, kn, kn);
+        }
+        printf("\n");
 
         // fit_to_power_spectrum->fit(power_spectrum_estimate_vector->data, weights_ps_bands);
         // fit_to_power_spectrum->printFit();
-        fit_to_power_spectrum->fitted_values[0] = gsl_vector_get(power_spectrum_estimate_vector, 0);
-        printf("%.2e\n", fit_to_power_spectrum->fitted_values[0]);
+        // fit_to_power_spectrum->fitted_values[0] = gsl_vector_get(power_spectrum_estimate_vector, 0);
+        // printf("%.2e\n", fit_to_power_spectrum->fitted_values[0]);
 
         if (hasConverged())
         {
@@ -221,7 +239,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         diff = fabs(p1 - p2);
         mx = std::max(p1, p2);
 
-        if (diff / mx > CONVERGENCE_EPS)
+        if (diff / p2 > CONVERGENCE_EPS)
         {
             ifConverged = false;
         }
@@ -242,12 +260,18 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimate(const char *fname)
     toWrite = open_file(fname, "w");
 
     fprintf(toWrite, "%d\n", NUMBER_OF_BANDS);
-    
+    double err;
+
     for (int i = 0; i < NUMBER_OF_BANDS; i++)
     {
+        if (isFisherInverted)
+            err = sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i, i));
+        else
+            err = sqrt(gsl_matrix_get(fisher_matrix_sum, i, i)) / gsl_vector_get(fisher_filter, i);
+        
         fprintf(toWrite, "%e %e %e\n",  k_centers[i], \
                                         gsl_vector_get(power_spectrum_estimate_vector, i), \
-                                        sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i, i)) );
+                                        err );
     }
 
     fclose(toWrite);
