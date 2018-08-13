@@ -9,7 +9,7 @@ struct spectrograph_windowfn_params
 };
 
 void convert_flux2deltaf(double *flux, int size);
-void convert_lambda2v(double &median_z, double *lambda, int size);
+void convert_lambda2v(double &median_z, double *v_array, const double *lambda, int size);
 
 double spectral_response_window_fn(double k, void *params);
 
