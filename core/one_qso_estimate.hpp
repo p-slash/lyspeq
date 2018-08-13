@@ -51,8 +51,7 @@ public:
 
     void getFFTEstimate(double *ps, int *bincount);
 
-    void setFiducialSignalMatrix();
-    void setDerivativeSMatrices();
+    void setFiducialSignalAndDerivativeSMatrices();
     void computeCSMatrices(const double *ps_estimate);
     void invertCovarianceMatrix();
     void computeModifiedDSMatrices();
