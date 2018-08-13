@@ -20,8 +20,9 @@ class OneQSOEstimate
     double median_redshift, spect_res, dv_kms;
     
     /* DATA_SIZE sized vectors */ 
-    double *xspace_array, \
-           *data_array, \
+    double *lambda_array, \
+           *velocity_array, \
+           *flux_array, \
            *noise_array;
 
     /* DATA_SIZE x DATA_SIZE sized matrices 

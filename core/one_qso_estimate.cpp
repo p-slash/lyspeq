@@ -56,15 +56,16 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
 
     qFile.readParameters(DATA_SIZE, dummy_qso_z, spect_res, dummy_s2n, dv_kms);
     
-    xspace_array    = new double[DATA_SIZE];
-    data_array      = new double[DATA_SIZE];
+    lambda_array    = new double[DATA_SIZE];
+    velocity_array  = new double[DATA_SIZE];
+    flux_array      = new double[DATA_SIZE];
     noise_array     = new double[DATA_SIZE];
 
-    qFile.readData(xspace_array, data_array, noise_array);
+    qFile.readData(lambda_array, flux_array, noise_array);
 
-    convert_flux2deltaf(data_array, DATA_SIZE);
+    convert_flux2deltaf(flux_array, DATA_SIZE);
 
-    convert_lambda2v(median_redshift, xspace_array, DATA_SIZE);
+    convert_lambda2v(median_redshift, velocity_array, lambda_array, DATA_SIZE);
 
     /* Allocate memory */
 
@@ -107,20 +108,19 @@ OneQSOEstimate::~OneQSOEstimate()
     delete [] derivative_of_signal_matrices;
     delete [] modified_derivative_of_signal_matrices;
 
-    delete [] data_array;
-    delete [] xspace_array;
+    delete [] flux_array;
+    delete [] lambda_array;
+    delete [] velocity_array;
     delete [] noise_array;
 }
 
 void OneQSOEstimate::setFiducialSignalMatrix()
 {
-    // double  dv_kms   = fabs(xspace_array[1] - xspace_array[0]), temp;
-
     struct spectrograph_windowfn_params win_params = {0, dv_kms, spect_res};
 
     Integrator s_integrator(GSL_QAG, signal_matrix_integrand, &win_params);
 
-    int s_array_size = (xspace_array[DATA_SIZE-1] - xspace_array[0]) / dv_kms + 1, temp_index;
+    int s_array_size = (velocity_array[DATA_SIZE-1] - velocity_array[0]) / dv_kms + 1, temp_index;
     double *s_ij_array = new double[s_array_size], temp;
 
     for (int i = 0; i < s_array_size; i++)
@@ -146,7 +146,7 @@ void OneQSOEstimate::setFiducialSignalMatrix()
 
             // // temp = s_integrator.evaluate(kvalue_1, kvalue_2);
             // temp = s_integrator.evaluateAToInfty(0);
-            temp_index = int((xspace_array[j] - xspace_array[i]) / dv_kms + 0.5);
+            temp_index = int((velocity_array[j] - velocity_array[i]) / dv_kms + 0.5);
 
             temp = s_ij_array[temp_index];
 
@@ -175,7 +175,7 @@ void OneQSOEstimate::setDerivativeSMatrices()
 
     Integrator q_integrator(GSL_QAG, q_matrix_integrand, &win_params);
 
-    int q_array_size = (xspace_array[DATA_SIZE-1] - xspace_array[0]) / dv_kms + 1, temp_index;
+    int q_array_size = (velocity_array[DATA_SIZE-1] - velocity_array[0]) / dv_kms + 1, temp_index;
     double *q_ij_array = new double[q_array_size];
 
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
@@ -207,7 +207,7 @@ void OneQSOEstimate::setDerivativeSMatrices()
                 // temp = q_integrator.evaluate(kvalue_1, kvalue_2);
                 // // temp = q_integrator.evaluateAToInfty(0);
 
-                temp_index = int((xspace_array[j] - xspace_array[i]) / dv_kms + 0.5);
+                temp_index = int((velocity_array[j] - velocity_array[i]) / dv_kms + 0.5);
                 temp = q_ij_array[temp_index];
                 
                 gsl_matrix_set(derivative_of_signal_matrices[kn], i, j, temp);
@@ -318,7 +318,7 @@ void OneQSOEstimate::computePSbeforeFvector()
 
     gsl_vector *temp_vector = gsl_vector_alloc(DATA_SIZE);
 
-    gsl_vector_const_view data_view = gsl_vector_const_view_array(data_array, DATA_SIZE);
+    gsl_vector_const_view data_view = gsl_vector_const_view_array(flux_array, DATA_SIZE);
 
     double temp_bk, temp_tk, temp_d;
 
@@ -397,7 +397,7 @@ void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
 {
     double length_v = dv_kms * DATA_SIZE;
 
-    RealField1D rf(data_array, DATA_SIZE, length_v);
+    RealField1D rf(flux_array, DATA_SIZE, length_v);
     
     rf.fftX2K();
 
