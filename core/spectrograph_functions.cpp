@@ -55,24 +55,24 @@ void convert_flux2deltaf(double *flux, int size)
     }
 }
 
-void convert_lambda2v(double &median_z, double *v_array, const double *lambda, int size)
+void convert_lambda2v(double &mean_z, double *v_array, const double *lambda, int size)
 {
     #define SPEED_OF_LIGHT 299792.458
     #define LYA_REST 1215.67
 
     double median_lambda = lambda[size / 2];
 
-    // for (int i = 0; i < size; i++)
-    // {
-    //     mean_lambda += lambda[i] / (1.0 * size);
-    // }
+    for (int i = 0; i < size; i++)
+    {
+        mean_z += lambda[i] / size;
+    }
 
-    median_z = (median_lambda / LYA_REST) - 1.;
+    mean_z = (mean_z / LYA_REST) - 1.;
     
     for (int i = 0; i < size; i++)
     {
-        // lambda[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(median_lambda / lambda[i]));
-        v_array[i] = SPEED_OF_LIGHT * log(lambda[i] / median_lambda);
+        v_array[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(median_lambda / lambda[i]));
+        // v_array[i] = SPEED_OF_LIGHT * log(lambda[i] / median_lambda);
     }
 
     if (!check_linearly_spaced(v_array, size))
