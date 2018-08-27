@@ -6,23 +6,25 @@ NumberOfLog10Bins 14
 LinearKBinWidth 4E-4
 Log10KBinWidth 0.1
 
+FirstRedshiftBinCenter 1.9
+RedshiftBinWidth 0.2
+NumberOfRedshiftBins 6
+
 PolynomialDegree 2
 
 FileNameList /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks/qso_list.txt
 FileInputDir /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks
 
 OutputDir /Users/nk452/repos/data/Quadratic_test
-OutputFileBase simpleps_10mocks_10it
+OutputFileBase simpleps_10it
+
+FileNameRList     /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks/mock_specres_list.txt
+NumberVPoints     1500
+NumberZPoints     200
+PixelWidth        4.0
+VelocityLength    10000.
+
+SignalLookUpTableBase        signal_lookup
+DerivativeSLookUpTableBase   derivative_lookup
 
 NumberOfIterations 10
-
-# K0 0.001
-# K1 0.001
-# NumberOfBins 40
-# LinLog 1
-
-# K0 -3.8
-# K1 0.1
-# NumberOfBins 23
-# LinLog 10
-# SpectographRes 70.
