@@ -43,9 +43,12 @@ IOOBJECTS := $(patsubst %, %.o, $(basename $(IOSOURCES)))
 CPPFLAGS := -std=gnu++11 -Wall -pedantic -Wno-long-long $(GSL_INCL) $(OPT)
 LDLIBS := -lfftw3 -lgsl -lgslcblas $(GSL_LIBS)
 	
-all: LyaPowerEstimate
+all: LyaPowerEstimate CreateSQLookUpTable
 	
 LyaPowerEstimate: LyaPowerEstimate.o $(COREOBJECTS) $(GSLTOOLSOBJECTS) $(IOOBJECTS)
+	$(CXX) $(CPPFLAGS) $^ -o $@ $(LDLIBS)
+
+CreateSQLookUpTable: CreateSQLookUpTable.o $(COREOBJECTS) $(GSLTOOLSOBJECTS) $(IOOBJECTS)
 	$(CXX) $(CPPFLAGS) $^ -o $@ $(LDLIBS)
 
 
@@ -60,10 +63,12 @@ include $(GSLTOOLSDIR)/gsltools.make
 include $(IODIR)/io.make
 
 -include $(DEPDIR)/LyaPowerEstimate.d
+-include $(DEPDIR)/CreateSQLookUpTable.d
 
 clean:
 	$(RM) -r $(DEPDIR)
 	$(RM) $(addsuffix /*.o, $(COREDIR) $(GSLTOOLSDIR) $(IODIR))
 	$(RM) LyaPowerEstimate LyaPowerEstimate.o
+	$(RM) CreateSQLookUpTable CreateSQLookUpTable.o
 
 .PHONY: clean
