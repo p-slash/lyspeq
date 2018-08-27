@@ -32,7 +32,7 @@ public:
     QSOFile(const char *fname);
     ~QSOFile();
 
-    void readParameters(int &data_number, double &z, double &resolution, double &sig2noi, double &dv_kms);
+    void readParameters(int &data_number, double &z, int &resolution, double &sig2noi, double &dv_kms);
 
     void readData(double *lambda, double *flux, double *noise);
     
