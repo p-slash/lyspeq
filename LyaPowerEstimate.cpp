@@ -17,8 +17,11 @@ int main(int argc, char const *argv[])
          OUTPUT_FILEBASE[300],\
          buf[500];
 
-    int N_LIN_BIN, N_LOG_BIN, N_TOTAL_BINS, NUMBER_OF_ITERATIONS;
-    double K_0, LIN_K_SPACING, LOG_K_SPACING, *k_edges;
+    int N_KLIN_BIN, N_KLOG_BIN, N_KTOTAL_BINS, \
+        N_Z_BINS, NUMBER_OF_ITERATIONS;
+
+    double  K_0, LIN_K_SPACING, LOG_K_SPACING, *k_edges, \
+            Z_0, Z_BIN_WIDTH, *z_centers;
 
     OneDQuadraticPowerEstimate *qps;
 
@@ -28,19 +31,21 @@ int main(int argc, char const *argv[])
         ConfigFile cFile(FNAME_CONFIG);
 
         cFile.addKey("K0", &K_0, DOUBLE);
+        cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
 
         cFile.addKey("LinearKBinWidth", &LIN_K_SPACING, DOUBLE);
         cFile.addKey("Log10KBinWidth", &LOG_K_SPACING, DOUBLE);
+        cFile.addKey("RedshiftBinWidth", &Z_BIN_WIDTH, DOUBLE);
 
-        cFile.addKey("NumberOfLinearBins", &N_LIN_BIN, INTEGER);
-        cFile.addKey("NumberOfLog10Bins", &N_LOG_BIN, INTEGER);
-
-        // cFile.addKey("LinLog", &LINEAR_LOG, INTEGER);
+        cFile.addKey("NumberOfLinearBins", &N_KLIN_BIN, INTEGER);
+        cFile.addKey("NumberOfLog10Bins", &N_KLOG_BIN, INTEGER);
+        cFile.addKey("NumberOfRedshiftBins", &N_Z_BINS, INTEGER);
 
         cFile.addKey("PolynomialDegree", &POLYNOMIAL_FIT_DEGREE, INTEGER);
         
-        // cFile.addKey("SpectographRes", &R_SPECTOGRAPH, DOUBLE);
-        
+        // cFile.addKey("SignalLookUpTableBase", &FNAME_, STRING);
+        // cFile.addKey("DerivativeSLookUpTableBase", &FNAME_, STRING);
+
         cFile.addKey("FileNameList", FNAME_LIST, STRING);
         cFile.addKey("FileInputDir", INPUT_DIR, STRING);
 
@@ -52,40 +57,38 @@ int main(int argc, char const *argv[])
         cFile.readAll();
 
         // Construct k edges
-        N_TOTAL_BINS = N_LIN_BIN + N_LOG_BIN;
+        N_KTOTAL_BINS = N_KLIN_BIN + N_KLOG_BIN;
 
-        k_edges = new double[N_TOTAL_BINS + 1];
+        k_edges = new double[N_KTOTAL_BINS + 1];
 
-        for (int i = 0; i < N_LIN_BIN + 1; i++)
+        for (int i = 0; i < N_KLIN_BIN + 1; i++)
         {
             k_edges[i] = K_0 + LIN_K_SPACING * i;
         }
-        for (int i = 1, j = N_LIN_BIN + 1; i < N_LOG_BIN + 1; i++, j++)
+        for (int i = 1, j = N_KLIN_BIN + 1; i < N_KLOG_BIN + 1; i++, j++)
         {
-            k_edges[j] = k_edges[N_LIN_BIN] * pow(10., i * LOG_K_SPACING);
+            k_edges[j] = k_edges[N_KLIN_BIN] * pow(10., i * LOG_K_SPACING);
         }
 
-        // for (int i = 0; i < N_TOTAL_BINS + 1; i++)
-        // {
-        //     k_edges[i] = K_0 + K_1 * i;
+        // Construct redshift bins
+        z_centers = new double[N_Z_BINS];
 
-        //     if (LINEAR_LOG == 10)
-        //         k_edges[i] = pow(10., k_edges[i]);
-        // }
-        
-        // if (LINEAR_LOG == 10)
-        //     printf("Using log spaced k bands:\n");
-        // else
-        //     printf("Using linearly spaced k bands:\n");
-        
-        for (int i = 0; i < N_TOTAL_BINS + 1; ++i)
+        for (int zm = 0; zm < N_Z_BINS; ++zm)
+        {
+            z_centers[zm] = Z_0 + Z_BIN_WIDTH * zm;
+        }
+
+        for (int i = 0; i < N_KTOTAL_BINS + 1; ++i)
         {
             printf("%le ", k_edges[i]);
         }
         printf("\n");
+
         gsl_set_error_handler_off();
 
-        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR, N_TOTAL_BINS, k_edges);
+        qps = new OneDQuadraticPowerEstimate(   FNAME_LIST, INPUT_DIR, \
+                                                N_KTOTAL_BINS, k_edges, \
+                                                N_Z_BINS, z_centers);
 
         // qps->setInitialScaling();
         // qps->setInitialPSestimateFFT();
@@ -94,8 +97,8 @@ int main(int argc, char const *argv[])
 
         qps->iterate(NUMBER_OF_ITERATIONS);
 
-        sprintf(buf, "%s/%s_qso_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
-        qps->write_spectrum_estimate(buf);
+        sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
+        qps->write_spectrum_estimates(buf);
 
         delete qps;
     }
@@ -108,8 +111,8 @@ int main(int argc, char const *argv[])
     {
         if (qps != NULL)
         {
-            sprintf(buf, "%s/%s_qso_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
-            qps->write_spectrum_estimate(buf);
+            sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
+            qps->write_spectrum_estimates(buf);
 
             delete qps;
         }
