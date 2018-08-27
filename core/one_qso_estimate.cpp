@@ -19,32 +19,10 @@
 
 #define ADDED_CONST_TO_C 10.0
 #define PI 3.14159265359
+#define LYA_REST 1215.67
+#define SPEED_OF_LIGHT 299792.458
 
-// Internal functions and variables
-//------------------------------
-double q_matrix_integrand(double k, void *params)
-{
-    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
-    double result = spectral_response_window_fn(k, params);
-
-    result *= result * cos(k * wp->delta_v_ij) / PI;
-
-    return result;
-}
-
-double signal_matrix_integrand(double k, void *params)
-{
-    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
-    double result = spectral_response_window_fn(k, params);
-
-    result *= debuggin_power_spectrum(k, wp->pixel_width) * result * cos(k * wp->delta_v_ij) / PI;
-
-    return result;
-}
-//------------------------------
-// End of internal functions and variables
-
-OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
+OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k, const double *zc)
 {
     NUMBER_OF_BANDS = n;
     kband_edges     = k;
@@ -53,8 +31,10 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
     QSOFile qFile(fname_qso);
 
     double dummy_qso_z, dummy_s2n;
+    int dummy_r;
 
-    qFile.readParameters(DATA_SIZE, dummy_qso_z, spect_res, dummy_s2n, dv_kms);
+    qFile.readParameters(DATA_SIZE, dummy_qso_z, dummy_r, dummy_s2n, DV_KMS);
+    SPECT_RES = SPEED_OF_LIGHT / dummy_r;
     
     lambda_array    = new double[DATA_SIZE];
     velocity_array  = new double[DATA_SIZE];
@@ -65,10 +45,15 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k)
 
     convert_flux2deltaf(flux_array, DATA_SIZE);
 
-    convert_lambda2v(median_redshift, velocity_array, lambda_array, DATA_SIZE);
+    convert_lambda2v(MEAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
+
+    double delta_z  = zc[1] - zc[0];
+    ZBIN            = (MEAN_REDSHIFT - (zc[0] - delta_z/2.)) / delta_z;
+    BIN_REDSHIFT    = zc[ZBIN];
+
+    printf("Mean redshift of spectrum chunk: %.2f\n", MEAN_REDSHIFT);
 
     /* Allocate memory */
-
     ps_before_fisher_estimate_vector = gsl_vector_alloc(NUMBER_OF_BANDS);
 
     fisher_matrix             = gsl_matrix_alloc(NUMBER_OF_BANDS, NUMBER_OF_BANDS);
@@ -116,12 +101,12 @@ OneQSOEstimate::~OneQSOEstimate()
 
 void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices()
 {
-    struct spectrograph_windowfn_params win_params = {0, dv_kms, spect_res};
+    struct spectrograph_windowfn_params win_params = {0, 0, DV_KMS, SPECT_RES};
 
     Integrator s_integrator(GSL_QAG, signal_matrix_integrand, &win_params);
     Integrator q_integrator(GSL_QAG, q_matrix_integrand, &win_params);
 
-    int sq_array_size = (velocity_array[DATA_SIZE-1] - velocity_array[0]) / dv_kms + 1, temp_index;
+    int sq_array_size = (velocity_array[DATA_SIZE-1] - velocity_array[0]) / DV_KMS + 1, temp_index;
     double *s_ij_array = new double[sq_array_size];
     double *q_ij_array = new double[sq_array_size];
 
@@ -132,7 +117,8 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices()
     // Also set kn=0 for Q
     for (int i = 0; i < sq_array_size; i++)
     {
-        win_params.delta_v_ij = i * dv_kms;
+        win_params.delta_v_ij = i * DV_KMS;
+        win_params.z_ij       = lambda_array[i] / LYA_REST - 1.;
 
         s_ij_array[i] = s_integrator.evaluateAToInfty(0);
         q_ij_array[i] = q_integrator.evaluate(kvalue_1, kvalue_2);
@@ -148,7 +134,7 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices()
 
         for (int j = i + 1; j < DATA_SIZE; j++)
         {
-            temp_index = int((velocity_array[j] - velocity_array[i]) / dv_kms + 0.5);
+            temp_index = int((velocity_array[j] - velocity_array[i]) / DV_KMS + 0.5);
 
             temp = s_ij_array[temp_index];
             gsl_matrix_set(fiducial_signal_matrix, i, j, temp);
@@ -168,7 +154,8 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices()
 
         for (int i = 0; i < sq_array_size; i++)
         {
-            win_params.delta_v_ij = i * dv_kms;
+            win_params.delta_v_ij = i * DV_KMS;
+            win_params.z_ij       = lambda_array[i] / LYA_REST - 1.;
 
             q_ij_array[i] = q_integrator.evaluate(kvalue_1, kvalue_2);
         }
@@ -180,7 +167,7 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices()
 
             for (int j = i + 1; j < DATA_SIZE; j++)
             {
-                temp_index = int((velocity_array[j] - velocity_array[i]) / dv_kms + 0.5);
+                temp_index = int((velocity_array[j] - velocity_array[i]) / DV_KMS + 0.5);
                 temp = q_ij_array[temp_index];
                 
                 gsl_matrix_set(derivative_of_signal_matrices[kn], i, j, temp);
@@ -193,7 +180,7 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices()
     delete [] s_ij_array;
 }
 
-void OneQSOEstimate::computeCSMatrices(const double *ps_estimate)
+void OneQSOEstimate::computeCSMatrices(gsl_vector * const *ps_estimate)
 {
     // printf("Theta: %.3e\n", ps_estimate[0]);
     gsl_matrix_memcpy(covariance_matrix, fiducial_signal_matrix);
@@ -203,7 +190,7 @@ void OneQSOEstimate::computeCSMatrices(const double *ps_estimate)
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
         gsl_matrix_memcpy(temp_matrix, derivative_of_signal_matrices[kn]);
-        gsl_matrix_scale(temp_matrix, ps_estimate[kn]);
+        gsl_matrix_scale(temp_matrix, ps_estimate[ZBIN]->data[kn]);
 
         gsl_matrix_add(covariance_matrix, temp_matrix);
     }
@@ -345,7 +332,7 @@ void OneQSOEstimate::computeFisherMatrix()
     // printf("Fisher: %.3e\n", gsl_matrix_get(fisher_matrix, 0, 0));
 }
 
-void OneQSOEstimate::oneQSOiteration(const double *ps_estimate)
+void OneQSOEstimate::oneQSOiteration(gsl_vector * const *ps_estimate, gsl_vector **pmn_before, gsl_matrix **fisher_sum)
 {
     if (!areSQMatricesSet)
     {
@@ -360,17 +347,27 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate)
 
     computePSbeforeFvector();
     computeFisherMatrix();
+
+    gsl_matrix_add(fisher_sum[ZBIN], fisher_matrix);
+    gsl_vector_add(pmn_before[ZBIN], ps_before_fisher_estimate_vector);
+}
+
+double OneQSOEstimate::getFiducialPowerSpectrumValue(double k)
+{
+    struct spectrograph_windowfn_params win_params = {0, BIN_REDSHIFT, DV_KMS, SPECT_RES};
+
+    return fiducial_power_spectrum(k, BIN_REDSHIFT, &win_params);
 }
 
 void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
 {
-    double length_v = dv_kms * DATA_SIZE;
+    double length_v = DV_KMS * DATA_SIZE;
 
     RealField1D rf(flux_array, DATA_SIZE, length_v);
     
     rf.fftX2K();
 
-    struct spectrograph_windowfn_params win_params = {0, dv_kms, spect_res};
+    struct spectrograph_windowfn_params win_params = {0, DV_KMS, SPECT_RES};
     
     // rf.deconvolve(spectral_response_window_fn, &win_params);
 

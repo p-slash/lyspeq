@@ -17,7 +17,8 @@ class OneQSOEstimate
         NUMBER_OF_BANDS;
 
     const double *kband_edges;
-    double median_redshift, spect_res, dv_kms;
+    double  MEAN_REDSHIFT, BIN_REDSHIFT, \
+            SPECT_RES, DV_KMS;
     
     /* DATA_SIZE sized vectors */ 
     double *lambda_array, \
@@ -40,26 +41,30 @@ class OneQSOEstimate
     bool isCovInverted, areSQMatricesSet;
 
 public:
+    int ZBIN;
+
     /* NUMBER_OF_BANDS sized vector */ 
     gsl_vector  *ps_before_fisher_estimate_vector;
 
     /* NUMBER_OF_BANDS x NUMBER_OF_BANDS sized matrices */
     gsl_matrix  *fisher_matrix;
 
-    OneQSOEstimate(const char *fname_qso, int n, const double *k);
+    OneQSOEstimate(const char *fname_qso, int n, const double *k, const double *zc);
     ~OneQSOEstimate();
+
+    double getFiducialPowerSpectrumValue(double k);
 
     void getFFTEstimate(double *ps, int *bincount);
 
     void setFiducialSignalAndDerivativeSMatrices();
-    void computeCSMatrices(const double *ps_estimate);
+    void computeCSMatrices(gsl_vector * const *ps_estimate);
     void invertCovarianceMatrix();
     void computeModifiedDSMatrices();
 
     void computePSbeforeFvector();
     void computeFisherMatrix();
 
-    void oneQSOiteration(const double *ps_estimate);
+    void oneQSOiteration(gsl_vector * const *ps_estimate, gsl_vector **pmn_before, gsl_matrix **fisher_sum);
 };
 
 #endif
