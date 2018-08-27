@@ -1,7 +1,34 @@
 #include "fiducial_cosmology.hpp"
+#include "spectrograph_functions.hpp"
 
 #include <cmath>
 #define PI 3.14159265359
+
+double fiducial_power_spectrum(double k, double z, void *params)
+{
+    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
+    return debuggin_power_spectrum(k, wp->pixel_width);
+}
+
+double signal_matrix_integrand(double k, void *params)
+{
+    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
+    double result = spectral_response_window_fn(k, params);
+
+    result *= fiducial_power_spectrum(k, wp->z_ij, params) * result * cos(k * wp->delta_v_ij) / PI;
+
+    return result;
+}
+
+double q_matrix_integrand(double k, void *params)
+{
+    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
+    double result = spectral_response_window_fn(k, params);
+
+    result *= result * cos(k * wp->delta_v_ij) / PI;
+
+    return result;
+}
 
 double debuggin_power_spectrum(double k, double dv)
 {
