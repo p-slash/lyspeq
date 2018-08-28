@@ -69,6 +69,6 @@ These lookup tables are saved with the follwoing file name bases to `FileInputDi
     DerivativeSLookUpTableBase   derivative_lookup
 
 # Quasar Spectrum File
-Quasar spectrum file is in binary format. It starts with a header (see io/qso_file.hpp), then has 
-wavelength, flux and noise in double arrays.
+Quasar spectrum file is in binary format. It starts with a header (see [ QSOFile ](io/qso_file.hpp)), 
+then has wavelength, flux and noise in double arrays.
 
