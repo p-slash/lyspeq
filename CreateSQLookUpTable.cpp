@@ -147,15 +147,12 @@ int main(int argc, char const *argv[])
                 int nv = xy / Nv;
                 int nz = xy % Nv;
 
-                double v_ij = LENGTH_V * nv / (double) Nv;
-                double z_ij = z_first + z_length * nz / (double) Nz;
-
-                win_params.delta_v_ij = v_ij;
-                win_params.z_ij       = z_ij;
+                win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv);        // LENGTH_V * nv / (Nv - 1.);
+                win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz);  // z_first + z_length * nz / (double) Nz;
 
                 big_temp_array[xy] = s_integrator.evaluateAToInfty(0);
             }
-            sprintf(buf, "%s/%s_R%d.dat", OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
+            STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
 
             SQLookupTable signal_table(buf, 'w');
             signal_table.setHeader(Nv, Nz, R_VALUES[r], PIXEL_WIDTH, z_centers[N_Z_BINS/2], 0, k_edges[N_KTOTAL_BINS]);
@@ -192,9 +189,7 @@ int main(int argc, char const *argv[])
                     // xy = nz + Nv * nv
                     int nv = xy / Nv;
 
-                    double v_ij = LENGTH_V * nv / (double) Nv;
-
-                    win_params.delta_v_ij = v_ij;
+                    win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv);
 
                     big_temp_array[xy] = q_integrator.evaluate(kvalue_1, kvalue_2);
                 }
@@ -208,12 +203,13 @@ int main(int argc, char const *argv[])
                         // xy = nz + Nv * nv
                         int nz = xy % Nv;
 
-                        double z_ij = (z_centers[zm] - Z_BIN_WIDTH/2.) + Z_BIN_WIDTH * nz / (double) subNz;
+                        double z_ij = getLinearlySpacedValue(z_centers[zm] - Z_BIN_WIDTH/2., Z_BIN_WIDTH, subNz, nz); 
+                        // (z_centers[zm] - Z_BIN_WIDTH/2.) + Z_BIN_WIDTH * nz / (double) subNz;
 
                         temp_array_zscaled[xy] = triangular_z_bin(z_ij, z_centers[zm], Z_BIN_WIDTH) * big_temp_array[xy];
                     }
 
-                    sprintf(buf, "%s/%s_R%d_k%.1e_%.1e_z%.1f.dat", OUTPUT_DIR, OUTPUT_FILEBASE_Q, R_VALUES[r], kvalue_1, kvalue_2, z_centers[zm]);
+                    QTableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_Q, R_VALUES[r], kvalue_1, kvalue_2, z_centers[zm]);
 
                     SQLookupTable derivative_signal_table(buf, 'w');
                     derivative_signal_table.setHeader(Nv, subNz, R_VALUES[r], PIXEL_WIDTH, z_centers[zm], kvalue_1, kvalue_2);
