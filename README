@@ -5,20 +5,16 @@
 
 # Overview of Programs
 
-**LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum 
-in the line-of-sight. It maximizes likelihood using Newton-Raphson method.
+**LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method.
 
 **CreateSQLookUpTable** creates look up tables for signal and derivative matrices used in LyaPowerEstimate.
 
 Both programs take one common config file.
 
 # Config File
-Config file has one file list for qso spectra. This txt file should start with number of qso and 
-then have relative file paths.
+Config file has one file list for qso spectra. This txt file should start with number of qso and then have relative file paths.
 
-Bin edges for k start with linear spacing: `K0 + LinearKBinWidth * n`, where `n =[0, NumberOfLinearBins]`.
-Then continues with log spacing: `K_edgde[NumberOfLinearBins] * 10^(Log10KBinWidth * n)`
-Parameters for k binning are:
+Bin edges for k start with linear spacing: `K0 + LinearKBinWidth * n`, where `n =[0, NumberOfLinearBins]`. Then continues with log spacing: `K_edgde[NumberOfLinearBins] * 10^(Log10KBinWidth * n)`. Parameters for k binning are:
 
     K0 1E-4
 
@@ -69,6 +65,5 @@ These lookup tables are saved with the follwoing file name bases to `FileInputDi
     DerivativeSLookUpTableBase     derivative_lookup
 
 # Quasar Spectrum File
-Quasar spectrum file is in binary format. It starts with a header (see [QSOFile](io/qso_file.hpp)), 
-then has wavelength, flux and noise in double arrays.
+Quasar spectrum file is in binary format. It starts with a header (see [QSOFile](io/qso_file.hpp)), then has wavelength, flux and noise in double arrays.
 
