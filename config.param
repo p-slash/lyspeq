@@ -19,10 +19,10 @@ OutputDir /Users/nk452/repos/data/Quadratic_test
 OutputFileBase simpleps_10it
 
 FileNameRList     /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks/mock_specres_list.txt
-NumberVPoints     1500
+NumberVPoints     200
 NumberZPoints     200
 PixelWidth        4.0
-VelocityLength    10000.
+VelocityLength    1000.
 
 SignalLookUpTableBase        signal_lookup
 DerivativeSLookUpTableBase   derivative_lookup
