@@ -4,6 +4,8 @@
 
 #include "core/quadratic_estimate.hpp"
 #include "core/spectrograph_functions.hpp"
+#include "core/sq_table.hpp"
+
 #include "io/config_file.hpp"
 #include "io/io_helper_functions.hpp"
 
@@ -12,7 +14,9 @@ int main(int argc, char const *argv[])
     const char *FNAME_CONFIG = argv[1];
     
     char FNAME_LIST[300], \
+         FNAME_RLIST[300], \
          INPUT_DIR[300], \
+         FILEBASE_S[300], FILEBASE_Q[300], \
          OUTPUT_DIR[300], \
          OUTPUT_FILEBASE[300],\
          buf[500];
@@ -41,12 +45,13 @@ int main(int argc, char const *argv[])
         cFile.addKey("NumberOfLog10Bins", &N_KLOG_BIN, INTEGER);
         cFile.addKey("NumberOfRedshiftBins", &N_Z_BINS, INTEGER);
 
-        cFile.addKey("PolynomialDegree", &POLYNOMIAL_FIT_DEGREE, INTEGER);
+        // cFile.addKey("PolynomialDegree", &POLYNOMIAL_FIT_DEGREE, INTEGER);
         
-        // cFile.addKey("SignalLookUpTableBase", &FNAME_, STRING);
-        // cFile.addKey("DerivativeSLookUpTableBase", &FNAME_, STRING);
+        cFile.addKey("SignalLookUpTableBase", FILEBASE_S, STRING);
+        cFile.addKey("DerivativeSLookUpTableBase", FILEBASE_Q, STRING);
 
         cFile.addKey("FileNameList", FNAME_LIST, STRING);
+        cFile.addKey("FileNameRList", FNAME_RLIST, STRING);
         cFile.addKey("FileInputDir", INPUT_DIR, STRING);
 
         cFile.addKey("OutputDir", OUTPUT_DIR, STRING);
@@ -83,6 +88,10 @@ int main(int argc, char const *argv[])
             printf("%le ", k_edges[i]);
         }
         printf("\n");
+
+
+        SQLookupTable sq_Table( INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST, \
+                                k_edges, N_KTOTAL_BINS, z_centers, N_Z_BINS);
 
         gsl_set_error_handler_off();
 
