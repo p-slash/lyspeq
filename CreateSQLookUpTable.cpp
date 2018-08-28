@@ -1,3 +1,5 @@
+/* Q matrices are not scaled with redshift binning function
+ */
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -9,23 +11,9 @@
 
 #include "io/config_file.hpp"
 #include "io/io_helper_functions.hpp"
-#include "io/sq_lookup_table.hpp"
+#include "io/sq_lookup_table_file.hpp"
 
 #define SPEED_OF_LIGHT 299792.458
-
-double triangular_z_bin(double z, double zm, double deltaz)
-{
-    if (zm - deltaz < z && z < zm)
-    {
-        return (z - zm + deltaz) / deltaz;
-    }
-    else if (zm < z && z < zm + deltaz)
-    {
-        return (zm + deltaz - z) / deltaz;
-    }
-
-    return 0;
-}
 
 int main(int argc, char const *argv[])
 {
@@ -102,6 +90,8 @@ int main(int argc, char const *argv[])
             printf("%le ", k_edges[i]);
         }
         printf("\n");
+        // Redshift and wavenumber bins are constructed
+        // ---------------------
 
         // gsl_set_error_handler_off();
 
@@ -119,8 +109,8 @@ int main(int argc, char const *argv[])
         }
 
         fclose(toRead);
-
-        
+        // Reading R values done
+        // ---------------------
 
         // Integrate signal matrix
         printf("Creating look up table for signal matrix...\n");
@@ -154,22 +144,28 @@ int main(int argc, char const *argv[])
             }
             STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
 
-            SQLookupTable signal_table(buf, 'w');
-            signal_table.setHeader(Nv, Nz, R_VALUES[r], PIXEL_WIDTH, z_centers[N_Z_BINS/2], 0, k_edges[N_KTOTAL_BINS]);
+            SQLookupTableFile signal_table(buf, 'w');
+
+            signal_table.setHeader( Nv, Nz, LENGTH_V, z_length, \
+                                    R_VALUES[r], PIXEL_WIDTH, \
+                                    0, k_edges[N_KTOTAL_BINS]);
+
             signal_table.writeData(big_temp_array);
         }
 
         delete [] big_temp_array;
+        // S matrices are written.
+        // ---------------------
 
         // Integrate derivative matrices
         printf("Creating look up table for derivative signal matrices...\n");
         fflush(stdout);
 
-        int subNz = Nz / N_Z_BINS;
+        // int subNz = Nz / N_Z_BINS;
         Integrator q_integrator(GSL_QAG, q_matrix_integrand, &win_params);
 
-        big_temp_array = new double[Nv * subNz];
-        double *temp_array_zscaled = new double[Nv * subNz];
+        big_temp_array = new double[Nv];
+        // double *temp_array_zscaled = new double[Nv * subNz];
         double kvalue_1, kvalue_2;
 
         for (int r = 0; r < NUMBER_OF_Rs; ++r)
@@ -184,42 +180,54 @@ int main(int argc, char const *argv[])
 
                 printf("Q matrix for k = [%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
 
-                for (int xy = 0; xy < Nv*subNz; ++xy)
+                for (int nv = 0; nv < Nv; ++nv)
                 {
-                    // xy = nz + Nv * nv
-                    int nv = xy / Nv;
-
                     win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv);
 
-                    big_temp_array[xy] = q_integrator.evaluate(kvalue_1, kvalue_2);
+                    big_temp_array[nv] = q_integrator.evaluate(kvalue_1, kvalue_2);
                 }
 
-                for (int zm = 0; zm < N_Z_BINS; ++zm)
-                {
-                    printf("Q matrix for k = [%.1e - %.1e] s/km. Now scaling for triangular redshift bin %.1f.\n", kvalue_1, kvalue_2, z_centers[zm]);
+                QTableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_Q, R_VALUES[r], kvalue_1, kvalue_2);
+
+                SQLookupTableFile derivative_signal_table(buf, 'w');
+
+                derivative_signal_table.setHeader(  Nv, 0, LENGTH_V, Z_BIN_WIDTH, \
+                                                    R_VALUES[r], PIXEL_WIDTH, \
+                                                    kvalue_1, kvalue_2);
+                
+                derivative_signal_table.writeData(big_temp_array);
+
+                // for (int zm = 0; zm < N_Z_BINS; ++zm)
+                // {
+                //     printf("Q matrix for k = [%.1e - %.1e] s/km. Now scaling for triangular redshift bin %.1f.\n", kvalue_1, kvalue_2, z_centers[zm]);
                     
-                    for (int xy = 0; xy < Nv*subNz; ++xy)
-                    {
-                        // xy = nz + Nv * nv
-                        int nz = xy % Nv;
+                //     for (int xy = 0; xy < Nv*subNz; ++xy)
+                //     {
+                //         // xy = nz + Nv * nv
+                //         int nz = xy % Nv;
 
-                        double z_ij = getLinearlySpacedValue(z_centers[zm] - Z_BIN_WIDTH/2., Z_BIN_WIDTH, subNz, nz); 
-                        // (z_centers[zm] - Z_BIN_WIDTH/2.) + Z_BIN_WIDTH * nz / (double) subNz;
+                //         double z_ij = getLinearlySpacedValue(z_centers[zm] - Z_BIN_WIDTH/2., Z_BIN_WIDTH, subNz, nz); 
+                //         // (z_centers[zm] - Z_BIN_WIDTH/2.) + Z_BIN_WIDTH * nz / (double) subNz;
 
-                        temp_array_zscaled[xy] = triangular_z_bin(z_ij, z_centers[zm], Z_BIN_WIDTH) * big_temp_array[xy];
-                    }
+                //         temp_array_zscaled[xy] = triangular_z_bin(z_ij, z_centers[zm], Z_BIN_WIDTH) * big_temp_array[xy];
+                //     }
 
-                    QTableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_Q, R_VALUES[r], kvalue_1, kvalue_2, z_centers[zm]);
+                //     QTableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_Q, R_VALUES[r], kvalue_1, kvalue_2, z_centers[zm]);
 
-                    SQLookupTable derivative_signal_table(buf, 'w');
-                    derivative_signal_table.setHeader(Nv, subNz, R_VALUES[r], PIXEL_WIDTH, z_centers[zm], kvalue_1, kvalue_2);
-                    derivative_signal_table.writeData(temp_array_zscaled);
-                }
+                //     SQLookupTableFile derivative_signal_table(buf, 'w');
+
+                //     derivative_signal_table.setHeader(  Nv, subNz, LENGTH_V, Z_BIN_WIDTH, \
+                //                                         R_VALUES[r], PIXEL_WIDTH, \
+                //                                         z_centers[zm], kvalue_1, kvalue_2);
+                    
+                //     derivative_signal_table.writeData(temp_array_zscaled);
+                // }
             }
         }
+        // Q matrices are written.
+        // ---------------------
 
         delete [] big_temp_array;
-        delete [] temp_array_zscaled;
         delete [] k_edges;
         delete [] z_centers;
        
