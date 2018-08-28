@@ -1,3 +1,7 @@
+/* This file object reads and writes evaluated S and Q matrices in a standard file format.
+ * spectrograph_resolution, pixel_width and k values can be used to check consistency.
+ */
+
 #ifndef SQ_LOOKUP_TABLE_FILE_H
 #define SQ_LOOKUP_TABLE_FILE_H
 

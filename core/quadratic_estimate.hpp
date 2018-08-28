@@ -1,7 +1,7 @@
 /* This umbrella class manages the quadratic estimator by 
  *          storing the total Fisher matrix,
  *          computing the power spectrum estimate,
- *          and fitting a smooth function to the power spectrum estimate.
+ *          and fitting a smooth function to the power spectrum estimate (now removed).
  * It reads a file which should start with number of quasars followed by a list of quasar files.
  */
 
