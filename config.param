@@ -1,3 +1,7 @@
+# Bin edges for k start with linear spacing: K0 + LinearKBinWidth * n, where n =[0, NumberOfLinearBins].
+# Then continues with log spacing: K_edgde[NumberOfLinearBins] * 10^(Log10KBinWidth * n) 
+# Parameters for k binning are:
+
 K0 0.
 
 NumberOfLinearBins 3
@@ -6,25 +10,35 @@ NumberOfLog10Bins 14
 LinearKBinWidth 4E-4
 Log10KBinWidth 0.1
 
+# Redshift bins are linearly spaced.
+
 FirstRedshiftBinCenter 1.9
 RedshiftBinWidth 0.2
 NumberOfRedshiftBins 6
 
-PolynomialDegree 2
+# If the power spectrum is fitted with a smooth polynomial of ln k, its degree is
+# PolynomialDegree 2
 
+# The location of the file list, and the directory where those files live:
 FileNameList /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks/qso_list.txt
 FileInputDir /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks
 
+# The directory for output files and file name base:
 OutputDir /Users/nk452/repos/data/Quadratic_test
 OutputFileBase simpleps_10it
 
+# List of spectograph resolutions (R) is in FileNameRList. This file starts with number of Rs.
 FileNameRList     /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks/mock_specres_list.txt
+
+# Lookup tables are generated with the following parameters:
 NumberVPoints     200
 NumberZPoints     200
 PixelWidth        4.0
 VelocityLength    1000.
 
+# These lookup tables are saved with the follwoing file name bases to FileInputDir:
 SignalLookUpTableBase        signal_lookup
 DerivativeSLookUpTableBase   derivative_lookup
 
+# The maximum number of iterations are
 NumberOfIterations 10
