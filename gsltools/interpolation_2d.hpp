@@ -6,10 +6,10 @@
  * as[perp + size_perpendicular * para] then perp is x
  */
 
-#include <gsl/gsl_spline2d.h>
-
 #ifndef INTERPOLATION_2D_H
 #define INTERPOLATION_2D_H
+
+#include <gsl/gsl_spline2d.h>
 
 class Interpolation2D
 {
