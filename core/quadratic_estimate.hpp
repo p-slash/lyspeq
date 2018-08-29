@@ -9,6 +9,7 @@
 #define QUADRATIC_ESTIMATE_H
 
 #include "one_qso_estimate.hpp"
+#include "sq_table.hpp"
 // #include "../gsltools/ln_poly_fit.hpp"
 
 extern int POLYNOMIAL_FIT_DEGREE;
@@ -24,6 +25,7 @@ class OneDQuadraticPowerEstimate
     double *K_CENTERS;
 
     OneQSOEstimate **qso_estimators;
+    const SQLookupTable *sq_lookup_table;
 
     /* NUMBER_OF_Z_BINS many NUMBER_OF_BANDS sized vector */ 
     gsl_vector  **pmn_before_fisher_estimate_vector_sum, \
@@ -44,7 +46,8 @@ class OneDQuadraticPowerEstimate
 public:
     OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
                                 int no_bands, const double *k_edges, \
-                                int no_z_bins, const double *z_centers);
+                                int no_z_bins, const double *z_centers, \
+                                const SQLookupTable *table);
 
     ~OneDQuadraticPowerEstimate();
     

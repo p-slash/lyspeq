@@ -19,12 +19,14 @@ int POLYNOMIAL_FIT_DEGREE;
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
                                                         int no_bands, const double *k_edges, \
-                                                        int no_z_bins, const double *z_centers)
+                                                        int no_z_bins, const double *z_centers, \
+                                                        const SQLookupTable *table)
 {
     NUMBER_OF_BANDS = no_bands;
     KBAND_EDGES     = k_edges;
     K_CENTERS       = new double[NUMBER_OF_BANDS];
-
+    sq_lookup_table = table;
+    
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
         K_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
@@ -160,12 +162,14 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
         for (int q = 0; q < NUMBER_OF_QSOS; q++)
         {
             // qso_estimators[q]->oneQSOiteration(fit_to_pmn->fitted_values);
-            qso_estimators[q]->oneQSOiteration(pmn_estimate_vector, pmn_before_fisher_estimate_vector_sum, fisher_matrix_sum);
+            qso_estimators[q]->oneQSOiteration( pmn_estimate_vector, \
+                                                sq_lookup_table, \
+                                                pmn_before_fisher_estimate_vector_sum, fisher_matrix_sum);
 
             // gsl_matrix_add(fisher_matrix_sum, qso_estimators[q]->fisher_matrix);
             // gsl_vector_add(pmn_before_fisher_estimate_vector_sum, qso_estimators[q]->pmn_before_fisher_estimate_vector);
         }
-
+        // printf_matrix(fisher_matrix_sum[qso_estimators[0]->ZBIN], NUMBER_OF_BANDS);
         // Invert for all z bins
         invertTotalFisherMatrices();
         computePowerSpectrumEstimates();
