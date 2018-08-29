@@ -10,15 +10,17 @@
 #define ONE_QSO_ESTIMATE_H
 
 #include <gsl/gsl_matrix.h> 
+#include "sq_table.hpp"
 
 class OneQSOEstimate
 {
     int DATA_SIZE, \
-        NUMBER_OF_BANDS;
+        NUMBER_OF_BANDS, \
+        SPECT_RES;
 
     const double *kband_edges;
     double  MEAN_REDSHIFT, BIN_REDSHIFT, \
-            SPECT_RES, DV_KMS;
+            DV_KMS;
     
     /* DATA_SIZE sized vectors */ 
     double *lambda_array, \
@@ -38,7 +40,10 @@ class OneQSOEstimate
     gsl_matrix  **derivative_of_signal_matrices, \
                 **modified_derivative_of_signal_matrices;
 
-    bool isCovInverted, areSQMatricesSet;
+    bool isCovInverted;
+
+    void allocateMatrices();
+    void freeMatrices();
 
 public:
     int ZBIN;
@@ -56,7 +61,7 @@ public:
 
     void getFFTEstimate(double *ps, int *bincount);
 
-    void setFiducialSignalAndDerivativeSMatrices();
+    void setFiducialSignalAndDerivativeSMatrices(const SQLookupTable *sq_lookup_table);
     void computeCSMatrices(gsl_vector * const *ps_estimate);
     void invertCovarianceMatrix();
     void computeModifiedDSMatrices();
@@ -64,7 +69,9 @@ public:
     void computePSbeforeFvector();
     void computeFisherMatrix();
 
-    void oneQSOiteration(gsl_vector * const *ps_estimate, gsl_vector **pmn_before, gsl_matrix **fisher_sum);
+    void oneQSOiteration(   gsl_vector * const *ps_estimate, \
+                            const SQLookupTable *sq_lookup_table, \
+                            gsl_vector **pmn_before, gsl_matrix **fisher_sum);
 };
 
 #endif
