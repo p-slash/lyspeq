@@ -14,7 +14,7 @@ Both programs take one common config file.
 # Config File
 Config file has one file list for qso spectra. This txt file should start with number of qso and then have relative file paths.
 
-Bin edges for k start with linear spacing: `K0 + LinearKBinWidth * n`, where `n =[0, NumberOfLinearBins]`. Then continues with log spacing: `K_edgde[NumberOfLinearBins] * 10^(Log10KBinWidth * n)`. Parameters for k binning are:
+Bin edges for k start with linear spacing: `K0 + LinearKBinWidth * n`, where `n=[0, NumberOfLinearBins]`. Then continues with log spacing: `K_Edges[NumberOfLinearBins] * 10^(Log10KBinWidth * n)`. Parameters for k binning are:
 
     K0 1E-4
 
