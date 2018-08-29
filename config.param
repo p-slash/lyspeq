@@ -31,10 +31,10 @@ OutputFileBase simpleps_10it
 FileNameRList     /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks/mock_specres_list.txt
 
 # Lookup tables are generated with the following parameters:
-NumberVPoints     200
-NumberZPoints     200
-PixelWidth        4.0
-VelocityLength    1000.
+NumberVPoints     700
+NumberZPoints     100
+PixelWidth        128.0
+VelocityLength    34000.0
 
 # These lookup tables are saved with the follwoing file name bases to FileInputDir:
 SignalLookUpTableBase        signal_lookup
