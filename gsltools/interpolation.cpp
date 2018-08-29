@@ -50,6 +50,7 @@ double Interpolation::evaluate(double x) const
 
 	if (x < lowest_x)
 	{
+		printf("WARNING: Extrapolating 1D interpolation for smaller x! x = %e < %e = lowest_x\n", x, lowest_x);
 		result = gsl_spline_eval(spline, lowest_x, accelerator);
 		result += (x - lowest_x) * gsl_spline_eval_deriv(spline, lowest_x, accelerator);
 
@@ -60,6 +61,7 @@ double Interpolation::evaluate(double x) const
 
 	if (x > highest_x)
 	{
+		printf("WARNING: Extrapolating 1D interpolation for larger x! x = %e > %e = highest_x\n", x, highest_x);
 		result = gsl_spline_eval(spline, highest_x, accelerator);
 		result += (x - highest_x) * gsl_spline_eval_deriv(spline, highest_x, accelerator);
 
