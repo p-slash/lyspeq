@@ -46,12 +46,10 @@ class SQLookupTable
     Interpolation2D **interp2d_signal_matrices;
     Interpolation   **interp_derivative_matrices;
 
-    int findSpecResIndex(int spec_res);
+    int getIndex4SignalMatrix(int nv, int nz, int r_index) const;
 
-    int getIndex4SignalMatrix(int nv, int nz, int r);
-
-    int getIndex4DerivativeInterpolation(int kn, int r);
-    int getIndex4DerivativeMatrix(int nv, int kn, int r);
+    int getIndex4DerivativeInterpolation(int kn, int r_index) const;
+    int getIndex4DerivativeMatrix(int nv, int kn, int r_index) const;
 
     void allocate();
     void readSQforR(int r_index, const char *dir, const char *s_base, const char *q_base);
@@ -62,8 +60,10 @@ public:
                     const double *z_centers, int nzbins);
     ~SQLookupTable();
     
-    double getSignalMatrixValue(double v_ij, double z_ij, int spec_res);
-    double getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int spec_res);
+    int findSpecResIndex(int spec_res) const;
+
+    double getSignalMatrixValue(double v_ij, double z_ij, int r_index) const;
+    double getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int r_index) const;
 };
 
 #endif
