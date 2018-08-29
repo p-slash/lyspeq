@@ -97,7 +97,8 @@ int main(int argc, char const *argv[])
 
         qps = new OneDQuadraticPowerEstimate(   FNAME_LIST, INPUT_DIR, \
                                                 N_KTOTAL_BINS, k_edges, \
-                                                N_Z_BINS, z_centers);
+                                                N_Z_BINS, z_centers, \
+                                                &sq_Table);
 
         // qps->setInitialScaling();
         // qps->setInitialPSestimateFFT();
