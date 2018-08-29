@@ -133,9 +133,9 @@ int main(int argc, char const *argv[])
 
             for (int xy = 0; xy < Nv*Nz; ++xy)
             {
-                // xy = nz + Nv * nv
-                int nv = xy / Nv;
-                int nz = xy % Nv;
+                // xy = nv + Nv * nz
+                int nz = xy / Nv;
+                int nv = xy % Nv;
 
                 win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv);        // LENGTH_V * nv / (Nv - 1.);
                 win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz);  // z_first + z_length * nz / (double) Nz;
