@@ -7,6 +7,8 @@
 
 double triangular_z_bin(double z, double zm, double deltaz)
 {
+    return 1;
+    
     if (zm - deltaz < z && z < zm)
     {
         return (z - zm + deltaz) / deltaz;
@@ -95,6 +97,7 @@ void SQLookupTable::allocate()
     for (int nv = 0; nv < N_V_POINTS; ++nv)
     {
         LINEAR_V_ARRAY[nv] = getLinearlySpacedValue(0, LENGTH_V, N_V_POINTS, nv);
+        printf("%.2e ", LINEAR_V_ARRAY[nv]);
     }
 
     // Allocate and set redshift array
@@ -109,7 +112,7 @@ void SQLookupTable::allocate()
 
     // Allocate signal and derivative arrays
     // index = nv + Nv * (nz + Nz * r)
-    signal_array   = new double[N_V_POINTS * N_Z_POINTS_OF_S * NUMBER_OF_R_VALUES];
+    signal_array     = new double[N_V_POINTS * N_Z_POINTS_OF_S * NUMBER_OF_R_VALUES];
 
     // index = nv + Nv * (r + Nr * kn)
     derivative_array = new double[N_V_POINTS * NUMBER_OF_R_VALUES * N_K_BINS];
@@ -169,37 +172,33 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
     }
 }
 
-double SQLookupTable::getSignalMatrixValue(double v_ij, double z_ij, int spec_res)
+double SQLookupTable::getSignalMatrixValue(double v_ij, double z_ij, int r_index) const 
 {
-    int r_index = findSpecResIndex(spec_res);
-
     return interp2d_signal_matrices[r_index]->evaluate(v_ij, z_ij);
 }
 
-double SQLookupTable::getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int spec_res)
+double SQLookupTable::getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int r_index) const
 {
-    int r_index = findSpecResIndex(spec_res);
-
     double v_result = interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)]->evaluate(v_ij);
     double z_result = triangular_z_bin(z_ij, ZBIN_CENTERS[zm], LENGTH_Z_OF_Q);
 
     return z_result * v_result;
 }
 
-int SQLookupTable::getIndex4SignalMatrix(int nv, int nz, int r)
+int SQLookupTable::getIndex4SignalMatrix(int nv, int nz, int r_index) const
 {
-    return nv + N_V_POINTS * (nz + N_Z_POINTS_OF_S * r);
+    return nv + N_V_POINTS * (nz + N_Z_POINTS_OF_S * r_index);
 }
-int SQLookupTable::getIndex4DerivativeInterpolation(int kn, int r)
+int SQLookupTable::getIndex4DerivativeInterpolation(int kn, int r_index) const
 {
-    return r + NUMBER_OF_R_VALUES * kn;
+    return r_index + NUMBER_OF_R_VALUES * kn;
 }
-int SQLookupTable::getIndex4DerivativeMatrix(int nv, int kn, int r)
+int SQLookupTable::getIndex4DerivativeMatrix(int nv, int kn, int r_index) const
 {
-    return nv + N_V_POINTS * getIndex4DerivativeInterpolation(kn, r);
+    return nv + N_V_POINTS * getIndex4DerivativeInterpolation(kn, r_index);
 }
 
-int SQLookupTable::findSpecResIndex(int spec_res)
+int SQLookupTable::findSpecResIndex(int spec_res) const
 {
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
     {
