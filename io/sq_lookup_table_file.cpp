@@ -111,6 +111,11 @@ void SQLookupTableFile::writeData(double *data)
     printf("Saving SQLookupTableFile as %s.\n", file_name);
     
     int size = header.vpoints * header.zpoints;
+    
+    if (size == 0)
+    {
+        size = header.vpoints;
+    }
 
     fwrite(&header, sizeof(sq_io_header), 1, sq_file);
     fwrite(data, size, sizeof(double), sq_file);
@@ -125,6 +130,11 @@ void SQLookupTableFile::readData(double *data)
     printf("Reading SQLookupTableFile %s.\n", file_name);
     
     int size = header.vpoints * header.zpoints;
+    
+    if (size == 0)
+    {
+        size = header.vpoints;
+    }
 
     fread(data, size, sizeof(double), sq_file);
 }
