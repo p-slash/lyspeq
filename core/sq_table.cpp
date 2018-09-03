@@ -97,7 +97,6 @@ void SQLookupTable::allocate()
     for (int nv = 0; nv < N_V_POINTS; ++nv)
     {
         LINEAR_V_ARRAY[nv] = getLinearlySpacedValue(0, LENGTH_V, N_V_POINTS, nv);
-        printf("%.2e ", LINEAR_V_ARRAY[nv]);
     }
 
     // Allocate and set redshift array
