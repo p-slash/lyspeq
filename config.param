@@ -20,8 +20,8 @@ NumberOfRedshiftBins 6
 # PolynomialDegree 2
 
 # The location of the file list, and the directory where those files live:
-FileNameList /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks/qso_list.txt
-FileInputDir /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks
+FileNameList /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks_ZEvo/qso_list.txt
+FileInputDir /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks_ZEvo
 
 # The directory for output files and file name base:
 OutputDir /Users/nk452/repos/data/Quadratic_test
