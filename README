@@ -1,12 +1,12 @@
 Prerequisites
 =====
-[FFTW3](http://www.fftw.org/) is needed for fast Fourier transforms.
-[GSL](https://www.gnu.org/software/gsl/) is needed for matrix algebra, integration and interpolation.
++ [FFTW3](http://www.fftw.org/) is needed for fast Fourier transforms.
++ [GSL](https://www.gnu.org/software/gsl/) is needed for matrix algebra, integration and interpolation.
 
 Overview of Programs
 =====
-**LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method.
-**CreateSQLookUpTable** creates look up tables for signal and derivative matrices used in LyaPowerEstimate.
++ **LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method.
++ **CreateSQLookUpTable** creates look up tables for signal and derivative matrices used in LyaPowerEstimate.
 
 Both programs take one common config file.
 
