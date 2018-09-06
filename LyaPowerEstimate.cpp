@@ -131,6 +131,7 @@ int main(int argc, char const *argv[])
         if (qps != NULL)
         {
             sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
+            qps->printfSpectra();
             qps->write_spectrum_estimates(buf);
 
             delete qps;
