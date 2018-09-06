@@ -25,7 +25,7 @@ double q_matrix_integrand(double k, void *params);
 
 double signal_matrix_integrand(double k, void *params);
 
-double debuggin_power_spectrum(double k, double dv);
+double debuggin_power_spectrum(double k);
 
 double lnpoly2_power_spectrum(double lnk);
 
