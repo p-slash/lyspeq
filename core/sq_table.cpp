@@ -143,7 +143,8 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
     s_table_file.readData(sub_signal_array);
 
     // Interpolate
-    interp2d_signal_matrices[r_index] = new Interpolation2D(LINEAR_V_ARRAY, LINEAR_Z_ARRAY, \
+    interp2d_signal_matrices[r_index] = new Interpolation2D(GSL_BICUBIC_INTERPOLATION, \
+                                                            LINEAR_V_ARRAY, LINEAR_Z_ARRAY, \
                                                             sub_signal_array, \
                                                             N_V_POINTS, N_Z_POINTS_OF_S);
 
@@ -167,7 +168,7 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
         q_table_file.readData(sub_q_array);
 
         // Interpolate
-        interp_derivative_matrices[getIndex4DerivativeInterpolation(kn, r_index)] = new Interpolation(LINEAR_V_ARRAY, sub_q_array, N_V_POINTS);
+        interp_derivative_matrices[getIndex4DerivativeInterpolation(kn, r_index)] = new Interpolation(GSL_CUBIC_INTERPOLATION, LINEAR_V_ARRAY, sub_q_array, N_V_POINTS);
     }
 }
 
