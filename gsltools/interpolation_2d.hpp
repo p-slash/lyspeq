@@ -11,6 +11,12 @@
 
 #include <gsl/gsl_spline2d.h>
 
+enum GSL_2D_INTERPOLATION_TYPE
+{
+	GSL_BILINEAR_INTERPOLATION,
+	GSL_BICUBIC_INTERPOLATION
+};
+
 class Interpolation2D
 {
 	double lowest_x, highest_x;
@@ -19,13 +25,11 @@ class Interpolation2D
 	gsl_interp_accel *x_accelerator;
 	gsl_interp_accel *y_accelerator;
 	gsl_spline2d *spline;
-
-	void construct(	const double *x, const double *y, const double *z, \
-					long x_size, long y_size);
 	
 public:
 
-	Interpolation2D(const double *x, const double *y, const double *z, \
+	Interpolation2D(GSL_2D_INTERPOLATION_TYPE interp_type, \
+					const double *x, const double *y, const double *z, \
 					long x_size, long y_size);
 
 	~Interpolation2D();

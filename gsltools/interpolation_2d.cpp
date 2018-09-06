@@ -4,8 +4,9 @@
 
 #include <cstdio>
 
-void Interpolation2D::construct(const double *x, const double *y, const double *z, \
-								long x_size, long y_size)
+Interpolation2D::Interpolation2D(	GSL_2D_INTERPOLATION_TYPE interp_type, \
+									const double *x, const double *y, const double *z, \
+									long x_size, long y_size)
 {
 	lowest_x  = x[0];
 	highest_x = x[x_size - 1];
@@ -16,18 +17,16 @@ void Interpolation2D::construct(const double *x, const double *y, const double *
 	x_accelerator = gsl_interp_accel_alloc();
 	y_accelerator = gsl_interp_accel_alloc();
 
-	spline = gsl_spline2d_alloc(gsl_interp2d_bilinear, x_size, y_size);
-
+	if (interp_type == GSL_BILINEAR_INTERPOLATION)
+	{
+		spline = gsl_spline2d_alloc(gsl_interp2d_bilinear, x_size, y_size);
+	}
+	else if (interp_type == GSL_BICUBIC_INTERPOLATION)
+	{
+		spline = gsl_spline2d_alloc(gsl_interp2d_bicubic, x_size, y_size);
+	}
+	
 	gsl_spline2d_init(spline, x, y, z, x_size, y_size);
-
-	//printf("Constructing Interpolation2D object: Done!\n");
-	//fflush(stdout);
-}
-
-Interpolation2D::Interpolation2D(	const double *x, const double *y, const double *z, \
-									long x_size, long y_size)
-{
-	construct(x, y, z, x_size, y_size);
 }
 
 Interpolation2D::~Interpolation2D()
