@@ -28,6 +28,8 @@ int main(int argc, char const *argv[])
             Z_0, Z_BIN_WIDTH, *z_centers;
 
     OneDQuadraticPowerEstimate *qps;
+    
+    struct palanque_fit_params FIDUCIAL_PD13_PARAMS;
 
     try
     {
@@ -59,6 +61,12 @@ int main(int argc, char const *argv[])
 
         cFile.addKey("NumberOfIterations", &NUMBER_OF_ITERATIONS, INTEGER);
 
+        // Fiducial Palanque fit function parameters
+        cFile.addKey("FiducialAmplitude",           &FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
+        cFile.addKey("FiducialSlope",               &FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
+        cFile.addKey("FiducialCurvature",           &FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
+        cFile.addKey("FiducialRedshiftPower",       &FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
+        cFile.addKey("FiducialRedshiftCurvature",   &FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
         cFile.readAll();
 
         // Construct k edges
@@ -98,7 +106,8 @@ int main(int argc, char const *argv[])
         qps = new OneDQuadraticPowerEstimate(   FNAME_LIST, INPUT_DIR, \
                                                 N_KTOTAL_BINS, k_edges, \
                                                 N_Z_BINS, z_centers, \
-                                                &sq_Table);
+                                                &sq_Table, \
+                                                &FIDUCIAL_PD13_PARAMS);
 
         // qps->setInitialScaling();
         // qps->setInitialPSestimateFFT();
