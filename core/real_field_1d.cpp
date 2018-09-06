@@ -1,4 +1,5 @@
 #include "real_field_1d.hpp"
+#include "global_numbers.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -6,8 +7,7 @@
 #include <cassert>
 #include <new>
 
-#define PI 3.14159265359
-#define ROUND_OFF_ERROR_THRESHOLD 1E-12
+// #define ROUND_OFF_ERROR_THRESHOLD 1E-12
 
 void copyArray(const std::complex<double> *source, std::complex<double> *target, int size)
 {
