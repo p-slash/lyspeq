@@ -2,13 +2,23 @@
 #include "global_numbers.hpp"
 
 #include <cmath>
-
+#include <cstdio>
 double fiducial_power_spectrum(double k, double z, void *params)
 {
-    // struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
-    // return debuggin_power_spectrum(k, wp->pixel_width);
-    struct palanque_fit_params *pfp = (struct palanque_fit_params *) params;
-    return Palanque_Delabrouille_etal_2013_fit(k, z, pfp);
+    #ifdef PD13_FIT_FUNCTION
+    {
+        struct palanque_fit_params *pfp = (struct palanque_fit_params *) params;
+        return Palanque_Delabrouille_etal_2013_fit(k, z, pfp);   
+    }
+    #endif
+
+    #ifdef DEBUG_FIT_FUNCTION
+    {
+        // printf("k=%.1f\n", k);
+        // printf("p=%.1f\n", debuggin_power_spectrum(k));
+        return debuggin_power_spectrum(k);
+    }
+    #endif
 }
 
 double signal_matrix_integrand(double k, void *params)
@@ -36,8 +46,10 @@ double q_matrix_integrand(double k, void *params)
     return result;
 }
 
-double debuggin_power_spectrum(double k, double dv)
+double debuggin_power_spectrum(double k)
 {
+    const double dv = 200.;
+
     double kc = PI / dv / 2.0;
 
     double r = k/kc;
@@ -74,12 +86,12 @@ double Palanque_Delabrouille_etal_2013_fit(double k, double z, struct palanque_f
 {
     const double k_0 = 0.009; // s/km
     const double z_0 = 3.0;
-    double  q = k;
+    double  q = k + 1E-9;
 
-    if (k < 1E-4)
-    {
-        q = 1E-4;
-    }
+    // if (k < 1E-5)
+    // {
+    //     q = 1E-5;
+    // }
     
     double  lnk = log(q / k_0), \
             lnz = log((1.+z) / (1.+z_0)),\
