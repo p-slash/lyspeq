@@ -34,32 +34,44 @@ int main(int argc, char const *argv[])
             Z_0, Z_BIN_WIDTH, *z_centers, \
             PIXEL_WIDTH, LENGTH_V;
 
+    struct palanque_fit_params FIDUCIAL_PD13_PARAMS;
+
     try
     {
         // Set up config file to read variables.
         ConfigFile cFile(FNAME_CONFIG);
 
+        // Bin parameters
         cFile.addKey("K0", &K_0, DOUBLE);
         cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
 
-        cFile.addKey("LinearKBinWidth", &LIN_K_SPACING, DOUBLE);
-        cFile.addKey("Log10KBinWidth", &LOG_K_SPACING, DOUBLE);
-        cFile.addKey("RedshiftBinWidth", &Z_BIN_WIDTH, DOUBLE);
+        cFile.addKey("LinearKBinWidth",  &LIN_K_SPACING, DOUBLE);
+        cFile.addKey("Log10KBinWidth",   &LOG_K_SPACING, DOUBLE);
+        cFile.addKey("RedshiftBinWidth", &Z_BIN_WIDTH,   DOUBLE);
 
-        cFile.addKey("NumberOfLinearBins", &N_KLIN_BIN, INTEGER);
-        cFile.addKey("NumberOfLog10Bins", &N_KLOG_BIN, INTEGER);
-        cFile.addKey("NumberOfRedshiftBins", &N_Z_BINS, INTEGER);
+        cFile.addKey("NumberOfLinearBins",   &N_KLIN_BIN, INTEGER);
+        cFile.addKey("NumberOfLog10Bins",    &N_KLOG_BIN, INTEGER);
+        cFile.addKey("NumberOfRedshiftBins", &N_Z_BINS,   INTEGER);
         
+        // File names and paths
         cFile.addKey("FileNameRList", FNAME_RLIST, STRING);
-        cFile.addKey("FileInputDir", OUTPUT_DIR, STRING);
+        cFile.addKey("FileInputDir",  OUTPUT_DIR,  STRING);
 
-        cFile.addKey("SignalLookUpTableBase", &OUTPUT_FILEBASE_S, STRING);
-        cFile.addKey("DerivativeSLookUpTableBase", &OUTPUT_FILEBASE_Q, STRING);
+        cFile.addKey("SignalLookUpTableBase",       &OUTPUT_FILEBASE_S, STRING);
+        cFile.addKey("DerivativeSLookUpTableBase",  &OUTPUT_FILEBASE_Q, STRING);
 
-        cFile.addKey("NumberVPoints", &Nv, INTEGER);
-        cFile.addKey("NumberZPoints", &Nz, INTEGER);
-        cFile.addKey("PixelWidth", &PIXEL_WIDTH, DOUBLE);
-        cFile.addKey("VelocityLength", &LENGTH_V, DOUBLE);
+        // Integration grid parameters
+        cFile.addKey("NumberVPoints",   &Nv, INTEGER);
+        cFile.addKey("NumberZPoints",   &Nz, INTEGER);
+        cFile.addKey("PixelWidth",      &PIXEL_WIDTH, DOUBLE);
+        cFile.addKey("VelocityLength",  &LENGTH_V,    DOUBLE);
+
+        // Fiducial Palanque fit function parameters
+        cFile.addKey("FiducialAmplitude",           &FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
+        cFile.addKey("FiducialSlope",               &FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
+        cFile.addKey("FiducialCurvature",           &FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
+        cFile.addKey("FiducialRedshiftPower",       &FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
+        cFile.addKey("FiducialRedshiftCurvature",   &FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
 
         cFile.readAll();
 
@@ -116,12 +128,13 @@ int main(int argc, char const *argv[])
         printf("Creating look up table for signal matrix...\n");
         fflush(stdout);
 
-        double  z_first = Z_0 - Z_BIN_WIDTH / 2., \
+        double  z_first  = Z_0 - Z_BIN_WIDTH / 2., \
                 z_length = Z_BIN_WIDTH * N_Z_BINS;
 
-        struct spectrograph_windowfn_params win_params = {0, 0, PIXEL_WIDTH, 0};
+        struct spectrograph_windowfn_params win_params    = {0, 0, PIXEL_WIDTH, 0};
+        struct sq_integrand_params integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
 
-        Integrator s_integrator(GSL_QAG, signal_matrix_integrand, &win_params);
+        Integrator s_integrator(GSL_QAGS, signal_matrix_integrand, &integration_parameters);
 
         // Allocate memory to store results
         double *big_temp_array = new double[Nv * Nz];
@@ -137,11 +150,15 @@ int main(int argc, char const *argv[])
                 int nz = xy / Nv;
                 int nv = xy % Nv;
 
-                win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv);        // LENGTH_V * nv / (Nv - 1.);
-                win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz);  // z_first + z_length * nz / (double) Nz;
+                // LENGTH_V * nv / (Nv - 1.);
+                win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv); 
+
+                // z_first + z_length * nz / (double) Nz;       
+                win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz); 
 
                 big_temp_array[xy] = s_integrator.evaluateAToInfty(0);
             }
+
             STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
 
             SQLookupTableFile signal_table(buf, 'w');
@@ -162,7 +179,7 @@ int main(int argc, char const *argv[])
         fflush(stdout);
 
         // int subNz = Nz / N_Z_BINS;
-        Integrator q_integrator(GSL_QAG, q_matrix_integrand, &win_params);
+        Integrator q_integrator(GSL_QAG, q_matrix_integrand, &integration_parameters);
 
         big_temp_array = new double[Nv];
         // double *temp_array_zscaled = new double[Nv * subNz];
@@ -196,32 +213,6 @@ int main(int argc, char const *argv[])
                                                     kvalue_1, kvalue_2);
                 
                 derivative_signal_table.writeData(big_temp_array);
-
-                // for (int zm = 0; zm < N_Z_BINS; ++zm)
-                // {
-                //     printf("Q matrix for k = [%.1e - %.1e] s/km. Now scaling for triangular redshift bin %.1f.\n", kvalue_1, kvalue_2, z_centers[zm]);
-                    
-                //     for (int xy = 0; xy < Nv*subNz; ++xy)
-                //     {
-                //         // xy = nz + Nv * nv
-                //         int nz = xy % Nv;
-
-                //         double z_ij = getLinearlySpacedValue(z_centers[zm] - Z_BIN_WIDTH/2., Z_BIN_WIDTH, subNz, nz); 
-                //         // (z_centers[zm] - Z_BIN_WIDTH/2.) + Z_BIN_WIDTH * nz / (double) subNz;
-
-                //         temp_array_zscaled[xy] = triangular_z_bin(z_ij, z_centers[zm], Z_BIN_WIDTH) * big_temp_array[xy];
-                //     }
-
-                //     QTableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_Q, R_VALUES[r], kvalue_1, kvalue_2, z_centers[zm]);
-
-                //     SQLookupTableFile derivative_signal_table(buf, 'w');
-
-                //     derivative_signal_table.setHeader(  Nv, subNz, LENGTH_V, Z_BIN_WIDTH, \
-                //                                         R_VALUES[r], PIXEL_WIDTH, \
-                //                                         z_centers[zm], kvalue_1, kvalue_2);
-                    
-                //     derivative_signal_table.writeData(temp_array_zscaled);
-                // }
             }
         }
         // Q matrices are written.
