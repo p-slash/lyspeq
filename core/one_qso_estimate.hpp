@@ -57,7 +57,7 @@ public:
     OneQSOEstimate(const char *fname_qso, int n, const double *k, const double *zc);
     ~OneQSOEstimate();
 
-    double getFiducialPowerSpectrumValue(double k);
+    // double getFiducialPowerSpectrumValue(double k);
 
     void getFFTEstimate(double *ps, int *bincount);
 

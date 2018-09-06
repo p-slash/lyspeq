@@ -3,6 +3,7 @@
 #include "spectrograph_functions.hpp"
 #include "matrix_helper.hpp"
 #include "real_field_1d.hpp"
+#include "global_numbers.hpp"
 
 #include "../io/io_helper_functions.hpp"
 #include "../io/qso_file.hpp"
@@ -16,11 +17,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
-
-#define ADDED_CONST_TO_C 10.0
-#define PI 3.14159265359
-#define LYA_REST 1215.67
-#define SPEED_OF_LIGHT 299792.458
 
 void compareTableTrue(double true_value, double table_value, const char *which_matrix)
 {
@@ -215,7 +211,7 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
     for (int i = 0; i < DATA_SIZE; i++)
     {
         v_ij = 0;
-        z_ij = MEAN_REDSHIFT; // lambda_array[i] / LYA_REST - 1.;
+        z_ij = lambda_array[i] / LYA_REST - 1.;
 
         temp = sq_lookup_table->getSignalMatrixValue(v_ij, z_ij, r_index);
         gsl_matrix_set(fiducial_signal_matrix, i, i, temp);
@@ -226,7 +222,7 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
         for (int j = i + 1; j < DATA_SIZE; j++)
         {
             v_ij = velocity_array[j] - velocity_array[i];
-            z_ij = MEAN_REDSHIFT; // sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
+            z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
 
             temp = sq_lookup_table->getSignalMatrixValue(v_ij, z_ij, r_index);
             gsl_matrix_set(fiducial_signal_matrix, i, j, temp);
@@ -244,7 +240,7 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
         for (int i = 0; i < DATA_SIZE; i++)
         {
             v_ij = 0;
-            z_ij = MEAN_REDSHIFT; // lambda_array[i] / LYA_REST - 1.;
+            z_ij = lambda_array[i] / LYA_REST - 1.;
             
             temp = sq_lookup_table->getDerivativeMatrixValue(v_ij, z_ij, ZBIN, kn, r_index);
             gsl_matrix_set(derivative_of_signal_matrices[kn], i, i, temp);
@@ -252,7 +248,7 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
             for (int j = i + 1; j < DATA_SIZE; j++)
             {
                 v_ij = velocity_array[j] - velocity_array[i];
-                z_ij = MEAN_REDSHIFT; // sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
+                z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
                 
                 temp = sq_lookup_table->getDerivativeMatrixValue(v_ij, z_ij, ZBIN, kn, r_index);
                 gsl_matrix_set(derivative_of_signal_matrices[kn], i, j, temp);
@@ -293,7 +289,7 @@ void OneQSOEstimate::computeCSMatrices(gsl_vector * const *ps_estimate)
         gsl_matrix_set(covariance_matrix, i, i, temp + nn);
     }
     // printf_matrix(covariance_matrix, DATA_SIZE);
-    gsl_matrix_add_constant(covariance_matrix, ADDED_CONST_TO_C);
+    gsl_matrix_add_constant(covariance_matrix, ADDED_CONST_TO_COVARIANCE);
 
     isCovInverted    = false;
 }
@@ -436,12 +432,12 @@ void OneQSOEstimate::oneQSOiteration(   gsl_vector * const *ps_estimate, \
     freeMatrices();
 }
 
-double OneQSOEstimate::getFiducialPowerSpectrumValue(double k)
-{
-    struct spectrograph_windowfn_params win_params = {0, BIN_REDSHIFT, DV_KMS, SPEED_OF_LIGHT / SPECT_RES};
+// double OneQSOEstimate::getFiducialPowerSpectrumValue(double k)
+// {
+//     struct spectrograph_windowfn_params win_params = {0, BIN_REDSHIFT, DV_KMS, SPEED_OF_LIGHT / SPECT_RES};
 
-    return fiducial_power_spectrum(k, BIN_REDSHIFT, &win_params);
-}
+//     return fiducial_power_spectrum(k, BIN_REDSHIFT, &win_params);
+// }
 
 void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
 {
