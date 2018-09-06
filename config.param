@@ -5,36 +5,43 @@
 K0 0.
 
 NumberOfLinearBins 3
-NumberOfLog10Bins 14
+NumberOfLog10Bins 10
 
-LinearKBinWidth 4E-4
+LinearKBinWidth 7E-4
 Log10KBinWidth 0.1
 
 # Redshift bins are linearly spaced.
 
-FirstRedshiftBinCenter 1.9
-RedshiftBinWidth 0.2
-NumberOfRedshiftBins 6
+FirstRedshiftBinCenter 2.85
+RedshiftBinWidth 0.1
+NumberOfRedshiftBins 4
 
 # If the power spectrum is fitted with a smooth polynomial of ln k, its degree is
 # PolynomialDegree 2
 
 # The location of the file list, and the directory where those files live:
-FileNameList /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks_ZEvo/qso_list.txt
-FileInputDir /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks_ZEvo
+FileNameList /Users/nk452/repos/data/Quadratic_test/New_Mocks/qso_list.txt
+FileInputDir /Users/nk452/repos/data/Quadratic_test/New_Mocks
 
 # The directory for output files and file name base:
 OutputDir /Users/nk452/repos/data/Quadratic_test
-OutputFileBase simpleps_10it
+OutputFileBase debugps_zoff
 
 # List of spectograph resolutions (R) is in FileNameRList. This file starts with number of Rs.
-FileNameRList     /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks/mock_specres_list.txt
+FileNameRList     /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks_ZEvo/mock_specres_list.txt
 
 # Lookup tables are generated with the following parameters:
-NumberVPoints     700
-NumberZPoints     100
-PixelWidth        128.0
-VelocityLength    34000.0
+NumberVPoints     4000
+NumberZPoints     10
+PixelWidth        64.0
+VelocityLength    8500.0
+
+# Fiducial Palanque fit function parameters
+FiducialAmplitude            0.06
+FiducialSlope               -2.6
+FiducialCurvature           -0.1
+FiducialRedshiftPower        0
+FiducialRedshiftCurvature    0
 
 # These lookup tables are saved with the follwoing file name bases to FileInputDir:
 SignalLookUpTableBase        signal_lookup
