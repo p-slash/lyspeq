@@ -10,6 +10,7 @@
 
 #include "one_qso_estimate.hpp"
 #include "sq_table.hpp"
+#include "fiducial_cosmology.hpp"
 // #include "../gsltools/ln_poly_fit.hpp"
 
 extern int POLYNOMIAL_FIT_DEGREE;
@@ -23,6 +24,8 @@ class OneDQuadraticPowerEstimate
 
     const double *KBAND_EDGES, *ZBIN_CENTERS;
     double *K_CENTERS;
+
+    struct palanque_fit_params *FIDUCIAL_PS_PARAMS;
 
     OneQSOEstimate **qso_estimators;
     const SQLookupTable *sq_lookup_table;
@@ -47,7 +50,8 @@ public:
     OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
                                 int no_bands, const double *k_edges, \
                                 int no_z_bins, const double *z_centers, \
-                                const SQLookupTable *table);
+                                const SQLookupTable *table, \
+                                struct palanque_fit_params *pfp);
 
     ~OneDQuadraticPowerEstimate();
     
