@@ -1,6 +1,20 @@
 #---------------------------------------
 # Set options
 #---------------------------------------
+# Can interpolate using linear or cubic spline.
+OPT += -DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
+# OPT += -DINTERP_1D_TYPE=GSL_LINEAR_INTERPOLATION
+
+OPT += -DINTERP_2D_TYPE=GSL_BILINEAR_INTERPOLATION
+# OPT += -DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
+
+# Pick the fit function
+OPT += -DDEBUG_FIT_FUNCTION
+# OPT += -DPD13_FIT_FUNCTION
+
+# Pick the redshift binning function 
+# OPT += -DTOPHAT_Z_BINNING_FN
+OPT += -DTRIANGLE_Z_BINNING_FN
 
 #--------------------------------------- Select target computer
 
