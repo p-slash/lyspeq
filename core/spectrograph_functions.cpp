@@ -1,4 +1,5 @@
 #include "spectrograph_functions.hpp"
+#include "global_numbers.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -79,14 +80,12 @@ void convert_lambda2v(double &mean_z, double *v_array, const double *lambda, int
         printf("WARNING: NOT Linearly spaced!\n");
 }
 
-double spectral_response_window_fn(double k, void *params)
+double spectral_response_window_fn(double k, struct spectrograph_windowfn_params *spec_params)
 {
-    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
+    double  R       = spec_params->spectrograph_res, \
+            dv_kms  = spec_params->pixel_width;
 
-    double  R = wp->spectrograph_res, \
-            dv_kms = wp->pixel_width;
-
-    return sinc(k * dv_kms / 2.);// * exp(-k*k * R*R / 2.) ;
+    return sinc(k * dv_kms / 2.) * exp(-k*k * R*R / 2.);
 }
 
 
