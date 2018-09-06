@@ -5,10 +5,18 @@
 
 #include <cstdio>
 
+double tophat_z_bin(double z, double zm, double deltaz)
+{
+    if (zm - deltaz/2 < z && z < zm + deltaz/2)
+    {
+        return 1.;
+    }
+
+    return 0;
+}
+
 double triangular_z_bin(double z, double zm, double deltaz)
 {
-    return 1;
-    
     if (zm - deltaz < z && z < zm)
     {
         return (z - zm + deltaz) / deltaz;
@@ -19,6 +27,21 @@ double triangular_z_bin(double z, double zm, double deltaz)
     }
 
     return 0;
+}
+
+double redshift_binning_function(double z, double zm, double deltaz)
+{
+    #ifdef TOPHAT_Z_BINNING_FN
+    {
+        return tophat_z_bin(z, zm, deltaz);
+    }
+    #endif
+
+    #ifdef TRIANGLE_Z_BINNING_FN
+    {
+        return triangular_z_bin(z, zm, deltaz);
+    }
+    #endif
 }
 
 SQLookupTable::SQLookupTable(   const char *dir, const char *s_base, const char *q_base, \
@@ -101,7 +124,7 @@ void SQLookupTable::allocate()
 
     // Allocate and set redshift array
     LINEAR_Z_ARRAY = new double[N_Z_POINTS_OF_S];
-    double zbinwidth = ZBIN_CENTERS[1] - ZBIN_CENTERS[0];
+    double zbinwidth = LENGTH_Z_OF_S / N_Z_BINS;
     double zfirst    = ZBIN_CENTERS[0] - zbinwidth / 2.;
 
     for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
@@ -143,7 +166,7 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
     s_table_file.readData(sub_signal_array);
 
     // Interpolate
-    interp2d_signal_matrices[r_index] = new Interpolation2D(GSL_BICUBIC_INTERPOLATION, \
+    interp2d_signal_matrices[r_index] = new Interpolation2D(INTERP_2D_TYPE, \
                                                             LINEAR_V_ARRAY, LINEAR_Z_ARRAY, \
                                                             sub_signal_array, \
                                                             N_V_POINTS, N_Z_POINTS_OF_S);
@@ -168,7 +191,8 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
         q_table_file.readData(sub_q_array);
 
         // Interpolate
-        interp_derivative_matrices[getIndex4DerivativeInterpolation(kn, r_index)] = new Interpolation(GSL_CUBIC_INTERPOLATION, LINEAR_V_ARRAY, sub_q_array, N_V_POINTS);
+        int i = getIndex4DerivativeInterpolation(kn, r_index);
+        interp_derivative_matrices[i] = new Interpolation(INTERP_1D_TYPE, LINEAR_V_ARRAY, sub_q_array, N_V_POINTS);
     }
 }
 
@@ -180,7 +204,7 @@ double SQLookupTable::getSignalMatrixValue(double v_ij, double z_ij, int r_index
 double SQLookupTable::getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int r_index) const
 {
     double v_result = interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)]->evaluate(v_ij);
-    double z_result = triangular_z_bin(z_ij, ZBIN_CENTERS[zm], LENGTH_Z_OF_Q);
+    double z_result = redshift_binning_function(z_ij, ZBIN_CENTERS[zm], LENGTH_Z_OF_Q);
 
     return z_result * v_result;
 }
