@@ -2,7 +2,7 @@
 
 #include "quadratic_estimate.hpp"
 #include "matrix_helper.hpp"
-#include "fiducial_cosmology.hpp"
+#include "global_numbers.hpp"
 
 #include "../io/io_helper_functions.hpp"
 
@@ -12,21 +12,20 @@
 #include <cstdio>
 #include <cassert>
 
-#define PI 3.14159265359
-#define CONVERGENCE_EPS 1E-4
-
 int POLYNOMIAL_FIT_DEGREE;
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
                                                         int no_bands, const double *k_edges, \
                                                         int no_z_bins, const double *z_centers, \
-                                                        const SQLookupTable *table)
+                                                        const SQLookupTable *table, \
+                                                        struct palanque_fit_params *pfp)
 {
-    NUMBER_OF_BANDS = no_bands;
-    KBAND_EDGES     = k_edges;
-    K_CENTERS       = new double[NUMBER_OF_BANDS];
-    sq_lookup_table = table;
-    
+    NUMBER_OF_BANDS     = no_bands;
+    KBAND_EDGES         = k_edges;
+    K_CENTERS           = new double[NUMBER_OF_BANDS];
+    sq_lookup_table     = table;
+    FIDUCIAL_PS_PARAMS  = pfp;
+
     for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
     {
         K_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
@@ -292,17 +291,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 
 double OneDQuadraticPowerEstimate::powerSpectrumValue(int kn, int zm)
 {
-    if (Z_BIN_COUNTS[zm] == 0)  return 0;
-
-    for (int q = 0; q < NUMBER_OF_QSOS; ++q)
-    {
-        if (qso_estimators[q]->ZBIN == zm)
-        {
-            return qso_estimators[q]->getFiducialPowerSpectrumValue(K_CENTERS[kn]);
-        }
-    }
-
-    return 0;
+    return fiducial_power_spectrum(kn, zm, FIDUCIAL_PS_PARAMS);
 }
 
 void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
