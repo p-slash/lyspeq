@@ -9,19 +9,23 @@
 
 #include <gsl/gsl_spline.h>
 
+enum GSL_INTERPOLATION_TYPE
+{
+	GSL_LINEAR_INTERPOLATION,
+	GSL_CUBIC_INTERPOLATION
+};
+
 class Interpolation
 {
 	double normalization;
 	
 	gsl_interp_accel *accelerator;
 	gsl_spline *spline;
-
-	void construct(const double *x, const double *y, long long int size);
 	
 public:
 	double lowest_x, highest_x;
 	
-	Interpolation(const double *x, const double *y, long long int size);
+	Interpolation(GSL_INTERPOLATION_TYPE interp_type, const double *x, const double *y, long long int size);
 	~Interpolation();
 
 	void setNormalization(double norm);

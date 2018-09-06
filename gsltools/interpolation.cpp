@@ -7,10 +7,7 @@
 
 #include <cstdio>
 
-#define PI 3.14159265359
-
-
-void Interpolation::construct(const double *x, const double *y, long long int size)
+Interpolation::Interpolation(GSL_INTERPOLATION_TYPE interp_type, const double *x, const double *y, long long int size)
 {
 	normalization = 1.0;
 	lowest_x  = x[0];
@@ -18,16 +15,16 @@ void Interpolation::construct(const double *x, const double *y, long long int si
 
 	accelerator = gsl_interp_accel_alloc();
 
-	spline = gsl_spline_alloc(gsl_interp_linear, size);
-	gsl_spline_init(spline, x, y, size);
+	if (interp_type == GSL_LINEAR_INTERPOLATION)
+	{
+		spline = gsl_spline_alloc(gsl_interp_linear, size);
+	}
+	else if (interp_type == GSL_CUBIC_INTERPOLATION)
+	{
+		spline = gsl_spline_alloc(gsl_interp_cspline, size);
+	}
 	
-	//printf("Constructing Interpolation object: Done!\n");
-	//fflush(stdout);
-}
-
-Interpolation::Interpolation(const double *x, const double *y, long long int size)
-{
-	construct(x, y, size);
+	gsl_spline_init(spline, x, y, size);
 }
 
 Interpolation::~Interpolation()
