@@ -160,15 +160,14 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
         // OneQSOEstimate object decides which redshift it belongs to.
         for (int q = 0; q < NUMBER_OF_QSOS; q++)
         {
-            // qso_estimators[q]->oneQSOiteration(fit_to_pmn->fitted_values);
+            // printf("QSO: %d.\n", q+1);
+            // fflush(stdout);
+
             qso_estimators[q]->oneQSOiteration( pmn_estimate_vector, \
                                                 sq_lookup_table, \
                                                 pmn_before_fisher_estimate_vector_sum, fisher_matrix_sum);
-
-            // gsl_matrix_add(fisher_matrix_sum, qso_estimators[q]->fisher_matrix);
-            // gsl_vector_add(pmn_before_fisher_estimate_vector_sum, qso_estimators[q]->pmn_before_fisher_estimate_vector);
         }
-        // printf_matrix(fisher_matrix_sum[qso_estimators[0]->ZBIN], NUMBER_OF_BANDS);
+        
         // Invert for all z bins
         invertTotalFisherMatrices();
         computePowerSpectrumEstimates();
@@ -176,11 +175,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
         printfSpectra();
 
         // filteredEstimates();
-
-        // fit_to_pmn->fit(pmn_estimate_vector->data, weights_pmn_bands);
-        // fit_to_pmn->printFit();
-        // fit_to_pmn->fitted_values[0] = gsl_vector_get(pmn_estimate_vector, 0);
-        // printf("%.2e\n", fit_to_pmn->fitted_values[0]);
 
         if (hasConverged())
         {
@@ -279,6 +273,13 @@ void OneDQuadraticPowerEstimate::printfSpectra()
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
+        // printf("P^fid_m(zm, kn) at z=%.2f: ", ZBIN_CENTERS[zm]);
+        // for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+        // {
+        //     printf("%.3e ", powerSpectrumValue(kn, zm));
+        // }
+        // printf("\n");
+
         printf("P_m(zm, kn) at z=%.2f: ", ZBIN_CENTERS[zm]);
         for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
         {
@@ -291,7 +292,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 
 double OneDQuadraticPowerEstimate::powerSpectrumValue(int kn, int zm)
 {
-    return fiducial_power_spectrum(kn, zm, FIDUCIAL_PS_PARAMS);
+    return fiducial_power_spectrum(K_CENTERS[kn], ZBIN_CENTERS[zm], FIDUCIAL_PS_PARAMS);
 }
 
 void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
