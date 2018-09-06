@@ -3,7 +3,7 @@
 
 #include <gsl/gsl_integration.h>
 
-enum GSL_TYPE
+enum GSL_INTEGRATION_TYPE
 {
 	GSL_QNG,
 	GSL_QAG,
@@ -13,13 +13,13 @@ enum GSL_TYPE
 
 class Integrator
 {
-	GSL_TYPE gsl_type;
+	GSL_INTEGRATION_TYPE gsl_type;
 	gsl_function F;
 	gsl_integration_workspace *w;
 	gsl_integration_glfixed_table *t;
 
 public:
-	Integrator( GSL_TYPE gsl_type_key, \
+	Integrator( GSL_INTEGRATION_TYPE gsl_type_key, \
 				double (*integrand_function)(double, void*), void *params);
 	~Integrator();
 	
