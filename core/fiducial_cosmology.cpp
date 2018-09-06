@@ -1,29 +1,35 @@
 #include "fiducial_cosmology.hpp"
-#include "spectrograph_functions.hpp"
+#include "global_numbers.hpp"
 
 #include <cmath>
-#define PI 3.14159265359
 
 double fiducial_power_spectrum(double k, double z, void *params)
 {
-    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
-    return debuggin_power_spectrum(k, wp->pixel_width);
+    // struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
+    // return debuggin_power_spectrum(k, wp->pixel_width);
+    struct palanque_fit_params *pfp = (struct palanque_fit_params *) params;
+    return Palanque_Delabrouille_etal_2013_fit(k, z, pfp);
 }
 
 double signal_matrix_integrand(double k, void *params)
 {
-    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
-    double result = spectral_response_window_fn(k, params);
+    struct sq_integrand_params          *sqip = (struct sq_integrand_params*) params;
+    struct spectrograph_windowfn_params *wp   = sqip->spec_window_params;
+    struct palanque_fit_params          *pfp  = sqip->fiducial_pd_params;
 
-    result *= fiducial_power_spectrum(k, wp->z_ij, params) * result * cos(k * wp->delta_v_ij) / PI;
+    double result = spectral_response_window_fn(k, wp);
+
+    result *= fiducial_power_spectrum(k, wp->z_ij, pfp) * result * cos(k * wp->delta_v_ij) / PI;
 
     return result;
 }
 
 double q_matrix_integrand(double k, void *params)
 {
-    struct spectrograph_windowfn_params *wp = (struct spectrograph_windowfn_params*) params;
-    double result = spectral_response_window_fn(k, params);
+    struct sq_integrand_params          *sqip = (struct sq_integrand_params*) params;
+    struct spectrograph_windowfn_params *wp   = sqip->spec_window_params;
+
+    double result = spectral_response_window_fn(k, wp);
 
     result *= result * cos(k * wp->delta_v_ij) / PI;
 
@@ -50,19 +56,39 @@ double lnpoly2_power_spectrum(double lnk)
     return exp(lnkP);
 }
 
-double Palanque_Delabrouille_etal_2013_fit(double k, double z, struct palanque_fit_params &params)
+// double simple_palanque(double k, struct palanque_fit_params &params)
+// {
+//     const double k_0 = 0.009; // s/km
+
+//     double  lnk = log(k / k_0), \
+//             lnkP_pi = 0;
+
+//     lnkP_pi = log(params.A) \
+//             + (3. + params.n) * lnk \
+//             + params.alpha * lnk * lnk;
+
+//     return exp(lnkP_pi) * PI / k;
+// }
+
+double Palanque_Delabrouille_etal_2013_fit(double k, double z, struct palanque_fit_params *params)
 {
     const double k_0 = 0.009; // s/km
     const double z_0 = 3.0;
+    double  q = k;
 
-    double  lnk = log(k / k_0), \
+    if (k < 1E-4)
+    {
+        q = 1E-4;
+    }
+    
+    double  lnk = log(q / k_0), \
             lnz = log((1.+z) / (1.+z_0)),\
             lnkP_pi = 0;
 
-    lnkP_pi = log(params.A) \
-            + (3. + params.n) * lnk \
-            + params.alpha * lnk * lnk \
-            + (params.B + params.beta * lnk) * lnz;
+    lnkP_pi = log(params->A) \
+            + (3. + params->n) * lnk \
+            + params->alpha * lnk * lnk \
+            + (params->B + params->beta * lnk) * lnz;
 
-    return exp(lnkP_pi) * PI / k;
+    return exp(lnkP_pi) * PI / q;
 }
