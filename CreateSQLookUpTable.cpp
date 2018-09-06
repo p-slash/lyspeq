@@ -131,10 +131,10 @@ int main(int argc, char const *argv[])
         double  z_first  = Z_0 - Z_BIN_WIDTH / 2., \
                 z_length = Z_BIN_WIDTH * N_Z_BINS;
 
-        struct spectrograph_windowfn_params win_params    = {0, 0, PIXEL_WIDTH, 0};
-        struct sq_integrand_params integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
+        struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
+        struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
 
-        Integrator s_integrator(GSL_QAGS, signal_matrix_integrand, &integration_parameters);
+        Integrator s_integrator(GSL_QAG, signal_matrix_integrand, &integration_parameters);
 
         // Allocate memory to store results
         double *big_temp_array = new double[Nv * Nz];
@@ -155,8 +155,8 @@ int main(int argc, char const *argv[])
 
                 // z_first + z_length * nz / (double) Nz;       
                 win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz); 
-
-                big_temp_array[xy] = s_integrator.evaluateAToInfty(0);
+                
+                big_temp_array[xy]    = s_integrator.evaluateAToInfty(0);
             }
 
             STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
