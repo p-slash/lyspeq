@@ -2,7 +2,7 @@
 #include "global_numbers.hpp"
 
 #include <cmath>
-#include <cstdio>
+
 double fiducial_power_spectrum(double k, double z, void *params)
 {
     #ifdef PD13_FIT_FUNCTION
@@ -14,8 +14,6 @@ double fiducial_power_spectrum(double k, double z, void *params)
 
     #ifdef DEBUG_FIT_FUNCTION
     {
-        // printf("k=%.1f\n", k);
-        // printf("p=%.1f\n", debuggin_power_spectrum(k));
         return debuggin_power_spectrum(k);
     }
     #endif
