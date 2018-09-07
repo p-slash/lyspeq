@@ -10,6 +10,25 @@ Overview of Programs
 
 Both programs take one common config file.
 
+Makefile
+=====
++ To choose between linear and cubic interpolation for one dimension, uncomment on of the following:
+    
+      # OPT += -DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
+      # OPT += -DINTERP_1D_TYPE=GSL_LINEAR_INTERPOLATION
+
++ To choose between bilinear and bicubic interpolation for two dimensions, uncomment on of the following:
+
+      # OPT += -DINTERP_2D_TYPE=GSL_BILINEAR_INTERPOLATION
+      # OPT += -DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
+
++ There are two implemented fiducial power spectra defined in [core/fiducial_cosmology.cpp]. To use a simple debugging power spectrum, uncomment `# OPT += -DDEBUG_FIT_FUNCTION`. To use the fitting function defined in [Palanque-Delabrouille, et al., 2013](http://adsabs.harvard.edu/cgi-bin/bib_query?arXiv:1306.5896), uncomment `# OPT += -DPD13_FIT_FUNCTION`.
+
++ Redshift bins can be top-hats or interpolations. Uncomment the corresponding binning scheme needed.
+
+      # OPT += -DTOPHAT_Z_BINNING_FN
+      # OPT += -DTRIANGLE_Z_BINNING_FN
+
 Config File
 =====
 Config file has one file list for qso spectra. This txt file should start with number of qso and then have relative file paths.
@@ -30,9 +49,24 @@ Redshift bins are linearly spaced.
     RedshiftBinWidth          0.2
     NumberOfRedshiftBins      6
 
-If the power spectrum is fitted with a smooth polynomial of ln k, its degree is
+Fiducial Palanque fit function parameters when used.
+    
+    FiducialAmplitude            0.06
+    FiducialSlope               -2.6
+    FiducialCurvature           -0.1
+    FiducialRedshiftPower        0
+    FiducialRedshiftCurvature    0
 
-    PolynomialDegree    2
+Lookup tables are generated with the following parameters:
+
+    NumberVPoints     200
+    NumberZPoints     200
+    PixelWidth        4.0
+    VelocityLength    1000.
+
+The maximum number of iterations are
+
+    NumberOfIterations    10
 
 The location of the file list, and the directory where those files live:
 
@@ -44,20 +78,9 @@ The directory for output files and file name base:
     OutputDir         /Users/nk452/repos/data/Quadratic_test
     OutputFileBase    lya_qde_10mocks_binary
 
-The maximum number of iterations are
-
-    NumberOfIterations    10
-
 List of spectograph resolutions (R) is in `FileNameRList`. This file starts with number of Rs.
 
     FileNameRList     ./specres_list.txt
-
-Lookup tables are generated with the following parameters:
-
-    NumberVPoints     200
-    NumberZPoints     200
-    PixelWidth        4.0
-    VelocityLength    1000.
 
 These lookup tables are saved with the follwoing file name bases to `FileInputDir`:
 
@@ -67,4 +90,3 @@ These lookup tables are saved with the follwoing file name bases to `FileInputDi
 Quasar Spectrum File
 ====
 Quasar spectrum file is in binary format. It starts with a header (see [QSOFile](io/qso_file.hpp)), then has wavelength, flux and noise in double arrays.
-
