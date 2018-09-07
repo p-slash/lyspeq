@@ -14,20 +14,20 @@ Makefile
 =====
 + To choose between linear and cubic interpolation for one dimension, uncomment on of the following:
     
-      # OPT += -DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
-      # OPT += -DINTERP_1D_TYPE=GSL_LINEAR_INTERPOLATION
+    OPT += -DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
+    OPT += -DINTERP_1D_TYPE=GSL_LINEAR_INTERPOLATION
 
 + To choose between bilinear and bicubic interpolation for two dimensions, uncomment on of the following:
 
-      # OPT += -DINTERP_2D_TYPE=GSL_BILINEAR_INTERPOLATION
-      # OPT += -DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
+    OPT += -DINTERP_2D_TYPE=GSL_BILINEAR_INTERPOLATION
+    OPT += -DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
 
 + There are two implemented fiducial power spectra defined in [core/fiducial_cosmology.cpp]. To use a simple debugging power spectrum, uncomment `# OPT += -DDEBUG_FIT_FUNCTION`. To use the fitting function defined in [Palanque-Delabrouille, et al., 2013](http://adsabs.harvard.edu/cgi-bin/bib_query?arXiv:1306.5896), uncomment `# OPT += -DPD13_FIT_FUNCTION`.
 
 + Redshift bins can be top-hats or interpolations. Uncomment the corresponding binning scheme needed.
 
-      # OPT += -DTOPHAT_Z_BINNING_FN
-      # OPT += -DTRIANGLE_Z_BINNING_FN
+    OPT += -DTOPHAT_Z_BINNING_FN
+    OPT += -DTRIANGLE_Z_BINNING_FN
 
 Config File
 =====
