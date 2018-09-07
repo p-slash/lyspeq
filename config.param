@@ -20,8 +20,8 @@ NumberOfRedshiftBins 4
 # PolynomialDegree 2
 
 # The location of the file list, and the directory where those files live:
-FileNameList /Users/nk452/repos/data/Quadratic_test/New_Mocks/qso_list.txt
-FileInputDir /Users/nk452/repos/data/Quadratic_test/New_Mocks
+FileNameList /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS/qso_list.txt
+FileInputDir /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS
 
 # The directory for output files and file name base:
 OutputDir /Users/nk452/repos/data/Quadratic_test
