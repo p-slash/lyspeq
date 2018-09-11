@@ -13,9 +13,11 @@ OPT += -DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
 OPT += -DPD13_FIT_FUNCTION
 
 # Pick the redshift binning function 
-OPT += -DTOPHAT_Z_BINNING_FN
-# OPT += -DTRIANGLE_Z_BINNING_FN
+# OPT += -DTOPHAT_Z_BINNING_FN
+OPT += -DTRIANGLE_Z_BINNING_FN
 
+# Print out at debugging checkpoints
+# OPT += -DDEBUG_ON
 #--------------------------------------- Select target computer
 
 #SYSTYPE="GRACE"
