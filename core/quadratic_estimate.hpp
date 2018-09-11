@@ -25,16 +25,16 @@ class OneDQuadraticPowerEstimate
     OneQSOEstimate **qso_estimators;
     const SQLookupTable *sq_lookup_table;
 
-    /* NUMBER_OF_Z_BINS many NUMBER_OF_BANDS sized vector */ 
-    gsl_vector  **pmn_before_fisher_estimate_vector_sum, \
-                **previous_pmn_estimate_vector, \
-                **pmn_estimate_vector;
+    /* TOTAL_KZ_BINS sized vector */ 
+    gsl_vector  *pmn_before_fisher_estimate_vector_sum, \
+                *previous_pmn_estimate_vector, \
+                *pmn_estimate_vector;
 
-    // gsl_vector  **fisher_filter;
+    // gsl_vector  *fisher_filter;
 
-    /* NUMBER_OF_Z_BINS many NUMBER_OF_BANDS x NUMBER_OF_BANDS sized matrix
+    /* TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
     */
-    gsl_matrix  **fisher_matrix_sum;
+    gsl_matrix  *fisher_matrix_sum;
 
     bool isFisherInverted;
 
@@ -51,13 +51,14 @@ public:
     double powerSpectrumValue(int kn, int zm);
 
     void initializeIteration();
-    void invertTotalFisherMatrices();
+    void invertTotalFisherMatrix();
     void computePowerSpectrumEstimates();
     void iterate(int number_of_iterations);
     bool hasConverged();
     
     void printfSpectra();
-    void write_spectrum_estimates(const char *fname);
+    void write_fisher_matrix(const char *fname_base);
+    void write_spectrum_estimates(const char *fname_base);
 
     void setInitialPSestimateFFT();
     void setInitialScaling();
