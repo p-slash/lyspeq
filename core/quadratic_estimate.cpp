@@ -15,24 +15,12 @@
 int POLYNOMIAL_FIT_DEGREE;
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
-                                                        int no_bands, const double *k_edges, \
-                                                        int no_z_bins, const double *z_centers, \
                                                         const SQLookupTable *table, \
                                                         struct palanque_fit_params *pfp)
 {
-    NUMBER_OF_BANDS     = no_bands;
-    KBAND_EDGES         = k_edges;
-    K_CENTERS           = new double[NUMBER_OF_BANDS];
     sq_lookup_table     = table;
     FIDUCIAL_PS_PARAMS  = pfp;
 
-    for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
-    {
-        K_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
-    }
-
-    NUMBER_OF_Z_BINS = no_z_bins;
-    ZBIN_CENTERS     = z_centers;
     Z_BIN_COUNTS     = new int[NUMBER_OF_Z_BINS]();
 
     /* Allocate memory */
@@ -44,11 +32,11 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
 
     for (int zm = 0; zm < NUMBER_OF_Z_BINS; zm++)
     {
-        pmn_before_fisher_estimate_vector_sum[zm]   = gsl_vector_alloc(NUMBER_OF_BANDS);
-        previous_pmn_estimate_vector[zm]            = gsl_vector_alloc(NUMBER_OF_BANDS);
-        pmn_estimate_vector[zm]                     = gsl_vector_calloc(NUMBER_OF_BANDS);
-        // fisher_filter[zm]                        = gsl_vector_alloc(NUMBER_OF_BANDS);
-        fisher_matrix_sum[zm]                       = gsl_matrix_alloc(NUMBER_OF_BANDS, NUMBER_OF_BANDS);
+        pmn_before_fisher_estimate_vector_sum[zm]   = gsl_vector_alloc(NUMBER_OF_K_BANDS);
+        previous_pmn_estimate_vector[zm]            = gsl_vector_alloc(NUMBER_OF_K_BANDS);
+        pmn_estimate_vector[zm]                     = gsl_vector_calloc(NUMBER_OF_K_BANDS);
+        // fisher_filter[zm]                        = gsl_vector_alloc(NUMBER_OF_K_BANDS);
+        fisher_matrix_sum[zm]                       = gsl_matrix_alloc(NUMBER_OF_K_BANDS, NUMBER_OF_K_BANDS);
     }
 
     isFisherInverted = false; 
@@ -68,22 +56,20 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
         fscanf(toRead, "%s\n", temp_fname);
         sprintf(buf, "%s/%s", dir, temp_fname);
         
-        qso_estimators[q] = new OneQSOEstimate(buf, NUMBER_OF_BANDS, KBAND_EDGES, ZBIN_CENTERS);
+        qso_estimators[q] = new OneQSOEstimate(buf);
         Z_BIN_COUNTS[qso_estimators[q]->ZBIN]++;
     }
     
     fclose(toRead);
 
-    // weights_pmn_bands      = new double[NUMBER_OF_BANDS];
+    // weights_pmn_bands      = new double[NUMBER_OF_K_BANDS];
 
-    // fit_to_pmn = new LnPolynomialFit(POLYNOMIAL_FIT_DEGREE, 1, NUMBER_OF_BANDS);
-    // fit_to_pmn->initialize(K_CENTERS);
+    // fit_to_pmn = new LnPolynomialFit(POLYNOMIAL_FIT_DEGREE, 1, NUMBER_OF_K_BANDS);
+    // fit_to_pmn->initialize(KBAND_CENTERS);
 }
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 {
-    delete [] K_CENTERS;
-
     for (int zm = 0; zm < NUMBER_OF_Z_BINS; zm++)
     {
         gsl_vector_free(pmn_before_fisher_estimate_vector_sum[zm]);
@@ -195,7 +181,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
         printf("Relative change in ps estimate for redshift range %.2f: ", ZBIN_CENTERS[zm]);
         
-        for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
         {
             p1 = gsl_vector_get(pmn_estimate_vector[zm], kn);
             p2 = gsl_vector_get(previous_pmn_estimate_vector[zm], kn);
@@ -232,10 +218,10 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname_base
 
         toWrite = open_file(buf, "w");
 
-        fprintf(toWrite, "%d\n", NUMBER_OF_BANDS);
+        fprintf(toWrite, "%d\n", NUMBER_OF_K_BANDS);
         double err;
 
-        for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
         {
             err = sqrt(gsl_matrix_get(fisher_matrix_sum[zm], kn, kn));
 
@@ -244,7 +230,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname_base
             // else
             //     err = sqrt(gsl_matrix_get(fisher_matrix_sum[zm], i, i)) / gsl_vector_get(fisher_filter, i);
             
-            fprintf(toWrite, "%e %e %e\n",  K_CENTERS[kn], \
+            fprintf(toWrite, "%e %e %e\n",  KBAND_CENTERS[kn], \
                                             gsl_vector_get(pmn_estimate_vector[zm], kn) + powerSpectrumValue(kn, zm), \
                                             err );
         }
@@ -274,14 +260,14 @@ void OneDQuadraticPowerEstimate::printfSpectra()
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
         // printf("P^fid_m(zm, kn) at z=%.2f: ", ZBIN_CENTERS[zm]);
-        // for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+        // for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
         // {
         //     printf("%.3e ", powerSpectrumValue(kn, zm));
         // }
         // printf("\n");
 
         printf("P_m(zm, kn) at z=%.2f: ", ZBIN_CENTERS[zm]);
-        for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
         {
             printf("%.3e ", pmn_estimate_vector[zm]->data[kn] + powerSpectrumValue(kn, zm));
             // weights_pmn_bands[kn] = 1. / gsl_matrix_get(fisher_matrix_sum, kn, kn);
@@ -292,19 +278,19 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 
 double OneDQuadraticPowerEstimate::powerSpectrumValue(int kn, int zm)
 {
-    return fiducial_power_spectrum(K_CENTERS[kn], ZBIN_CENTERS[zm], FIDUCIAL_PS_PARAMS);
+    return fiducial_power_spectrum(KBAND_CENTERS[kn], ZBIN_CENTERS[zm], FIDUCIAL_PS_PARAMS);
 }
 
 void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
 {
     printf("WARNING: Setting initial estimate with FFT DOES NOT work. It is kept for archival purposes.\n");
     /*
-    double *temp_ps = new double[NUMBER_OF_BANDS];
+    double *temp_ps = new double[NUMBER_OF_K_BANDS];
 
-    gsl_vector_view temp_ps_view = gsl_vector_view_array(temp_ps, NUMBER_OF_BANDS);
+    gsl_vector_view temp_ps_view = gsl_vector_view_array(temp_ps, NUMBER_OF_K_BANDS);
     
-    int *bincount_q     = new int[NUMBER_OF_BANDS], \
-        *bincount_total = new int[NUMBER_OF_BANDS];
+    int *bincount_q     = new int[NUMBER_OF_K_BANDS], \
+        *bincount_total = new int[NUMBER_OF_K_BANDS];
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
@@ -313,7 +299,7 @@ void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
         gsl_vector_scale(&temp_ps_view.vector, 1./NUMBER_OF_QSOS);
         gsl_vector_add(pmn_estimate_vector, &temp_ps_view.vector);
 
-        for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
         {
             if (q == 0) bincount_total[kn]  = bincount_q[kn];
             else        bincount_total[kn] += bincount_q[kn];
@@ -321,7 +307,7 @@ void OneDQuadraticPowerEstimate::setInitialPSestimateFFT()
     }
 
     printf("Initial guess for the power spectrum from FFT:\n");
-    for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+    for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
     {
         double psev = gsl_vector_get(pmn_estimate_vector, kn) + 1E-10;
         printf("%.2le ", psev);
@@ -357,7 +343,7 @@ void OneDQuadraticPowerEstimate::filteredEstimates()
     printf("WARNING: Filtered estimates DOES NOT work. It is kept for archival purposes.\n");
 
     /*
-    gsl_vector *ones_vector = gsl_vector_alloc(NUMBER_OF_BANDS);
+    gsl_vector *ones_vector = gsl_vector_alloc(NUMBER_OF_K_BANDS);
     gsl_vector_set_all(ones_vector, 1.);
 
     gsl_blas_dgemv( CblasNoTrans, 2.0, \
