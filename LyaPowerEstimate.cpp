@@ -30,8 +30,8 @@ int main(int argc, char const *argv[])
     
     struct palanque_fit_params FIDUCIAL_PD13_PARAMS;
 
-    OneDQuadraticPowerEstimate *qps
-    
+    OneDQuadraticPowerEstimate *qps;
+
     try
     {
         // Set up config file to read variables.
