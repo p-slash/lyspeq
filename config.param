@@ -12,9 +12,9 @@ Log10KBinWidth 0.1
 
 # Redshift bins are linearly spaced.
 
-FirstRedshiftBinCenter 2.85
+FirstRedshiftBinCenter 2.80
 RedshiftBinWidth 0.1
-NumberOfRedshiftBins 4
+NumberOfRedshiftBins 6
 
 # If the power spectrum is fitted with a smooth polynomial of ln k, its degree is
 # PolynomialDegree 2
