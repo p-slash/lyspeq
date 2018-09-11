@@ -17,13 +17,8 @@ extern int POLYNOMIAL_FIT_DEGREE;
 
 class OneDQuadraticPowerEstimate
 {
-    int NUMBER_OF_BANDS, \
-        NUMBER_OF_Z_BINS, \
-        NUMBER_OF_QSOS, \
+    int NUMBER_OF_QSOS, \
         *Z_BIN_COUNTS;
-
-    const double *KBAND_EDGES, *ZBIN_CENTERS;
-    double *K_CENTERS;
 
     struct palanque_fit_params *FIDUCIAL_PS_PARAMS;
 
@@ -48,8 +43,6 @@ class OneDQuadraticPowerEstimate
 
 public:
     OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
-                                int no_bands, const double *k_edges, \
-                                int no_z_bins, const double *z_centers, \
                                 const SQLookupTable *table, \
                                 struct palanque_fit_params *pfp);
 

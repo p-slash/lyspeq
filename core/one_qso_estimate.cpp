@@ -31,11 +31,8 @@ void compareTableTrue(double true_value, double table_value, const char *which_m
     }
 }
 
-OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k, const double *zc)
+OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 {
-    NUMBER_OF_BANDS = n;
-    kband_edges     = k;
-
     // Construct and read data arrays
     QSOFile qFile(fname_qso);
 
@@ -56,15 +53,16 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso, int n, const double *k, co
 
     convert_lambda2v(MEAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
     printf("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
-    double delta_z  = zc[1] - zc[0];
-    ZBIN            = (MEAN_REDSHIFT - (zc[0] - delta_z/2.)) / delta_z;
-    BIN_REDSHIFT    = zc[ZBIN];
+    
+    // double delta_z  = zc[1] - zc[0];
+    // ZBIN            = (MEAN_REDSHIFT - (zc[0] - delta_z/2.)) / delta_z;
+    // BIN_REDSHIFT    = zc[ZBIN];
 
     printf("Mean redshift of spectrum chunk: %.2f\n", MEAN_REDSHIFT);
 
     /* Allocate memory */
-    derivative_of_signal_matrices          = new gsl_matrix*[NUMBER_OF_BANDS];
-    modified_derivative_of_signal_matrices = new gsl_matrix*[NUMBER_OF_BANDS];
+    derivative_of_signal_matrices          = new gsl_matrix*[NUMBER_OF_K_BANDS];
+    modified_derivative_of_signal_matrices = new gsl_matrix*[NUMBER_OF_K_BANDS];
 
     isCovInverted    = false;
 }
@@ -157,7 +155,7 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
     }
 
     // Now set the rest of Q
-    for (int kn = 1; kn < NUMBER_OF_BANDS; kn++)
+    for (int kn = 1; kn < NUMBER_OF_K_BANDS; kn++)
     {
         kvalue_1 = kband_edges[kn];
         kvalue_2 = kband_edges[kn + 1];
@@ -238,7 +236,7 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
     }
 
     // Set other bands for Q matrix
-    for (int kn = 1; kn < NUMBER_OF_BANDS; kn++)
+    for (int kn = 1; kn < NUMBER_OF_K_BANDS; kn++)
     {
         for (int i = 0; i < DATA_SIZE; i++)
         {
@@ -269,7 +267,7 @@ void OneQSOEstimate::computeCSMatrices(gsl_vector * const *ps_estimate)
 
     gsl_matrix *temp_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
 
-    for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+    for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
     {
         gsl_matrix_memcpy(temp_matrix, derivative_of_signal_matrices[kn]);
         gsl_matrix_scale(temp_matrix, ps_estimate[ZBIN]->data[kn]);
@@ -320,7 +318,7 @@ void OneQSOEstimate::computeModifiedDSMatrices()
 
     gsl_matrix *temp_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
 
-    for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+    for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
     {
         //gsl_matrix_memcpy(modified_derivative_of_signal_matrices[kn], derivative_of_signal_matrices[kn]);
 
@@ -361,7 +359,7 @@ void OneQSOEstimate::computePSbeforeFvector()
 
     double temp_bk, temp_tk, temp_d;
 
-    for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+    for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
     {
         temp_bk = trace_of_2matrices(modified_derivative_of_signal_matrices[kn], noise_array, DATA_SIZE);
         temp_tk = trace_of_2matrices(modified_derivative_of_signal_matrices[kn], fiducial_signal_matrix, DATA_SIZE);
@@ -392,7 +390,7 @@ void OneQSOEstimate::computeFisherMatrix()
 
     double temp;
 
-    for (int k = 0; k < NUMBER_OF_BANDS; k++)
+    for (int k = 0; k < NUMBER_OF_K_BANDS; k++)
     {
         temp = 0.5 * trace_of_2matrices(modified_derivative_of_signal_matrices[k], \
                                         derivative_of_signal_matrices[k], \
@@ -400,7 +398,7 @@ void OneQSOEstimate::computeFisherMatrix()
 
         gsl_matrix_set(fisher_matrix, k, k, temp);
 
-        for (int q = k + 1; q < NUMBER_OF_BANDS; q++)
+        for (int q = k + 1; q < NUMBER_OF_K_BANDS; q++)
         {
             temp = 0.5 * trace_of_2matrices(modified_derivative_of_signal_matrices[k], \
                                             derivative_of_signal_matrices[q], \
@@ -428,7 +426,7 @@ void OneQSOEstimate::oneQSOiteration(   gsl_vector * const *ps_estimate, \
 
     computePSbeforeFvector();
     computeFisherMatrix();
-    // printf_matrix(fisher_matrix, NUMBER_OF_BANDS);
+    // printf_matrix(fisher_matrix, NUMBER_OF_K_BANDS);
 
     gsl_matrix_add(fisher_sum[ZBIN], fisher_matrix);
     gsl_vector_add(pmn_before[ZBIN], ps_before_fisher_estimate_vector);
@@ -455,13 +453,12 @@ void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
     
     // rf.deconvolve(spectral_response_window_fn, &win_params);
 
-    rf.getPowerSpectrum(ps, kband_edges, NUMBER_OF_BANDS, bincount);
+    rf.getPowerSpectrum(ps, KBAND_EDGES, NUMBER_OF_K_BANDS, bincount);
 
     // deconvolve power spectrum with spectrograph window function.
-    for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+    for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
     {
-        double k = (kband_edges[kn + 1] + kband_edges[kn]) / 2.;
-        double w = spectral_response_window_fn(k, &win_params);
+        double w = spectral_response_window_fn(KBAND_CENTERS[kn], &win_params);
 
         ps[kn] /= w*w;
     }
@@ -469,15 +466,15 @@ void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
 
 void OneQSOEstimate::allocateMatrices()
 {
-    ps_before_fisher_estimate_vector = gsl_vector_alloc(NUMBER_OF_BANDS);
+    ps_before_fisher_estimate_vector = gsl_vector_alloc(NUMBER_OF_K_BANDS);
 
-    fisher_matrix             = gsl_matrix_alloc(NUMBER_OF_BANDS, NUMBER_OF_BANDS);
+    fisher_matrix             = gsl_matrix_alloc(NUMBER_OF_K_BANDS, NUMBER_OF_K_BANDS);
 
     covariance_matrix         = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
     fiducial_signal_matrix    = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
     inverse_covariance_matrix = covariance_matrix;
 
-    for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+    for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
     {
         derivative_of_signal_matrices[kn]          = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
         modified_derivative_of_signal_matrices[kn] = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
@@ -493,96 +490,13 @@ void OneQSOEstimate::freeMatrices()
     gsl_matrix_free(covariance_matrix);
     gsl_matrix_free(fiducial_signal_matrix);
 
-    for (int kn = 0; kn < NUMBER_OF_BANDS; kn++)
+    for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
     {
         gsl_matrix_free(derivative_of_signal_matrices[kn]);
         gsl_matrix_free(modified_derivative_of_signal_matrices[kn]);
     }
 }
 
-// Backup
-/*
-void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable *sq_lookup_table)
-{
-    struct spectrograph_windowfn_params win_params = {0, 0, DV_KMS, SPECT_RES};
-
-    Integrator s_integrator(GSL_QAG, signal_matrix_integrand, &win_params);
-    Integrator q_integrator(GSL_QAG, q_matrix_integrand, &win_params);
-
-    int sq_array_size = (velocity_array[DATA_SIZE-1] - velocity_array[0]) / DV_KMS + 1, temp_index;
-    double *s_ij_array = new double[sq_array_size];
-    double *q_ij_array = new double[sq_array_size];
-
-    double  temp, \
-            kvalue_1 = kband_edges[0], \
-            kvalue_2 = kband_edges[1];
-
-    // Also set kn=0 for Q
-    for (int i = 0; i < sq_array_size; i++)
-    {
-        win_params.delta_v_ij = i * DV_KMS;
-        win_params.z_ij       = lambda_array[i] / LYA_REST - 1.;
-
-        s_ij_array[i] = s_integrator.evaluateAToInfty(0);
-        q_ij_array[i] = q_integrator.evaluate(kvalue_1, kvalue_2);
-    }
-
-    for (int i = 0; i < DATA_SIZE; i++)
-    {
-        temp = s_ij_array[0];
-        gsl_matrix_set(fiducial_signal_matrix, i, i, temp);
-
-        temp = q_ij_array[0];
-        gsl_matrix_set(derivative_of_signal_matrices[0], i, i, temp);
-
-        for (int j = i + 1; j < DATA_SIZE; j++)
-        {
-            temp_index = int((velocity_array[j] - velocity_array[i]) / DV_KMS + 0.5);
-
-            temp = s_ij_array[temp_index];
-            gsl_matrix_set(fiducial_signal_matrix, i, j, temp);
-            gsl_matrix_set(fiducial_signal_matrix, j, i, temp);
-
-            temp = q_ij_array[temp_index];
-            gsl_matrix_set(derivative_of_signal_matrices[0], i, j, temp);
-            gsl_matrix_set(derivative_of_signal_matrices[0], j, i, temp);
-        }
-    }
-
-    // Now set the rest of Q
-    for (int kn = 1; kn < NUMBER_OF_BANDS; kn++)
-    {
-        kvalue_1 = kband_edges[kn];
-        kvalue_2 = kband_edges[kn + 1];
-
-        for (int i = 0; i < sq_array_size; i++)
-        {
-            win_params.delta_v_ij = i * DV_KMS;
-            win_params.z_ij       = lambda_array[i] / LYA_REST - 1.;
-
-            q_ij_array[i] = q_integrator.evaluate(kvalue_1, kvalue_2);
-        }
-
-        for (int i = 0; i < DATA_SIZE; i++)
-        {
-            temp = q_ij_array[0];
-            gsl_matrix_set(derivative_of_signal_matrices[kn], i, i, temp);
-
-            for (int j = i + 1; j < DATA_SIZE; j++)
-            {
-                temp_index = int((velocity_array[j] - velocity_array[i]) / DV_KMS + 0.5);
-                temp = q_ij_array[temp_index];
-                
-                gsl_matrix_set(derivative_of_signal_matrices[kn], i, j, temp);
-                gsl_matrix_set(derivative_of_signal_matrices[kn], j, i, temp);
-            }
-        }
-    }
-
-    delete [] q_ij_array;
-    delete [] s_ij_array;
-}
-*/
 
 
 

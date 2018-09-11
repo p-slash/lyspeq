@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cmath>
 
+#include "core/global_numbers.hpp"
 #include "core/quadratic_estimate.hpp"
 #include "core/spectrograph_functions.hpp"
 #include "core/sq_table.hpp"
@@ -21,11 +22,11 @@ int main(int argc, char const *argv[])
          OUTPUT_FILEBASE[300],\
          buf[500];
 
-    int N_KLIN_BIN, N_KLOG_BIN, N_KTOTAL_BINS, \
-        N_Z_BINS, NUMBER_OF_ITERATIONS;
+    int N_KLIN_BIN, N_KLOG_BIN, \
+        NUMBER_OF_ITERATIONS;
 
-    double  K_0, LIN_K_SPACING, LOG_K_SPACING, *k_edges, \
-            Z_0, Z_BIN_WIDTH, *z_centers;
+    double  K_0, LIN_K_SPACING, LOG_K_SPACING, \
+            Z_0;
 
     OneDQuadraticPowerEstimate *qps;
     
@@ -45,7 +46,7 @@ int main(int argc, char const *argv[])
 
         cFile.addKey("NumberOfLinearBins", &N_KLIN_BIN, INTEGER);
         cFile.addKey("NumberOfLog10Bins", &N_KLOG_BIN, INTEGER);
-        cFile.addKey("NumberOfRedshiftBins", &N_Z_BINS, INTEGER);
+        cFile.addKey("NumberOfRedshiftBins", &NUMBER_OF_Z_BINS, INTEGER);
 
         // cFile.addKey("PolynomialDegree", &POLYNOMIAL_FIT_DEGREE, INTEGER);
         
@@ -70,42 +71,37 @@ int main(int argc, char const *argv[])
         cFile.readAll();
 
         // Construct k edges
-        N_KTOTAL_BINS = N_KLIN_BIN + N_KLOG_BIN;
+        NUMBER_OF_K_BANDS = N_KLIN_BIN + N_KLOG_BIN;
 
-        k_edges = new double[N_KTOTAL_BINS + 1];
+        KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
+        KBAND_CENTERS = new double[NUMBER_OF_K_BANDS];
 
         for (int i = 0; i < N_KLIN_BIN + 1; i++)
         {
-            k_edges[i] = K_0 + LIN_K_SPACING * i;
+            KBAND_EDGES[i] = K_0 + LIN_K_SPACING * i;
         }
         for (int i = 1, j = N_KLIN_BIN + 1; i < N_KLOG_BIN + 1; i++, j++)
         {
-            k_edges[j] = k_edges[N_KLIN_BIN] * pow(10., i * LOG_K_SPACING);
+            KBAND_EDGES[j] = KBAND_EDGES[N_KLIN_BIN] * pow(10., i * LOG_K_SPACING);
+        }
+        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
+        {
+            KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
         }
 
         // Construct redshift bins
-        z_centers = new double[N_Z_BINS];
+        ZBIN_CENTERS = new double[NUMBER_OF_Z_BINS];
 
-        for (int zm = 0; zm < N_Z_BINS; ++zm)
+        for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
         {
-            z_centers[zm] = Z_0 + Z_BIN_WIDTH * zm;
+            ZBIN_CENTERS[zm] = Z_0 + Z_BIN_WIDTH * zm;
         }
 
-        for (int i = 0; i < N_KTOTAL_BINS + 1; ++i)
-        {
-            printf("%le ", k_edges[i]);
-        }
-        printf("\n");
-
-
-        SQLookupTable sq_Table( INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST, \
-                                k_edges, N_KTOTAL_BINS, z_centers, N_Z_BINS);
+        SQLookupTable sq_Table(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
 
         gsl_set_error_handler_off();
 
         qps = new OneDQuadraticPowerEstimate(   FNAME_LIST, INPUT_DIR, \
-                                                N_KTOTAL_BINS, k_edges, \
-                                                N_Z_BINS, z_centers, \
                                                 &sq_Table, \
                                                 &FIDUCIAL_PD13_PARAMS);
 
@@ -120,6 +116,9 @@ int main(int argc, char const *argv[])
         qps->write_spectrum_estimates(buf);
 
         delete qps;
+        delete [] KBAND_EDGES;
+        delete [] KBAND_CENTERS;
+        delete [] ZBIN_CENTERS;
     }
     catch (std::exception& e)
     {

@@ -15,10 +15,8 @@
 class OneQSOEstimate
 {
     int DATA_SIZE, \
-        NUMBER_OF_BANDS, \
         SPECT_RES;
 
-    const double *kband_edges;
     double  MEAN_REDSHIFT, BIN_REDSHIFT, \
             DV_KMS;
     
@@ -36,7 +34,7 @@ class OneQSOEstimate
                 *inverse_covariance_matrix, \
                 *fiducial_signal_matrix;
 
-    /* NUMBER_OF_BANDS many DATA_SIZE x DATA_SIZE sized matrices */
+    /* NUMBER_OF_K_BANDS many DATA_SIZE x DATA_SIZE sized matrices */
     gsl_matrix  **derivative_of_signal_matrices, \
                 **modified_derivative_of_signal_matrices;
 
@@ -48,13 +46,13 @@ class OneQSOEstimate
 public:
     int ZBIN;
 
-    /* NUMBER_OF_BANDS sized vector */ 
+    /* NUMBER_OF_K_BANDS sized vector */ 
     gsl_vector  *ps_before_fisher_estimate_vector;
 
-    /* NUMBER_OF_BANDS x NUMBER_OF_BANDS sized matrices */
+    /* NUMBER_OF_K_BANDS x NUMBER_OF_K_BANDS sized matrices */
     gsl_matrix  *fisher_matrix;
 
-    OneQSOEstimate(const char *fname_qso, int n, const double *k, const double *zc);
+    OneQSOEstimate(const char *fname_qso);
     ~OneQSOEstimate();
 
     // double getFiducialPowerSpectrumValue(double k);

@@ -1,13 +1,14 @@
 #include "sq_table.hpp"
+#include "global_numbers.hpp"
 
 #include "../io/io_helper_functions.hpp"
 #include "../io/sq_lookup_table_file.hpp"
 
 #include <cstdio>
 
-double tophat_z_bin(double z, double zm, double deltaz)
+double tophat_z_bin(double z, double zm)
 {
-    if (zm - deltaz/2 < z && z < zm + deltaz/2)
+    if (zm - Z_BIN_WIDTH/2 < z && z < zm + Z_BIN_WIDTH/2)
     {
         return 1.;
     }
@@ -15,45 +16,38 @@ double tophat_z_bin(double z, double zm, double deltaz)
     return 0;
 }
 
-double triangular_z_bin(double z, double zm, double deltaz)
+double triangular_z_bin(double z, double zm)
 {
-    if (zm - deltaz < z && z < zm)
+    if (zm - Z_BIN_WIDTH < z && z <= zm)
     {
-        return (z - zm + deltaz) / deltaz;
+        return (z - zm + Z_BIN_WIDTH) / Z_BIN_WIDTH;
     }
-    else if (zm < z && z < zm + deltaz)
+    else if (zm < z && z < zm + Z_BIN_WIDTH)
     {
-        return (zm + deltaz - z) / deltaz;
+        return (zm + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
     }
 
     return 0;
 }
 
-double redshift_binning_function(double z, double zm, double deltaz)
+double redshift_binning_function(double z, double zm)
 {
     #ifdef TOPHAT_Z_BINNING_FN
     {
-        return tophat_z_bin(z, zm, deltaz);
+        return tophat_z_bin(z, zm);
     }
     #endif
 
     #ifdef TRIANGLE_Z_BINNING_FN
     {
-        return triangular_z_bin(z, zm, deltaz);
+        return triangular_z_bin(z, zm);
     }
     #endif
 }
 
 SQLookupTable::SQLookupTable(   const char *dir, const char *s_base, const char *q_base, \
-                                const char *fname_rlist, \
-                                const double *k_edges, int nkbins, \
-                                const double *z_centers, int nzbins)
+                                const char *fname_rlist)
 {
-    KBAND_EDGES  = k_edges;
-    ZBIN_CENTERS = z_centers;
-    N_K_BINS     = nkbins;
-    N_Z_BINS     = nzbins;
-
     LINEAR_V_ARRAY   = NULL;
     LINEAR_Z_ARRAY   = NULL;
     signal_array     = NULL;
@@ -80,7 +74,7 @@ SQLookupTable::SQLookupTable(   const char *dir, const char *s_base, const char 
     fflush(stdout);
 
     interp2d_signal_matrices     = new Interpolation2D*[NUMBER_OF_R_VALUES];
-    interp_derivative_matrices   = new Interpolation*[NUMBER_OF_R_VALUES * N_K_BINS];
+    interp_derivative_matrices   = new Interpolation*[NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
     {
@@ -98,7 +92,7 @@ SQLookupTable::~SQLookupTable()
         delete interp2d_signal_matrices[r];
     }
 
-    for (int kr = 0; kr < NUMBER_OF_R_VALUES * N_K_BINS; ++kr)
+    for (int kr = 0; kr < NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS; ++kr)
     {
         delete interp_derivative_matrices[kr];
     }
@@ -124,8 +118,7 @@ void SQLookupTable::allocate()
 
     // Allocate and set redshift array
     LINEAR_Z_ARRAY = new double[N_Z_POINTS_OF_S];
-    double zbinwidth = LENGTH_Z_OF_S / N_Z_BINS;
-    double zfirst    = ZBIN_CENTERS[0] - zbinwidth / 2.;
+    double zfirst    = ZBIN_CENTERS[0] - Z_BIN_WIDTH / 2.;
 
     for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
     {
@@ -137,7 +130,7 @@ void SQLookupTable::allocate()
     signal_array     = new double[N_V_POINTS * N_Z_POINTS_OF_S * NUMBER_OF_R_VALUES];
 
     // index = nv + Nv * (r + Nr * kn)
-    derivative_array = new double[N_V_POINTS * NUMBER_OF_R_VALUES * N_K_BINS];
+    derivative_array = new double[N_V_POINTS * NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS];
 }
 
 void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base, const char *q_base)
@@ -155,7 +148,7 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
                             dummy_R, temp_px_width, \
                             temp_ki, temp_kf);
 
-    N_Z_POINTS_OF_Q = N_Z_POINTS_OF_S / N_Z_BINS;
+    N_Z_POINTS_OF_Q = N_Z_POINTS_OF_S / NUMBER_OF_Z_BINS;
 
     if (LINEAR_V_ARRAY == NULL)
     {
@@ -174,7 +167,7 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
     // Read Q tables. 
     double kvalue_1, kvalue_2;
 
-    for (int kn = 0; kn < N_K_BINS; ++kn)
+    for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
     {
         kvalue_1 = KBAND_EDGES[kn];
         kvalue_2 = KBAND_EDGES[kn + 1];
@@ -204,7 +197,7 @@ double SQLookupTable::getSignalMatrixValue(double v_ij, double z_ij, int r_index
 double SQLookupTable::getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int r_index) const
 {
     double v_result = interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)]->evaluate(v_ij);
-    double z_result = redshift_binning_function(z_ij, ZBIN_CENTERS[zm], LENGTH_Z_OF_Q);
+    double z_result = redshift_binning_function(z_ij, ZBIN_CENTERS[zm]);
 
     return z_result * v_result;
 }

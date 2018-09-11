@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cmath>
 
+#include "core/global_numbers.hpp"
 #include "core/spectrograph_functions.hpp"
 #include "core/fiducial_cosmology.hpp"
 
@@ -25,13 +26,12 @@ int main(int argc, char const *argv[])
          OUTPUT_FILEBASE_Q[300],\
          buf[500];
 
-    int N_KLIN_BIN, N_KLOG_BIN, N_KTOTAL_BINS, \
-        N_Z_BINS, \
+    int N_KLIN_BIN, N_KLOG_BIN, \
         NUMBER_OF_Rs, *R_VALUES, \
         Nv, Nz;
 
-    double  K_0, LIN_K_SPACING, LOG_K_SPACING, *k_edges, \
-            Z_0, Z_BIN_WIDTH, *z_centers, \
+    double  K_0, LIN_K_SPACING, LOG_K_SPACING, \
+            Z_0, \
             PIXEL_WIDTH, LENGTH_V;
 
     struct palanque_fit_params FIDUCIAL_PD13_PARAMS;
@@ -51,7 +51,7 @@ int main(int argc, char const *argv[])
 
         cFile.addKey("NumberOfLinearBins",   &N_KLIN_BIN, INTEGER);
         cFile.addKey("NumberOfLog10Bins",    &N_KLOG_BIN, INTEGER);
-        cFile.addKey("NumberOfRedshiftBins", &N_Z_BINS,   INTEGER);
+        cFile.addKey("NumberOfRedshiftBins", &NUMBER_OF_Z_BINS,   INTEGER);
         
         // File names and paths
         cFile.addKey("FileNameRList", FNAME_RLIST, STRING);
@@ -76,32 +76,27 @@ int main(int argc, char const *argv[])
         cFile.readAll();
 
         // Construct k edges
-        N_KTOTAL_BINS = N_KLIN_BIN + N_KLOG_BIN;
+        NUMBER_OF_K_BANDS = N_KLIN_BIN + N_KLOG_BIN;
 
-        k_edges = new double[N_KTOTAL_BINS + 1];
+        KBAND_EDGES = new double[NUMBER_OF_K_BANDS + 1];
 
         for (int i = 0; i < N_KLIN_BIN + 1; i++)
         {
-            k_edges[i] = K_0 + LIN_K_SPACING * i;
+            KBAND_EDGES[i] = K_0 + LIN_K_SPACING * i;
         }
         for (int i = 1, j = N_KLIN_BIN + 1; i < N_KLOG_BIN + 1; i++, j++)
         {
-            k_edges[j] = k_edges[N_KLIN_BIN] * pow(10., i * LOG_K_SPACING);
+            KBAND_EDGES[j] = KBAND_EDGES[N_KLIN_BIN] * pow(10., i * LOG_K_SPACING);
         }
 
         // Construct redshift bins
-        z_centers = new double[N_Z_BINS];
+        ZBIN_CENTERS = new double[NUMBER_OF_Z_BINS];
 
-        for (int zm = 0; zm < N_Z_BINS; ++zm)
+        for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
         {
-            z_centers[zm] = Z_0 + Z_BIN_WIDTH * zm;
+            ZBIN_CENTERS[zm] = Z_0 + Z_BIN_WIDTH * zm;
         }
 
-        for (int i = 0; i < N_KTOTAL_BINS + 1; ++i)
-        {
-            printf("%le ", k_edges[i]);
-        }
-        printf("\n");
         // Redshift and wavenumber bins are constructed
         // ---------------------
 
@@ -129,7 +124,7 @@ int main(int argc, char const *argv[])
         fflush(stdout);
 
         double  z_first  = Z_0 - Z_BIN_WIDTH / 2., \
-                z_length = Z_BIN_WIDTH * N_Z_BINS;
+                z_length = Z_BIN_WIDTH * NUMBER_OF_Z_BINS;
 
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
@@ -165,7 +160,7 @@ int main(int argc, char const *argv[])
 
             signal_table.setHeader( Nv, Nz, LENGTH_V, z_length, \
                                     R_VALUES[r], PIXEL_WIDTH, \
-                                    0, k_edges[N_KTOTAL_BINS]);
+                                    0, KBAND_EDGES[NUMBER_OF_K_BANDS]);
 
             signal_table.writeData(big_temp_array);
         }
@@ -178,7 +173,7 @@ int main(int argc, char const *argv[])
         printf("Creating look up table for derivative signal matrices...\n");
         fflush(stdout);
 
-        // int subNz = Nz / N_Z_BINS;
+        // int subNz = Nz / NUMBER_OF_Z_BINS;
         Integrator q_integrator(GSL_QAG, q_matrix_integrand, &integration_parameters);
 
         big_temp_array = new double[Nv];
@@ -190,10 +185,10 @@ int main(int argc, char const *argv[])
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r];
             printf("%d of %d R values %d => %.2f km/s\n", r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
 
-            for (int kn = 0; kn < N_KTOTAL_BINS; ++kn)
+            for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
             {
-                kvalue_1 = k_edges[kn];
-                kvalue_2 = k_edges[kn + 1];
+                kvalue_1 = KBAND_EDGES[kn];
+                kvalue_2 = KBAND_EDGES[kn + 1];
 
                 printf("Q matrix for k = [%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
 
@@ -219,8 +214,8 @@ int main(int argc, char const *argv[])
         // ---------------------
 
         delete [] big_temp_array;
-        delete [] k_edges;
-        delete [] z_centers;
+        delete [] KBAND_EDGES;
+        delete [] ZBIN_CENTERS;
        
     }
     catch (std::exception& e)

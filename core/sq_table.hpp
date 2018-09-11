@@ -31,8 +31,8 @@
 
 class SQLookupTable
 {
-    int NUMBER_OF_R_VALUES, N_K_BINS, N_Z_BINS, \
-        N_V_POINTS, N_Z_POINTS_OF_S, N_Z_POINTS_OF_Q;
+    int NUMBER_OF_R_VALUES, N_V_POINTS, \
+        N_Z_POINTS_OF_S, N_Z_POINTS_OF_Q;
 
     int *R_VALUES;
 
@@ -40,8 +40,6 @@ class SQLookupTable
 
     double  *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY, \
             *signal_array, *derivative_array;
-
-    const double *KBAND_EDGES, *ZBIN_CENTERS;
 
     Interpolation2D **interp2d_signal_matrices;
     Interpolation   **interp_derivative_matrices;
@@ -55,9 +53,7 @@ class SQLookupTable
     void readSQforR(int r_index, const char *dir, const char *s_base, const char *q_base);
 public:
     SQLookupTable(  const char *dir, const char *s_base, const char *q_base, \
-                    const char *fname_rlist, \
-                    const double *k_edges, int nkbins, \
-                    const double *z_centers, int nzbins);
+                    const char *fname_rlist);
     ~SQLookupTable();
     
     int findSpecResIndex(int spec_res) const;
