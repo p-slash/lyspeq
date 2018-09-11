@@ -27,11 +27,11 @@ int main(int argc, char const *argv[])
 
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, \
             Z_0;
-
-    OneDQuadraticPowerEstimate *qps;
     
     struct palanque_fit_params FIDUCIAL_PD13_PARAMS;
 
+    OneDQuadraticPowerEstimate *qps
+    
     try
     {
         // Set up config file to read variables.
@@ -72,6 +72,7 @@ int main(int argc, char const *argv[])
 
         // Construct k edges
         NUMBER_OF_K_BANDS = N_KLIN_BIN + N_KLOG_BIN;
+        TOTAL_KZ_BINS     = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
 
         KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
         KBAND_CENTERS = new double[NUMBER_OF_K_BANDS];
@@ -102,8 +103,8 @@ int main(int argc, char const *argv[])
         gsl_set_error_handler_off();
 
         qps = new OneDQuadraticPowerEstimate(   FNAME_LIST, INPUT_DIR, \
-                                                &sq_Table, \
-                                                &FIDUCIAL_PD13_PARAMS);
+                                                                            &sq_Table, \
+                                                                            &FIDUCIAL_PD13_PARAMS);
 
         // qps->setInitialScaling();
         // qps->setInitialPSestimateFFT();
@@ -114,6 +115,7 @@ int main(int argc, char const *argv[])
 
         sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
         qps->write_spectrum_estimates(buf);
+        qps->write_fisher_matrix(buf);
 
         delete qps;
         delete [] KBAND_EDGES;
