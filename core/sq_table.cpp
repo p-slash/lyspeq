@@ -6,9 +6,11 @@
 
 #include <cstdio>
 
-double tophat_z_bin(double z, double zm)
+double tophat_z_bin(double z, int zm)
 {
-    if (zm - Z_BIN_WIDTH/2 < z && z < zm + Z_BIN_WIDTH/2)
+    double z_center = ZBIN_CENTERS[zm];
+
+    if (z_center - Z_BIN_WIDTH/2 < z && z < z_center + Z_BIN_WIDTH/2)
     {
         return 1.;
     }
@@ -16,21 +18,23 @@ double tophat_z_bin(double z, double zm)
     return 0;
 }
 
-double triangular_z_bin(double z, double zm)
+double triangular_z_bin(double z, int zm)
 {
-    if (zm - Z_BIN_WIDTH < z && z <= zm)
+    double z_center = ZBIN_CENTERS[zm];
+    
+    if (z_center - Z_BIN_WIDTH < z && z <= z_center)
     {
-        return (z - zm + Z_BIN_WIDTH) / Z_BIN_WIDTH;
+        return (z - z_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
     }
-    else if (zm < z && z < zm + Z_BIN_WIDTH)
+    else if (z_center < z && z < z_center + Z_BIN_WIDTH)
     {
-        return (zm + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+        return (z_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
     }
 
     return 0;
 }
 
-double redshift_binning_function(double z, double zm)
+double redshift_binning_function(double z, int zm)
 {
     #ifdef TOPHAT_Z_BINNING_FN
     {
@@ -196,8 +200,14 @@ double SQLookupTable::getSignalMatrixValue(double v_ij, double z_ij, int r_index
 
 double SQLookupTable::getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int r_index) const
 {
+    double z_result = redshift_binning_function(z_ij, zm);
+    
+    if (z_result == 0)
+    {
+        return 0;
+    }
+
     double v_result = interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)]->evaluate(v_ij);
-    double z_result = redshift_binning_function(z_ij, ZBIN_CENTERS[zm]);
 
     return z_result * v_result;
 }
