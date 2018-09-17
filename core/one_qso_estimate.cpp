@@ -244,11 +244,6 @@ void OneQSOEstimate::computeWeightedMatrices()
         gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, \
                         1.0, inverse_covariance_matrix, derivative_of_signal_matrices[i_kz], \
                         0, weighted_derivative_of_signal_matrices[i_kz]);
-
-        // C-1 . Q . C-1
-        // gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, \
-        //                 1.0, temp_matrix, inverse_covariance_matrix, \
-        //                 0, weighted_derivative_of_signal_matrices[i_kz]);
     }
 
 
