@@ -35,13 +35,13 @@ class OneQSOEstimate
        Note that noise matrix is diagonal and stored as pointer to its array 
        inverse_covariance_matrix is not allocated; it points to covariance_matrix
     */
-    gsl_matrix  *covariance_matrix, \
-                *inverse_covariance_matrix, \
-                *fiducial_signal_matrix;
+    gsl_matrix  *covariance_matrix, *inverse_covariance_matrix, \
+                *fiducial_signal_matrix, *weighted_fiducial_signal_matrix, \
+                *weighted_noise_matrix;
 
     /* TOTAL_KZ_BINS many DATA_SIZE x DATA_SIZE sized matrices */
     gsl_matrix  **derivative_of_signal_matrices, \
-                **modified_derivative_of_signal_matrices;
+                **weighted_derivative_of_signal_matrices;
 
     bool isCovInverted;
 
@@ -67,7 +67,7 @@ public:
     void setFiducialSignalAndDerivativeSMatrices(const SQLookupTable *sq_lookup_table);
     void computeCSMatrices(const gsl_vector *ps_estimate);
     void invertCovarianceMatrix();
-    void computeModifiedDSMatrices();
+    void computeWeightedMatrices();
 
     void computePSbeforeFvector();
     void computeFisherMatrix();
