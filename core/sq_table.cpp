@@ -24,10 +24,20 @@ double triangular_z_bin(double z, int zm)
     
     if (z_center - Z_BIN_WIDTH < z && z <= z_center)
     {
+        if (zm == 0)
+        {
+            return 1.;
+        }
+
         return (z - z_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
     }
     else if (z_center < z && z < z_center + Z_BIN_WIDTH)
     {
+        if (zm == NUMBER_OF_Z_BINS - 1)
+        {
+            return 1.;
+        }
+        
         return (z_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
     }
 
