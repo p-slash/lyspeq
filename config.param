@@ -12,40 +12,40 @@ Log10KBinWidth 0.1
 
 # Redshift bins are linearly spaced.
 
-FirstRedshiftBinCenter 2.80
-RedshiftBinWidth 0.1
-NumberOfRedshiftBins 6
+FirstRedshiftBinCenter 2.3
+RedshiftBinWidth 0.1125
+NumberOfRedshiftBins 16
 
 # If the power spectrum is fitted with a smooth polynomial of ln k, its degree is
 # PolynomialDegree 2
 
 # The location of the file list, and the directory where those files live:
-FileNameList /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS/qso_list.txt
+FileNameList /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS/qso_list_zon_long.txt
 FileInputDir /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS
 
 # The directory for output files and file name base:
 OutputDir /Users/nk452/repos/data/Quadratic_test
-OutputFileBase debugps_zoff
+OutputFileBase pd13ps_zon_long
 
 # List of spectograph resolutions (R) is in FileNameRList. This file starts with number of Rs.
 FileNameRList     /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks_ZEvo/mock_specres_list.txt
 
 # Lookup tables are generated with the following parameters:
-NumberVPoints     4000
-NumberZPoints     10
+NumberVPoints     1000
+NumberZPoints     80
 PixelWidth        64.0
-VelocityLength    8500.0
+VelocityLength    9100.0
 
 # Fiducial Palanque fit function parameters
 FiducialAmplitude            0.06
 FiducialSlope               -2.6
 FiducialCurvature           -0.1
-FiducialRedshiftPower        0
+FiducialRedshiftPower        1
 FiducialRedshiftCurvature    0
 
 # These lookup tables are saved with the follwoing file name bases to FileInputDir:
-SignalLookUpTableBase        signal_lookup
-DerivativeSLookUpTableBase   derivative_lookup
+SignalLookUpTableBase        signal_zon_long_lookup
+DerivativeSLookUpTableBase   derivative_zon_long_lookup
 
 # The maximum number of iterations are
-NumberOfIterations 10
+NumberOfIterations 15
