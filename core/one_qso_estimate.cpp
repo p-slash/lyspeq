@@ -66,7 +66,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     convert_lambda2v(MEAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
     printf("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
     
-    ZBIN            = (MEAN_REDSHIFT - (ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.)) / Z_BIN_WIDTH;
+    ZBIN            = (MEAN_REDSHIFT - ZBIN_CENTERS[0] + Z_BIN_WIDTH/2.) / Z_BIN_WIDTH;
     BIN_REDSHIFT    = ZBIN_CENTERS[ZBIN];
 
     printf("Mean redshift of spectrum chunk: %.2f\n", MEAN_REDSHIFT);
@@ -383,13 +383,6 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
 
     freeMatrices();
 }
-
-// double OneQSOEstimate::getFiducialPowerSpectrumValue(double k)
-// {
-//     struct spectrograph_windowfn_params win_params = {0, BIN_REDSHIFT, DV_KMS, SPEED_OF_LIGHT / SPECT_RES};
-
-//     return fiducial_power_spectrum(k, BIN_REDSHIFT, &win_params);
-// }
 
 void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
 {
