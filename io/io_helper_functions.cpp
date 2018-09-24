@@ -4,6 +4,21 @@
 #include <algorithm>
 #include <new>
 
+bool file_exists(const char *fname)
+{
+	FILE *toCheck;
+
+	toCheck = fopen(fname, "r");
+
+	if (toCheck == NULL)
+	{
+		return false;
+	}
+
+	fclose(toCheck);
+	return true;
+}
+
 void copyArray(const std::complex<double> *source, std::complex<double> *target, long long int size)
 {
 	std::copy(	&source[0], \
