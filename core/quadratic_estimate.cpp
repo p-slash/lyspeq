@@ -51,8 +51,17 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
         qso_estimators[q] = new OneQSOEstimate(buf);
         Z_BIN_COUNTS[qso_estimators[q]->ZBIN]++;
     }
-    
     fclose(toRead);
+
+    int tot_z = 0;
+    printf("Z bin counts: ");
+    for (int zm = 0; zm < NUMBER_OF_Z_BINS; zm++)
+    {
+        printf("%d ", Z_BIN_COUNTS[zm]);
+        tot_z += Z_BIN_COUNTS[zm];
+    }
+    printf("\n");
+    printf("Total qso in z bins: %d\nTotal qsos: %d\n", tot_z, NUMBER_OF_QSOS);
 }
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
@@ -169,7 +178,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     bool ifConverged = true;
     int i_kz;
 
-    for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
+    for (int zm = 0; zm < NUMBER_OF_Z_BINS; zm++)
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
@@ -223,7 +232,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname_base
     char buf[500];
     int i_kz;
 
-    for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
+    for (int zm = 0; zm < NUMBER_OF_Z_BINS; zm++)
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
@@ -268,7 +277,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 {
     int i_kz;
 
-    for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
+    for (int zm = 0; zm < NUMBER_OF_Z_BINS; zm++)
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
