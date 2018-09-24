@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
 
 #include "core/global_numbers.hpp"
 #include "core/spectrograph_functions.hpp"
@@ -19,7 +20,15 @@
 int main(int argc, char const *argv[])
 {
     const char *FNAME_CONFIG = argv[1];
-    
+    bool force_rewrite = true;
+    clock_t t;
+    float time_spent_table_sfid, time_spent_table_q;
+
+    if (argc == 3)
+    {
+        force_rewrite = !(strcmp(argv[2], "--unforce") == 0);
+    }
+
     char FNAME_RLIST[300], \
          OUTPUT_DIR[300], \
          OUTPUT_FILEBASE_S[300],\
@@ -119,7 +128,9 @@ int main(int argc, char const *argv[])
         // Reading R values done
         // ---------------------
 
-        // Integrate signal matrix
+        // Integrate fiducial signal matrix
+        t = clock();
+
         printf("Creating look up table for signal matrix...\n");
         fflush(stdout);
 
@@ -138,6 +149,14 @@ int main(int argc, char const *argv[])
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r];
             printf("%d of %d R values %d => %.2f km/s\n", r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
+            
+            STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
+            
+            if (!force_rewrite && file_exists(buf))
+            {
+                printf("File %s already exists. Skip to next.\n", buf);
+                continue;
+            }
 
             for (int xy = 0; xy < Nv*Nz; ++xy)
             {
@@ -154,8 +173,6 @@ int main(int argc, char const *argv[])
                 big_temp_array[xy]    = s_integrator.evaluateAToInfty(0);
             }
 
-            STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
-
             SQLookupTableFile signal_table(buf, 'w');
 
             signal_table.setHeader( Nv, Nz, LENGTH_V, z_length, \
@@ -166,10 +183,15 @@ int main(int argc, char const *argv[])
         }
 
         delete [] big_temp_array;
+        t = clock() - t;
+        time_spent_table_sfid = ((float) t) / CLOCKS_PER_SEC;
+
         // S matrices are written.
         // ---------------------
 
         // Integrate derivative matrices
+        t = clock();
+
         printf("Creating look up table for derivative signal matrices...\n");
         fflush(stdout);
 
@@ -192,14 +214,20 @@ int main(int argc, char const *argv[])
 
                 printf("Q matrix for k = [%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
 
+                QTableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_Q, R_VALUES[r], kvalue_1, kvalue_2);
+                
+                if (!force_rewrite && file_exists(buf))
+                {
+                    printf("File %s already exists. Skip to next.\n", buf);
+                    continue;
+                }
+
                 for (int nv = 0; nv < Nv; ++nv)
                 {
                     win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv);
 
                     big_temp_array[nv] = q_integrator.evaluate(kvalue_1, kvalue_2);
                 }
-
-                QTableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_Q, R_VALUES[r], kvalue_1, kvalue_2);
 
                 SQLookupTableFile derivative_signal_table(buf, 'w');
 
@@ -210,8 +238,15 @@ int main(int argc, char const *argv[])
                 derivative_signal_table.writeData(big_temp_array);
             }
         }
+        
+        t = clock() - t;
+        time_spent_table_q = ((float) t) / CLOCKS_PER_SEC;
+
         // Q matrices are written.
         // ---------------------
+
+        printf("Time spent on fiducial signal matrix table is %.2f mins.\n", time_spent_table_sfid / 60.);
+        printf("Time spent on derivatibe matrix table is %.2f mins.\n", time_spent_table_q / 60.);
 
         delete [] big_temp_array;
         delete [] KBAND_EDGES;
