@@ -7,7 +7,7 @@
 #define GL_INFINTY 1E10
 
 #define ABS_ERROR 0
-#define REL_ERROR 1E-7
+#define REL_ERROR 1E-6
 
 Integrator::Integrator( GSL_INTEGRATION_TYPE gsl_type_key, \
                         double (*integrand_function)(double, void *), void *params)
