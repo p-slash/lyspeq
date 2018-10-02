@@ -2,6 +2,7 @@
  */
 #include <cstdio>
 #include <cstdlib>
+#include <cstring> // strcmp
 #include <cmath>
 #include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
 
