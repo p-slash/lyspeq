@@ -1,5 +1,6 @@
 // Mathematical numbers
 #define PI 3.14159265359
+#define ONE_SIGMA_2_FWHM 2.35482004503
 
 // Physical constants
 #define LYA_REST 1215.67

@@ -50,7 +50,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 
     double dummy_qso_z, dummy_s2n;
 
-    qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES, dummy_s2n, DV_KMS);
+    qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
     printf("Data size is %d\n", DATA_SIZE);
     printf("Pixel Width is %.1f\n", DV_KMS);
 
@@ -117,7 +117,7 @@ OneQSOEstimate::~OneQSOEstimate()
 
 void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable *sq_lookup_table)
 {
-    int r_index = sq_lookup_table->findSpecResIndex(SPECT_RES);
+    int r_index = sq_lookup_table->findSpecResIndex(SPECT_RES_FWHM);
     double v_ij, z_ij, temp;
 
     clock_t t;
@@ -392,7 +392,7 @@ void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
     
     rf.fftX2K();
 
-    struct spectrograph_windowfn_params win_params = {0, DV_KMS, SPEED_OF_LIGHT / SPECT_RES};
+    struct spectrograph_windowfn_params win_params = {0, DV_KMS, SPEED_OF_LIGHT / SPECT_RES_FWHM / ONE_SIGMA_2_FWHM};
     
     // rf.deconvolve(spectral_response_window_fn, &win_params);
 

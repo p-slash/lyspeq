@@ -13,17 +13,17 @@ QSOFile::~QSOFile()
     fclose(qso_file);
 }
 
-void QSOFile::readParameters(int &data_number, double &z, int &resolution, double &sig2noi, double &dv_kms)
+void QSOFile::readParameters(int &data_number, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms)
 {
     rewind(qso_file);
 
     fread(&header, sizeof(qso_io_header), 1, qso_file);
 
-    data_number = header.data_size;
-    z           = header.redshift;
-    resolution  = header.spectrograph_resolution;
-    sig2noi     = header.signal_to_noise;
-    dv_kms      = header.pixel_width;
+    data_number      = header.data_size;
+    z                = header.redshift;
+    fwhm_resolution  = header.spectrograph_resolution_fwhm;
+    sig2noi          = header.signal_to_noise;
+    dv_kms           = header.pixel_width;
 }
 
 void QSOFile::readData(double *lambda, double *flux, double *noise)
