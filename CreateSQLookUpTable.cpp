@@ -148,7 +148,7 @@ int main(int argc, char const *argv[])
 
         for (int r = 0; r < NUMBER_OF_Rs; ++r)
         {
-            win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r];
+            win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             printf("%d of %d R values %d => %.2f km/s\n", r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
             
             STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
@@ -205,7 +205,7 @@ int main(int argc, char const *argv[])
 
         for (int r = 0; r < NUMBER_OF_Rs; ++r)
         {
-            win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r];
+            win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             printf("%d of %d R values %d => %.2f km/s\n", r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
 
             for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
