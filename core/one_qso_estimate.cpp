@@ -65,11 +65,18 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 
     convert_lambda2v(MEAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
     printf("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
-    
-    ZBIN            = (MEAN_REDSHIFT - ZBIN_CENTERS[0] + Z_BIN_WIDTH/2.) / Z_BIN_WIDTH;
-    BIN_REDSHIFT    = ZBIN_CENTERS[ZBIN];
-
     printf("Mean redshift of spectrum chunk: %.2f\n", MEAN_REDSHIFT);
+
+    ZBIN            = (MEAN_REDSHIFT - ZBIN_CENTERS[0] + Z_BIN_WIDTH/2.) / Z_BIN_WIDTH;
+    
+    if (ZBIN >= 0 && ZBIN < NUMBER_OF_Z_BINS)
+    {
+        BIN_REDSHIFT    = ZBIN_CENTERS[ZBIN];
+    }
+    else
+    {
+        printf("This QSO does not belong to any redshift bin!\n");
+    }
     
     #ifdef TOPHAT_Z_BINNING_FN
     {
