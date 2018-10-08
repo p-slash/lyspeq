@@ -22,7 +22,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     sq_lookup_table     = table;
     FIDUCIAL_PS_PARAMS  = pfp;
 
-    Z_BIN_COUNTS     = new int[NUMBER_OF_Z_BINS]();
+    Z_BIN_COUNTS     = new int[NUMBER_OF_Z_BINS+2]();
 
     /* Allocate memory */
     pmn_before_fisher_estimate_vector_sum   = gsl_vector_alloc(TOTAL_KZ_BINS); 
@@ -49,13 +49,27 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
         sprintf(buf, "%s/%s", dir, temp_fname);
         
         qso_estimators[q] = new OneQSOEstimate(buf);
-        Z_BIN_COUNTS[qso_estimators[q]->ZBIN]++;
+        
+        int temp_qso_zbin = qso_estimators[q]->ZBIN;
+
+        // See if qso does not belong to any redshift
+        if (temp_qso_zbin < 0)
+        {
+            temp_qso_zbin = -1;
+        }
+        else if (temp_qso_zbin >= NUMBER_OF_Z_BINS)
+        {
+            temp_qso_zbin = NUMBER_OF_Z_BINS;
+        }
+        
+        Z_BIN_COUNTS[temp_qso_zbin + 1]++;
+        
     }
     fclose(toRead);
 
     int tot_z = 0;
     printf("Z bin counts: ");
-    for (int zm = 0; zm < NUMBER_OF_Z_BINS; zm++)
+    for (int zm = 0; zm < NUMBER_OF_Z_BINS+2; zm++)
     {
         printf("%d ", Z_BIN_COUNTS[zm]);
         tot_z += Z_BIN_COUNTS[zm];
@@ -134,7 +148,12 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
 
         // OneQSOEstimate object decides which redshift it belongs to.
         for (int q = 0; q < NUMBER_OF_QSOS; q++)
-        {   
+        {
+            if (qso_estimators[q]->ZBIN < 0 || qso_estimators[q]->ZBIN >= NUMBER_OF_Z_BINS)
+            {
+                continue;
+            }
+
             qso_estimators[q]->oneQSOiteration( pmn_estimate_vector, \
                                                 sq_lookup_table, \
                                                 pmn_before_fisher_estimate_vector_sum, fisher_matrix_sum);
@@ -178,7 +197,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     bool ifConverged = true;
     int i_kz;
 
-    for (int zm = 0; zm < NUMBER_OF_Z_BINS; zm++)
+    for (int zm = 1; zm <= NUMBER_OF_Z_BINS; zm++)
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
@@ -186,7 +205,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         
         for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
         {
-            i_kz = getFisherMatrixIndex(kn, zm);
+            i_kz = getFisherMatrixIndex(kn, zm - 1);
             p1 = gsl_vector_get(pmn_estimate_vector, i_kz);
             p2 = gsl_vector_get(previous_pmn_estimate_vector, i_kz);
             
@@ -232,11 +251,11 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname_base
     char buf[500];
     int i_kz;
 
-    for (int zm = 0; zm < NUMBER_OF_Z_BINS; zm++)
+    for (int zm = 1; zm <= NUMBER_OF_Z_BINS; zm++)
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
-        sprintf(buf, "%s_%dspectra_z%.2f_qso_power_estimate.dat", fname_base, Z_BIN_COUNTS[zm], ZBIN_CENTERS[zm]);
+        sprintf(buf, "%s_%dspectra_z%.2f_qso_power_estimate.dat", fname_base, Z_BIN_COUNTS[zm], ZBIN_CENTERS[zm-1]);
 
         toWrite = open_file(buf, "w");
 
@@ -245,7 +264,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname_base
 
         for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
         {
-            i_kz = getFisherMatrixIndex(kn, zm);
+            i_kz = getFisherMatrixIndex(kn, zm-1);
 
             err = sqrt(gsl_matrix_get(fisher_matrix_sum, i_kz, i_kz));
 
@@ -255,7 +274,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname_base
             //     err = sqrt(gsl_matrix_get(fisher_matrix_sum[zm], i, i)) / gsl_vector_get(fisher_filter, i);
             
             fprintf(toWrite, "%e %e %e\n",  KBAND_CENTERS[kn], \
-                                            gsl_vector_get(pmn_estimate_vector, i_kz) + powerSpectrumValue(kn, zm), \
+                                            gsl_vector_get(pmn_estimate_vector, i_kz) + powerSpectrumValue(kn, zm-1), \
                                             err );
         }
 
@@ -277,16 +296,16 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 {
     int i_kz;
 
-    for (int zm = 0; zm < NUMBER_OF_Z_BINS; zm++)
+    for (int zm = 1; zm <= NUMBER_OF_Z_BINS; zm++)
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
         printf("P_m(zm, kn) at z=%.2f: ", ZBIN_CENTERS[zm]);
         for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
         {
-            i_kz = getFisherMatrixIndex(kn, zm);
+            i_kz = getFisherMatrixIndex(kn, zm-1);
 
-            printf("%.3e ", pmn_estimate_vector->data[i_kz] + powerSpectrumValue(kn, zm));
+            printf("%.3e ", pmn_estimate_vector->data[i_kz] + powerSpectrumValue(kn, zm-1));
             // weights_pmn_bands[kn] = 1. / gsl_matrix_get(fisher_matrix_sum, kn, kn);
         }
         printf("\n");
