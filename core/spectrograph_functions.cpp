@@ -61,18 +61,19 @@ void convert_lambda2v(double &mean_z, double *v_array, const double *lambda, int
     #define SPEED_OF_LIGHT 299792.458
     #define LYA_REST 1215.67
 
-    double median_lambda = lambda[size / 2];
+    double median_lambda = lambda[size / 2], mean_lambda;
 
     for (int i = 0; i < size; i++)
     {
         mean_z += lambda[i] / size;
     }
 
-    mean_z = (mean_z / LYA_REST) - 1.;
+    mean_lambda = mean_z;
+    mean_z      = (mean_z / LYA_REST) - 1.;
     
     for (int i = 0; i < size; i++)
     {
-        v_array[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(median_lambda / lambda[i]));
+        v_array[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(mean_lambda / lambda[i]));
         // v_array[i] = SPEED_OF_LIGHT * log(lambda[i] / median_lambda);
     }
 
