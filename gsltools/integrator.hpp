@@ -18,6 +18,8 @@ class Integrator
 	gsl_integration_workspace *w;
 	gsl_integration_glfixed_table *t;
 
+	int evaluate(double a, double b, double &res, double rel_err);
+	
 public:
 	Integrator( GSL_INTEGRATION_TYPE gsl_type_key, \
 				double (*integrand_function)(double, void*), void *params);
