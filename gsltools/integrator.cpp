@@ -1,5 +1,6 @@
 #include "integrator.hpp"
 
+#include <gsl/gsl_errno.h>
 #include <new>
 
 #define WORKSPACE_SIZE 3000
@@ -7,7 +8,8 @@
 #define GL_INFINTY 1E10
 
 #define ABS_ERROR 0
-#define REL_ERROR 1E-6
+#define REL_ERROR_LARGE 1E-3
+#define REL_ERROR_SMALL 1E-5
 
 Integrator::Integrator( GSL_INTEGRATION_TYPE gsl_type_key, \
                         double (*integrand_function)(double, void *), void *params)
@@ -51,31 +53,77 @@ Integrator::~Integrator()
     }
 }
 
-double Integrator::evaluateInftyToInfty()
+int Integrator::evaluate(double a, double b, double &res, double rel_err)
 {
-    double result = 0, error = 0;
-    
+    double error = 0;
+    int status;
+
     if (gsl_type == GSL_QNG)
     {
         size_t neval;
 
-        gsl_integration_qng(&F, -GL_INFINTY, GL_INFINTY, \
-                            ABS_ERROR, REL_ERROR, \
-                            &result, &error, \
-                            &neval);
+        status = gsl_integration_qng(&F, a, b, \
+                                    ABS_ERROR, rel_err, \
+                                    &res, &error, \
+                                    &neval);
     }
 
     else if (gsl_type == GSL_GL)
     {
-        result = gsl_integration_glfixed(&F, -GL_INFINTY, GL_INFINTY, t);
+        res = gsl_integration_glfixed(&F, a, b, t);
+        status = 1;
     }
 
-    else // if (gsl_type == GSL_QAG || gsl_type == GSL_QAGS)
+    else
     {
-        gsl_integration_qagi(   &F, \
-                                ABS_ERROR, REL_ERROR, \
-                                WORKSPACE_SIZE, w, \
-                                &result, &error);
+        if (b == GL_INFINTY)
+        {
+            if (a == -GL_INFINTY)
+            {
+                status = gsl_integration_qagi(  &F, \
+                                                ABS_ERROR, rel_err, \
+                                                WORKSPACE_SIZE, w, \
+                                                &res, &error);
+            }
+            else
+            {
+                status = gsl_integration_qagiu( &F, a, \
+                                                ABS_ERROR, rel_err, \
+                                                WORKSPACE_SIZE, w, \
+                                                &res, &error);
+            }
+        }
+        
+        else if (gsl_type == GSL_QAG)
+        {
+            
+            status = gsl_integration_qag(&F, a, b, \
+                                        ABS_ERROR, rel_err, \
+                                        WORKSPACE_SIZE, GSL_INTEG_GAUSS51, w, \
+                                        &res, &error);
+        }
+        
+        else if (gsl_type == GSL_QAGS)
+        {
+            status = gsl_integration_qags(&F, a, b, \
+                                        ABS_ERROR, rel_err, \
+                                        WORKSPACE_SIZE, w, \
+                                        &res, &error);
+        }
+    }
+
+    return status;
+}
+
+double Integrator::evaluateInftyToInfty()
+{
+    double result = 0;
+
+    int status = evaluate(-GL_INFINTY, GL_INFINTY, result, REL_ERROR_SMALL);
+
+    if (status == GSL_EROUND)
+    {
+        evaluate(-GL_INFINTY, GL_INFINTY, result, REL_ERROR_LARGE);
     }
 
     return result;
@@ -83,29 +131,13 @@ double Integrator::evaluateInftyToInfty()
 
 double Integrator::evaluateAToInfty(double lower_limit)
 {
-    double result = 0, error = 0;
+    double result = 0;
+    
+    int status = evaluate(lower_limit, GL_INFINTY, result, REL_ERROR_SMALL);
 
-    if (gsl_type == GSL_QNG)
+    if (status == GSL_EROUND)
     {
-        size_t neval;
-
-        gsl_integration_qng(&F, lower_limit, GL_INFINTY, \
-                            ABS_ERROR, REL_ERROR, \
-                            &result, &error, \
-                            &neval);
-    }
-
-    else if (gsl_type == GSL_GL)
-    {
-        result = gsl_integration_glfixed(&F, lower_limit, GL_INFINTY, t);
-    }
-
-    else
-    {
-        gsl_integration_qagiu(  &F, lower_limit, \
-                                ABS_ERROR, REL_ERROR, \
-                                WORKSPACE_SIZE, w, \
-                                &result, &error);
+        evaluate(lower_limit, GL_INFINTY, result, REL_ERROR_LARGE);
     }
 
     return result;
@@ -113,37 +145,13 @@ double Integrator::evaluateAToInfty(double lower_limit)
 
 double Integrator::evaluate(double lower_limit, double upper_limit)
 {
-    double result = 0, error = 0;
+    double result = 0;
+    
+    int status = evaluate(lower_limit, upper_limit, result, REL_ERROR_SMALL);
 
-    if (gsl_type == GSL_QNG)
+    if (status == GSL_EROUND)
     {
-        size_t neval;
-
-        gsl_integration_qng(&F, lower_limit, upper_limit, \
-                            ABS_ERROR, REL_ERROR, \
-                            &result, &error, \
-                            &neval);
-    }
-
-    else if (gsl_type == GSL_QAG)
-    {
-        gsl_integration_qag(    &F, lower_limit, upper_limit, \
-                                ABS_ERROR, REL_ERROR, \
-                                WORKSPACE_SIZE, GSL_INTEG_GAUSS31, w, \
-                                &result, &error);
-    } 
-
-    else if (gsl_type == GSL_QAGS)
-    {
-        gsl_integration_qags(   &F, lower_limit, upper_limit, \
-                                ABS_ERROR, REL_ERROR, \
-                                WORKSPACE_SIZE, w, \
-                                &result, &error);
-    }
-
-    else if (gsl_type == GSL_GL)
-    {
-        result = gsl_integration_glfixed(&F, lower_limit, upper_limit, t);
+        evaluate(lower_limit, upper_limit, result, REL_ERROR_LARGE);
     }
 
     return result;
