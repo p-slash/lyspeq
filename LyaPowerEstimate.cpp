@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <cmath>
 
+#include <gsl/gsl_errno.h>
+
 #include "core/global_numbers.hpp"
 #include "core/quadratic_estimate.hpp"
 #include "core/spectrograph_functions.hpp"
