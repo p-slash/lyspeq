@@ -6,6 +6,8 @@
 #include <cmath>
 #include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
 
+#include <gsl/gsl_errno.h>
+
 #include "core/global_numbers.hpp"
 #include "core/spectrograph_functions.hpp"
 #include "core/fiducial_cosmology.hpp"
@@ -110,7 +112,7 @@ int main(int argc, char const *argv[])
         // Redshift and wavenumber bins are constructed
         // ---------------------
 
-        // gsl_set_error_handler_off();
+        gsl_set_error_handler_off();
 
         // Read R values
         FILE *toRead = open_file(FNAME_RLIST, "r");
