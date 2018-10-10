@@ -378,16 +378,23 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
     fflush(stdout);
     #endif
 
-    invertCovarianceMatrix();
-    computeWeightedMatrices();
+    try
+    {
+        invertCovarianceMatrix();
+        computeWeightedMatrices();
 
-    computePSbeforeFvector();
-    computeFisherMatrix();
-    // printf_matrix(fisher_matrix, TOTAL_KZ_BINS);
+        computePSbeforeFvector();
+        computeFisherMatrix();
+        // printf_matrix(fisher_matrix, TOTAL_KZ_BINS);
 
-    gsl_matrix_add(fisher_sum, fisher_matrix);
-    gsl_vector_add(pmn_before, ps_before_fisher_estimate_vector);
-
+        gsl_matrix_add(fisher_sum, fisher_matrix);
+        gsl_vector_add(pmn_before, ps_before_fisher_estimate_vector);
+    }
+    catch (const char* msg)
+    {
+        printf("%s\n", msg);
+    }
+    
     freeMatrices();
 }
 
