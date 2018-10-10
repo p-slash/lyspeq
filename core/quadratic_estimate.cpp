@@ -201,7 +201,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
-        printf("Relative change in ps estimate for redshift range %.2f: ", ZBIN_CENTERS[zm]);
+        printf("Relative change in ps estimate for redshift range %.2f: ", ZBIN_CENTERS[zm-1]);
         
         for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
         {
