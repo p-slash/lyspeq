@@ -105,8 +105,8 @@ int main(int argc, char const *argv[])
         gsl_set_error_handler_off();
 
         qps = new OneDQuadraticPowerEstimate(   FNAME_LIST, INPUT_DIR, \
-                                                                            &sq_Table, \
-                                                                            &FIDUCIAL_PD13_PARAMS);
+                                                &sq_Table, \
+                                                &FIDUCIAL_PD13_PARAMS);
 
         // qps->setInitialScaling();
         // qps->setInitialPSestimateFFT();
