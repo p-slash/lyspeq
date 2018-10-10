@@ -63,11 +63,11 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 
     convert_flux2deltaf(flux_array, DATA_SIZE);
 
-    convert_lambda2v(MEAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
+    convert_lambda2v(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
     printf("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
-    printf("Mean redshift of spectrum chunk: %.2f\n", MEAN_REDSHIFT);
+    printf("Median redshift of spectrum chunk: %.2f\n", MEDIAN_REDSHIFT);
 
-    ZBIN            = (MEAN_REDSHIFT - ZBIN_CENTERS[0] + Z_BIN_WIDTH/2.) / Z_BIN_WIDTH;
+    ZBIN            = (MEDIAN_REDSHIFT - ZBIN_CENTERS[0] + Z_BIN_WIDTH/2.) / Z_BIN_WIDTH;
     
     if (ZBIN >= 0 && ZBIN < NUMBER_OF_Z_BINS)
     {
