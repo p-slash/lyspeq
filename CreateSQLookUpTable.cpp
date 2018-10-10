@@ -152,12 +152,14 @@ int main(int argc, char const *argv[])
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             printf("%d of %d R values %d => %.2f km/s\n", r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
-            
+            fflush(stdout);
+
             STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
             
             if (!force_rewrite && file_exists(buf))
             {
                 printf("File %s already exists. Skip to next.\n", buf);
+                fflush(stdout);
                 continue;
             }
 
@@ -209,6 +211,7 @@ int main(int argc, char const *argv[])
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             printf("%d of %d R values %d => %.2f km/s\n", r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
+            fflush(stdout);
 
             for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
             {
@@ -222,6 +225,7 @@ int main(int argc, char const *argv[])
                 if (!force_rewrite && file_exists(buf))
                 {
                     printf("File %s already exists. Skip to next.\n", buf);
+                    fflush(stdout);
                     continue;
                 }
 
