@@ -45,8 +45,10 @@ void compareTableTrue(double true_value, double table_value, const char *which_m
 
 OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 {
+    sprintf(qso_sp_fname, "%s", fname_qso);
+
     // Construct and read data arrays
-    QSOFile qFile(fname_qso);
+    QSOFile qFile(qso_sp_fname);
 
     double dummy_qso_z, dummy_s2n;
 
@@ -227,7 +229,8 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
     if (status == GSL_EDOM)
     {
-        fprintf(stderr, "ERROR: Covariance matrix is not positive definite.\n");
+        fprintf(stderr, "ERROR: Covariance matrix is not positive definite. %s\n", qso_sp_fname);
+        fprintf(stderr, "Npixels: %d\nMedian z: %.2f\n", DATA_SIZE, MEDIAN_REDSHIFT);
         throw "COV";
     }
 

@@ -17,6 +17,8 @@ void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);
 
 class OneQSOEstimate
 {
+    char qso_sp_fname[250];
+    
     int DATA_SIZE, \
         SPECT_RES_FWHM;
 
