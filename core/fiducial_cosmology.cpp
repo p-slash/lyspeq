@@ -66,20 +66,6 @@ double lnpoly2_power_spectrum(double lnk)
     return exp(lnkP);
 }
 
-// double simple_palanque(double k, struct palanque_fit_params &params)
-// {
-//     const double k_0 = 0.009; // s/km
-
-//     double  lnk = log(k / k_0), \
-//             lnkP_pi = 0;
-
-//     lnkP_pi = log(params.A) \
-//             + (3. + params.n) * lnk \
-//             + params.alpha * lnk * lnk;
-
-//     return exp(lnkP_pi) * PI / k;
-// }
-
 double Palanque_Delabrouille_etal_2013_fit(double k, double z, struct palanque_fit_params *params)
 {
     const double k_0 = 0.009; // s/km

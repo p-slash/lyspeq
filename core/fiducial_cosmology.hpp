@@ -29,7 +29,6 @@ double debuggin_power_spectrum(double k);
 
 double lnpoly2_power_spectrum(double lnk);
 
-// double simple_palanque(double k, struct palanque_fit_params &params);
 double Palanque_Delabrouille_etal_2013_fit(double k, double z, struct palanque_fit_params *params);
 
 #endif
