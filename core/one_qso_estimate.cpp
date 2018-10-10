@@ -69,8 +69,13 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     printf("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
     printf("Median redshift of spectrum chunk: %.2f\n", MEDIAN_REDSHIFT);
 
-    ZBIN            = (MEDIAN_REDSHIFT - ZBIN_CENTERS[0] + Z_BIN_WIDTH/2.) / Z_BIN_WIDTH;
+    ZBIN = (MEDIAN_REDSHIFT - ZBIN_CENTERS[0] + Z_BIN_WIDTH/2.) / Z_BIN_WIDTH;
     
+    if (MEDIAN_REDSHIFT < ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.)
+    {
+        ZBIN = -1;
+    }
+
     if (ZBIN >= 0 && ZBIN < NUMBER_OF_Z_BINS)
     {
         BIN_REDSHIFT    = ZBIN_CENTERS[ZBIN];
