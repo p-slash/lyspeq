@@ -22,7 +22,7 @@ class OneQSOEstimate
 
     int N_Q_MATRICES, fisher_index_start;
 
-    double  MEAN_REDSHIFT, BIN_REDSHIFT, \
+    double  MEDIAN_REDSHIFT, BIN_REDSHIFT, \
             DV_KMS;
     
     /* DATA_SIZE sized vectors */ 
