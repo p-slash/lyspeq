@@ -300,7 +300,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
-        printf("P_m(zm, kn) at z=%.2f: ", ZBIN_CENTERS[zm]);
+        printf("P_m(zm, kn) at z=%.2f: ", ZBIN_CENTERS[zm-1]);
         for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
         {
             i_kz = getFisherMatrixIndex(kn, zm-1);
