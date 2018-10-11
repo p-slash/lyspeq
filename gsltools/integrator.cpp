@@ -115,44 +115,36 @@ int Integrator::evaluate(double a, double b, double &res, double rel_err)
     return status;
 }
 
-double Integrator::evaluateInftyToInfty()
+double Integrator::try_twice(double a, double b)
 {
     double result = 0;
-
-    int status = evaluate(-GL_INFINTY, GL_INFINTY, result, REL_ERROR_SMALL);
+    
+    int status = evaluate(a, b, result, REL_ERROR_SMALL);
 
     if (status == GSL_EROUND)
     {
-        evaluate(-GL_INFINTY, GL_INFINTY, result, REL_ERROR_LARGE);
+        status = evaluate(a, b, result, REL_ERROR_LARGE);
+    }
+
+    if (status == GSL_EROUND)
+    {
+        throw "GSL_EROUND error";
     }
 
     return result;
+}
+
+double Integrator::evaluateInftyToInfty()
+{
+    return try_twice(-GL_INFINTY, GL_INFINTY);
 }
 
 double Integrator::evaluateAToInfty(double lower_limit)
 {
-    double result = 0;
-    
-    int status = evaluate(lower_limit, GL_INFINTY, result, REL_ERROR_SMALL);
-
-    if (status == GSL_EROUND)
-    {
-        evaluate(lower_limit, GL_INFINTY, result, REL_ERROR_LARGE);
-    }
-
-    return result;
+    return try_twice(lower_limit, GL_INFINTY);
 }
 
 double Integrator::evaluate(double lower_limit, double upper_limit)
 {
-    double result = 0;
-    
-    int status = evaluate(lower_limit, upper_limit, result, REL_ERROR_SMALL);
-
-    if (status == GSL_EROUND)
-    {
-        evaluate(lower_limit, upper_limit, result, REL_ERROR_LARGE);
-    }
-
-    return result;
+    return try_twice(lower_limit, upper_limit);
 }
