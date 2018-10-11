@@ -67,15 +67,17 @@ double FouerierIntegrator::evaluateAToInfty(double lower_limit)
     int status = gsl_integration_qawf(  &F, lower_limit, ABS_ERROR, \
                                         WORKSPACE_SIZE, w, cycle_w, t, \
                                         &result, &error);
-    if (status == GSL_ETABLE)
+    if (status)
     {
-        fprintf(stderr, "Number of levels %d is insufficient for the requested accuracy.\n", TABLE_SIZE);
-        throw "FTint_LowTable";
-    }
-    else if (status == GSL_EDIVERGE)
-    {
-        fprintf(stderr, "The integral is divergent, or too slowly convergent to be integrated numerically\n");
-        throw "FTint_Diverge";
+        const char *err_msg = gsl_strerror(status);
+        fprintf(stderr, "ERROR in FouerierIntegrator: %s\n", err_msg);
+        
+        if (status == GSL_ETABLE)
+            fprintf(stderr, "Number of levels %d is insufficient for the requested accuracy.\n", TABLE_SIZE);
+
+        if (status == GSL_EDIVERGE)
+            fprintf(stderr, "The integral is divergent, or too slowly convergent to be integrated numerically\n");
+        throw err_msg;
     }
 
     return result;

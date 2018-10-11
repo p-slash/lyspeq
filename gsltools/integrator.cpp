@@ -71,7 +71,7 @@ int Integrator::evaluate(double a, double b, double &res, double rel_err)
     else if (gsl_type == GSL_GL)
     {
         res = gsl_integration_glfixed(&F, a, b, t);
-        status = 1;
+        status = 0;
     }
 
     else
@@ -126,9 +126,11 @@ double Integrator::try_twice(double a, double b)
         status = evaluate(a, b, result, REL_ERROR_LARGE);
     }
 
-    if (status == GSL_EROUND)
+    if (status)
     {
-        throw "GSL_EROUND error";
+        char *err_msg = gsl_strerror(status);
+        fprintf(stderr, "ERROR in Integrator: %s\n", err_msg);
+        throw err_msg;
     }
 
     return result;
