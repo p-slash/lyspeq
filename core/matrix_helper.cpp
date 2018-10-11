@@ -35,15 +35,29 @@ double trace_of_2matrices(const gsl_matrix *A, const double *noise)
     return result;
 }
 
-int invert_matrix_cholesky(gsl_matrix *A)
+void invert_matrix_cholesky(gsl_matrix *A)
 {
-    int r;
+    int status = gsl_linalg_cholesky_decomp(A); 
 
-    r = gsl_linalg_cholesky_decomp(A);
+    if (status)
+    {
+        const char *err_msg = gsl_strerror(status);
+        fprintf(stderr, "ERROR in Cholesky Decomp: %s\n", err_msg);
 
-    gsl_linalg_cholesky_invert(A);
+        // if (status == GSL_EDOM)
+        //     fprintf(stderr, "The matrix is not positive definite.\n");
 
-    return r;
+        throw err_msg;
+    }
+
+    status = gsl_linalg_cholesky_invert(A);
+
+    if (status)
+    {
+        const char *err_msg = gsl_strerror(status);
+        fprintf(stderr, "ERROR in Cholesky Invert: %s\n", err_msg);
+        throw err_msg;
+    }
 }
 
 void printf_matrix(const gsl_matrix *m)
