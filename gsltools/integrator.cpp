@@ -103,7 +103,7 @@ int Integrator::evaluate(double a, double b, double &res, double rel_err)
                                         &res, &error);
         }
         
-        else if (gsl_type == GSL_QAGS)
+        else // if (gsl_type == GSL_QAGS)
         {
             status = gsl_integration_qags(&F, a, b, \
                                         ABS_ERROR, rel_err, \
