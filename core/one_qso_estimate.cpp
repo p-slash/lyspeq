@@ -234,8 +234,6 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
     if (status == GSL_EDOM)
     {
-        fprintf(stderr, "ERROR: Covariance matrix is not positive definite. %s\n", qso_sp_fname);
-        fprintf(stderr, "Npixels: %d\nMedian z: %.2f\n", DATA_SIZE, MEDIAN_REDSHIFT);
         throw "COV";
     }
 
@@ -400,7 +398,20 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
     }
     catch (const char* msg)
     {
-        printf("%s\n", msg);
+        fprintf(stderr, "ERROR %s: Covariance matrix is not positive definite. %s\n", msg, qso_sp_fname);
+        fprintf(stderr, "Npixels: %d\nMedian z: %.2f\nFlux: ", DATA_SIZE, MEDIAN_REDSHIFT);
+        
+        for (int i = 0; i < DATA_SIZE; i++)
+        {
+            fprintf(stderr, "%.1e ", flux_array[i]);
+        }
+
+        fprintf(stderr, "\nNoise: ");
+        for (int i = 0; i < DATA_SIZE; i++)
+        {
+            fprintf(stderr, "%.1e ", noise_array[i]);
+        }
+        fprintf(stderr, "\n");
     }
     
     freeMatrices();
