@@ -101,14 +101,14 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     printf("Inverting Fisher matrix.\n");
     fflush(stdout);
 
-    int status = invert_matrix_cholesky(fisher_matrix_sum);
+    invert_matrix_cholesky(fisher_matrix_sum);
 
-    if (status == GSL_EDOM)
-    {
-        fprintf(stderr, "ERROR: Fisher matrix is not positive definite!\n");
-        write_fisher_matrix("./error_dump");
-        throw "FIS";
-    }
+    // if (status == GSL_EDOM)
+    // {
+    //     fprintf(stderr, "ERROR: Fisher matrix is not positive definite!\n");
+    //     write_fisher_matrix("./error_dump");
+    //     throw "FIS";
+    // }
 
     isFisherInverted = !isFisherInverted;
     t = clock() - t;
@@ -159,25 +159,34 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
                                                 pmn_before_fisher_estimate_vector_sum, fisher_matrix_sum);
         }
 
-        // Invert for all z bins
-        invertTotalFisherMatrix();
-        computePowerSpectrumEstimates();
-        
-        printfSpectra();
-
-        // filteredEstimates();
-
-        if (hasConverged())
+        try
         {
-            printf("Iteration has converged.\n");
+            // Invert for all z bins
+            invertTotalFisherMatrix();
+            computePowerSpectrumEstimates();
             
-            t = clock() - t;
-            total_time_1it = ((float) t) / CLOCKS_PER_SEC;
-            total_time_1it /= 60.0; //mins
-            total_time += total_time_1it;
-            printf("This iteration took %.1f minutes in total. Elapsed time so far is %.1f minutes.\n", total_time_1it, total_time);
-            break;
+            printfSpectra();
+
+            // filteredEstimates();
+
+            if (hasConverged())
+            {
+                printf("Iteration has converged.\n");
+                
+                t = clock() - t;
+                total_time_1it = ((float) t) / CLOCKS_PER_SEC;
+                total_time_1it /= 60.0; //mins
+                total_time += total_time_1it;
+                printf("This iteration took %.1f minutes in total. Elapsed time so far is %.1f minutes.\n", total_time_1it, total_time);
+                break;
+            }
         }
+        catch (const char* msg)
+        {
+            fprintf(stderr, "ERROR %s: Fisher matrix is not positive definite.\n", msg);
+            throw;
+        }
+        
 
         t = clock() - t;
         total_time_1it = ((float) t) / CLOCKS_PER_SEC;
