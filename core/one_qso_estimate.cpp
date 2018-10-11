@@ -403,13 +403,13 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
         
         for (int i = 0; i < DATA_SIZE; i++)
         {
-            fprintf(stderr, "%.1e ", flux_array[i]);
+            fprintf(stderr, "%.2lf ", flux_array[i]);
         }
 
         fprintf(stderr, "\nNoise: ");
         for (int i = 0; i < DATA_SIZE; i++)
         {
-            fprintf(stderr, "%.1e ", noise_array[i]);
+            fprintf(stderr, "%.2lf ", noise_array[i]);
         }
         fprintf(stderr, "\n");
     }
