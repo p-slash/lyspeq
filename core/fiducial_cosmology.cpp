@@ -27,7 +27,7 @@ double signal_matrix_integrand(double k, void *params)
 
     double result = spectral_response_window_fn(k, wp);
 
-    result *= fiducial_power_spectrum(k, wp->z_ij, pfp) * result * cos(k * wp->delta_v_ij) / PI;
+    result *= fiducial_power_spectrum(k, wp->z_ij, pfp) * result / PI;
 
     return result;
 }
