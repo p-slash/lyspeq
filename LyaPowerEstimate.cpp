@@ -133,14 +133,15 @@ int main(int argc, char const *argv[])
     {
         if (qps != NULL)
         {
-            sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
+            sprintf(buf, "%s/error_dump_%s", OUTPUT_DIR, OUTPUT_FILEBASE);
             qps->printfSpectra();
             qps->write_spectrum_estimates(buf);
+            qps->write_fisher_matrix(buf);
 
             delete qps;
         }
         
-        printf("%s\n", msg);
+        // fprintf(stderr, "%s\n", msg);
         return -1;
     }
 
