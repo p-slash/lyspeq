@@ -13,6 +13,7 @@
 #include "core/fiducial_cosmology.hpp"
 
 #include "gsltools/integrator.hpp"
+#include "gsltools/fourier_integrator.hpp"
 
 #include "io/config_file.hpp"
 #include "io/io_helper_functions.hpp"
@@ -143,7 +144,7 @@ int main(int argc, char const *argv[])
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
 
-        Integrator s_integrator(GSL_QAG, signal_matrix_integrand, &integration_parameters);
+        FouerierIntegrator s_integrator(signal_matrix_integrand, &integration_parameters);
 
         // Allocate memory to store results
         double *big_temp_array = new double[Nv * Nz];
@@ -172,10 +173,12 @@ int main(int argc, char const *argv[])
                 // LENGTH_V * nv / (Nv - 1.);
                 win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv); 
 
+                s_integrator.setTableParameters(win_params.delta_v_ij, GSL_INTEG_COSINE);
+
                 // z_first + z_length * nz / (double) Nz;       
                 win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz); 
                 
-                big_temp_array[xy]    = s_integrator.evaluateAToInfty(0);
+                big_temp_array[xy]    = s_integrator.evaluate0ToInfty();
             }
 
             SQLookupTableFile signal_table(buf, 'w');
