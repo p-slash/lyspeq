@@ -128,7 +128,7 @@ double Integrator::try_twice(double a, double b)
 
     if (status)
     {
-        char *err_msg = gsl_strerror(status);
+        const char *err_msg = gsl_strerror(status);
         fprintf(stderr, "ERROR in Integrator: %s\n", err_msg);
         throw err_msg;
     }
