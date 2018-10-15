@@ -179,6 +179,11 @@ int main(int argc, char const *argv[])
                 win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz); 
                 
                 big_temp_array[xy]    = s_integrator.evaluate0ToInfty();
+
+                if (isnan(big_temp_array[xy]))
+                {
+                    fprintf(stderr, "NaN ");
+                }
             }
 
             SQLookupTableFile signal_table(buf, 'w');
@@ -237,6 +242,11 @@ int main(int argc, char const *argv[])
                     win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv);
 
                     big_temp_array[nv] = q_integrator.evaluate(kvalue_1, kvalue_2);
+
+                    if (isnan(big_temp_array[nv]))
+                    {
+                        fprintf(stderr, "NaN ");
+                    }
                 }
 
                 SQLookupTableFile derivative_signal_table(buf, 'w');
