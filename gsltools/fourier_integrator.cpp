@@ -7,8 +7,8 @@
 #define WORKSPACE_SIZE 3000
 #define TABLE_SIZE 300
 
-#define ABS_ERROR 1E-12
-#define REL_ERROR 1E-6
+#define ABS_ERROR 1E-15
+#define REL_ERROR 1E-7
 
 FourierIntegrator::FourierIntegrator(gsl_integration_qawo_enum sin_cos, \
                                     double (*integrand_function)(double, void*), void *params)
