@@ -184,7 +184,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
         catch (const char* msg)
         {
             fprintf(stderr, "ERROR %s: Fisher matrix is not positive definite.\n", msg);
-            throw;
+            throw msg;
         }
         
 

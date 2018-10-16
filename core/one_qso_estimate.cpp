@@ -376,6 +376,7 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
     computeCSMatrices(ps_estimate);
     #ifdef DEBUG_ON
     printf("CovSig\n");
+    printf_matrix(covariance_matrix);
     fflush(stdout);
     #endif
 
@@ -386,7 +387,10 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
 
         computePSbeforeFvector();
         computeFisherMatrix();
-        // printf_matrix(fisher_matrix, TOTAL_KZ_BINS);
+        
+        #ifdef DEBUG_ON
+        printf_matrix(fisher_matrix);
+        #endif
 
         gsl_matrix_add(fisher_sum, fisher_matrix);
         gsl_vector_add(pmn_before, ps_before_fisher_estimate_vector);
