@@ -387,11 +387,11 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
         computeFisherMatrix();
         
         #ifdef DEBUG_ON
-        fprintf(stderr, "Q-slash 0\n");
+        printf("Q-slash 0\n");
         printf_matrix(weighted_derivative_of_signal_matrices[0]);
-        fprintf(stderr, "C-1\n");
+        printf("C-1\n");
         printf_matrix(inverse_covariance_matrix);
-        fprintf(stderr, "Fisher\n");
+        printf("Fisher\n");
         printf_matrix(fisher_matrix);
         #endif
 
