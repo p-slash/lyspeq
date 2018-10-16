@@ -353,8 +353,6 @@ void OneQSOEstimate::computeFisherMatrix()
     
     t = clock() - t;
     time_spent_set_fisher += ((float) t) / CLOCKS_PER_SEC;
-
-    // printf("Fisher: %.3e\n", gsl_matrix_get(fisher_matrix, 0, 0));
 }
 
 void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
@@ -376,7 +374,7 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
     computeCSMatrices(ps_estimate);
     #ifdef DEBUG_ON
     printf("CovSig\n");
-    printf_matrix(covariance_matrix);
+    // printf_matrix(covariance_matrix);
     fflush(stdout);
     #endif
 
@@ -389,6 +387,11 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
         computeFisherMatrix();
         
         #ifdef DEBUG_ON
+        fprintf(stderr, "Q-slash 0\n");
+        printf_matrix(weighted_derivative_of_signal_matrices[0]);
+        fprintf(stderr, "C-1\n");
+        printf_matrix(inverse_covariance_matrix);
+        fprintf(stderr, "Fisher\n");
         printf_matrix(fisher_matrix);
         #endif
 
