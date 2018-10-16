@@ -7,10 +7,14 @@
 #define WORKSPACE_SIZE 3000
 #define TABLE_SIZE 300
 
-#define ABS_ERROR 1E-10
+#define ABS_ERROR 1E-12
+#define REL_ERROR 1E-6
 
-FouerierIntegrator::FouerierIntegrator(double (*integrand_function)(double, void*), void *params)
+FourierIntegrator::FourierIntegrator(gsl_integration_qawo_enum sin_cos, \
+                                    double (*integrand_function)(double, void*), void *params)
 {
+    GSL_SIN_COS = sin_cos;
+
     w       = gsl_integration_workspace_alloc(WORKSPACE_SIZE);
     cycle_w = gsl_integration_workspace_alloc(WORKSPACE_SIZE);
 
@@ -25,7 +29,7 @@ FouerierIntegrator::FouerierIntegrator(double (*integrand_function)(double, void
     F.params = params;
 }
 
-FouerierIntegrator::~FouerierIntegrator()
+FourierIntegrator::~FourierIntegrator()
 {
     gsl_integration_workspace_free(w);
     gsl_integration_workspace_free(cycle_w);
@@ -36,17 +40,15 @@ FouerierIntegrator::~FouerierIntegrator()
     }
 }
 
-void FouerierIntegrator::setTableParameters(double omega, gsl_integration_qawo_enum sin_cos)
+void FourierIntegrator::setTableParameters(double omega, double L)
 {
-    /* The length L can take any value, since it is overridden 
+    /* The length L can take any value for infty integrals, since it is overridden 
      * by this function to a value appropriate for the Fourier integration.
      */
 
-    double L = 10.;
-
     if (t == NULL)
     {
-        t = gsl_integration_qawo_table_alloc(omega, L, sin_cos, TABLE_SIZE);
+        t = gsl_integration_qawo_table_alloc(omega, L, GSL_SIN_COS, TABLE_SIZE);
         
         if (t == NULL)
         {
@@ -55,40 +57,68 @@ void FouerierIntegrator::setTableParameters(double omega, gsl_integration_qawo_e
     }
     else 
     {
-        gsl_integration_qawo_table_set(t, omega, L, sin_cos);
+        gsl_integration_qawo_table_set(t, omega, L, GSL_SIN_COS);
     }
 }
 
-double FouerierIntegrator::evaluateAToInfty(double lower_limit)
+double FourierIntegrator::evaluateAToInfty(double a)
 {
     assert(t != NULL);
 
     double result, error;
-    int status = gsl_integration_qawf(  &F, lower_limit, ABS_ERROR, \
+    int status = gsl_integration_qawf(  &F, a, ABS_ERROR, \
                                         WORKSPACE_SIZE, w, cycle_w, t, \
                                         &result, &error);
-    if (status)
-    {
-        const char *err_msg = gsl_strerror(status);
-        fprintf(stderr, "ERROR in FouerierIntegrator: %s\n", err_msg);
-        
-        if (status == GSL_ETABLE)
-            fprintf(stderr, "Number of levels %d is insufficient for the requested accuracy.\n", TABLE_SIZE);
+    handle_gsl_status(status);
 
-        if (status == GSL_EDIVERGE)
-            fprintf(stderr, "The integral is divergent, or too slowly convergent to be integrated numerically\n");
-        throw err_msg;
+    if (error/result > REL_ERROR)
+    {
+        #undef ABS_ERROR
+        #define ABS_ERROR result*REL_ERROR
+        result = evaluateAToInfty(a);
+        #undef ABS_ERROR
+        #define ABS_ERROR 1E-12
     }
 
     return result;
 }
 
-double FouerierIntegrator::evaluate0ToInfty()
+double FourierIntegrator::evaluate0ToInfty()
 {
     return evaluateAToInfty(0);
 }
 
+double FourierIntegrator::evaluate(double omega, double a, double b)
+{
+    int status;
+    double result, error;
 
+    setTableParameters(omega, b-a);
+
+    status = gsl_integration_qawo(  &F, a, ABS_ERROR, REL_ERROR, \
+                                    WORKSPACE_SIZE, w, t, \
+                                    &result, &error);
+
+    handle_gsl_status(status);
+
+    return result;
+}
+
+void FourierIntegrator::handle_gsl_status(int status)
+{
+    if (status)
+    {
+        const char *err_msg = gsl_strerror(status);
+        fprintf(stderr, "ERROR in FourierIntegrator: %s\n", err_msg);
+        
+        if (status == GSL_ETABLE)
+            fprintf(stderr, "Number of levels %d is insufficient for the requested accuracy.\n", TABLE_SIZE);
+
+        if (status == GSL_EDIVERGE)
+            fprintf(stderr, "The integral is divergent, or too slowly convergent to be integrated numerically.\n");
+        throw err_msg;
+    }
+}
 
 
 

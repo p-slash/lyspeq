@@ -144,7 +144,7 @@ int main(int argc, char const *argv[])
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
 
-        FouerierIntegrator s_integrator(signal_matrix_integrand, &integration_parameters);
+        FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
 
         // Allocate memory to store results
         double *big_temp_array = new double[Nv * Nz];
@@ -173,7 +173,7 @@ int main(int argc, char const *argv[])
                 // LENGTH_V * nv / (Nv - 1.);
                 win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv); 
 
-                s_integrator.setTableParameters(win_params.delta_v_ij, GSL_INTEG_COSINE);
+                s_integrator.setTableParameters(win_params.delta_v_ij, 10.);
 
                 // z_first + z_length * nz / (double) Nz;       
                 win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz); 
@@ -209,7 +209,7 @@ int main(int argc, char const *argv[])
         fflush(stdout);
 
         // int subNz = Nz / NUMBER_OF_Z_BINS;
-        Integrator q_integrator(GSL_QAG, q_matrix_integrand, &integration_parameters);
+        FourierIntegrator q_integrator(GSL_INTEG_COSINE, q_matrix_integrand, &integration_parameters);
 
         big_temp_array = new double[Nv];
         // double *temp_array_zscaled = new double[Nv * subNz];
@@ -241,7 +241,7 @@ int main(int argc, char const *argv[])
                 {
                     win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv);
 
-                    big_temp_array[nv] = q_integrator.evaluate(kvalue_1, kvalue_2);
+                    big_temp_array[nv] = q_integrator.evaluate(win_params.delta_v_ij, kvalue_1, kvalue_2);
 
                     if (isnan(big_temp_array[nv]))
                     {
