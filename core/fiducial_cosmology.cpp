@@ -39,7 +39,7 @@ double q_matrix_integrand(double k, void *params)
 
     double result = spectral_response_window_fn(k, wp);
 
-    result *= result * cos(k * wp->delta_v_ij) / PI;
+    result *= result / PI; // * cos(k * wp->delta_v_ij)
 
     return result;
 }

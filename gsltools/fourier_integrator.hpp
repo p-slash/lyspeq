@@ -3,26 +3,28 @@
 
 #include <gsl/gsl_integration.h>
 
-class FouerierIntegrator
+class FourierIntegrator
 {
     gsl_function F;
     gsl_integration_workspace *w, *cycle_w;
     gsl_integration_qawo_table *t;
-
-    int evaluate(double a, double b, double &res, double rel_err);
-    double try_twice(double a, double b);
+    gsl_integration_qawo_enum GSL_SIN_COS;
+    
+    void handle_gsl_status(int status);
     
 public:
-    FouerierIntegrator(double (*integrand_function)(double, void*), void *params);
-    ~FouerierIntegrator();
-    
     /*  gsl_integration_qawo_enum sin_cos should be chosen from below:
         GSL_INTEG_COSINE
         GSL_INTEG_SINE
     */
-    void setTableParameters(double omega, gsl_integration_qawo_enum sin_cos);
+    FourierIntegrator(  gsl_integration_qawo_enum sin_cos, \
+                        double (*integrand_function)(double, void*), void *params);
+    ~FourierIntegrator();
+    
+    void setTableParameters(double omega, double L);
 
-    double evaluateAToInfty(double lower_limit);
+    double evaluate(double omega, double a, double b);
+    double evaluateAToInfty(double a);
     double evaluate0ToInfty();
 };
 
