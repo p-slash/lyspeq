@@ -183,6 +183,7 @@ int main(int argc, char const *argv[])
                 if (isnan(big_temp_array[xy]))
                 {
                     fprintf(stderr, "NaN ");
+                    throw "NaN";
                 }
             }
 
@@ -246,6 +247,7 @@ int main(int argc, char const *argv[])
                     if (isnan(big_temp_array[nv]))
                     {
                         fprintf(stderr, "NaN ");
+                        throw "NaN";
                     }
                 }
 
