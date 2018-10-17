@@ -7,7 +7,7 @@
 #define WORKSPACE_SIZE 3000
 #define TABLE_SIZE 300
 
-#define ABS_ERROR 1E-14
+#define ABS_ERROR 1E-13
 #define REL_ERROR 1E-7
 
 FourierIntegrator::FourierIntegrator(gsl_integration_qawo_enum sin_cos, \
@@ -71,14 +71,14 @@ double FourierIntegrator::evaluateAToInfty(double a)
                                         &result, &error);
     handle_gsl_status(status);
 
-    if (error/result > REL_ERROR)
-    {
-        #undef ABS_ERROR
-        #define ABS_ERROR result*REL_ERROR
-        result = evaluateAToInfty(a);
-        #undef ABS_ERROR
-        #define ABS_ERROR 1E-12
-    }
+    // if (error/result > REL_ERROR)
+    // {
+    //     #undef ABS_ERROR
+    //     #define ABS_ERROR result*REL_ERROR
+    //     result = evaluateAToInfty(a);
+    //     #undef ABS_ERROR
+    //     #define ABS_ERROR 1E-14
+    // }
 
     return result;
 }
