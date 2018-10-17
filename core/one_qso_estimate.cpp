@@ -368,13 +368,14 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
     setFiducialSignalAndDerivativeSMatrices(sq_lookup_table);
     #ifdef DEBUG_ON
     printf("Set\n");
+    fprintf_matrix("debugdump_fiducial_signal_matrix.dat", fiducial_signal_matrix);
     fflush(stdout);
     #endif
 
     computeCSMatrices(ps_estimate);
     #ifdef DEBUG_ON
     printf("CovSig\n");
-    // printf_matrix(covariance_matrix);
+    fprintf_matrix("debugdump_covariance_matrix.dat", covariance_matrix);
     fflush(stdout);
     #endif
 
@@ -387,12 +388,7 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
         computeFisherMatrix();
         
         #ifdef DEBUG_ON
-        printf("Q-slash 0\n");
-        printf_matrix(weighted_derivative_of_signal_matrices[0]);
-        printf("C-1\n");
-        printf_matrix(inverse_covariance_matrix);
-        printf("Fisher\n");
-        printf_matrix(fisher_matrix);
+        dump_all_matrices();
         #endif
 
         gsl_matrix_add(fisher_sum, fisher_matrix);
@@ -478,6 +474,22 @@ void OneQSOEstimate::freeMatrices()
     }
 }
 
+void OneQSOEstimate::dump_all_matrices()
+{
+    char buf[250];
+
+    for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
+    {
+        sprintf(buf, "debugdump_Q%d_matrix.dat", i_kz);
+        fprintf_matrix(buf, derivative_of_signal_matrices[i_kz]);
+
+        sprintf(buf, "debugdump_WeightedQ%d_matrix.dat", i_kz);
+        fprintf_matrix(buf, weighted_derivative_of_signal_matrices[i_kz]);
+    }
+     
+    fprintf_matrix("debugdump_inversecovariance_matrix.dat", inverse_covariance_matrix);
+    fprintf_matrix("debugdump_fisher_matrix.dat", fisher_matrix);
+}
 
 
 

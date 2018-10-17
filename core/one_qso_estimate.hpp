@@ -50,6 +50,8 @@ class OneQSOEstimate
     void allocateMatrices();
     void freeMatrices();
 
+    void dump_all_matrices();
+
 public:
     int ZBIN;
 
