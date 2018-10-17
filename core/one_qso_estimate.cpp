@@ -19,6 +19,11 @@
 #include <cstdlib>
 #include <cassert>
 
+void throw_isnan(double t)
+{
+    if (isnan(t))   throw "NaN";
+}
+
 int getFisherMatrixIndex(int kn, int zm)
 {
     return kn + NUMBER_OF_K_BANDS * zm;
@@ -306,6 +311,8 @@ void OneQSOEstimate::computePSbeforeFvector()
         
         gsl_blas_ddot(weighted_data_vector, temp_vector, &temp_d);
 
+        throw_isnan(temp_d - temp_bk - temp_tk);
+        
         gsl_vector_set(ps_before_fisher_estimate_vector, i_kz + fisher_index_start, temp_d - temp_bk - temp_tk);
     }
 
@@ -328,16 +335,21 @@ void OneQSOEstimate::computeFisherMatrix()
     {
         temp = 0.5 * trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], \
                                         weighted_derivative_of_signal_matrices[i_kz]);
+        throw_isnan(temp);
 
         gsl_matrix_set( fisher_matrix, \
                         i_kz + fisher_index_start, \
                         i_kz + fisher_index_start, \
                         temp);
 
+        
+
         for (int j_kz = i_kz + 1; j_kz < N_Q_MATRICES; j_kz++)
         {
             temp = 0.5 * trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], \
                                             weighted_derivative_of_signal_matrices[j_kz]);
+
+            throw_isnan(temp);
 
             gsl_matrix_set( fisher_matrix, \
                             i_kz + fisher_index_start, \
