@@ -157,7 +157,14 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
             qso_estimators[q]->oneQSOiteration( pmn_estimate_vector, \
                                                 sq_lookup_table, \
                                                 pmn_before_fisher_estimate_vector_sum, fisher_matrix_sum);
+            #ifdef DEBUG_ON
+            break;
+            #endif
         }
+        
+        #ifdef DEBUG_ON
+        break;
+        #endif
 
         try
         {
@@ -243,15 +250,11 @@ void OneDQuadraticPowerEstimate::write_fisher_matrix(const char *fname_base)
         invertTotalFisherMatrix();
     }
 
-    FILE *toWrite;
     char buf[500];
     
     sprintf(buf, "%s_fisher_matrix.dat", fname_base);
-    toWrite = open_file(buf, "w");
 
-    fprintf_matrix(toWrite, fisher_matrix_sum);
-
-    fclose(toWrite);
+    fprintf_matrix(buf, fisher_matrix_sum);
 }
 
 void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname_base)
