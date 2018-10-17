@@ -78,7 +78,7 @@ void fprintf_matrix(const char *fname, const gsl_matrix *m)
 {
     FILE *toWrite;
     
-    toWrite = open_file(fname, "w");
+    toWrite = fopen(fname, "w");
 
     int nrows = m->size1, ncols = m->size2;
 
