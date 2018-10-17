@@ -74,8 +74,12 @@ void printf_matrix(const gsl_matrix *m)
     }
 }
 
-void fprintf_matrix(FILE *toWrite, const gsl_matrix *m)
+void fprintf_matrix(const char *fname, const gsl_matrix *m)
 {
+    FILE *toWrite;
+    
+    toWrite = open_file(fname, "w");
+
     int nrows = m->size1, ncols = m->size2;
 
     fprintf(toWrite, "%d %d\n", nrows, ncols);
@@ -88,4 +92,6 @@ void fprintf_matrix(FILE *toWrite, const gsl_matrix *m)
         }
         fprintf(toWrite, "\n");
     }
+
+    fclose(toWrite);
 }
