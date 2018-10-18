@@ -53,7 +53,7 @@ public:
     void initializeIteration();
     void invertTotalFisherMatrix();
     void computePowerSpectrumEstimates();
-    void iterate(int number_of_iterations);
+    void iterate(int number_of_iterations, const char *fname_base);
     bool hasConverged();
     
     void printfSpectra();
