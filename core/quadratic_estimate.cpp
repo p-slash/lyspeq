@@ -101,14 +101,7 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     printf("Inverting Fisher matrix.\n");
     fflush(stdout);
 
-    invert_matrix_cholesky(fisher_matrix_sum);
-
-    // if (status == GSL_EDOM)
-    // {
-    //     fprintf(stderr, "ERROR: Fisher matrix is not positive definite!\n");
-    //     write_fisher_matrix("./error_dump");
-    //     throw "FIS";
-    // }
+    invert_matrix_LU(fisher_matrix_sum);
 
     isFisherInverted = !isFisherInverted;
     t = clock() - t;
