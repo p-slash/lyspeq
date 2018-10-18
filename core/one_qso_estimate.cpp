@@ -235,7 +235,7 @@ void OneQSOEstimate::computeCSMatrices(const gsl_vector *ps_estimate)
 void OneQSOEstimate::invertCovarianceMatrix()
 {
     clock_t t = clock();
-    invert_matrix_cholesky(covariance_matrix);
+    invert_matrix_LU(covariance_matrix);
 
     isCovInverted    = !isCovInverted;
 
