@@ -41,18 +41,19 @@ bool check_linearly_spaced(double *v, int size)
     return true;
 }
 
-void convert_flux2deltaf(double *flux, int size)
+void convert_flux2deltaf(double *flux, double *noise, int size)
 {
-    double mean_f = 0;
+    double mean_f = 0.;
 
     for (int i = 0; i < size; i++)
     {
-        mean_f += flux[i] / size;
+        mean_f += flux[i] / (double)size;
     }
 
     for (int i = 0; i < size; i++)
     {
-        flux[i] = (flux[i] / mean_f) - 1.;
+        flux[i]   = (flux[i] / mean_f) - 1.;
+        noise[i] /= mean_f;
     }
 }
 
