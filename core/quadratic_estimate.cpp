@@ -132,6 +132,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 
 void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *fname_base)
 {
+    char buf[500];
     float total_time = 0, total_time_1it = 0;
 
     clock_t t;
@@ -194,16 +195,17 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             throw msg;
         }
         
-
         t = clock() - t;
         total_time_1it = ((float) t) / CLOCKS_PER_SEC;
         total_time_1it /= 60.0; //mins
         total_time += total_time_1it;
         printf("This iteration took %.1f minutes in total. Elapsed time so far is %.1f minutes.\n", total_time_1it, total_time);
         printf_time_spent_details();
+        
+        sprintf(buf, "%s_it%d", fname_base, i);
 
-        write_spectrum_estimates(fname_base);
-        write_fisher_matrix(fname_base);
+        write_spectrum_estimates(buf);
+        write_fisher_matrix(buf);
     }
     
     printf("Iteration has ended. Total time elapsed is %.1f minutes.\n", total_time);
@@ -258,6 +260,9 @@ void OneDQuadraticPowerEstimate::write_fisher_matrix(const char *fname_base)
     sprintf(buf, "%s_fisher_matrix.dat", fname_base);
 
     fprintf_matrix(buf, fisher_matrix_sum);
+
+    printf("Fisher matrix saved as %s.\n", buf);
+    fflush(stdout);
 }
 
 void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname_base)
@@ -270,7 +275,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname_base
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
-        sprintf(buf, "%s_%dspectra_z%.2f_qso_power_estimate.dat", fname_base, Z_BIN_COUNTS[zm], ZBIN_CENTERS[zm-1]);
+        sprintf(buf, "%s_z%.2f__%dqsospectra_power_estimate.dat", fname_base, ZBIN_CENTERS[zm-1], Z_BIN_COUNTS[zm]);
 
         toWrite = open_file(buf, "w");
 
