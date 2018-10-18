@@ -108,16 +108,8 @@ int main(int argc, char const *argv[])
                                                 &sq_Table, \
                                                 &FIDUCIAL_PD13_PARAMS);
 
-        // qps->setInitialScaling();
-        // qps->setInitialPSestimateFFT();
-        // sprintf(buf, "%s/%s_qso_fft_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
-        // qps->write_spectrum_estimate(buf);
-
-        qps->iterate(NUMBER_OF_ITERATIONS);
-
         sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
-        qps->write_spectrum_estimates(buf);
-        qps->write_fisher_matrix(buf);
+        qps->iterate(NUMBER_OF_ITERATIONS, buf);
 
         delete qps;
         delete [] KBAND_EDGES;

@@ -130,7 +130,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
                     0, pmn_estimate_vector);
 }
 
-void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
+void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *fname_base)
 {
     float total_time = 0, total_time_1it = 0;
 
@@ -201,6 +201,9 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations)
         total_time += total_time_1it;
         printf("This iteration took %.1f minutes in total. Elapsed time so far is %.1f minutes.\n", total_time_1it, total_time);
         printf_time_spent_details();
+
+        write_spectrum_estimates(fname_base);
+        write_fisher_matrix(fname_base);
     }
     
     printf("Iteration has ended. Total time elapsed is %.1f minutes.\n", total_time);
