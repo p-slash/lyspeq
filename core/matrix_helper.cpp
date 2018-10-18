@@ -1,6 +1,7 @@
 #include "matrix_helper.hpp"
 
 #include <gsl/gsl_linalg.h>
+#include <gsl/gsl_permutation.h>
 
 double trace_of_2matrices(const gsl_matrix *A, const gsl_matrix *B)
 {
@@ -44,9 +45,6 @@ void invert_matrix_cholesky(gsl_matrix *A)
         const char *err_msg = gsl_strerror(status);
         fprintf(stderr, "ERROR in Cholesky Decomp: %s\n", err_msg);
 
-        // if (status == GSL_EDOM)
-        //     fprintf(stderr, "The matrix is not positive definite.\n");
-
         throw err_msg;
     }
 
@@ -58,6 +56,38 @@ void invert_matrix_cholesky(gsl_matrix *A)
         fprintf(stderr, "ERROR in Cholesky Invert: %s\n", err_msg);
         throw err_msg;
     }
+}
+
+void invert_matrix_LU(gsl_matrix *A)
+{
+    int size = A->size1, signum, status;
+
+    gsl_permutation *p         = gsl_permutation_alloc(size);
+    gsl_matrix      *A_inverse = gsl_matrix_alloc(size, size);
+
+    status = gsl_linalg_LU_decomp(A, p, &signum);
+
+    if (status)
+    {
+        const char *err_msg = gsl_strerror(status);
+        fprintf(stderr, "ERROR in LU Decomp: %s\n", err_msg);
+
+        throw err_msg;
+    }
+
+    status = gsl_linalg_LU_invert(A, p, A_inverse);
+
+    if (status)
+    {
+        const char *err_msg = gsl_strerror(status);
+        fprintf(stderr, "ERROR in LU Invert: %s\n", err_msg);
+        throw err_msg;
+    }
+
+    gsl_matrix_memcpy(A, A_inverse);
+
+    gsl_matrix_free(A_inverse);
+    gsl_permutation_free(p);
 }
 
 void printf_matrix(const gsl_matrix *m)
