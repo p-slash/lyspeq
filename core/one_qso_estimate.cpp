@@ -342,8 +342,6 @@ void OneQSOEstimate::computeFisherMatrix()
                         i_kz + fisher_index_start, \
                         temp);
 
-        
-
         for (int j_kz = i_kz + 1; j_kz < N_Q_MATRICES; j_kz++)
         {
             temp = 0.5 * trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], \
