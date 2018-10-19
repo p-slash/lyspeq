@@ -427,7 +427,7 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
 
 void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
 {
-    double length_v = DV_KMS * DATA_SIZE;
+    double length_v = velocity_array[DATA_SIZE-1] - velocity_array[0];
 
     RealField1D rf(flux_array, DATA_SIZE, length_v);
     
