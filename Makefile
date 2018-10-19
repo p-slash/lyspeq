@@ -56,12 +56,11 @@ GSLTOOLSOBJECTS := $(patsubst %, %.o, $(basename $(GSLTOOLSSOURCES)))
 IOSOURCES := $(shell find $(IODIR) -type f -name '*.$(SRCEXT)')
 IOOBJECTS := $(patsubst %, %.o, $(basename $(IOSOURCES)))
 
-# removed flags: -ansi -Wmissing-prototypes -Wconversion -Dinline=
+# removed flags: -ansi -Wmissing-prototypes -Wstrict-prototypes -Wconversion -Wnested-externs -Dinline=
 GSLRECFLAGS :=  -Werror -W \
-				-Wstrict-prototypes \
 				-Wshadow -Wpointer-arith \
 				-Wcast-qual -Wcast-align -Wwrite-strings \
-				-Wnested-externs -fshort-enums -fno-common \
+				-fshort-enums -fno-common \
 				-g -O3
 
 CPPFLAGS := -std=gnu++11 -Wall -pedantic -Wno-long-long $(GSLRECFLAGS) $(GSL_INCL) $(OPT)
