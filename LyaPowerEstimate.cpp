@@ -14,6 +14,11 @@
 
 int main(int argc, char const *argv[])
 {
+    if (argc<2)
+    {
+        fprintf(stderr, "Missing config file!\n");
+        return -1;
+    }
     const char *FNAME_CONFIG = argv[1];
     
     char FNAME_LIST[300], \
