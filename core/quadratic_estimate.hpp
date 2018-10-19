@@ -60,7 +60,7 @@ public:
     void write_fisher_matrix(const char *fname_base);
     void write_spectrum_estimates(const char *fname_base);
 
-    void setInitialPSestimateFFT();
+    void getInitialPSestimateFFT(const char *fname_base);
     void setInitialScaling();
     void filteredEstimates();
 };
