@@ -406,7 +406,7 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
     }
     catch (const char* msg)
     {
-        fprintf(stderr, "ERROR %s: Covariance matrix is not positive definite. %s\n", msg, qso_sp_fname);
+        fprintf(stderr, "ERROR %s: Covariance matrix is not invertable. %s\n", msg, qso_sp_fname);
         fprintf(stderr, "Npixels: %d\nMedian z: %.2f\nFlux: ", DATA_SIZE, MEDIAN_REDSHIFT);
         
         for (int i = 0; i < DATA_SIZE; i++)
