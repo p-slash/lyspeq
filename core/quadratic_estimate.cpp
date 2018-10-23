@@ -169,18 +169,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             printfSpectra();
 
             // filteredEstimates();
-
-            if (hasConverged())
-            {
-                printf("Iteration has converged.\n");
-                
-                t = clock() - t;
-                total_time_1it = ((float) t) / CLOCKS_PER_SEC;
-                total_time_1it /= 60.0; //mins
-                total_time += total_time_1it;
-                printf("This iteration took %.1f minutes in total. Elapsed time so far is %.1f minutes.\n", total_time_1it, total_time);
-                break;
-            }
         }
         catch (const char* msg)
         {
@@ -199,10 +187,13 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         write_spectrum_estimates(buf);
         write_fisher_matrix(buf);
+
+        if (hasConverged())
+        {
+            printf("Iteration has converged.\n");
+            break;
+        }
     }
-    
-    printf("Iteration has ended. Total time elapsed is %.1f minutes.\n", total_time);
-    printf_time_spent_details();
 }
 
 bool OneDQuadraticPowerEstimate::hasConverged()
@@ -271,7 +262,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname_base
 
     fprintf(toWrite, "%d %d\n", NUMBER_OF_Z_BINS, NUMBER_OF_K_BANDS);
 
-    for (int zm = 1; zm <= NUMBER_OF_Z_BINS; zm++)
+    for (int zm = 0; zm <= NUMBER_OF_Z_BINS+1; zm++)
     {
         fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
     }
