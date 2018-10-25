@@ -151,9 +151,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     printf("Fitting python script returned %d.\n", s1);
 
     if (s1 == 0)
-    {
         printf("Success!\n");
-    }
     else
         fprintf(stderr, "Error in fitting.\n");
 
@@ -222,7 +220,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             
             printfSpectra();
 
-            // Fit power spectra
+            fitPowerSpectra(powerspectra_fits);
         }
         catch (const char* msg)
         {
