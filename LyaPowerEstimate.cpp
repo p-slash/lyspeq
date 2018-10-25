@@ -132,9 +132,12 @@ int main(int argc, char const *argv[])
     {
         if (qps != NULL)
         {
-            sprintf(buf, "%s/error_dump_%s", OUTPUT_DIR, OUTPUT_FILEBASE);
             qps->printfSpectra();
+
+            sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
             qps->write_spectrum_estimates(buf);
+            
+            sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
             qps->write_fisher_matrix(buf);
 
             delete qps;
