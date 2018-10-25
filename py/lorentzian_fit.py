@@ -24,7 +24,7 @@ def pd13form_fitting_function(X, A, n, alpha, B, beta):
 
 def pd13_lorentzian(X, A, n, alpha, B, beta, lmd):
     k, z = X
-    return pd13form_fitting_function(X, A, n, alpha, B, beta)  / np.power((1. + k/2.), lmd)
+    return pd13form_fitting_function(X, A, n, alpha, B, beta)  / (1. + lmd * k**2)
 
 input_ps = sys.argv[1]
 output_ps= sys.argv[2]
@@ -56,12 +56,12 @@ for nz in range(NzBins):
     p1 = p[ind_1:ind_2]
     e1 = e[ind_1:ind_2]
 
-    mask = p1 < 0
+    mask = np.greater(p1, 0)
     
-    z1_m = z1[~mask]
-    k1_m = k1[~mask]
-    p1_m = p1[~mask]
-    e1_m = e1[~mask]
+    z1_m = z1[mask]
+    k1_m = k1[mask]
+    p1_m = p1[mask]
+    e1_m = e1[mask]
 
     pnew, pcov = curve_fit(pd13_lorentzian, (k1_m,z1_m), p1_m, pd13_0, sigma=e1_m)
 
