@@ -11,6 +11,8 @@ struct palanque_fit_params
 
     double B;
     double beta;
+
+    double lambda;
 };
 
 struct sq_integrand_params
