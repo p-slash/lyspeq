@@ -84,7 +84,8 @@ double Palanque_Delabrouille_etal_2013_fit(double k, double z, struct palanque_f
     lnkP_pi = log(params->A) \
             + (3. + params->n) * lnk \
             + params->alpha * lnk * lnk \
-            + (params->B + params->beta * lnk) * lnz;
+            + (params->B + params->beta * lnk) * lnz \
+            - log(1. + params->lambda * k * k);
 
     return exp(lnkP_pi) * PI / q;
 }

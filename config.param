@@ -12,9 +12,9 @@ Log10KBinWidth 0.1
 
 # Redshift bins are linearly spaced.
 
-FirstRedshiftBinCenter 2.3
+FirstRedshiftBinCenter 2.5
 RedshiftBinWidth 0.1125
-NumberOfRedshiftBins 16
+NumberOfRedshiftBins 10
 
 # If the power spectrum is fitted with a smooth polynomial of ln k, its degree is
 # PolynomialDegree 2
@@ -42,6 +42,7 @@ FiducialSlope               -2.6
 FiducialCurvature           -0.1
 FiducialRedshiftPower        1
 FiducialRedshiftCurvature    0
+FiducialLorentzianLambda     0
 
 # These lookup tables are saved with the follwoing file name bases to FileInputDir:
 SignalLookUpTableBase        signal_zon_long_lookup
