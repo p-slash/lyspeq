@@ -18,11 +18,11 @@ extern int POLYNOMIAL_FIT_DEGREE;
 class OneDQuadraticPowerEstimate
 {
     int NUMBER_OF_QSOS, \
-        *Z_BIN_COUNTS;
+       *Z_BIN_COUNTS;
 
     struct palanque_fit_params *FIDUCIAL_PS_PARAMS;
 
-    OneQSOEstimate **qso_estimators;
+    OneQSOEstimate     **qso_estimators;
     const SQLookupTable *sq_lookup_table;
 
     /* TOTAL_KZ_BINS sized vector */ 
@@ -30,16 +30,12 @@ class OneDQuadraticPowerEstimate
                 *previous_pmn_estimate_vector, \
                 *pmn_estimate_vector;
 
-    // gsl_vector  *fisher_filter;
-
-    /* TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
-    */
+    /* TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix */
     gsl_matrix  *fisher_matrix_sum;
 
     bool isFisherInverted;
 
-    // LnPolynomialFit *fit_to_power_spectrum;
-    // double *weights_ps_bands;
+    void fitPowerSpectra(double *fit_values);
 
 public:
     OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
@@ -48,7 +44,7 @@ public:
 
     ~OneDQuadraticPowerEstimate();
     
-    double powerSpectrumValue(int kn, int zm);
+    double powerSpectrumFiducial(int kn, int zm);
 
     void initializeIteration();
     void invertTotalFisherMatrix();
@@ -59,10 +55,6 @@ public:
     void printfSpectra();
     void write_fisher_matrix(const char *fname_base);
     void write_spectrum_estimates(const char *fname_base);
-
-    void getInitialPSestimateFFT(const char *fname_base);
-    void setInitialScaling();
-    void filteredEstimates();
 };
 
 
