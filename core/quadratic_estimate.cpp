@@ -150,10 +150,11 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     printf("Fitting python script returned %d.\n", s1);
 
-    if (s1 == 0)
-        printf("Success!\n");
-    else
+    if (s1 != 0)
+    {
         fprintf(stderr, "Error in fitting.\n");
+        throw "fit";
+    }
 
     remove(tmp_ps_fname);
 
