@@ -45,7 +45,7 @@ e = e * k / np.pi
 theoretical_ps = np.zeros(NzBins * NkBins)
 
 # Fit using the same pd13 form, get new params
-pd13_0 = 0.064, -2.55, -0.1, 3.55, -0.28, 0
+pd13_0 = 0.0662, -2.685, -0.223, 3.591, -0.177, 359.8
 
 for nz in range(NzBins):
     ind_1 = nz * NkBins
@@ -69,7 +69,7 @@ for nz in range(NzBins):
 
 np.savetxt(output_ps, theoretical_ps)
     
-
+exit(0)
     
     # r                = p1 - theoretical_ps
     # chisq            = np.sum((r/error)**2)
