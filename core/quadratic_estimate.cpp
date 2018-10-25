@@ -130,17 +130,23 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
          tmp_fit_fname[] = "tmpfileXXXXXX", \
          buf[100];
     FILE *tmp_ps_file, *tmp_fit_file;
-    int status, kn, zm;
+    int s1, s2, kn, zm;
 
-    status = mkstemp(tmp_ps_fname);
-    status = mkstemp(tmp_fit_fname);
+    s1 = mkstemp(tmp_ps_fname);
+    s2 = mkstemp(tmp_fit_fname);
+
+    if (s1 == -1 || s2 == -1)
+    {
+        fprintf(stderr, "ERROR: Temp file cannot be generated!\n");
+        throw "tmp";
+    }
 
     tmp_ps_file = open_file(tmp_ps_fname, "w");
     write_spectrum_estimates(tmp_ps_fname);
     fclose(tmp_ps_file);
 
     sprintf(buf, "python lorentzian_fit.py %s %s", tmp_ps_fname, tmp_fit_fname);
-    status = system(buf);
+    system(buf);
 
     remove(tmp_ps_fname);
 
