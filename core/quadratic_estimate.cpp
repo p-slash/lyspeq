@@ -129,7 +129,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     char tmp_ps_fname[]  = "tmppsfileXXXXXX", \
          tmp_fit_fname[] = "tmpfitfileXXXXXX", \
          buf[100];
-    FILE *tmp_ps_file, *tmp_fit_file;
+    FILE *tmp_fit_file;
     int s1, s2, kn, zm;
 
     s1 = mkstemp(tmp_ps_fname);
@@ -141,9 +141,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
         throw "tmp";
     }
 
-    tmp_ps_file = open_file(tmp_ps_fname, "w");
     write_spectrum_estimates(tmp_ps_fname);
-    fclose(tmp_ps_file);
 
     sprintf(buf, "python py/lorentzian_fit.py %s %s", tmp_ps_fname, tmp_fit_fname);
     s1 = system(buf);
