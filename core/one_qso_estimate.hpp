@@ -64,10 +64,6 @@ public:
     OneQSOEstimate(const char *fname_qso);
     ~OneQSOEstimate();
 
-    // double getFiducialPowerSpectrumValue(double k);
-
-    void getFFTEstimate(double *ps, int *bincount);
-
     void setFiducialSignalAndDerivativeSMatrices(const SQLookupTable *sq_lookup_table);
     void computeCSMatrices(const gsl_vector *ps_estimate);
     void invertCovarianceMatrix();

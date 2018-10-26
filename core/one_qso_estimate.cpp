@@ -425,32 +425,6 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
     freeMatrices();
 }
 
-void OneQSOEstimate::getFFTEstimate(double *ps, int *bincount)
-{
-    printf("WARNING: Estimates with FFT DOES NOT work. It is kept for archival purposes.\n");
-    return;
-
-    double length_v = velocity_array[DATA_SIZE-1] - velocity_array[0];
-
-    RealField1D rf(flux_array, DATA_SIZE, length_v);
-    
-    rf.fftX2K();
-
-    struct spectrograph_windowfn_params win_params = {0, 1., DV_KMS, SPEED_OF_LIGHT / SPECT_RES_FWHM / ONE_SIGMA_2_FWHM};
-    
-    // rf.deconvolve(spectral_response_window_fn, &win_params);
-
-    rf.getPowerSpectrum(ps, KBAND_EDGES, NUMBER_OF_K_BANDS, bincount);
-
-    // deconvolve power spectrum with spectrograph window function.
-    for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
-    {
-        double w = spectral_response_window_fn(KBAND_CENTERS[kn], &win_params);
-
-        ps[kn] /= w*w;
-    }
-}
-
 void OneQSOEstimate::allocateMatrices()
 {
     ps_before_fisher_estimate_vector = gsl_vector_calloc(TOTAL_KZ_BINS);
