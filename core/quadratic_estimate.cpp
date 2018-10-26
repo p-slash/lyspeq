@@ -188,16 +188,13 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         
         t = clock();
 
-        // Set to zero for all z bins
+        // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
         // OneQSOEstimate object decides which redshift it belongs to.
         for (int q = 0; q < NUMBER_OF_QSOS; q++)
         {
-            if (qso_estimators[q]->ZBIN < 0 || qso_estimators[q]->ZBIN >= NUMBER_OF_Z_BINS)
-            {
-                continue;
-            }
+            if (qso_estimators[q]->ZBIN < 0 || qso_estimators[q]->ZBIN >= NUMBER_OF_Z_BINS)     continue;
 
             qso_estimators[q]->oneQSOiteration( &fit_view.vector, \
                                                 sq_lookup_table, \
@@ -213,7 +210,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         try
         {
-            // Invert for all z bins
             invertTotalFisherMatrix();
             computePowerSpectrumEstimates();
 
@@ -225,12 +221,12 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             throw msg;
         }
         
-        t = clock() - t;
-        total_time_1it = ((float) t) / CLOCKS_PER_SEC;
+        t               = clock() - t;
+        total_time_1it  = ((float) t) / CLOCKS_PER_SEC;
         total_time_1it /= 60.0; //mins
-        total_time += total_time_1it;
-        printf("This iteration took %.1f minutes in total. Elapsed time so far is %.1f minutes.\n", \
-                total_time_1it, total_time);
+        total_time     += total_time_1it;
+        printf("This iteration took %.1f minutes. ", total_time_1it);
+        printf("Elapsed time so far is %.1f minutes.\n", total_time);
         printf_time_spent_details();
         
         sprintf(buf, "%s_it%d_quadratic_power_estimate.dat", fname_base, i+1);
