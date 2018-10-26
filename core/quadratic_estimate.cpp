@@ -216,8 +216,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             // Invert for all z bins
             invertTotalFisherMatrix();
             computePowerSpectrumEstimates();
-            
-            printfSpectra();
 
             fitPowerSpectra(powerspectra_fits);
         }
@@ -239,6 +237,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, i+1);
         write_fisher_matrix(buf);
+
+        printfSpectra();
 
         if (hasConverged())
         {
@@ -358,13 +358,18 @@ void OneDQuadraticPowerEstimate::printfSpectra()
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
-        printf("P_m(zm, kn) at z=%.2f: ", ZBIN_CENTERS[zm-1]);
-        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
+        printf(" P(%.1f, k) |", ZBIN_CENTERS[zm-1]);
+    }
+
+    for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
+    {
+        for (int zm = 1; zm <= NUMBER_OF_Z_BINS; zm++)
         {
+            if (Z_BIN_COUNTS[zm] == 0)  continue;
+
             i_kz = getFisherMatrixIndex(kn, zm-1);
 
-            printf("%.3e ", pmn_estimate_vector->data[i_kz] + powerSpectrumFiducial(kn, zm-1));
-            // weights_pmn_bands[kn] = 1. / gsl_matrix_get(fisher_matrix_sum, kn, kn);
+            printf(" %.3e |", pmn_estimate_vector->data[i_kz] + powerSpectrumFiducial(kn, zm-1));
         }
         printf("\n");
     }
