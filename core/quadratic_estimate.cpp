@@ -229,7 +229,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         total_time_1it = ((float) t) / CLOCKS_PER_SEC;
         total_time_1it /= 60.0; //mins
         total_time += total_time_1it;
-        printf("This iteration took %.1f minutes in total. Elapsed time so far is %.1f minutes.\n", total_time_1it, total_time);
+        printf("This iteration took %.1f minutes in total. Elapsed time so far is %.1f minutes.\n", \
+                total_time_1it, total_time);
         printf_time_spent_details();
         
         sprintf(buf, "%s_it%d_quadratic_power_estimate.dat", fname_base, i+1);
@@ -250,36 +251,36 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
 bool OneDQuadraticPowerEstimate::hasConverged()
 {
-    double diff, mx, p1, p2;
+    double  diff, pMax, p1, p2, r, \
+            abs_mean = 0., abs_max = 0.;
     bool ifConverged = true;
     int i_kz;
 
     for (int zm = 1; zm <= NUMBER_OF_Z_BINS; zm++)
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
-
-        printf("Relative change in ps estimate for redshift range %.2f: ", ZBIN_CENTERS[zm-1]);
         
         for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
         {
             i_kz = getFisherMatrixIndex(kn, zm - 1);
-            p1 = gsl_vector_get(pmn_estimate_vector, i_kz);
-            p2 = gsl_vector_get(previous_pmn_estimate_vector, i_kz);
+            
+            p1 = fabs(gsl_vector_get(pmn_estimate_vector, i_kz));
+            p2 = fabs(gsl_vector_get(previous_pmn_estimate_vector, i_kz));
             
             diff = fabs(p1 - p2);
-            mx = std::max(p1, p2);
+            pMax = std::max(p1, p2);
+            r    = diff / pMax;
 
-            if (diff / p2 > CONVERGENCE_EPS)
-            {
-                ifConverged = false;
-            }
+            if (r > CONVERGENCE_EPS)    ifConverged = false;
 
-            printf("%.1le ", diff/mx);
-        }
-
-        printf("\n");
-        fflush(stdout);  
+            abs_mean += r / TOTAL_KZ_BINS;
+            abs_max   = std::max(r, abs_max);
+        } 
     }
+
+    printf("Mean relative change is %.1e.\n", abs_mean);
+    printf("Maximum relative change is %.1e. ", abs_max);
+    printf("Iteration converges when this < %.1e\n", CONVERGENCE_EPS);
     
     return ifConverged;
 }
