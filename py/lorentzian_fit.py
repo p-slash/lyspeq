@@ -20,7 +20,7 @@ def pd13form_fitting_function(X, A, n, alpha, B, beta):
             + alpha * lnk * lnk \
             + (B + beta * lnk) * lnz;
 
-    return np.exp(lnkP_pi);
+    return np.exp(lnkP_pi) * np.pi / k;
 
 def pd13_lorentzian(X, A, n, alpha, B, beta, lmd):
     k, z = X
@@ -42,9 +42,6 @@ NzBins = size[0]
 NkBins = size[1]
 
 z, k, p, e = np.genfromtxt(input_ps, delimiter = ' ', skip_header = 2, unpack = True)
-
-p = p 
-e = e 
 
 theoretical_ps = np.zeros(NzBins * NkBins)
 
