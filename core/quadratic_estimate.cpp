@@ -137,7 +137,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     if (s1 == -1 || s2 == -1)
     {
-        fprintf(stderr, "ERROR: Temp file cannot be generated!\n");
+        fprintf(stderr, "ERROR: Temp filename cannot be generated!\n");
         throw "tmp";
     }
 
@@ -360,7 +360,8 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 
         printf(" P(%.1f, k) |", ZBIN_CENTERS[zm-1]);
     }
-
+    printf("\n");
+    
     for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
     {
         for (int zm = 1; zm <= NUMBER_OF_Z_BINS; zm++)
