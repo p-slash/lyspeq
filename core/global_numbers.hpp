@@ -22,4 +22,10 @@ extern float time_spent_on_c_inv, time_spent_on_f_inv;
 extern float time_spent_on_set_sfid, time_spent_set_qs, \
              time_spent_set_modqs, time_spent_set_fisher;
 
+extern bool TURN_OFF_SFID;
+
 void printf_time_spent_details();
+
+void set_up_bins();
+
+void clean_up_bins();

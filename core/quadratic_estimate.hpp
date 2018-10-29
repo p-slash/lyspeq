@@ -11,9 +11,6 @@
 #include "one_qso_estimate.hpp"
 #include "sq_table.hpp"
 #include "fiducial_cosmology.hpp"
-// #include "../gsltools/ln_poly_fit.hpp"
-
-extern int POLYNOMIAL_FIT_DEGREE;
 
 class OneDQuadraticPowerEstimate
 {

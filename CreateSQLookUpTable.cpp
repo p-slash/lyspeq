@@ -89,30 +89,8 @@ int main(int argc, char const *argv[])
 
         cFile.readAll();
 
-        // Construct k edges
-        NUMBER_OF_K_BANDS = N_KLIN_BIN + N_KLOG_BIN;
-
-        KBAND_EDGES = new double[NUMBER_OF_K_BANDS + 1];
-
-        for (int i = 0; i < N_KLIN_BIN + 1; i++)
-        {
-            KBAND_EDGES[i] = K_0 + LIN_K_SPACING * i;
-        }
-        for (int i = 1, j = N_KLIN_BIN + 1; i < N_KLOG_BIN + 1; i++, j++)
-        {
-            KBAND_EDGES[j] = KBAND_EDGES[N_KLIN_BIN] * pow(10., i * LOG_K_SPACING);
-        }
-
-        // Construct redshift bins
-        ZBIN_CENTERS = new double[NUMBER_OF_Z_BINS];
-
-        for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
-        {
-            ZBIN_CENTERS[zm] = Z_0 + Z_BIN_WIDTH * zm;
-        }
-
         // Redshift and wavenumber bins are constructed
-        // ---------------------
+        set_up_bins();
 
         gsl_set_error_handler_off();
 
@@ -272,9 +250,8 @@ int main(int argc, char const *argv[])
         printf("Time spent on derivatibe matrix table is %.2f mins.\n", time_spent_table_q / 60.);
 
         delete [] big_temp_array;
-        delete [] KBAND_EDGES;
-        delete [] ZBIN_CENTERS;
-       
+        
+        clean_up_bins();       
     }
     catch (std::exception& e)
     {

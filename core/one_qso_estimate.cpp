@@ -143,7 +143,7 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
     // Set fiducial signal matrix
     t = clock();
 
-    for (int i = 0; i < DATA_SIZE; i++)
+    for (int i = 0; i < DATA_SIZE && !TURN_OFF_SFID; i++)
     {
         v_ij = 0;
         z_ij = lambda_array[i] / LYA_REST - 1.;
@@ -428,12 +428,11 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
 void OneQSOEstimate::allocateMatrices()
 {
     ps_before_fisher_estimate_vector = gsl_vector_calloc(TOTAL_KZ_BINS);
-
-    fisher_matrix             = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
+    fisher_matrix                    = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
 
     covariance_matrix               = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
     inverse_covariance_matrix       = covariance_matrix;
-    fiducial_signal_matrix          = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
+    fiducial_signal_matrix          = gsl_matrix_calloc(DATA_SIZE, DATA_SIZE);
     weighted_fiducial_signal_matrix = fiducial_signal_matrix;
     weighted_noise_matrix           = gsl_matrix_calloc(DATA_SIZE, DATA_SIZE);
 
