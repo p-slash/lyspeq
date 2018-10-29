@@ -16,9 +16,6 @@ FirstRedshiftBinCenter 2.5
 RedshiftBinWidth 0.1125
 NumberOfRedshiftBins 10
 
-# If the power spectrum is fitted with a smooth polynomial of ln k, its degree is
-# PolynomialDegree 2
-
 # The location of the file list, and the directory where those files live:
 FileNameList /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS/qso_list_zon_long.txt
 FileInputDir /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS
@@ -35,6 +32,9 @@ NumberVPoints     1000
 NumberZPoints     80
 PixelWidth        64.0
 VelocityLength    9100.0
+
+# When testing outside of Lya region, turn off fiducial matrix by 1
+TurnOffBaseline   0
 
 # Fiducial Palanque fit function parameters
 FiducialAmplitude            0.06

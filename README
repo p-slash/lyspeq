@@ -70,6 +70,10 @@ Lookup tables are generated with the following parameters:
     PixelWidth        4.0
     VelocityLength    1000.
 
+When testing outside of Lya region, turn off fiducial matrix by setting this to > 0 integer.
+    
+    TurnOffBaseline   0
+
 The maximum number of iterations are
 
     NumberOfIterations    10

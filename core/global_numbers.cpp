@@ -1,21 +1,65 @@
 #include "global_numbers.hpp"
 
 #include <cstdio>
+
 int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
+
 double *KBAND_EDGES, *KBAND_CENTERS;
-double Z_BIN_WIDTH, *ZBIN_CENTERS;
+double  Z_BIN_WIDTH, *ZBIN_CENTERS;
 
 float   time_spent_on_c_inv    = 0, time_spent_on_f_inv   = 0;
 float   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0, \
         time_spent_set_modqs   = 0, time_spent_set_fisher = 0;
+
+bool TURN_OFF_SFID;
 
 void printf_time_spent_details()
 {
     printf("Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv / 60.);
     printf("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv / 60.);
 
-    printf("Total time spent on setting Sfid is %.2f mins.\n", time_spent_on_set_sfid / 60.);
-    printf("Total time spent on setting Qs is %.2f mins.\n", time_spent_set_qs / 60.);
-    printf("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs / 60.);
-    printf("Total time spent on setting F is %.2f mins.\n", time_spent_set_fisher / 60.);
+    printf("Total time spent on setting Sfid is %.2f mins.\n",   time_spent_on_set_sfid / 60.);
+    printf("Total time spent on setting Qs is %.2f mins.\n",     time_spent_set_qs      / 60.);
+    printf("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs   / 60.);
+    printf("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher  / 60.);
 }
+
+void set_up_bins()
+{
+    // Construct k edges
+    NUMBER_OF_K_BANDS = N_KLIN_BIN + N_KLOG_BIN;
+    TOTAL_KZ_BINS     = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
+
+    KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
+    KBAND_CENTERS = new double[NUMBER_OF_K_BANDS];
+
+    for (int i = 0; i < N_KLIN_BIN + 1; i++)
+    {
+        KBAND_EDGES[i] = K_0 + LIN_K_SPACING * i;
+    }
+    for (int i = 1, j = N_KLIN_BIN + 1; i < N_KLOG_BIN + 1; i++, j++)
+    {
+        KBAND_EDGES[j] = KBAND_EDGES[N_KLIN_BIN] * pow(10., i * LOG_K_SPACING);
+    }
+    for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
+    {
+        KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
+    }
+
+    // Construct redshift bins
+    ZBIN_CENTERS = new double[NUMBER_OF_Z_BINS];
+
+    for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
+    {
+        ZBIN_CENTERS[zm] = Z_0 + Z_BIN_WIDTH * zm;
+    }
+}
+
+void clean_up_bins()
+{
+    delete [] KBAND_EDGES;
+    delete [] KBAND_CENTERS;
+    delete [] ZBIN_CENTERS;
+}
+
+

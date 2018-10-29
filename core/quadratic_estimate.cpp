@@ -146,7 +146,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     sprintf(buf, "python py/lorentzian_fit.py %s %s", tmp_ps_fname, tmp_fit_fname);
     s1 = system(buf);
 
-    printf("Fitting python script returned %d.\n", s1);
+    // printf("Fitting python script returned %d.\n", s1);
 
     if (s1 != 0)
     {

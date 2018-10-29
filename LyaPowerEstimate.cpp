@@ -77,35 +77,15 @@ int main(int argc, char const *argv[])
         cFile.addKey("FiducialRedshiftCurvature",   &FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
         cFile.addKey("FiducialLorentzianLambda",    &FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
 
+        // Read integer if testing outside of Lya region
+        int out_lya;
+        cFile.addKey("TurnOffBaseline", &out_lya, INTEGER);
+        TURN_OFF_SFID = out_lya > 0;
+
         cFile.readAll();
 
-        // Construct k edges
-        NUMBER_OF_K_BANDS = N_KLIN_BIN + N_KLOG_BIN;
-        TOTAL_KZ_BINS     = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
-
-        KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
-        KBAND_CENTERS = new double[NUMBER_OF_K_BANDS];
-
-        for (int i = 0; i < N_KLIN_BIN + 1; i++)
-        {
-            KBAND_EDGES[i] = K_0 + LIN_K_SPACING * i;
-        }
-        for (int i = 1, j = N_KLIN_BIN + 1; i < N_KLOG_BIN + 1; i++, j++)
-        {
-            KBAND_EDGES[j] = KBAND_EDGES[N_KLIN_BIN] * pow(10., i * LOG_K_SPACING);
-        }
-        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
-        {
-            KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
-        }
-
-        // Construct redshift bins
-        ZBIN_CENTERS = new double[NUMBER_OF_Z_BINS];
-
-        for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
-        {
-            ZBIN_CENTERS[zm] = Z_0 + Z_BIN_WIDTH * zm;
-        }
+        // Redshift and wavenumber bins are constructed
+        set_up_bins();
 
         SQLookupTable sq_Table(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
 
@@ -119,9 +99,8 @@ int main(int argc, char const *argv[])
         qps->iterate(NUMBER_OF_ITERATIONS, buf);
 
         delete qps;
-        delete [] KBAND_EDGES;
-        delete [] KBAND_CENTERS;
-        delete [] ZBIN_CENTERS;
+
+        clean_up_bins();
     }
     catch (std::exception& e)
     {
