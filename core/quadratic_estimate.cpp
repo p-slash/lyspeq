@@ -292,8 +292,29 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     printf("Mean relative change is %.1e.\n", abs_mean);
     printf("Maximum relative change is %.1e. ", abs_max);
-    printf("Iteration converges when this < %.1e\n", CONVERGENCE_EPS);
+    printf("Old test: Iteration converges when this is less than %.1e\n", CONVERGENCE_EPS);
     
+    // Perform a chi-square test as well
+    gsl_vector *temp_vector = gsl_vector_alloc(TOTAL_KZ_BINS);
+
+    gsl_vector_sub(previous_pmn_estimate_vector, pmn_estimate_vector);
+
+    if (isFisherInverted)
+    {
+        invertTotalFisherMatrix();
+    }
+
+    gsl_blas_dgemv( CblasNoTrans, 1.0, \
+                    fisher_matrix_sum, previous_pmn_estimate_vector, \
+                    0, temp_vector);
+        
+    gsl_blas_ddot(previous_pmn_estimate_vector, temp_vector, &r);
+
+    printf("Chi square convergence test: %.2f. ", r);
+    printf("Iteration converges when this is less than %.2f\n", CHISQ_CONVERGENCE_EPS);
+
+    ifConverged = r < CHISQ_CONVERGENCE_EPS;
+
     return ifConverged;
 }
 
