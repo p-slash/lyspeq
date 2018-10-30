@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring> // strcmp
-#include <cmath>
 #include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
 
 #include <gsl/gsl_errno.h>
@@ -90,7 +89,7 @@ int main(int argc, char const *argv[])
         cFile.readAll();
 
         // Redshift and wavenumber bins are constructed
-        set_up_bins();
+        set_up_bins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
 
         gsl_set_error_handler_off();
 
