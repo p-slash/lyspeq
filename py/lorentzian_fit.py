@@ -5,6 +5,9 @@ import sys
 import numpy as np
 from scipy.optimize import curve_fit
 
+# Fit using the same fiducial parameters
+fiducial_params = 0.0662, -2.685, -0.223, 3.591, -0.177, 360.
+
 def pd13form_fitting_function(X, A, n, alpha, B, beta):
     k, z = X
 
@@ -33,29 +36,32 @@ def pd13_lorentzian_noz(k, A, n, alpha, lmd):
 input_ps = sys.argv[1]
 output_ps= sys.argv[2]
 
-# f = open(input_ps, 'r')
-# string_sizes = f.readline()
-# size = [int(n) for n in string_sizes.split()]
-# f.close()
-
-# NzBins = size[0]
-# NkBins = size[1]
+if len(sys.argv) == 9:
+    fiducial_params = float(sys.argv[3:])
 
 z, k, p, e = np.genfromtxt(input_ps, delimiter = ' ', skip_header = 2, unpack = True)
 
 theoretical_ps = np.zeros(len(z))
 
 # Global Fit
-# Fit using the same fiducial parameters
-fiducial_params = 0.0662, -2.685, -0.223, 3.591, -0.177, 360.
-
 mask     = np.greater(p, 0.)
 z_masked = z[mask]
 k_masked = k[mask]
 p_masked = p[mask]
 e_masked = e[mask]
 
-pnew, pcov     = curve_fit(pd13_lorentzian, (k_masked, z_masked), p_masked, fiducial_params, sigma=e_masked)
+try:
+    pnew, pcov = curve_fit(pd13_lorentzian, (k_masked, z_masked), p_masked, fiducial_params, sigma=e_masked)
+except ValueError:
+    print("ValueError: Either ydata or xdata contain NaNs")
+    exit(1)
+except RuntimeError:
+    print("RuntimeError: The least-squares minimization fails")
+    exit(1)
+except OptimizeWarning:
+    print("OptimizeWarning: Covariance of the parameters can not be estimated")    
+    exit(1)
+
 theoretical_ps = pd13_lorentzian((k, z), *pnew)
 
 r              = p_masked - theoretical_ps[mask]
@@ -71,7 +77,8 @@ lambda   = %e""" % (pnew[0], pnew[1], pnew[2], pnew[3], pnew[4], pnew[5])
 print(fit_param_text)
 print("chisq = ", chisq, "doff = ",df, "chisq/dof = ", chisq/df)
 
-np.savetxt(output_ps, theoretical_ps)
+params_header = "%e %e %e %e %e %e" % (pnew[0], pnew[1], pnew[2], pnew[3], pnew[4], pnew[5])
+np.savetxt(output_ps, theoretical_ps, header=params_header)
     
 exit(0)
 
