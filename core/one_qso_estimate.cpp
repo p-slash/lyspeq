@@ -2,7 +2,6 @@
 #include "fiducial_cosmology.hpp"
 #include "spectrograph_functions.hpp"
 #include "matrix_helper.hpp"
-#include "real_field_1d.hpp"
 #include "global_numbers.hpp"
 
 #include "../io/io_helper_functions.hpp"

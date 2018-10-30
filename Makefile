@@ -64,7 +64,7 @@ GSLRECFLAGS :=  -Werror -W \
 				-g -O3
 
 CPPFLAGS := -std=gnu++11 -Wall -pedantic -Wno-long-long $(GSLRECFLAGS) $(GSL_INCL) $(OPT)
-LDLIBS := -lfftw3 -lgsl -lgslcblas $(GSL_LIBS)
+LDLIBS := -lgsl -lgslcblas $(GSL_LIBS) #-lfftw3 
 	
 all: LyaPowerEstimate CreateSQLookUpTable
 	
