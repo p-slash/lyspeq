@@ -10,7 +10,8 @@
 #define ADDED_CONST_TO_COVARIANCE 10.0
 
 // Quadratic Estimate numbers
-#define CONVERGENCE_EPS 1E-4
+#define CONVERGENCE_EPS       1E-4
+#define CHISQ_CONVERGENCE_EPS 0.1
 
 // Binning numbers
 extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
