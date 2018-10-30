@@ -26,6 +26,8 @@ extern bool TURN_OFF_SFID;
 
 void printf_time_spent_details();
 
-void set_up_bins();
+void set_up_bins(double k0, int nlin, double dklin, \
+                            int nlog, double dklog, \
+                 double z0);
 
 void clean_up_bins();

@@ -1,6 +1,7 @@
 #include "global_numbers.hpp"
 
 #include <cstdio>
+#include <cmath>
 
 int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
 
@@ -24,22 +25,24 @@ void printf_time_spent_details()
     printf("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher  / 60.);
 }
 
-void set_up_bins()
+void set_up_bins(double k0, int nlin, double dklin, \
+                            int nlog, double dklog, \
+                 double z0)
 {
     // Construct k edges
-    NUMBER_OF_K_BANDS = N_KLIN_BIN + N_KLOG_BIN;
+    NUMBER_OF_K_BANDS = nlin + nlog;
     TOTAL_KZ_BINS     = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
 
     KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
     KBAND_CENTERS = new double[NUMBER_OF_K_BANDS];
 
-    for (int i = 0; i < N_KLIN_BIN + 1; i++)
+    for (int i = 0; i < nlin + 1; i++)
     {
-        KBAND_EDGES[i] = K_0 + LIN_K_SPACING * i;
+        KBAND_EDGES[i] = k0 + dklin * i;
     }
-    for (int i = 1, j = N_KLIN_BIN + 1; i < N_KLOG_BIN + 1; i++, j++)
+    for (int i = 1, j = nlin + 1; i < nlog + 1; i++, j++)
     {
-        KBAND_EDGES[j] = KBAND_EDGES[N_KLIN_BIN] * pow(10., i * LOG_K_SPACING);
+        KBAND_EDGES[j] = KBAND_EDGES[nlin] * pow(10., i * dklog);
     }
     for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
     {
@@ -51,7 +54,7 @@ void set_up_bins()
 
     for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
     {
-        ZBIN_CENTERS[zm] = Z_0 + Z_BIN_WIDTH * zm;
+        ZBIN_CENTERS[zm] = z0 + Z_BIN_WIDTH * zm;
     }
 }
 
