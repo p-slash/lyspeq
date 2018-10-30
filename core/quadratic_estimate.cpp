@@ -159,6 +159,8 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     }
 
     printf("%s\n", buf);
+    fflush(stdout);
+
     s1 = system(buf);
 
     if (s1 != 0)
