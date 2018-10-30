@@ -3,7 +3,7 @@
 import sys
 
 import numpy as np
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, OptimizeWarning
 
 # Fit using the same fiducial parameters
 fiducial_params = 0.0662, -2.685, -0.223, 3.591, -0.177, 360.
