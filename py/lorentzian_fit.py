@@ -37,7 +37,8 @@ input_ps = sys.argv[1]
 output_ps= sys.argv[2]
 
 if len(sys.argv) == 9:
-    fiducial_params = float(sys.argv[3:])
+    fiducial_params = np.array(sys.argv[3:], dtype=float)
+    print(fiducial_params)
 
 z, k, p, e = np.genfromtxt(input_ps, delimiter = ' ', skip_header = 2, unpack = True)
 
@@ -53,14 +54,14 @@ e_masked = e[mask]
 try:
     pnew, pcov = curve_fit(pd13_lorentzian, (k_masked, z_masked), p_masked, fiducial_params, sigma=e_masked)
 except ValueError:
-    print("ValueError: Either ydata or xdata contain NaNs")
+    print("ValueError: Either ydata or xdata contain NaNs.")
     exit(1)
 except RuntimeError:
-    print("RuntimeError: The least-squares minimization fails")
+    print("RuntimeError: The least-squares minimization fails.")
     exit(1)
 except OptimizeWarning:
-    print("OptimizeWarning: Covariance of the parameters can not be estimated")    
-    exit(1)
+    print("OptimizeWarning: Covariance of the parameters can not be estimated. Using fiducial parameters instead.")    
+    pnew = fiducial_params
 
 theoretical_ps = pd13_lorentzian((k, z), *pnew)
 
@@ -78,7 +79,7 @@ print(fit_param_text)
 print("chisq = ", chisq, "doff = ",df, "chisq/dof = ", chisq/df)
 
 params_header = "%e %e %e %e %e %e" % (pnew[0], pnew[1], pnew[2], pnew[3], pnew[4], pnew[5])
-np.savetxt(output_ps, theoretical_ps, header=params_header)
+np.savetxt(output_ps, theoretical_ps, header=params_header, comments='')
     
 exit(0)
 

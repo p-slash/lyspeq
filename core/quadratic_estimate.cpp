@@ -157,9 +157,8 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
                 fit_params[3], fit_params[4], fit_params[5]);
     }
 
+    printf("%s\n", buf);
     s1 = system(buf);
-
-    // printf("Fitting python script returned %d.\n", s1);
 
     if (s1 != 0)
     {
