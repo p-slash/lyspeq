@@ -131,7 +131,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
          buf[200];
     FILE *tmp_fit_file;
     int s1, s2, kn, zm;
-    static float fit_params[6](0);
+    static float fit_params[6]{0};
 
     s1 = mkstemp(tmp_ps_fname);
     s2 = mkstemp(tmp_fit_fname);
