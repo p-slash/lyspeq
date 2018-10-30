@@ -28,7 +28,8 @@ class OneDQuadraticPowerEstimate
                 *pmn_estimate_vector;
 
     /* TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix */
-    gsl_matrix  *fisher_matrix_sum;
+    gsl_matrix  *fisher_matrix_sum,\
+                *inverse_fisher_matrix_sum;
 
     bool isFisherInverted;
 

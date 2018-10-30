@@ -31,6 +31,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     pmn_estimate_vector                     = gsl_vector_calloc(TOTAL_KZ_BINS);
     // fisher_filter                        = gsl_vector_alloc(TOTAL_KZ_BINS);
     fisher_matrix_sum                       = gsl_matrix_alloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
+    inverse_fisher_matrix_sum               = fisher_matrix_sum;
 
     isFisherInverted = false; 
 
@@ -120,7 +121,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 
     //gsl_blas_dsymv( CblasUpper, 0.5, 
     gsl_blas_dgemv( CblasNoTrans, 0.5, \
-                    fisher_matrix_sum, pmn_before_fisher_estimate_vector_sum, \
+                    inverse_fisher_matrix_sum, pmn_before_fisher_estimate_vector_sum, \
                     0, pmn_estimate_vector);
 }
 
@@ -337,6 +338,11 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname)
     int i_kz;
     double z, k, p, e;
 
+    if (!isFisherInverted)
+    {
+        invertTotalFisherMatrix();
+    }
+
     toWrite = open_file(fname, "w");
 
     fprintf(toWrite, "%d %d\n", NUMBER_OF_Z_BINS, NUMBER_OF_K_BANDS);
@@ -360,7 +366,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname)
 
             k = KBAND_CENTERS[kn];
             p = gsl_vector_get(pmn_estimate_vector, i_kz) + powerSpectrumFiducial(kn, zm-1);
-            e = sqrt(gsl_matrix_get(fisher_matrix_sum, i_kz, i_kz));
+            e = sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz));
 
             // if (isFisherInverted)
             //     err = sqrt(gsl_matrix_get(fisher_matrix_sum[zm], i, i));
