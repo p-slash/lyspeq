@@ -128,9 +128,10 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 {
     char tmp_ps_fname[]  = "tmppsfileXXXXXX", \
          tmp_fit_fname[] = "tmpfitfileXXXXXX", \
-         buf[100];
+         buf[200];
     FILE *tmp_fit_file;
     int s1, s2, kn, zm;
+    static float fit_params[6](0);
 
     s1 = mkstemp(tmp_ps_fname);
     s2 = mkstemp(tmp_fit_fname);
@@ -143,7 +144,19 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     write_spectrum_estimates(tmp_ps_fname);
 
-    sprintf(buf, "python py/lorentzian_fit.py %s %s", tmp_ps_fname, tmp_fit_fname);
+    if (fit_params[0] < 1E-8 && fit_params[1] < 1E-8)
+    {
+        // Do not pass anything as fit parameters 
+        sprintf(buf, "python py/lorentzian_fit.py %s %s", tmp_ps_fname, tmp_fit_fname);
+    }
+    else
+    {
+        sprintf(buf, "python py/lorentzian_fit.py %s %s %.2e %.2e %.2e %.2e %.2e %.2e", \
+                tmp_ps_fname, tmp_fit_fname, \
+                fit_params[0], fit_params[1], fit_params[2], \
+                fit_params[3], fit_params[4], fit_params[5]);
+    }
+
     s1 = system(buf);
 
     // printf("Fitting python script returned %d.\n", s1);
@@ -157,6 +170,10 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     remove(tmp_ps_fname);
 
     tmp_fit_file = open_file(tmp_fit_fname, "r");
+
+    fscanf( tmp_fit_file, "%e %e %e %e %e %e\n", \
+            &fit_params[0], &fit_params[1], &fit_params[2], \
+            &fit_params[3], &fit_params[4], &fit_params[5]);
 
     for (int i_kz = 0; i_kz < TOTAL_KZ_BINS; i_kz++)
     {
