@@ -18,6 +18,8 @@
 #include <cstdlib>
 #include <cassert>
 
+#include <omp.h>
+
 void throw_isnan(double t)
 {
     if (isnan(t))   throw "NaN";
@@ -168,6 +170,7 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
     t = clock();
     int kn, zm;
 
+    #pragma omp parallel for private(kn, zm, v_ij, z_ij, temp)
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
         getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
