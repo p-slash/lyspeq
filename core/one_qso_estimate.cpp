@@ -18,7 +18,9 @@
 #include <cstdlib>
 #include <cassert>
 
+#if defined(_OPENMP)
 #include <omp.h>
+#endif
 
 void throw_isnan(double t)
 {
@@ -261,7 +263,7 @@ void OneQSOEstimate::computeWeightedMatrices()
     }
 
     gsl_matrix *temp_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-    
+
     // Set weighted fiducial signal matrix
     if (!TURN_OFF_SFID)
     {

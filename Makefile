@@ -28,11 +28,13 @@ SYSTYPE="LAPTOP"
 ifeq ($(SYSTYPE),"GRACE")   
 GSL_INCL =  -I${GSL_DIR}/include
 GSL_LIBS =  -L${GSL_DIR}/lib
+OMP_FLAG = -fopenmp
 endif
 
 ifeq ($(SYSTYPE),"LAPTOP")   
 GSL_INCL =  -I/usr/local/include
 GSL_LIBS =  -L/usr/local/lib
+OMP_FLAG = 
 endif
 
 #---------------------------------------
@@ -63,7 +65,7 @@ GSLRECFLAGS :=  -Werror -W \
 				-fshort-enums -fno-common \
 				-g -O3
 
-CPPFLAGS := -std=gnu++11 -Wall -pedantic -Wno-long-long $(GSLRECFLAGS) $(GSL_INCL) $(OPT)
+CPPFLAGS := $(OMP_FLAG) -std=gnu++11 -Wall -pedantic -Wno-long-long $(GSLRECFLAGS) $(GSL_INCL) $(OPT)
 LDLIBS := -lgsl -lgslcblas $(GSL_LIBS) #-lfftw3 
 	
 all: LyaPowerEstimate CreateSQLookUpTable
