@@ -80,10 +80,13 @@ int main(int argc, char const *argv[])
         // Read integer if testing outside of Lya region
         int out_lya;
         cFile.addKey("TurnOffBaseline", &out_lya, INTEGER);
-        TURN_OFF_SFID = out_lya > 0;
 
         cFile.readAll();
 
+        TURN_OFF_SFID = out_lya > 0;
+
+        if (TURN_OFF_SFID)  printf("Fiducial signal matrix is turned off.\n");
+        
         // Redshift and wavenumber bins are constructed
         set_up_bins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
 
