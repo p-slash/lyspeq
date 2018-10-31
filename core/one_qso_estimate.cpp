@@ -18,10 +18,6 @@
 #include <cstdlib>
 #include <cassert>
 
-#if defined(_OPENMP)
-#include <omp.h>
-#endif
-
 void throw_isnan(double t)
 {
     if (isnan(t))   throw "NaN";
@@ -253,9 +249,13 @@ void OneQSOEstimate::computeWeightedMatrices()
 
     assert(isCovInverted);
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
+        // #if defined(_OPENMP) && defined(DEBUG_ON)
+        // printf("Hello from thread %d, nthreads %d.\n", omp_get_thread_num(), omp_get_num_threads());
+        // #endif
+
         //C-1 . Q
         gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, \
                         1.0, inverse_covariance_matrix, derivative_of_signal_matrices[i_kz], \
@@ -340,9 +340,14 @@ void OneQSOEstimate::computeFisherMatrix()
     
     double temp;
 
-    #pragma omp parallel for private(temp)
+    // Load Imbalance!!
+    // #pragma omp parallel for private(temp)
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
+        // #if defined(_OPENMP) && defined(DEBUG_ON)
+        // printf("Hello from thread %d, nthreads %d.\n", omp_get_thread_num(), omp_get_num_threads());
+        // #endif
+
         temp = 0.5 * trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], \
                                         weighted_derivative_of_signal_matrices[i_kz]);
         throw_isnan(temp);
@@ -352,7 +357,7 @@ void OneQSOEstimate::computeFisherMatrix()
                         i_kz + fisher_index_start, \
                         temp);
 
-        for (int j_kz = i_kz + 1; j_kz < N_Q_MATRICES; j_kz++)
+        for (int j_kz = 0; j_kz < i_kz; j_kz++)
         {
             temp = 0.5 * trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], \
                                             weighted_derivative_of_signal_matrices[j_kz]);
