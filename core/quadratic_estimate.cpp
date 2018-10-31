@@ -16,14 +16,6 @@
 
 #if defined(_OPENMP)
 #include <omp.h>
-
-#pragma omp declare reduction \
-(gslvs:gsl_vector*:gsl_vector_add(omp_out, omp_in)) \
-initializer(gsl_vector_set_zero(omp_priv))
-
-#pragma omp declare reduction \
-(gslms:gsl_matrix*:gsl_matrix_add(omp_out, omp_in)) \
-initializer(gsl_matrix_set_zero(omp_priv))
 #endif
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
@@ -221,6 +213,14 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         initializeIteration();
 
         // OneQSOEstimate object decides which redshift it belongs to.
+        #pragma omp declare reduction \
+        (gslvs:gsl_vector*:gsl_vector_add(omp_out, omp_in)) \
+        initializer(gsl_vector_set_zero(omp_priv))
+
+        #pragma omp declare reduction \
+        (gslms:gsl_matrix*:gsl_matrix_add(omp_out, omp_in)) \
+        initializer(gsl_matrix_set_zero(omp_priv))
+        
         #pragma omp parallel for \
         reduction(gslvs:pmn_before_fisher_estimate_vector_sum) \
         reduction(gslms:fisher_matrix_sum)
