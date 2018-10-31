@@ -1,9 +1,12 @@
 #!/usr/bin/python
 
 import sys
+import warnings
 
 import numpy as np
 from scipy.optimize import curve_fit, OptimizeWarning
+
+warnings.simplefilter("error", OptimizeWarning)
 
 # Fit using the same fiducial parameters
 fiducial_params = 0.0662, -2.685, -0.223, 3.591, -0.177, 360.
@@ -45,7 +48,7 @@ z, k, p, e = np.genfromtxt(input_ps, delimiter = ' ', skip_header = 2, unpack = 
 theoretical_ps = np.zeros(len(z))
 
 # Global Fit
-mask     = np.greater(p, 0.)
+mask     = np.logical_and(np.greater(p, 0.), np.greater(e, 0.))
 z_masked = z[mask]
 k_masked = k[mask]
 p_masked = p[mask]
