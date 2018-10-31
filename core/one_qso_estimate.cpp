@@ -170,7 +170,6 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
     t = clock();
     int kn, zm;
 
-    #pragma omp parallel for private(kn, zm, v_ij, z_ij, temp)
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
         getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
@@ -252,8 +251,7 @@ void OneQSOEstimate::computeWeightedMatrices()
 
     assert(isCovInverted);
 
-    gsl_matrix *temp_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-
+    #pragma omp parallel for
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
         //C-1 . Q
@@ -262,7 +260,8 @@ void OneQSOEstimate::computeWeightedMatrices()
                         0, weighted_derivative_of_signal_matrices[i_kz]);
     }
 
-
+    gsl_matrix *temp_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
+    
     // Set weighted fiducial signal matrix
     if (!TURN_OFF_SFID)
     {
