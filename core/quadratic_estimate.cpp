@@ -210,19 +210,19 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         t = clock();
 
         #pragma omp declare reduction \
-        (gslvs:gsl_vector*:gsl_vector_add(omp_out, omp_in)) \
-        initializer(gsl_vector_set_zero(omp_priv))
+        (gslvs:gsl_vector:gsl_vector_add(&omp_out, &omp_in)) \
+        initializer(gsl_vector_set_zero(&omp_priv))
 
         #pragma omp declare reduction \
-        (gslms:gsl_matrix*:gsl_matrix_add(omp_out, omp_in)) \
-        initializer(gsl_matrix_set_zero(omp_priv))
+        (gslms:gsl_matrix:gsl_matrix_add(&omp_out, &omp_in)) \
+        initializer(gsl_matrix_set_zero(&omp_priv))
 
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
         #pragma omp parallel for \
-        reduction(gslvs:pmn_before_fisher_estimate_vector_sum) \
-        reduction(gslms:fisher_matrix_sum)
+        reduction(gslvs:*pmn_before_fisher_estimate_vector_sum) \
+        reduction(gslms:*fisher_matrix_sum)
         for (int q = 0; q < NUMBER_OF_QSOS; q++)
         {
             if (qso_estimators[q]->ZBIN < 0 || qso_estimators[q]->ZBIN >= NUMBER_OF_Z_BINS)     continue;
