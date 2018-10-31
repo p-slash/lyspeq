@@ -420,6 +420,8 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 
 double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
 {
+    if (TURN_OFF_SFID)  return 0;
+    
     return fiducial_power_spectrum(KBAND_CENTERS[kn], ZBIN_CENTERS[zm], FIDUCIAL_PS_PARAMS);
 }
 

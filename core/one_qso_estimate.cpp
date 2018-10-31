@@ -198,7 +198,10 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
 
 void OneQSOEstimate::computeCSMatrices(const gsl_vector *ps_estimate)
 {
-    gsl_matrix_memcpy(covariance_matrix, fiducial_signal_matrix);
+    if (!TURN_OFF_SFID)
+        gsl_matrix_memcpy(covariance_matrix, fiducial_signal_matrix);
+    else
+        gsl_matrix_set_zero(covariance_matrix);
 
     gsl_matrix *temp_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
 
@@ -209,8 +212,6 @@ void OneQSOEstimate::computeCSMatrices(const gsl_vector *ps_estimate)
 
         gsl_matrix_add(covariance_matrix, temp_matrix);
     }
-
-    // printf_matrix(fiducial_signal_matrix, DATA_SIZE);
 
     gsl_matrix_free(temp_matrix);
 
@@ -260,12 +261,15 @@ void OneQSOEstimate::computeWeightedMatrices()
 
 
     // Set weighted fiducial signal matrix
-    gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, \
-                    1.0, inverse_covariance_matrix, fiducial_signal_matrix, \
-                    0, temp_matrix);
+    if (!TURN_OFF_SFID)
+    {
+        gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, \
+                        1.0, inverse_covariance_matrix, fiducial_signal_matrix, \
+                        0, temp_matrix);
 
-    gsl_matrix_memcpy(weighted_fiducial_signal_matrix, temp_matrix);
-
+        gsl_matrix_memcpy(weighted_fiducial_signal_matrix, temp_matrix);
+    }
+    
     // Set weighted noise matrix
     for (int i = 0; i < DATA_SIZE; i++)
     {
@@ -297,12 +301,14 @@ void OneQSOEstimate::computePSbeforeFvector()
                     inverse_covariance_matrix, &data_view.vector, \
                     0, weighted_data_vector);
 
-    double temp_bk, temp_tk, temp_d;
+    double temp_bk, temp_tk = 0, temp_d;
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
         temp_bk = trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], weighted_noise_matrix);
-        temp_tk = trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], weighted_fiducial_signal_matrix);
+        
+        if (!TURN_OFF_SFID)
+            temp_tk = trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], weighted_fiducial_signal_matrix);
 
         gsl_blas_dgemv( CblasNoTrans, 1.0, \
                         derivative_of_signal_matrices[i_kz], weighted_data_vector, \
