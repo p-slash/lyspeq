@@ -136,13 +136,14 @@ int main(int argc, char const *argv[])
 {
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
+        double *big_temp_array;
 
         if (!TURN_OFF_SFID)
         {
             FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
 
             // Allocate memory to store results
-            double *big_temp_array = new double[Nv * Nz];
+            big_temp_array = new double[Nv * Nz];
 
             #pragma omp for
             for (int r = 0; r < NUMBER_OF_Rs; r++)
