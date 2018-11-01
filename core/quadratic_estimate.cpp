@@ -214,28 +214,28 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         
         #pragma omp parallel
         {
-            gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
-            gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
+        gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
+        gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
 
-            #pragma omp for
-            for (int q = 0; q < NUMBER_OF_QSOS; q++)
-            {
-                if (qso_estimators[q]->ZBIN < 0 || qso_estimators[q]->ZBIN >= NUMBER_OF_Z_BINS)     continue;
+        #pragma omp for
+        for (int q = 0; q < NUMBER_OF_QSOS; q++)
+        {
+            if (qso_estimators[q]->ZBIN < 0 || qso_estimators[q]->ZBIN >= NUMBER_OF_Z_BINS)     continue;
 
-                qso_estimators[q]->oneQSOiteration( &fit_view.vector, \
-                                                    sq_lookup_table, \
-                                                    local_pmn_before_fisher_estimate_vs, local_fisher_ms);
-                #ifdef DEBUG_ON
-                break;
-                #endif
-            }
+            qso_estimators[q]->oneQSOiteration( &fit_view.vector, \
+                                                sq_lookup_table, \
+                                                local_pmn_before_fisher_estimate_vs, local_fisher_ms);
+            #ifdef DEBUG_ON
+            break;
+            #endif
+        }
 
-            #pragma omp critical
-            gsl_matrix_add(fisher_matrix_sum, local_fisher_ms);
-            gsl_vector_add(pmn_before_fisher_estimate_vector_sum, local_pmn_before_fisher_estimate_vs);
-            
-            gsl_vector_free(local_pmn_before_fisher_estimate_vs);
-            gsl_matrix_free(local_fisher_ms);
+        #pragma omp critical
+        gsl_matrix_add(fisher_matrix_sum, local_fisher_ms);
+        gsl_vector_add(pmn_before_fisher_estimate_vector_sum, local_pmn_before_fisher_estimate_vs);
+        
+        gsl_vector_free(local_pmn_before_fisher_estimate_vs);
+        gsl_matrix_free(local_fisher_ms);
         }
 
         #ifdef DEBUG_ON
