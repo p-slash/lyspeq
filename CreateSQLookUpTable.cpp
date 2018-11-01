@@ -139,7 +139,7 @@ int main(int argc, char const *argv[])
         // Allocate memory to store results
         double *big_temp_array = new double[Nv * Nz];
 
-        #pragma omp for private(big_temp_array, win_params, sq_integrand_params, buf, s_integrator)
+        #pragma omp for private(big_temp_array, win_params, integration_parameters, buf, s_integrator)
         for (int r = 0; r < NUMBER_OF_Rs && !TURN_OFF_SFID; ++r)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -200,7 +200,7 @@ int main(int argc, char const *argv[])
 
         big_temp_array = new double[Nv];
 
-        #pragma omp for private(big_temp_array, win_params, sq_integrand_params, buf, q_integrator)
+        #pragma omp for private(big_temp_array, win_params, integration_parameters, buf, q_integrator)
         for (int r = 0; r < NUMBER_OF_Rs; ++r)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
