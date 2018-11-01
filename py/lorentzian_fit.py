@@ -41,7 +41,6 @@ output_ps= sys.argv[2]
 
 if len(sys.argv) == 9:
     fiducial_params = np.array(sys.argv[3:], dtype=float)
-    print(fiducial_params)
 
 z, k, p, e = np.genfromtxt(input_ps, delimiter = ' ', skip_header = 2, unpack = True)
 
