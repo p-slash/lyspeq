@@ -14,6 +14,10 @@
 #include <cstdlib> // system
 #include <cassert>
 
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
+
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
                                                         const SQLookupTable *table, \
                                                         struct palanque_fit_params *pfp)
@@ -204,23 +208,36 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         fflush(stdout);
         
         t = clock();
-
+    
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
-
-        // OneQSOEstimate object decides which redshift it belongs to.
-        for (int q = 0; q < NUMBER_OF_QSOS; q++)
-        {
-            if (qso_estimators[q]->ZBIN < 0 || qso_estimators[q]->ZBIN >= NUMBER_OF_Z_BINS)     continue;
-
-            qso_estimators[q]->oneQSOiteration( &fit_view.vector, \
-                                                sq_lookup_table, \
-                                                pmn_before_fisher_estimate_vector_sum, fisher_matrix_sum);
-            #ifdef DEBUG_ON
-            break;
-            #endif
-        }
         
+        #pragma omp parallel
+        {
+            gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
+            gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
+
+            #pragma omp for
+            for (int q = 0; q < NUMBER_OF_QSOS; q++)
+            {
+                if (qso_estimators[q]->ZBIN < 0 || qso_estimators[q]->ZBIN >= NUMBER_OF_Z_BINS)     continue;
+
+                qso_estimators[q]->oneQSOiteration( &fit_view.vector, \
+                                                    sq_lookup_table, \
+                                                    local_pmn_before_fisher_estimate_vs, local_fisher_ms);
+                #ifdef DEBUG_ON
+                break;
+                #endif
+            }
+
+            #pragma omp critical
+            gsl_matrix_add(fisher_sum, fisher_matrix);
+            gsl_vector_add(pmn_before, ps_before_fisher_estimate_vector);
+            
+            gsl_vector_free(local_pmn_before_fisher_estimate_vs);
+            gsl_matrix_free(local_fisher_ms);
+        }
+
         #ifdef DEBUG_ON
         break;
         #endif
