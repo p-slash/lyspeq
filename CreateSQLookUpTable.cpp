@@ -29,7 +29,7 @@ int main(int argc, char const *argv[])
     const char *FNAME_CONFIG = argv[1];
     bool force_rewrite = true;
     clock_t t;
-    float time_spent_table_sfid = 0, time_spent_table_q = 0;
+    float time_spent_table_sfid, time_spent_table_q;
 
     if (argc == 3)
     {
@@ -138,6 +138,8 @@ int main(int argc, char const *argv[])
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
         double *big_temp_array;
 
+        time_spent_table_sfid = 0;
+        
         if (!TURN_OFF_SFID)
         {
             FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
