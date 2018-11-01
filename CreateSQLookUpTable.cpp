@@ -29,7 +29,7 @@ int main(int argc, char const *argv[])
     const char *FNAME_CONFIG = argv[1];
     bool force_rewrite = true;
     clock_t t;
-    float time_spent_table_sfid, time_spent_table_q;
+    float time_spent_table_sfid = 0, time_spent_table_q = 0;
 
     if (argc == 3)
     {
