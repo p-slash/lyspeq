@@ -338,7 +338,8 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         
     gsl_blas_ddot(previous_pmn_estimate_vector, temp_vector, &r);
 
-    printf("Chi square convergence test: %.2f. ", r);
+    r /= TOTAL_KZ_BINS;
+    printf("Chi square convergence test: %.2f per dof. ", r);
     printf("Iteration converges when this is less than %.2f\n", CHISQ_CONVERGENCE_EPS);
 
     ifConverged = r < CHISQ_CONVERGENCE_EPS;
