@@ -130,8 +130,6 @@ int main(int argc, char const *argv[])
         double  z_first  = Z_0 - Z_BIN_WIDTH / 2., \
                 z_length = Z_BIN_WIDTH * NUMBER_OF_Z_BINS;
 
-        #pragma omp parallel private(buf, t, time_spent_table_sfid, time_spent_table_q)
-        {
         t = clock();
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
@@ -141,7 +139,7 @@ int main(int argc, char const *argv[])
         // Allocate memory to store results
         double *big_temp_array = new double[Nv * Nz];
 
-        #pragma omp for
+        #pragma omp for private(big_temp_array, win_params, sq_integrand_params, buf, s_integrator)
         for (int r = 0; r < NUMBER_OF_Rs && !TURN_OFF_SFID; ++r)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -201,10 +199,8 @@ int main(int argc, char const *argv[])
         FourierIntegrator q_integrator(GSL_INTEG_COSINE, q_matrix_integrand, &integration_parameters);
 
         big_temp_array = new double[Nv];
-        // double *temp_array_zscaled = new double[Nv * subNz];
-        double kvalue_1, kvalue_2;
 
-        #pragma omp for
+        #pragma omp for private(big_temp_array, win_params, sq_integrand_params, buf, q_integrator)
         for (int r = 0; r < NUMBER_OF_Rs; ++r)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -213,8 +209,8 @@ int main(int argc, char const *argv[])
 
             for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
             {
-                kvalue_1 = KBAND_EDGES[kn];
-                kvalue_2 = KBAND_EDGES[kn + 1];
+                double kvalue_1 = KBAND_EDGES[kn];
+                double kvalue_2 = KBAND_EDGES[kn + 1];
 
                 printf("Q matrix for k = [%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
 
@@ -232,12 +228,6 @@ int main(int argc, char const *argv[])
                     win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv);
 
                     big_temp_array[nv] = q_integrator.evaluate(win_params.delta_v_ij, kvalue_1, kvalue_2);
-
-                    if (isnan(big_temp_array[nv]))
-                    {
-                        fprintf(stderr, "NaN ");
-                        throw "NaN";
-                    }
                 }
 
                 SQLookupTableFile derivative_signal_table(buf, 'w');
@@ -260,7 +250,6 @@ int main(int argc, char const *argv[])
         printf("Time spent on derivatibe matrix table is %.2f mins.\n", time_spent_table_q / 60.);
 
         delete [] big_temp_array;
-        }
 
         clean_up_bins();       
     }
