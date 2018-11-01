@@ -212,8 +212,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
         
-        #pragma omp parallel
-        {
+#pragma omp parallel
+{
         gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
         gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
 
@@ -236,7 +236,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         
         gsl_vector_free(local_pmn_before_fisher_estimate_vs);
         gsl_matrix_free(local_fisher_ms);
-        }
+}
 
         #ifdef DEBUG_ON
         break;
