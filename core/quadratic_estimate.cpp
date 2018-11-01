@@ -231,8 +231,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             }
 
             #pragma omp critical
-            gsl_matrix_add(fisher_sum, fisher_matrix);
-            gsl_vector_add(pmn_before, ps_before_fisher_estimate_vector);
+            gsl_matrix_add(fisher_matrix_sum, local_fisher_ms);
+            gsl_vector_add(pmn_before_fisher_estimate_vector_sum, local_pmn_before_fisher_estimate_vs);
             
             gsl_vector_free(local_pmn_before_fisher_estimate_vs);
             gsl_matrix_free(local_fisher_ms);
