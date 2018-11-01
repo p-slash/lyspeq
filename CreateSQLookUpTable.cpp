@@ -131,6 +131,9 @@ int main(int argc, char const *argv[])
                 z_length = Z_BIN_WIDTH * NUMBER_OF_Z_BINS;
 
         t = clock();
+
+        #pragma omp parallel
+        {
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
 
@@ -139,7 +142,7 @@ int main(int argc, char const *argv[])
         // Allocate memory to store results
         double *big_temp_array = new double[Nv * Nz];
 
-        #pragma omp for private(big_temp_array, win_params, integration_parameters, buf, s_integrator)
+        #pragma omp for
         for (int r = 0; r < NUMBER_OF_Rs && !TURN_OFF_SFID; ++r)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -250,7 +253,7 @@ int main(int argc, char const *argv[])
         printf("Time spent on derivatibe matrix table is %.2f mins.\n", time_spent_table_q / 60.);
 
         delete [] big_temp_array;
-
+        }
         clean_up_bins();       
     }
     catch (std::exception& e)
