@@ -132,7 +132,7 @@ int main(int argc, char const *argv[])
 
         t = clock();
 
-        #pragma omp parallel
+        #pragma omp parallel private(buf, time_spent_table_sfid, time_spent_table_q)
         {
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
@@ -143,7 +143,7 @@ int main(int argc, char const *argv[])
         double *big_temp_array = new double[Nv * Nz];
 
         #pragma omp for
-        for (int r = 0; r < NUMBER_OF_Rs && !TURN_OFF_SFID; ++r)
+        for (int r = 0; r < NUMBER_OF_Rs && !TURN_OFF_SFID; r++)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             printf("%d of %d R values %d => %.2f km/s\n", r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
@@ -203,8 +203,8 @@ int main(int argc, char const *argv[])
 
         big_temp_array = new double[Nv];
 
-        #pragma omp for private(big_temp_array, win_params, integration_parameters, buf, q_integrator)
-        for (int r = 0; r < NUMBER_OF_Rs; ++r)
+        #pragma omp for
+        for (int r = 0; r < NUMBER_OF_Rs; r++)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             printf("%d of %d R values %d => %.2f km/s\n", r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
