@@ -132,65 +132,69 @@ int main(int argc, char const *argv[])
 
         t = clock();
 
-        #pragma omp parallel private(buf, time_spent_table_sfid, time_spent_table_q)
-        {
+#pragma omp parallel private(buf, time_spent_table_sfid, time_spent_table_q)
+{
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
 
-        FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
-
-        // Allocate memory to store results
-        double *big_temp_array = new double[Nv * Nz];
-
-        #pragma omp for
-        for (int r = 0; r < NUMBER_OF_Rs && !TURN_OFF_SFID; r++)
+        if (!TURN_OFF_SFID)
         {
-            win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
-            printf("%d of %d R values %d => %.2f km/s\n", r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
-            fflush(stdout);
+            FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
 
-            STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
-            
-            if (!force_rewrite && file_exists(buf))
+            // Allocate memory to store results
+            double *big_temp_array = new double[Nv * Nz];
+
+            #pragma omp for
+            for (int r = 0; r < NUMBER_OF_Rs; r++)
             {
-                printf("File %s already exists. Skip to next.\n", buf);
+                win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
+                printf("%d of %d R values %d => %.2f km/s\n", \
+                        r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
                 fflush(stdout);
-                continue;
-            }
 
-            for (int xy = 0; xy < Nv*Nz; ++xy)
-            {
-                // xy = nv + Nv * nz
-                int nz = xy / Nv;
-                int nv = xy % Nv;
-
-                // LENGTH_V * nv / (Nv - 1.);
-                win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv); 
-
-                s_integrator.setTableParameters(win_params.delta_v_ij, 10.);
-
-                // z_first + z_length * nz / (double) Nz;       
-                win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz); 
+                STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
                 
-                big_temp_array[xy]    = s_integrator.evaluate0ToInfty();
+                if (!force_rewrite && file_exists(buf))
+                {
+                    printf("File %s already exists. Skip to next.\n", buf);
+                    fflush(stdout);
+                    continue;
+                }
+
+                for (int xy = 0; xy < Nv*Nz; ++xy)
+                {
+                    // xy = nv + Nv * nz
+                    int nz = xy / Nv;
+                    int nv = xy % Nv;
+
+                    // LENGTH_V * nv / (Nv - 1.);
+                    win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv); 
+
+                    s_integrator.setTableParameters(win_params.delta_v_ij, 10.);
+
+                    // z_first + z_length * nz / (double) Nz;       
+                    win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz); 
+                    
+                    big_temp_array[xy]    = s_integrator.evaluate0ToInfty();
+                }
+
+                SQLookupTableFile signal_table(buf, 'w');
+
+                signal_table.setHeader( Nv, Nz, LENGTH_V, z_length, \
+                                        R_VALUES[r], PIXEL_WIDTH, \
+                                        0, KBAND_EDGES[NUMBER_OF_K_BANDS]);
+
+                signal_table.writeData(big_temp_array);
             }
 
-            SQLookupTableFile signal_table(buf, 'w');
+            delete [] big_temp_array;
 
-            signal_table.setHeader( Nv, Nz, LENGTH_V, z_length, \
-                                    R_VALUES[r], PIXEL_WIDTH, \
-                                    0, KBAND_EDGES[NUMBER_OF_K_BANDS]);
+            t = clock() - t;
+            time_spent_table_sfid = ((float) t) / CLOCKS_PER_SEC;
 
-            signal_table.writeData(big_temp_array);
+            // S matrices are written.
+            // ---------------------
         }
-
-        delete [] big_temp_array;
-
-        t = clock() - t;
-        time_spent_table_sfid = ((float) t) / CLOCKS_PER_SEC;
-
-        // S matrices are written.
-        // ---------------------
 
         // Integrate derivative matrices
         t = clock();
@@ -207,7 +211,8 @@ int main(int argc, char const *argv[])
         for (int r = 0; r < NUMBER_OF_Rs; r++)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
-            printf("%d of %d R values %d => %.2f km/s\n", r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
+            printf("%d of %d R values %d => %.2f km/s\n", \
+                    r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
             fflush(stdout);
 
             for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
@@ -253,7 +258,7 @@ int main(int argc, char const *argv[])
         printf("Time spent on derivatibe matrix table is %.2f mins.\n", time_spent_table_q / 60.);
 
         delete [] big_temp_array;
-        }
+}
         clean_up_bins();       
     }
     catch (std::exception& e)
