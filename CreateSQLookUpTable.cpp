@@ -18,6 +18,10 @@
 #include "io/io_helper_functions.hpp"
 #include "io/sq_lookup_table_file.hpp"
 
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
+
 #define SPEED_OF_LIGHT 299792.458
 
 int main(int argc, char const *argv[])
@@ -86,7 +90,15 @@ int main(int argc, char const *argv[])
         cFile.addKey("FiducialRedshiftCurvature",   &FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
         cFile.addKey("FiducialLorentzianLambda",    &FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
 
+        // Read integer if testing outside of Lya region
+        int out_lya;
+        cFile.addKey("TurnOffBaseline", &out_lya, INTEGER);
+
         cFile.readAll();
+
+        TURN_OFF_SFID = out_lya > 0;
+
+        if (TURN_OFF_SFID)  printf("Fiducial signal matrix is turned off.\n");
 
         // Redshift and wavenumber bins are constructed
         set_up_bins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
@@ -111,7 +123,6 @@ int main(int argc, char const *argv[])
         // ---------------------
 
         // Integrate fiducial signal matrix
-        t = clock();
 
         printf("Creating look up table for signal matrix...\n");
         fflush(stdout);
@@ -119,6 +130,9 @@ int main(int argc, char const *argv[])
         double  z_first  = Z_0 - Z_BIN_WIDTH / 2., \
                 z_length = Z_BIN_WIDTH * NUMBER_OF_Z_BINS;
 
+        #pragma omp parallel private(buf, t, time_spent_table_sfid, time_spent_table_q)
+        {
+        t = clock();
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
 
@@ -127,7 +141,8 @@ int main(int argc, char const *argv[])
         // Allocate memory to store results
         double *big_temp_array = new double[Nv * Nz];
 
-        for (int r = 0; r < NUMBER_OF_Rs; ++r)
+        #pragma omp for
+        for (int r = 0; r < NUMBER_OF_Rs && !TURN_OFF_SFID; ++r)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             printf("%d of %d R values %d => %.2f km/s\n", r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
@@ -157,12 +172,6 @@ int main(int argc, char const *argv[])
                 win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz); 
                 
                 big_temp_array[xy]    = s_integrator.evaluate0ToInfty();
-
-                if (isnan(big_temp_array[xy]))
-                {
-                    fprintf(stderr, "NaN ");
-                    throw "NaN";
-                }
             }
 
             SQLookupTableFile signal_table(buf, 'w');
@@ -175,6 +184,7 @@ int main(int argc, char const *argv[])
         }
 
         delete [] big_temp_array;
+
         t = clock() - t;
         time_spent_table_sfid = ((float) t) / CLOCKS_PER_SEC;
 
@@ -194,6 +204,7 @@ int main(int argc, char const *argv[])
         // double *temp_array_zscaled = new double[Nv * subNz];
         double kvalue_1, kvalue_2;
 
+        #pragma omp for
         for (int r = 0; r < NUMBER_OF_Rs; ++r)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -249,7 +260,8 @@ int main(int argc, char const *argv[])
         printf("Time spent on derivatibe matrix table is %.2f mins.\n", time_spent_table_q / 60.);
 
         delete [] big_temp_array;
-        
+        }
+
         clean_up_bins();       
     }
     catch (std::exception& e)
