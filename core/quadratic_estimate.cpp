@@ -14,6 +14,9 @@
 #include <cstdlib> // system
 #include <cassert>
 
+#include <string>
+#include <vector>
+
 #if defined(_OPENMP)
 #include <omp.h>
 #endif
@@ -37,22 +40,30 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
 
     isFisherInverted = false; 
 
-    // Create objects for each QSO
+    // Read the file
     FILE *toRead = open_file(fname_list, "r");
     fscanf(toRead, "%d\n", &NUMBER_OF_QSOS);
 
     printf("Number of QSOs: %d\n", NUMBER_OF_QSOS);
-    
-    qso_estimators = new OneQSOEstimate*[NUMBER_OF_QSOS];
 
+    std::vector<std::string> fpaths(NUMBER_OF_QSOS);
     char buf[1024], temp_fname[700];
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
         fscanf(toRead, "%s\n", temp_fname);
         sprintf(buf, "%s/%s", dir, temp_fname);
-        
-        qso_estimators[q] = new OneQSOEstimate(buf);
+        fpaths[q] = buf;
+    }
+    fclose(toRead);
+
+    // Create objects for each QSO
+    qso_estimators = new OneQSOEstimate*[NUMBER_OF_QSOS];
+
+    #pragma omp parallel for
+    for (int q = 0; q < NUMBER_OF_QSOS; q++)
+    {
+        qso_estimators[q] = new OneQSOEstimate(fpaths[q].c_str());
         
         int temp_qso_zbin = qso_estimators[q]->ZBIN;
 
@@ -66,10 +77,9 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
             temp_qso_zbin = NUMBER_OF_Z_BINS;
         }
         
+        #pragma omp atomic
         Z_BIN_COUNTS[temp_qso_zbin + 1]++;
-        
     }
-    fclose(toRead);
 
     int tot_z = 0;
     printf("Z bin counts: ");
