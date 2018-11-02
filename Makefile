@@ -25,21 +25,25 @@ SYSTYPE="LAPTOP"
 
 #--------------------------------------- Adjust settings for target computer
 
-ifeq ($(SYSTYPE),"GRACE")   
-GSL_INCL =  -I${GSL_DIR}/include
-GSL_LIBS =  -L${GSL_DIR}/lib
+ifeq ($(SYSTYPE),"GRACE") 
+CXX := g++
+GSL_INCL = -I${GSL_DIR}/include
+GSL_LIBS = -lgsl -lgslcblas -L${GSL_DIR}/lib
 OMP_FLAG = -fopenmp
+OMP_INCL =
+OMP_LIBS =
 endif
 
-ifeq ($(SYSTYPE),"LAPTOP")   
-GSL_INCL =  -I/usr/local/include
-GSL_LIBS =  -L/usr/local/lib
-OMP_FLAG = 
+ifeq ($(SYSTYPE),"LAPTOP") 
+CXX := clang++
+GSL_INCL = -I/usr/local/include
+GSL_LIBS = -lgsl -lgslcblas -L/usr/local/lib
+OMP_FLAG = -Xpreprocessor -fopenmp
+OMP_INCL = -I/usr/local/opt/libomp/include
+OMP_LIBS = -lomp -L/usr/local/opt/libomp/lib
 endif
 
 #---------------------------------------
-
-CXX := g++
 
 DEPDIR := dep
 COREDIR := core
@@ -65,8 +69,8 @@ GSLRECFLAGS :=  -Werror -W \
 				-fshort-enums -fno-common \
 				-g -O3
 
-CPPFLAGS := $(OMP_FLAG) -std=gnu++11 -Wall -pedantic -Wno-long-long $(GSLRECFLAGS) $(GSL_INCL) $(OPT)
-LDLIBS := -lgsl -lgslcblas $(GSL_LIBS) #-lfftw3 
+CPPFLAGS := $(OMP_FLAG) -std=gnu++11 -Wall -pedantic -Wno-long-long $(GSLRECFLAGS) $(GSL_INCL) $(OMP_INCL) $(OPT)
+LDLIBS := $(GSL_LIBS) $(OMP_LIBS) 
 	
 all: LyaPowerEstimate CreateSQLookUpTable
 	
