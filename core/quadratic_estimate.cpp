@@ -68,14 +68,8 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
         int temp_qso_zbin = qso_estimators[q]->ZBIN;
 
         // See if qso does not belong to any redshift
-        if (temp_qso_zbin < 0)
-        {
-            temp_qso_zbin = -1;
-        }
-        else if (temp_qso_zbin >= NUMBER_OF_Z_BINS)
-        {
-            temp_qso_zbin = NUMBER_OF_Z_BINS;
-        }
+        if (temp_qso_zbin < 0)                      temp_qso_zbin = -1;
+        else if (temp_qso_zbin >= NUMBER_OF_Z_BINS) temp_qso_zbin = NUMBER_OF_Z_BINS;
         
         #pragma omp atomic
         Z_BIN_COUNTS[temp_qso_zbin + 1]++;
