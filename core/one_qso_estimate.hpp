@@ -35,7 +35,6 @@ class OneQSOEstimate
 
     /* DATA_SIZE x DATA_SIZE sized matrices 
        Note that noise matrix is diagonal and stored as pointer to its array 
-       inverse_covariance_matrix is not allocated; it points to covariance_matrix
     */
     gsl_matrix  *covariance_matrix, *inverse_covariance_matrix, \
                 *fiducial_signal_matrix, *weighted_fiducial_signal_matrix, \

@@ -36,7 +36,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     pmn_estimate_vector                     = gsl_vector_calloc(TOTAL_KZ_BINS);
     // fisher_filter                        = gsl_vector_alloc(TOTAL_KZ_BINS);
     fisher_matrix_sum                       = gsl_matrix_alloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
-    inverse_fisher_matrix_sum               = fisher_matrix_sum;
+    inverse_fisher_matrix_sum               = gsl_matrix_alloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
 
     isFisherInverted = false; 
 
@@ -115,9 +115,9 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     printf("Inverting Fisher matrix.\n");
     fflush(stdout);
 
-    invert_matrix_LU(fisher_matrix_sum);
+    invert_matrix_LU(fisher_matrix_sum, inverse_fisher_matrix_sum);
 
-    isFisherInverted = !isFisherInverted;
+    isFisherInverted = true;
     t = clock() - t;
     time_spent_on_f_inv += ((float) t) / CLOCKS_PER_SEC;
 }
@@ -241,11 +241,14 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         }
 
         #pragma omp critical
-        gsl_matrix_add(fisher_matrix_sum, local_fisher_ms);
-        gsl_vector_add(pmn_before_fisher_estimate_vector_sum, local_pmn_before_fisher_estimate_vs);
+        {
+            gsl_matrix_add(fisher_matrix_sum, local_fisher_ms);
+            gsl_vector_add(pmn_before_fisher_estimate_vector_sum, local_pmn_before_fisher_estimate_vs);
+        } 
         
         gsl_vector_free(local_pmn_before_fisher_estimate_vs);
         gsl_matrix_free(local_fisher_ms);
+
 }
 
         #ifdef DEBUG_ON
@@ -327,11 +330,6 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     gsl_vector_sub(previous_pmn_estimate_vector, pmn_estimate_vector);
 
-    if (isFisherInverted)
-    {
-        invertTotalFisherMatrix();
-    }
-
     gsl_blas_dgemv( CblasNoTrans, 1.0, \
                     fisher_matrix_sum, previous_pmn_estimate_vector, \
                     0, temp_vector);
@@ -349,11 +347,6 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
 void OneDQuadraticPowerEstimate::write_fisher_matrix(const char *fname)
 {
-    if (isFisherInverted)
-    {
-        invertTotalFisherMatrix();
-    }
-
     fprintf_matrix(fname, fisher_matrix_sum);
 
     printf("Fisher matrix saved as %s.\n", fname);
@@ -365,11 +358,6 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname)
     FILE *toWrite;
     int i_kz;
     double z, k, p, e;
-
-    if (!isFisherInverted)
-    {
-        invertTotalFisherMatrix();
-    }
 
     toWrite = open_file(fname, "w");
 
