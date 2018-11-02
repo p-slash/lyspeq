@@ -18,6 +18,10 @@
 #include <cstdlib>
 #include <cassert>
 
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
+
 void throw_isnan(double t)
 {
     if (isnan(t))   throw "NaN";
@@ -75,43 +79,34 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 
     ZBIN = (MEDIAN_REDSHIFT - ZBIN_CENTERS[0] + Z_BIN_WIDTH/2.) / Z_BIN_WIDTH;
     
-    if (MEDIAN_REDSHIFT < ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.)
-    {
-        ZBIN = -1;
-    }
+    if (MEDIAN_REDSHIFT < ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.)     ZBIN = -1;
 
-    if (ZBIN >= 0 && ZBIN < NUMBER_OF_Z_BINS)
-    {
-        BIN_REDSHIFT    = ZBIN_CENTERS[ZBIN];
-    }
-    else
-    {
-        printf("This QSO does not belong to any redshift bin!\n");
-    }
+    if (ZBIN >= 0 && ZBIN < NUMBER_OF_Z_BINS)   BIN_REDSHIFT = ZBIN_CENTERS[ZBIN];
+    else                                        printf("This QSO does not belong to any redshift bin!\n");
     
-    #ifdef TOPHAT_Z_BINNING_FN
-    {
-        N_Q_MATRICES       = 1;
-        fisher_index_start = getFisherMatrixIndex(0, ZBIN);
-    }
-    #endif
+#ifdef TOPHAT_Z_BINNING_FN
+{
+    N_Q_MATRICES       = 1;
+    fisher_index_start = getFisherMatrixIndex(0, ZBIN);
+}
+#endif
 
-    #ifdef TRIANGLE_Z_BINNING_FN
-    {
-        N_Q_MATRICES       = 3;
-        fisher_index_start = getFisherMatrixIndex(0, ZBIN - 1);
+#ifdef TRIANGLE_Z_BINNING_FN
+{
+    N_Q_MATRICES       = 3;
+    fisher_index_start = getFisherMatrixIndex(0, ZBIN - 1);
 
-        if (ZBIN == 0) 
-        {
-            N_Q_MATRICES       = 2;
-            fisher_index_start = 0;
-        }
-        else if (ZBIN == NUMBER_OF_Z_BINS - 1) 
-        {
-            N_Q_MATRICES     = 2;
-        }
+    if (ZBIN == 0) 
+    {
+        N_Q_MATRICES       = 2;
+        fisher_index_start = 0;
     }
-    #endif
+    else if (ZBIN == NUMBER_OF_Z_BINS - 1) 
+    {
+        N_Q_MATRICES     = 2;
+    }
+}
+#endif
 
     N_Q_MATRICES *= NUMBER_OF_K_BANDS;
 
@@ -162,6 +157,8 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
     }
 
     t = clock() - t;
+
+    #pragma omp atomic
     time_spent_on_set_sfid += ((float) t) / CLOCKS_PER_SEC;
 
     // Set Q matrices
@@ -193,6 +190,8 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
     }
 
     t = clock() - t;
+
+    #pragma omp atomic
     time_spent_set_qs += ((float) t) / CLOCKS_PER_SEC;
 }
 
@@ -229,17 +228,19 @@ void OneQSOEstimate::computeCSMatrices(const gsl_vector *ps_estimate)
     // printf_matrix(covariance_matrix, DATA_SIZE);
     gsl_matrix_add_constant(covariance_matrix, ADDED_CONST_TO_COVARIANCE);
 
-    isCovInverted    = false;
+    isCovInverted = false;
 }
 
 void OneQSOEstimate::invertCovarianceMatrix()
 {
     clock_t t = clock();
-    invert_matrix_LU(covariance_matrix);
+    invert_matrix_LU(covariance_matrix, inverse_covariance_matrix);
 
-    isCovInverted    = !isCovInverted;
+    isCovInverted = true;
 
     t = clock() - t;
+
+    #pragma omp atomic
     time_spent_on_c_inv += ((float) t) / CLOCKS_PER_SEC;
 }
 
@@ -249,13 +250,8 @@ void OneQSOEstimate::computeWeightedMatrices()
 
     assert(isCovInverted);
 
-    // #pragma omp parallel for
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
-        // #if defined(_OPENMP) && defined(DEBUG_ON)
-        // printf("Hello from thread %d, nthreads %d.\n", omp_get_thread_num(), omp_get_num_threads());
-        // #endif
-
         //C-1 . Q
         gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, \
                         1.0, inverse_covariance_matrix, derivative_of_signal_matrices[i_kz], \
@@ -290,7 +286,10 @@ void OneQSOEstimate::computeWeightedMatrices()
     gsl_matrix_memcpy(weighted_noise_matrix, temp_matrix);
 
     gsl_matrix_free(temp_matrix);
+
     t = clock() - t;
+
+    #pragma omp atomic
     time_spent_set_modqs += ((float) t) / CLOCKS_PER_SEC;
 }
 
@@ -340,14 +339,8 @@ void OneQSOEstimate::computeFisherMatrix()
     
     double temp;
 
-    // Load Imbalance!!
-    // #pragma omp parallel for private(temp)
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
-        // #if defined(_OPENMP) && defined(DEBUG_ON)
-        // printf("Hello from thread %d, nthreads %d.\n", omp_get_thread_num(), omp_get_num_threads());
-        // #endif
-
         temp = 0.5 * trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], \
                                         weighted_derivative_of_signal_matrices[i_kz]);
         throw_isnan(temp);
@@ -377,6 +370,8 @@ void OneQSOEstimate::computeFisherMatrix()
     }
     
     t = clock() - t;
+
+    #pragma omp atomic
     time_spent_set_fisher += ((float) t) / CLOCKS_PER_SEC;
 }
 
@@ -424,16 +419,12 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
         fprintf(stderr, "ERROR %s: Covariance matrix is not invertable. %s\n", msg, qso_sp_fname);
         fprintf(stderr, "Npixels: %d\nMedian z: %.2f\nFlux: ", DATA_SIZE, MEDIAN_REDSHIFT);
         
-        for (int i = 0; i < DATA_SIZE; i++)
-        {
-            fprintf(stderr, "%.2lf ", flux_array[i]);
-        }
+        for (int i = 0; i < DATA_SIZE; i++)     fprintf(stderr, "%.2lf ", flux_array[i]);
 
         fprintf(stderr, "\nNoise: ");
-        for (int i = 0; i < DATA_SIZE; i++)
-        {
-            fprintf(stderr, "%.2lf ", noise_array[i]);
-        }
+
+        for (int i = 0; i < DATA_SIZE; i++)     fprintf(stderr, "%.2lf ", noise_array[i]);
+        
         fprintf(stderr, "\n");
     }
     
@@ -446,7 +437,7 @@ void OneQSOEstimate::allocateMatrices()
     fisher_matrix                    = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
 
     covariance_matrix               = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-    inverse_covariance_matrix       = covariance_matrix;
+    inverse_covariance_matrix       = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
     fiducial_signal_matrix          = gsl_matrix_calloc(DATA_SIZE, DATA_SIZE);
     weighted_fiducial_signal_matrix = fiducial_signal_matrix;
     weighted_noise_matrix           = gsl_matrix_calloc(DATA_SIZE, DATA_SIZE);
@@ -465,6 +456,7 @@ void OneQSOEstimate::freeMatrices()
     gsl_matrix_free(fisher_matrix);
 
     gsl_matrix_free(covariance_matrix);
+    gsl_matrix_free(inverse_covariance_matrix);
     gsl_matrix_free(fiducial_signal_matrix);
     gsl_matrix_free(weighted_noise_matrix);
 
@@ -487,7 +479,8 @@ void OneQSOEstimate::dump_all_matrices()
         sprintf(buf, "debugdump_WeightedQ%d_matrix.dat", i_kz);
         fprintf_matrix(buf, weighted_derivative_of_signal_matrices[i_kz]);
     }
-     
+    
+    fprintf_matrix("debugdump_covariance_matrix.dat", covariance_matrix); 
     fprintf_matrix("debugdump_inversecovariance_matrix.dat", inverse_covariance_matrix);
     fprintf_matrix("debugdump_fisher_matrix.dat", fisher_matrix);
 }
