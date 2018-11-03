@@ -132,7 +132,7 @@ void SQLookupTable::allocate()
 
     // Allocate and set redshift array
     LINEAR_Z_ARRAY = new double[N_Z_POINTS_OF_S];
-    double zfirst    = ZBIN_CENTERS[0] - Z_BIN_WIDTH / 2.;
+    double zfirst  = ZBIN_CENTERS[0] - Z_BIN_WIDTH / 2.;
 
     for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
     {
@@ -228,7 +228,8 @@ int SQLookupTable::getIndex4SignalMatrix(int nv, int nz, int r_index) const
 }
 int SQLookupTable::getIndex4DerivativeInterpolation(int kn, int r_index) const
 {
-    return r_index + NUMBER_OF_R_VALUES * kn;
+    return kn + NUMBER_OF_K_BANDS * r_index;
+    // return r_index + NUMBER_OF_R_VALUES * kn;
 }
 int SQLookupTable::getIndex4DerivativeMatrix(int nv, int kn, int r_index) const
 {
