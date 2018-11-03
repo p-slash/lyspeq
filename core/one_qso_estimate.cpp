@@ -139,26 +139,21 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
 
     for (int i = 0; i < DATA_SIZE && !TURN_OFF_SFID; i++)
     {
-        v_ij = 0;
-        z_ij = lambda_array[i] / LYA_REST - 1.;
-
-        temp = sq_lookup_table->getSignalMatrixValue(v_ij, z_ij, r_index);
-        gsl_matrix_set(fiducial_signal_matrix, i, i, temp);
-
-        for (int j = i + 1; j < DATA_SIZE; j++)
+        for (int j = i; j < DATA_SIZE; j++)
         {
             v_ij = velocity_array[j] - velocity_array[i];
             z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
 
             temp = sq_lookup_table->getSignalMatrixValue(v_ij, z_ij, r_index);
             gsl_matrix_set(fiducial_signal_matrix, i, j, temp);
-            gsl_matrix_set(fiducial_signal_matrix, j, i, temp);
         }
     }
 
+    copy_upper2lower(fiducial_signal_matrix);
+
     t = clock() - t;
 
-    #pragma omp atomic
+    #pragma omp atomic update
     time_spent_on_set_sfid += ((float) t) / CLOCKS_PER_SEC;
 
     // Set Q matrices
@@ -171,27 +166,22 @@ void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable
 
         for (int i = 0; i < DATA_SIZE; i++)
         {
-            v_ij = 0;
-            z_ij = lambda_array[i] / LYA_REST - 1.;
-            
-            temp = sq_lookup_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
-            gsl_matrix_set(derivative_of_signal_matrices[i_kz], i, i, temp);
-
-            for (int j = i + 1; j < DATA_SIZE; j++)
+            for (int j = i; j < DATA_SIZE; j++)
             {
                 v_ij = velocity_array[j] - velocity_array[i];
                 z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
                 
                 temp = sq_lookup_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
                 gsl_matrix_set(derivative_of_signal_matrices[i_kz], i, j, temp);
-                gsl_matrix_set(derivative_of_signal_matrices[i_kz], j, i, temp);
             }
         }
+
+        copy_upper2lower(derivative_of_signal_matrices[i_kz]);
     }
 
     t = clock() - t;
 
-    #pragma omp atomic
+    #pragma omp atomic update
     time_spent_set_qs += ((float) t) / CLOCKS_PER_SEC;
 }
 
@@ -240,7 +230,7 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
     t = clock() - t;
 
-    #pragma omp atomic
+    #pragma omp atomic update
     time_spent_on_c_inv += ((float) t) / CLOCKS_PER_SEC;
 }
 
@@ -289,7 +279,7 @@ void OneQSOEstimate::computeWeightedMatrices()
 
     t = clock() - t;
 
-    #pragma omp atomic
+    #pragma omp atomic update
     time_spent_set_modqs += ((float) t) / CLOCKS_PER_SEC;
 }
 
@@ -341,16 +331,7 @@ void OneQSOEstimate::computeFisherMatrix()
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
-        temp = 0.5 * trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], \
-                                        weighted_derivative_of_signal_matrices[i_kz]);
-        throw_isnan(temp);
-
-        gsl_matrix_set( fisher_matrix, \
-                        i_kz + fisher_index_start, \
-                        i_kz + fisher_index_start, \
-                        temp);
-
-        for (int j_kz = 0; j_kz < i_kz; j_kz++)
+        for (int j_kz = i_kz; j_kz < N_Q_MATRICES; j_kz++)
         {
             temp = 0.5 * trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], \
                                             weighted_derivative_of_signal_matrices[j_kz]);
@@ -371,7 +352,7 @@ void OneQSOEstimate::computeFisherMatrix()
     
     t = clock() - t;
 
-    #pragma omp atomic
+    #pragma omp atomic update
     time_spent_set_fisher += ((float) t) / CLOCKS_PER_SEC;
 }
 
