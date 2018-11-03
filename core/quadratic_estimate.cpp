@@ -71,7 +71,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
         if (temp_qso_zbin < 0)                      temp_qso_zbin = -1;
         else if (temp_qso_zbin >= NUMBER_OF_Z_BINS) temp_qso_zbin = NUMBER_OF_Z_BINS;
         
-        #pragma omp atomic
+        #pragma omp atomic update
         Z_BIN_COUNTS[temp_qso_zbin + 1]++;
     }
 
