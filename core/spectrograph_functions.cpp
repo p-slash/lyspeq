@@ -41,6 +41,13 @@ bool check_linearly_spaced(double *v, int size)
     return true;
 }
 
+double becker13_meanflux(double z)
+{
+    double tau = 0.751 * pow((1. + z) / 4.5, 2.90) - 0.132;
+
+    return exp(-tau);
+}
+
 void convert_flux2deltaf(double *flux, double *noise, int size)
 {
     double mean_f = 0.;
