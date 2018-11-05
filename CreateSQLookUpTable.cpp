@@ -147,7 +147,7 @@ int main(int argc, char const *argv[])
             // Allocate memory to store results
             big_temp_array = new double[Nv * Nz];
 
-            #pragma omp for
+            #pragma omp for nowait
             for (int r = 0; r < NUMBER_OF_Rs; r++)
             {
                 win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -210,7 +210,7 @@ int main(int argc, char const *argv[])
 
         big_temp_array = new double[Nv];
 
-        #pragma omp for
+        #pragma omp for nowait
         for (int r = 0; r < NUMBER_OF_Rs; r++)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
