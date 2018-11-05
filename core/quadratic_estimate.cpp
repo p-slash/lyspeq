@@ -93,6 +93,7 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
     gsl_vector_free(pmn_estimate_vector);
 
     gsl_matrix_free(fisher_matrix_sum);
+    gsl_matrix_free(inverse_fisher_matrix_sum);
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
