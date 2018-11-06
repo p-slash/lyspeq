@@ -1,7 +1,8 @@
 Prerequisites
 =====
 + [GSL](https://www.gnu.org/software/gsl/) is needed for matrix algebra, integration and interpolation.
-+ Python, Numpy and Scipy are needed for fitting.
++ [Python](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
++ [OpenMP](https://www.openmp.org) is needed to enable parallel computing for shared memory.
 
 Overview of Programs
 =====
@@ -95,17 +96,17 @@ The maximum number of iterations are
 
 The location of the file list, and the directory where those files live:
 
-    FileNameList      qso_list.txt
-    FileInputDir      ./qso_dir/
+    FileNameList      ./data/qso_dir/qso_list.txt
+    FileInputDir      ./data/qso_dir/
 
 The directory for output files and file name base:
 
-    OutputDir         ./data/Quadratic_test
+    OutputDir         ./data/qso_results/
     OutputFileBase    lya
 
 List of spectograph resolutions (R) is in `FileNameRList`. This file starts with number of Rs.
 
-    FileNameRList     ./specres_list.txt
+    FileNameRList     ./data/qso_dir/specres_list.txt
 
 These lookup tables are saved with the follwoing file name bases to `FileInputDir`:
 
