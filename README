@@ -6,10 +6,10 @@ Prerequisites
 
 Overview of Programs
 =====
-+ **LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method.
-+ **CreateSQLookUpTable** creates look up tables for signal and derivative matrices used in LyaPowerEstimate.
++ **LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method. When compiled with OpenMP compatibility, it distributes qso chunks to multiple CPUs, then sums the results.
++ **CreateSQLookUpTable** creates look up tables for signal and derivative matrices used in LyaPowerEstimate. When compiled with OpenMP compatibility, it computes tables for different resolution on multiple CPUs.
 
-Both programs take one common config file.
+Both programs take one common config file. OpenMP versions must run on a single node with multiple CPUs.
 
 Makefile
 =====
