@@ -43,6 +43,13 @@ OMP_INCL = -I/usr/local/opt/libomp/include
 OMP_LIBS = -lomp -L/usr/local/opt/libomp/lib
 endif
 
+# removed flags: -ansi -Wmissing-prototypes -Wstrict-prototypes -Wconversion -Wnested-externs -Dinline=
+GSLRECFLAGS :=  -Wall -pedantic -Werror -W \
+				-Wshadow -Wpointer-arith \
+				-Wcast-qual -Wcast-align -Wwrite-strings \
+				-fshort-enums -fno-common \
+				-g -O3
+				
 #---------------------------------------
 
 DEPDIR := dep
@@ -62,14 +69,7 @@ GSLTOOLSOBJECTS := $(patsubst %, %.o, $(basename $(GSLTOOLSSOURCES)))
 IOSOURCES := $(shell find $(IODIR) -type f -name '*.$(SRCEXT)')
 IOOBJECTS := $(patsubst %, %.o, $(basename $(IOSOURCES)))
 
-# removed flags: -ansi -Wmissing-prototypes -Wstrict-prototypes -Wconversion -Wnested-externs -Dinline=
-GSLRECFLAGS :=  -Werror -W \
-				-Wshadow -Wpointer-arith \
-				-Wcast-qual -Wcast-align -Wwrite-strings \
-				-fshort-enums -fno-common \
-				-g -O3
-
-CPPFLAGS := $(OMP_FLAG) -std=gnu++11 -Wall -pedantic -Wno-long-long $(GSLRECFLAGS) $(GSL_INCL) $(OMP_INCL) $(OPT)
+CPPFLAGS := $(OMP_FLAG) -std=gnu++11 $(GSLRECFLAGS) $(GSL_INCL) $(OMP_INCL) $(OPT)
 LDLIBS := $(GSL_LIBS) $(OMP_LIBS) 
 	
 all: LyaPowerEstimate CreateSQLookUpTable
