@@ -1,7 +1,7 @@
 Prerequisites
 =====
-+ [FFTW3](http://www.fftw.org/) is needed for fast Fourier transforms.
 + [GSL](https://www.gnu.org/software/gsl/) is needed for matrix algebra, integration and interpolation.
++ Python, Numpy and Scipy are needed for fitting.
 
 Overview of Programs
 =====
@@ -34,13 +34,28 @@ Redshift bins can be top-hats or interpolations. Uncomment the corresponding bin
     # OPT += -DTOPHAT_Z_BINNING_FN
     # OPT += -DTRIANGLE_Z_BINNING_FN
 
+Choose a system type to compile. 
+
+    SYSTYPE="LAPTOP"
+
+Create custom system types by modifying one of the present cases. For example for MacBook Pro, you need to pass OpenMP libraries to `clang++`.
+    
+    ifeq ($(SYSTYPE),"LAPTOP") 
+    CXX := clang++
+    GSL_INCL = -I/usr/local/include
+    GSL_LIBS = -lgsl -lgslcblas -L/usr/local/lib
+    OMP_FLAG = -Xpreprocessor -fopenmp
+    OMP_INCL = -I/usr/local/opt/libomp/include
+    OMP_LIBS = -lomp -L/usr/local/opt/libomp/lib
+    endif
+
 Config File
 =====
 Config file has one file list for qso spectra. This txt file should start with number of qso and then have relative file paths.
 
 Bin edges for k start with linear spacing: `K0 + LinearKBinWidth * n`, where `n=[0, NumberOfLinearBins]`. Then continues with log spacing: `K_Edges[NumberOfLinearBins] * 10^(Log10KBinWidth * n)`. Parameters for k binning are:
 
-    K0 1E-4
+    K0 0.
 
     NumberOfLinearBins    5
     NumberOfLog10Bins     13
@@ -70,7 +85,7 @@ Lookup tables are generated with the following parameters:
     PixelWidth        4.0
     VelocityLength    1000.
 
-When testing outside of Lya region, turn off fiducial matrix by setting this to > 0 integer.
+Turn off fiducial signal matrix by setting this to a positive integer integer.
     
     TurnOffBaseline   0
 
@@ -85,8 +100,8 @@ The location of the file list, and the directory where those files live:
 
 The directory for output files and file name base:
 
-    OutputDir         /Users/nk452/repos/data/Quadratic_test
-    OutputFileBase    lya_qde_10mocks_binary
+    OutputDir         ./data/Quadratic_test
+    OutputFileBase    lya
 
 List of spectograph resolutions (R) is in `FileNameRList`. This file starts with number of Rs.
 
