@@ -48,17 +48,19 @@ double becker13_meanflux(double z)
     return exp(-tau);
 }
 
-void convert_flux2deltaf(double *flux, double *noise, int size)
+void convert_flux2deltaf(const double *lambda, double *flux, double *noise, int size)
 {
-    double mean_f = 0.;
+    double mean_f = 0., z_i;
+
+    // for (int i = 0; i < size; i++)
+    // {
+    //     mean_f += flux[i] / (double)size;
+    // }
 
     for (int i = 0; i < size; i++)
     {
-        mean_f += flux[i] / (double)size;
-    }
-
-    for (int i = 0; i < size; i++)
-    {
+        z_i       = lambda[i] / LYA_REST - 1.;
+        mean_f    = becker13_meanflux(z_i);
         flux[i]   = (flux[i] / mean_f) - 1.;
         noise[i] /= mean_f;
     }
@@ -66,9 +68,6 @@ void convert_flux2deltaf(double *flux, double *noise, int size)
 
 void convert_lambda2v(double &median_z, double *v_array, const double *lambda, int size)
 {
-    #define SPEED_OF_LIGHT 299792.458
-    #define LYA_REST 1215.67
-
     // for (int i = 0; i < size; i++)
     // {
     //     mean_z += lambda[i] / size;

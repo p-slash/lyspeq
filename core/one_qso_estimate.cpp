@@ -71,7 +71,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 
     qFile.readData(lambda_array, flux_array, noise_array);
 
-    convert_flux2deltaf(flux_array, noise_array, DATA_SIZE);
+    convert_flux2deltaf(lambda_array, flux_array, noise_array, DATA_SIZE);
 
     convert_lambda2v(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
     printf("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
