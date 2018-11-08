@@ -82,7 +82,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     }
     printf("\n");
     printf("Number of quasars: %d\n", NUMBER_OF_QSOS);
-    printf("QSOs in z bins: %d\n",  NUMBER_OF_QSOS - Z_BIN_COUNTS[0] - Z_BIN_COUNTS[NUMBER_OF_QSOS+1]);
+    printf("QSOs in z bins: %d\n",  NUMBER_OF_QSOS - Z_BIN_COUNTS[0] - Z_BIN_COUNTS[NUMBER_OF_Z_BINS+1]);
 }
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
