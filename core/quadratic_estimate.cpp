@@ -138,7 +138,12 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
          buf[200];
     FILE *tmp_fit_file;
     int s1, s2, kn, zm;
-    static float fit_params[6]{0};
+    static double fit_params[6] = { FIDUCIAL_PS_PARAMS->A, \
+                                    FIDUCIAL_PS_PARAMS->n, \
+                                    FIDUCIAL_PS_PARAMS->alpha, \
+                                    FIDUCIAL_PS_PARAMS->B, \
+                                    FIDUCIAL_PS_PARAMS->beta, \
+                                    FIDUCIAL_PS_PARAMS->lambda};
 
     s1 = mkstemp(tmp_ps_fname);
     s2 = mkstemp(tmp_fit_fname);
@@ -151,14 +156,17 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     write_spectrum_estimates(tmp_ps_fname);
 
-    if (fit_params[0] < 1E-8 && fit_params[1] < 1E-8)
+    if (NUMBER_OF_Z_BINS == 1)
     {
-        // Do not pass anything as fit parameters 
-        sprintf(buf, "python py/lorentzian_fit.py %s %s", tmp_ps_fname, tmp_fit_fname);
+        // Do not pass redshift evolution parameters
+       sprintf(buf, "python py/lorentzian_fit.py %s %s %.2le %.2le %.2le %.2le", \
+                tmp_ps_fname, tmp_fit_fname, \
+                fit_params[0], fit_params[1], \
+                fit_params[2], fit_params[5]);
     }
     else
     {
-        sprintf(buf, "python py/lorentzian_fit.py %s %s %.2e %.2e %.2e %.2e %.2e %.2e", \
+        sprintf(buf, "python py/lorentzian_fit.py %s %s %.2le %.2le %.2le %.2le %.2le %.2le", \
                 tmp_ps_fname, tmp_fit_fname, \
                 fit_params[0], fit_params[1], fit_params[2], \
                 fit_params[3], fit_params[4], fit_params[5]);
@@ -179,7 +187,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     tmp_fit_file = open_file(tmp_fit_fname, "r");
 
-    fscanf( tmp_fit_file, "%e %e %e %e %e %e\n", \
+    fscanf( tmp_fit_file, "%le %le %le %le %le %le\n", \
             &fit_params[0], &fit_params[1], &fit_params[2], \
             &fit_params[3], &fit_params[4], &fit_params[5]);
 
