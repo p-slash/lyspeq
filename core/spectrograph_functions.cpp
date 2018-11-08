@@ -52,15 +52,15 @@ void convert_flux2deltaf(const double *lambda, double *flux, double *noise, int 
 {
     double mean_f = 0., z_i;
 
-    // for (int i = 0; i < size; i++)
-    // {
-    //     mean_f += flux[i] / (double)size;
-    // }
+    for (int i = 0; i < size; i++)
+    {
+        mean_f += flux[i] / size;
+    }
 
     for (int i = 0; i < size; i++)
     {
         z_i       = lambda[i] / LYA_REST - 1.;
-        mean_f    = becker13_meanflux(z_i);
+        // mean_f    = becker13_meanflux(z_i);
         flux[i]   = (flux[i] / mean_f) - 1.;
         noise[i] /= mean_f;
     }
