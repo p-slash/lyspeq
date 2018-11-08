@@ -40,7 +40,14 @@ input_ps = sys.argv[1]
 output_ps= sys.argv[2]
 
 if len(sys.argv) == 9:
+    Z_EVO_ON        = True
     fiducial_params = np.array(sys.argv[3:], dtype=float)
+elif len(sys.argv) == 7:
+    Z_EVO_ON        = False
+    fiducial_params = np.array(sys.argv[3:], dtype=float)
+else:
+    print("Not enough arguments. Pass fiducial cosmology parameters.")
+    exit(1)
 
 z, k, p, e = np.genfromtxt(input_ps, delimiter = ' ', skip_header = 2, unpack = True)
 
@@ -53,8 +60,17 @@ k_masked = k[mask]
 p_masked = p[mask]
 e_masked = e[mask]
 
+if Z_EVO_ON:
+    fit_function = pd13_lorentzian
+    X_masked     = (k_masked, z_masked)
+    X            = (k, z)
+else:
+    fit_function = pd13_lorentzian_noz
+    X_masked     = k_masked
+    X            = k
+        
 try:
-    pnew, pcov = curve_fit(pd13_lorentzian, (k_masked, z_masked), p_masked, fiducial_params, sigma=e_masked)
+    pnew, pcov = curve_fit(fit_function, X_masked, p_masked, fiducial_params, sigma=e_masked)
 except ValueError:
     print("ValueError: Either ydata or xdata contain NaNs.")
     exit(1)
@@ -65,22 +81,31 @@ except OptimizeWarning:
     print("OptimizeWarning: Covariance of the parameters can not be estimated. Using fiducial parameters instead.")    
     pnew = fiducial_params
 
-theoretical_ps = pd13_lorentzian((k, z), *pnew)
+theoretical_ps = fit_function(X, *pnew)
 
 r              = p_masked - theoretical_ps[mask]
 chisq          = np.sum((r/e_masked)**2)
 df             = len(p_masked) - 6
+
+pnew_toprint = np.zeros(6)
+if Z_EVO_ON:
+    pnew_toprint = pnew
+else:
+    pnew_toprint[0:3] = pnew[0:3]
+    pnew_toprint[5]   = pnew[3]
 
 fit_param_text = """A        = %.3e
 n        = %e
 alpha    = %e
 B        = %e
 beta     = %e
-lambda   = %e""" % (pnew[0], pnew[1], pnew[2], pnew[3], pnew[4], pnew[5])
+lambda   = %e""" % (pnew_toprint[0], pnew_toprint[1], pnew_toprint[2], \
+                    pnew_toprint[3], pnew_toprint[4], pnew_toprint[5])
 print(fit_param_text)
 print("chisq = ", chisq, "doff = ",df, "chisq/dof = ", chisq/df)
 
-params_header = "%e %e %e %e %e %e" % (pnew[0], pnew[1], pnew[2], pnew[3], pnew[4], pnew[5])
+params_header = "%e %e %e %e %e %e" % ( pnew_toprint[0], pnew_toprint[1], pnew_toprint[2], \
+                                        pnew_toprint[3], pnew_toprint[4], pnew_toprint[5])
 np.savetxt(output_ps, theoretical_ps, header=params_header, comments='')
     
 exit(0)
