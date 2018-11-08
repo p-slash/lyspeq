@@ -75,15 +75,14 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
         Z_BIN_COUNTS[temp_qso_zbin + 1]++;
     }
 
-    int tot_z = 0;
     printf("Z bin counts: ");
     for (int zm = 0; zm < NUMBER_OF_Z_BINS+2; zm++)
     {
         printf("%d ", Z_BIN_COUNTS[zm]);
-        tot_z += Z_BIN_COUNTS[zm];
     }
     printf("\n");
-    printf("Total qso in z bins: %d\nTotal qsos: %d\n", tot_z, NUMBER_OF_QSOS);
+    printf("Number of quasars: %d\n", NUMBER_OF_QSOS);
+    printf("QSOs in z bins: %d\n",  NUMBER_OF_QSOS - Z_BIN_COUNTS[0] - Z_BIN_COUNTS[NUMBER_OF_QSOS+1]);
 }
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
