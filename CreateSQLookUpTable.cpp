@@ -28,7 +28,6 @@ int main(int argc, char const *argv[])
 {
     const char *FNAME_CONFIG = argv[1];
     bool force_rewrite = true;
-    clock_t t;
     float time_spent_table_sfid, time_spent_table_q;
 
     if (argc == 3)
@@ -122,24 +121,24 @@ int main(int argc, char const *argv[])
         // Reading R values done
         // ---------------------
 
-        // Integrate fiducial signal matrix
-
-        printf("Creating look up table for signal matrix...\n");
-        fflush(stdout);
-
         double  z_first  = Z_0 - Z_BIN_WIDTH / 2., \
                 z_length = Z_BIN_WIDTH * NUMBER_OF_Z_BINS;
 
-        t = clock();
 
 #pragma omp parallel private(buf, time_spent_table_sfid, time_spent_table_q)
-{
+{   
+        // Integrate fiducial signal matrix
+        clock_t t = clock();
+        printf("Creating look up table for signal matrix...\n");
+        fflush(stdout);
+        
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
         double *big_temp_array;
 
         time_spent_table_sfid = 0;
-        
+        time_spent_table_q    = 0;
+
         if (!TURN_OFF_SFID)
         {
             FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
@@ -147,7 +146,7 @@ int main(int argc, char const *argv[])
             // Allocate memory to store results
             big_temp_array = new double[Nv * Nz];
 
-            #pragma omp for nowait
+            #pragma omp for
             for (int r = 0; r < NUMBER_OF_Rs; r++)
             {
                 win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -210,7 +209,7 @@ int main(int argc, char const *argv[])
 
         big_temp_array = new double[Nv];
 
-        #pragma omp for nowait
+        #pragma omp for
         for (int r = 0; r < NUMBER_OF_Rs; r++)
         {
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -258,7 +257,7 @@ int main(int argc, char const *argv[])
         // ---------------------
 
         printf("Time spent on fiducial signal matrix table is %.2f mins.\n", time_spent_table_sfid / 60.);
-        printf("Time spent on derivatibe matrix table is %.2f mins.\n", time_spent_table_q / 60.);
+        printf("Time spent on derivative matrix table is %.2f mins.\n", time_spent_table_q / 60.);
 
         delete [] big_temp_array;
 }
