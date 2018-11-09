@@ -1,6 +1,3 @@
-# TODO:
-# Add jacobian 
-
 import sys
 import warnings
 
@@ -12,6 +9,7 @@ warnings.simplefilter("error", OptimizeWarning)
 K_0 = 0.009
 Z_0 = 3.0
 
+# Define PD13 fitting function with Lorentzian smooting
 def pd13_lorentzian_fitting_function_k(k, A, n, alpha, lmd):
     lnk = np.log(k / K_0)
 
@@ -31,9 +29,10 @@ def pd13_lorentzian_fitting_function_z(X, A, n, alpha, B, beta, lmd):
 
     return pd13_lorentzian_fitting_function_k(k, A, n, alpha, lmd) * p_z_mult
 
+# Define their Jacobians
 def jacobian_k(k, A, n, alpha, lmd):
-    lnk       = np.log(k / K_0)
-    p_k       = pd13_lorentzian_fitting_function_k(k, A, n, alpha, lmd)
+    lnk = np.log(k / K_0)
+    p_k = pd13_lorentzian_fitting_function_k(k, A, n, alpha, lmd)
 
     return np.column_stack((p_k / A, p_k * lnk, p_k * lnk * lnk, -p_k * k**2 / (1. + lmd * k**2))) 
 
@@ -69,7 +68,7 @@ if __name__ == '__main__':
     theoretical_ps = np.zeros(len(z))
 
     # Global Fit
-    mask     = np.logical_and(np.greater(p, 0.), np.greater(e, 0.))
+    mask     = np.logical_and(p > 0, e > 0)
     z_masked = z[mask]
     k_masked = k[mask]
     p_masked = p[mask]
@@ -87,10 +86,10 @@ if __name__ == '__main__':
         X            = k
             
     try:
-        lb = np.full(NUMBER_OF_PARAMS, -np.inf)
+        lb     = np.full(NUMBER_OF_PARAMS, -np.inf)
         lb[0]  = 0
         lb[-1] = 0
-        print(lb)
+        
         pnew, pcov = curve_fit(fit_function, X_masked, p_masked, fiducial_params, \
                                 sigma=e_masked, absolute_sigma=True, bounds=(lb, np.inf), \
                                 method='trf', jac=jac_function)
@@ -101,7 +100,8 @@ if __name__ == '__main__':
         raise
         exit(1)
     except OptimizeWarning:
-        print("OptimizeWarning: Covariance of the parameters can not be estimated. Using fiducial parameters instead.")    
+        raise
+        print("Using fiducial parameters instead.")    
         pnew = fiducial_params
 
     theoretical_ps = fit_function(X, *pnew)
@@ -118,14 +118,14 @@ if __name__ == '__main__':
         pnew_toprint[5]   = pnew[3]
 
     fit_param_text = """A        = %.3e
-n        = %e
-alpha    = %e
-B        = %e
-beta     = %e
-lambda   = %e""" % (pnew_toprint[0], pnew_toprint[1], pnew_toprint[2], \
+n        = %.3e
+alpha    = %.3e
+B        = %.3e
+beta     = %.3e
+lambda   = %.3e""" % (pnew_toprint[0], pnew_toprint[1], pnew_toprint[2], \
                         pnew_toprint[3], pnew_toprint[4], pnew_toprint[5])
     print(fit_param_text)
-    print("chisq = ", chisq, "doff = ",df, "chisq/dof = ", chisq/df)
+    print("chisq = %.2f"%chisq, "dof = ", df, "chisq/dof = %.2f"%(chisq/df))
 
     params_header = "%e %e %e %e %e %e" % ( pnew_toprint[0], pnew_toprint[1], pnew_toprint[2], \
                                             pnew_toprint[3], pnew_toprint[4], pnew_toprint[5])
