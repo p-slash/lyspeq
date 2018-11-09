@@ -8,9 +8,9 @@ void copy_upper2lower(gsl_matrix *A)
     double temp;
     int size = A->size1;
 
-    for (int i = 0; i < size; i++)
+    for (int i = 1; i < size; i++)
     {
-        for (int j = 0; j < i - 1; j++)
+        for (int j = 0; j < i; j++)
         {
             temp = gsl_matrix_get(A, j, i);
             gsl_matrix_set(A, i, j, temp);
