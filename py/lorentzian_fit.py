@@ -1,4 +1,5 @@
-#!/usr/bin/python
+# TODO:
+# Add jacobian 
 
 import sys
 import warnings
@@ -8,42 +9,41 @@ from scipy.optimize import curve_fit, OptimizeWarning
 
 warnings.simplefilter("error", OptimizeWarning)
 
-# Fit using the same fiducial parameters
-fiducial_params = 0.0662, -2.685, -0.223, 3.591, -0.177, 360.
+K_0 = 0.009
+Z_0 = 3.0
 
-def pd13form_fitting_function(X, A, n, alpha, B, beta):
-    k, z = X
-
-    k_0 = 0.009; # s/km
-    z_0 = 3.0;
-
-    lnk = np.log(k / k_0)
-    lnz = np.log((1. + z) / (1. + z_0))
-    lnkP_pi = 0;
+def pd13_lorentzian_fitting_function_k(k, A, n, alpha):
+    lnk = np.log(k / K_0)
 
     lnkP_pi = np.log(A) \
             + (3. + n) * lnk \
-            + alpha * lnk * lnk \
-            + (B + beta * lnk) * lnz
+            + alpha * lnk * lnk
 
-    return np.exp(lnkP_pi) * np.pi / k
+    return np.exp(lnkP_pi) * np.pi / k / (1. + lmd * k**2)
 
-def pd13_lorentzian(X, A, n, alpha, B, beta, lmd):
+def pd13_lorentzian_fitting_function_z(X, A, n, alpha, B, beta):
     k, z = X
-    return pd13form_fitting_function(X, A, n, alpha, B, beta)  / (1. + lmd * k**2)
 
-def pd13_lorentzian_noz(k, A, n, alpha, lmd):
-    X = (k, 3.)
-    return pd13_lorentzian(X, A, n, alpha, 0, 0, lmd)
+    lnk = np.log(k / K_0)
+    lnz = np.log((1. + z) / (1. + Z_0))
+    
+    p_z_mult = np.exp((B + beta * lnk) * lnz)
 
-input_ps = sys.argv[1]
-output_ps= sys.argv[2]
+    return pd13_fitting_function_k(k, A, n, alpha) * p_z_mult
+
+# def jacobian_k(k, A, n, alpha):
+#     pass
+
+input_ps  = sys.argv[1]
+output_ps = sys.argv[2]
 
 if len(sys.argv) == 9:
     Z_EVO_ON        = True
+    NUMBER_OF_PARAMS= 6
     fiducial_params = np.array(sys.argv[3:], dtype=float)
 elif len(sys.argv) == 7:
     Z_EVO_ON        = False
+    NUMBER_OF_PARAMS= 4
     fiducial_params = np.array(sys.argv[3:], dtype=float)
 else:
     print("Not enough arguments. Pass fiducial cosmology parameters.")
@@ -61,16 +61,18 @@ p_masked = p[mask]
 e_masked = e[mask]
 
 if Z_EVO_ON:
-    fit_function = pd13_lorentzian
+    fit_function = pd13_lorentzian_fitting_function_z
     X_masked     = (k_masked, z_masked)
     X            = (k, z)
 else:
-    fit_function = pd13_lorentzian_noz
+    fit_function = pd13_lorentzian_fitting_function_k
     X_masked     = k_masked
     X            = k
         
 try:
-    pnew, pcov = curve_fit(fit_function, X_masked, p_masked, fiducial_params, sigma=e_masked)
+    lb = [0, np.full(NUMBER_OF_PARAMS-2, -np.inf), 0]
+    pnew, pcov = curve_fit(fit_function, X_masked, p_masked, fiducial_params, \
+                            sigma=e_masked, bounds=(lb, np.inf))
 except ValueError:
     print("ValueError: Either ydata or xdata contain NaNs.")
     exit(1)
@@ -85,7 +87,7 @@ theoretical_ps = fit_function(X, *pnew)
 
 r              = p_masked - theoretical_ps[mask]
 chisq          = np.sum((r/e_masked)**2)
-df             = len(p_masked) - 6
+df             = len(p_masked) - NUMBER_OF_PARAMS
 
 pnew_toprint = np.zeros(6)
 if Z_EVO_ON:
@@ -130,6 +132,18 @@ exit(0)
 
 
     
-    
+# def pd13form_fitting_function(X, A, n, alpha, B, beta):
+#     k, z = X
+
+#     lnk = np.log(k / k_0)
+#     lnz = np.log((1. + z) / (1. + z_0))
+#     lnkP_pi = 0;
+
+#     lnkP_pi = np.log(A) \
+#             + (3. + n) * lnk \
+#             + alpha * lnk * lnk \
+#             + (B + beta * lnk) * lnz
+
+#     return np.exp(lnkP_pi) * np.pi / k   
 
 
