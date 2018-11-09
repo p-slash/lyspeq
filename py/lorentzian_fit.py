@@ -12,7 +12,7 @@ warnings.simplefilter("error", OptimizeWarning)
 K_0 = 0.009
 Z_0 = 3.0
 
-def pd13_lorentzian_fitting_function_k(k, A, n, alpha):
+def pd13_lorentzian_fitting_function_k(k, A, n, alpha, lmd):
     lnk = np.log(k / K_0)
 
     lnkP_pi = np.log(A) \
@@ -21,7 +21,7 @@ def pd13_lorentzian_fitting_function_k(k, A, n, alpha):
 
     return np.exp(lnkP_pi) * np.pi / k / (1. + lmd * k**2)
 
-def pd13_lorentzian_fitting_function_z(X, A, n, alpha, B, beta):
+def pd13_lorentzian_fitting_function_z(X, A, n, alpha, B, beta, lmd):
     k, z = X
 
     lnk = np.log(k / K_0)
@@ -29,10 +29,10 @@ def pd13_lorentzian_fitting_function_z(X, A, n, alpha, B, beta):
     
     p_z_mult = np.exp((B + beta * lnk) * lnz)
 
-    return pd13_fitting_function_k(k, A, n, alpha) * p_z_mult
+    return pd13_fitting_function_k(k, A, n, alpha, lmd) * p_z_mult
 
 # def jacobian_k(k, A, n, alpha):
-#     pass
+#     jac_k_res = np.zeros(3)
 
 input_ps  = sys.argv[1]
 output_ps = sys.argv[2]
