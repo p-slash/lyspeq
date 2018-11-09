@@ -60,7 +60,6 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     // Create objects for each QSO
     qso_estimators = new OneQSOEstimate*[NUMBER_OF_QSOS];
 
-    #pragma omp parallel for
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
         qso_estimators[q] = new OneQSOEstimate(fpaths[q].c_str());
@@ -71,7 +70,6 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
         if (temp_qso_zbin < 0)                      temp_qso_zbin = -1;
         else if (temp_qso_zbin >= NUMBER_OF_Z_BINS) temp_qso_zbin = NUMBER_OF_Z_BINS;
         
-        #pragma omp atomic update
         Z_BIN_COUNTS[temp_qso_zbin + 1]++;
     }
 
