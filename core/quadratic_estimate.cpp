@@ -178,6 +178,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     if (s1 != 0)
     {
         fprintf(stderr, "Error in fitting.\n");
+        remove(tmp_ps_fname);
         throw "fit";
     }
 
