@@ -13,12 +13,12 @@ Both programs take one common config file. OpenMP versions must run on a single 
 
 Makefile
 =====
-To choose between linear and cubic interpolation for one dimension, uncomment on of the following:
+To choose between linear and cubic interpolation for one dimension, uncomment one of the following:
     
     # OPT += -DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
     # OPT += -DINTERP_1D_TYPE=GSL_LINEAR_INTERPOLATION
 
-To choose between bilinear and bicubic interpolation for two dimensions, uncomment on of the following:
+To choose between bilinear and bicubic interpolation for two dimensions, uncomment one of the following:
 
     # OPT += -DINTERP_2D_TYPE=GSL_BILINEAR_INTERPOLATION
     # OPT += -DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
@@ -39,7 +39,7 @@ Choose a system type to compile.
 
     SYSTYPE="LAPTOP"
 
-Create custom system types by modifying one of the present cases. For example for MacBook Pro, you need to pass OpenMP libraries to `clang++`.
+Create custom system types by modifying one of the present cases. For example for Mac OS, you need to pass OpenMP libraries to `clang++`.
     
     ifeq ($(SYSTYPE),"LAPTOP") 
     CXX := clang++
