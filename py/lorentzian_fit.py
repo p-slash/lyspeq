@@ -24,7 +24,7 @@ def pd13_lorentzian_fitting_function_z(X, A, n, alpha, B, beta, lmd):
 
     lnk = np.log(k / K_0)
     lnz = np.log((1. + z) / (1. + Z_0))
-    
+
     p_z_mult = np.exp((B + beta * lnk) * lnz)
 
     return pd13_lorentzian_fitting_function_k(k, A, n, alpha, lmd) * p_z_mult
@@ -34,7 +34,7 @@ def jacobian_k(k, A, n, alpha, lmd):
     lnk = np.log(k / K_0)
     p_k = pd13_lorentzian_fitting_function_k(k, A, n, alpha, lmd)
 
-    return np.column_stack((p_k / A, p_k * lnk, p_k * lnk * lnk, -p_k * k**2 / (1. + lmd * k**2))) 
+    return np.column_stack((p_k / A, p_k * lnk, p_k * lnk * lnk, -p_k * k**2 / (1. + lmd * k**2)))
 
 def jacobian_z(X, A, n, alpha, B, beta, lmd):
     k, z = X
@@ -45,9 +45,9 @@ def jacobian_z(X, A, n, alpha, B, beta, lmd):
     p_z = pd13_lorentzian_fitting_function_z(X, A, n, alpha, B, beta, lmd)
 
     return np.column_stack((p_z / A  , p_z * lnk      ,  p_z * lnk * lnk, \
-                            p_z * lnz, p_z * lnk * lnz, -p_z * k**2 / (1. + lmd * k**2))) 
+                            p_z * lnz, p_z * lnk * lnz, -p_z * k**2 / (1. + lmd * k**2)))
 
-if __name__ == '__main__':    
+if __name__ == '__main__':
     input_ps  = sys.argv[1]
     output_ps = sys.argv[2]
 
@@ -63,7 +63,7 @@ if __name__ == '__main__':
         print("Not enough arguments. Pass fiducial cosmology parameters.")
         exit(1)
 
-    z, k, p, e = np.genfromtxt(input_ps, delimiter = ' ', skip_header = 2, unpack = True)
+    z, k, p, e = np.genfromtxt(input_ps, delimiter = ' ', skip_header = 2, unpack = True, usecols=(0,1,2,3))
 
     theoretical_ps = np.zeros(len(z))
 
@@ -84,12 +84,12 @@ if __name__ == '__main__':
         jac_function = jacobian_k
         X_masked     = k_masked
         X            = k
-            
+
     try:
         lb     = np.full(NUMBER_OF_PARAMS, -np.inf)
         lb[0]  = 0
         lb[-1] = 0
-        
+
         pnew, pcov = curve_fit(fit_function, X_masked, p_masked, fiducial_params, \
                                 sigma=e_masked, absolute_sigma=True, bounds=(lb, np.inf), \
                                 method='trf', jac=jac_function)
@@ -101,7 +101,7 @@ if __name__ == '__main__':
         exit(1)
     except OptimizeWarning:
         raise
-        print("Using fiducial parameters instead.")    
+        print("Using fiducial parameters instead.")
         pnew = fiducial_params
 
     theoretical_ps = fit_function(X, *pnew)
@@ -130,7 +130,7 @@ lambda   = %.3e""" % (pnew_toprint[0], pnew_toprint[1], pnew_toprint[2], \
     params_header = "%e %e %e %e %e %e" % ( pnew_toprint[0], pnew_toprint[1], pnew_toprint[2], \
                                             pnew_toprint[3], pnew_toprint[4], pnew_toprint[5])
     np.savetxt(output_ps, theoretical_ps, header=params_header, comments='')
-        
+
     exit(0)
 
 # for nz in range(NzBins):
@@ -142,7 +142,7 @@ lambda   = %.3e""" % (pnew_toprint[0], pnew_toprint[1], pnew_toprint[2], \
 #     e1 = e[ind_1:ind_2]
 
 #     mask = np.greater(p1, 0)
-    
+
 #     k1_m = k1[mask]
 #     p1_m = p1[mask]
 #     e1_m = e1[mask]
@@ -152,7 +152,7 @@ lambda   = %.3e""" % (pnew_toprint[0], pnew_toprint[1], pnew_toprint[2], \
 #     theoretical_ps[ind_1:ind_2] = pd13_lorentzian_noz(k1, *pnew)
 
 
-    
+
 # def pd13form_fitting_function(X, A, n, alpha, B, beta):
 #     k, z = X
 
@@ -165,6 +165,4 @@ lambda   = %.3e""" % (pnew_toprint[0], pnew_toprint[1], pnew_toprint[2], \
 #             + alpha * lnk * lnk \
 #             + (B + beta * lnk) * lnz
 
-#     return np.exp(lnkP_pi) * np.pi / k   
-
-
+#     return np.exp(lnkP_pi) * np.pi / k
