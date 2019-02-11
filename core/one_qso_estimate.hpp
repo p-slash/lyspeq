@@ -40,7 +40,7 @@ class OneQSOEstimate
                 *fiducial_signal_matrix, *weighted_fiducial_signal_matrix, \
                 *weighted_noise_matrix;
 
-    /* TOTAL_KZ_BINS many DATA_SIZE x DATA_SIZE sized matrices */
+    /* NUMBER_OF_K_BANDS * N_Q_MATRICES (1,2,3) many DATA_SIZE x DATA_SIZE sized matrices */
     gsl_matrix  **derivative_of_signal_matrices, \
                 **weighted_derivative_of_signal_matrices;
 
