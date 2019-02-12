@@ -236,9 +236,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             qso_estimators[q]->oneQSOiteration( &fit_view.vector, \
                                                 sq_lookup_table, \
                                                 local_pmn_before_fisher_estimate_vs, local_fisher_ms);
-            #ifdef DEBUG_ON
-            break;
-            #endif
         }
 
         #pragma omp critical
