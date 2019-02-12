@@ -48,7 +48,7 @@ double becker13_meanflux(double z)
     return exp(-tau);
 }
 
-void convert_flux2deltaf(double *flux, double *noise, int size)
+void convert_flux2deltaf_mean(double *flux, double *noise, int size)
 {
     double mean_f = 0.;
 
@@ -63,7 +63,7 @@ void convert_flux2deltaf(double *flux, double *noise, int size)
         noise[i] /= mean_f;
     }
 }
-void convert_flux2deltaf(const double *lambda, double *flux, double *noise, int size)
+void convert_flux2deltaf_becker(const double *lambda, double *flux, double *noise, int size)
 {
     double mean_f, z_i;
 
