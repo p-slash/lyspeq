@@ -246,7 +246,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         
         gsl_vector_free(local_pmn_before_fisher_estimate_vs);
         gsl_matrix_free(local_fisher_ms);
-
 }
 
         #ifdef DEBUG_ON

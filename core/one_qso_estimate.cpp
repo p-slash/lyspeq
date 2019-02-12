@@ -306,8 +306,12 @@ void OneQSOEstimate::computePSbeforeFvector()
     {
         temp_bk = trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], weighted_noise_matrix);
         
+        throw_isnan(temp_bk, "bk");
+
         if (!TURN_OFF_SFID)
             temp_tk = trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], weighted_fiducial_signal_matrix);
+
+        throw_isnan(temp_tk, "tk");
 
         gsl_blas_dgemv( CblasNoTrans, 1.0, \
                         derivative_of_signal_matrices[i_kz], weighted_data_vector, \
@@ -315,7 +319,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         
         gsl_blas_ddot(weighted_data_vector, temp_vector, &temp_d);
 
-        throw_isnan(temp_d - temp_bk - temp_tk, "d-b-t");
+        throw_isnan(temp_d - temp_bk - temp_tk, "d");
         
         gsl_vector_set(ps_before_fisher_estimate_vector, i_kz + fisher_index_start, temp_d - temp_bk - temp_tk);
     }
