@@ -12,7 +12,8 @@ struct spectrograph_windowfn_params
     double spectrograph_res;
 };
 
-void convert_flux2deltaf(const double *lambda, double *flux, double *noise, int size);
+void convert_flux2deltaf_mean(double *flux, double *noise, int size);
+void convert_flux2deltaf_becker(const double *lambda, double *flux, double *noise, int size);
 void convert_lambda2v(double &median_z, double *v_array, const double *lambda, int size);
 
 double spectral_response_window_fn(double k, struct spectrograph_windowfn_params *spec_params);

@@ -22,9 +22,12 @@
 #include <omp.h>
 #endif
 
-void throw_isnan(double t)
+void throw_isnan(double t, const char *step)
 {
-    if (isnan(t))   throw "NaN";
+    char err_msg[25];
+    sprintf(err_msg, "NaN in %s", step);
+
+    if (isnan(t))   throw err_msg;
 }
 
 int getFisherMatrixIndex(int kn, int zm)
@@ -71,7 +74,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 
     qFile.readData(lambda_array, flux_array, noise_array);
 
-    convert_flux2deltaf(flux_array, noise_array, DATA_SIZE);
+    convert_flux2deltaf_mean(flux_array, noise_array, DATA_SIZE);
 
     convert_lambda2v(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
     printf("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
@@ -131,6 +134,9 @@ OneQSOEstimate::~OneQSOEstimate()
 void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable *sq_lookup_table)
 {
     int r_index = sq_lookup_table->findSpecResIndex(SPECT_RES_FWHM);
+    
+    if (r_index == -1)      throw "SPECRES not found in tables!";
+
     double v_ij, z_ij, temp;
 
     clock_t t;
@@ -309,7 +315,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         
         gsl_blas_ddot(weighted_data_vector, temp_vector, &temp_d);
 
-        throw_isnan(temp_d - temp_bk - temp_tk);
+        throw_isnan(temp_d - temp_bk - temp_tk, "d-b-t");
         
         gsl_vector_set(ps_before_fisher_estimate_vector, i_kz + fisher_index_start, temp_d - temp_bk - temp_tk);
     }
@@ -336,7 +342,7 @@ void OneQSOEstimate::computeFisherMatrix()
             temp = 0.5 * trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], \
                                             weighted_derivative_of_signal_matrices[j_kz]);
 
-            throw_isnan(temp);
+            throw_isnan(temp, "F=TrQwQw");
 
             gsl_matrix_set( fisher_matrix, \
                             i_kz + fisher_index_start, \
