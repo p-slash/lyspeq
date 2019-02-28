@@ -21,6 +21,7 @@ OPT += -DTRIANGLE_Z_BINNING_FN
 #--------------------------------------- Select target computer
 
 #SYSTYPE="GRACE"
+#SYSTYPE="GRACEicc"
 SYSTYPE="LAPTOP"
 
 #--------------------------------------- Adjust settings for target computer
@@ -29,9 +30,9 @@ ifeq ($(SYSTYPE),"GRACEicc")
 CXX := icpc
 GSL_INCL = -I${GSL_DIR}/include -I${MKLROOT}/include
 GSL_LIBS = -L${GSL_DIR}/lib -L${MKLROOT}/lib/intel64 -lgsl -lcblas -lmkl_intel_ilp64
-OMP_FLAG = -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
+OMP_FLAG = 
 OMP_INCL =
-OMP_LIBS =
+OMP_LIBS = -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
 OPT += -DMKL_ILP64
 endif
 
