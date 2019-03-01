@@ -1,3 +1,8 @@
+#ifndef GLOBAL_NUMBERS_H
+#define GLOBAL_NUMBERS_H
+
+// #include "sq_table.hpp"
+
 // Mathematical numbers
 #define PI 3.14159265359
 #define ONE_SIGMA_2_FWHM 2.35482004503
@@ -25,6 +30,8 @@ extern float time_spent_on_set_sfid, time_spent_set_qs, \
 
 extern bool TURN_OFF_SFID;
 
+// extern SQLookupTable *sq_lookup_table;
+
 void printf_time_spent_details();
 
 void set_up_bins(double k0, int nlin, double dklin, \
@@ -32,3 +39,7 @@ void set_up_bins(double k0, int nlin, double dklin, \
                  double z0);
 
 void clean_up_bins();
+
+void read_config_file();
+
+#endif
