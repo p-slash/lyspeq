@@ -22,7 +22,7 @@ class OneQSOEstimate
     int DATA_SIZE, \
         SPECT_RES_FWHM;
 
-    int N_Q_MATRICES, fisher_index_start;
+    int N_Q_MATRICES, fisher_index_start, r_index;
 
     double  MEDIAN_REDSHIFT, BIN_REDSHIFT, \
             DV_KMS;
@@ -50,6 +50,8 @@ class OneQSOEstimate
     void freeMatrices();
 
     void dump_all_matrices();
+    void setFiducialSignalMatrix(const SQLookupTable *sq_lookup_table, gsl_matrix *sm);
+    void setQiMatrix(const SQLookupTable *sq_lookup_table, gsl_matrix *qi, int i_kz);
 
 public:
     int ZBIN;
