@@ -36,13 +36,9 @@ class OneQSOEstimate
     /* DATA_SIZE x DATA_SIZE sized matrices 
        Note that noise matrix is diagonal and stored as pointer to its array 
     */
-    gsl_matrix  *covariance_matrix, *inverse_covariance_matrix, \
-                *fiducial_signal_matrix, *weighted_fiducial_signal_matrix, \
-                *weighted_noise_matrix;
-
-    /* NUMBER_OF_K_BANDS * N_Q_MATRICES (1,2,3) many DATA_SIZE x DATA_SIZE sized matrices */
-    gsl_matrix  **derivative_of_signal_matrices, \
-                **weighted_derivative_of_signal_matrices;
+    gsl_matrix  *covariance_matrix, \
+                *inverse_covariance_matrix, \
+                *temp_matrix[2];
 
     bool isCovInverted;
 
@@ -50,8 +46,9 @@ class OneQSOEstimate
     void freeMatrices();
 
     void dump_all_matrices();
-    void setFiducialSignalMatrix(const SQLookupTable *sq_lookup_table, gsl_matrix *sm);
-    void setQiMatrix(const SQLookupTable *sq_lookup_table, gsl_matrix *qi, int i_kz);
+    void setFiducialSignalMatrix(gsl_matrix *sm);
+    void setQiMatrix(gsl_matrix *qi, int i_kz);
+    void getWeightedMatrix(gsl_matrix *m);
 
 public:
     int ZBIN;
@@ -65,16 +62,13 @@ public:
     OneQSOEstimate(const char *fname_qso);
     ~OneQSOEstimate();
 
-    void setFiducialSignalAndDerivativeSMatrices(const SQLookupTable *sq_lookup_table);
-    void computeCSMatrices(const gsl_vector *ps_estimate);
+    void setCovarianceMatrix(const gsl_vector *ps_estimate);
     void invertCovarianceMatrix();
-    void computeWeightedMatrices();
 
     void computePSbeforeFvector();
     void computeFisherMatrix();
 
     void oneQSOiteration(   const gsl_vector *ps_estimate, \
-                            const SQLookupTable *sq_lookup_table, \
                             gsl_vector *pmn_before, gsl_matrix *fisher_sum);
 };
 
