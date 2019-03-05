@@ -113,25 +113,18 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 
     N_Q_MATRICES *= NUMBER_OF_K_BANDS;
 
-    /* Allocate memory */
-    derivative_of_signal_matrices          = new gsl_matrix*[N_Q_MATRICES];
-    weighted_derivative_of_signal_matrices = new gsl_matrix*[N_Q_MATRICES];
-
     isCovInverted    = false;
 }
 
 OneQSOEstimate::~OneQSOEstimate()
 {
-    delete [] derivative_of_signal_matrices;
-    delete [] weighted_derivative_of_signal_matrices;
-
     delete [] flux_array;
     delete [] lambda_array;
     delete [] velocity_array;
     delete [] noise_array;
 }
 
-void OneQSOEstimate::setFiducialSignalMatrix(const SQLookupTable *sq_lookup_table, gsl_matrix *sm)
+void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
 {
     double v_ij, z_ij, temp;
 
@@ -150,7 +143,7 @@ void OneQSOEstimate::setFiducialSignalMatrix(const SQLookupTable *sq_lookup_tabl
     copy_upper2lower(sm);
 }
 
-void OneQSOEstimate::setQiMatrix(const SQLookupTable *sq_lookup_table, gsl_matrix *qi, int i_kz)
+void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
 {
     int kn, zm;
     double v_ij, z_ij, temp;
@@ -172,53 +165,38 @@ void OneQSOEstimate::setQiMatrix(const SQLookupTable *sq_lookup_table, gsl_matri
     copy_upper2lower(qi);
 }
 
-void OneQSOEstimate::setFiducialSignalAndDerivativeSMatrices(const SQLookupTable *sq_lookup_table)
+void OneQSOEstimate::setCovarianceMatrix(const gsl_vector *ps_estimate)
 {
     r_index = sq_lookup_table->findSpecResIndex(SPECT_RES_FWHM);
     
     if (r_index == -1)      throw "SPECRES not found in tables!";
 
     clock_t t;
+
     // Set fiducial signal matrix
     t = clock();
 
-    setFiducialSignalMatrix(sq_lookup_table, fiducial_signal_matrix);
+    if (!TURN_OFF_SFID)
+        setFiducialSignalMatrix(covariance_matrix);
+    else
+        gsl_matrix_set_zero(covariance_matrix);
 
     t = clock() - t;
 
     #pragma omp atomic update
     time_spent_on_set_sfid += ((float) t) / CLOCKS_PER_SEC;
 
-    // Set Q matrices
-    t = clock();
-
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
-        setQiMatrix(sq_lookup_table, derivative_of_signal_matrices[i_kz], i_kz);
+    {
+        setQiMatrix(temp_matrix[0], i_kz);
+        gsl_matrix_scale(temp_matrix[0], gsl_vector_get(ps_estimate, i_kz + fisher_index_start));
+        gsl_matrix_add(covariance_matrix, temp_matrix[0]);
+    }
 
     t = clock() - t;
 
     #pragma omp atomic update
     time_spent_set_qs += ((float) t) / CLOCKS_PER_SEC;
-}
-
-void OneQSOEstimate::computeCSMatrices(const gsl_vector *ps_estimate)
-{
-    if (!TURN_OFF_SFID)
-        gsl_matrix_memcpy(covariance_matrix, fiducial_signal_matrix);
-    else
-        gsl_matrix_set_zero(covariance_matrix);
-
-    gsl_matrix *temp_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-
-    for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
-    {
-        gsl_matrix_memcpy(temp_matrix, derivative_of_signal_matrices[i_kz]);
-        gsl_matrix_scale(temp_matrix, gsl_vector_get(ps_estimate, i_kz + fisher_index_start));
-
-        gsl_matrix_add(covariance_matrix, temp_matrix);
-    }
-
-    gsl_matrix_free(temp_matrix);
 
     double temp, nn;
 
@@ -231,6 +209,7 @@ void OneQSOEstimate::computeCSMatrices(const gsl_vector *ps_estimate)
 
         gsl_matrix_set(covariance_matrix, i, i, temp + nn);
     }
+
     // printf_matrix(covariance_matrix, DATA_SIZE);
     gsl_matrix_add_constant(covariance_matrix, ADDED_CONST_TO_COVARIANCE);
 
@@ -240,7 +219,7 @@ void OneQSOEstimate::computeCSMatrices(const gsl_vector *ps_estimate)
 void OneQSOEstimate::invertCovarianceMatrix()
 {
     clock_t t = clock();
-    invert_matrix_LU(covariance_matrix, inverse_covariance_matrix);
+    invert_matrix_cholesky(covariance_matrix);
 
     isCovInverted = true;
 
@@ -250,63 +229,19 @@ void OneQSOEstimate::invertCovarianceMatrix()
     time_spent_on_c_inv += ((float) t) / CLOCKS_PER_SEC;
 }
 
-void OneQSOEstimate::computeWeightedMatrices()
+void OneQSOEstimate::getWeightedMatrix(gsl_matrix *m)
 {
-    clock_t t = clock();
-
-    assert(isCovInverted);
-
-    for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
-    {
-        //C-1 . Q
-        cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper, \
-                     DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE, \
-                     derivative_of_signal_matrices[i_kz]->data, DATA_SIZE, \
-                     0, weighted_derivative_of_signal_matrices[i_kz]->data, DATA_SIZE);
-    }
-
-    gsl_matrix *temp_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-
-    /*
-    cblas_dgemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_TRANSPOSE TransB, const int M, const int N, const int K, const double alpha, const double * A, const int lda, const double * B, const int ldb, const double beta, double * C, const int ldc)
-    cblas_dsymm(const enum CBLAS_ORDER Order, const enum CBLAS_SIDE Side, const enum CBLAS_UPLO Uplo, \
-                const int M, const int N, const double alpha, const double * A, const int lda, \
-                const double * B, const int ldb, const double beta, double * C, const int ldc)
-    */
-
-    // Set weighted fiducial signal matrix
-    if (!TURN_OFF_SFID)
-    {
-        cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper, \
-                     DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE, \
-                     fiducial_signal_matrix->data, DATA_SIZE, \
-                     0, temp_matrix->data, DATA_SIZE);
-
-        gsl_matrix_memcpy(weighted_fiducial_signal_matrix, temp_matrix);
-    }
-    
-    // Set weighted noise matrix
-    for (int i = 0; i < DATA_SIZE; i++)
-    {
-        double n = noise_array[i];
-        n *= n;
-
-        gsl_matrix_set(weighted_noise_matrix, i, i, n);
-    }
-
+    //C-1 . Q
     cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper, \
                  DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE, \
-                 weighted_noise_matrix->data, DATA_SIZE, \
-                 0, temp_matrix->data, DATA_SIZE);
+                 m->data, DATA_SIZE, \
+                 0, temp_matrix[1]->data, DATA_SIZE);
 
-    gsl_matrix_memcpy(weighted_noise_matrix, temp_matrix);
-
-    gsl_matrix_free(temp_matrix);
-
-    t = clock() - t;
-
-    #pragma omp atomic update
-    time_spent_set_modqs += ((float) t) / CLOCKS_PER_SEC;
+    //C-1 . Q . C-1
+    cblas_dsymm( CblasRowMajor, CblasRight, CblasUpper, \
+                 DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE, \
+                 temp_matrix[1]->data, DATA_SIZE, \
+                 0, m->data, DATA_SIZE);
 }
 
 void OneQSOEstimate::computePSbeforeFvector()
@@ -314,10 +249,14 @@ void OneQSOEstimate::computePSbeforeFvector()
     gsl_vector  *temp_vector            = gsl_vector_alloc(DATA_SIZE), \
                 *weighted_data_vector   = gsl_vector_alloc(DATA_SIZE);
 
+    gsl_matrix  *Q_ikz_matrix = temp_matrix[0], \
+                *Q_jkz_matrix = temp_matrix[1], \
+                *Sfid_matrix  = temp_matrix[1];
+
     /*
     cblas_dsymv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo, 
-    const int N, const double alpha, const double * A, const int lda,
-     const double * x, const int incx, const double beta, double * y, const int incy)
+                const int N, const double alpha, const double * A, const int lda,
+                const double * x, const int incx, const double beta, double * y, const int incy)
     */
 
     cblas_dsymv(CblasRowMajor, CblasUpper, \
@@ -327,75 +266,78 @@ void OneQSOEstimate::computePSbeforeFvector()
 
     double temp_bk, temp_tk = 0, temp_d;
 
+    clock_t t = clock();
+
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
-        temp_bk = trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], weighted_noise_matrix);
-        
-        throw_isnan(temp_bk, "bk");
+        // Set derivative matrix ikz
+        setQiMatrix(Q_ikz_matrix, i_kz);
 
-        if (!TURN_OFF_SFID)
-            temp_tk = trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], weighted_fiducial_signal_matrix);
-
-        throw_isnan(temp_tk, "tk");
-
+        // Find data contribution to ps before F vector
+        // Q . (C-1 . flux)
         cblas_dsymv(CblasRowMajor, CblasUpper, \
-                    DATA_SIZE, 1., derivative_of_signal_matrices[i_kz]->data, DATA_SIZE, \
+                    DATA_SIZE, 1., Q_ikz_matrix->data, DATA_SIZE, \
                     weighted_data_vector->data, 1, \
                     0, temp_vector->data, 1);
         
+        // (C-1 . flux)T . Q . (C-1 . flux)
         temp_d = cblas_ddot(DATA_SIZE, \
                             weighted_data_vector->data, 1, \
                             temp_vector->data, 1);
 
+        // Get weighted derivative matrix ikz
+        getWeightedMatrix(Q_ikz_matrix);
+
+        // Get Noise contribution
+        temp_bk = trace_of_2matrices(Q_ikz_matrix, noise_array);
+        
+        throw_isnan(temp_bk, "bk");
+
+        // Set Fiducial Signal Matrix
+        if (!TURN_OFF_SFID)
+        {
+            setFiducialSignalMatrix(Sfid_matrix);
+
+            temp_tk = trace_of_2_sym_matrices(Q_ikz_matrix, Sfid_matrix);
+
+            throw_isnan(temp_tk, "tk");
+        }
+        
         throw_isnan(temp_d - temp_bk - temp_tk, "d");
         
         gsl_vector_set(ps_before_fisher_estimate_vector, i_kz + fisher_index_start, temp_d - temp_bk - temp_tk);
+
+        t = clock();
+        
+        // Now compute Fisher Matrix
+        for (int j_kz = i_kz; j_kz < N_Q_MATRICES; j_kz++)
+        {
+            setQiMatrix(Q_jkz_matrix, j_kz);
+
+            temp_d = 0.5 * trace_of_2_sym_matrices(Q_ikz_matrix, Q_jkz_matrix);
+            throw_isnan(temp_d, "F=TrQwQw");
+
+            gsl_matrix_set( fisher_matrix, \
+                            i_kz + fisher_index_start, \
+                            j_kz + fisher_index_start, \
+                            temp_d);
+            gsl_matrix_set( fisher_matrix, \
+                            j_kz + fisher_index_start, \
+                            i_kz + fisher_index_start, \
+                            temp_d);
+        }
+
+        t = clock() - t;
+
+        #pragma omp atomic update
+        time_spent_set_fisher += ((float) t) / CLOCKS_PER_SEC;
     }
 
     // printf("PS before f: %.3e\n", gsl_vector_get(ps_before_fisher_estimate_vector, 0));
     gsl_vector_free(temp_vector);
 }
 
-void OneQSOEstimate::computeFisherMatrix()
-{
-    clock_t t = clock();
-
-    #ifdef DEBUG_ON
-    printf("Computing fisher matrix.\n");
-    fflush(stdout);
-    #endif
-    
-    double temp;
-
-    for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
-    {
-        for (int j_kz = i_kz; j_kz < N_Q_MATRICES; j_kz++)
-        {
-            temp = 0.5 * trace_of_2matrices(weighted_derivative_of_signal_matrices[i_kz], \
-                                            weighted_derivative_of_signal_matrices[j_kz]);
-
-            throw_isnan(temp, "F=TrQwQw");
-
-            gsl_matrix_set( fisher_matrix, \
-                            i_kz + fisher_index_start, \
-                            j_kz + fisher_index_start, \
-                            temp);
-
-            gsl_matrix_set( fisher_matrix, \
-                            j_kz + fisher_index_start, \
-                            i_kz + fisher_index_start, \
-                            temp);
-        }
-    }
-    
-    t = clock() - t;
-
-    #pragma omp atomic update
-    time_spent_set_fisher += ((float) t) / CLOCKS_PER_SEC;
-}
-
 void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
-                                        const SQLookupTable *sq_lookup_table, \
                                         gsl_vector *pmn_before, gsl_matrix *fisher_sum)
 {
     allocateMatrices();
@@ -404,16 +346,9 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
     fflush(stdout);
     #endif
 
-    setFiducialSignalAndDerivativeSMatrices(sq_lookup_table);
+    setCovarianceMatrix(ps_estimate);
     #ifdef DEBUG_ON
     printf("Set\n");
-    fprintf_matrix("debugdump_fiducial_signal_matrix.dat", fiducial_signal_matrix);
-    fflush(stdout);
-    #endif
-
-    computeCSMatrices(ps_estimate);
-    #ifdef DEBUG_ON
-    printf("CovSig\n");
     fprintf_matrix("debugdump_covariance_matrix.dat", covariance_matrix);
     fflush(stdout);
     #endif
@@ -421,10 +356,8 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
     try
     {
         invertCovarianceMatrix();
-        computeWeightedMatrices();
 
         computePSbeforeFvector();
-        computeFisherMatrix();
         
         #ifdef DEBUG_ON
         dump_all_matrices();
@@ -455,52 +388,28 @@ void OneQSOEstimate::allocateMatrices()
     ps_before_fisher_estimate_vector = gsl_vector_calloc(TOTAL_KZ_BINS);
     fisher_matrix                    = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
 
-    covariance_matrix               = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-    inverse_covariance_matrix       = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-    fiducial_signal_matrix          = gsl_matrix_calloc(DATA_SIZE, DATA_SIZE);
-    weighted_fiducial_signal_matrix = fiducial_signal_matrix;
-    weighted_noise_matrix           = gsl_matrix_calloc(DATA_SIZE, DATA_SIZE);
+    covariance_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
+    inverse_covariance_matrix = covariance_matrix;
 
-    for (int i = 0; i < N_Q_MATRICES; i++)
-    {
-        derivative_of_signal_matrices[i]          = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-        weighted_derivative_of_signal_matrices[i] = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-    }
+    for (int i = 0; i < 2; i++)
+        temp_matrix[i] = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
 }
 
 void OneQSOEstimate::freeMatrices()
 {
     gsl_vector_free(ps_before_fisher_estimate_vector);
-
     gsl_matrix_free(fisher_matrix);
 
     gsl_matrix_free(covariance_matrix);
-    gsl_matrix_free(inverse_covariance_matrix);
-    gsl_matrix_free(fiducial_signal_matrix);
-    gsl_matrix_free(weighted_noise_matrix);
+    // gsl_matrix_free(inverse_covariance_matrix);
 
-    for (int i = 0; i < N_Q_MATRICES; i++)
-    {
-        gsl_matrix_free(derivative_of_signal_matrices[i]);
-        gsl_matrix_free(weighted_derivative_of_signal_matrices[i]);
-    }
+    for (int i = 0; i < 2; i++)
+        gsl_matrix_free(temp_matrix[i]); 
 }
 
 void OneQSOEstimate::dump_all_matrices()
-{
-    char buf[250];
-
-    for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
-    {
-        sprintf(buf, "debugdump_Q%d_matrix.dat", i_kz);
-        fprintf_matrix(buf, derivative_of_signal_matrices[i_kz]);
-
-        sprintf(buf, "debugdump_WeightedQ%d_matrix.dat", i_kz);
-        fprintf_matrix(buf, weighted_derivative_of_signal_matrices[i_kz]);
-    }
-    
+{    
     fprintf_matrix("debugdump_covariance_matrix.dat", covariance_matrix); 
-    fprintf_matrix("debugdump_inversecovariance_matrix.dat", inverse_covariance_matrix);
     fprintf_matrix("debugdump_fisher_matrix.dat", fisher_matrix);
 }
 
