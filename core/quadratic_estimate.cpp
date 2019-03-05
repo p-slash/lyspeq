@@ -22,10 +22,8 @@
 #endif
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
-                                                        const SQLookupTable *table, \
                                                         struct palanque_fit_params *pfp)
 {
-    sq_lookup_table     = table;
     FIDUCIAL_PS_PARAMS  = pfp;
 
     Z_BIN_COUNTS     = new int[NUMBER_OF_Z_BINS+2]();
@@ -234,7 +232,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             if (qso_estimators[q]->ZBIN < 0 || qso_estimators[q]->ZBIN >= NUMBER_OF_Z_BINS)     continue;
 
             qso_estimators[q]->oneQSOiteration( &fit_view.vector, \
-                                                sq_lookup_table, \
                                                 local_pmn_before_fisher_estimate_vs, local_fisher_ms);
         }
 
