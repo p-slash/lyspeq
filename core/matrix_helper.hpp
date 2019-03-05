@@ -7,7 +7,7 @@
 void copy_upper2lower(gsl_matrix *A);
 
 double trace_of_2matrices(const gsl_matrix *A, const gsl_matrix *B);
-
+double trace_of_2_sym_matrices(const gsl_matrix *A, const gsl_matrix *B);
 /* optimized for diagonal matrix B */
 double trace_of_2matrices(const gsl_matrix *A, const double *noise);
 
