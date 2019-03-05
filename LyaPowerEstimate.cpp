@@ -90,18 +90,18 @@ int main(int argc, char const *argv[])
         // Redshift and wavenumber bins are constructed
         set_up_bins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
 
-        SQLookupTable sq_Table(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
+        sq_lookup_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
 
         gsl_set_error_handler_off();
 
         qps = new OneDQuadraticPowerEstimate(   FNAME_LIST, INPUT_DIR, \
-                                                &sq_Table, \
                                                 &FIDUCIAL_PD13_PARAMS);
 
         sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
         qps->iterate(NUMBER_OF_ITERATIONS, buf);
 
         delete qps;
+        delete sq_lookup_table;
 
         clean_up_bins();
     }
