@@ -35,6 +35,22 @@ double trace_of_2matrices(const gsl_matrix *A, const gsl_matrix *B)
     return result;
 }
 
+double trace_of_2_sym_matrices(const gsl_matrix *A, const gsl_matrix *B)
+{
+    int size = A->size1;
+
+    double result = 0.;
+
+    for (int i = 0; i < size; i++)
+    {
+        for (int j = 0; j < size; j++)
+        {
+            result += gsl_matrix_get(A, i, j) * gsl_matrix_get(B, i, j);
+        }
+    }
+
+    return result;   
+}
 double trace_of_2matrices(const gsl_matrix *A, const double *noise)
 {
     int size = A->size1;
