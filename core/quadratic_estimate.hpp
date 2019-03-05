@@ -9,7 +9,6 @@
 #define QUADRATIC_ESTIMATE_H
 
 #include "one_qso_estimate.hpp"
-#include "sq_table.hpp"
 #include "fiducial_cosmology.hpp"
 
 class OneDQuadraticPowerEstimate
@@ -20,7 +19,6 @@ class OneDQuadraticPowerEstimate
     struct palanque_fit_params *FIDUCIAL_PS_PARAMS;
 
     OneQSOEstimate     **qso_estimators;
-    const SQLookupTable *sq_lookup_table;
 
     /* TOTAL_KZ_BINS sized vector */ 
     gsl_vector  *pmn_before_fisher_estimate_vector_sum, \
@@ -37,7 +35,6 @@ class OneDQuadraticPowerEstimate
 
 public:
     OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
-                                const SQLookupTable *table, \
                                 struct palanque_fit_params *pfp);
 
     ~OneDQuadraticPowerEstimate();
