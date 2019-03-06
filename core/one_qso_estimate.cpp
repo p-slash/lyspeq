@@ -13,7 +13,6 @@
 #include <gsl/gsl_errno.h>
 
 #include <cmath>
-#include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
@@ -126,6 +125,8 @@ OneQSOEstimate::~OneQSOEstimate()
 
 void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
 {
+    float t = get_time();
+
     double v_ij, z_ij, temp;
 
     for (int i = 0; i < DATA_SIZE && !TURN_OFF_SFID; i++)
@@ -141,10 +142,17 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
     }
 
     copy_upper2lower(sm);
+
+    t = get_time() - t;
+
+    #pragma omp atomic update
+    time_spent_on_set_sfid += t;
 }
 
 void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
 {
+    float t = get_time();
+
     int kn, zm;
     double v_ij, z_ij, temp;
 
@@ -163,6 +171,11 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
     }
 
     copy_upper2lower(qi);
+
+    t = get_time() - t;
+
+    #pragma omp atomic update
+    time_spent_set_qs += t;
 }
 
 void OneQSOEstimate::setCovarianceMatrix(const gsl_vector *ps_estimate)
@@ -171,20 +184,12 @@ void OneQSOEstimate::setCovarianceMatrix(const gsl_vector *ps_estimate)
     
     if (r_index == -1)      throw "SPECRES not found in tables!";
 
-    clock_t t;
-
     // Set fiducial signal matrix
-    t = clock();
 
     if (!TURN_OFF_SFID)
         setFiducialSignalMatrix(covariance_matrix);
     else
         gsl_matrix_set_zero(covariance_matrix);
-
-    t = clock() - t;
-
-    #pragma omp atomic update
-    time_spent_on_set_sfid += ((float) t) / CLOCKS_PER_SEC;
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
@@ -192,11 +197,6 @@ void OneQSOEstimate::setCovarianceMatrix(const gsl_vector *ps_estimate)
         gsl_matrix_scale(temp_matrix[0], gsl_vector_get(ps_estimate, i_kz + fisher_index_start));
         gsl_matrix_add(covariance_matrix, temp_matrix[0]);
     }
-
-    t = clock() - t;
-
-    #pragma omp atomic update
-    time_spent_set_qs += ((float) t) / CLOCKS_PER_SEC;
 
     double temp, nn;
 
@@ -218,19 +218,21 @@ void OneQSOEstimate::setCovarianceMatrix(const gsl_vector *ps_estimate)
 
 void OneQSOEstimate::invertCovarianceMatrix()
 {
-    clock_t t = clock();
+    float t = get_time();
     invert_matrix_cholesky(covariance_matrix);
 
     isCovInverted = true;
 
-    t = clock() - t;
+    t = get_time() - t;
 
     #pragma omp atomic update
-    time_spent_on_c_inv += ((float) t) / CLOCKS_PER_SEC;
+    time_spent_on_c_inv += t;
 }
 
 void OneQSOEstimate::getWeightedMatrix(gsl_matrix *m)
 {
+    float t = get_time();
+
     //C-1 . Q
     cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper, \
                  DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE, \
@@ -242,6 +244,42 @@ void OneQSOEstimate::getWeightedMatrix(gsl_matrix *m)
                  DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE, \
                  temp_matrix[1]->data, DATA_SIZE, \
                  0, m->data, DATA_SIZE);
+
+    t = get_time() - t;
+
+    #pragma omp atomic update
+    time_spent_set_modqs += t;
+}
+
+void OneQSOEstimate::getFisherMatrix(gsl_matrix *Q_ikz_matrix, int i_kz)
+{
+    double temp;
+    gsl_matrix *Q_jkz_matrix = temp_matrix[1];
+
+    float t = get_time();
+    
+    // Now compute Fisher Matrix
+    for (int j_kz = i_kz; j_kz < N_Q_MATRICES; j_kz++)
+    {
+        setQiMatrix(Q_jkz_matrix, j_kz);
+
+        temp = 0.5 * trace_of_2_sym_matrices(Q_ikz_matrix, Q_jkz_matrix);
+        throw_isnan(temp, "F=TrQwQw");
+
+        gsl_matrix_set( fisher_matrix, \
+                        i_kz + fisher_index_start, \
+                        j_kz + fisher_index_start, \
+                        temp);
+        gsl_matrix_set( fisher_matrix, \
+                        j_kz + fisher_index_start, \
+                        i_kz + fisher_index_start, \
+                        temp);
+    }
+
+    t = get_time() - t;
+
+    #pragma omp atomic update
+    time_spent_set_fisher += t;
 }
 
 void OneQSOEstimate::computePSbeforeFvector()
@@ -250,7 +288,6 @@ void OneQSOEstimate::computePSbeforeFvector()
                 *weighted_data_vector   = gsl_vector_alloc(DATA_SIZE);
 
     gsl_matrix  *Q_ikz_matrix = temp_matrix[0], \
-                *Q_jkz_matrix = temp_matrix[1], \
                 *Sfid_matrix  = temp_matrix[1];
 
     /*
@@ -265,8 +302,6 @@ void OneQSOEstimate::computePSbeforeFvector()
                 0, weighted_data_vector->data, 1);
 
     double temp_bk, temp_tk = 0, temp_d;
-
-    clock_t t = clock();
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
@@ -306,31 +341,9 @@ void OneQSOEstimate::computePSbeforeFvector()
         throw_isnan(temp_d - temp_bk - temp_tk, "d");
         
         gsl_vector_set(ps_before_fisher_estimate_vector, i_kz + fisher_index_start, temp_d - temp_bk - temp_tk);
-
-        t = clock();
         
         // Now compute Fisher Matrix
-        for (int j_kz = i_kz; j_kz < N_Q_MATRICES; j_kz++)
-        {
-            setQiMatrix(Q_jkz_matrix, j_kz);
-
-            temp_d = 0.5 * trace_of_2_sym_matrices(Q_ikz_matrix, Q_jkz_matrix);
-            throw_isnan(temp_d, "F=TrQwQw");
-
-            gsl_matrix_set( fisher_matrix, \
-                            i_kz + fisher_index_start, \
-                            j_kz + fisher_index_start, \
-                            temp_d);
-            gsl_matrix_set( fisher_matrix, \
-                            j_kz + fisher_index_start, \
-                            i_kz + fisher_index_start, \
-                            temp_d);
-        }
-
-        t = clock() - t;
-
-        #pragma omp atomic update
-        time_spent_set_fisher += ((float) t) / CLOCKS_PER_SEC;
+        getFisherMatrix(Q_ikz_matrix, i_kz);
     }
 
     // printf("PS before f: %.3e\n", gsl_vector_get(ps_before_fisher_estimate_vector, 0));

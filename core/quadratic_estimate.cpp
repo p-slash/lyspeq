@@ -6,10 +6,9 @@
 
 #include "../io/io_helper_functions.hpp"
 
-#include <gsl/gsl_blas.h>
+#include <gsl/gsl_cblas.h>
 
 #include <cmath>
-#include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
 #include <cstdio>
 #include <cstdlib> // system
 #include <cassert>
@@ -100,7 +99,7 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 {
-    clock_t t = clock();
+    float t = get_time();
 
     printf("Inverting Fisher matrix.\n");
     fflush(stdout);
@@ -108,8 +107,9 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     invert_matrix_LU(fisher_matrix_sum, inverse_fisher_matrix_sum);
 
     isFisherInverted = true;
-    t = clock() - t;
-    time_spent_on_f_inv += ((float) t) / CLOCKS_PER_SEC;
+
+    t = get_time() - t;
+    time_spent_on_f_inv += t;
 }
 
 void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
@@ -122,9 +122,14 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
     gsl_vector_memcpy(previous_pmn_estimate_vector, pmn_estimate_vector);
 
     //gsl_blas_dsymv( CblasUpper, 0.5, 
-    gsl_blas_dgemv( CblasNoTrans, 0.5, \
-                    inverse_fisher_matrix_sum, pmn_before_fisher_estimate_vector_sum, \
-                    0, pmn_estimate_vector);
+    // gsl_blas_dgemv( CblasNoTrans, 0.5, \
+    //                 inverse_fisher_matrix_sum, pmn_before_fisher_estimate_vector_sum, \
+    //                 0, pmn_estimate_vector);
+
+    cblas_dsymv(CblasRowMajor, CblasUpper, \
+                TOTAL_KZ_BINS, 0.5, inverse_fisher_matrix_sum->data, TOTAL_KZ_BINS, \
+                pmn_before_fisher_estimate_vector_sum->data, 1, \
+                0, pmn_estimate_vector->data, 1);
 }
 
 void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
@@ -206,8 +211,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     char buf[500];
     float total_time = 0, total_time_1it = 0;
 
-    clock_t t;
-
     double *powerspectra_fits = new double[TOTAL_KZ_BINS];
     gsl_vector_view fit_view  = gsl_vector_view_array(powerspectra_fits, TOTAL_KZ_BINS);
 
@@ -216,7 +219,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         printf("Iteration number %d of %d.\n", i+1, number_of_iterations);
         fflush(stdout);
         
-        t = clock();
+        total_time_1it = get_time();
     
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
@@ -262,9 +265,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             throw msg;
         }
         
-        t               = clock() - t;
-        total_time_1it  = ((float) t) / CLOCKS_PER_SEC;
-        total_time_1it /= 60.0; //mins
+        total_time_1it  = get_time() - total_time_1it;
         total_time     += total_time_1it;
         printf("This iteration took %.1f minutes. ", total_time_1it);
         printf("Elapsed time so far is %.1f minutes.\n", total_time);
@@ -320,15 +321,23 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     printf("Old test: Iteration converges when this is less than %.1e\n", CONVERGENCE_EPS);
     
     // Perform a chi-square test as well
-    gsl_vector *temp_vector = gsl_vector_alloc(TOTAL_KZ_BINS);
+    // gsl_vector *temp_vector = gsl_vector_alloc(TOTAL_KZ_BINS);
+    double *temp_vector = new double[TOTAL_KZ_BINS];
 
     gsl_vector_sub(previous_pmn_estimate_vector, pmn_estimate_vector);
 
-    gsl_blas_dgemv( CblasNoTrans, 1.0, \
-                    fisher_matrix_sum, previous_pmn_estimate_vector, \
-                    0, temp_vector);
-        
-    gsl_blas_ddot(previous_pmn_estimate_vector, temp_vector, &r);
+    cblas_dsymv(CblasRowMajor, CblasUpper, \
+                TOTAL_KZ_BINS, 1., fisher_matrix_sum->data, TOTAL_KZ_BINS, \
+                previous_pmn_estimate_vector->data, 1, \
+                0, temp_vector, 1);
+
+    // gsl_blas_dgemv( CblasNoTrans, 1.0, \
+    //                 fisher_matrix_sum, previous_pmn_estimate_vector, \
+    //                 0, temp_vector);
+
+    r = cblas_ddot(TOTAL_KZ_BINS, previous_pmn_estimate_vector->data, 1, temp_vector, 1);
+
+    // gsl_blas_ddot(previous_pmn_estimate_vector, temp_vector, &r);
 
     r /= TOTAL_KZ_BINS;
     printf("Chi square convergence test: %.3f per dof. ", r);

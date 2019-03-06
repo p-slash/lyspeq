@@ -49,6 +49,7 @@ class OneQSOEstimate
     void setFiducialSignalMatrix(gsl_matrix *sm);
     void setQiMatrix(gsl_matrix *qi, int i_kz);
     void getWeightedMatrix(gsl_matrix *m);
+    void getFisherMatrix(gsl_matrix *Q_ikz_matrix, int i_kz);
 
 public:
     int ZBIN;
