@@ -42,4 +42,5 @@ void clean_up_bins();
 
 void read_config_file();
 
+float get_time();
 #endif

@@ -3,6 +3,12 @@
 #include <cstdio>
 #include <cmath>
 
+#if defined(_OPENMP)
+#include <omp.h> /*omp_get_wtime();*/
+#else
+#include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
+#endif
+
 int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
 
 SQLookupTable *sq_lookup_table;
@@ -67,4 +73,12 @@ void clean_up_bins()
     delete [] ZBIN_CENTERS;
 }
 
-
+float get_time()
+{
+    #if defined(_OPENMP)
+    return omp_get_wtime() / 60.;
+    #else
+    clock_t t = clock();
+    return ((float) t) / CLOCKS_PER_SEC / 60.;
+    #endif
+}
