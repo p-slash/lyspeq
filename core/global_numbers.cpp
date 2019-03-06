@@ -24,13 +24,13 @@ bool TURN_OFF_SFID;
 
 void printf_time_spent_details()
 {
-    printf("Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv / 60.);
-    printf("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv / 60.);
+    printf("Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
+    printf("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
 
-    printf("Total time spent on setting Sfid is %.2f mins.\n",   time_spent_on_set_sfid / 60.);
-    printf("Total time spent on setting Qs is %.2f mins.\n",     time_spent_set_qs      / 60.);
-    printf("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs   / 60.);
-    printf("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher  / 60.);
+    printf("Total time spent on setting Sfid is %.2f mins.\n",   time_spent_on_set_sfid);
+    printf("Total time spent on setting Qs is %.2f mins.\n",     time_spent_set_qs     );
+    printf("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
+    printf("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
 }
 
 void set_up_bins(double k0, int nlin, double dklin, \
