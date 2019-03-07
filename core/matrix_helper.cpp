@@ -111,15 +111,13 @@ void invert_matrix_cholesky(gsl_matrix *A)
     }
 }
 
-void invert_matrix_LU(const gsl_matrix *A, gsl_matrix *Ainv)
+void invert_matrix_LU(gsl_matrix *A, gsl_matrix *Ainv)
 {
     int size = A->size1, signum, status;
 
-    gsl_permutation *p     = gsl_permutation_alloc(size);
-    gsl_matrix      *Acopy = gsl_matrix_alloc(size, size);
-    gsl_matrix_memcpy(Acopy, A);
+    gsl_permutation *p = gsl_permutation_alloc(size);
 
-    status = gsl_linalg_LU_decomp(Acopy, p, &signum);
+    status = gsl_linalg_LU_decomp(A, p, &signum);
 
     if (status)
     {
@@ -129,9 +127,8 @@ void invert_matrix_LU(const gsl_matrix *A, gsl_matrix *Ainv)
         throw err_msg;
     }
 
-    status = gsl_linalg_LU_invert(Acopy, p, Ainv);
+    status = gsl_linalg_LU_invert(A, p, Ainv);
 
-    gsl_matrix_free(Acopy);
     gsl_permutation_free(p);
     
     if (status)
