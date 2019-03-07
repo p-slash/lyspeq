@@ -219,7 +219,7 @@ void OneQSOEstimate::setCovarianceMatrix(const gsl_vector *ps_estimate)
 void OneQSOEstimate::invertCovarianceMatrix()
 {
     float t = get_time();
-    invert_matrix_cholesky_2(covariance_matrix);
+    invert_matrix_LU(covariance_matrix, inverse_covariance_matrix);
 
     isCovInverted = true;
 
@@ -397,8 +397,8 @@ void OneQSOEstimate::allocateMatrices()
     ps_before_fisher_estimate_vector = gsl_vector_calloc(TOTAL_KZ_BINS);
     fisher_matrix                    = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
 
-    covariance_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-    inverse_covariance_matrix = covariance_matrix;
+    covariance_matrix         = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
+    inverse_covariance_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
 
     for (int i = 0; i < 2; i++)
         temp_matrix[i] = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
@@ -410,7 +410,7 @@ void OneQSOEstimate::freeMatrices()
     gsl_matrix_free(fisher_matrix);
 
     gsl_matrix_free(covariance_matrix);
-    // gsl_matrix_free(inverse_covariance_matrix);
+    gsl_matrix_free(inverse_covariance_matrix);
 
     for (int i = 0; i < 2; i++)
         gsl_matrix_free(temp_matrix[i]); 
