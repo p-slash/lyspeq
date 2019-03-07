@@ -45,7 +45,6 @@ class OneQSOEstimate
     void allocateMatrices();
     void freeMatrices();
 
-    void dump_all_matrices();
     void setFiducialSignalMatrix(gsl_matrix *sm);
     void setQiMatrix(gsl_matrix *qi, int i_kz);
     void getWeightedMatrix(gsl_matrix *m);
