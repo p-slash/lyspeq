@@ -67,6 +67,28 @@ double trace_of_2matrices(const gsl_matrix *A, const double *noise)
     return result;
 }
 
+void invert_matrix_cholesky_2(gsl_matrix *A)
+{
+    int size = A->size1, status;
+
+    gsl_vector *S = gsl_vector_alloc(size);
+    gsl_linalg_cholesky_scale(A, S);
+
+    status = gsl_linalg_cholesky_decomp2(A, S);
+
+    if (status)
+    {
+        const char *err_msg = gsl_strerror(status);
+        // fprintf(stderr, "ERROR in Cholesky Decomp: %s\n", err_msg);
+        gsl_vector_free(S);
+        throw err_msg;
+    }
+
+    gsl_linalg_cholesky_invert(A);
+    gsl_linalg_cholesky_scale_apply(A, S);
+    gsl_vector_free(S);
+}
+
 void invert_matrix_cholesky(gsl_matrix *A)
 {
     int status = gsl_linalg_cholesky_decomp(A); 
@@ -74,7 +96,7 @@ void invert_matrix_cholesky(gsl_matrix *A)
     if (status)
     {
         const char *err_msg = gsl_strerror(status);
-        fprintf(stderr, "ERROR in Cholesky Decomp: %s\n", err_msg);
+        // fprintf(stderr, "ERROR in Cholesky Decomp: %s\n", err_msg);
 
         throw err_msg;
     }
