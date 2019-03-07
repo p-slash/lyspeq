@@ -124,29 +124,33 @@ int main(int argc, char const *argv[])
         double  z_first  = Z_0 - Z_BIN_WIDTH / 2., \
                 z_length = Z_BIN_WIDTH * NUMBER_OF_Z_BINS;
 
+        int threadnum = 1, numthreads = 1;
 
-#pragma omp parallel private(buf, time_spent_table_sfid, time_spent_table_q)
-{   
-        // Integrate fiducial signal matrix
-        clock_t t = clock();
-        printf("Creating look up table for signal matrix...\n");
-        fflush(stdout);
+#pragma omp parallel private(buf, time_spent_table_sfid, time_spent_table_q, threadnum, numthreads)
+{       
+        #if defined(_OPENMP)
+        threadnum = omp_get_thread_num();
+        numthreads = omp_get_num_threads();
+        #endif
         
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
         struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
         double *big_temp_array;
 
-        time_spent_table_sfid = 0;
-        time_spent_table_q    = 0;
-
         if (!TURN_OFF_SFID)
         {
+            // Integrate fiducial signal matrix
+            time_spent_table_sfid = get_time();
+
+            printf("T%d/%d - Creating look up table for signal matrix...\n", threadnum, numthreads);
+            fflush(stdout);
+
             FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
 
             // Allocate memory to store results
             big_temp_array = new double[Nv * Nz];
 
-            #pragma omp for
+            #pragma omp for nowait
             for (int r = 0; r < NUMBER_OF_Rs; r++)
             {
                 win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -189,19 +193,20 @@ int main(int argc, char const *argv[])
                 signal_table.writeData(big_temp_array);
             }
 
+            time_spent_table_sfid = get_time() - time_spent_table_sfid;
+
             delete [] big_temp_array;
 
-            t = clock() - t;
-            time_spent_table_sfid = ((float) t) / CLOCKS_PER_SEC;
+            printf("T:%d/%d - Time spent on fiducial signal matrix table is %.2f mins.\n", threadnum, numthreads, time_spent_table_sfid);
 
             // S matrices are written.
             // ---------------------
         }
 
         // Integrate derivative matrices
-        t = clock();
+        time_spent_table_q = get_time();
 
-        printf("Creating look up table for derivative signal matrices...\n");
+        printf("T:%d/%d - Creating look up table for derivative signal matrices...\n", threadnum, numthreads);
         fflush(stdout);
 
         // int subNz = Nz / NUMBER_OF_Z_BINS;
@@ -250,14 +255,12 @@ int main(int argc, char const *argv[])
             }
         }
         
-        t = clock() - t;
-        time_spent_table_q = ((float) t) / CLOCKS_PER_SEC;
+        time_spent_table_q = get_time() - time_spent_table_q;
 
         // Q matrices are written.
         // ---------------------
 
-        printf("Time spent on fiducial signal matrix table is %.2f mins.\n", time_spent_table_sfid / 60.);
-        printf("Time spent on derivative matrix table is %.2f mins.\n", time_spent_table_q / 60.);
+        printf("T:%d/%d - Time spent on derivative matrix table is %.2f mins.\n", threadnum, numthreads, time_spent_table_q);
 
         delete [] big_temp_array;
 }
