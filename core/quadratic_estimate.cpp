@@ -121,11 +121,6 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 
     gsl_vector_memcpy(previous_pmn_estimate_vector, pmn_estimate_vector);
 
-    //gsl_blas_dsymv( CblasUpper, 0.5, 
-    // gsl_blas_dgemv( CblasNoTrans, 0.5, \
-    //                 inverse_fisher_matrix_sum, pmn_before_fisher_estimate_vector_sum, \
-    //                 0, pmn_estimate_vector);
-
     cblas_dsymv(CblasRowMajor, CblasUpper, \
                 TOTAL_KZ_BINS, 0.5, inverse_fisher_matrix_sum->data, TOTAL_KZ_BINS, \
                 pmn_before_fisher_estimate_vector_sum->data, 1, \
@@ -226,6 +221,12 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         
 #pragma omp parallel
 {
+        #if defined(_OPENMP)
+        int threadnum = omp_get_thread_num(), numthreads = omp_get_num_threads();
+        printf("Start working in %d/%d thread.\n", threadnum, numthreads);
+        fflush(stdout);
+        #endif
+
         gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
         gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
 
@@ -331,15 +332,8 @@ bool OneDQuadraticPowerEstimate::hasConverged()
                 previous_pmn_estimate_vector->data, 1, \
                 0, temp_vector, 1);
 
-    // gsl_blas_dgemv( CblasNoTrans, 1.0, \
-    //                 fisher_matrix_sum, previous_pmn_estimate_vector, \
-    //                 0, temp_vector);
+    r = cblas_ddot(TOTAL_KZ_BINS, previous_pmn_estimate_vector->data, 1, temp_vector, 1) / TOTAL_KZ_BINS;
 
-    r = cblas_ddot(TOTAL_KZ_BINS, previous_pmn_estimate_vector->data, 1, temp_vector, 1);
-
-    // gsl_blas_ddot(previous_pmn_estimate_vector, temp_vector, &r);
-
-    r /= TOTAL_KZ_BINS;
     printf("Chi square convergence test: %.3f per dof. ", r);
     printf("Iteration converges when this is less than %.2f\n", CHISQ_CONVERGENCE_EPS);
 
