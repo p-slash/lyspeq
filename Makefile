@@ -46,8 +46,8 @@ endif
 
 ifeq ($(SYSTYPE),"LAPTOP") 
 CXX := clang++
-GSL_INCL = -I/usr/local/opt/gsl/include
-GSL_LIBS = -lgsl -lgslcblas -L/usr/local/opt/gsl/lib
+GSL_INCL = -I/usr/local/include
+GSL_LIBS = -lgsl -lgslcblas -L/usr/local/lib
 OMP_FLAG = -Xpreprocessor -fopenmp
 OMP_INCL = -I/usr/local/opt/libomp/include
 OMP_LIBS = -lomp -L/usr/local/opt/libomp/lib
