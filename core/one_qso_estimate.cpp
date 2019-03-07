@@ -219,7 +219,7 @@ void OneQSOEstimate::setCovarianceMatrix(const gsl_vector *ps_estimate)
 void OneQSOEstimate::invertCovarianceMatrix()
 {
     float t = get_time();
-    invert_matrix_cholesky(covariance_matrix);
+    invert_matrix_cholesky_2(covariance_matrix);
 
     isCovInverted = true;
 
@@ -384,13 +384,13 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
         fprintf(stderr, "ERROR %s: Covariance matrix is not invertable. %s\n", msg, qso_sp_fname);
         fprintf(stderr, "Npixels: %d\nMedian z: %.2f\nFlux: ", DATA_SIZE, MEDIAN_REDSHIFT);
         
-        for (int i = 0; i < DATA_SIZE; i++)     fprintf(stderr, "%.2lf ", flux_array[i]);
+        // for (int i = 0; i < DATA_SIZE; i++)     fprintf(stderr, "%.2lf ", flux_array[i]);
 
-        fprintf(stderr, "\nNoise: ");
+        // fprintf(stderr, "\nNoise: ");
 
-        for (int i = 0; i < DATA_SIZE; i++)     fprintf(stderr, "%.2lf ", noise_array[i]);
+        // for (int i = 0; i < DATA_SIZE; i++)     fprintf(stderr, "%.2lf ", noise_array[i]);
         
-        fprintf(stderr, "\n");
+        // fprintf(stderr, "\n");
     }
     
     freeMatrices();

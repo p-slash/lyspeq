@@ -11,6 +11,7 @@ double trace_of_2_sym_matrices(const gsl_matrix *A, const gsl_matrix *B);
 /* optimized for diagonal matrix B */
 double trace_of_2matrices(const gsl_matrix *A, const double *noise);
 
+void invert_matrix_cholesky_2(gsl_matrix *A);
 void invert_matrix_cholesky(gsl_matrix *A);
 void invert_matrix_LU(const gsl_matrix *A, gsl_matrix *Ainv);
 
