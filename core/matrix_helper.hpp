@@ -13,7 +13,7 @@ double trace_of_2matrices(const gsl_matrix *A, const double *noise);
 
 void invert_matrix_cholesky_2(gsl_matrix *A);
 void invert_matrix_cholesky(gsl_matrix *A);
-void invert_matrix_LU(const gsl_matrix *A, gsl_matrix *Ainv);
+void invert_matrix_LU(gsl_matrix *A, gsl_matrix *Ainv);
 
 void printf_matrix(const gsl_matrix *m);
 void fprintf_matrix(const char *fname, const gsl_matrix *m);
