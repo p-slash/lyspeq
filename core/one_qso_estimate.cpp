@@ -378,7 +378,7 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
     catch (const char* msg)
     {
         fprintf(stderr, "ERROR %s: Covariance matrix is not invertable. %s\n", msg, qso_sp_fname);
-        fprintf(stderr, "Npixels: %d\nMedian z: %.2f\nFlux: ", DATA_SIZE, MEDIAN_REDSHIFT);
+        fprintf(stderr, "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n", DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
         
         // for (int i = 0; i < DATA_SIZE; i++)     fprintf(stderr, "%.2lf ", flux_array[i]);
 
