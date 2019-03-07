@@ -371,10 +371,6 @@ void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
         invertCovarianceMatrix();
 
         computePSbeforeFvector();
-        
-        #ifdef DEBUG_ON
-        dump_all_matrices();
-        #endif
 
         gsl_matrix_add(fisher_sum, fisher_matrix);
         gsl_vector_add(pmn_before, ps_before_fisher_estimate_vector);
@@ -418,12 +414,6 @@ void OneQSOEstimate::freeMatrices()
 
     for (int i = 0; i < 2; i++)
         gsl_matrix_free(temp_matrix[i]); 
-}
-
-void OneQSOEstimate::dump_all_matrices()
-{    
-    fprintf_matrix("debugdump_covariance_matrix.dat", covariance_matrix); 
-    fprintf_matrix("debugdump_fisher_matrix.dat", fisher_matrix);
 }
 
 
