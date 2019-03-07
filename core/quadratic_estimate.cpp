@@ -205,6 +205,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 {
     char buf[500];
     float total_time = 0, total_time_1it = 0;
+    int threadnum = 1, numthreads = 1;
 
     double *powerspectra_fits = new double[TOTAL_KZ_BINS];
     gsl_vector_view fit_view  = gsl_vector_view_array(powerspectra_fits, TOTAL_KZ_BINS);
@@ -219,18 +220,22 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
         
-#pragma omp parallel
+#pragma omp parallel private(threadnum, numthreads)
 {
         #if defined(_OPENMP)
-        int threadnum = omp_get_thread_num(), numthreads = omp_get_num_threads();
+        threadnum  = omp_get_thread_num();
+        numthreads = omp_get_num_threads();
+        #endif
+
+        float thread_time = get_time();
+
         printf("Start working in %d/%d thread.\n", threadnum, numthreads);
         fflush(stdout);
-        #endif
 
         gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
         gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
 
-        #pragma omp for
+        #pragma omp for nowait
         for (int q = 0; q < NUMBER_OF_QSOS; q++)
         {
             if (qso_estimators[q]->ZBIN < 0 || qso_estimators[q]->ZBIN >= NUMBER_OF_Z_BINS)     continue;
@@ -238,6 +243,11 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             qso_estimators[q]->oneQSOiteration( &fit_view.vector, \
                                                 local_pmn_before_fisher_estimate_vs, local_fisher_ms);
         }
+
+        thread_time = get_time() - thread_time;
+
+        printf("Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n", threadnum, numthreads, thread_time);
+        fflush(stdout);
 
         #pragma omp critical
         {
