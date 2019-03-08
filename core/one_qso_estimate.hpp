@@ -62,13 +62,13 @@ public:
     OneQSOEstimate(const char *fname_qso);
     ~OneQSOEstimate();
 
-    void setCovarianceMatrix(const gsl_vector *ps_estimate);
+    void setCovarianceMatrix(const double *ps_estimate);
     void invertCovarianceMatrix();
 
     void computePSbeforeFvector();
     void computeFisherMatrix();
 
-    void oneQSOiteration(   const gsl_vector *ps_estimate, \
+    void oneQSOiteration(   const double *ps_estimate, \
                             gsl_vector *pmn_before, gsl_matrix *fisher_sum);
 };
 

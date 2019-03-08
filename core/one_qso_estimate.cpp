@@ -178,7 +178,7 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
     time_spent_set_qs += t;
 }
 
-void OneQSOEstimate::setCovarianceMatrix(const gsl_vector *ps_estimate)
+void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 {
     r_index = sq_lookup_table->findSpecResIndex(SPECT_RES_FWHM);
     
@@ -194,7 +194,7 @@ void OneQSOEstimate::setCovarianceMatrix(const gsl_vector *ps_estimate)
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
         setQiMatrix(temp_matrix[0], i_kz);
-        gsl_matrix_scale(temp_matrix[0], gsl_vector_get(ps_estimate, i_kz + fisher_index_start));
+        gsl_matrix_scale(temp_matrix[0], ps_estimate[i_kz + fisher_index_start]);
         gsl_matrix_add(covariance_matrix, temp_matrix[0]);
     }
 
@@ -355,7 +355,7 @@ void OneQSOEstimate::computePSbeforeFvector()
     gsl_vector_free(temp_vector);
 }
 
-void OneQSOEstimate::oneQSOiteration(   const gsl_vector *ps_estimate, \
+void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
                                         gsl_vector *pmn_before, gsl_matrix *fisher_sum)
 {
     allocateMatrices();
