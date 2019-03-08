@@ -269,7 +269,7 @@ void OneQSOEstimate::getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
     {
         setQiMatrix(Q_jkz_matrix, j_kz);
 
-        temp = 0.5 * trace_of_2_sym_matrices(Q_ikz_matrix, Q_jkz_matrix);
+        temp = 0.5 * trace_dsymm(Q_ikz_matrix, Q_jkz_matrix);
         throw_isnan(temp, "F=TrQwQw");
 
         gsl_matrix_set( fisher_matrix, \
@@ -290,8 +290,7 @@ void OneQSOEstimate::getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
 
 void OneQSOEstimate::computePSbeforeFvector()
 {
-    gsl_vector  *temp_vector            = gsl_vector_alloc(DATA_SIZE), \
-                *weighted_data_vector   = gsl_vector_alloc(DATA_SIZE);
+    gsl_vector  *weighted_data_vector = gsl_vector_alloc(DATA_SIZE);
 
     gsl_matrix  *Q_ikz_matrix = temp_matrix[0], \
                 *Sfid_matrix  = temp_matrix[1];
@@ -315,16 +314,8 @@ void OneQSOEstimate::computePSbeforeFvector()
         setQiMatrix(Q_ikz_matrix, i_kz);
 
         // Find data contribution to ps before F vector
-        // Q . (C-1 . flux)
-        cblas_dsymv(CblasRowMajor, CblasUpper, \
-                    DATA_SIZE, 1., Q_ikz_matrix->data, DATA_SIZE, \
-                    weighted_data_vector->data, 1, \
-                    0, temp_vector->data, 1);
-        
         // (C-1 . flux)T . Q . (C-1 . flux)
-        temp_d = cblas_ddot(DATA_SIZE, \
-                            weighted_data_vector->data, 1, \
-                            temp_vector->data, 1);
+        temp_d = my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix);
 
         throw_isnan(temp_d, "d");
 
@@ -332,7 +323,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         getWeightedMatrix(Q_ikz_matrix);
 
         // Get Noise contribution
-        temp_bk = trace_of_2matrices(Q_ikz_matrix, noise_array);
+        temp_bk = trace_ddiagmv(Q_ikz_matrix, noise_array);
         
         throw_isnan(temp_bk, "bk");
 
@@ -341,7 +332,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         {
             setFiducialSignalMatrix(Sfid_matrix);
 
-            temp_tk = trace_of_2_sym_matrices(Q_ikz_matrix, Sfid_matrix);
+            temp_tk = trace_dsymm(Q_ikz_matrix, Sfid_matrix);
 
             throw_isnan(temp_tk, "tk");
         }
@@ -353,7 +344,7 @@ void OneQSOEstimate::computePSbeforeFvector()
     }
 
     // printf("PS before f: %.3e\n", gsl_vector_get(ps_before_fisher_estimate_vector, 0));
-    gsl_vector_free(temp_vector);
+    gsl_vector_free(weighted_data_vector);
 }
 
 void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
