@@ -20,6 +20,31 @@
 #include <omp.h>
 #endif
 
+//-------------------------------------------------------
+int qso_cputime_compare(const void * a, const void * b)
+{
+    double t_a = ((const qso_computation_time*)a)->est_cpu_time, \
+           t_b = ((const qso_computation_time*)b)->est_cpu_time;
+
+    if (t_a <  t_b) return -1;
+    if (t_a == t_b) return 0;
+
+    return 1; //if (t_a >  t_b)
+}
+
+int index_of_min_element(double *a, int size)
+{
+    int i = 0;
+    for (int j = 1; j < size; j++)
+    {
+        if (a[j] < a[i])    i = j;
+    }
+
+    return i;
+}
+//-------------------------------------------------------
+
+
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
                                                         struct palanque_fit_params *pfp)
 {
@@ -55,20 +80,28 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     fclose(toRead);
 
     // Create objects for each QSO
-    qso_estimators = new OneQSOEstimate*[NUMBER_OF_QSOS];
+    qso_estimators = new qso_computation_time[NUMBER_OF_QSOS];
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
-        qso_estimators[q] = new OneQSOEstimate(fpaths[q].c_str());
-        
-        int temp_qso_zbin = qso_estimators[q]->ZBIN;
+        qso_estimators[q].qso = new OneQSOEstimate(fpaths[q].c_str());
+
+        int temp_qso_zbin = qso_estimators[q].qso->ZBIN;
 
         // See if qso does not belong to any redshift
         if (temp_qso_zbin < 0)                      temp_qso_zbin = -1;
         else if (temp_qso_zbin >= NUMBER_OF_Z_BINS) temp_qso_zbin = NUMBER_OF_Z_BINS;
         
+        if (temp_qso_zbin == -1 || temp_qso_zbin == NUMBER_OF_Z_BINS)
+            qso_estimators[q].est_cpu_time = 0;
+        else
+            qso_estimators[q].est_cpu_time = pow((double)qso_estimators[q].qso->DATA_SIZE, 3);
+
         Z_BIN_COUNTS[temp_qso_zbin + 1]++;
     }
+
+    
+    NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[NUMBER_OF_Z_BINS+1];
 
     printf("Z bin counts: ");
     for (int zm = 0; zm < NUMBER_OF_Z_BINS+2; zm++)
@@ -77,7 +110,10 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
     }
     printf("\n");
     printf("Number of quasars: %d\n", NUMBER_OF_QSOS);
-    printf("QSOs in z bins: %d\n",  NUMBER_OF_QSOS - Z_BIN_COUNTS[0] - Z_BIN_COUNTS[NUMBER_OF_Z_BINS+1]);
+    printf("QSOs in z bins: %d\n",  NUMBER_OF_QSOS - NUMBER_OF_QSOS_OUT);
+
+    printf("Sorting with respect to estimated cpu time.\n");
+    qsort(qso_estimators, NUMBER_OF_QSOS, sizeof(qso_computation_time), qso_cputime_compare);
 }
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
@@ -91,7 +127,7 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
-        delete qso_estimators[q];
+        delete qso_estimators[q].qso;
     }
 
     delete [] qso_estimators;
@@ -212,8 +248,31 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     float total_time = 0, total_time_1it = 0;
     int threadnum = 1, numthreads = 1;
 
+    std::vector<qso_computation_time*> *queue_qso;
+    std::vector<qso_computation_time*>::iterator it;
+
+    #if defined(_OPENMP)
+    numthreads = omp_get_num_threads();
+    #endif
+
+    // Load balancing
+    queue_qso = new std::vector<qso_computation_time*>[numthreads];
+
+    double *bucket_time = new double[numthreads]();
+
+    for (int q = NUMBER_OF_QSOS-1; q >= NUMBER_OF_QSOS_OUT; q--)
+    {
+        // find min time bucket
+        int i = index_of_min_element(bucket_time, numthreads);
+
+        // add to that bucket
+        queue_qso[i].push_back(&qso_estimators[q]);
+        bucket_time[i] += qso_estimators[q].est_cpu_time;
+    }
+
+    delete [] bucket_time;
+    
     double *powerspectra_fits = new double[TOTAL_KZ_BINS]();
-    // gsl_vector_view fit_view  = gsl_vector_view_array(powerspectra_fits, TOTAL_KZ_BINS);
 
     for (int i = 0; i < number_of_iterations; i++)
     {
@@ -224,14 +283,11 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
-        
-        // Load balancing
 
 #pragma omp parallel private(threadnum, numthreads)
 {
         #if defined(_OPENMP)
         threadnum  = omp_get_thread_num();
-        numthreads = omp_get_num_threads();
         #endif
 
         float thread_time = get_time();
@@ -241,14 +297,11 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
         gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
-
-        #pragma omp for nowait schedule(dynamic)
-        for (int q = 0; q < NUMBER_OF_QSOS; q++)
+        
+        for (it = queue_qso[threadnum].begin(); it != queue_qso[threadnum].end(); ++it)
         {
-            if (qso_estimators[q]->ZBIN < 0 || qso_estimators[q]->ZBIN >= NUMBER_OF_Z_BINS)     continue;
-
-            qso_estimators[q]->oneQSOiteration( powerspectra_fits, \
-                                                local_pmn_before_fisher_estimate_vs, local_fisher_ms);
+            (*it)->qso->oneQSOiteration(powerspectra_fits, \
+                                        local_pmn_before_fisher_estimate_vs, local_fisher_ms);
         }
 
         thread_time = get_time() - thread_time;
@@ -303,6 +356,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             break;
         }
     }
+
+    delete [] powerspectra_fits;
 }
 
 bool OneDQuadraticPowerEstimate::hasConverged()

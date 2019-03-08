@@ -19,8 +19,7 @@ class OneQSOEstimate
 {
     char qso_sp_fname[250];
     
-    int DATA_SIZE, \
-        SPECT_RES_FWHM;
+    int SPECT_RES_FWHM;
 
     int N_Q_MATRICES, fisher_index_start, r_index;
 
@@ -51,7 +50,7 @@ class OneQSOEstimate
     void getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz);
 
 public:
-    int ZBIN;
+    int ZBIN, DATA_SIZE;
 
     /* TOTAL_KZ_BINS sized vector */ 
     gsl_vector  *ps_before_fisher_estimate_vector;

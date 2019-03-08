@@ -11,14 +11,22 @@
 #include "one_qso_estimate.hpp"
 #include "fiducial_cosmology.hpp"
 
+typedef struct
+{
+    OneQSOEstimate *qso;
+    double est_cpu_time;
+} qso_computation_time;
+
+
 class OneDQuadraticPowerEstimate
 {
     int NUMBER_OF_QSOS, \
+        NUMBER_OF_QSOS_OUT, \
        *Z_BIN_COUNTS;
 
     struct palanque_fit_params *FIDUCIAL_PS_PARAMS;
 
-    OneQSOEstimate     **qso_estimators;
+    qso_computation_time *qso_estimators;
 
     /* TOTAL_KZ_BINS sized vector */ 
     gsl_vector  *pmn_before_fisher_estimate_vector_sum, \
