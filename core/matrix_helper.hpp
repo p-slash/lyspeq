@@ -2,14 +2,16 @@
 #define MATRIX_HELPER_H
 
 #include <gsl/gsl_matrix.h>
-#include <cstdio>
+#include <gsl/gsl_vector.h>
 
 void copy_upper2lower(gsl_matrix *A);
 
-double trace_of_2matrices(const gsl_matrix *A, const gsl_matrix *B);
-double trace_of_2_sym_matrices(const gsl_matrix *A, const gsl_matrix *B);
+double trace_dgemm(const gsl_matrix *A, const gsl_matrix *B);
+double trace_dsymm(const gsl_matrix *A, const gsl_matrix *B);
 /* optimized for diagonal matrix B */
-double trace_of_2matrices(const gsl_matrix *A, const double *noise);
+double trace_ddiagmv(const gsl_matrix *A, const double *noise);
+
+double my_cblas_dsymvdot(const gsl_vector *v, const gsl_matrix *S);
 
 void invert_matrix_cholesky_2(gsl_matrix *A);
 void invert_matrix_cholesky(gsl_matrix *A);
