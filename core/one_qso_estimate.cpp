@@ -326,6 +326,8 @@ void OneQSOEstimate::computePSbeforeFvector()
                             weighted_data_vector->data, 1, \
                             temp_vector->data, 1);
 
+        throw_isnan(temp_d, "d");
+
         // Get weighted derivative matrix ikz
         getWeightedMatrix(Q_ikz_matrix);
 
@@ -343,9 +345,7 @@ void OneQSOEstimate::computePSbeforeFvector()
 
             throw_isnan(temp_tk, "tk");
         }
-        
-        throw_isnan(temp_d - temp_bk - temp_tk, "d");
-        
+                
         gsl_vector_set(ps_before_fisher_estimate_vector, i_kz + fisher_index_start, temp_d - temp_bk - temp_tk);
         
         // Now compute Fisher Matrix
@@ -403,7 +403,7 @@ void OneQSOEstimate::allocateMatrices()
     ps_before_fisher_estimate_vector = gsl_vector_calloc(TOTAL_KZ_BINS);
     fisher_matrix                    = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
 
-    covariance_matrix         = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
+    covariance_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
 
     for (int i = 0; i < 2; i++)
         temp_matrix[i] = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
