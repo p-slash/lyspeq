@@ -104,7 +104,12 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     printf("Inverting Fisher matrix.\n");
     fflush(stdout);
 
-    invert_matrix_LU(fisher_matrix_sum, inverse_fisher_matrix_sum);
+    gsl_matrix *fisher_copy = gsl_matrix_alloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
+    gsl_matrix_memcpy(fisher_copy, fisher_matrix_sum);
+    
+    invert_matrix_LU(fisher_copy, inverse_fisher_matrix_sum);
+    
+    gsl_matrix_free(fisher_copy);
 
     isFisherInverted = true;
 
@@ -334,17 +339,10 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     printf("Old test: Iteration converges when this is less than %.1e\n", CONVERGENCE_EPS);
     
     // Perform a chi-square test as well
-    // gsl_vector *temp_vector = gsl_vector_alloc(TOTAL_KZ_BINS);
-    double *temp_vector = new double[TOTAL_KZ_BINS];
-
+    
     gsl_vector_sub(previous_pmn_estimate_vector, pmn_estimate_vector);
 
-    cblas_dsymv(CblasRowMajor, CblasUpper, \
-                TOTAL_KZ_BINS, 1., fisher_matrix_sum->data, TOTAL_KZ_BINS, \
-                previous_pmn_estimate_vector->data, 1, \
-                0, temp_vector, 1);
-
-    r = cblas_ddot(TOTAL_KZ_BINS, previous_pmn_estimate_vector->data, 1, temp_vector, 1) / TOTAL_KZ_BINS;
+    r = my_cblas_dsymvdot(previous_pmn_estimate_vector, fisher_matrix_sum);
 
     printf("Chi square convergence test: %.3f per dof. ", r);
     printf("Iteration converges when this is less than %.2f\n", CHISQ_CONVERGENCE_EPS);
