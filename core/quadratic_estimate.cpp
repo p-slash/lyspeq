@@ -284,7 +284,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
-#pragma omp parallel private(threadnum, numthreads)
+#pragma omp parallel private(threadnum)
 {
         #if defined(_OPENMP)
         threadnum  = omp_get_thread_num();
