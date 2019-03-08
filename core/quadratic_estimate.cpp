@@ -246,10 +246,34 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 {
     char buf[500];
     float total_time = 0, total_time_1it = 0;
-    int threadnum = 1, numthreads = 1;
+    int threadnum = 1, numthreads = 1, maxthreads = 1;
 
-    std::vector<qso_computation_time*> *queue_qso = NULL;
+    #if defined(_OPENMP)
+    maxthreads = omp_get_max_threads();
+    #endif
+
+    // Load Balancing
+    printf("Load balancing in for %d threads available.\n", maxthreads);
+    total_time_1it = get_time();
+
+    std::vector<qso_computation_time*> *queue_qso = new std::vector<qso_computation_time*>[maxthreads];
     std::vector<qso_computation_time*>::iterator it;
+
+    double *bucket_time = new double[maxthreads]();
+
+    for (int q = NUMBER_OF_QSOS-1; q >= NUMBER_OF_QSOS_OUT; q--)
+    {
+        // find min time bucket
+        int min_ind = index_of_min_element(bucket_time, maxthreads);
+
+        // add max time consuming to that bucket
+        queue_qso[min_ind].push_back(&qso_estimators[q]);
+        bucket_time[min_ind] += qso_estimators[q].est_cpu_time;
+    }
+
+    delete [] bucket_time;
+    total_time_1it = get_time() - total_time_1it;
+    printf("Load balancing took %.2f min in thread %d.\n", total_time_1it, threadnum);
     
     double *powerspectra_fits = new double[TOTAL_KZ_BINS]();
 
@@ -263,7 +287,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
-#pragma omp parallel private(threadnum, numthreads, it, queue_qso)
+#pragma omp parallel private(threadnum, numthreads, it)
 {
         #if defined(_OPENMP)
         threadnum  = omp_get_thread_num();
@@ -271,31 +295,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         #endif
 
         float thread_time = get_time();
-
-        // Load Balancing
-        if (queue_qso == NULL)
-        {
-            printf("Load balancing in %d/%d.\n", threadnum, numthreads);
-            queue_qso = new std::vector<qso_computation_time*>[numthreads];
-
-            double *bucket_time = new double[numthreads]();
-
-            for (int q = NUMBER_OF_QSOS-1; q >= NUMBER_OF_QSOS_OUT; q--)
-            {
-                // find min time bucket
-                int min_ind = index_of_min_element(bucket_time, numthreads);
-
-                // add max time consuming to that bucket
-                queue_qso[min_ind].push_back(&qso_estimators[q]);
-                bucket_time[min_ind] += qso_estimators[q].est_cpu_time;
-            }
-
-            delete [] bucket_time;
-            thread_time = get_time() - thread_time;
-            printf("Load balancing took %.2f min in thread %d.\n", thread_time, threadnum);
-        }
-
-        thread_time = get_time();
 
         printf("Start working in %d/%d thread.\n", threadnum, numthreads);
         fflush(stdout);
