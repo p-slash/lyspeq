@@ -250,27 +250,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
     std::vector<qso_computation_time*> *queue_qso;
     std::vector<qso_computation_time*>::iterator it;
-
-    #if defined(_OPENMP)
-    numthreads = omp_get_num_threads();
-    #endif
-
-    // Load balancing
-    queue_qso = new std::vector<qso_computation_time*>[numthreads];
-
-    double *bucket_time = new double[numthreads]();
-
-    for (int q = NUMBER_OF_QSOS-1; q >= NUMBER_OF_QSOS_OUT; q--)
-    {
-        // find min time bucket
-        int i = index_of_min_element(bucket_time, numthreads);
-
-        // add to that bucket
-        queue_qso[i].push_back(&qso_estimators[q]);
-        bucket_time[i] += qso_estimators[q].est_cpu_time;
-    }
-
-    delete [] bucket_time;
     
     double *powerspectra_fits = new double[TOTAL_KZ_BINS]();
 
@@ -284,13 +263,39 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
-#pragma omp parallel private(threadnum)
+#pragma omp parallel private(threadnum, numthreads, it) shared(queue_qso)
 {
         #if defined(_OPENMP)
         threadnum  = omp_get_thread_num();
+        numthreads = omp_get_num_threads();
         #endif
 
         float thread_time = get_time();
+
+        // Load Balancing
+    #pragma omp single
+    {
+        printf("Load balancing in %d/%d.\n", threadnum, numthreads);
+        queue_qso = new std::vector<qso_computation_time*>[numthreads];
+
+        double *bucket_time = new double[numthreads]();
+
+        for (int q = NUMBER_OF_QSOS-1; q >= NUMBER_OF_QSOS_OUT; q--)
+        {
+            // find min time bucket
+            int min_ind = index_of_min_element(bucket_time, numthreads);
+
+            // add to that bucket
+            queue_qso[min_ind].push_back(&qso_estimators[q]);
+            bucket_time[min_ind] += qso_estimators[q].est_cpu_time;
+        }
+
+        delete [] bucket_time;
+        thread_time = get_time() - thread_time;
+        printf("Load balancing took %.2f min in thread %d.\n", thread_time, threadnum);
+    }
+
+        thread_time = get_time();
 
         printf("Start working in %d/%d thread.\n", threadnum, numthreads);
         fflush(stdout);
