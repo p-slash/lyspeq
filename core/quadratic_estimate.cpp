@@ -272,7 +272,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
     delete [] bucket_time;
     total_time_1it = get_time() - total_time_1it;
-    printf("Load balancing took %.2f min in thread %d.\n", total_time_1it, threadnum);
+    printf("Load balancing took %.2f min.\n", total_time_1it);
     
     double *powerspectra_fits = new double[TOTAL_KZ_BINS]();
 
@@ -295,14 +295,13 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         float thread_time = get_time();
 
-        printf("Start working in %d/%d thread.\n", threadnum, numthreads);
-        fflush(stdout);
-
         gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
         gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
         std::vector<qso_computation_time*> *local_que     = &queue_qso[threadnum];
 
+        printf("Start working in %d/%d thread.\n", threadnum, numthreads);
         printf("Thread %d has %lu qso in its queue.\n", threadnum, local_que->size());
+        fflush(stdout);
 
         for (std::vector<qso_computation_time*>::iterator it = local_que->begin(); it != local_que->end(); ++it)
         {
@@ -404,7 +403,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     
     gsl_vector_sub(previous_pmn_estimate_vector, pmn_estimate_vector);
 
-    r = my_cblas_dsymvdot(previous_pmn_estimate_vector, fisher_matrix_sum);
+    r = my_cblas_dsymvdot(previous_pmn_estimate_vector, fisher_matrix_sum) / TOTAL_KZ_BINS;
 
     printf("Chi square convergence test: %.3f per dof. ", r);
     printf("Iteration converges when this is less than %.2f\n", CHISQ_CONVERGENCE_EPS);
