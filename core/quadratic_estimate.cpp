@@ -95,11 +95,10 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, 
         if (temp_qso_zbin == -1 || temp_qso_zbin == NUMBER_OF_Z_BINS)
             qso_estimators[q].est_cpu_time = 0;
         else
-            qso_estimators[q].est_cpu_time = pow((double)qso_estimators[q].qso->DATA_SIZE, 3);
+            qso_estimators[q].est_cpu_time = pow((double)(qso_estimators[q].qso->DATA_SIZE), 3);
 
         Z_BIN_COUNTS[temp_qso_zbin + 1]++;
     }
-
     
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[NUMBER_OF_Z_BINS+1];
 
@@ -253,6 +252,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     #endif
 
     // Load Balancing
+    //--------------------
     printf("Load balancing in for %d threads available.\n", maxthreads);
     total_time_1it = get_time();
 
@@ -270,10 +270,19 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         bucket_time[min_ind] += qso_estimators[q].est_cpu_time;
     }
 
+    printf("Balanced estimated cpu times: ");
+    for (int thr = 0; thr < maxthreads; ++thr)
+    {
+        printf("%.1e ", bucket_time[thr]);
+    }
+    printf("\n");
+
     delete [] bucket_time;
     total_time_1it = get_time() - total_time_1it;
     printf("Load balancing took %.2f min.\n", total_time_1it);
-    
+    // Done Load Balancing
+    //--------------------
+
     double *powerspectra_fits = new double[TOTAL_KZ_BINS]();
 
     for (int i = 0; i < number_of_iterations; i++)
@@ -293,21 +302,23 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         numthreads = omp_get_num_threads();
         #endif
 
+        if (numthreads != maxthreads)
+        {
+            fprintf(stderr, "ERROR: number of threads (%d) and load balanced no threads (%d) are not the same!\n", numthreads, maxthreads);
+            throw "THREAD";
+        }
+
         float thread_time = get_time();
 
         gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
         gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
         std::vector<qso_computation_time*> *local_que     = &queue_qso[threadnum];
 
-        printf("Start working in %d/%d thread.\n", threadnum, numthreads);
-        printf("Thread %d has %lu qso in its queue.\n", threadnum, local_que->size());
+        printf("Start working in %d/%d thread with %lu qso in queue.\n", threadnum, numthreads, local_que->size());
         fflush(stdout);
 
         for (std::vector<qso_computation_time*>::iterator it = local_que->begin(); it != local_que->end(); ++it)
-        {
-            (*it)->qso->oneQSOiteration(powerspectra_fits, \
-                                        local_pmn_before_fisher_estimate_vs, local_fisher_ms);
-        }
+            (*it)->qso->oneQSOiteration(powerspectra_fits, local_pmn_before_fisher_estimate_vs, local_fisher_ms);
 
         thread_time = get_time() - thread_time;
 
