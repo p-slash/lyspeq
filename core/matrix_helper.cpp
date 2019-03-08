@@ -1,6 +1,7 @@
 #include "matrix_helper.hpp"
 
 #include <gsl/gsl_linalg.h>
+#include <gsl/gsl_cblas.h>
 #include <gsl/gsl_permutation.h>
 
 void copy_upper2lower(gsl_matrix *A)
@@ -18,7 +19,7 @@ void copy_upper2lower(gsl_matrix *A)
     }
 }
 
-double trace_of_2matrices(const gsl_matrix *A, const gsl_matrix *B)
+double trace_dgemm(const gsl_matrix *A, const gsl_matrix *B)
 {
     int size = A->size1;
 
@@ -35,7 +36,7 @@ double trace_of_2matrices(const gsl_matrix *A, const gsl_matrix *B)
     return result;
 }
 
-double trace_of_2_sym_matrices(const gsl_matrix *A, const gsl_matrix *B)
+double trace_dsymm(const gsl_matrix *A, const gsl_matrix *B)
 {
     int size = A->size1;
 
@@ -51,7 +52,7 @@ double trace_of_2_sym_matrices(const gsl_matrix *A, const gsl_matrix *B)
 
     return result;   
 }
-double trace_of_2matrices(const gsl_matrix *A, const double *noise)
+double trace_ddiagmv(const gsl_matrix *A, const double *noise)
 {
     int size = A->size1;
 
@@ -65,6 +66,24 @@ double trace_of_2matrices(const gsl_matrix *A, const double *noise)
     }
 
     return result;
+}
+
+double my_cblas_dsymvdot(const gsl_vector *v, const gsl_matrix *S)
+{
+    int size = v->size;
+
+    double *temp_vector = new double[size], r;
+
+    cblas_dsymv(CblasRowMajor, CblasUpper, \
+                size, 1., S->data, size, \
+                v->data, 1, \
+                0, temp_vector, 1);
+
+    r = cblas_ddot(size, v->data, 1, temp_vector, 1) / size;
+
+    delete [] temp_vector;
+
+    return r;
 }
 
 void invert_matrix_cholesky_2(gsl_matrix *A)
