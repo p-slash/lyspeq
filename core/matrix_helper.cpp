@@ -79,7 +79,7 @@ double my_cblas_dsymvdot(const gsl_vector *v, const gsl_matrix *S)
                 v->data, 1, \
                 0, temp_vector, 1);
 
-    r = cblas_ddot(size, v->data, 1, temp_vector, 1) / size;
+    r = cblas_ddot(size, v->data, 1, temp_vector, 1);
 
     delete [] temp_vector;
 
