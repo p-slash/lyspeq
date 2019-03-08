@@ -257,7 +257,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     total_time_1it = get_time();
 
     std::vector<qso_computation_time*> *queue_qso = new std::vector<qso_computation_time*>[maxthreads];
-    std::vector<qso_computation_time*>::iterator it;
 
     double *bucket_time = new double[maxthreads]();
 
@@ -287,7 +286,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
-#pragma omp parallel private(threadnum, numthreads, it)
+#pragma omp parallel private(threadnum, numthreads)
 {
         #if defined(_OPENMP)
         threadnum  = omp_get_thread_num();
@@ -301,8 +300,11 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
         gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
-        
-        for (it = queue_qso[threadnum].begin(); it != queue_qso[threadnum].end(); ++it)
+        std::vector<qso_computation_time*> *local_que     = &queue_qso[threadnum];
+
+        printf("Thread %d has %lu qso in its queue.\n", threadnum, local_que->size());
+
+        for (std::vector<qso_computation_time*>::iterator it = local_que->begin(); it != local_que->end(); ++it)
         {
             (*it)->qso->oneQSOiteration(powerspectra_fits, \
                                         local_pmn_before_fisher_estimate_vs, local_fisher_ms);
