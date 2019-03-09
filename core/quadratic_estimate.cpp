@@ -262,6 +262,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
     for (int q = NUMBER_OF_QSOS-1; q >= NUMBER_OF_QSOS_OUT; q--)
     {
+        printf("QSO %d. EST CPU %e.\n", q, qso_estimators[q].est_cpu_time);
         // find min time bucket
         int min_ind = index_of_min_element(bucket_time, maxthreads);
 
@@ -271,10 +272,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     }
 
     printf("Balanced estimated cpu times: ");
-    for (int thr = 0; thr < maxthreads; ++thr)
-    {
-        printf("%.1e ", bucket_time[thr]);
-    }
+    for (int thr = 0; thr < maxthreads; ++thr)  printf("%.1e ", bucket_time[thr]);
     printf("\n");
 
     delete [] bucket_time;
