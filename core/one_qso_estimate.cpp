@@ -53,6 +53,31 @@ void compareTableTrue(double true_value, double table_value, const char *which_m
     }
 }
 
+void setNQandFisherIndex(int &nq, int &fi, int ZBIN)
+{
+    #ifdef TOPHAT_Z_BINNING_FN
+    nq = 1;
+    fi = getFisherMatrixIndex(0, ZBIN);
+    #endif
+
+    #ifdef TRIANGLE_Z_BINNING_FN
+    nq = 3;
+    fi = getFisherMatrixIndex(0, ZBIN - 1);
+
+    if (ZBIN == 0) 
+    {
+        nq = 2;
+        fi = 0;
+    }
+    else if (ZBIN == NUMBER_OF_Z_BINS - 1) 
+    {
+        nq = 2;
+    }
+    #endif
+
+    nq *= NUMBER_OF_K_BANDS;
+}
+
 OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 {
     sprintf(qso_sp_fname, "%s", fname_qso);
@@ -74,8 +99,12 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     qFile.readData(lambda_array, flux_array, noise_array);
 
     convert_flux2deltaf_mean(flux_array, noise_array, DATA_SIZE);
+    
+    for (int i = 0; i < DATA_SIZE; ++i)
+        noise_array[i] *= noise_array[i];
 
     convert_lambda2v(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
+
     printf("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
     printf("Median redshift of spectrum chunk: %.2f\n", MEDIAN_REDSHIFT);
 
@@ -86,31 +115,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     if (ZBIN >= 0 && ZBIN < NUMBER_OF_Z_BINS)   BIN_REDSHIFT = ZBIN_CENTERS[ZBIN];
     else                                        printf("This QSO does not belong to any redshift bin!\n");
     
-#ifdef TOPHAT_Z_BINNING_FN
-{
-    N_Q_MATRICES       = 1;
-    fisher_index_start = getFisherMatrixIndex(0, ZBIN);
-}
-#endif
-
-#ifdef TRIANGLE_Z_BINNING_FN
-{
-    N_Q_MATRICES       = 3;
-    fisher_index_start = getFisherMatrixIndex(0, ZBIN - 1);
-
-    if (ZBIN == 0) 
-    {
-        N_Q_MATRICES       = 2;
-        fisher_index_start = 0;
-    }
-    else if (ZBIN == NUMBER_OF_Z_BINS - 1) 
-    {
-        N_Q_MATRICES     = 2;
-    }
-}
-#endif
-
-    N_Q_MATRICES *= NUMBER_OF_K_BANDS;
+    setNQandFisherIndex(N_Q_MATRICES, fisher_index_start, ZBIN);
 
     isCovInverted    = false;
 }
@@ -198,16 +203,13 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
         gsl_matrix_add(covariance_matrix, temp_matrix[0]);
     }
 
-    double temp, nn;
+    double temp;
 
     for (int i = 0; i < DATA_SIZE; i++)
     {
-        nn = noise_array[i];
-        nn *= nn;
-
         temp = gsl_matrix_get(covariance_matrix, i, i);
 
-        gsl_matrix_set(covariance_matrix, i, i, temp + nn);
+        gsl_matrix_set(covariance_matrix, i, i, temp + noise_array[i]);
     }
 
     // printf_matrix(covariance_matrix, DATA_SIZE);
