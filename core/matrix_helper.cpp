@@ -52,18 +52,14 @@ double trace_dsymm(const gsl_matrix *A, const gsl_matrix *B)
 
     return result;   
 }
-double trace_ddiagmv(const gsl_matrix *A, const double *noise)
+double trace_ddiagmv(const gsl_matrix *A, const double *B)
 {
     int size = A->size1;
 
-    double result = 0., nn;
+    double result = 0.;
 
     for (int i = 0; i < size; i++)
-    {
-        nn = noise[i];
-
-        result += gsl_matrix_get(A, i, i) * nn * nn;
-    }
+        result += gsl_matrix_get(A, i, i) * B[i];
 
     return result;
 }
