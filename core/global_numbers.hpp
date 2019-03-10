@@ -16,7 +16,7 @@
 
 // Quadratic Estimate numbers
 #define CONVERGENCE_EPS       1E-4
-#define CHISQ_CONVERGENCE_EPS 0.01
+extern double CHISQ_CONVERGENCE_EPS;
 
 // Binning numbers
 extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
