@@ -33,7 +33,7 @@ int main(int argc, char const *argv[])
         NUMBER_OF_ITERATIONS;
 
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, \
-            Z_0;
+            Z_0, temp_chisq = -1;
     
     struct palanque_fit_params FIDUCIAL_PD13_PARAMS;
 
@@ -68,6 +68,7 @@ int main(int argc, char const *argv[])
         cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
 
         cFile.addKey("NumberOfIterations", &NUMBER_OF_ITERATIONS, INTEGER);
+        cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
 
         // Fiducial Palanque fit function parameters
         cFile.addKey("FiducialAmplitude",           &FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
@@ -75,7 +76,7 @@ int main(int argc, char const *argv[])
         cFile.addKey("FiducialCurvature",           &FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
         cFile.addKey("FiducialRedshiftPower",       &FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
         cFile.addKey("FiducialRedshiftCurvature",   &FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
-        cFile.addKey("FiducialLorentzianLambda",    &FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
+        cFile.addKey("FiducialLorentzianLambda",    &FIDUCIAL_PD13_PARAMS.lambda,DOUBLE);
 
         // Read integer if testing outside of Lya region
         int out_lya;
@@ -86,6 +87,8 @@ int main(int argc, char const *argv[])
         TURN_OFF_SFID = out_lya > 0;
 
         if (TURN_OFF_SFID)  printf("Fiducial signal matrix is turned off.\n");
+        
+        if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
         
         // Redshift and wavenumber bins are constructed
         set_up_bins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
