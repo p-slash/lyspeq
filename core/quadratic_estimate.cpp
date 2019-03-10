@@ -302,7 +302,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         if (numthreads != maxthreads)
         {
-            fprintf(stderr, "ERROR: number of threads (%d) and load balanced no threads (%d) are not the same!\n", numthreads, maxthreads);
+            fprintf(stderr, "ERROR: number of threads (%d) and load balanced no threads (%d) are not the same!\n", \
+                    numthreads, maxthreads);
             throw "THREAD";
         }
 
@@ -320,7 +321,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         thread_time = get_time() - thread_time;
 
-        printf("Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n", threadnum, numthreads, thread_time);
+        printf("Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n", \
+                threadnum, numthreads, thread_time);
         fflush(stdout);
 
         #pragma omp critical
@@ -409,10 +411,21 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     printf("Old test: Iteration converges when this is less than %.1e\n", CONVERGENCE_EPS);
     
     // Perform a chi-square test as well
+    // Maybe just do diagonal (dx)^2/F-1_ii
     
     gsl_vector_sub(previous_pmn_estimate_vector, pmn_estimate_vector);
 
-    r = my_cblas_dsymvdot(previous_pmn_estimate_vector, fisher_matrix_sum) / TOTAL_KZ_BINS;
+    r = 0;
+
+    for (i_kz = 0; i_kz < TOTAL_KZ_BINS; ++i_kz)
+    {
+        double  t = gsl_vector_get(previous_pmn_estimate_vector, i_kz), \
+                e = gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz);
+
+        r += (t*t) / e / TOTAL_KZ_BINS;
+    }
+
+    // r = my_cblas_dsymvdot(previous_pmn_estimate_vector, fisher_matrix_sum) / TOTAL_KZ_BINS;
 
     printf("Chi square convergence test: %.3f per dof. ", r);
     printf("Iteration converges when this is less than %.2f\n", CHISQ_CONVERGENCE_EPS);
