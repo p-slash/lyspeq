@@ -140,11 +140,6 @@ int main(int argc, char const *argv[])
         if (!TURN_OFF_SFID)
         {
             // Integrate fiducial signal matrix
-            time_spent_table_sfid = get_time();
-
-            printf("T%d/%d - Creating look up table for signal matrix...\n", threadnum, numthreads);
-            fflush(stdout);
-
             FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
 
             // Allocate memory to store results
@@ -153,9 +148,12 @@ int main(int argc, char const *argv[])
             #pragma omp for nowait
             for (int r = 0; r < NUMBER_OF_Rs; r++)
             {
+                time_spent_table_sfid = get_time();
+
                 win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
-                printf("%d of %d R values %d => %.2f km/s\n", \
-                        r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
+                
+                printf("T%d/%d - Creating look up table for signal matrix. R = %d : %.2f km/s.\n", \
+                        threadnum, numthreads, R_VALUES[r], win_params.spectrograph_res);
                 fflush(stdout);
 
                 STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
@@ -191,24 +189,20 @@ int main(int argc, char const *argv[])
                                         0, KBAND_EDGES[NUMBER_OF_K_BANDS]);
 
                 signal_table.writeData(big_temp_array);
+
+                time_spent_table_sfid = get_time() - time_spent_table_sfid;
+
+                printf("T:%d/%d - Time spent on fiducial signal matrix table R %d is %.2f mins.\n", \
+                        threadnum, numthreads, R_VALUES[r], time_spent_table_sfid);
             }
 
-            time_spent_table_sfid = get_time() - time_spent_table_sfid;
-
             delete [] big_temp_array;
-
-            printf("T:%d/%d - Time spent on fiducial signal matrix table is %.2f mins.\n", threadnum, numthreads, time_spent_table_sfid);
 
             // S matrices are written.
             // ---------------------
         }
 
         // Integrate derivative matrices
-        time_spent_table_q = get_time();
-
-        printf("T:%d/%d - Creating look up table for derivative signal matrices...\n", threadnum, numthreads);
-        fflush(stdout);
-
         // int subNz = Nz / NUMBER_OF_Z_BINS;
         FourierIntegrator q_integrator(GSL_INTEG_COSINE, q_matrix_integrand, &integration_parameters);
 
@@ -217,9 +211,11 @@ int main(int argc, char const *argv[])
         #pragma omp for
         for (int r = 0; r < NUMBER_OF_Rs; r++)
         {
+            time_spent_table_q = get_time();
+
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
-            printf("%d of %d R values %d => %.2f km/s\n", \
-                    r+1, NUMBER_OF_Rs, R_VALUES[r], win_params.spectrograph_res);
+            printf("T:%d/%d - Creating look up tables for derivative signal matrices. R = %d : %.2f km/s.\n", \
+                    threadnum, numthreads, R_VALUES[r], win_params.spectrograph_res);
             fflush(stdout);
 
             for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
@@ -253,14 +249,13 @@ int main(int argc, char const *argv[])
                 
                 derivative_signal_table.writeData(big_temp_array);
             }
+            
+            time_spent_table_q = get_time() - time_spent_table_q;
+            printf("T:%d/%d - Time spent on derivative matrix table R %d is %.2f mins.\n", \
+                    threadnum, numthreads, R_VALUES[r], time_spent_table_q);
         }
-        
-        time_spent_table_q = get_time() - time_spent_table_q;
-
         // Q matrices are written.
         // ---------------------
-
-        printf("T:%d/%d - Time spent on derivative matrix table is %.2f mins.\n", threadnum, numthreads, time_spent_table_q);
 
         delete [] big_temp_array;
 }
