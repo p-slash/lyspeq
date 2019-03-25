@@ -425,6 +425,8 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         r += (t*t) / e / TOTAL_KZ_BINS;
     }
 
+    r = sqrt(r);
+
     // r = my_cblas_dsymvdot(previous_pmn_estimate_vector, fisher_matrix_sum) / TOTAL_KZ_BINS;
 
     printf("Chi square convergence test: %.3f per dof. ", r);
