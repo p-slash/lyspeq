@@ -22,8 +22,6 @@
 #include <omp.h>
 #endif
 
-#define SPEED_OF_LIGHT 299792.458
-
 int main(int argc, char const *argv[])
 {
     const char *FNAME_CONFIG = argv[1];
