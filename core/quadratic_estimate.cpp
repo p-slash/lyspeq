@@ -14,7 +14,6 @@
 #include <cassert>
 
 #include <string>
-#include <vector>
 
 #if defined(_OPENMP)
 #include <omp.h>
@@ -241,22 +240,10 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     remove(tmp_fit_fname);
 }
 
-void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *fname_base)
+void OneDQuadraticPowerEstimate::loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads)
 {
-    char buf[500];
-    float total_time = 0, total_time_1it = 0;
-    int threadnum = 1, numthreads = 1, maxthreads = 1;
-
-    #if defined(_OPENMP)
-    maxthreads = omp_get_max_threads();
-    #endif
-
-    // Load Balancing
-    //--------------------
     printf("Load balancing in for %d threads available.\n", maxthreads);
-    total_time_1it = get_time();
-
-    std::vector<qso_computation_time*> *queue_qso = new std::vector<qso_computation_time*>[maxthreads];
+    float load_balance_time = get_time();
 
     double *bucket_time = new double[maxthreads]();
 
@@ -276,10 +263,23 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     printf("\n");
 
     delete [] bucket_time;
-    total_time_1it = get_time() - total_time_1it;
-    printf("Load balancing took %.2f min.\n", total_time_1it);
-    // Done Load Balancing
-    //--------------------
+    load_balance_time = get_time() - load_balance_time;
+    
+    printf("Load balancing took %.2f min.\n", load_balance_time);
+}
+
+void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *fname_base)
+{
+    char buf[500];
+    float total_time = 0, total_time_1it = 0;
+    int threadnum = 1, numthreads = 1, maxthreads = 1;
+
+    #if defined(_OPENMP)
+    maxthreads = omp_get_max_threads();
+    #endif
+
+    std::vector<qso_computation_time*> *queue_qso = new std::vector<qso_computation_time*>[maxthreads];
+    loadBalancing(queue_qso, maxthreads);
 
     double *powerspectra_fits = new double[TOTAL_KZ_BINS]();
 

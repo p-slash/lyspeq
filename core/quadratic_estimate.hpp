@@ -10,6 +10,7 @@
 
 #include "one_qso_estimate.hpp"
 #include "fiducial_cosmology.hpp"
+#include <vector>
 
 typedef struct
 {
@@ -40,6 +41,7 @@ class OneDQuadraticPowerEstimate
     bool isFisherInverted;
 
     void fitPowerSpectra(double *fit_values);
+    void loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads);
 
 public:
     OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
