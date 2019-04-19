@@ -12,32 +12,11 @@ ConfigFile::ConfigFile(const char *fname)
     no_params = 0;
 }
 
-int ConfigFile::getIndex(const char *key)
+void ConfigFile::addKey(const std::string key, void *variable, VariableType vt)
 {
-    for (int i = 0; i < no_params; i++)
-    {
-        if (strcmp(keys[i], key) == 0)
-        {
-            return i;
-        }
-    }
+    vpair new_pair = {variable, vt};
 
-    return -1;
-}
-
-void ConfigFile::addKey(const char *key, void *variable, VariableType vt)
-{
-    if (no_params == ConfigFile::MAX_PARAMETERS)
-    {
-        printf("WARNING: REACHED MAXIMUM NUMBER OF PARAMETERS THAT CAN BE READ IN A CONFIG FILE!!\n");
-
-        return;
-    }
-
-    types[no_params] = vt;
-    address[no_params] = variable;
-
-    strcpy(keys[no_params], key);
+    key_umap[key] = new_pair;
 
     no_params++;
 }
@@ -47,7 +26,6 @@ void ConfigFile::readAll()
     FILE *config_file = open_file(file_name, "r");
     
     char line[1024], buffer_key[200], buffer_value[200];
-    int index;
 
     while (!feof(config_file))
     {
@@ -59,26 +37,28 @@ void ConfigFile::readAll()
         if (sscanf(line, "%s %s", buffer_key, buffer_value) < 2)
             continue;
 
-        index = getIndex(buffer_key);
-
-        if (index == -1)
+        kumap_itr = key_umap.find(buffer_key);
+        
+        if (kumap_itr == key_umap.end())
         {
             printf("WARNING: %s NOT FOUND!\n", buffer_key);
         }
         else
         {
-            switch (types[index])
+            vpair *tmp_vp = &(*kumap_itr).second;
+
+            switch (tmp_vp->vt)
             {
                 case INTEGER:
-                    *((int *) address[index]) = atoi(buffer_value);
+                    *((int *) tmp_vp->address) = atoi(buffer_value);
                     break;
 
                 case DOUBLE:
-                    *((double *) address[index]) = atof(buffer_value);
+                    *((double *) tmp_vp->address) = atof(buffer_value);
                     break;
 
                 case STRING:
-                    strcpy((char *) address[index], buffer_value);
+                    strcpy((char *) tmp_vp->address, buffer_value);
                     break;
             }
         }
