@@ -28,9 +28,12 @@ extern float time_spent_on_c_inv, time_spent_on_f_inv;
 extern float time_spent_on_set_sfid, time_spent_set_qs, \
              time_spent_set_modqs, time_spent_set_fisher;
 
+extern float time_spent_on_q_interp, time_spent_on_q_copy;
+extern int   number_of_times_called_setq;
+
 extern bool TURN_OFF_SFID;
 
-extern SQLookupTable *sq_lookup_table;
+extern SQLookupTable *sq_lookup_table, *sq_private;
 
 void printf_time_spent_details();
 

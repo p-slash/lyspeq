@@ -141,7 +141,7 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
             v_ij = velocity_array[j] - velocity_array[i];
             z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
 
-            temp = sq_lookup_table->getSignalMatrixValue(v_ij, z_ij, r_index);
+            temp = sq_private->getSignalMatrixValue(v_ij, z_ij, r_index);
             gsl_matrix_set(sm, i, j, temp);
         }
     }
@@ -170,7 +170,7 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
             v_ij = velocity_array[j] - velocity_array[i];
             z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
             
-            temp = sq_lookup_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
+            temp = sq_private->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
             gsl_matrix_set(qi, i, j, temp);
         }
     }
@@ -185,7 +185,7 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
 
 void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 {
-    r_index = sq_lookup_table->findSpecResIndex(SPECT_RES_FWHM);
+    r_index = sq_private->findSpecResIndex(SPECT_RES_FWHM);
     
     if (r_index == -1)      throw "SPECRES not found in tables!";
 

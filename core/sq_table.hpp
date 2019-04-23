@@ -54,12 +54,17 @@ class SQLookupTable
 public:
     SQLookupTable(  const char *dir, const char *s_base, const char *q_base, \
                     const char *fname_rlist);
+    SQLookupTable(const SQLookupTable &sq);
+
     ~SQLookupTable();
     
     int findSpecResIndex(int spec_res) const;
 
     double getSignalMatrixValue(double v_ij, double z_ij, int r_index) const;
     double getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int r_index) const;
+
+    Interpolation*   getDerivativeMatrixInterp(int kn, int r_index) const;
+    Interpolation2D* getSignalMatrixInterp(int r_index) const;
 };
 
 #endif

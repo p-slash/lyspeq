@@ -124,7 +124,7 @@ int main(int argc, char const *argv[])
 
         int threadnum = 1, numthreads = 1;
 
-#pragma omp parallel private(buf, time_spent_table_sfid, time_spent_table_q, threadnum, numthreads)
+#pragma omp parallel firstprivate(time_spent_table_sfid, time_spent_table_q) private(buf, threadnum, numthreads)
 {       
         #if defined(_OPENMP)
         threadnum = omp_get_thread_num();
