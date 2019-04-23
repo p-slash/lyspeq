@@ -1,4 +1,4 @@
-// TODO: Check---and improve when possible---gsl functions
+// TODO: Thread Safety for interpolation!
 
 #include "quadratic_estimate.hpp"
 #include "matrix_helper.hpp"
@@ -293,7 +293,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
-#pragma omp parallel private(threadnum, numthreads)
+#pragma omp parallel private(threadnum, numthreads, sq_private)
 {
         #if defined(_OPENMP)
         threadnum  = omp_get_thread_num();
@@ -311,6 +311,10 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
         gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
+        
+        // Create private copy for interpolation since acc is not thread safe!
+        sq_private = new SQLookupTable(*sq_lookup_table);
+
         std::vector<qso_computation_time*> *local_que     = &queue_qso[threadnum];
 
         printf("Start working in %d/%d thread with %lu qso in queue.\n", threadnum, numthreads, local_que->size());
@@ -333,6 +337,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         
         gsl_vector_free(local_pmn_before_fisher_estimate_vs);
         gsl_matrix_free(local_fisher_ms);
+        delete sq_private;
 }
 
         #ifdef DEBUG_ON

@@ -13,7 +13,7 @@ double CHISQ_CONVERGENCE_EPS = 0.01;
 
 int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
 
-SQLookupTable *sq_lookup_table;
+SQLookupTable *sq_lookup_table, *sq_private;
 
 double *KBAND_EDGES, *KBAND_CENTERS;
 double  Z_BIN_WIDTH, *ZBIN_CENTERS;
@@ -21,6 +21,9 @@ double  Z_BIN_WIDTH, *ZBIN_CENTERS;
 float   time_spent_on_c_inv    = 0, time_spent_on_f_inv   = 0;
 float   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0, \
         time_spent_set_modqs   = 0, time_spent_set_fisher = 0;
+
+float   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
+int      number_of_times_called_setq = 0;
 
 bool TURN_OFF_SFID;
 
