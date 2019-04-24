@@ -141,7 +141,7 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
             v_ij = velocity_array[j] - velocity_array[i];
             z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
 
-            temp = sq_private->getSignalMatrixValue(v_ij, z_ij, r_index);
+            temp = sq_private_table->getSignalMatrixValue(v_ij, z_ij, r_index);
             gsl_matrix_set(sm, i, j, temp);
         }
     }
@@ -149,6 +149,10 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
     copy_upper2lower(sm);
 
     t = get_time() - t;
+
+    // #ifdef DEBUG_ON
+    // printf_matrix(sm);
+    // #endif
 
     #pragma omp atomic update
     time_spent_on_set_sfid += t;
@@ -170,7 +174,7 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
             v_ij = velocity_array[j] - velocity_array[i];
             z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
             
-            temp = sq_private->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
+            temp = sq_private_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
             gsl_matrix_set(qi, i, j, temp);
         }
     }
@@ -185,7 +189,7 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
 
 void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 {
-    r_index = sq_private->findSpecResIndex(SPECT_RES_FWHM);
+    r_index = sq_private_table->findSpecResIndex(SPECT_RES_FWHM);
     
     if (r_index == -1)      throw "SPECRES not found in tables!";
 
@@ -376,7 +380,7 @@ void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
     }
     catch (const char* msg)
     {
-        fprintf(stderr, "ERROR %s: Covariance matrix is not invertable. %s\n", msg, qso_sp_fname);
+        fprintf(stderr, "%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n", threadnum, numthreads, msg, qso_sp_fname);
         fprintf(stderr, "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n", DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
         
         // for (int i = 0; i < DATA_SIZE; i++)     fprintf(stderr, "%.2lf ", flux_array[i]);
