@@ -25,7 +25,7 @@ class OneDQuadraticPowerEstimate
         NUMBER_OF_QSOS_OUT, \
        *Z_BIN_COUNTS;
 
-    struct palanque_fit_params *FIDUCIAL_PS_PARAMS;
+    pd13_fit_params *FIDUCIAL_PS_PARAMS;
 
     qso_computation_time *qso_estimators;
 
@@ -45,7 +45,7 @@ class OneDQuadraticPowerEstimate
 
 public:
     OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
-                                struct palanque_fit_params *pfp);
+                                pd13_fit_params *pfp);
 
     ~OneDQuadraticPowerEstimate();
     
