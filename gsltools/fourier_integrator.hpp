@@ -3,6 +3,7 @@
 
 #include <gsl/gsl_integration.h>
 
+// NOT thread-safe! Create local copies.
 class FourierIntegrator
 {
     gsl_function F;
