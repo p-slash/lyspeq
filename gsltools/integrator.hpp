@@ -11,6 +11,20 @@ enum GSL_INTEGRATION_TYPE
 	GSL_GL
 };
 
+// Integrates a given function using a specified GSL integration algorithm.
+// NOT thread-safe! Create local copies.
+
+// Example:
+//     double f(double x, void *params)
+//     {
+//         double alpha = *(double *) params;
+//         double f = log(alpha*x) / sqrt(x);
+//         return f;
+//     }
+
+//     Integrator temp_integrator(GSL_QAGS, f, 1.);
+
+//     result = temp_integrator.evaluate(0, 1);
 class Integrator
 {
 	GSL_INTEGRATION_TYPE gsl_type;

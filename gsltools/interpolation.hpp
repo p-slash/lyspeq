@@ -9,12 +9,13 @@ enum GSL_INTERPOLATION_TYPE
 	GSL_CUBIC_INTERPOLATION
 };
 
-// Linear intepolation for given x and y arrays with size many elements.
+// Intepolation for given x and y arrays with size many elements.
 // Stores a copy of x and y arrays in spline.
-// accelerator is NOT thread safe
-// Example:
+// Accelerator is NOT thread safe. Create local copies.
+
+// Example for linear interpolation:
 //     double x[10], y[10];
-//     Interpolation tmp_interp(x, y, 10);
+//     Interpolation tmp_interp(GSL_LINEAR_INTERPOLATION, x, y, 10);
 //     double r = tmp_interp.evaluate((x[5]+x[6])/2.);
 class Interpolation
 {
@@ -28,7 +29,7 @@ public:
 	
 	Interpolation(GSL_INTERPOLATION_TYPE interp_type, const double *x, const double *y, long long int size);
 	Interpolation(const Interpolation &itp);
-	
+
 	~Interpolation();
 
 	void setNormalization(double norm);
