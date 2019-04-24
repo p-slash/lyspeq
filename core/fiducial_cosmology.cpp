@@ -1,4 +1,3 @@
-#include "fiducial_cosmology.hpp"
 #include "global_numbers.hpp"
 
 #include <cmath>
@@ -7,7 +6,7 @@ double fiducial_power_spectrum(double k, double z, void *params)
 {
     #ifdef PD13_FIT_FUNCTION
     {
-        struct palanque_fit_params *pfp = (struct palanque_fit_params *) params;
+        pd13_fit_params *pfp = (pd13_fit_params *) params;
         return Palanque_Delabrouille_etal_2013_fit(k, z, pfp);   
     }
     #endif
@@ -23,7 +22,7 @@ double signal_matrix_integrand(double k, void *params)
 {
     struct sq_integrand_params          *sqip = (struct sq_integrand_params*) params;
     struct spectrograph_windowfn_params *wp   = sqip->spec_window_params;
-    struct palanque_fit_params          *pfp  = sqip->fiducial_pd_params;
+    pd13_fit_params          *pfp  = sqip->fiducial_pd_params;
 
     double result = spectral_response_window_fn(k, wp);
 
@@ -66,7 +65,7 @@ double lnpoly2_power_spectrum(double lnk)
     return exp(lnkP);
 }
 
-double Palanque_Delabrouille_etal_2013_fit(double k, double z, struct palanque_fit_params *params)
+double Palanque_Delabrouille_etal_2013_fit(double k, double z, pd13_fit_params *params)
 {
     const double k_0 = 0.009; // s/km
     const double z_0 = 3.0;

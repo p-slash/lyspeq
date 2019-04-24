@@ -3,7 +3,7 @@
 
 #include "spectrograph_functions.hpp"
 
-struct palanque_fit_params
+typedef struct
 {
     double A;
     double n;
@@ -13,11 +13,11 @@ struct palanque_fit_params
     double beta;
 
     double lambda;
-};
+} pd13_fit_params;
 
 struct sq_integrand_params
 {
-    struct palanque_fit_params          *fiducial_pd_params;
+    pd13_fit_params                     *fiducial_pd_params;
     struct spectrograph_windowfn_params *spec_window_params;
 };
 
@@ -31,6 +31,6 @@ double debuggin_power_spectrum(double k);
 
 double lnpoly2_power_spectrum(double lnk);
 
-double Palanque_Delabrouille_etal_2013_fit(double k, double z, struct palanque_fit_params *params);
+double Palanque_Delabrouille_etal_2013_fit(double k, double z, pd13_fit_params *params);
 
 #endif
