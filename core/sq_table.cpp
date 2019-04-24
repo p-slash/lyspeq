@@ -93,8 +93,6 @@ SQLookupTable::SQLookupTable(   const char *dir, const char *s_base, const char 
 
 SQLookupTable::SQLookupTable(const SQLookupTable &sq)
 {
-    printf("start Copied!\n");
-    fflush(stdout);
     NUMBER_OF_R_VALUES = sq.NUMBER_OF_R_VALUES;
 
     N_V_POINTS      = sq.N_V_POINTS;
@@ -106,9 +104,6 @@ SQLookupTable::SQLookupTable(const SQLookupTable &sq)
     LENGTH_Z_OF_Q = sq.LENGTH_Z_OF_Q;
 
     R_VALUES = copyArrayAlloc<int>(sq.R_VALUES, NUMBER_OF_R_VALUES);
- 
-    printf("double and int Copied!\n");
-    fflush(stdout);
 
     interp2d_signal_matrices   = new Interpolation2D*[NUMBER_OF_R_VALUES];
     interp_derivative_matrices = new Interpolation*[NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS];
@@ -118,9 +113,6 @@ SQLookupTable::SQLookupTable(const SQLookupTable &sq)
         
     for (int q = 0; q < NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS; ++q)
         interp_derivative_matrices[q] = new Interpolation(*sq.interp_derivative_matrices[q]);
-    
-    printf("SQ Table Copied!\n");
-    fflush(stdout);
 }
 
 SQLookupTable::~SQLookupTable()
