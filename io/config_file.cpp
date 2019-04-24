@@ -14,6 +14,8 @@ ConfigFile::ConfigFile(const char *fname)
 
 void ConfigFile::addKey(const std::string key, void *variable, VariableType vt)
 {
+    if (variable == NULL)   return;
+    
     vpair new_pair = {variable, vt};
 
     key_umap[key] = new_pair;
