@@ -54,8 +54,6 @@ int main(int argc, char const *argv[])
         cFile.addKey("NumberOfLinearBins", &N_KLIN_BIN, INTEGER);
         cFile.addKey("NumberOfLog10Bins", &N_KLOG_BIN, INTEGER);
         cFile.addKey("NumberOfRedshiftBins", &NUMBER_OF_Z_BINS, INTEGER);
-
-        // cFile.addKey("PolynomialDegree", &POLYNOMIAL_FIT_DEGREE, INTEGER);
         
         cFile.addKey("SignalLookUpTableBase", FILEBASE_S, STRING);
         cFile.addKey("DerivativeSLookUpTableBase", FILEBASE_Q, STRING);

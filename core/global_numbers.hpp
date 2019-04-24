@@ -2,6 +2,7 @@
 #define GLOBAL_NUMBERS_H
 
 #include "sq_table.hpp"
+#include "fiducial_cosmology.hpp"
 
 // Mathematical numbers
 #define PI 3.14159265359
@@ -18,6 +19,9 @@
 #define CONVERGENCE_EPS       1E-4
 extern double CHISQ_CONVERGENCE_EPS;
 
+// OpenMP thread no and total number of threads
+extern int threadnum, numthreads;
+
 // Binning numbers
 extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
 extern double *KBAND_EDGES, *KBAND_CENTERS;
@@ -33,9 +37,11 @@ extern int   number_of_times_called_setq;
 
 extern bool TURN_OFF_SFID;
 
-extern SQLookupTable *sq_lookup_table;
-extern SQLookupTable *sq_private;
-#pragma omp threadprivate(sq_private)
+// Look up table, global and thread copy
+extern SQLookupTable *sq_shared_table, *sq_private_table;
+
+// OpenMP Threadprivate variables
+#pragma omp threadprivate(sq_private_table, threadnum)
 
 void printf_time_spent_details();
 
@@ -45,7 +51,12 @@ void set_up_bins(double k0, int nlin, double dklin, \
 
 void clean_up_bins();
 
-void read_config_file();
+void read_config_file(  const char *FNAME_CONFIG, \
+                        pd13_fit_params &FIDUCIAL_PD13_PARAMS, \
+                        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR, \
+                        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q, \
+                        int *NUMBER_OF_ITERATIONS, \
+                        int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V);
 
 float get_time(); // in minutes
 #endif
