@@ -45,10 +45,7 @@ class SQLookupTable
     Interpolation2D **interp2d_signal_matrices;
     Interpolation   **interp_derivative_matrices;
 
-    int getIndex4SignalMatrix(int nv, int nz, int r_index) const;
-
     int getIndex4DerivativeInterpolation(int kn, int r_index) const;
-    int getIndex4DerivativeMatrix(int nv, int kn, int r_index) const;
 
     void allocateTmpArrays();
     void deallocateTmpArrays();
@@ -62,6 +59,9 @@ public:
     ~SQLookupTable();
     
     int findSpecResIndex(int spec_res) const;
+
+    double getSignalMatrixValue(double v_ij, double z_ij, int r_index) const;
+    double getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int r_index) const;
 
     Interpolation*   getDerivativeMatrixInterp(int kn, int r_index) const;
     Interpolation2D* getSignalMatrixInterp(int r_index) const;
