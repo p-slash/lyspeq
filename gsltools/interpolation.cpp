@@ -27,6 +27,17 @@ Interpolation::Interpolation(GSL_INTERPOLATION_TYPE interp_type, const double *x
 	gsl_spline_init(spline, x, y, size);
 }
 
+Interpolation::Interpolation(const Interpolation &itp)
+{
+	normalization = itp.normalization;
+	lowest_x      = itp.lowest_x;
+	highest_x     = itp.highest_x;
+
+	accelerator = gsl_interp_accel_alloc();
+	spline      = gsl_spline_alloc(itp.spline->interp->type, itp.spline->size);
+	gsl_spline_init(spline, itp.spline->x, itp.spline->y, itp.spline->size);
+}
+
 Interpolation::~Interpolation()
 {
 	gsl_spline_free(spline);
