@@ -113,21 +113,12 @@ SQLookupTable::SQLookupTable(const SQLookupTable &sq)
     interp2d_signal_matrices   = new Interpolation2D*[NUMBER_OF_R_VALUES];
     interp_derivative_matrices = new Interpolation*[NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS];
 
-    // for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-    // {
-    //     double *sub_signal_array = &signal_array[r * N_V_POINTS * N_Z_POINTS_OF_S];
-    //     interp2d_signal_matrices[r] = new Interpolation2D(  INTERP_2D_TYPE, \
-    //                                                         LINEAR_V_ARRAY, LINEAR_Z_ARRAY, \
-    //                                                         sub_signal_array, \
-    //                                                         N_V_POINTS, N_Z_POINTS_OF_S);
-    // }
+    for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
+        interp2d_signal_matrices[r] = new Interpolation2D(*sq.interp2d_signal_matrices[r]);
         
-    // for (int q = 0; q < NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS; ++q)
-    // {
-    //     double *sub_q_array = &derivative_array[q * N_V_POINTS];
-
-    //     interp_derivative_matrices[q] = new Interpolation(INTERP_1D_TYPE, LINEAR_V_ARRAY, sub_q_array, N_V_POINTS);
-    // }
+    for (int q = 0; q < NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS; ++q)
+        interp_derivative_matrices[q] = new Interpolation(*sq.interp_derivative_matrices[q]);
+    
     printf("SQ Table Copied!\n");
     fflush(stdout);
 }

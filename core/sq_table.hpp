@@ -6,7 +6,7 @@
 
 // This table read, stores and interpolates pre-evaluated S and Q matrices for different 
 // spectral resolution (R) values. Here R is assumend to be an integer where c / R is in km/s.
-// NOT thread safe because of Interpolations
+// NOT thread safe because of Interpolations. Create local copies per thread
 
 // dir            : The directory where files live
 // s_base, q_base : File basenames. Signal matrices (S) as well as derivative matrices (Q) follows 
