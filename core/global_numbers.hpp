@@ -33,7 +33,9 @@ extern int   number_of_times_called_setq;
 
 extern bool TURN_OFF_SFID;
 
-extern SQLookupTable *sq_lookup_table, *sq_private;
+extern SQLookupTable *sq_lookup_table;
+extern SQLookupTable *sq_private;
+#pragma omp threadprivate(sq_private)
 
 void printf_time_spent_details();
 
