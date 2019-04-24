@@ -14,7 +14,6 @@
 #include "gsltools/integrator.hpp"
 #include "gsltools/fourier_integrator.hpp"
 
-#include "io/config_file.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/sq_lookup_table_file.hpp"
 
@@ -39,66 +38,22 @@ int main(int argc, char const *argv[])
          OUTPUT_FILEBASE_Q[300],\
          buf[500];
 
-    int N_KLIN_BIN, N_KLOG_BIN, \
-        NUMBER_OF_Rs, *R_VALUES, \
+    int NUMBER_OF_Rs, *R_VALUES, \
         Nv, Nz;
 
-    double  K_0, LIN_K_SPACING, LOG_K_SPACING, \
-            Z_0, \
-            PIXEL_WIDTH, LENGTH_V;
+    double PIXEL_WIDTH, LENGTH_V;
 
-    struct palanque_fit_params FIDUCIAL_PD13_PARAMS;
+    pd13_fit_params FIDUCIAL_PD13_PARAMS;
 
     try
     {
-        // Set up config file to read variables.
-        ConfigFile cFile(FNAME_CONFIG);
-
-        // Bin parameters
-        cFile.addKey("K0", &K_0, DOUBLE);
-        cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
-
-        cFile.addKey("LinearKBinWidth",  &LIN_K_SPACING, DOUBLE);
-        cFile.addKey("Log10KBinWidth",   &LOG_K_SPACING, DOUBLE);
-        cFile.addKey("RedshiftBinWidth", &Z_BIN_WIDTH,   DOUBLE);
-
-        cFile.addKey("NumberOfLinearBins",   &N_KLIN_BIN, INTEGER);
-        cFile.addKey("NumberOfLog10Bins",    &N_KLOG_BIN, INTEGER);
-        cFile.addKey("NumberOfRedshiftBins", &NUMBER_OF_Z_BINS,   INTEGER);
-        
-        // File names and paths
-        cFile.addKey("FileNameRList", FNAME_RLIST, STRING);
-        cFile.addKey("FileInputDir",  OUTPUT_DIR,  STRING);
-
-        cFile.addKey("SignalLookUpTableBase",       &OUTPUT_FILEBASE_S, STRING);
-        cFile.addKey("DerivativeSLookUpTableBase",  &OUTPUT_FILEBASE_Q, STRING);
-
-        // Integration grid parameters
-        cFile.addKey("NumberVPoints",   &Nv, INTEGER);
-        cFile.addKey("NumberZPoints",   &Nz, INTEGER);
-        cFile.addKey("PixelWidth",      &PIXEL_WIDTH, DOUBLE);
-        cFile.addKey("VelocityLength",  &LENGTH_V,    DOUBLE);
-
-        // Fiducial Palanque fit function parameters
-        cFile.addKey("FiducialAmplitude",           &FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
-        cFile.addKey("FiducialSlope",               &FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
-        cFile.addKey("FiducialCurvature",           &FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
-        cFile.addKey("FiducialRedshiftPower",       &FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
-        cFile.addKey("FiducialRedshiftCurvature",   &FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
-        cFile.addKey("FiducialLorentzianLambda",    &FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
-
-        // Read integer if testing outside of Lya region
-        int out_lya;
-        cFile.addKey("TurnOffBaseline", &out_lya, INTEGER);
-
-        cFile.readAll();
-
-        TURN_OFF_SFID = out_lya > 0;
-
-        if (TURN_OFF_SFID)  printf("Fiducial signal matrix is turned off.\n");
-
-        // Redshift and wavenumber bins are constructed
-        set_up_bins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
+        // Read variables from config file and set up bins.
+        read_config_file(   FNAME_CONFIG, \
+                            FIDUCIAL_PD13_PARAMS, \
+                            NULL, FNAME_RLIST, OUTPUT_DIR, NULL, \
+                            NULL, OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, \
+                            NULL, \
+                            &Nv, &Nz, &PIXEL_WIDTH, &LENGTH_V);
 
         gsl_set_error_handler_off();
 
@@ -119,16 +74,18 @@ int main(int argc, char const *argv[])
         // Reading R values done
         // ---------------------
 
-        double  z_first  = Z_0 - Z_BIN_WIDTH / 2., \
+        double  z_first  = ZBIN_CENTERS[0] - Z_BIN_WIDTH / 2., \
                 z_length = Z_BIN_WIDTH * NUMBER_OF_Z_BINS;
 
-        int threadnum = 1, numthreads = 1;
+        #if defined(_OPENMP)
+        omp_set_dynamic(0); // Turn off dynamic threads
+        numthreads = omp_get_max_threads();
+        #endif
 
-#pragma omp parallel firstprivate(time_spent_table_sfid, time_spent_table_q) private(buf, threadnum, numthreads)
+#pragma omp parallel firstprivate(time_spent_table_sfid, time_spent_table_q) private(buf)
 {       
         #if defined(_OPENMP)
         threadnum = omp_get_thread_num();
-        numthreads = omp_get_num_threads();
         #endif
         
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
