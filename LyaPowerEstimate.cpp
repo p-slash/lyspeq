@@ -7,10 +7,12 @@
 #include "core/global_numbers.hpp"
 #include "core/quadratic_estimate.hpp"
 #include "core/spectrograph_functions.hpp"
-#include "core/sq_table.hpp"
 
-#include "io/config_file.hpp"
 #include "io/io_helper_functions.hpp"
+
+#if defined(_OPENMP)
+#include <omp.h> // omp_get_thread_num()
+#endif
 
 int main(int argc, char const *argv[])
 {
@@ -29,71 +31,41 @@ int main(int argc, char const *argv[])
          OUTPUT_FILEBASE[300],\
          buf[500];
 
-    int N_KLIN_BIN, N_KLOG_BIN, \
-        NUMBER_OF_ITERATIONS;
-
-    double  K_0, LIN_K_SPACING, LOG_K_SPACING, \
-            Z_0, temp_chisq = -1;
+    int NUMBER_OF_ITERATIONS;
     
-    struct palanque_fit_params FIDUCIAL_PD13_PARAMS;
+    pd13_fit_params FIDUCIAL_PD13_PARAMS;
 
     OneDQuadraticPowerEstimate *qps = NULL;
 
     try
     {
-        // Set up config file to read variables.
-        ConfigFile cFile(FNAME_CONFIG);
+        // Read variables from config file and set up bins.
+        read_config_file(   FNAME_CONFIG, \
+                            FIDUCIAL_PD13_PARAMS, \
+                            FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR, \
+                            OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, \
+                            &NUMBER_OF_ITERATIONS, \
+                            NULL, NULL, NULL, NULL);
 
-        cFile.addKey("K0", &K_0, DOUBLE);
-        cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
+        sq_shared_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
 
-        cFile.addKey("LinearKBinWidth", &LIN_K_SPACING, DOUBLE);
-        cFile.addKey("Log10KBinWidth", &LOG_K_SPACING, DOUBLE);
-        cFile.addKey("RedshiftBinWidth", &Z_BIN_WIDTH, DOUBLE);
-
-        cFile.addKey("NumberOfLinearBins", &N_KLIN_BIN, INTEGER);
-        cFile.addKey("NumberOfLog10Bins", &N_KLOG_BIN, INTEGER);
-        cFile.addKey("NumberOfRedshiftBins", &NUMBER_OF_Z_BINS, INTEGER);
-        
-        cFile.addKey("SignalLookUpTableBase", FILEBASE_S, STRING);
-        cFile.addKey("DerivativeSLookUpTableBase", FILEBASE_Q, STRING);
-
-        cFile.addKey("FileNameList", FNAME_LIST, STRING);
-        cFile.addKey("FileNameRList", FNAME_RLIST, STRING);
-        cFile.addKey("FileInputDir", INPUT_DIR, STRING);
-
-        cFile.addKey("OutputDir", OUTPUT_DIR, STRING);
-        cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
-
-        cFile.addKey("NumberOfIterations", &NUMBER_OF_ITERATIONS, INTEGER);
-        cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
-
-        // Fiducial Palanque fit function parameters
-        cFile.addKey("FiducialAmplitude",           &FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
-        cFile.addKey("FiducialSlope",               &FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
-        cFile.addKey("FiducialCurvature",           &FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
-        cFile.addKey("FiducialRedshiftPower",       &FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
-        cFile.addKey("FiducialRedshiftCurvature",   &FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
-        cFile.addKey("FiducialLorentzianLambda",    &FIDUCIAL_PD13_PARAMS.lambda,DOUBLE);
-
-        // Read integer if testing outside of Lya region
-        int out_lya;
-        cFile.addKey("TurnOffBaseline", &out_lya, INTEGER);
-
-        cFile.readAll();
-
-        TURN_OFF_SFID = out_lya > 0;
-
-        if (TURN_OFF_SFID)  printf("Fiducial signal matrix is turned off.\n");
-        
-        if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
-        
-        // Redshift and wavenumber bins are constructed
-        set_up_bins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
-
-        sq_lookup_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
+        #if defined(_OPENMP)
+        omp_set_dynamic(0); // Turn off dynamic threads
+        numthreads = omp_get_max_threads();
+        #endif
 
         gsl_set_error_handler_off();
+        
+#pragma omp parallel
+{
+        #if defined(_OPENMP)
+        threadnum  = omp_get_thread_num();
+        #endif
+
+        // Create private copy for interpolation is not thread safe!
+        if (threadnum == 0)     sq_private_table = sq_shared_table;
+        else                    sq_private_table = new SQLookupTable(*sq_shared_table);
+}
 
         qps = new OneDQuadraticPowerEstimate(   FNAME_LIST, INPUT_DIR, \
                                                 &FIDUCIAL_PD13_PARAMS);
@@ -102,7 +74,7 @@ int main(int argc, char const *argv[])
         qps->iterate(NUMBER_OF_ITERATIONS, buf);
 
         delete qps;
-        delete sq_lookup_table;
+        delete sq_shared_table;
 
         clean_up_bins();
     }
