@@ -15,8 +15,8 @@ Makefile
 =====
 To choose between linear and cubic interpolation for one dimension, uncomment one of the following:
     
-    # OPT += -DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
     # OPT += -DINTERP_1D_TYPE=GSL_LINEAR_INTERPOLATION
+    # OPT += -DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
 
 To choose between bilinear and bicubic interpolation for two dimensions, uncomment one of the following:
 
