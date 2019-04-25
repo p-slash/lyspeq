@@ -160,10 +160,11 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
 
 void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
 {
-    float t = get_time();
+    float t = get_time(), t2;
 
     int kn, zm;
     double v_ij, z_ij, temp;
+
 
     getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
@@ -179,12 +180,23 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
         }
     }
 
+    t2 = get_time() - t;
+
     copy_upper2lower(qi);
 
     t = get_time() - t;
 
     #pragma omp atomic update
     time_spent_set_qs += t;
+
+    #pragma omp atomic update
+    number_of_times_called_setq++;
+
+    #pragma omp atomic update
+    time_spent_on_q_interp += t2;
+
+    #pragma omp atomic update
+    time_spent_on_q_copy += t - t2;
 }
 
 void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
