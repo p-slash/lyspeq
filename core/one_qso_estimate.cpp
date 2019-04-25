@@ -233,6 +233,8 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     isCovInverted = false;
 }
 
+// Calculate the inverse into temp_matrix[0]
+// Then swap the pointer with covariance matrix
 void OneQSOEstimate::invertCovarianceMatrix()
 {
     double t = get_time();

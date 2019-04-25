@@ -1,11 +1,6 @@
-/* This object stores and computes C, S, Q, Q-slash matrices,
- * as well as a power spectrum estimate and a fisher matrix for individual quasar spectra.
- * This object is called in OneDQuadraticPowerEstimate in quadratic_estimate.hpp
- * It takes the file for quasar spectra, n=NUMBER_OF_BANDS and k points to kband_edges.
- * Quasar spectrum file consists of a header followed by lambda, flux and noise. 
- * Wavelength is then converted into v spacing around the mean lambda.
- */
-
+// TODO: Adjust memory efficiency when specified in config file
+//  instead of 2 temp matrices, create n where n is estimated 
+//  using one matrix size given memory limitation in config.
 #ifndef ONE_QSO_ESTIMATE_H
 #define ONE_QSO_ESTIMATE_H
 
@@ -15,6 +10,14 @@
 int getFisherMatrixIndex(int kn, int zm);
 void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);
 
+// This object stores and computes C, S, Q, Q-slash matrices,
+// as well as a power spectrum estimate and a fisher matrix for individual quasar spectra.
+// This object is called in OneDQuadraticPowerEstimate in quadratic_estimate.hpp
+// It takes the filename for a quasar spectrum in constructor.
+// Quasar spectrum file consists of a header followed by lambda, flux and noise. 
+// Wavelength is then converted into v spacing around the median lambda.
+
+// The most efficient memory usage is 3 temp matrices
 class OneQSOEstimate
 {
     char qso_sp_fname[250];
