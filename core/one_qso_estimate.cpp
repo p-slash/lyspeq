@@ -183,7 +183,7 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
 
     if (isQjSet && i_kz >= N_Q_MATRICES - nqj_eff)
     {
-        printf("i%d j%d\n", i_kz, N_Q_MATRICES - i_kz - 1);
+        // printf("i%d j%d\n", i_kz, N_Q_MATRICES - i_kz - 1);
         gsl_matrix_memcpy(qi, stored_qj[N_Q_MATRICES - i_kz - 1]);
         return;
     }
