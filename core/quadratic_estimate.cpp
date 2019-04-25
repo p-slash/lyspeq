@@ -129,7 +129,7 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 {
-    float t = get_time();
+    double t = get_time();
 
     printf("Inverting Fisher matrix.\n");
     fflush(stdout);
@@ -239,7 +239,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 void OneDQuadraticPowerEstimate::loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads)
 {
     printf("Load balancing in for %d threads available.\n", maxthreads);
-    float load_balance_time = get_time();
+    double load_balance_time = get_time();
 
     double *bucket_time = new double[maxthreads]();
 
@@ -267,7 +267,7 @@ void OneDQuadraticPowerEstimate::loadBalancing(std::vector<qso_computation_time*
 void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *fname_base)
 {
     char buf[500];
-    float total_time = 0, total_time_1it = 0;
+    double total_time = 0, total_time_1it = 0;
 
     std::vector<qso_computation_time*> *queue_qso = new std::vector<qso_computation_time*>[numthreads];
     loadBalancing(queue_qso, numthreads);
@@ -286,7 +286,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
 #pragma omp parallel
 {
-        float thread_time = get_time();
+        double thread_time = get_time();
 
         gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
         gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);

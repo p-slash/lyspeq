@@ -28,12 +28,12 @@ extern double *KBAND_EDGES, *KBAND_CENTERS;
 extern double Z_BIN_WIDTH, *ZBIN_CENTERS;
 
 // Keeping track of time
-extern float time_spent_on_c_inv, time_spent_on_f_inv;
-extern float time_spent_on_set_sfid, time_spent_set_qs, \
+extern double time_spent_on_c_inv, time_spent_on_f_inv;
+extern double time_spent_on_set_sfid, time_spent_set_qs, \
              time_spent_set_modqs, time_spent_set_fisher;
 
-extern float time_spent_on_q_interp, time_spent_on_q_copy;
-extern int   number_of_times_called_setq;
+extern double time_spent_on_q_interp, time_spent_on_q_copy;
+extern long   number_of_times_called_setq;
 
 extern bool TURN_OFF_SFID;
 
@@ -58,5 +58,5 @@ void read_config_file(  const char *FNAME_CONFIG, \
                         int *NUMBER_OF_ITERATIONS, \
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V);
 
-float get_time(); // in minutes
+double get_time(); // in minutes
 #endif

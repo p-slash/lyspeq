@@ -20,12 +20,12 @@ SQLookupTable *sq_shared_table, *sq_private_table;
 double *KBAND_EDGES, *KBAND_CENTERS;
 double  Z_BIN_WIDTH, *ZBIN_CENTERS;
 
-float   time_spent_on_c_inv    = 0, time_spent_on_f_inv   = 0;
-float   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0, \
+double   time_spent_on_c_inv    = 0, time_spent_on_f_inv   = 0;
+double   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0, \
         time_spent_set_modqs   = 0, time_spent_set_fisher = 0;
 
-float   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
-int     number_of_times_called_setq = 0;
+double   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
+long     number_of_times_called_setq = 0;
 
 bool TURN_OFF_SFID;
 
@@ -35,7 +35,7 @@ void printf_time_spent_details()
     printf("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
 
     printf("Total time spent on setting Sfid is %.2f mins.\n",   time_spent_on_set_sfid);
-    printf("Total time spent on setting Qs is %.2f mins with %d calls. \nInterpolation: %.2f and Copy: %.2f.\n",     \
+    printf("Total time spent on setting Qs is %.2f mins with %lu calls. \nInterpolation: %.2f and Copy: %.2f.\n",     \
             time_spent_set_qs, number_of_times_called_setq, time_spent_on_q_interp, time_spent_on_q_copy);
     printf("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
     printf("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
@@ -81,13 +81,13 @@ void clean_up_bins()
     delete [] ZBIN_CENTERS;
 }
 
-float get_time()
+double get_time()
 {
     #if defined(_OPENMP)
     return omp_get_wtime() / 60.;
     #else
     clock_t t = clock();
-    return ((float) t) / CLOCKS_PER_SEC / 60.;
+    return ((double) t) / CLOCKS_PER_SEC / 60.;
     #endif
 }
 
