@@ -17,7 +17,7 @@ OPT += -DPD13_FIT_FUNCTION
 OPT += -DTRIANGLE_Z_BINNING_FN
 
 # Print out at debugging checkpoints
-# OPT += -DDEBUG_ON
+OPT += -DDEBUG_ON
 #--------------------------------------- Select target computer
 
 #SYSTYPE="GRACE"

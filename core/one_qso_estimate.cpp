@@ -118,6 +118,24 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     setNQandFisherIndex(N_Q_MATRICES, fisher_index_start, ZBIN);
 
     isCovInverted    = false;
+
+    // Number of Qj matrices to preload.
+    double size_m1 = (double)sizeof(double) * DATA_SIZE * DATA_SIZE / 1048576.; // in MB
+    
+    nqj_eff = MEMORY_ALLOC / size_m1 - 3;
+
+    if (nqj_eff <= 0 )   nqj_eff = 0;
+    else 
+    {
+        if (nqj_eff > N_Q_MATRICES)    nqj_eff = N_Q_MATRICES;
+
+        stored_qj = new gsl_matrix*[nqj_eff];
+    }
+
+    printf("Number of stored Q matrices: %d\n", nqj_eff);
+    fflush(stdout);
+
+    isQjSet = false;
 }
 
 OneQSOEstimate::~OneQSOEstimate()
@@ -160,6 +178,16 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
 
 void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
 {
+    #pragma omp atomic update
+    number_of_times_called_setq++;
+
+    if (isQjSet && i_kz >= N_Q_MATRICES - nqj_eff)
+    {
+        printf("i%d j%d\n", i_kz, N_Q_MATRICES - i_kz - 1);
+        gsl_matrix_memcpy(qi, stored_qj[N_Q_MATRICES - i_kz - 1]);
+        return;
+    }
+
     double t = get_time(), t2;
 
     int kn, zm;
@@ -187,9 +215,6 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
 
     #pragma omp atomic update
     time_spent_set_qs += t;
-
-    #pragma omp atomic update
-    number_of_times_called_setq++;
 
     #pragma omp atomic update
     time_spent_on_q_interp += t2;
@@ -367,6 +392,12 @@ void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
     fflush(stdout);
     #endif
 
+    // Preload last nqj_eff matrices
+    // 0 is the last matrix
+    for (int j_kz = 0; j_kz < nqj_eff; j_kz++)
+        setQiMatrix(stored_qj[j_kz], N_Q_MATRICES - j_kz - 1);
+    isQjSet = true;
+
     setCovarianceMatrix(ps_estimate);
     #ifdef DEBUG_ON
     printf("Set\n");
@@ -411,6 +442,9 @@ void OneQSOEstimate::allocateMatrices()
 
     for (int i = 0; i < 2; i++)
         temp_matrix[i] = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
+    for (int i = 0; i < nqj_eff; i++)
+        stored_qj[i] = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
+    isQjSet = false;
 }
 
 void OneQSOEstimate::freeMatrices()
@@ -421,7 +455,10 @@ void OneQSOEstimate::freeMatrices()
     gsl_matrix_free(covariance_matrix);
 
     for (int i = 0; i < 2; i++)
-        gsl_matrix_free(temp_matrix[i]); 
+        gsl_matrix_free(temp_matrix[i]);
+    for (int i = 0; i < nqj_eff; i++)
+        gsl_matrix_free(stored_qj[i]);
+    isQjSet = false;
 }
 
 

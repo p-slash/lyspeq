@@ -20,6 +20,8 @@ SQLookupTable *sq_shared_table, *sq_private_table;
 double *KBAND_EDGES, *KBAND_CENTERS;
 double  Z_BIN_WIDTH, *ZBIN_CENTERS;
 
+double MEMORY_ALLOC = 0;
+
 double   time_spent_on_c_inv    = 0, time_spent_on_f_inv   = 0;
 double   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0, \
         time_spent_set_modqs   = 0, time_spent_set_fisher = 0;
@@ -149,6 +151,8 @@ void read_config_file(  const char *FNAME_CONFIG, \
 
     // Read integer if testing outside of Lya region
     cFile.addKey("TurnOffBaseline", &sfid_off, INTEGER);
+
+    cFile.addKey("AllocatedMemoryMB", &MEMORY_ALLOC, DOUBLE);
     cFile.readAll();
 
     TURN_OFF_SFID = sfid_off > 0;
