@@ -27,6 +27,8 @@ extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
 extern double *KBAND_EDGES, *KBAND_CENTERS;
 extern double Z_BIN_WIDTH, *ZBIN_CENTERS;
 
+extern double MEMORY_ALLOC;
+
 // Keeping track of time
 extern double time_spent_on_c_inv, time_spent_on_f_inv;
 extern double time_spent_on_set_sfid, time_spent_set_qs, \
