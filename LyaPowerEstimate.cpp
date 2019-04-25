@@ -74,7 +74,7 @@ int main(int argc, char const *argv[])
         qps->iterate(NUMBER_OF_ITERATIONS, buf);
 
         delete qps;
-        delete sq_shared_table;
+        // delete sq_shared_table;
 
         clean_up_bins();
     }

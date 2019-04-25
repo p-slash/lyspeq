@@ -51,4 +51,4 @@ DerivativeSLookUpTableBase   derivative_zon_long_lookup
 # The maximum number of iterations are
 NumberOfIterations 15
 
-AllocatedMemoryMB 10.
+AllocatedMemoryMB 5.
