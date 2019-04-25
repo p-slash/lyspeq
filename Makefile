@@ -58,7 +58,7 @@ ifeq ($(SYSTYPE),"XE18_icpcMKL")
 CXX := icpc -DMKL_ILP64
 GSL_INCL = -I${GSL_DIR}/include -I${MKLROOT}/include
 GSL_LIBS = -L${GSL_DIR}/lib -L${MKLROOT}/lib/intel64 -lgsl
-OMP_FLAG = -openmp
+OMP_FLAG = -qopenmp
 OMP_INCL =
 OMP_LIBS = -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
 endif
