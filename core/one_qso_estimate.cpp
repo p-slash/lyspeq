@@ -130,7 +130,7 @@ OneQSOEstimate::~OneQSOEstimate()
 
 void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
 {
-    float t = get_time();
+    double t = get_time();
 
     double v_ij, z_ij, temp;
 
@@ -160,11 +160,10 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
 
 void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
 {
-    float t = get_time(), t2;
+    double t = get_time(), t2;
 
     int kn, zm;
     double v_ij, z_ij, temp;
-
 
     getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
@@ -236,7 +235,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
 void OneQSOEstimate::invertCovarianceMatrix()
 {
-    float t = get_time();
+    double t = get_time();
 
     inverse_covariance_matrix  = temp_matrix[0];
 
@@ -255,7 +254,7 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
 void OneQSOEstimate::getWeightedMatrix(gsl_matrix *m)
 {
-    float t = get_time();
+    double t = get_time();
 
     //C-1 . Q
     cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper, \
@@ -280,7 +279,7 @@ void OneQSOEstimate::getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
     double temp;
     gsl_matrix *Q_jkz_matrix = temp_matrix[1];
 
-    float t = get_time();
+    double t = get_time();
     
     // Now compute Fisher Matrix
     for (int j_kz = i_kz; j_kz < N_Q_MATRICES; j_kz++)
@@ -312,12 +311,6 @@ void OneQSOEstimate::computePSbeforeFvector()
 
     gsl_matrix  *Q_ikz_matrix = temp_matrix[0], \
                 *Sfid_matrix  = temp_matrix[1];
-
-    /*
-    cblas_dsymv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo, 
-                const int N, const double alpha, const double * A, const int lda,
-                const double * x, const int incx, const double beta, double * y, const int incy)
-    */
 
     cblas_dsymv(CblasRowMajor, CblasUpper, \
                 DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE, \
@@ -356,8 +349,6 @@ void OneQSOEstimate::computePSbeforeFvector()
         }
                 
         gsl_vector_set(ps_before_fisher_estimate_vector, i_kz + fisher_index_start, temp_d - temp_bk - temp_tk);
-        
-        // Now compute Fisher Matrix
         getFisherMatrix(Q_ikz_matrix, i_kz);
     }
 
@@ -392,8 +383,10 @@ void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
     }
     catch (const char* msg)
     {
-        fprintf(stderr, "%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n", threadnum, numthreads, msg, qso_sp_fname);
-        fprintf(stderr, "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n", DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
+        fprintf(stderr, "%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n", \
+                threadnum, numthreads, msg, qso_sp_fname);
+        fprintf(stderr, "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n", \
+                DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
         
         // for (int i = 0; i < DATA_SIZE; i++)     fprintf(stderr, "%.2lf ", flux_array[i]);
 
