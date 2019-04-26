@@ -42,13 +42,13 @@ endif
 # Parallel Studio XE 2018
 # Linux, GNU compiler, Intel(R) 64 arch
 # OpenMP threading with GNU
-# Static linking
+# Dynamic linking
 ifeq ($(SYSTYPE),"GNU_XE18MKL") 
 CXX := g++ -DMKL_ILP64 -m64
 GSL_INCL = -I${GSL_DIR}/include
 GSL_LIBS = -L${GSL_DIR}/lib -lgsl
 MKL_INCL = -I${MKLROOT}/include
-MKL_LIBS = -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group 
+MKL_LIBS = -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core 
 OMP_FLAG = -fopenmp
 OMP_INCL =
 OMP_LIBS = -lgomp -lpthread -lm -ldl
@@ -57,13 +57,13 @@ endif
 # Parallel Studio XE 2015 and 2018
 # Linux, Intel compiler, Intel(R) 64 arch
 # OpenMP threading with Intel
-# Static linking
+# Dynamic linking
 ifeq ($(SYSTYPE),"XE18_icpcMKL") 
 CXX := icpc -DMKL_ILP64
 GSL_INCL = -I${GSL_DIR}/include 
 GSL_LIBS = -L${GSL_DIR}/lib -lgsl
 MKL_INCL = -I${MKLROOT}/include
-MKL_LIBS = -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group  
+MKL_LIBS = -L${MKLROOT}/lib/intel64 -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core
 OMP_FLAG = -qopenmp
 OMP_INCL =
 OMP_LIBS = -liomp5 -lpthread -lm -ldl
