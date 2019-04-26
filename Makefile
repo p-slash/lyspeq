@@ -30,8 +30,10 @@ SYSTYPE="LAPTOP"
 
 ifeq ($(SYSTYPE),"GRACEicc") 
 CXX := icpc -DMKL_ILP64 -mkl=parallel 
-GSL_INCL = -I${GSL_DIR}/include -I${MKLROOT}/include
-GSL_LIBS = -L${GSL_DIR}/lib -L${MKLROOT}/lib/intel64 -lgsl
+GSL_INCL = -I${GSL_DIR}/include
+GSL_LIBS = -L${GSL_DIR}/lib -lgsl
+MKL_INCL = -I${MKLROOT}/include
+MKL_LIBS = -L${MKLROOT}/lib/intel64 
 OMP_FLAG = -openmp
 OMP_INCL =
 OMP_LIBS = -liomp5 -lpthread -lm -ldl
@@ -43,8 +45,10 @@ endif
 # Static linking
 ifeq ($(SYSTYPE),"GNU_XE18MKL") 
 CXX := g++ -DMKL_ILP64 -m64
-GSL_INCL = -I${GSL_DIR}/include -I${MKLROOT}/include
-GSL_LIBS = -L${GSL_DIR}/lib -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lgsl
+GSL_INCL = -I${GSL_DIR}/include
+GSL_LIBS = -L${GSL_DIR}/lib -lgsl
+MKL_INCL = -I${MKLROOT}/include
+MKL_LIBS = -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_gnu_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group 
 OMP_FLAG = -fopenmp
 OMP_INCL =
 OMP_LIBS = -lgomp -lpthread -lm -ldl
@@ -56,8 +60,10 @@ endif
 # Static linking
 ifeq ($(SYSTYPE),"XE18_icpcMKL") 
 CXX := icpc -DMKL_ILP64
-GSL_INCL = -I${GSL_DIR}/include -I${MKLROOT}/include
-GSL_LIBS = -L${GSL_DIR}/lib -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group  -lgsl
+GSL_INCL = -I${GSL_DIR}/include 
+GSL_LIBS = -L${GSL_DIR}/lib -lgsl
+MKL_INCL = -I${MKLROOT}/include
+MKL_LIBS = -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group  
 OMP_FLAG = -qopenmp
 OMP_INCL =
 OMP_LIBS = -liomp5 -lpthread -lm -ldl
@@ -67,6 +73,8 @@ ifeq ($(SYSTYPE),"GRACE")
 CXX := g++
 GSL_INCL = -I${GSL_DIR}/include
 GSL_LIBS = -lgsl -lgslcblas -L${GSL_DIR}/lib
+MKL_INCL =
+MKL_LIBS =  
 OMP_FLAG = -fopenmp
 OMP_INCL =
 OMP_LIBS =
@@ -76,6 +84,8 @@ ifeq ($(SYSTYPE),"LAPTOP")
 CXX := clang++
 GSL_INCL = -I/usr/local/include
 GSL_LIBS = -lgsl -lgslcblas -L/usr/local/lib
+MKL_INCL =
+MKL_LIBS = 
 OMP_FLAG = -Xpreprocessor -fopenmp
 OMP_INCL = -I/usr/local/opt/libomp/include
 OMP_LIBS = -lomp -L/usr/local/opt/libomp/lib
@@ -95,7 +105,6 @@ COREDIR := core
 IODIR := io
 GSLTOOLSDIR := gsltools
 
-
 SRCEXT := cpp
 
 CORESOURCES := $(shell find $(COREDIR) -type f -name '*.$(SRCEXT)')
@@ -107,8 +116,8 @@ GSLTOOLSOBJECTS := $(patsubst %, %.o, $(basename $(GSLTOOLSSOURCES)))
 IOSOURCES := $(shell find $(IODIR) -type f -name '*.$(SRCEXT)')
 IOOBJECTS := $(patsubst %, %.o, $(basename $(IOSOURCES)))
 
-CPPFLAGS := $(OMP_FLAG) -std=gnu++11 $(GSLRECFLAGS) $(GSL_INCL) $(OMP_INCL) $(OPT)
-LDLIBS := $(GSL_LIBS) $(OMP_LIBS) 
+CPPFLAGS := $(OMP_FLAG) -std=gnu++11 $(GSLRECFLAGS) $(GSL_INCL) $(MKL_INCL) $(OMP_INCL) $(OPT)
+LDLIBS := $(GSL_LIBS) $(MKL_LIBS) $(OMP_LIBS) 
 	
 all: LyaPowerEstimate CreateSQLookUpTable
 	
