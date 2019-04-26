@@ -11,6 +11,7 @@
 #endif
 
 double CHISQ_CONVERGENCE_EPS = 0.01;
+double MEMORY_ALLOC          = 0;
 
 int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
 int threadnum = 0, numthreads = 1;
@@ -20,14 +21,12 @@ SQLookupTable *sq_shared_table, *sq_private_table;
 double *KBAND_EDGES, *KBAND_CENTERS;
 double  Z_BIN_WIDTH, *ZBIN_CENTERS;
 
-double MEMORY_ALLOC = 0;
-
 double   time_spent_on_c_inv    = 0, time_spent_on_f_inv   = 0;
 double   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0, \
-        time_spent_set_modqs   = 0, time_spent_set_fisher = 0;
+         time_spent_set_modqs   = 0, time_spent_set_fisher = 0;
 
 double   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
-long     number_of_times_called_setq = 0;
+long     number_of_times_called_setq = 0, number_of_times_called_setsfid = 0;
 
 bool TURN_OFF_SFID;
 
@@ -36,9 +35,11 @@ void printf_time_spent_details()
     printf("Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
     printf("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
 
-    printf("Total time spent on setting Sfid is %.2f mins.\n",   time_spent_on_set_sfid);
-    printf("Total time spent on setting Qs is %.2f mins with %lu calls. \nInterpolation: %.2f and Copy: %.2f.\n",     \
+    printf("Total time spent on setting Sfid is %.2f mins with %lu calls.\n", \
+            time_spent_on_set_sfid, number_of_times_called_setsfid);
+    printf("Total time spent on setting Qs is %.2f mins with %lu calls. \nInterpolation: %.2f and Copy: %.2f.\n", \
             time_spent_set_qs, number_of_times_called_setq, time_spent_on_q_interp, time_spent_on_q_copy);
+    
     printf("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
     printf("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
 }

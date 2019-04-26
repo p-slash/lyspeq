@@ -20,6 +20,7 @@
 extern double CHISQ_CONVERGENCE_EPS;
 
 // OpenMP thread no and total number of threads
+// threadnum is threadprivate
 extern int threadnum, numthreads;
 
 // Binning numbers
@@ -32,10 +33,10 @@ extern double MEMORY_ALLOC;
 // Keeping track of time
 extern double time_spent_on_c_inv, time_spent_on_f_inv;
 extern double time_spent_on_set_sfid, time_spent_set_qs, \
-             time_spent_set_modqs, time_spent_set_fisher;
+              time_spent_set_modqs, time_spent_set_fisher;
 
 extern double time_spent_on_q_interp, time_spent_on_q_copy;
-extern long   number_of_times_called_setq;
+extern long   number_of_times_called_setq, number_of_times_called_setsfid;
 
 extern bool TURN_OFF_SFID;
 
