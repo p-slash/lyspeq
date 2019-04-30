@@ -36,22 +36,16 @@ double trace_dgemm(const gsl_matrix *A, const gsl_matrix *B)
     return result;
 }
 
+// Assume A and B square symmetric matrices.
+// No stride or whatsoever. Continous allocation
+// Uses CBLAS dot product.
 double trace_dsymm(const gsl_matrix *A, const gsl_matrix *B)
 {
     int size = A->size1;
 
-    double result = 0.;
-
-    for (int i = 0; i < size; i++)
-    {
-        for (int j = 0; j < size; j++)
-        {
-            result += gsl_matrix_get(A, i, j) * gsl_matrix_get(B, i, j);
-        }
-    }
-
-    return result;   
+    return cblas_ddot(size, A->data, 1, B->data, 1);  
 }
+
 double trace_ddiagmv(const gsl_matrix *A, const double *B)
 {
     int size = A->size1;
