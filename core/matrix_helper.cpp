@@ -42,7 +42,7 @@ double trace_dgemm(const gsl_matrix *A, const gsl_matrix *B)
 double trace_dsymm(const gsl_matrix *A, const gsl_matrix *B)
 {
     int size = A->size1;
-
+    size *= size;
     return cblas_ddot(size, A->data, 1, B->data, 1);  
 }
 
