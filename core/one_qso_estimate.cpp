@@ -150,7 +150,7 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
 {
     #pragma omp atomic update
     number_of_times_called_setsfid++;
-    
+
     double t = get_time();
 
     double v_ij, z_ij, temp;
@@ -170,10 +170,6 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
     copy_upper2lower(sm);
 
     t = get_time() - t;
-
-    // #ifdef DEBUG_ON
-    // printf_matrix(sm);
-    // #endif
 
     #pragma omp atomic update
     time_spent_on_set_sfid += t;
