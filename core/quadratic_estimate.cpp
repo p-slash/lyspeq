@@ -1,5 +1,3 @@
-// TODO: Thread Safety for interpolation!
-
 #include "quadratic_estimate.hpp"
 #include "matrix_helper.hpp"
 #include "global_numbers.hpp"
@@ -348,7 +346,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         if (hasConverged())
         {
-            printf("Iteration has converged.\n");
+            printf("Iteration has converged in %d iterations.\n", i+1);
             break;
         }
     }
