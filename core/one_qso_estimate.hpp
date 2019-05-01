@@ -43,9 +43,9 @@ class OneQSOEstimate
                 *inverse_covariance_matrix, \
                 *temp_matrix[2];
 
-    gsl_matrix  **stored_qj;
+    gsl_matrix  **stored_qj, *stored_sfid;
     int           nqj_eff;
-    bool          isQjSet;
+    bool          isQjSet, isSfidSet, isSfidStored;
 
     bool isCovInverted;
 
