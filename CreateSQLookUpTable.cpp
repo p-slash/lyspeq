@@ -25,7 +25,7 @@ int main(int argc, char const *argv[])
 {
     const char *FNAME_CONFIG = argv[1];
     bool force_rewrite = true;
-    float time_spent_table_sfid, time_spent_table_q;
+    double time_spent_table_sfid, time_spent_table_q;
 
     if (argc == 3)
     {
@@ -82,7 +82,7 @@ int main(int argc, char const *argv[])
         numthreads = omp_get_max_threads();
         #endif
 
-#pragma omp parallel firstprivate(time_spent_table_sfid, time_spent_table_q) private(buf)
+#pragma omp parallel private(buf, time_spent_table_sfid, time_spent_table_q)
 {       
         #if defined(_OPENMP)
         threadnum = omp_get_thread_num();
