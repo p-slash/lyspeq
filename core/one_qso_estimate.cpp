@@ -411,7 +411,6 @@ void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
     if (isSfidStored)
     {
         setFiducialSignalMatrix(stored_sfid);
-        printf("Stored\n");
         isSfidSet = true;
     }
 
