@@ -52,8 +52,8 @@ endif
 # Using static linking does not help
 ifeq ($(SYSTYPE),"GNU_XE18MKL") 
 CXX := g++ -fopenmp -DMKL_ILP64 -m64
-INCLS = -I${GSL_DIR}/include -I${MKLROOT}/include
-LIBSS = -L${GSL_DIR}/lib -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed
+INCLS = -I${MKLROOT}/include -I${GSL_DIR}/include 
+LIBSS = -L${MKLROOT}/lib/intel64 -L${GSL_DIR}/lib -Wl,--no-as-needed
 LINKS = -lgsl -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
 endif
 
@@ -114,7 +114,8 @@ GSLTOOLSOBJECTS := $(patsubst %, %.o, $(basename $(GSLTOOLSSOURCES)))
 IOSOURCES := $(shell find $(IODIR) -type f -name '*.$(SRCEXT)')
 IOOBJECTS := $(patsubst %, %.o, $(basename $(IOSOURCES)))
 
-CPPFLAGS := -std=gnu++11 $(GSLRECFLAGS) $(OPT) $(INCLS)
+# -DHAVE_INLINE for inline declarations in GSL for faster performance
+CPPFLAGS := -std=gnu++11 $(GSLRECFLAGS) -DHAVE_INLINE $(OPT) $(INCLS)
 LDLIBS := $(LIBSS) $(LINKS)
 	
 all: LyaPowerEstimate CreateSQLookUpTable
