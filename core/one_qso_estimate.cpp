@@ -122,20 +122,27 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     // Number of Qj matrices to preload.
     double size_m1 = (double)sizeof(double) * DATA_SIZE * DATA_SIZE / 1048576.; // in MB
     
-    nqj_eff = MEMORY_ALLOC / size_m1 - 3;
-
+    nqj_eff      = MEMORY_ALLOC / size_m1 - 3;
+    isSfidStored = false;
+    
     if (nqj_eff <= 0 )   nqj_eff = 0;
     else 
     {
-        if (nqj_eff > N_Q_MATRICES)    nqj_eff = N_Q_MATRICES;
+        if (nqj_eff > N_Q_MATRICES)
+        {
+            nqj_eff      = N_Q_MATRICES;
+            isSfidStored = !TURN_OFF_SFID;
+        }
 
         stored_qj = new gsl_matrix*[nqj_eff];
     }
 
     printf("Number of stored Q matrices: %d\n", nqj_eff);
+    if (isSfidStored)   printf("Fiducial signal matrix is stored.\n");
     fflush(stdout);
 
-    isQjSet = false;
+    isQjSet   = false;
+    isSfidSet = false;
 }
 
 OneQSOEstimate::~OneQSOEstimate()
@@ -152,23 +159,29 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
     number_of_times_called_setsfid++;
 
     double t = get_time();
-
     double v_ij, z_ij, temp;
 
-    for (int i = 0; i < DATA_SIZE && !TURN_OFF_SFID; i++)
+    if (isSfidSet)
     {
-        for (int j = i; j < DATA_SIZE; j++)
-        {
-            v_ij = velocity_array[j] - velocity_array[i];
-            z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
-
-            temp = sq_private_table->getSignalMatrixValue(v_ij, z_ij, r_index);
-            gsl_matrix_set(sm, i, j, temp);
-        }
+        gsl_matrix_memcpy(sm, stored_sfid);
     }
+    else
+    {
+        for (int i = 0; i < DATA_SIZE && !TURN_OFF_SFID; i++)
+        {
+            for (int j = i; j < DATA_SIZE; j++)
+            {
+                v_ij = velocity_array[j] - velocity_array[i];
+                z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
 
-    copy_upper2lower(sm);
+                temp = sq_private_table->getSignalMatrixValue(v_ij, z_ij, r_index);
+                gsl_matrix_set(sm, i, j, temp);
+            }
+        }
 
+        copy_upper2lower(sm);
+    }
+    
     t = get_time() - t;
 
     #pragma omp atomic update
@@ -180,46 +193,47 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
     #pragma omp atomic update
     number_of_times_called_setq++;
 
-    if (isQjSet && i_kz >= N_Q_MATRICES - nqj_eff)
-    {
-        // printf("i%d j%d\n", i_kz, N_Q_MATRICES - i_kz - 1);
-        gsl_matrix_memcpy(qi, stored_qj[N_Q_MATRICES - i_kz - 1]);
-        return;
-    }
-
-    double t = get_time(), t2;
-
+    double t = get_time(), t_interp;
     int kn, zm;
     double v_ij, z_ij, temp;
 
-    getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
-
-    for (int i = 0; i < DATA_SIZE; i++)
+    if (isQjSet && i_kz >= N_Q_MATRICES - nqj_eff)
     {
-        for (int j = i; j < DATA_SIZE; j++)
+        t_interp = 0;
+        
+        gsl_matrix_memcpy(qi, stored_qj[N_Q_MATRICES - i_kz - 1]);
+    }
+    else
+    {
+        getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
+
+        for (int i = 0; i < DATA_SIZE; i++)
         {
-            v_ij = velocity_array[j] - velocity_array[i];
-            z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
-            
-            temp = sq_private_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
-            gsl_matrix_set(qi, i, j, temp);
+            for (int j = i; j < DATA_SIZE; j++)
+            {
+                v_ij = velocity_array[j] - velocity_array[i];
+                z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
+                
+                temp = sq_private_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
+                gsl_matrix_set(qi, i, j, temp);
+            }
         }
+
+        t_interp = get_time() - t;
+
+        copy_upper2lower(qi);
     }
 
-    t2 = get_time() - t;
-
-    copy_upper2lower(qi);
-
-    t = get_time() - t;
+    t = get_time() - t; 
 
     #pragma omp atomic update
     time_spent_set_qs += t;
 
     #pragma omp atomic update
-    time_spent_on_q_interp += t2;
+    time_spent_on_q_interp += t_interp;
 
     #pragma omp atomic update
-    time_spent_on_q_copy += t - t2;
+    time_spent_on_q_copy += t - t_interp;
 }
 
 void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
@@ -241,22 +255,10 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
         cblas_daxpy(DATA_SIZE*DATA_SIZE, \
                     ps_estimate[i_kz + fisher_index_start], temp_matrix[0]->data, 1, \
                     covariance_matrix->data, 1);
-
-        // gsl_matrix_scale(temp_matrix[0], ps_estimate[i_kz + fisher_index_start]);
-        // gsl_matrix_add(covariance_matrix, temp_matrix[0]);
     }
 
     // add noise matrix diagonally
     cblas_daxpy(DATA_SIZE, 1., noise_array, 1, covariance_matrix->data, DATA_SIZE+1);
-
-    // double temp;
-
-    // for (int i = 0; i < DATA_SIZE; i++)
-    // {
-    //     temp = gsl_matrix_get(covariance_matrix, i, i);
-
-    //     gsl_matrix_set(covariance_matrix, i, i, temp + noise_array[i]);
-    // }
 
     // printf_matrix(covariance_matrix, DATA_SIZE);
     gsl_matrix_add_constant(covariance_matrix, ADDED_CONST_TO_COVARIANCE);
@@ -402,7 +404,16 @@ void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
     // 0 is the last matrix
     for (int j_kz = 0; j_kz < nqj_eff; j_kz++)
         setQiMatrix(stored_qj[j_kz], N_Q_MATRICES - j_kz - 1);
-    isQjSet = true;
+    
+    if (nqj_eff > 0)    isQjSet = true;
+
+    // Preload fiducial signal matrix if memory allows
+    if (isSfidStored)
+    {
+        setFiducialSignalMatrix(stored_sfid);
+        printf("Stored\n");
+        isSfidSet = true;
+    }
 
     setCovarianceMatrix(ps_estimate);
     #ifdef DEBUG_ON
@@ -448,9 +459,15 @@ void OneQSOEstimate::allocateMatrices()
 
     for (int i = 0; i < 2; i++)
         temp_matrix[i] = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
+    
     for (int i = 0; i < nqj_eff; i++)
         stored_qj[i] = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
-    isQjSet = false;
+    
+    if (isSfidStored)
+        stored_sfid = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
+    
+    isQjSet   = false;
+    isSfidSet = false;
 }
 
 void OneQSOEstimate::freeMatrices()
@@ -462,9 +479,15 @@ void OneQSOEstimate::freeMatrices()
 
     for (int i = 0; i < 2; i++)
         gsl_matrix_free(temp_matrix[i]);
+    
     for (int i = 0; i < nqj_eff; i++)
         gsl_matrix_free(stored_qj[i]);
-    isQjSet = false;
+
+    if (isSfidStored)
+        gsl_matrix_free(stored_sfid);
+    
+    isQjSet   = false;
+    isSfidSet = false;
 }
 
 
