@@ -22,43 +22,30 @@ OPT += -DTRIANGLE_Z_BINNING_FN
 #---------------------------------------
 # Choose compiler and library options
 #---------------------------------------
-#SYSTYPE="GRACE"
-#SYSTYPE="GRACEicc"
+
 #SYSTYPE="GNU_XE18MKL"
 #SYSTYPE="XE18_icpcMKL"
 SYSTYPE="LAPTOP"
 
 # List of compiler options
 #---------------------------------------
-# Works with XE 2015
-# MKL for cblas
-ifeq ($(SYSTYPE),"GRACEicc") 
-CXX := icpc -DMKL_ILP64 -mkl=parallel 
-GSL_INCL = -I${GSL_DIR}/include
-GSL_LIBS = -L${GSL_DIR}/lib -lgsl
-MKL_INCL = -I${MKLROOT}/include
-MKL_LIBS = -L${MKLROOT}/lib/intel64 
-OMP_FLAG = -openmp
-OMP_INCL =
-OMP_LIBS = -liomp5 -lpthread -lm -ldl
-endif
 
 # Parallel Studio XE 2018, MKL for cblas
 # Linux, GNU compiler, Intel(R) 64 arch
+# 32-bit integers interface, 64-bit interface has runtime errors on Grace
 # OpenMP threading with GNU
 # Dynamic linking, explicit MKL lib linking
-# Compiles with GCC 7.3.0, run is under progress runtime error
-# loading intel does not help
-# Using static linking does not help
+# Compiles with GCC 7.3.0
 ifeq ($(SYSTYPE),"GNU_XE18MKL") 
-CXX := g++ -fopenmp -DMKL_ILP64 -m64
-INCLS = -I${MKLROOT}/include -I${GSL_DIR}/include 
-LIBSS = -L${MKLROOT}/lib/intel64 -L${GSL_DIR}/lib -Wl,--no-as-needed
-LINKS = -lgsl -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
+CXX := g++ -fopenmp -m64
+INCLS = -I${GSL_DIR}/include -I${MKLROOT}/include
+LIBSS = -L${GSL_DIR}/lib -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed
+LINKS = -lgsl -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
 endif
 
 # Parallel Studio XE 2018
 # Linux, Intel compiler, Intel(R) 64 arch
+# 64-bit integers interface
 # OpenMP threading with Intel
 # Dynamic linking, no explicit MKL lib linking
 # Static linking fails for unknown reasons
@@ -67,18 +54,6 @@ CXX := icpc -qopenmp -DMKL_ILP64 -mkl=parallel
 INCLS = -I${GSL_DIR}/include
 LIBSS = -L${GSL_DIR}/lib
 LINKS = -lgsl -liomp5 -lpthread -lm -ldl
-endif
-
-# GSL for blas
-ifeq ($(SYSTYPE),"GRACE") 
-CXX := g++
-GSL_INCL = -I${GSL_DIR}/include
-GSL_LIBS = -lgsl -lgslcblas -L${GSL_DIR}/lib
-MKL_INCL =
-MKL_LIBS =  
-OMP_FLAG = -fopenmp
-OMP_INCL =
-OMP_LIBS =
 endif
 
 # GSL for blas
