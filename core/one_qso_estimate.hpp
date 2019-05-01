@@ -1,6 +1,7 @@
 // TODO: Adjust memory efficiency when specified in config file
 //  instead of 2 temp matrices, create n where n is estimated 
 //  using one matrix size given memory limitation in config.
+//  Also store Sfid
 #ifndef ONE_QSO_ESTIMATE_H
 #define ONE_QSO_ESTIMATE_H
 

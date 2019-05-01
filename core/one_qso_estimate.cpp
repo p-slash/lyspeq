@@ -229,7 +229,6 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     if (r_index == -1)      throw "SPECRES not found in tables!";
 
     // Set fiducial signal matrix
-
     if (!TURN_OFF_SFID)
         setFiducialSignalMatrix(covariance_matrix);
     else
@@ -238,18 +237,26 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
         setQiMatrix(temp_matrix[0], i_kz);
-        gsl_matrix_scale(temp_matrix[0], ps_estimate[i_kz + fisher_index_start]);
-        gsl_matrix_add(covariance_matrix, temp_matrix[0]);
+
+        cblas_daxpy(DATA_SIZE*DATA_SIZE, \
+                    ps_estimate[i_kz + fisher_index_start], temp_matrix[0]->data, 1, \
+                    covariance_matrix->data, 1);
+
+        // gsl_matrix_scale(temp_matrix[0], ps_estimate[i_kz + fisher_index_start]);
+        // gsl_matrix_add(covariance_matrix, temp_matrix[0]);
     }
 
-    double temp;
+    // add noise matrix diagonally
+    cblas_daxpy(DATA_SIZE, 1., noise_array, 1, covariance_matrix->data, DATA_SIZE+1);
 
-    for (int i = 0; i < DATA_SIZE; i++)
-    {
-        temp = gsl_matrix_get(covariance_matrix, i, i);
+    // double temp;
 
-        gsl_matrix_set(covariance_matrix, i, i, temp + noise_array[i]);
-    }
+    // for (int i = 0; i < DATA_SIZE; i++)
+    // {
+    //     temp = gsl_matrix_get(covariance_matrix, i, i);
+
+    //     gsl_matrix_set(covariance_matrix, i, i, temp + noise_array[i]);
+    // }
 
     // printf_matrix(covariance_matrix, DATA_SIZE);
     gsl_matrix_add_constant(covariance_matrix, ADDED_CONST_TO_COVARIANCE);

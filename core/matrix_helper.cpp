@@ -50,12 +50,7 @@ double trace_ddiagmv(const gsl_matrix *A, const double *B)
 {
     int size = A->size1;
 
-    double result = 0.;
-
-    for (int i = 0; i < size; i++)
-        result += gsl_matrix_get(A, i, i) * B[i];
-
-    return result;
+    return cblas_ddot(size, A->data, size+1, B, 1);  
 }
 
 double my_cblas_dsymvdot(const gsl_vector *v, const gsl_matrix *S)
