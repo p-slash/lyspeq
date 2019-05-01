@@ -52,8 +52,8 @@ ifeq ($(SYSTYPE),"GNU_XE18MKL")
 CXX := g++ -DMKL_ILP64 -mkl=parallel  -m64
 GSL_INCL = -I${GSL_DIR}/include
 GSL_LIBS = -L${GSL_DIR}/lib -lgsl
-MKL_INCL = 
-MKL_LIBS = -Wl,--no-as-needed 
+MKL_INCL = -I${MKLROOT}/include
+MKL_LIBS = -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core
 OMP_FLAG = -fopenmp
 OMP_INCL =
 OMP_LIBS = -lgomp -lpthread -lm -ldl
