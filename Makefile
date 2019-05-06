@@ -45,12 +45,12 @@ endif
 
 # Parallel Studio XE 2018
 # Linux, Intel compiler, Intel(R) 64 arch
-# 64-bit integers interface
+# Uses 32-bit integers interface even though 64-bit integers interface works
 # OpenMP threading with Intel
 # Dynamic linking, no explicit MKL lib linking
 # Static linking fails for unknown reasons
 ifeq ($(SYSTYPE),"XE18_icpcMKL") 
-CXX := icpc -qopenmp -DMKL_ILP64 -mkl=parallel
+CXX := icpc -qopenmp -mkl=parallel
 INCLS = -I${GSL_DIR}/include
 LIBSS = -L${GSL_DIR}/lib
 LINKS = -lgsl -liomp5 -lpthread -lm -ldl
