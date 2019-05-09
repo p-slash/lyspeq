@@ -188,14 +188,14 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     if (NUMBER_OF_Z_BINS == 1)
     {
         // Do not pass redshift evolution parameters
-       sprintf(buf, "python py/lorentzian_fit.py %s %s %.2le %.2le %.2le %.2le", \
+       sprintf(buf, "lorentzian_fit.py %s %s %.2le %.2le %.2le %.2le", \
                 tmp_ps_fname, tmp_fit_fname, \
                 fit_params[0], fit_params[1], \
                 fit_params[2], fit_params[5]);
     }
     else
     {
-        sprintf(buf, "python py/lorentzian_fit.py %s %s %.2le %.2le %.2le %.2le %.2le %.2le", \
+        sprintf(buf, "lorentzian_fit.py %s %s %.2le %.2le %.2le %.2le %.2le %.2le", \
                 tmp_ps_fname, tmp_fit_fname, \
                 fit_params[0], fit_params[1], fit_params[2], \
                 fit_params[3], fit_params[4], fit_params[5]);

@@ -114,10 +114,22 @@ include $(IODIR)/io.make
 -include $(DEPDIR)/LyaPowerEstimate.d
 -include $(DEPDIR)/CreateSQLookUpTable.d
 
+.PHONY: install
+install: LyaPowerEstimate CreateSQLookUpTable
+	mkdir -p $(HOME)/bin
+	cp LyaPowerEstimate CreateSQLookUpTable py/lorentzian_fit.py $(HOME)/bin
+	chmod a+x $(HOME)/bin/lorentzian_fit.py
+
+.PHONY: uninstall
+uninstall:
+	$(RM) $(HOME)/bin/lorentzian_fit.py
+	$(RM) $(HOME)/bin/LyaPowerEstimate $(HOME)/bin/CreateSQLookUpTable
+
+.PHONY: clean
 clean:
 	$(RM) -r $(DEPDIR)
 	$(RM) $(addsuffix /*.o, $(COREDIR) $(GSLTOOLSDIR) $(IODIR))
 	$(RM) LyaPowerEstimate LyaPowerEstimate.o
 	$(RM) CreateSQLookUpTable CreateSQLookUpTable.o
 
-.PHONY: clean
+
