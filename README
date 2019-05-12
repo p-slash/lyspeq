@@ -4,6 +4,12 @@ Prerequisites
 + [Python](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
 + [OpenMP](https://www.openmp.org) is needed to enable parallel computing for shared memory.
 
+Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl) and [ATLAS](http://math-atlas.sourceforge.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
+
+Compile and Install
+=====
+After setting up the desired Makefile, simply run `make` and then `make install`. This will copy the programs and lorentzian_fit.py to `$HOME/bin`. Make sure this is your `$PATH` before running programs.
+
 Overview of Programs
 =====
 + **LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method. When compiled with OpenMP compatibility, it distributes qso chunks to multiple CPUs, then sums the results.
@@ -37,17 +43,21 @@ Redshift bins can be top-hats or interpolations. Uncomment the corresponding bin
 
 Choose a system type to compile. 
 
-    SYSTYPE="LAPTOP"
+    SYSTYPE="XE18_icpcMKL"
 
-Create custom system types by modifying one of the present cases. For example for Mac OS, you need to pass OpenMP libraries to `clang++`.
+Create custom system types by modifying one of the present cases. For example for Mac OS, you need to pass OpenMP libraries to `clang++`. Here's an example using `icpc` and `MKL` from Parallel Studio XE 2018.
     
-    ifeq ($(SYSTYPE),"LAPTOP") 
-    CXX := clang++
-    GSL_INCL = -I/usr/local/include
-    GSL_LIBS = -lgsl -lgslcblas -L/usr/local/lib
-    OMP_FLAG = -Xpreprocessor -fopenmp
-    OMP_INCL = -I/usr/local/opt/libomp/include
-    OMP_LIBS = -lomp -L/usr/local/opt/libomp/lib
+    # Parallel Studio XE 2018
+    # Linux, Intel compiler, Intel(R) 64 arch
+    # Uses 32-bit integers interface even though 64-bit integers interface works
+    # OpenMP threading with Intel
+    # Dynamic linking, no explicit MKL lib linking
+    # Static linking fails for unknown reasons
+    ifeq ($(SYSTYPE),"XE18_icpcMKL") 
+    CXX := icpc -qopenmp -mkl=parallel
+    INCLS = -I${GSL_DIR}/include
+    LIBSS = -L${GSL_DIR}/lib
+    LINKS = -lgsl -liomp5 -lpthread -lm -ldl
     endif
 
 Config File
