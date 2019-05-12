@@ -24,8 +24,10 @@ OPT += -DTRIANGLE_Z_BINNING_FN
 #---------------------------------------
 
 #SYSTYPE="GNU_XE18MKL"
+#SYSTYOE="GNU_ATLAS"
 #SYSTYPE="XE18_icpcMKL"
-SYSTYPE="LAPTOP"
+SYSTYPE="MACOSX_clang"
+#SYSTYPE="MACOSX_g++"
 
 # List of compiler options
 #---------------------------------------
@@ -43,6 +45,15 @@ LIBSS = -L${GSL_DIR}/lib -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed
 LINKS = -lgsl -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
 endif
 
+# ATLAS cblas
+# Has not been tested!
+ifeq ($(SYSTYPE),"GNU_ATLAS") 
+CXX := g++ -fopenmp 
+INCLS = -I${GSL_DIR}/include
+LIBSS = -L${GSL_DIR}/lib -L${ATLAS_DIR}/lib
+LINKS = -lgsl -lcblas -latlas -lm -ldl
+endif
+
 # Parallel Studio XE 2018
 # Linux, Intel compiler, Intel(R) 64 arch
 # Uses 32-bit integers interface even though 64-bit integers interface works
@@ -57,11 +68,19 @@ LINKS = -lgsl -liomp5 -lpthread -lm -ldl
 endif
 
 # GSL for blas
-ifeq ($(SYSTYPE),"LAPTOP") 
+ifeq ($(SYSTYPE),"MACOSX_clang") 
 CXX := clang++ -Xpreprocessor -fopenmp
-INCLS = -I/usr/local/include -I/usr/local/opt/libomp/include
-LIBSS = -L/usr/local/lib -L/usr/local/opt/libomp/lib
-LINKS = -lgsl -lgslcblas -lomp 
+INCLS = -I/usr/local/include -I/usr/local/opt/libomp/include -I/usr/local/opt/openblas/include
+LIBSS = -L/usr/local/lib -L/usr/local/opt/libomp/lib -L/usr/local/opt/openblas/lib
+LINKS = -lgsl -lopenblas -lomp
+endif
+
+# Does not work!
+ifeq ($(SYSTYPE),"MACOSX_g++") 
+CXX := g++-9 -fopenmp
+INCLS = -I/usr/local/include -I/usr/local/opt/openblas/include
+LIBSS = -L/usr/local/lib -L/usr/local/opt/openblas/lib
+LINKS = -lgsl -lopenblas -lgomp
 endif
 
 # removed flags: -ansi -Wmissing-prototypes -Wstrict-prototypes -Wconversion -Wnested-externs -Dinline=
@@ -101,7 +120,10 @@ LyaPowerEstimate: LyaPowerEstimate.o $(COREOBJECTS) $(GSLTOOLSOBJECTS) $(IOOBJEC
 CreateSQLookUpTable: CreateSQLookUpTable.o $(COREOBJECTS) $(GSLTOOLSOBJECTS) $(IOOBJECTS)
 	$(CXX) $(CPPFLAGS) $^ -o $@ $(LDLIBS)
 
-$(DEPDIR)/%.d: %.cpp
+test: cblas_tests.o $(COREOBJECTS) $(GSLTOOLSOBJECTS) $(IOOBJECTS)
+	$(CXX) $(CPPFLAGS) $^ -o $@ $(LDLIBS)
+
+$(DEPDIR)/%.d: %.cpp 
 	@mkdir -p $(DEPDIR)
 	$(CXX) -MM -MG $(CPPFLAGS) $< > $@.$$$$; \
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
@@ -113,6 +135,7 @@ include $(IODIR)/io.make
 
 -include $(DEPDIR)/LyaPowerEstimate.d
 -include $(DEPDIR)/CreateSQLookUpTable.d
+-include $(DEPDIR)/cblas_tests.d
 
 .PHONY: install
 install: LyaPowerEstimate CreateSQLookUpTable
@@ -131,5 +154,6 @@ clean:
 	$(RM) $(addsuffix /*.o, $(COREDIR) $(GSLTOOLSDIR) $(IODIR))
 	$(RM) LyaPowerEstimate LyaPowerEstimate.o
 	$(RM) CreateSQLookUpTable CreateSQLookUpTable.o
+	$(RM) test cblas_tests.o
 
 
