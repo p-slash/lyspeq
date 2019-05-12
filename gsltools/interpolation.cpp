@@ -7,7 +7,7 @@
 
 #include <cstdio>
 
-Interpolation::Interpolation(GSL_INTERPOLATION_TYPE interp_type, const double *x, const double *y, long long int size)
+Interpolation::Interpolation(GSL_INTERPOLATION_TYPE interp_type, const double *x, const double *y, long size)
 {
 	normalization = 1.0;
 	lowest_x  = x[0];
