@@ -93,6 +93,9 @@ SQLookupTable::SQLookupTable(   const char *dir, const char *s_base, const char 
 
 SQLookupTable::SQLookupTable(const SQLookupTable &sq)
 {
+    printf("Copying SQ table.\n");
+    fflush(stdout);
+    
     NUMBER_OF_R_VALUES = sq.NUMBER_OF_R_VALUES;
 
     N_V_POINTS      = sq.N_V_POINTS;
