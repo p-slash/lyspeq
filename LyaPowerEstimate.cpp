@@ -29,14 +29,14 @@ int main(int argc, char const *argv[])
          FILEBASE_S[300], FILEBASE_Q[300], \
          OUTPUT_DIR[300], \
          OUTPUT_FILEBASE[300],\
-         buf[500];
+         buf[700];
 
     int NUMBER_OF_ITERATIONS;
     
     pd13_fit_params FIDUCIAL_PD13_PARAMS;
 
     OneDQuadraticPowerEstimate *qps = NULL;
-
+    
     try
     {
         // Read variables from config file and set up bins.
