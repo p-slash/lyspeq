@@ -17,12 +17,12 @@ RedshiftBinWidth 0.1125
 NumberOfRedshiftBins 10
 
 # The location of the file list, and the directory where those files live:
-FileNameList /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS/qso_list_zon_long.txt
+FileNameList /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS/qso_list_zon.txt
 FileInputDir /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS
 
 # The directory for output files and file name base:
 OutputDir /Users/nk452/repos/data/Quadratic_test
-OutputFileBase pd13ps_zon_long
+OutputFileBase pd13ps_zon
 
 # List of spectograph resolutions (R) is in FileNameRList. This file starts with number of Rs.
 FileNameRList     /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks_ZEvo/mock_specres_list.txt
@@ -45,8 +45,8 @@ FiducialRedshiftCurvature    0
 FiducialLorentzianLambda     0
 
 # These lookup tables are saved with the follwoing file name bases to FileInputDir:
-SignalLookUpTableBase        signal_zon_long_lookup
-DerivativeSLookUpTableBase   derivative_zon_long_lookup
+SignalLookUpTableBase        signal_zon_lookup
+DerivativeSLookUpTableBase   derivative_zon_lookup
 
 # The maximum number of iterations are
 NumberOfIterations 15
