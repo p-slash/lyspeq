@@ -27,7 +27,7 @@ class Interpolation
 public:
 	double lowest_x, highest_x;
 	
-	Interpolation(GSL_INTERPOLATION_TYPE interp_type, const double *x, const double *y, long long int size);
+	Interpolation(GSL_INTERPOLATION_TYPE interp_type, const double *x, const double *y, long size);
 	Interpolation(const Interpolation &itp);
 
 	~Interpolation();

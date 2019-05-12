@@ -32,14 +32,14 @@ T* copyArrayAlloc(const T* source, int size)
 template int* copyArrayAlloc<int>(const int *source, int size);
 template double* copyArrayAlloc<double>(const double *source, int size);
 
-void copyArray(const std::complex<double> *source, std::complex<double> *target, long long int size)
+void copyArray(const std::complex<double> *source, std::complex<double> *target, long size)
 {
     std::copy(  &source[0], \
                 &source[0] + size, \
                 &target[0]);
 }
 
-void copyArray(const double *source, double *target, long long int size)
+void copyArray(const double *source, double *target, long size)
 {
     std::copy(  &source[0], \
                 &source[0] + size, \
@@ -75,7 +75,7 @@ FILE * open_file(const char *fname, const char *read_write)
     return file_to_read_write;
 }
 
-//void writeArrayToFile(const char *fname, fftw_complex *source, long long int size);
+//void writeArrayToFile(const char *fname, fftw_complex *source, long size);
 //void readArrayFromFile(const char *fname, fftw_complex *target);
 //fftw_complex * fftw_alloc_from_file(const char *fname, int &n_bin);
 //fftw_complex * fftw_alloc_from_file(const char *fname);
