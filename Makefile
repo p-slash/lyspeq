@@ -39,19 +39,19 @@ SYSTYPE="MACOSX_clang"
 # Dynamic linking, explicit MKL lib linking
 # Compiles with GCC 7.3.0
 ifeq ($(SYSTYPE),"GNU_XE18MKL") 
-CXX := g++ -fopenmp -m64
-INCLS = -I${GSL_DIR}/include -I${MKLROOT}/include
-LIBSS = -L${GSL_DIR}/lib -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed
-LINKS = -lgsl -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
+CXX     = g++ 
+CPPFLAGS= -fopenmp -m64 -I${GSL_DIR}/include -I${MKLROOT}/include
+LDFLAGS = -L${GSL_DIR}/lib -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed
+LDLIBS  = -lgsl -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
 endif
 
 # ATLAS cblas
 # Has not been tested!
 ifeq ($(SYSTYPE),"GNU_ATLAS") 
-CXX := g++ -fopenmp 
-INCLS = -I${GSL_DIR}/include
-LIBSS = -L${GSL_DIR}/lib -L${ATLAS_DIR}/lib
-LINKS = -lgsl -lcblas -latlas -lm -ldl
+CXX     = g++ 
+CPPFLAGS= -fopenmp -I${GSL_DIR}/include
+LDFLAGS = -L${GSL_DIR}/lib -L${ATLAS_DIR}/lib
+LDLIBS  = -lgsl -latlas -lm -ldl
 endif
 
 # Parallel Studio XE 2018
@@ -61,30 +61,32 @@ endif
 # Dynamic linking, no explicit MKL lib linking
 # Static linking fails for unknown reasons
 ifeq ($(SYSTYPE),"XE18_icpcMKL") 
-CXX := icpc -qopenmp -mkl=parallel
-INCLS = -I${GSL_DIR}/include
-LIBSS = -L${GSL_DIR}/lib
-LINKS = -lgsl -liomp5 -lpthread -lm -ldl
+CXX     = icpc 
+CPPFLAGS= -qopenmp -mkl=parallel -I${GSL_DIR}/include
+LDFLAGS = -L${GSL_DIR}/lib
+LDLIBS  = -lgsl -liomp5 -lpthread -lm -ldl
 endif
 
-# GSL for blas
+# OpenBLAS 
+# openblas is keg-only, which means it was not symlinked into /usr/local,
+# because macOS provides BLAS and LAPACK in the Accelerate framework.
 ifeq ($(SYSTYPE),"MACOSX_clang") 
-CXX := clang++ -Xpreprocessor -fopenmp
-INCLS = -I/usr/local/include -I/usr/local/opt/libomp/include -I/usr/local/opt/openblas/include
-LIBSS = -L/usr/local/lib -L/usr/local/opt/libomp/lib -L/usr/local/opt/openblas/lib
-LINKS = -lgsl -lopenblas -lomp
+CXX     = clang++ 
+CPPFLAGS= -Xpreprocessor -fopenmp -I/usr/local/opt/openblas/include
+LDFLAGS = -L/usr/local/opt/openblas/lib
+LDLIBS  = -lgsl -lopenblas -lomp
 endif
 
 # Does not work!
 ifeq ($(SYSTYPE),"MACOSX_g++") 
-CXX := g++-9 -fopenmp
+CXX = g++-9 -fopenmp
 INCLS = -I/usr/local/include -I/usr/local/opt/openblas/include
 LIBSS = -L/usr/local/lib -L/usr/local/opt/openblas/lib
 LINKS = -lgsl -lopenblas -lgomp
 endif
 
 # removed flags: -ansi -Wmissing-prototypes -Wstrict-prototypes -Wconversion -Wnested-externs -Dinline=
-GSLRECFLAGS := -Wall -pedantic -Werror -W \
+GSLRECFLAGS = -Wall -pedantic -Werror -W \
 				-Wshadow -Wpointer-arith \
 				-Wcast-qual -Wcast-align -Wwrite-strings \
 				-fshort-enums -fno-common \
@@ -92,46 +94,37 @@ GSLRECFLAGS := -Wall -pedantic -Werror -W \
 				
 #---------------------------------------
 
-DEPDIR := dep
-COREDIR := core
-IODIR := io
-GSLTOOLSDIR := gsltools
+DEPDIR = dep
+DIRS = core io gsltools
+VPATH = core:io:gsltools
+SRCEXT = cpp
 
-SRCEXT := cpp
+SOURCES = $(shell find $(DIRS) -type f -name '*.$(SRCEXT)')
+OBJECTS = $(patsubst %, %.o, $(basename $(SOURCES)))
 
-CORESOURCES := $(shell find $(COREDIR) -type f -name '*.$(SRCEXT)')
-COREOBJECTS := $(patsubst %, %.o, $(basename $(CORESOURCES)))
-
-GSLTOOLSSOURCES := $(shell find $(GSLTOOLSDIR) -type f -name '*.$(SRCEXT)')
-GSLTOOLSOBJECTS := $(patsubst %, %.o, $(basename $(GSLTOOLSSOURCES)))
-
-IOSOURCES := $(shell find $(IODIR) -type f -name '*.$(SRCEXT)')
-IOOBJECTS := $(patsubst %, %.o, $(basename $(IOSOURCES)))
+PROGS = $(shell find . -type f -name '*.$(SRCEXT)')
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
-CPPFLAGS := -std=gnu++11 $(GSLRECFLAGS) -DHAVE_INLINE $(OPT) $(INCLS)
-LDLIBS := $(LIBSS) $(LINKS)
+CPPFLAGS += -std=gnu++11 -DHAVE_INLINE $(OPT)
+CXXFLAGS = $(GSLRECFLAGS)
+#$(CXX) $(CPPFLAGS) $(CXXFLAGS)
 	
-all: LyaPowerEstimate CreateSQLookUpTable
-	
-LyaPowerEstimate: LyaPowerEstimate.o $(COREOBJECTS) $(GSLTOOLSOBJECTS) $(IOOBJECTS)
-	$(CXX) $(CPPFLAGS) $^ -o $@ $(LDLIBS)
+all: LyaPowerEstimate CreateSQLookUpTable cblas_tests
 
-CreateSQLookUpTable: CreateSQLookUpTable.o $(COREOBJECTS) $(GSLTOOLSOBJECTS) $(IOOBJECTS)
-	$(CXX) $(CPPFLAGS) $^ -o $@ $(LDLIBS)
+LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-test: cblas_tests.o $(COREOBJECTS) $(GSLTOOLSOBJECTS) $(IOOBJECTS)
-	$(CXX) $(CPPFLAGS) $^ -o $@ $(LDLIBS)
+CreateSQLookUpTable: CreateSQLookUpTable.o $(OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+cblas_tests: cblas_tests.o $(OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 $(DEPDIR)/%.d: %.cpp 
 	@mkdir -p $(DEPDIR)
-	$(CXX) -MM -MG $(CPPFLAGS) $< > $@.$$$$; \
+	$(CXX) -MM -MG $(CPPFLAGS) $(CXXFLAGS) $< > $@.$$$$; \
 	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
 	rm -f $@.$$$$
-
-include $(COREDIR)/core.make
-include $(GSLTOOLSDIR)/gsltools.make
-include $(IODIR)/io.make
 
 -include $(DEPDIR)/LyaPowerEstimate.d
 -include $(DEPDIR)/CreateSQLookUpTable.d
@@ -151,7 +144,7 @@ uninstall:
 .PHONY: clean
 clean:
 	$(RM) -r $(DEPDIR)
-	$(RM) $(addsuffix /*.o, $(COREDIR) $(GSLTOOLSDIR) $(IODIR))
+	$(RM) $(addsuffix /*.o, $(DIRS))
 	$(RM) LyaPowerEstimate LyaPowerEstimate.o
 	$(RM) CreateSQLookUpTable CreateSQLookUpTable.o
 	$(RM) test cblas_tests.o
