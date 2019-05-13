@@ -26,8 +26,7 @@ OPT += -DTRIANGLE_Z_BINNING_FN
 #SYSTYPE="GNU_XE18MKL"
 #SYSTYOE="GNU_ATLAS"
 #SYSTYPE="XE18_icpcMKL"
-SYSTYPE="MACOSX_clang"
-#SYSTYPE="MACOSX_g++"
+SYSTYPE="clang_openblas"
 
 # List of compiler options
 #---------------------------------------
@@ -68,11 +67,13 @@ LDLIBS  = -lgsl -liomp5 -lpthread -lm -ldl
 endif
 
 # OpenBLAS 
+# brew install libomp
+# brew install openblas
 # openblas is keg-only, which means it was not symlinked into /usr/local,
 # because macOS provides BLAS and LAPACK in the Accelerate framework.
-ifeq ($(SYSTYPE),"MACOSX_clang") 
+ifeq ($(SYSTYPE),"clang_openblas") 
 CXX     = clang++ 
-CPPFLAGS= -Xpreprocessor -fopenmp #-I/usr/local/opt/openblas/include
+CPPFLAGS= -Xpreprocessor -fopenmp
 LDFLAGS = -L/usr/local/opt/openblas/lib
 LDLIBS  = -lgsl -lopenblas -lomp
 endif
