@@ -1,7 +1,3 @@
-/* This file object reads and writes evaluated S and Q matrices in a standard file format.
- * spectrograph_resolution, pixel_width and k values can be used to check consistency.
- */
-
 #ifndef SQ_LOOKUP_TABLE_FILE_H
 #define SQ_LOOKUP_TABLE_FILE_H
 
@@ -16,6 +12,8 @@ void STableFileNameConvention(  char *fname, const char *OUTPUT_DIR, const char 
 // Returns y = c + deltaY / (N-1) * n
 double getLinearlySpacedValue(double c, double delta_y, int N, int n);
 
+// This file object reads and writes evaluated S and Q matrices in a standard file format.
+// spectrograph_resolution, pixel_width and k values can be used to check consistency.
 class SQLookupTableFile
 {
     FILE *sq_file;

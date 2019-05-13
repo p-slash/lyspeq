@@ -10,7 +10,7 @@
 #include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
 #endif
 
-char TMP_FOLDER[300] = "";
+char TMP_FOLDER[300] = ".";
 
 double CHISQ_CONVERGENCE_EPS = 0.01;
 double MEMORY_ALLOC          = 0;
@@ -160,6 +160,10 @@ void read_config_file(  const char *FNAME_CONFIG, \
     cFile.addKey("TemporaryFolder", &TMP_FOLDER, STRING);
 
     cFile.readAll();
+
+    char tmp_ps_fname[320];
+    sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
+    // Test access
 
     TURN_OFF_SFID = sfid_off > 0;
 

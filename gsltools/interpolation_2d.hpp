@@ -1,10 +1,3 @@
-/* This object should make it easier to create,
- * keep track of and evaluate interpolations in 2D
- * with GSL libraries.
- * Interpolate with given x, y and z[y * xsize + x] values
- * as[perp + size_perpendicular * para] then perp is x
- */
-
 #ifndef INTERPOLATION_2D_H
 #define INTERPOLATION_2D_H
 

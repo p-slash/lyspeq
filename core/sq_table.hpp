@@ -28,7 +28,6 @@
 
 // All values are stored in 1D arrays such as signal_array and derivative_array. The indexing 
 // conventions have their own functions.
-
 class SQLookupTable
 {
     int NUMBER_OF_R_VALUES, N_V_POINTS, \
