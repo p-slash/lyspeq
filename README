@@ -127,10 +127,10 @@ Specify allocated memory in MB to store additional derivative matrices and fiduc
 
     AllocatedMemoryMB 5.
 
-Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with lorentzian_fit.py script.
+Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with py/lorentzian_fit.py script.
 
     TemporaryFolder /tmp
 
 Quasar Spectrum File
 ====
-Quasar spectrum file is in binary format. It starts with a header (see [QSOFile](io/qso_file.hpp)), then has wavelength, flux and noise in double arrays.
+Quasar spectrum file is in binary format. It starts with a header (see [QSOFile](io/qso_file.hpp)), then has wavelength, flux and noise in double arrays. A Python script is added to help conversion between different formats (see [BinaryQSO](py/binary_qso.py)).
