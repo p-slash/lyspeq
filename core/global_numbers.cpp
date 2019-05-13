@@ -10,6 +10,8 @@
 #include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
 #endif
 
+char TMP_FOLDER[300] = "";
+
 double CHISQ_CONVERGENCE_EPS = 0.01;
 double MEMORY_ALLOC          = 0;
 
@@ -154,6 +156,9 @@ void read_config_file(  const char *FNAME_CONFIG, \
     cFile.addKey("TurnOffBaseline", &sfid_off, INTEGER);
 
     cFile.addKey("AllocatedMemoryMB", &MEMORY_ALLOC, DOUBLE);
+
+    cFile.addKey("TemporaryFolder", &TMP_FOLDER, STRING);
+
     cFile.readAll();
 
     TURN_OFF_SFID = sfid_off > 0;

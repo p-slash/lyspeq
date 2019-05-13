@@ -162,9 +162,8 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 
 void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 {
-    char tmp_ps_fname[]  = "tmppsfileXXXXXX", \
-         tmp_fit_fname[] = "tmpfitfileXXXXXX", \
-         buf[200];
+    char tmp_ps_fname[320], tmp_fit_fname[320], buf[500];
+
     FILE *tmp_fit_file;
     int s1, s2, kn, zm;
     static double fit_params[6] = { FIDUCIAL_PS_PARAMS->A, \
@@ -173,6 +172,9 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
                                     FIDUCIAL_PS_PARAMS->B, \
                                     FIDUCIAL_PS_PARAMS->beta, \
                                     FIDUCIAL_PS_PARAMS->lambda};
+
+    sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
+    sprintf(tmp_fit_fname, "%s/tmpfitfileXXXXXX", TMP_FOLDER);
 
     s1 = mkstemp(tmp_ps_fname);
     s2 = mkstemp(tmp_fit_fname);
