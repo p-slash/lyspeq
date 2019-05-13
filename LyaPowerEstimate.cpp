@@ -47,6 +47,7 @@ int main(int argc, char const *argv[])
                             &NUMBER_OF_ITERATIONS, \
                             NULL, NULL, NULL, NULL);
 
+        // Allocate and read look up tables
         sq_shared_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
 
         #if defined(_OPENMP)

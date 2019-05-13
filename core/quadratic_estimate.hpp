@@ -1,10 +1,3 @@
-/* This umbrella class manages the quadratic estimator by 
- *          storing the total Fisher matrix,
- *          computing the power spectrum estimate,
- *          and fitting a smooth function to the power spectrum estimate (now removed).
- * It reads a file which should start with number of quasars followed by a list of quasar files.
- */
-
 #ifndef QUADRATIC_ESTIMATE_H
 #define QUADRATIC_ESTIMATE_H
 
@@ -18,6 +11,21 @@ typedef struct
     double est_cpu_time;
 } qso_computation_time;
 
+
+// This umbrella class manages the quadratic estimator by 
+//      storing the total Fisher matrix and its inverse,
+//      computing the power spectrum estimate,
+//      and fitting a smooth function to the power spectrum estimate using Python3 script.
+
+// This object performs a load balancing operation based on N^3 estimation
+// and skips chunks that do not belong to any redshift bin
+//
+
+// It takes + a file path which should start with number of quasars followed by a list of quasar files,
+//          + the directory these qso placed to dir
+//          + Fiducial fit parameters as defined in fiducial_cosmology.hpp
+// Call iterate with max number of iterations and output filename base to fname_base
+//      fname_base should have output folder and output filebase in one
 
 class OneDQuadraticPowerEstimate
 {
@@ -40,7 +48,13 @@ class OneDQuadraticPowerEstimate
 
     bool isFisherInverted;
 
+    // Fitting procedure calls Python3 script lorentzian_fit.py.
+    // Intermadiate files are saved to TMP_FOLDER (read as TemporaryFolder in config file)
+    // make install will copy this script to $HOME/bin and make it executable.
+    // Add $HOME/bin to your $PATH
     void fitPowerSpectra(double *fit_values);
+
+    // Performs a load balancing operation based on N^3 estimation
     void loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads);
 
 public:
