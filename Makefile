@@ -40,7 +40,7 @@ SYSTYPE="MACOSX_clang"
 # Compiles with GCC 7.3.0
 ifeq ($(SYSTYPE),"GNU_XE18MKL") 
 CXX     = g++ 
-CPPFLAGS= -fopenmp -m64 -I${GSL_DIR}/include -I${MKLROOT}/include
+CPPFLAGS= -fopenmp -m64 -I${GSL_DIR}/include #-I${MKLROOT}/include
 LDFLAGS = -L${GSL_DIR}/lib -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed
 LDLIBS  = -lgsl -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
 endif
@@ -49,7 +49,7 @@ endif
 # Has not been tested!
 ifeq ($(SYSTYPE),"GNU_ATLAS") 
 CXX     = g++ 
-CPPFLAGS= -fopenmp -I${GSL_DIR}/include
+CPPFLAGS= -fopenmp -I${GSL_DIR}/include 
 LDFLAGS = -L${GSL_DIR}/lib -L${ATLAS_DIR}/lib
 LDLIBS  = -lgsl -latlas -lm -ldl
 endif
@@ -72,18 +72,20 @@ endif
 # because macOS provides BLAS and LAPACK in the Accelerate framework.
 ifeq ($(SYSTYPE),"MACOSX_clang") 
 CXX     = clang++ 
-CPPFLAGS= -Xpreprocessor -fopenmp -I/usr/local/opt/openblas/include
+CPPFLAGS= -Xpreprocessor -fopenmp #-I/usr/local/opt/openblas/include
 LDFLAGS = -L/usr/local/opt/openblas/lib
 LDLIBS  = -lgsl -lopenblas -lomp
 endif
 
 # Does not work!
+# gcc does not search usual dirs in Mojave
 ifeq ($(SYSTYPE),"MACOSX_g++") 
-CXX = g++-9 -fopenmp
-INCLS = -I/usr/local/include -I/usr/local/opt/openblas/include
-LIBSS = -L/usr/local/lib -L/usr/local/opt/openblas/lib
-LINKS = -lgsl -lopenblas -lgomp
+CXX     = g++-9
+CPPFLAGS= -fopenmp -I/usr/local/opt/openblas/include
+LDFLAGS = -L/usr/local/opt/openblas/lib
+LDLIBS  = -lgsl -lopenblas -lgomp
 endif
+#---------------------------------------
 
 # removed flags: -ansi -Wmissing-prototypes -Wstrict-prototypes -Wconversion -Wnested-externs -Dinline=
 GSLRECFLAGS = -Wall -pedantic -Werror -W \
@@ -94,20 +96,21 @@ GSLRECFLAGS = -Wall -pedantic -Werror -W \
 				
 #---------------------------------------
 
-DEPDIR = dep
-DIRS = core io gsltools
-VPATH = core:io:gsltools
+DIRS   = core io gsltools
 SRCEXT = cpp
+vpath  $(DIRS)
 
 SOURCES = $(shell find $(DIRS) -type f -name '*.$(SRCEXT)')
-OBJECTS = $(patsubst %, %.o, $(basename $(SOURCES)))
-
-PROGS = $(shell find . -type f -name '*.$(SRCEXT)')
-
+OBJECTS = $(SOURCES:.$(SRCEXT)=.o)
+PROGS   = $(basename $(shell find . -type f -name '*.$(SRCEXT)'))
+# DEPDIR = dep
+# $(shell mkdir -p $(DEPDIR))
+# DEPS    = $(patsubst %, $(DEPDIR)/%.d, $(basename $(notdir $(PROGS) $(SOURCES)))) 
+# DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$(*F).d
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
-CPPFLAGS += -std=gnu++11 -DHAVE_INLINE $(OPT)
+
+CPPFLAGS += $(DEPFLAGS) -std=gnu++11 -DHAVE_INLINE $(OPT)
 CXXFLAGS = $(GSLRECFLAGS)
-#$(CXX) $(CPPFLAGS) $(CXXFLAGS)
 	
 all: LyaPowerEstimate CreateSQLookUpTable cblas_tests
 
@@ -117,18 +120,8 @@ LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 CreateSQLookUpTable: CreateSQLookUpTable.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-cblas_tests: cblas_tests.o $(OBJECTS)
+cblas_tests: cblas_tests.o core/matrix_helper.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
-
-$(DEPDIR)/%.d: %.cpp 
-	@mkdir -p $(DEPDIR)
-	$(CXX) -MM -MG $(CPPFLAGS) $(CXXFLAGS) $< > $@.$$$$; \
-	sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
-	rm -f $@.$$$$
-
--include $(DEPDIR)/LyaPowerEstimate.d
--include $(DEPDIR)/CreateSQLookUpTable.d
--include $(DEPDIR)/cblas_tests.d
 
 .PHONY: install
 install: LyaPowerEstimate CreateSQLookUpTable
@@ -143,10 +136,10 @@ uninstall:
 
 .PHONY: clean
 clean:
-	$(RM) -r $(DEPDIR)
+# 	$(RM) -r $(DEPDIR)
 	$(RM) $(addsuffix /*.o, $(DIRS))
 	$(RM) LyaPowerEstimate LyaPowerEstimate.o
 	$(RM) CreateSQLookUpTable CreateSQLookUpTable.o
-	$(RM) test cblas_tests.o
+	$(RM) cblas_tests cblas_tests.o
 
 
