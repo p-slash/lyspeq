@@ -19,6 +19,8 @@
 #define CONVERGENCE_EPS       1E-4
 extern double CHISQ_CONVERGENCE_EPS;
 
+extern char TMP_FOLDER[300];
+
 // OpenMP thread no and total number of threads
 // threadnum is threadprivate
 extern int threadnum, numthreads;

@@ -52,3 +52,5 @@ DerivativeSLookUpTableBase   derivative_zon_lookup
 NumberOfIterations 15
 
 AllocatedMemoryMB 5.
+TemporaryFolder /tmp
+
