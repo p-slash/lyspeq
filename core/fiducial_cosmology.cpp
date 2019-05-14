@@ -14,6 +14,8 @@ double fiducial_power_spectrum(double k, double z, void *params)
 
     #ifdef DEBUG_FIT_FUNCTION
     {
+        double zz __attribute__((unused)) = z;
+        void  *pp __attribute__((unused)) = params;
         return debuggin_power_spectrum(k);
     }
     #endif
@@ -23,7 +25,7 @@ double signal_matrix_integrand(double k, void *params)
 {
     struct sq_integrand_params          *sqip = (struct sq_integrand_params*) params;
     struct spectrograph_windowfn_params *wp   = sqip->spec_window_params;
-    pd13_fit_params          *pfp  = sqip->fiducial_pd_params;
+    pd13_fit_params                     *pfp  = sqip->fiducial_pd_params;
 
     double result = spectral_response_window_fn(k, wp);
 
