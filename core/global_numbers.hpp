@@ -49,6 +49,7 @@ extern SQLookupTable *sq_shared_table, *sq_private_table;
 #pragma omp threadprivate(sq_private_table, threadnum)
 
 void printf_time_spent_details();
+void print_build_specifics();
 
 void set_up_bins(double k0, int nlin, double dklin, \
                             int nlog, double dklog, \

@@ -46,6 +46,40 @@ void printf_time_spent_details()
     printf("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
 }
 
+void print_build_specifics()
+{
+    #if defined(TOPHAT_Z_BINNING_FN)
+    #define BINNING_SHAPE "Top Hat"
+    #elif defined(TRIANGLE_Z_BINNING_FN)
+    #define BINNING_SHAPE "Triangular"
+    #else
+    #define BINNING_SHAPE "ERROR NOT DEFINED"
+    #endif
+
+    #if defined(DEBUG_FIT_FUNCTION)
+    #define FITTING_FUNC "Debug"
+    #elif defined(PD13_FIT_FUNCTION)
+    #define FITTING_FUNC "PD13"
+    #else
+    #define FITTING_FUNC "ERROR NOT DEFINED"
+    #endif
+
+    #define tostr(a) #a
+    #define tovstr(a) tostr(a)
+    
+    printf("This version is build by the following options:\n");
+    printf("1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
+    printf("2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
+    printf("Fitting function: %s\n", FITTING_FUNC);
+    printf("Binning shape: %s\n", BINNING_SHAPE);
+    fflush(stdout);
+
+    #undef tostr
+    #undef tovstr
+    #undef BINNING_SHAPE
+    #undef FITTING_FUNC
+}
+
 void set_up_bins(double k0, int nlin, double dklin, \
                             int nlog, double dklog, \
                  double z0)
