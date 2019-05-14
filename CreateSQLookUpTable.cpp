@@ -58,6 +58,8 @@ int main(int argc, char const *argv[])
         gsl_set_error_handler_off();
 
         // Read R values
+        // These values are FWHM integer
+        // spectrograph_windowfn_params takes 1 sigma km/s
         FILE *toRead = open_file(FNAME_RLIST, "r");
         fscanf(toRead, "%d\n", &NUMBER_OF_Rs);
 
@@ -105,6 +107,7 @@ int main(int argc, char const *argv[])
             {
                 time_spent_table_sfid = get_time();
 
+                // Convert integer FWHM to 1 sigma km/s
                 win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
                 
                 printf("T%d/%d - Creating look up table for signal matrix. R = %d : %.2f km/s.\n", \
