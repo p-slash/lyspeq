@@ -9,7 +9,7 @@ struct spectrograph_windowfn_params
     double delta_v_ij;
     double z_ij;
     double pixel_width;
-    double spectrograph_res;
+    double spectrograph_res;    // This is 1 sigma km/s resolution
 };
 
 void convert_flux2deltaf_mean(double *flux, double *noise, int size);
