@@ -70,24 +70,32 @@ double lnpoly2_power_spectrum(double lnk)
 
 double Palanque_Delabrouille_etal_2013_fit(double k, double z, pd13_fit_params *params)
 {
-    const double k_0 = 0.009; // s/km
-    const double z_0 = 3.0;
-    double  q = k + 1E-9;
+    #define K_0 0.009 // s km^-1
+    #define Z_0 3.0
 
-    // if (k < 1E-5)
-    // {
-    //     q = 1E-5;
-    // }
-    
-    double  lnk = log(q / k_0), \
-            lnz = log((1.+z) / (1.+z_0)),\
-            lnkP_pi = 0;
+    double  q0 = k / K_0 + 1E-10, \
+            x0 = (1. + z) / (1. + Z_0);
 
-    lnkP_pi = log(params->A) \
-            + (3. + params->n) * lnk \
-            + params->alpha * lnk * lnk \
-            + (params->B + params->beta * lnk) * lnz \
-            - log(1. + params->lambda * k * k);
+    return    (params->A * PI / K_0) \
+            * pow(q0,   2. + params->n + \
+                        params->alpha * log(q0) + \
+                        params->beta  * log(x0)) \
+            * pow(x0,   params->B) \
+            / (1. + params->lambda * k * k);
 
-    return exp(lnkP_pi) * PI / q;
+    #undef K_0
+    #undef Z_0
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
