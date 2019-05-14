@@ -17,14 +17,9 @@ Interpolation2D::Interpolation2D(   GSL_2D_INTERPOLATION_TYPE interp_type, \
     x_accelerator = gsl_interp_accel_alloc();
     y_accelerator = gsl_interp_accel_alloc();
 
-    if (interp_type == GSL_BILINEAR_INTERPOLATION)
-    {
-        spline = gsl_spline2d_alloc(gsl_interp2d_bilinear, x_size, y_size);
-    }
-    else if (interp_type == GSL_BICUBIC_INTERPOLATION)
-    {
-        spline = gsl_spline2d_alloc(gsl_interp2d_bicubic, x_size, y_size);
-    }
+    if      (interp_type == GSL_BILINEAR_INTERPOLATION)     spline = gsl_spline2d_alloc(gsl_interp2d_bilinear, x_size, y_size);
+    else if (interp_type == GSL_BICUBIC_INTERPOLATION)      spline = gsl_spline2d_alloc(gsl_interp2d_bicubic, x_size, y_size);
+    else                                                    throw "2D_INTERP_TYPE_ERROR";
     
     gsl_spline2d_init(spline, x, y, z, x_size, y_size);
 }
@@ -34,9 +29,6 @@ Interpolation2D::~Interpolation2D()
     gsl_spline2d_free(spline);
     gsl_interp_accel_free(x_accelerator);
     gsl_interp_accel_free(y_accelerator);
-
-    //printf("Interpolation2D destructor called.\n");
-    //fflush(stdout);
 }
 
 Interpolation2D::Interpolation2D(const Interpolation2D &itp2d)

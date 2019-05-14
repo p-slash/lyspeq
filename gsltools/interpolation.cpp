@@ -15,14 +15,9 @@ Interpolation::Interpolation(GSL_INTERPOLATION_TYPE interp_type, const double *x
 
 	accelerator = gsl_interp_accel_alloc();
 
-	if (interp_type == GSL_LINEAR_INTERPOLATION)
-	{
-		spline = gsl_spline_alloc(gsl_interp_linear, size);
-	}
-	else if (interp_type == GSL_CUBIC_INTERPOLATION)
-	{
-		spline = gsl_spline_alloc(gsl_interp_cspline, size);
-	}
+	if 		(interp_type == GSL_LINEAR_INTERPOLATION)		spline = gsl_spline_alloc(gsl_interp_linear, size);
+	else if (interp_type == GSL_CUBIC_INTERPOLATION)		spline = gsl_spline_alloc(gsl_interp_cspline, size);
+	else													throw "1D_INTERP_TYPE_ERROR";
 	
 	gsl_spline_init(spline, x, y, size);
 }
