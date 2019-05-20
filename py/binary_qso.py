@@ -47,7 +47,24 @@ class BinaryQSO:
         Saves the given parameters in binary format. Does not hold them as attributes.
 
     read()
-        Reads the file. Saves as attributes and returns.
+        Reads the file. Saves as attributes and returns:
+        N : int
+            Number of pixels
+        z_qso : double
+            Emission redshift of the quasar.
+        DECL : double
+        RA : double
+        SPECRES : int
+        S2N : double
+        dv : double
+        low_ob_l : double 
+        upp_ob_l : double
+        low_re_l : double
+        upp_re_l : double
+        wave : Array of N doubles
+        flux : Array of N doubles
+        error : Array of N doubles
+
     """
 
     def __init__(self, fname, rw):
