@@ -36,6 +36,8 @@ extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
 extern double *KBAND_EDGES, *KBAND_CENTERS;
 extern double Z_BIN_WIDTH, *ZBIN_CENTERS;
 
+#define is_last_bin(x) ((x+1) % NUMBER_OF_K_BANDS == 0)
+
 extern double MEMORY_ALLOC;
 
 // Keeping track of time
