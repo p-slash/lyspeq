@@ -4,7 +4,7 @@
 #include <gsl/gsl_matrix.h> 
 #include "sq_table.hpp"
 
-int getFisherMatrixIndex(int kn, int zm);
+int  getFisherMatrixIndex(int kn, int zm);
 void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);
 
 // This object creates and computes C, S, Q, Q-slash matrices,
@@ -33,15 +33,14 @@ class OneQSOEstimate
     double  MEDIAN_REDSHIFT, BIN_REDSHIFT, \
             DV_KMS;
     
-    /* DATA_SIZE sized vectors */ 
+    // DATA_SIZE sized vectors
     double *lambda_array, \
            *velocity_array, \
            *flux_array, \
            *noise_array;
 
-    /* DATA_SIZE x DATA_SIZE sized matrices 
-       Note that noise matrix is diagonal and stored as pointer to its array 
-    */
+    // DATA_SIZE x DATA_SIZE sized matrices 
+    // Note that noise matrix is diagonal and stored as pointer to its array 
     gsl_matrix  *covariance_matrix, \
                 *inverse_covariance_matrix, \
                 *temp_matrix[2];
@@ -63,10 +62,10 @@ class OneQSOEstimate
 public:
     int ZBIN, DATA_SIZE;
 
-    /* TOTAL_KZ_BINS sized vector */ 
+    // TOTAL_KZ_BINS sized vector 
     gsl_vector  *ps_before_fisher_estimate_vector;
 
-    /* TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices */
+    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
     gsl_matrix  *fisher_matrix;
 
     OneQSOEstimate(const char *fname_qso);
