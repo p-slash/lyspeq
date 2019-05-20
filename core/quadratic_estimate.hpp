@@ -37,12 +37,12 @@ class OneDQuadraticPowerEstimate
 
     qso_computation_time *qso_estimators;
 
-    /* TOTAL_KZ_BINS sized vector */ 
+    // TOTAL_KZ_BINS sized vector
     gsl_vector  *pmn_before_fisher_estimate_vector_sum, \
                 *previous_pmn_estimate_vector, \
                 *pmn_estimate_vector;
 
-    /* TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix */
+    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
     gsl_matrix  *fisher_matrix_sum,\
                 *inverse_fisher_matrix_sum;
 
