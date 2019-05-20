@@ -49,7 +49,7 @@ class OneDQuadraticPowerEstimate
     bool isFisherInverted;
 
     // Fitting procedure calls Python3 script lorentzian_fit.py.
-    // Intermadiate files are saved to TMP_FOLDER (read as TemporaryFolder in config file)
+    // Intermadiate files are saved in TMP_FOLDER (read as TemporaryFolder in config file)
     // make install will copy this script to $HOME/bin and make it executable.
     // Add $HOME/bin to your $PATH
     void fitPowerSpectra(double *fit_values);
@@ -73,6 +73,8 @@ public:
     
     void printfSpectra();
     void write_fisher_matrix(const char *fname_base);
+
+    // Does not write the last bin since it is ignored
     void write_spectrum_estimates(const char *fname_base);
 };
 
