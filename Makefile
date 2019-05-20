@@ -9,15 +9,12 @@ OPT += -DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
 OPT += -DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
 
 # Pick the fit function
-# OPT += -DDEBUG_FIT_FUNCTION
 OPT += -DPD13_FIT_FUNCTION
+# OPT += -DSOME_OTHER_FIT
 
 # Pick the redshift binning function 
 # OPT += -DTOPHAT_Z_BINNING_FN
 OPT += -DTRIANGLE_Z_BINNING_FN
-
-# Print out at debugging checkpoints
-# OPT += -DDEBUG_ON
 
 #---------------------------------------
 # Choose compiler and library options
@@ -39,7 +36,7 @@ SYSTYPE="clang_openblas"
 # Compiles with GCC 7.3.0
 ifeq ($(SYSTYPE),"GNU_XE18MKL") 
 CXX     = g++ 
-CPPFLAGS= -fopenmp -m64 -I${GSL_DIR}/include #-I${MKLROOT}/include
+CPPFLAGS= -fopenmp -m64 -I${GSL_DIR}/include
 LDFLAGS = -L${GSL_DIR}/lib -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed
 LDLIBS  = -lgsl -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl
 endif
@@ -67,8 +64,8 @@ LDLIBS  = -lgsl -liomp5 -lpthread -lm -ldl
 endif
 
 # OpenBLAS 
-# brew install libomp
-# brew install openblas
+# To install OpenMP in Mac: brew install libomp
+# To install OpenBLAS:      brew install openblas
 # openblas is keg-only, which means it was not symlinked into /usr/local,
 # because macOS provides BLAS and LAPACK in the Accelerate framework.
 ifeq ($(SYSTYPE),"clang_openblas") 
