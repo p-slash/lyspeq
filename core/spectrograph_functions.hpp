@@ -1,6 +1,3 @@
-/* TODO: mean flux(z) from a paper instead of averaging the observed flux
- */
-
 #ifndef SPECTROGRAPH_FUNCTIONS_H
 #define SPECTROGRAPH_FUNCTIONS_H
 

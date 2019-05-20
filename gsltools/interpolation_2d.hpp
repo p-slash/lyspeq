@@ -36,8 +36,6 @@ public:
 	~Interpolation2D();
 
 	double evaluate(double x, double y) const;
-	//double derivative(double x, double y);
-	//long writeInterpolation(const char *fname);
 };
 
 #endif

@@ -36,7 +36,6 @@ public:
 
 	double evaluate(double x) const;
 	double derivative(double x) const;
-	// void writeInterpolation(const char *fname);
 };
 
 #endif

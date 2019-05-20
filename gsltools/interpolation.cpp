@@ -1,9 +1,4 @@
 #include "interpolation.hpp"
-// #include "../io/io_helper_functions.hpp"
-
-
-// #include <gsl/gsl_integration.h>
-// #include <gsl/gsl_sf_bessel.h>
 
 #include <cstdio>
 
@@ -91,22 +86,4 @@ double Interpolation::derivative(double x) const
 	return normalization * gsl_spline_eval_deriv(spline, x, accelerator);	
 }
 
-// void Interpolation::writeInterpolation(const char *fname)
-// {
-// 	int length = 2000;
-// 	const double step_size	= (highest_x - lowest_x) / length;
-// 	length = (highest_x - lowest_x) / step_size;
-	
-// 	FILE *toWrite;
 
-// 	toWrite = open_file(fname, "w");
-
-// 	fprintf(toWrite, "%d\n", length);
-	
-// 	for (double i = lowest_x; i < highest_x; i += step_size)
-// 		fprintf(toWrite, "%e %e\n", i, evaluate(i));
-
-// 	fclose(toWrite);
-	
-// 	printf("Interpolation saved as %s\n", fname);
-// }
