@@ -87,7 +87,7 @@ int main(int argc, char const *argv[])
 #pragma omp parallel private(buf, time_spent_table_sfid, time_spent_table_q)
 {       
         #if defined(_OPENMP)
-        threadnum = omp_get_thread_num();
+        t_rank = omp_get_thread_num();
         #endif
         
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
@@ -111,7 +111,7 @@ int main(int argc, char const *argv[])
                 win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
                 
                 printf("T%d/%d - Creating look up table for signal matrix. R = %d : %.2f km/s.\n", \
-                        threadnum, numthreads, R_VALUES[r], win_params.spectrograph_res);
+                        t_rank, numthreads, R_VALUES[r], win_params.spectrograph_res);
                 fflush(stdout);
 
                 STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
@@ -151,7 +151,7 @@ int main(int argc, char const *argv[])
                 time_spent_table_sfid = get_time() - time_spent_table_sfid;
 
                 printf("T:%d/%d - Time spent on fiducial signal matrix table R %d is %.2f mins.\n", \
-                        threadnum, numthreads, R_VALUES[r], time_spent_table_sfid);
+                        t_rank, numthreads, R_VALUES[r], time_spent_table_sfid);
             }
 
             delete [] big_temp_array;
@@ -173,7 +173,7 @@ int main(int argc, char const *argv[])
 
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             printf("T:%d/%d - Creating look up tables for derivative signal matrices. R = %d : %.2f km/s.\n", \
-                    threadnum, numthreads, R_VALUES[r], win_params.spectrograph_res);
+                    t_rank, numthreads, R_VALUES[r], win_params.spectrograph_res);
             fflush(stdout);
 
             for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
@@ -210,7 +210,7 @@ int main(int argc, char const *argv[])
             
             time_spent_table_q = get_time() - time_spent_table_q;
             printf("T:%d/%d - Time spent on derivative matrix table R %d is %.2f mins.\n", \
-                    threadnum, numthreads, R_VALUES[r], time_spent_table_q);
+                    t_rank, numthreads, R_VALUES[r], time_spent_table_q);
         }
         // Q matrices are written.
         // ---------------------

@@ -62,11 +62,11 @@ int main(int argc, char const *argv[])
 #pragma omp parallel
 {
         #if defined(_OPENMP)
-        threadnum  = omp_get_thread_num();
+        t_rank  = omp_get_thread_num();
         #endif
 
         // Create private copy for interpolation is not thread safe!
-        if (threadnum == 0)     sq_private_table = sq_shared_table;
+        if (t_rank == 0)     sq_private_table = sq_shared_table;
         else                    sq_private_table = new SQLookupTable(*sq_shared_table);
 }
 
