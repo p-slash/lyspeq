@@ -40,19 +40,8 @@ void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm)
     zm = i / NUMBER_OF_K_BANDS;
 }
 
-void compareTableTrue(double true_value, double table_value, const char *which_matrix)
-{
-    double rel_error = (table_value / true_value) - 1.;
-
-    if (fabs(rel_error) > 0.1)
-    {
-        printf("True value and table value does not match in %s!\n", which_matrix);
-        printf("True value: %.2e\n", true_value);
-        printf("Table value: %.2e\n", table_value);
-        // throw "Wrong table";
-    }
-}
-
+// For a top hat redshift bin, only access 1 redshift bin
+// For triangular z bins, access 3 (2 for first and last z bins) redshift bins
 void setNQandFisherIndex(int &nq, int &fi, int ZBIN)
 {
     #ifdef TOPHAT_Z_BINNING_FN
@@ -98,16 +87,20 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 
     qFile.readData(lambda_array, flux_array, noise_array);
 
+    // Convert flux to fluctuation around the mean flux
     convert_flux2deltaf_mean(flux_array, noise_array, DATA_SIZE);
     
+    // Keep noise as error squared (variance)
     for (int i = 0; i < DATA_SIZE; ++i)
         noise_array[i] *= noise_array[i];
 
+    // Covert from wavelength to velocity units around median wavelength
     convert_lambda2v(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
 
     printf("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
     printf("Median redshift of spectrum chunk: %.2f\n", MEDIAN_REDSHIFT);
 
+    // Assign to a redshift bin according to median redshift of this chunk
     ZBIN = (MEDIAN_REDSHIFT - ZBIN_CENTERS[0] + Z_BIN_WIDTH/2.) / Z_BIN_WIDTH;
     
     if (MEDIAN_REDSHIFT < ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.)     ZBIN = -1;
@@ -115,6 +108,12 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     if (ZBIN >= 0 && ZBIN < NUMBER_OF_Z_BINS)   BIN_REDSHIFT = ZBIN_CENTERS[ZBIN];
     else                                        printf("This QSO does not belong to any redshift bin!\n");
     
+    // Find the resolution index for the look up table
+    r_index = sq_private_table->findSpecResIndex(SPECT_RES_FWHM);
+    
+    if (r_index == -1)      throw "SPECRES not found in tables!";
+
+    // Set up number of matrices, index for Fisher matrix
     setNQandFisherIndex(N_Q_MATRICES, fisher_index_start, ZBIN);
 
     isCovInverted    = false;
@@ -122,6 +121,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     // Number of Qj matrices to preload.
     double size_m1 = (double)sizeof(double) * DATA_SIZE * DATA_SIZE / 1048576.; // in MB
     
+    // Need at least 3 matrices as temp
     nqj_eff      = MEMORY_ALLOC / size_m1 - 3;
     isSfidStored = false;
     
@@ -238,10 +238,6 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
 
 void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 {
-    r_index = sq_private_table->findSpecResIndex(SPECT_RES_FWHM);
-    
-    if (r_index == -1)      throw "SPECRES not found in tables!";
-
     // Set fiducial signal matrix
     if (!TURN_OFF_SFID)
         setFiducialSignalMatrix(covariance_matrix);
@@ -250,8 +246,8 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
-        // Skip if last bin
-        if ((i_kz+1) % NUMBER_OF_K_BANDS)   continue;
+        // Skip if last k bin
+        if (is_last_bin(i_kz))   continue;
 
         setQiMatrix(temp_matrix[0], i_kz);
 
@@ -398,10 +394,6 @@ void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
                                         gsl_vector *pmn_before, gsl_matrix *fisher_sum)
 {
     allocateMatrices();
-    #ifdef DEBUG_ON
-    printf("Allocated\n");
-    fflush(stdout);
-    #endif
 
     // Preload last nqj_eff matrices
     // 0 is the last matrix
@@ -418,11 +410,6 @@ void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
     }
 
     setCovarianceMatrix(ps_estimate);
-    #ifdef DEBUG_ON
-    printf("Set\n");
-    fprintf_matrix("debugdump_covariance_matrix.dat", covariance_matrix);
-    fflush(stdout);
-    #endif
 
     try
     {
@@ -439,14 +426,6 @@ void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
                 t_rank, numthreads, msg, qso_sp_fname);
         fprintf(stderr, "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n", \
                 DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
-        
-        // for (int i = 0; i < DATA_SIZE; i++)     fprintf(stderr, "%.2lf ", flux_array[i]);
-
-        // fprintf(stderr, "\nNoise: ");
-
-        // for (int i = 0; i < DATA_SIZE; i++)     fprintf(stderr, "%.2lf ", noise_array[i]);
-        
-        // fprintf(stderr, "\n");
     }
     
     freeMatrices();
