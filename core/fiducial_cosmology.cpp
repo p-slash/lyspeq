@@ -5,19 +5,20 @@
 
 double fiducial_power_spectrum(double k, double z, void *params)
 {
+    // Using Palanque-Delabrouille function
     #ifdef PD13_FIT_FUNCTION
-    {
-        pd13_fit_params *pfp = (pd13_fit_params *) params;
-        return Palanque_Delabrouille_etal_2013_fit(k, z, pfp);   
-    }
+    
+    pd13_fit_params *pfp = (pd13_fit_params *) params;
+    return Palanque_Delabrouille_etal_2013_fit(k, z, pfp);   
+    
     #endif
 
-    #ifdef DEBUG_FIT_FUNCTION
-    {
-        double zz __attribute__((unused)) = z;
-        void  *pp __attribute__((unused)) = params;
-        return debuggin_power_spectrum(k);
-    }
+    // If you want to use another function
+    // Code and pass to preprocessor
+    #ifdef SOME_OTHER_FIT
+
+    return another_fitting_function(k, z, params);
+    
     #endif
 }
 
@@ -41,31 +42,9 @@ double q_matrix_integrand(double k, void *params)
 
     double result = spectral_response_window_fn(k, wp);
 
-    result *= result / PI; // * cos(k * wp->delta_v_ij)
+    result *= result / PI;
 
     return result;
-}
-
-double debuggin_power_spectrum(double k)
-{
-    const double dv = 200.;
-
-    double kc = PI / dv / 2.0;
-
-    double r = k/kc;
-
-    return dv * r * exp(- r*r);
-}
-
-double lnpoly2_power_spectrum(double lnk)
-{
-    double  c0 = -7.89e-01, \
-            c1 = 1.30e-01, \
-            c2 = -1.87e-02;
-
-    double lnkP = c0 + c1 * lnk + c2 * lnk*lnk;
-
-    return exp(lnkP);
 }
 
 double Palanque_Delabrouille_etal_2013_fit(double k, double z, pd13_fit_params *params)
@@ -87,7 +66,12 @@ double Palanque_Delabrouille_etal_2013_fit(double k, double z, pd13_fit_params *
     #undef Z_0
 }
 
-
+double another_fitting_function(double k, double z, void *params)
+{
+    // Code your own fitting function here
+    void  *pp __attribute__((unused)) = params; // remove this line if using params
+    return k*z;
+}
 
 
 
