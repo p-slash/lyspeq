@@ -250,6 +250,9 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
+        // Skip if last bin
+        if ((i_kz+1) % NUMBER_OF_K_BANDS)   continue;
+
         setQiMatrix(temp_matrix[0], i_kz);
 
         cblas_daxpy(DATA_SIZE*DATA_SIZE, \
@@ -433,7 +436,7 @@ void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
     catch (const char* msg)
     {
         fprintf(stderr, "%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n", \
-                threadnum, numthreads, msg, qso_sp_fname);
+                t_rank, numthreads, msg, qso_sp_fname);
         fprintf(stderr, "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n", \
                 DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
         

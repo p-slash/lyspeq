@@ -225,9 +225,11 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     for (int i_kz = 0; i_kz < TOTAL_KZ_BINS; i_kz++)
     {
-        fscanf(tmp_fit_file, "%le\n", &fit_values[i_kz]);
-
         getFisherMatrixBinNoFromIndex(i_kz, kn, zm);
+        // Skip last bin
+        if (kn == NUMBER_OF_K_BANDS-1)  continue;
+        
+        fscanf(tmp_fit_file, "%le\n", &fit_values[i_kz]);
 
         fit_values[i_kz] -= powerSpectrumFiducial(kn, zm);
     }
@@ -291,9 +293,9 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(TOTAL_KZ_BINS);
         gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
 
-        std::vector<qso_computation_time*> *local_que     = &queue_qso[threadnum];
+        std::vector<qso_computation_time*> *local_que     = &queue_qso[t_rank];
 
-        printf("Start working in %d/%d thread with %lu qso in queue.\n", threadnum, numthreads, local_que->size());
+        printf("Start working in %d/%d thread with %lu qso in queue.\n", t_rank, numthreads, local_que->size());
         fflush(stdout);
 
         for (std::vector<qso_computation_time*>::iterator it = local_que->begin(); it != local_que->end(); ++it)
@@ -302,7 +304,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         thread_time = get_time() - thread_time;
 
         printf("Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n", \
-                threadnum, numthreads, thread_time);
+                t_rank, numthreads, thread_time);
         fflush(stdout);
 
         #pragma omp critical
@@ -368,7 +370,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
         
-        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
+        for (int kn = 0; kn < NUMBER_OF_K_BANDS-1; kn++)
         {
             i_kz = getFisherMatrixIndex(kn, zm - 1);
             
@@ -399,10 +401,13 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     for (i_kz = 0; i_kz < TOTAL_KZ_BINS; ++i_kz)
     {
+        // Skip last bin
+        if ((i_kz+1)%NUMBER_OF_K_BANDS == 0)    continue;
+
         double  t = gsl_vector_get(previous_pmn_estimate_vector, i_kz), \
                 e = gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz);
 
-        r += (t*t) / e / TOTAL_KZ_BINS;
+        r += (t*t) / e / (TOTAL_KZ_BINS - NUMBER_OF_Z_BINS);
     }
 
     r = sqrt(r);
@@ -448,7 +453,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname)
 
         z = ZBIN_CENTERS[zm-1];
 
-        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
+        for (int kn = 0; kn < NUMBER_OF_K_BANDS-1; kn++)
         {
             i_kz = getFisherMatrixIndex(kn, zm-1);
 
