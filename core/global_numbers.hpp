@@ -21,11 +21,17 @@ extern double CHISQ_CONVERGENCE_EPS;
 
 extern char TMP_FOLDER[300];
 
-// OpenMP thread no and total number of threads
-// threadnum is threadprivate
-extern int threadnum, numthreads;
+// OpenMP thread rank and total number of threads
+// t_rank is threadprivate
+extern int t_rank, numthreads;
 
 // Binning numbers
+// One last bin is created at LAST_K_EDGE to absorb high k power such as alias effect.
+#define LAST_K_EDGE 10.
+// This last bin is not calculated into covariance matrix, smooth power spectrum fitting or convergence test.
+// But it has a place in Fisher matrix and in power spectrum estimates.
+// NUMBER_OF_K_BANDS counts the last bin. So must use NUMBER_OF_K_BANDS - 1 when last bin ignored
+// TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS
 extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
 extern double *KBAND_EDGES, *KBAND_CENTERS;
 extern double Z_BIN_WIDTH, *ZBIN_CENTERS;
@@ -46,7 +52,7 @@ extern bool TURN_OFF_SFID;
 extern SQLookupTable *sq_shared_table, *sq_private_table;
 
 // OpenMP Threadprivate variables
-#pragma omp threadprivate(sq_private_table, threadnum)
+#pragma omp threadprivate(sq_private_table, t_rank)
 
 void printf_time_spent_details();
 void print_build_specifics();

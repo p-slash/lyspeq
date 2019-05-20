@@ -16,7 +16,7 @@ double CHISQ_CONVERGENCE_EPS = 0.01;
 double MEMORY_ALLOC          = 0;
 
 int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
-int threadnum = 0, numthreads = 1;
+int t_rank = 0, numthreads = 1;
 
 SQLookupTable *sq_shared_table, *sq_private_table;
 
@@ -85,32 +85,30 @@ void set_up_bins(double k0, int nlin, double dklin, \
                  double z0)
 {
     // Construct k edges
-    NUMBER_OF_K_BANDS = nlin + nlog;
+    NUMBER_OF_K_BANDS = nlin + nlog + 1;
     TOTAL_KZ_BINS     = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
 
     KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
     KBAND_CENTERS = new double[NUMBER_OF_K_BANDS];
 
+    // Linearly spaced bins
     for (int i = 0; i < nlin + 1; i++)
-    {
         KBAND_EDGES[i] = k0 + dklin * i;
-    }
+    // Logarithmicly spaced bins
     for (int i = 1, j = nlin + 1; i < nlog + 1; i++, j++)
-    {
         KBAND_EDGES[j] = KBAND_EDGES[nlin] * pow(10., i * dklog);
-    }
+    // Last bin
+    KBAND_EDGES[NUMBER_OF_K_BANDS] = LAST_K_EDGE;
+
+    // Set up k bin centers
     for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
-    {
         KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
-    }
 
     // Construct redshift bins
     ZBIN_CENTERS = new double[NUMBER_OF_Z_BINS];
 
     for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
-    {
         ZBIN_CENTERS[zm] = z0 + Z_BIN_WIDTH * zm;
-    }
 }
 
 void clean_up_bins()
