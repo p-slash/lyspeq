@@ -135,36 +135,3 @@ lambda   = %.3e""" % (pnew_toprint[0], pnew_toprint[1], pnew_toprint[2], \
 
     exit(0)
 
-# for nz in range(NzBins):
-#     ind_1 = nz * NkBins
-#     ind_2 = (nz + 1) * NkBins
-
-#     k1 = k[ind_1:ind_2]
-#     p1 = p[ind_1:ind_2]
-#     e1 = e[ind_1:ind_2]
-
-#     mask = np.greater(p1, 0)
-
-#     k1_m = k1[mask]
-#     p1_m = p1[mask]
-#     e1_m = e1[mask]
-
-#     pnew, pcov = curve_fit(pd13_lorentzian_noz, k1_m, p1_m, pd13_0, sigma=e1_m)
-
-#     theoretical_ps[ind_1:ind_2] = pd13_lorentzian_noz(k1, *pnew)
-
-
-
-# def pd13form_fitting_function(X, A, n, alpha, B, beta):
-#     k, z = X
-
-#     lnk = np.log(k / k_0)
-#     lnz = np.log((1. + z) / (1. + z_0))
-#     lnkP_pi = 0;
-
-#     lnkP_pi = np.log(A) \
-#             + (3. + n) * lnk \
-#             + alpha * lnk * lnk \
-#             + (B + beta * lnk) * lnz
-
-#     return np.exp(lnkP_pi) * np.pi / k

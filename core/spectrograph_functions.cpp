@@ -4,8 +4,6 @@
 #include <cmath>
 #include <cstdio>
 
-// double R_SPECTOGRAPH;
-
 double sinc(double x)
 {
     if (fabs(x) < 1E-6)

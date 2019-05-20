@@ -253,7 +253,6 @@ Interpolation2D* SQLookupTable::getSignalMatrixInterp(int r_index) const
 int SQLookupTable::getIndex4DerivativeInterpolation(int kn, int r_index) const
 {
     return kn + NUMBER_OF_K_BANDS * r_index;
-    // return r_index + NUMBER_OF_R_VALUES * kn;
 }
 
 int SQLookupTable::findSpecResIndex(int spec_res) const

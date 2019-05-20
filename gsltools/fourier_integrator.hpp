@@ -14,10 +14,10 @@ class FourierIntegrator
     void handle_gsl_status(int status);
     
 public:
-    /*  gsl_integration_qawo_enum sin_cos should be chosen from below:
-        GSL_INTEG_COSINE
-        GSL_INTEG_SINE
-    */
+    // gsl_integration_qawo_enum sin_cos should be chosen from below:
+    //  GSL_INTEG_COSINE
+    //  GSL_INTEG_SINE
+    
     FourierIntegrator(  gsl_integration_qawo_enum sin_cos, \
                         double (*integrand_function)(double, void*), void *params);
     ~FourierIntegrator();
