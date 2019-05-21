@@ -38,8 +38,7 @@ int index_of_min_element(double *a, int size)
 //-------------------------------------------------------
 
 
-OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
-                                                        pd13_fit_params *pfp)
+OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, const char *dir, pd13_fit_params *pfp)
 {
     FIDUCIAL_PS_PARAMS  = pfp;
 
@@ -220,12 +219,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     for (int i_kz = 0; i_kz < TOTAL_KZ_BINS; i_kz++)
     {
-        // Skip last k bin
-        if (is_last_bin(i_kz))
-        {
-            fit_values[i_kz] = 0;
-            continue;
-        } 
+        skip_last_k_bin(i_kz);
 
         getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
@@ -359,7 +353,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 {
     double  diff, pMax, p1, p2, r, \
             abs_mean = 0., abs_max = 0.;
-    bool ifConverged = true;
+    bool bool_converged = true;
     int i_kz;
 
     for (int zm = 1; zm <= NUMBER_OF_Z_BINS; zm++)
@@ -377,7 +371,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
             pMax = std::max(p1, p2);
             r    = diff / pMax;
 
-            if (r > CONVERGENCE_EPS)    ifConverged = false;
+            if (r > CONVERGENCE_EPS)    bool_converged = false;
 
             abs_mean += r / (TOTAL_KZ_BINS - NUMBER_OF_Z_BINS);
             abs_max   = std::max(r, abs_max);
@@ -397,8 +391,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     for (i_kz = 0; i_kz < TOTAL_KZ_BINS; ++i_kz)
     {
-        // Skip last k bin
-        if (is_last_bin(i_kz))    continue;
+        skip_last_k_bin(i_kz);
 
         double  t = gsl_vector_get(previous_pmn_estimate_vector, i_kz), \
                 e = gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz);
@@ -413,9 +406,9 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     printf("Chi square convergence test: %.3f per dof. ", r);
     printf("Iteration converges when this is less than %.2f\n", CHISQ_CONVERGENCE_EPS);
 
-    ifConverged = r < CHISQ_CONVERGENCE_EPS;
+    bool_converged = r < CHISQ_CONVERGENCE_EPS;
 
-    return ifConverged;
+    return bool_converged;
 }
 
 void OneDQuadraticPowerEstimate::write_fisher_matrix(const char *fname)
