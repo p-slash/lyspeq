@@ -77,8 +77,7 @@ public:
     void computePSbeforeFvector();
     void computeFisherMatrix();
 
-    void oneQSOiteration(   const double *ps_estimate, \
-                            gsl_vector *pmn_before, gsl_matrix *fisher_sum);
+    void oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_before, gsl_matrix *fisher_sum);
 };
 
 #endif

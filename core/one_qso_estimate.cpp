@@ -246,8 +246,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
-        // Skip if last k bin
-        if (is_last_bin(i_kz))   continue;
+        skip_last_k_bin(i_kz);
 
         setQiMatrix(temp_matrix[0], i_kz);
 
@@ -390,8 +389,7 @@ void OneQSOEstimate::computePSbeforeFvector()
     gsl_vector_free(weighted_data_vector);
 }
 
-void OneQSOEstimate::oneQSOiteration(   const double *ps_estimate, \
-                                        gsl_vector *pmn_before, gsl_matrix *fisher_sum)
+void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_before, gsl_matrix *fisher_sum)
 {
     allocateMatrices();
 
