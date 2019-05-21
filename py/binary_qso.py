@@ -54,13 +54,21 @@ class BinaryQSO:
             Emission redshift of the quasar.
         DECL : double
         RA : double
+            Declination and right ascension in radians
         SPECRES : int
+            Dimensionless resolving power.
         S2N : double
+            Signal to noise
         dv : double
+            Pixel width in km/s
         low_ob_l : double 
+            Lower observed wavelength
         upp_ob_l : double
+            Upper observed wavelength
         low_re_l : double
+            Lower rest frame wavelength
         upp_re_l : double
+            Upper rest frame wavelength
         wave : Array of N doubles
         flux : Array of N doubles
         error : Array of N doubles
