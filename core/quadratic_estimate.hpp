@@ -22,10 +22,10 @@ typedef struct
 //
 
 // It takes + a file path which should start with number of quasars followed by a list of quasar files,
-//          + the directory these qso placed to dir
+//          + the directory these qso placed as const char *dir
 //          + Fiducial fit parameters as defined in fiducial_cosmology.hpp
-// Call iterate with max number of iterations and output filename base to fname_base
-//      fname_base should have output folder and output filebase in one
+// Call iterate with max number of iterations and output filename base to const char *fname_base
+//      fname_base should have output folder and output filebase in one string
 
 class OneDQuadraticPowerEstimate
 {
@@ -58,8 +58,7 @@ class OneDQuadraticPowerEstimate
     void loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads);
 
 public:
-    OneDQuadraticPowerEstimate( const char *fname_list, const char *dir, \
-                                pd13_fit_params *pfp);
+    OneDQuadraticPowerEstimate(const char *fname_list, const char *dir, pd13_fit_params *pfp);
 
     ~OneDQuadraticPowerEstimate();
     
@@ -75,6 +74,7 @@ public:
     void write_fisher_matrix(const char *fname_base);
 
     // Does not write the last bin since it is ignored
+    // You can find that value in logs--printfSpectra prints all
     void write_spectrum_estimates(const char *fname_base);
 };
 
