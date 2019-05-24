@@ -2,20 +2,20 @@ Prerequisites
 =====
 + [GSL](https://www.gnu.org/software/gsl/) is needed for matrix algebra, integration and interpolation.
 + [Python](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
-+ [OpenMP](https://www.openmp.org) is needed to enable parallel computing for shared memory.
++ [OpenMP](https://www.openmp.org) is needed to enable parallel computing on shared memory.
 
-Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl) and [ATLAS](http://math-atlas.sourceforge.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
+Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl) or [ATLAS](http://math-atlas.sourceforge.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
 
 Compile and Install
 =====
-After setting up the desired Makefile, simply run `make` and then `make install`. This will copy the programs and lorentzian_fit.py to `$HOME/bin`. Make sure this is your `$PATH` before running programs.
+After setting up the desired Makefile, simply run `make` and then `make install`. This will copy the programs and lorentzian_fit.py to `$HOME/bin`. Make sure this is in your `$PATH` before running programs.
 
 Overview of Programs
 =====
-+ **LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method. When compiled with OpenMP compatibility, it distributes qso chunks to multiple CPUs, then sums the results.
++ **LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method. When compiled with OpenMP compatibility, it distributes qso chunks to multiple CPUs, then reduces the results.
 + **CreateSQLookUpTable** creates look up tables for signal and derivative matrices used in LyaPowerEstimate. When compiled with OpenMP compatibility, it computes tables for different resolution on multiple CPUs.
 
-Both programs take one common config file. OpenMP versions must run on a single node with multiple CPUs.
+Both programs take one common config file. OpenMP versions must run on a single node.
 
 Makefile
 =====
@@ -62,8 +62,6 @@ Create custom system types by modifying one of the present cases. For example fo
 
 Config File
 =====
-Config file has one file list for qso spectra. This txt file should start with number of qso and then have relative file paths.
-
 Bin edges for k start with linear spacing: `K0 + LinearKBinWidth * n`, where `n=[0, NumberOfLinearBins]`. Then continues with log spacing: `K_Edges[NumberOfLinearBins] * 10^(Log10KBinWidth * n)`. Parameters for k binning are:
 
     K0 0.
@@ -104,7 +102,7 @@ The maximum number of iterations are
 
     NumberOfIterations    10
 
-The location of the file list, and the directory where those files live:
+Config file has one file list for qso spectra. This file should start with number of qsos, and then have their relative file paths. The location of the file list, and the directory where those files live:
 
     FileNameList      ./data/qso_dir/qso_list.txt
     FileInputDir      ./data/qso_dir/
@@ -127,7 +125,7 @@ Specify allocated memory in MB to store additional derivative matrices and fiduc
 
     AllocatedMemoryMB 5.
 
-Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with py/lorentzian_fit.py script.
+Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with [py/lorentzian_fit.py](py/lorentzian_fit.py) script.
 
     TemporaryFolder /tmp
 
