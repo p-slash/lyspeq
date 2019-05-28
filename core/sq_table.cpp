@@ -12,9 +12,7 @@ double tophat_z_bin(double z, int zm)
     double z_center = ZBIN_CENTERS[zm];
 
     if (z_center - Z_BIN_WIDTH/2 < z && z < z_center + Z_BIN_WIDTH/2)
-    {
         return 1.;
-    }
 
     return 0;
 }
@@ -40,20 +38,15 @@ double triangular_z_bin(double z, int zm)
 double redshift_binning_function(double z, int zm)
 {
     #ifdef TOPHAT_Z_BINNING_FN
-    {
-        return tophat_z_bin(z, zm);
-    }
+    return tophat_z_bin(z, zm);
     #endif
 
     #ifdef TRIANGLE_Z_BINNING_FN
-    {
-        return triangular_z_bin(z, zm);
-    }
+    return triangular_z_bin(z, zm);
     #endif
 }
 
-SQLookupTable::SQLookupTable(   const char *dir, const char *s_base, const char *q_base, \
-                                const char *fname_rlist)
+SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist)
 {
     LINEAR_V_ARRAY   = NULL;
     LINEAR_Z_ARRAY   = NULL;
@@ -69,9 +62,7 @@ SQLookupTable::SQLookupTable(   const char *dir, const char *s_base, const char 
     R_VALUES = new int[NUMBER_OF_R_VALUES];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-    {
         fscanf(toRead, "%d\n", &R_VALUES[r]);
-    }
 
     fclose(toRead);
     // Reading R values done
@@ -84,9 +75,7 @@ SQLookupTable::SQLookupTable(   const char *dir, const char *s_base, const char 
     interp_derivative_matrices   = new Interpolation*[NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-    {
         readSQforR(r, dir, s_base, q_base);
-    }
 
     deallocateTmpArrays();
 }
@@ -100,11 +89,9 @@ SQLookupTable::SQLookupTable(const SQLookupTable &sq)
 
     N_V_POINTS      = sq.N_V_POINTS;
     N_Z_POINTS_OF_S = sq.N_Z_POINTS_OF_S;
-    N_Z_POINTS_OF_Q = sq.N_Z_POINTS_OF_Q;
 
     LENGTH_V      = sq.LENGTH_V;
     LENGTH_Z_OF_S = sq.LENGTH_Z_OF_S;
-    LENGTH_Z_OF_Q = sq.LENGTH_Z_OF_Q;
 
     R_VALUES = copyArrayAlloc<int>(sq.R_VALUES, NUMBER_OF_R_VALUES);
 
@@ -123,14 +110,10 @@ SQLookupTable::~SQLookupTable()
     delete [] R_VALUES;
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; r++)
-    {
         delete interp2d_signal_matrices[r];
-    }
 
     for (int kr = 0; kr < NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS; ++kr)
-    {
         delete interp_derivative_matrices[kr];
-    }
 
     delete [] interp2d_signal_matrices;
     delete [] interp_derivative_matrices;
@@ -141,18 +124,14 @@ void SQLookupTable::allocateTmpArrays()
     // Allocate and set v array
     LINEAR_V_ARRAY = new double[N_V_POINTS];
     for (int nv = 0; nv < N_V_POINTS; ++nv)
-    {
         LINEAR_V_ARRAY[nv] = getLinearlySpacedValue(0, LENGTH_V, N_V_POINTS, nv);
-    }
 
     // Allocate and set redshift array
     LINEAR_Z_ARRAY = new double[N_Z_POINTS_OF_S];
-    double zfirst  = ZBIN_CENTERS[0] - Z_BIN_WIDTH / 2.;
+    double zfirst  = ZBIN_CENTERS[0] - Z_BIN_WIDTH;
 
     for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
-    {
         LINEAR_Z_ARRAY[nz] = getLinearlySpacedValue(zfirst, LENGTH_Z_OF_S, N_Z_POINTS_OF_S, nz);
-    }
 
     // Allocate signal and derivative arrays
     signal_array     = new double[N_V_POINTS * N_Z_POINTS_OF_S];
@@ -183,8 +162,6 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
                             dummy_R, temp_px_width, \
                             temp_ki, temp_kf);
 
-    N_Z_POINTS_OF_Q = N_Z_POINTS_OF_S / NUMBER_OF_Z_BINS;
-
     // Allocate memory before reading further
     if (LINEAR_V_ARRAY == NULL)     allocateTmpArrays();
 
@@ -198,7 +175,7 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
                                                             N_V_POINTS, N_Z_POINTS_OF_S);
 
     // Read Q tables. 
-    double kvalue_1, kvalue_2;
+    double kvalue_1, kvalue_2, dummy_lzq;
 
     for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
     {
@@ -209,7 +186,7 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
 
         SQLookupTableFile q_table_file(buf, 'r');
 
-        q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, LENGTH_Z_OF_Q, \
+        q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, \
                                 dummy_R, temp_px_width, \
                                 temp_ki, temp_kf);
 
@@ -230,10 +207,7 @@ double SQLookupTable::getDerivativeMatrixValue(double v_ij, double z_ij, int zm,
 {
     double z_result = redshift_binning_function(z_ij, zm);
     
-    if (z_result == 0)
-    {
-        return 0;
-    }
+    if (z_result == 0)      return 0;
 
     double v_result = interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)]->evaluate(v_ij);
 
@@ -258,12 +232,7 @@ int SQLookupTable::getIndex4DerivativeInterpolation(int kn, int r_index) const
 int SQLookupTable::findSpecResIndex(int spec_res) const
 {
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-    {
-        if (R_VALUES[r] == spec_res)
-        {
-            return r;
-        }
-    }
+        if (R_VALUES[r] == spec_res)    return r;
 
     return -1;
 }
