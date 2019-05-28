@@ -26,8 +26,7 @@ extern char TMP_FOLDER[300];
 extern int t_rank, numthreads;
 
 // Binning numbers
-// One last bin is created at LAST_K_EDGE to absorb high k power such as alias effect.
-#define LAST_K_EDGE 10.
+// One last bin is created when LAST_K_EDGE is set in Makefile to absorb high k power such as alias effect.
 // This last bin is not calculated into covariance matrix, smooth power spectrum fitting or convergence test.
 // But it has a place in Fisher matrix and in power spectrum estimates.
 // NUMBER_OF_K_BANDS counts the last bin. So must use NUMBER_OF_K_BANDS - 1 when last bin ignored
@@ -36,7 +35,11 @@ extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
 extern double *KBAND_EDGES, *KBAND_CENTERS;
 extern double Z_BIN_WIDTH, *ZBIN_CENTERS;
 
-#define skip_last_k_bin(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;
+#ifdef LAST_K_EDGE
+#define SKIP_LAST_K_BIN_WHEN_ENABLED(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;
+#else
+#define SKIP_LAST_K_BIN_WHEN_ENABLED(x) 
+#endif
 
 extern double MEMORY_ALLOC;
 

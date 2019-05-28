@@ -45,6 +45,8 @@ int main(int argc, char const *argv[])
 
     pd13_fit_params FIDUCIAL_PD13_PARAMS;
 
+    print_build_specifics();
+    
     try
     {
         // Read variables from config file and set up bins.
