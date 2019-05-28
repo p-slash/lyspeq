@@ -391,7 +391,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     for (int i_kz = 0; i_kz < TOTAL_KZ_BINS; i_kz++)
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-        printf("%d\n", i_kz);
+        
         double  t = gsl_vector_get(previous_pmn_estimate_vector, i_kz), \
                 e = gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz);
 
