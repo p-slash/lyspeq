@@ -67,17 +67,25 @@ void print_build_specifics()
     #define tostr(a) #a
     #define tovstr(a) tostr(a)
     
+    #if defined(LAST_K_EDGE)
+    #define HIGH_K_TXT tovstr(LAST_K_EDGE)
+    #else
+    #define HIGH_K_TXT "OFF"
+    #endif
+
     printf("This version is build by the following options:\n");
     printf("1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
     printf("2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
     printf("Fitting function: %s\n", FITTING_FUNC);
-    printf("Binning shape: %s\n", BINNING_SHAPE);
+    printf("Redshift binning shape: %s\n", BINNING_SHAPE);
+    printf("Last k bin: %s\n", HIGH_K_TXT);
     fflush(stdout);
 
     #undef tostr
     #undef tovstr
     #undef BINNING_SHAPE
     #undef FITTING_FUNC
+    #undef HIGH_K_TXT
 }
 
 void set_up_bins(double k0, int nlin, double dklin, \
@@ -85,7 +93,13 @@ void set_up_bins(double k0, int nlin, double dklin, \
                  double z0)
 {
     // Construct k edges
-    NUMBER_OF_K_BANDS = nlin + nlog + 1;
+    NUMBER_OF_K_BANDS = nlin + nlog;
+    
+    // One last bin is created when LAST_K_EDGE is set in Makefile.
+    #ifdef LAST_K_EDGE
+    NUMBER_OF_K_BANDS++;
+    #endif
+
     TOTAL_KZ_BINS     = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
 
     KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
@@ -97,8 +111,11 @@ void set_up_bins(double k0, int nlin, double dklin, \
     // Logarithmicly spaced bins
     for (int i = 1, j = nlin + 1; i < nlog + 1; i++, j++)
         KBAND_EDGES[j] = KBAND_EDGES[nlin] * pow(10., i * dklog);
+    
     // Last bin
+    #ifdef LAST_K_EDGE
     KBAND_EDGES[NUMBER_OF_K_BANDS] = LAST_K_EDGE;
+    #endif
 
     // Set up k bin centers
     for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)

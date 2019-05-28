@@ -219,7 +219,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     for (int i_kz = 0; i_kz < TOTAL_KZ_BINS; i_kz++)
     {
-        skip_last_k_bin(i_kz);
+        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
         getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
@@ -324,19 +324,19 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             throw msg;
         }
         
-        total_time_1it  = get_time() - total_time_1it;
-        total_time     += total_time_1it;
-        printf("This iteration took %.1f minutes. ", total_time_1it);
-        printf("Elapsed time so far is %.1f minutes.\n", total_time);
-        printf_time_spent_details();
-        
+        printfSpectra();
+
         sprintf(buf, "%s_it%d_quadratic_power_estimate.dat", fname_base, i+1);
         write_spectrum_estimates(buf);
 
         sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, i+1);
         write_fisher_matrix(buf);
 
-        printfSpectra();
+        total_time_1it  = get_time() - total_time_1it;
+        total_time     += total_time_1it;
+        printf("This iteration took %.1f minutes. ", total_time_1it);
+        printf("Elapsed time so far is %.1f minutes.\n", total_time);
+        printf_time_spent_details();
 
         if (hasConverged())
         {
@@ -354,28 +354,27 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     double  diff, pMax, p1, p2, r, \
             abs_mean = 0., abs_max = 0.;
     bool bool_converged = true;
-    int i_kz;
+    int kn, zm;
 
-    for (int zm = 1; zm <= NUMBER_OF_Z_BINS; zm++)
+    for (int i_kz = 0; i_kz < TOTAL_KZ_BINS; i_kz++)
     {
-        if (Z_BIN_COUNTS[zm] == 0)  continue;
+        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
+
+        getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        for (int kn = 0; kn < NUMBER_OF_K_BANDS-1; kn++)
-        {
-            i_kz = getFisherMatrixIndex(kn, zm - 1);
-            
-            p1 = fabs(gsl_vector_get(pmn_estimate_vector, i_kz));
-            p2 = fabs(gsl_vector_get(previous_pmn_estimate_vector, i_kz));
-            
-            diff = fabs(p1 - p2);
-            pMax = std::max(p1, p2);
-            r    = diff / pMax;
+        if (Z_BIN_COUNTS[zm+1] == 0)  continue;
 
-            if (r > CONVERGENCE_EPS)    bool_converged = false;
+        p1 = fabs(gsl_vector_get(pmn_estimate_vector, i_kz));
+        p2 = fabs(gsl_vector_get(previous_pmn_estimate_vector, i_kz));
+        
+        diff = fabs(p1 - p2);
+        pMax = std::max(p1, p2);
+        r    = diff / pMax;
 
-            abs_mean += r / (TOTAL_KZ_BINS - NUMBER_OF_Z_BINS);
-            abs_max   = std::max(r, abs_max);
-        } 
+        if (r > CONVERGENCE_EPS)    bool_converged = false;
+
+        abs_mean += r / (TOTAL_KZ_BINS - NUMBER_OF_Z_BINS);
+        abs_max   = std::max(r, abs_max);
     }
 
     printf("Mean relative change is %.1e.\n", abs_mean);
@@ -389,10 +388,10 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     r = 0;
 
-    for (i_kz = 0; i_kz < TOTAL_KZ_BINS; ++i_kz)
+    for (int i_kz = 0; i_kz < TOTAL_KZ_BINS; i_kz++)
     {
-        skip_last_k_bin(i_kz);
-
+        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
+        printf("%d\n", i_kz);
         double  t = gsl_vector_get(previous_pmn_estimate_vector, i_kz), \
                 e = gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz);
 
@@ -422,34 +421,36 @@ void OneDQuadraticPowerEstimate::write_fisher_matrix(const char *fname)
 void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname)
 {
     FILE *toWrite;
-    int i_kz;
+    int i_kz, kn, zm;
     double z, k, p, e;
 
     toWrite = open_file(fname, "w");
-
+    
+    #ifdef LAST_K_EDGE
     fprintf(toWrite, "%d %d\n", NUMBER_OF_Z_BINS, NUMBER_OF_K_BANDS-1);
+    #else
+    fprintf(toWrite, "%d %d\n", NUMBER_OF_Z_BINS, NUMBER_OF_K_BANDS);
+    #endif
 
-    for (int zm = 0; zm <= NUMBER_OF_Z_BINS+1; zm++)
+    for (zm = 0; zm <= NUMBER_OF_Z_BINS+1; zm++)
         fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
 
     fprintf(toWrite, "\n");
 
-    for (int zm = 1; zm <= NUMBER_OF_Z_BINS; zm++)
+    for (i_kz = 0; i_kz < TOTAL_KZ_BINS; i_kz++)
     {
-        if (Z_BIN_COUNTS[zm] == 0)  continue;
+        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
-        z = ZBIN_CENTERS[zm-1];
+        getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
+        
+        if (Z_BIN_COUNTS[zm+1] == 0)  continue;
 
-        for (int kn = 0; kn < NUMBER_OF_K_BANDS-1; kn++)
-        {
-            i_kz = getFisherMatrixIndex(kn, zm-1);
+        z = ZBIN_CENTERS[zm];
+        k = KBAND_CENTERS[kn];
+        p = gsl_vector_get(pmn_estimate_vector, i_kz) + powerSpectrumFiducial(kn, zm);
+        e = sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz));
 
-            k = KBAND_CENTERS[kn];
-            p = gsl_vector_get(pmn_estimate_vector, i_kz) + powerSpectrumFiducial(kn, zm-1);
-            e = sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz));
-   
-            fprintf(toWrite, "%.3lf %e %e %e\n", z, k, p, e);
-        }
+        fprintf(toWrite, "%.3lf %e %e %e\n", z, k, p, e);
     }
 
     fclose(toWrite);

@@ -16,6 +16,9 @@ OPT += -DPD13_FIT_FUNCTION
 # OPT += -DTOPHAT_Z_BINNING_FN
 OPT += -DTRIANGLE_Z_BINNING_FN
 
+# To add a wide high k bin, uncomment and set in km/s
+OPT += -DLAST_K_EDGE=10.
+
 #---------------------------------------
 # Choose compiler and library options
 #---------------------------------------
@@ -101,10 +104,7 @@ vpath  $(DIRS)
 SOURCES = $(shell find $(DIRS) -type f -name '*.$(SRCEXT)')
 OBJECTS = $(SOURCES:.$(SRCEXT)=.o)
 PROGS   = $(basename $(shell find . -type f -name '*.$(SRCEXT)'))
-# DEPDIR = dep
-# $(shell mkdir -p $(DEPDIR))
-# DEPS    = $(patsubst %, $(DEPDIR)/%.d, $(basename $(notdir $(PROGS) $(SOURCES)))) 
-# DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$(*F).d
+
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
 
 CPPFLAGS += $(DEPFLAGS) -std=gnu++11 -DHAVE_INLINE $(OPT)

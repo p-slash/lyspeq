@@ -246,7 +246,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
-        skip_last_k_bin(i_kz);
+        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
         setQiMatrix(temp_matrix[0], i_kz);
 
