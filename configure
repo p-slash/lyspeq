@@ -188,6 +188,11 @@ case ${which_cblas_lib} in
         ;;
 esac
 
+CXX="${CXX_COMPILER}"
+CPPFLAGS="${CPPFLAGS_OMP} -I${GSL_DIR}/include"
+LDFLAGS="-L${GSL_DIR}/lib ${LDFLAGS_CBLAS}"
+LDLIBS="-lgsl ${LDLIBS_CBLAS} ${LDLIBS_OMP} -lm -ldl"
+
 save_makefile
 
 
