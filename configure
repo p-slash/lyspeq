@@ -1,11 +1,13 @@
 #!/bin/bash
 
 # TODO: OPT configure
+#  Add warning for Intel assumptions
 
+# Pass system type as --systype and skip interative setting
 # Selects compiler
+# Ask for openmp
 # Set up GSL directory
 # Set up cblas library
-# Ask for openmp
 
 function save_makefile() {
 echo "CXX=${CXX}" > Makefile
@@ -110,6 +112,7 @@ case ${openmp_on:0:1} in
             g++* )
                 CPPFLAGS_OMP="-fopenmp"
                 LDLIBS_OMP="-lgomp"
+                LDLIBS_GCC_MKL="-lmkl_gnu_thread"
                 ;;
             clang++ )
                 CPPFLAGS_OMP="-Xpreprocessor -fopenmp"
@@ -124,13 +127,16 @@ case ${openmp_on:0:1} in
     * )
         CPPFLAGS_OMP=""
         LDLIBS_OMP=""
+        LDLIBS_GCC_MKL="-lmkl_sequential"
+
+        if [[ "${CXX_COMPILER}" = "icpc" ]]; then
+            CPPFLAGS_OMP="-mkl=sequential"
+        fi
         ;;
 esac
 
 # GSL
-# TODO: Check if this command exits
 GSL_VERSION=$(gsl-config --version)
-
 echo "Using GSL version ${GSL_VERSION}"
 
 if [[ -z "${GSL_DIR}" ]]; then
@@ -174,9 +180,10 @@ case ${which_cblas_lib} in
                 echo "ERROR: MKLROOT is not defined in environment!"
                 exit 1
             fi
+
             CPPFLAGS_OMP+=" -m64"
             LDFLAGS_CBLAS="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
-            LDLIBS_CBLAS="-lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lpthread"
+            LDLIBS_CBLAS="-lmkl_intel_lp64 ${LDLIBS_GCC_MKL} -lmkl_core -lpthread"
         else
             echo 'Unknown combo'
             exit 1
