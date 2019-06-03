@@ -10,8 +10,7 @@
 #define ABS_ERROR 1E-13
 #define REL_ERROR 1E-7
 
-FourierIntegrator::FourierIntegrator(gsl_integration_qawo_enum sin_cos, \
-                                    double (*integrand_function)(double, void*), void *params)
+FourierIntegrator::FourierIntegrator(gsl_integration_qawo_enum sin_cos, double (*integrand_function)(double, void*), void *params)
 {
     GSL_SIN_COS = sin_cos;
 
@@ -19,14 +18,12 @@ FourierIntegrator::FourierIntegrator(gsl_integration_qawo_enum sin_cos, \
     cycle_w = gsl_integration_workspace_alloc(WORKSPACE_SIZE);
 
     if (w == NULL || cycle_w == NULL)
-    {
         throw std::bad_alloc();
-    }
 
     t = NULL;
 
     F.function = integrand_function;
-    F.params = params;
+    F.params   = params;
 }
 
 FourierIntegrator::~FourierIntegrator()
@@ -35,30 +32,18 @@ FourierIntegrator::~FourierIntegrator()
     gsl_integration_workspace_free(cycle_w);
 
     if (t != NULL)
-    {
         gsl_integration_qawo_table_free(t);
-    }
 }
 
 void FourierIntegrator::setTableParameters(double omega, double L)
 {
-    /* The length L can take any value for infty integrals, since it is overridden 
-     * by this function to a value appropriate for the Fourier integration.
-     */
-
     if (t == NULL)
     {
         t = gsl_integration_qawo_table_alloc(omega, L, GSL_SIN_COS, TABLE_SIZE);
         
-        if (t == NULL)
-        {
-            throw std::bad_alloc();
-        }
+        if (t == NULL)  throw std::bad_alloc();
     }
-    else 
-    {
-        gsl_integration_qawo_table_set(t, omega, L, GSL_SIN_COS);
-    }
+    else    gsl_integration_qawo_table_set(t, omega, L, GSL_SIN_COS);
 }
 
 double FourierIntegrator::evaluateAToInfty(double a)
@@ -70,15 +55,6 @@ double FourierIntegrator::evaluateAToInfty(double a)
                                         WORKSPACE_SIZE, w, cycle_w, t, \
                                         &result, &error);
     handle_gsl_status(status);
-
-    // if (error/result > REL_ERROR)
-    // {
-    //     #undef ABS_ERROR
-    //     #define ABS_ERROR result*REL_ERROR
-    //     result = evaluateAToInfty(a);
-    //     #undef ABS_ERROR
-    //     #define ABS_ERROR 1E-14
-    // }
 
     return result;
 }
