@@ -33,6 +33,7 @@ cblas_tests: cblas_tests.o core/matrix_helper.o
 
 .PHONY: install
 install: LyaPowerEstimate CreateSQLookUpTable
+	mkdir -p $(bindir)
 	cp LyaPowerEstimate CreateSQLookUpTable py/lorentzian_fit.py $(bindir)
 	chmod a+x $(bindir)/lorentzian_fit.py
 
