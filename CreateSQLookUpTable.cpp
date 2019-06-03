@@ -10,7 +10,6 @@
 #include "core/spectrograph_functions.hpp"
 #include "core/fiducial_cosmology.hpp"
 
-#include "gsltools/integrator.hpp"
 #include "gsltools/fourier_integrator.hpp"
 
 #include "io/io_helper_functions.hpp"
