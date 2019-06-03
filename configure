@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# TODO: OPT configure
+# Vanilla build: GSL for cblas and no openmp
+# Add with-openmp and with-openblas, //with-atlas
+# TODO: --with-package : vanilla build is with gslcblas
 #  Add warning for Intel assumptions
 
 # Pass system type as --systype and skip interative setting
@@ -10,22 +12,237 @@
 # Set up cblas library
 
 function save_makefile() {
-echo "CXX=${CXX}" > Makefile
-echo "CPPFLAGS=${CPPFLAGS}" >> Makefile
-echo "LDFLAGS=${LDFLAGS}" >> Makefile
-echo "LDLIBS=${LDLIBS}" >> Makefile
-cat Makefile.in >> Makefile
-echo "Makefile set. Run make to compile."
-exit 0
+    echo "OPT=${OPT}" > Makefile
+    echo "CXX=${CXX}" >> Makefile
+    echo "CPPFLAGS=${CPPFLAGS}" >> Makefile
+    echo "LDFLAGS=${LDFLAGS}" >> Makefile
+    echo "LDLIBS=${LDLIBS}" >> Makefile
+    echo "bindir=${bindir}" >> Makefile
+    cat Makefile.in >> Makefile
+    echo "Makefile set. Run make to compile."
+    exit 0
 }
+
+function print_build_type() {
+    echo "Available build types are :"
+    echo "-------------------------"
+    echo "* GNU_XE18MKL or x64-linux-gnu-mklxe18-openmp"
+    echo "# Parallel Studio XE 2018, MKL for cblas
+# Linux, GNU compiler, Intel(R) 64 arch
+# 32-bit integers interface, 64-bit interface has runtime errors on Grace
+# OpenMP threading with GNU
+# Dynamic linking, explicit MKL lib linking
+# No problems with GCC 7.3.0"
+    echo "-------------------------"
+    echo "* XE18_icpcMKL or x64-linux-icpc-mklxe18-openmp"
+    echo "# Parallel Studio XE 2018
+# Linux, Intel compiler, Intel(R) 64 arch
+# Uses 32-bit integers interface even though 64-bit integers interface works
+# OpenMP threading with Intel
+# Dynamic linking, no explicit MKL lib linking
+# Static linking fails for unknown reasons"
+    echo "-------------------------"
+    echo "* clang_openblas or x64-macos-clang-openblas-openmp uses clang++"
+    echo "* x64-macos-gcc9-openblas-openmp uses g++-9"
+    echo "# To install OpenMP in Mac: brew install libomp
+# To install OpenBLAS:      brew install openblas
+# openblas is keg-only, which means it was not symlinked into /usr/local,
+# because macOS provides BLAS and LAPACK in the Accelerate framework.
+# It is in /usr/local/opt/openblas/lib"
+}
+
+function interactive() {
+    echo "Using interactive mode...."
+    echo 'Specify your C++ compiler (g++, clang++, icpc):'
+    read CXX_COMPILER
+    case ${CXX_COMPILER} in
+        g++*|clang++|icpc )
+            ;;
+        * )
+            echo "ERROR: Compiler not supported!"
+            exit 1
+            ;;
+    esac
+
+    ${CXX_COMPILER} --version
+
+    # OpenMP
+    echo 'Do you want to use OpenMP (y/n)? '
+    read openmp_on
+    case ${openmp_on:0:1} in
+        y|Y )
+            echo 'Adding OpenMP preprocessor flags and linking libraries.'
+            case ${CXX_COMPILER} in
+                g++* )
+                    CPPFLAGS_OMP="-fopenmp"
+                    LDLIBS_OMP="-lgomp"
+                    LDLIBS_GCC_MKL="-lmkl_gnu_thread"
+                    ;;
+                clang++ )
+                    CPPFLAGS_OMP="-Xpreprocessor -fopenmp"
+                    LDLIBS_OMP="-lomp"
+                    ;;
+                icpc )
+                    CPPFLAGS_OMP="-qopenmp -mkl=parallel"
+                    LDLIBS_OMP="-liomp5"
+                    ;;
+            esac
+            ;;
+        * )
+            CPPFLAGS_OMP=""
+            LDLIBS_OMP=""
+            LDLIBS_GCC_MKL="-lmkl_sequential"
+
+            if [[ "${CXX_COMPILER}" = "icpc" ]]; then
+                CPPFLAGS_OMP="-mkl=sequential"
+            fi
+            ;;
+    esac
+
+    # GSL
+    GSL_VERSION=$(gsl-config --version)
+    echo "Using GSL version ${GSL_VERSION}"
+
+    if [[ -z "${GSL_DIR}" ]]; then
+        GSL_DIR=$(gsl-config --prefix)
+        echo "GSL is in the following directory: ${GSL_DIR}"
+    fi
+
+    # CBLAS
+    echo 'Even though GSL has built in CBLAS functions, I recommended using an optimized library such as Intel MKL or ATLAS.'
+    echo 'Which library do you want to use (gsl, mkl, openblas, atlas)?'
+    read which_cblas_lib
+
+    case ${which_cblas_lib} in
+        gsl|GSL|Gsl )
+            LDFLAGS_CBLAS=""
+            LDLIBS_CBLAS="-lgslcblas"
+            ;;
+        atlas|ATLAS|Atlas )
+            if [[ -z "${ATLAS_DIR}" ]]; then
+                echo "Where is ATLAS?"
+                read CBLAS_DIR
+            else
+                CBLAS_DIR="${ATLAS_DIR}"
+            fi
+            
+            LDFLAGS_CBLAS="-L${CBLAS_DIR}/lib"
+            LDLIBS_CBLAS="-latlas"
+            ;;
+        openblas|OpenBLAS|openBLAS )
+            echo "Where is OpenBLAS?"
+            read CBLAS_DIR
+            LDFLAGS_CBLAS="-L${CBLAS_DIR}/lib"
+            LDLIBS_CBLAS="-lopenblas" 
+            ;;
+        mkl|MKL|Mkl )
+            if [[ "${CXX_COMPILER}" = "icpc" ]]; then
+                LDFLAGS_CBLAS=""
+                LDLIBS_CBLAS="-lpthread"
+            elif [[ "${CXX_COMPILER}" = "g++" ]]; then
+                if [[ -z "${MKLROOT}" ]]; then
+                    echo "ERROR: MKLROOT is not defined in environment!"
+                    exit 1
+                fi
+
+                CPPFLAGS_OMP+=" -m64"
+                LDFLAGS_CBLAS="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
+                LDLIBS_CBLAS="-lmkl_intel_lp64 ${LDLIBS_GCC_MKL} -lmkl_core -lpthread"
+            else
+                echo 'Unknown combo'
+                exit 1
+            fi
+            ;;
+        * )
+            echo 'Unknown library'
+            exit 1
+            ;;
+    esac
+
+    CXX="${CXX_COMPILER}"
+    CPPFLAGS="${CPPFLAGS_OMP} -I${GSL_DIR}/include"
+    LDFLAGS="-L${GSL_DIR}/lib ${LDFLAGS_CBLAS}"
+    LDLIBS="-lgsl ${LDLIBS_CBLAS} ${LDLIBS_OMP} -lm -ldl"
+
+    save_makefile
+}
+
+# Default values
+OPT=-DPD13_FIT_FUNCTION
+interp1d=-DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
+interp2d=-DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
+binz_fn=-DTRIANGLE_Z_BINNING_FN
+lastk_feat=
+debug=
+
+CXX="g++"
+prefix="/usr/local"
+exec_prefix="${prefix}"
+bindir="${exec_prefix}/bin"
 
 for i in "$@"
 do
     case $i in
-        --systype=*)
-        SYSTYPE="${i#*=}"
-        shift # past argument=value
-        ;;
+        --prefix=* | exec_prefix=*)
+            exec_prefix="${i#*=}"
+            bindir="${exec_prefix}/bin"
+            shift
+            ;;
+        --bindir=*)
+            bindir="${i#*=}"
+            shift
+            ;;
+        --enable-last-k-bin=* )
+            lastk_feat="-DLAST_K_EDGE=${i#*=}"
+            shift
+            ;;
+        --with-openmp )
+            CPPFLAGS_OMP="-fopenmp"
+            shift
+            ;;
+        --with-openblas )
+            LDLIBS_CBLAS="-lopenblas"
+            shift
+            ;;
+        --interp1d=* )
+            if [[ "${i#*=}" ==  "GSL_CUBIC_INTERPOLATION" || "${i#*=}" ==  "GSL_LINEAR_INTERPOLATION" ]]; then
+                interp1d="-DINTERP_1D_TYPE=${i#*=}"
+            else
+                echo "Wrong 1D interpolation parameter. Using cubic interpolation by default."
+                echo "Pass GSL_LINEAR_INTERPOLATION or GSL_CUBIC_INTERPOLATION"
+            fi
+            shift
+            ;;
+        --interp2d=* )
+            if [[ "${i#*=}" ==  "GSL_BICUBIC_INTERPOLATION" || "${i#*=}" ==  "GSL_BILINEAR_INTERPOLATION" ]]; then
+                interp2d="-DINTERP_2D_TYPE=${i#*=}"
+            else
+                echo "Wrong 2D interpolation parameter. Using bicubic interpolation by default."
+                echo "Pass GSL_BILINEAR_INTERPOLATION or GSL_BICUBIC_INTERPOLATION"
+            fi
+            shift
+            ;;
+        --binz_fn=* )
+            if [[ "${i#*=}" ==  "TRIANGLE_Z_BINNING_FN" || "${i#*=}" ==  "TOPHAT_Z_BINNING_FN" ]]; then
+                binz_fn="-D${i#*=}"
+            else
+                echo "Wrong binning function variable. Using triangle binning in z by default."
+                echo "Pass TRIANGLE_Z_BINNING_FN or TOPHAT_Z_BINNING_FN"
+            fi
+            shift
+            ;;
+        --debug )
+            debug=-g
+            shift
+            ;;
+        --gsl_dir=* )
+            GSL_DIR="${i#*=}"
+            shift
+            ;;
+        # --cblas_lib=* )
+        #     CBLAS_LIB="${i#*=}"
+        #     shift
+        #     ;;
         # -s=*|--searchpath=*)
         # SEARCHPATH="${i#*=}"
         # shift # past argument=value
@@ -38,169 +255,82 @@ do
         # DEFAULT=YES
         # shift # past argument with no value
         # ;;
-        *)
-              # unknown option
-        ;;
+        --print_builds )
+            print_build_type
+            exit 0
+            ;;
+        --help | -h )
+            echo "--prefix=[directory] --exec_prefix=[directory] : Executables are installed here/bin. Default is /usr/local"
+            echo "--bindir=[directory] : Executables are installed here. Default is /usr/local/bin"
+            echo "--enable-last-k-bin=[number] : Enables a feature that adds a high k bin edge."
+            echo "--interp1d=[GSL_LINEAR_INTERPOLATION or GSL_CUBIC_INTERPOLATION] : Specify 1D interpolation type. Default is cubic."
+            echo "--interp2d=[GSL_BICUBIC_INTERPOLATION or GSL_BILINEAR_INTERPOLATION] : Specify 2D interpolation type. Default is bicubic."
+            echo "--binz_fn=[TRIANGLE_Z_BINNING_FN or TOPHAT_Z_BINNING_FN] : Specify redshift binning function. Default is triangle."
+            echo "--debug adds -g flag."
+            echo "--gsl_dir=[directory] : GSL directory"
+            echo "--print_builds : Prints out available build types"
+            exit 0
+            ;;
+        --build=* )
+            SYSTYPE="${i#*=}"
+            break
+            ;;
     esac
 done
 
+OPT+=" ${interp1d} ${interp2d} ${binz_fn} ${lastk_feat} ${debug}"
+
 case ${SYSTYPE} in
-    GNU_XE18MKL )
-        echo "# Parallel Studio XE 2018, MKL for cblas
-# Linux, GNU compiler, Intel(R) 64 arch
-# 32-bit integers interface, 64-bit interface has runtime errors on Grace
-# OpenMP threading with GNU
-# Dynamic linking, explicit MKL lib linking
-# Compiles with GCC 7.3.0"
+    GNU_XE18MKL|x64-linux-gnu-mklxe18-openmp )
         CXX="g++"
         CPPFLAGS="-fopenmp -m64 -I${GSL_DIR}/include"
         LDFLAGS="-L${GSL_DIR}/lib -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
         LDLIBS="-lgsl -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl"
         save_makefile
         ;;
-    XE18_icpcMKL )
-        echo "# Parallel Studio XE 2018
-# Linux, Intel compiler, Intel(R) 64 arch
-# Uses 32-bit integers interface even though 64-bit integers interface works
-# OpenMP threading with Intel
-# Dynamic linking, no explicit MKL lib linking
-# Static linking fails for unknown reasons"
+    XE18_icpcMKL|x64-linux-icpc-mklxe18-openmp )
         CXX="icpc"
         CPPFLAGS="-qopenmp -mkl=parallel -I${GSL_DIR}/include"
         LDFLAGS="-L${GSL_DIR}/lib"
         LDLIBS="-lgsl -liomp5 -lpthread -lm -ldl"
         save_makefile
         ;;
-    clang_openblas )
-        echo "# To install OpenMP in Mac: brew install libomp
-# To install OpenBLAS:      brew install openblas
-# openblas is keg-only, which means it was not symlinked into /usr/local,
-# because macOS provides BLAS and LAPACK in the Accelerate framework."
+    clang_openblas|x64-macos-clang-openblas-openmp )
         CXX="clang++"
         CPPFLAGS="-Xpreprocessor -fopenmp"
         LDFLAGS="-L/usr/local/opt/openblas/lib"
         LDLIBS="-lgsl -lopenblas -lomp"
         save_makefile
         ;;
-    "" )
-        ;;
-    * )
-        echo "Unknown system type. Using interactive mode..."
-        ;;
-esac
-
-echo 'Specify your C++ compiler (g++, clang++, icpc):'
-read CXX_COMPILER
-case ${CXX_COMPILER} in
-    g++*|clang++|icpc )
-        ;;
-    * )
-        echo "ERROR: Compiler not supported!"
-        exit 1
-        ;;
-esac
-
-${CXX_COMPILER} --version
-
-# OpenMP
-echo 'Do you want to use OpenMP (y/n)? '
-read openmp_on
-case ${openmp_on:0:1} in
-    y|Y )
-        echo 'Adding OpenMP preprocessor flags and linking libraries.'
-        case ${CXX_COMPILER} in
-            g++* )
-                CPPFLAGS_OMP="-fopenmp"
-                LDLIBS_OMP="-lgomp"
-                LDLIBS_GCC_MKL="-lmkl_gnu_thread"
-                ;;
-            clang++ )
-                CPPFLAGS_OMP="-Xpreprocessor -fopenmp"
-                LDLIBS_OMP="-lomp"
-                ;;
-            icpc )
-                CPPFLAGS_OMP="-qopenmp -mkl=parallel"
-                LDLIBS_OMP="-liomp5"
-                ;;
-        esac
-        ;;
-    * )
-        CPPFLAGS_OMP=""
-        LDLIBS_OMP=""
-        LDLIBS_GCC_MKL="-lmkl_sequential"
-
-        if [[ "${CXX_COMPILER}" = "icpc" ]]; then
-            CPPFLAGS_OMP="-mkl=sequential"
+    x64-macos-gcc9-openblas-openmp )
+        # GSL
+        if [[ -z "${GSL_DIR}" ]]; then
+            GSL_DIR=$(gsl-config --prefix)
+            echo "GSL is in the following directory: ${GSL_DIR}"
         fi
+        CXX="g++-9"
+        CPPFLAGS="-fopenmp -I${GSL_DIR}/include"
+        LDFLAGS="-L${GSL_DIR}/lib -L/usr/local/opt/openblas/lib"
+        LDLIBS="-lgsl -lopenblas -lgomp -lm -ldl"
+        save_makefile
         ;;
-esac
-
-# GSL
-GSL_VERSION=$(gsl-config --version)
-echo "Using GSL version ${GSL_VERSION}"
-
-if [[ -z "${GSL_DIR}" ]]; then
-    GSL_DIR=$(gsl-config --prefix)
-    echo "GSL is in the following directory: ${GSL_DIR}"
-fi
-
-# CBLAS
-echo 'Even though GSL has built in CBLAS functions, I recommended using an optimized library such as Intel MKL or ATLAS.'
-echo 'Which library do you want to use (gsl, mkl, openblas, atlas)?'
-read which_cblas_lib
-
-case ${which_cblas_lib} in
-    gsl|GSL|Gsl )
-        LDFLAGS_CBLAS=""
-        LDLIBS_CBLAS="-lgslcblas"
-        ;;
-    atlas|ATLAS|Atlas )
-        if [[ -z "${ATLAS_DIR}" ]]; then
-            echo "Where is ATLAS?"
-            read CBLAS_DIR
+    linux-gcc )
+        # GSL
+        if [[ -z "${GSL_DIR}" ]]; then
+            CPPFLAGS=
+            LDFLAGS=
         else
-            CBLAS_DIR="${ATLAS_DIR}"
+            CPPFLAGS="-I${GSL_DIR}/include"
+            LDFLAGS="-L${GSL_DIR}/lib"
         fi
         
-        LDFLAGS_CBLAS="-L${CBLAS_DIR}/lib"
-        LDLIBS_CBLAS="-latlas"
-        ;;
-    openblas|OpenBLAS|openBLAS )
-        echo "Where is OpenBLAS?"
-        read CBLAS_DIR
-        LDFLAGS_CBLAS="-L${CBLAS_DIR}/lib"
-        LDLIBS_CBLAS="-lopenblas" 
-        ;;
-    mkl|MKL|Mkl )
-        if [[ "${CXX_COMPILER}" = "icpc" ]]; then
-            LDFLAGS_CBLAS=""
-            LDLIBS_CBLAS="-lpthread"
-        elif [[ "${CXX_COMPILER}" = "g++" ]]; then
-            if [[ -z "${MKLROOT}" ]]; then
-                echo "ERROR: MKLROOT is not defined in environment!"
-                exit 1
-            fi
-
-            CPPFLAGS_OMP+=" -m64"
-            LDFLAGS_CBLAS="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
-            LDLIBS_CBLAS="-lmkl_intel_lp64 ${LDLIBS_GCC_MKL} -lmkl_core -lpthread"
-        else
-            echo 'Unknown combo'
-            exit 1
-        fi
+        LDLIBS="-lgsl --lgslcblas -lm -ldl"
+        save_makefile
         ;;
     * )
-        echo 'Unknown library'
-        exit 1
+        echo "Unknown system type."
+        print_build_type
+        interactive
         ;;
 esac
-
-CXX="${CXX_COMPILER}"
-CPPFLAGS="${CPPFLAGS_OMP} -I${GSL_DIR}/include"
-LDFLAGS="-L${GSL_DIR}/lib ${LDFLAGS_CBLAS}"
-LDLIBS="-lgsl ${LDLIBS_CBLAS} ${LDLIBS_OMP} -lm -ldl"
-
-save_makefile
-
-
 
