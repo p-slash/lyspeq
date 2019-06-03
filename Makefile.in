@@ -1,36 +1,9 @@
-CXX=g++-9
-CPPFLAGS=-fopenmp -I/opt/local/include
-LDFLAGS=-L/opt/local/lib -L/usr/local/opt/openblas/lib
-LDLIBS=-lgsl -lopenblas -lgomp -lm -ldl
-#---------------------------------------
-# Set options
-#---------------------------------------
-# Can interpolate using linear or cubic spline.
-# OPT += -DINTERP_1D_TYPE=GSL_LINEAR_INTERPOLATION
-OPT += -DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
-
-# OPT += -DINTERP_2D_TYPE=GSL_BILINEAR_INTERPOLATION
-OPT += -DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
-
-# Pick the fit function
-OPT += -DPD13_FIT_FUNCTION
-# OPT += -DSOME_OTHER_FIT
-
-# Pick the redshift binning function 
-# OPT += -DTOPHAT_Z_BINNING_FN
-OPT += -DTRIANGLE_Z_BINNING_FN
-
-# To add a wide high k bin, uncomment and set in km/s
-OPT += -DLAST_K_EDGE=10.
-
-#---------------------------------------
-
 # removed flags: -ansi -Wmissing-prototypes -Wstrict-prototypes -Wconversion -Wnested-externs -Dinline=
 GSLRECFLAGS = -Wall -pedantic -Werror -W \
 				-Wshadow -Wpointer-arith \
 				-Wcast-qual -Wcast-align -Wwrite-strings \
 				-fshort-enums -fno-common \
-				-g -O3
+				-O3
 				
 #---------------------------------------
 
@@ -60,18 +33,17 @@ cblas_tests: cblas_tests.o core/matrix_helper.o
 
 .PHONY: install
 install: LyaPowerEstimate CreateSQLookUpTable
-	mkdir -p $(HOME)/bin
-	cp LyaPowerEstimate CreateSQLookUpTable py/lorentzian_fit.py $(HOME)/bin
-	chmod a+x $(HOME)/bin/lorentzian_fit.py
+	mkdir -p $(bindir)
+	cp LyaPowerEstimate CreateSQLookUpTable py/lorentzian_fit.py $(bindir)
+	chmod a+x $(bindir)/lorentzian_fit.py
 
 .PHONY: uninstall
 uninstall:
-	$(RM) $(HOME)/bin/lorentzian_fit.py
-	$(RM) $(HOME)/bin/LyaPowerEstimate $(HOME)/bin/CreateSQLookUpTable
+	$(RM) $(bindir)/lorentzian_fit.py
+	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable
 
 .PHONY: clean
 clean:
-# 	$(RM) -r $(DEPDIR)
 	$(RM) $(addsuffix /*.o, $(DIRS))
 	$(RM) LyaPowerEstimate LyaPowerEstimate.o
 	$(RM) CreateSQLookUpTable CreateSQLookUpTable.o
