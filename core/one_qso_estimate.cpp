@@ -7,8 +7,6 @@
 #include "../io/io_helper_functions.hpp"
 #include "../io/qso_file.hpp"
 
-#include "../gsltools/integrator.hpp"
-
 #include <gsl/gsl_cblas.h>
 #include <gsl/gsl_errno.h>
 
@@ -26,7 +24,7 @@ void throw_isnan(double t, const char *step)
     char err_msg[25];
     sprintf(err_msg, "NaN in %s", step);
 
-    if (isnan(t))   throw err_msg;
+    if (std::isnan(t))   throw err_msg;
 }
 
 int getFisherMatrixIndex(int kn, int zm)
