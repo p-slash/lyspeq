@@ -1,0 +1,52 @@
+# removed flags: -ansi -Wmissing-prototypes -Wstrict-prototypes -Wconversion -Wnested-externs -Dinline=
+GSLRECFLAGS = -Wall -pedantic -Werror -W \
+				-Wshadow -Wpointer-arith \
+				-Wcast-qual -Wcast-align -Wwrite-strings \
+				-fshort-enums -fno-common \
+				-O3
+				
+#---------------------------------------
+
+DIRS   = core io gsltools
+SRCEXT = cpp
+vpath  $(DIRS)
+
+SOURCES = $(shell find $(DIRS) -type f -name '*.$(SRCEXT)')
+OBJECTS = $(SOURCES:.$(SRCEXT)=.o)
+PROGS   = $(basename $(shell find . -type f -name '*.$(SRCEXT)'))
+
+# -DHAVE_INLINE for inline declarations in GSL for faster performance
+
+CPPFLAGS += $(DEPFLAGS) -std=gnu++11 -DHAVE_INLINE $(OPT)
+CXXFLAGS = $(GSLRECFLAGS)
+	
+all: LyaPowerEstimate CreateSQLookUpTable cblas_tests
+
+LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+CreateSQLookUpTable: CreateSQLookUpTable.o $(OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+cblas_tests: cblas_tests.o core/matrix_helper.o
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+.PHONY: install
+install: LyaPowerEstimate CreateSQLookUpTable
+	mkdir -p $(bindir)
+	cp LyaPowerEstimate CreateSQLookUpTable py/lorentzian_fit.py $(bindir)
+	chmod a+x $(bindir)/lorentzian_fit.py
+
+.PHONY: uninstall
+uninstall:
+	$(RM) $(bindir)/lorentzian_fit.py
+	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable
+
+.PHONY: clean
+clean:
+	$(RM) $(addsuffix /*.o, $(DIRS))
+	$(RM) LyaPowerEstimate LyaPowerEstimate.o
+	$(RM) CreateSQLookUpTable CreateSQLookUpTable.o
+	$(RM) cblas_tests cblas_tests.o
+
+

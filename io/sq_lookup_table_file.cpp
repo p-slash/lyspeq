@@ -16,10 +16,7 @@ void STableFileNameConvention(  char *fname, const char *OUTPUT_DIR, const char 
 // return y = c + deltaY / (N-1) * n
 double getLinearlySpacedValue(double c, double delta_y, int N, int n)
 {
-    if (N == 1)
-    {
-        return c + delta_y/2;
-    }
+    if (N == 1)     return c + delta_y/2;
 
     return c + delta_y / (N - 1.) * n;
 }

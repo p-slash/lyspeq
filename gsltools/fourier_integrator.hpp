@@ -18,10 +18,11 @@ public:
     //  GSL_INTEG_COSINE
     //  GSL_INTEG_SINE
     
-    FourierIntegrator(  gsl_integration_qawo_enum sin_cos, \
-                        double (*integrand_function)(double, void*), void *params);
+    FourierIntegrator(gsl_integration_qawo_enum sin_cos, double (*integrand_function)(double, void*), void *params);
     ~FourierIntegrator();
     
+    // The length L can take any value for infty integrals, since it is overridden 
+    // by this function to a value appropriate for the Fourier integration.
     void setTableParameters(double omega, double L);
 
     double evaluate(double omega, double a, double b);
