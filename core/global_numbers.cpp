@@ -1,5 +1,5 @@
-#include "global_numbers.hpp"
-#include "../io/config_file.hpp"
+#include "core/global_numbers.hpp"
+#include "io/config_file.hpp"
 
 #include <cstdio>
 #include <cmath>

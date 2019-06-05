@@ -2,7 +2,7 @@
 #define ONE_QSO_ESTIMATE_H
 
 #include <gsl/gsl_matrix.h> 
-#include "sq_table.hpp"
+#include "core/sq_table.hpp"
 
 int  getFisherMatrixIndex(int kn, int zm);
 void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);

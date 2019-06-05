@@ -1,11 +1,11 @@
-#include "one_qso_estimate.hpp"
-#include "fiducial_cosmology.hpp"
-#include "spectrograph_functions.hpp"
-#include "matrix_helper.hpp"
-#include "global_numbers.hpp"
+#include "core/one_qso_estimate.hpp"
+#include "core/fiducial_cosmology.hpp"
+#include "core/spectrograph_functions.hpp"
+#include "core/matrix_helper.hpp"
+#include "core/global_numbers.hpp"
 
-#include "../io/io_helper_functions.hpp"
-#include "../io/qso_file.hpp"
+#include "io/io_helper_functions.hpp"
+#include "io/qso_file.hpp"
 
 #include <gsl/gsl_cblas.h>
 #include <gsl/gsl_errno.h>

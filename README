@@ -12,7 +12,7 @@ The simplest version can be installed by `./configure && make && make install`. 
 
 OpenMP can be enabled by passing `--enable-openmp`. 
 
-I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-openmp`, which will enable OpenMP and use OpenBLAS for matrix operations. `./configure --print_builds` for all build types.
+I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-openmp`, which will enable OpenMP and use OpenBLAS for matrix operations. Another important one is Intel compiler with MKL if you have Parallel Studio XE 2018 installed: `./configure --build=x64-linux-icpc-mklxe18 --enable-openmp`. To see all build types: `./configure --print_builds`.
 
 The executables are installed in `bindir`. This is `/usr/local/bin` by default. You can change it by setting `--bindir=your-path`. Make sure it is in your `$PATH`. Alternatively, you can change `/usr/local` by setting `--prefix` and `--exec_prefix`.
 
