@@ -1,7 +1,7 @@
 #ifndef FIDUCIAL_COSMOLOGY_H
 #define FIDUCIAL_COSMOLOGY_H
 
-#include "spectrograph_functions.hpp"
+#include "core/spectrograph_functions.hpp"
 
 // This function is defined in preprocessing
 double fiducial_power_spectrum(double k, double z, void *params);

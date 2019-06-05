@@ -1,5 +1,5 @@
-#include "sq_lookup_table_file.hpp"
-#include "io_helper_functions.hpp"
+#include "io/sq_lookup_table_file.hpp"
+#include "io/io_helper_functions.hpp"
 
 void QTableFileNameConvention(  char *fname, const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_Q, \
                                 int r, double k1, double k2)

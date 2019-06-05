@@ -67,11 +67,10 @@ int main(int argc, char const *argv[])
 
         // Create private copy for interpolation is not thread safe!
         if (t_rank == 0)     sq_private_table = sq_shared_table;
-        else                    sq_private_table = new SQLookupTable(*sq_shared_table);
+        else                 sq_private_table = new SQLookupTable(*sq_shared_table);
 }
 
-        qps = new OneDQuadraticPowerEstimate(   FNAME_LIST, INPUT_DIR, \
-                                                &FIDUCIAL_PD13_PARAMS);
+        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR, &FIDUCIAL_PD13_PARAMS);
 
         sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
         qps->iterate(NUMBER_OF_ITERATIONS, buf);

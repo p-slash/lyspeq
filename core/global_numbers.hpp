@@ -1,8 +1,8 @@
 #ifndef GLOBAL_NUMBERS_H
 #define GLOBAL_NUMBERS_H
 
-#include "sq_table.hpp"
-#include "fiducial_cosmology.hpp"
+#include "core/sq_table.hpp"
+#include "core/fiducial_cosmology.hpp"
 
 // Mathematical numbers
 #define PI 3.14159265359

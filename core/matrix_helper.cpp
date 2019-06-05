@@ -1,4 +1,4 @@
-#include "matrix_helper.hpp"
+#include "core/matrix_helper.hpp"
 
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_cblas.h>

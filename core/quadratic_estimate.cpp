@@ -1,8 +1,8 @@
-#include "quadratic_estimate.hpp"
-#include "matrix_helper.hpp"
-#include "global_numbers.hpp"
+#include "core/quadratic_estimate.hpp"
+#include "core/matrix_helper.hpp"
+#include "core/global_numbers.hpp"
 
-#include "../io/io_helper_functions.hpp"
+#include "io/io_helper_functions.hpp"
 
 #include <gsl/gsl_cblas.h>
 
@@ -156,7 +156,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 
 void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 {
-    char tmp_ps_fname[320], tmp_fit_fname[320], buf[500];
+    char tmp_ps_fname[320], tmp_fit_fname[320], buf[1000];
 
     FILE *tmp_fit_file;
     int s1, s2, kn, zm;

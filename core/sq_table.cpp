@@ -1,8 +1,8 @@
-#include "sq_table.hpp"
-#include "global_numbers.hpp"
+#include "core/sq_table.hpp"
+#include "core/global_numbers.hpp"
 
-#include "../io/io_helper_functions.hpp"
-#include "../io/sq_lookup_table_file.hpp"
+#include "io/io_helper_functions.hpp"
+#include "io/sq_lookup_table_file.hpp"
 
 #include <cstdio>
 #include <algorithm> // std::copy

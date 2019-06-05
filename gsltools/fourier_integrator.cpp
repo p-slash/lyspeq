@@ -1,4 +1,4 @@
-#include "fourier_integrator.hpp"
+#include "gsltools/fourier_integrator.hpp"
 
 #include <gsl/gsl_errno.h>
 #include <new>
