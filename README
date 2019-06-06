@@ -4,7 +4,7 @@ Prerequisites
 + [Python](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
 + [OpenMP](https://www.openmp.org) is needed to enable parallel computing on shared memory.
 
-Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl) or [ATLAS](http://math-atlas.sourceforge.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
+Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl), [ATLAS](http://math-atlas.sourceforge.net) or [OpenBLAS](https://www.openblas.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
 
 Compile and Install
 =====
@@ -12,13 +12,13 @@ The simplest version can be installed by `./configure && make && make install`. 
 
 OpenMP can be enabled by passing `--enable-openmp`. 
 
-I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-openmp`, which will enable OpenMP and use OpenBLAS for matrix operations. Another important one is Intel compiler with MKL if you have Parallel Studio XE 2018 installed: `./configure --build=x64-linux-icpc-mklxe18 --enable-openmp`. To see all build types: `./configure --print_builds`.
+I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-openmp`, which will enable OpenMP and use OpenBLAS for matrix operations. Another important one is Intel compiler with MKL. If you have Parallel Studio XE 2018 installed: `./configure --build=x64-linux-icpc-mklxe18 --enable-openmp`. To see all build types: `./configure --print-builds`.
 
-The executables are installed in `bindir`. This is `/usr/local/bin` by default. You can change it by setting `--bindir=your-path`. Make sure it is in your `$PATH`. Alternatively, you can change `/usr/local` by setting `--prefix` and `--exec_prefix`.
+The executables are installed in `bindir`. This is `/usr/local/bin` by default. You can change it by setting `--bindir=your-path`. Make sure it is in your `$PATH`. Alternatively, you can change `/usr/local` by setting `--prefix` and `--exec_prefix`. Typically for clusters, you want to install binaries to `$HOME/bin`; so simply pass `--prefix=$HOME`.
 
 To absorp high k power, you can enable a wide high k bin by setting `--enable-last-k-bin=[number]`. This number will be the last edge.
 
-You can also change interpolation schemes and redshift binning shape. For details run `./configure --help`.
+You can also change interpolation schemes and redshift binning shape. You can also compile in another directory by setting `--srcdir=[source-path]`. For more options run `./configure --help`.
 
 Overview of Programs
 =====
@@ -94,7 +94,7 @@ Specify allocated memory in MB to store additional derivative matrices and fiduc
 
     AllocatedMemoryMB 5.
 
-Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with [py/lorentzian_fit.py](py/lorentzian_fit.py) script.
+Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with [py/lorentzian_fit.py](py/lorentzian_fit.py) script. For clusters, you are typically assigned a scratch space such as `scratch` or `project`.
 
     TemporaryFolder /tmp
 
