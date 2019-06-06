@@ -1,3 +1,5 @@
+#---------------------------------------
+# GSL recommends the following flags
 # removed flags: -ansi -Wmissing-prototypes -Wstrict-prototypes -Wconversion -Wnested-externs -Dinline=
 GSLRECFLAGS = -Wall -pedantic -Werror -W \
 -Wshadow -Wpointer-arith \
@@ -6,8 +8,7 @@ GSLRECFLAGS = -Wall -pedantic -Werror -W \
 -O3
 				
 #---------------------------------------
-
-DIRS   = $(addprefix $(srcdir), core io gsltools tests)
+DIRS   = $(addprefix $(srcdir)/, core io gsltools tests)
 SRCEXT = cpp
 VPATH  = $(srcdir):$(DIRS)
 
@@ -18,10 +19,11 @@ config_file.cpp io_helper_functions.cpp qso_file.cpp sq_lookup_table_file.cpp
 OBJECTS = $(SOURCES:.$(SRCEXT)=.o)
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
-
 CPPFLAGS += -I$(srcdir) -std=gnu++11 -DHAVE_INLINE $(OPT)
 CXXFLAGS = $(GSLRECFLAGS)
-	
+
+.PHONY: all test install uninstall clean
+
 all: LyaPowerEstimate CreateSQLookUpTable
 
 test: cblas_tests
@@ -32,21 +34,18 @@ LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 CreateSQLookUpTable: CreateSQLookUpTable.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-cblas_tests: cblas_tests.o $(srcdir)/core/matrix_helper.o
+cblas_tests: cblas_tests.o matrix_helper.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-.PHONY: install
 install: LyaPowerEstimate CreateSQLookUpTable
 	mkdir -p $(bindir)
 	cp LyaPowerEstimate CreateSQLookUpTable $(srcdir)/py/lorentzian_fit.py $(bindir)
 	chmod a+x $(bindir)/lorentzian_fit.py
 
-.PHONY: uninstall
 uninstall:
 	$(RM) $(bindir)/lorentzian_fit.py
 	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable
 
-.PHONY: clean
 clean:
 	$(RM) $(OBJECTS) 
 	$(RM) LyaPowerEstimate LyaPowerEstimate.o
