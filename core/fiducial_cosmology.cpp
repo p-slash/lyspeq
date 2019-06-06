@@ -1,4 +1,4 @@
-// #include "fiducial_cosmology.hpp"
+#include "core/fiducial_cosmology.hpp"
 #include "core/global_numbers.hpp"
 
 #include <cmath>

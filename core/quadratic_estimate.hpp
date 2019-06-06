@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <gsl/gsl_matrix.h> 
+#include <gsl/gsl_vector.h>
 
 #include "core/one_qso_estimate.hpp"
 #include "core/fiducial_cosmology.hpp"
