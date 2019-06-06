@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # ./configure will set up a vanilla version that relies only on GSL with cubic and bicubic interpolation and triangle z bins.
-# Change configuration by passing build types. For more info ./configure --print_builds
+# Change configuration by passing build types. For more info ./configure --print-builds
 # To enable OpenMP threading, pass --enable-openmp
 # For more options pass --help or -h
+# Intel compilers: This has been tested for only Parallel Studio XE 2018 icpc and MKL.
 
 function save_makefile() {
     echo "OPT=${OPT}" > Makefile
@@ -18,7 +19,7 @@ function save_makefile() {
     exit 0
 }
 
-function print_build_type() {
+function print_build_types() {
     echo "Available build types are :"
     echo "-------------------------"
     echo "* GNU_XE18MKL or x64-linux-gnu-mklxe18"
@@ -185,8 +186,6 @@ function interactive() {
     CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
     LDFLAGS="${gsl_lib} ${LDFLAGS_CBLAS}"
     LDLIBS="-lgsl ${LDLIBS_CBLAS} ${LDLIBS_OMP} -lm -ldl"
-
-    save_makefile
 }
 
 # Default values
@@ -265,13 +264,14 @@ do
             GSL_DIR="${i#*=}"
             shift
             ;;
-        --print_builds )
-            print_build_type
+        --print-builds )
+            print_build_types
             exit 0
             ;;
         --help | -h )
             echo "--prefix=[directory] --exec_prefix=[directory] : Executables are installed in $exec_prefix/bin. Default is /usr/local"
             echo "--bindir=[directory] : Executables are installed in ${bindir}. Default is /usr/local/bin"
+            echo "--srcdir=[directory] : Source directory. Default is current directory (.)"
             echo "--enable-last-k-bin=[number] : Enables a feature that adds a high k bin edge."
             echo "--enable-openmp : Enable OpenMP"
             echo "--build=[build type] or [build type]: Sets the build type"
@@ -281,7 +281,7 @@ do
             echo "--binz_fn=[TRIANGLE_Z_BINNING_FN or TOPHAT_Z_BINNING_FN] : Specify redshift binning function. Default is triangle."
             echo "--debug adds -g flag."
             echo "--gsl_dir=[directory] : GSL directory"
-            echo "--print_builds : Prints out available build types"
+            echo "--print-builds : Prints out available build types"
             exit 0
             ;;
         --build=*|* )
@@ -301,7 +301,6 @@ case ${SYSTYPE} in
         CPPFLAGS="${CPPFLAGS_OMP} -m64 ${gsl_inc}"
         LDFLAGS="${gsl_lib} -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
         LDLIBS="-lgsl -lmkl_intel_lp64 ${LDLIBS_GCC_MKL} -lmkl_core ${LDLIBS_OMP} -lpthread -lm -ldl"
-        save_makefile
         ;;
     XE18_icpcMKL|x64-linux-icpc-mklxe18 )
         CXX="icpc"
@@ -309,7 +308,6 @@ case ${SYSTYPE} in
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
         LDLIBS="-lgsl ${LDLIBS_OMP} -lpthread -lm -ldl"
-        save_makefile
         ;;
     clang_openblas|x64-macos-clang-openblas )
         CXX="clang++"
@@ -317,7 +315,6 @@ case ${SYSTYPE} in
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib} -L/usr/local/opt/openblas/lib"
         LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
-        save_makefile
         ;;
     x64-macos-gcc9-openblas )
         CXX="g++-9"
@@ -325,7 +322,6 @@ case ${SYSTYPE} in
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib} -L/usr/local/opt/openblas/lib"
         LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
-        save_makefile
         ;;
     linux-gcc )
         CXX="g++"
@@ -333,14 +329,15 @@ case ${SYSTYPE} in
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
         LDLIBS="-lgsl -lgslcblas -lm -ldl"
-        save_makefile
         ;;
     interactive )
         interactive
         ;;
     * )
         echo "Unknown system type."
-        print_build_type
+        print_build_types
+        exit 1
         ;;
 esac
 
+save_makefile
