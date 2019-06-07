@@ -193,7 +193,7 @@ DERIVATIVE:
                 {
                     win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv);
 
-                    big_temp_array[nv] = q_integrator.evaluate(win_params.delta_v_ij, kvalue_1, kvalue_2);
+                    big_temp_array[nv] = q_integrator.evaluate(win_params.delta_v_ij, kvalue_1, kvalue_2, 0.);
                 }
 
                 SQLookupTableFile derivative_signal_table(buf, 'w');
