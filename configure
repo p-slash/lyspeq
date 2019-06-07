@@ -19,6 +19,13 @@ function save_makefile() {
     exit 0
 }
 
+function user_overwrite_defined_variables()
+{
+    if [[ ! -z "${CXXu}" ]]; then
+        CXX="${CXXu}"
+    fi
+}
+
 function print_build_types() {
     echo "Available build types are :"
     echo "-------------------------"
@@ -206,68 +213,45 @@ do
     case $i in
         --prefix=* | --exec_prefix=*)
             exec_prefix="${i#*=}"
-            bindir="${exec_prefix}/bin"
-            shift
-            ;;
+            bindir="${exec_prefix}/bin";;
         --bindir=*)
-            bindir="${i#*=}"
-            shift
-            ;;
+            bindir="${i#*=}";;
         --srcdir=*)
-            srcdir="${i#*=}"
-            shift
-            ;;
+            srcdir="${i#*=}";;
         --enable-last-k-bin=* )
-            lastk_feat="-DLAST_K_EDGE=${i#*=}"
-            shift
-            ;;
+            lastk_feat="-DLAST_K_EDGE=${i#*=}";;
         --enable-openmp )
-            CPPFLAGS_OMP="-fopenmp"
-            shift
-            ;;
+            CPPFLAGS_OMP="-fopenmp";;
         --interp1d=* )
             if [[ "${i#*=}" ==  "GSL_CUBIC_INTERPOLATION" || "${i#*=}" ==  "GSL_LINEAR_INTERPOLATION" ]]; then
                 interp1d="-DINTERP_1D_TYPE=${i#*=}"
             else
                 echo "Wrong 1D interpolation parameter. Using cubic interpolation by default."
                 echo "Pass GSL_LINEAR_INTERPOLATION or GSL_CUBIC_INTERPOLATION"
-            fi
-            shift
-            ;;
+            fi;;
         --interp2d=* )
             if [[ "${i#*=}" ==  "GSL_BICUBIC_INTERPOLATION" || "${i#*=}" ==  "GSL_BILINEAR_INTERPOLATION" ]]; then
                 interp2d="-DINTERP_2D_TYPE=${i#*=}"
             else
                 echo "Wrong 2D interpolation parameter. Using bicubic interpolation by default."
                 echo "Pass GSL_BILINEAR_INTERPOLATION or GSL_BICUBIC_INTERPOLATION"
-            fi
-            shift
-            ;;
+            fi;;
         --binz_fn=* )
             if [[ "${i#*=}" ==  "TRIANGLE_Z_BINNING_FN" || "${i#*=}" ==  "TOPHAT_Z_BINNING_FN" ]]; then
                 binz_fn="-D${i#*=}"
             else
                 echo "Wrong binning function variable. Using triangle binning in z by default."
                 echo "Pass TRIANGLE_Z_BINNING_FN or TOPHAT_Z_BINNING_FN"
-            fi
-            shift
-            ;;
+            fi;;
         --interactive )
-            SYSTYPE="interactive"
-            shift
-            ;;
+            SYSTYPE="interactive";;
         --debug )
-            debug=-g
-            shift
-            ;;
+            debug=-g;;
         --gsl_dir=* )
-            GSL_DIR="${i#*=}"
-            shift
-            ;;
+            GSL_DIR="${i#*=}";;
         --print-builds )
             print_build_types
-            exit 0
-            ;;
+            exit 0;;
         --help | -h )
             echo "--prefix=[directory] --exec_prefix=[directory] : Executables are installed in $exec_prefix/bin. Default is /usr/local"
             echo "--bindir=[directory] : Executables are installed in ${bindir}. Default is /usr/local/bin"
@@ -282,13 +266,13 @@ do
             echo "--debug adds -g flag."
             echo "--gsl_dir=[directory] : GSL directory"
             echo "--print-builds : Prints out available build types"
-            exit 0
-            ;;
+            exit 0;;
+        CXX=* )
+            CXXu="${i#*=}";;
         --build=*|* )
-            SYSTYPE="${i#*=}"
-            shift
-            ;;
+            SYSTYPE="${i#*=}";;
     esac
+    shift
 done
 
 OPT+=" ${interp1d} ${interp2d} ${binz_fn} ${lastk_feat} ${debug}"
@@ -340,4 +324,5 @@ case ${SYSTYPE} in
         ;;
 esac
 
+user_overwrite_defined_variables
 save_makefile
