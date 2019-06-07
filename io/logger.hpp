@@ -12,9 +12,10 @@ class Logger
 {
     FILE *stdfile, *errfile, *iofile;
 public:
-    Logger(const char *outdir);
+    Logger();
     ~Logger();
     
-    log(LOG_TYPE lt, const char *fmt, ...);
+    void open(const char *outdir);
+    void log(LOG_TYPE lt, const char *fmt, ...);
 };
 #endif

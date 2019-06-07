@@ -241,7 +241,7 @@ void OneDQuadraticPowerEstimate::loadBalancing(std::vector<qso_computation_time*
 
     for (int q = NUMBER_OF_QSOS-1; q >= NUMBER_OF_QSOS_OUT; q--)
     {
-        printf("QSO %d. EST CPU %e.\n", q, qso_estimators[q].est_cpu_time);
+        // printf("QSO %d. EST CPU %e.\n", q, qso_estimators[q].est_cpu_time);
         // find min time bucket
         int min_ind = index_of_min_element(bucket_time, maxthreads);
 

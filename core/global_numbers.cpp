@@ -11,6 +11,7 @@
 #endif
 
 char TMP_FOLDER[300] = ".";
+Logger LOGGER;
 
 double CHISQ_CONVERGENCE_EPS = 0.01;
 double MEMORY_ALLOC          = 0;
@@ -221,6 +222,7 @@ void read_config_file(  const char *FNAME_CONFIG, \
 
     // Redshift and wavenumber bins are constructed
     set_up_bins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
+    LOGGER.open(OUTPUT_DIR);
 }
 
 
