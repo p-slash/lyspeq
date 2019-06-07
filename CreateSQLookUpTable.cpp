@@ -134,7 +134,8 @@ int main(int argc, char const *argv[])
                 win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz);  // z_first + z_length * nz / (Nz - 1.);  
                 
                 s_integrator.setTableParameters(win_params.delta_v_ij, 10.);
-                big_temp_array[xy]    = s_integrator.evaluate0ToInfty(1E-15);
+                // 1E-15 gave roundoff error for smoothing with 20.8 km/s
+                big_temp_array[xy]    = s_integrator.evaluate0ToInfty(1E-14);
             }
 
             SQLookupTableFile signal_table(buf, 'w');
