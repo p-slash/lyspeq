@@ -1,26 +1,35 @@
 #include "io/logger.hpp"
 
-Logger::Logger(const char *outdir)
+#include <cstdarg>
+
+Logger::Logger()
 {
-    char buf[700];
-    sprintf(buf, "%s/log.txt", outdir);
-    stdfile = open_file(buf, 'w');
-
-    sprintf(buf, "%s/error_log.txt", outdir);
-    errfile = open_file(buf, 'w');
-
-    sprintf(buf, "%s/io_log.txt", outdir);
-    iofile = open_file(buf, 'w');
+    stdfile = NULL;
+    errfile = NULL;
+    iofile  = NULL;
 }
 
 Logger::~Logger()
 {
-    fclose(stdfile);
-    fclose(errfile);
-    fclose(iofile);
+    if (stdfile != NULL)    fclose(stdfile);
+    if (errfile != NULL)    fclose(errfile);
+    if (iofile  != NULL)    fclose(iofile);
 }
 
-Logger::log(LOG_TYPE lt, const char *fmt, ...)
+void Logger::open(const char *outdir)
+{
+    char buf[700];
+    sprintf(buf, "%s/log.txt", outdir);
+    stdfile = open_file(buf, 'wa');
+
+    sprintf(buf, "%s/error_log.txt", outdir);
+    errfile = open_file(buf, 'wa');
+
+    sprintf(buf, "%s/io_log.txt", outdir);
+    iofile = open_file(buf, 'wa');
+}
+
+void Logger::log(LOG_TYPE lt, const char *fmt, ...)
 {
     assert(lt == STD || lt == ERR || lt == IO);
 
@@ -30,14 +39,17 @@ Logger::log(LOG_TYPE lt, const char *fmt, ...)
     switch(lt)
     {
         case STD:
+            if (stdfile == NULL) throw "log.txt is not open.\n";
             vfprintf(stdfile, fmt, args);
             fflush(stdfile);
             break;
         case ERR:
+            if (errfile == NULL) throw "error_log.txt is not open.\n";
             vfprintf(errfile, fmt, args);
             fflush(errfile);
             break;
         case IO:
+            if (iofile  == NULL) throw "io_log.txt is not open.\n";
             vfprintf(iofile, fmt, args);
             fflush(iofile);
             break;

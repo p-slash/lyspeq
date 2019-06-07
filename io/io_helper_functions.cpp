@@ -23,42 +23,17 @@ template <class T>
 T* copyArrayAlloc(const T* source, int size)
 {
     T* target = new T[size];
-    std::copy(  &source[0], \
-                &source[0] + size, \
-                &target[0]);
+    std::copy(&source[0], &source[0] + size, &target[0]);
 
     return target;
 }
 template int* copyArrayAlloc<int>(const int *source, int size);
 template double* copyArrayAlloc<double>(const double *source, int size);
 
-void copyArray(const std::complex<double> *source, std::complex<double> *target, long size)
-{
-    std::copy(  &source[0], \
-                &source[0] + size, \
-                &target[0]);
-}
-
-void copyArray(const double *source, double *target, long size)
-{
-    std::copy(  &source[0], \
-                &source[0] + size, \
-                &target[0]);
-}
-
 FILE * open_file(const char *fname, const char *read_write)
 {
     FILE *file_to_read_write;
     char buffer[15];
-
-    if (read_write[0] == 'r')
-    {
-        sprintf(buffer, "READING FROM");
-    }
-    else
-    {
-        sprintf(buffer, "WRITING TO");
-    }
 
     file_to_read_write = fopen(fname, read_write);
 
@@ -68,9 +43,6 @@ FILE * open_file(const char *fname, const char *read_write)
         
         throw "ERROR: FILE OPERATION";
     }
-
-    printf("%s file: %s\n", buffer, fname);
-    fflush(stdout);
 
     return file_to_read_write;
 }
