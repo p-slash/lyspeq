@@ -134,7 +134,7 @@ int main(int argc, char const *argv[])
                 win_params.z_ij       = getLinearlySpacedValue(z_first, z_length, Nz, nz);  // z_first + z_length * nz / (Nz - 1.);  
                 
                 s_integrator.setTableParameters(win_params.delta_v_ij, 10.);
-                big_temp_array[xy]    = s_integrator.evaluate0ToInfty();
+                big_temp_array[xy]    = s_integrator.evaluate0ToInfty(1E-15);
             }
 
             SQLookupTableFile signal_table(buf, 'w');
@@ -193,7 +193,7 @@ DERIVATIVE:
                 {
                     win_params.delta_v_ij = getLinearlySpacedValue(0, LENGTH_V, Nv, nv);
 
-                    big_temp_array[nv] = q_integrator.evaluate(win_params.delta_v_ij, kvalue_1, kvalue_2, 0.);
+                    big_temp_array[nv] = q_integrator.evaluate(win_params.delta_v_ij, kvalue_1, kvalue_2, 0);
                 }
 
                 SQLookupTableFile derivative_signal_table(buf, 'w');
