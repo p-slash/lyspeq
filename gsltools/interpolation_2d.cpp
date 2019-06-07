@@ -43,7 +43,7 @@ Interpolation2D::Interpolation2D(const Interpolation2D &itp2d)
     
     long x_size = itp2d.spline->interp_object.xsize;
     long y_size = itp2d.spline->interp_object.ysize;
-    
+    // Copied from source code of GSL 2.5
     spline = gsl_spline2d_alloc(itp2d.spline->interp_object.type, x_size, y_size);
     
     gsl_spline2d_init(spline, itp2d.spline->xarr, itp2d.spline->yarr, itp2d.spline->zarr, x_size, y_size);
