@@ -13,21 +13,17 @@ Z_0 = 3.0
 
 # Define PD13 fitting function with Lorentzian smooting
 def pd13_lorentzian_fitting_function_k(k, A, n, alpha, lmd):
-    lnk = np.log(k / K_0)
-
-    lnkP_pi = np.log(A) \
-            + (3. + n) * lnk \
-            + alpha * lnk * lnk
-
-    return np.exp(lnkP_pi) * np.pi / k / (1. + lmd * k**2)
+    q0 = k / K_0 + 1e-10
+    
+    return (A * np.pi / K_0) * np.power(q0, 2. + n + alpha * np.log(q0)) / (1. + lmd * k**2)
 
 def pd13_lorentzian_fitting_function_z(X, A, n, alpha, B, beta, lmd):
     k, z = X
+    
+    q0 = k / K_0 + 1e-10
+    x0 = (1. + z) / (1. + Z_0)
 
-    lnk = np.log(k / K_0)
-    lnz = np.log((1. + z) / (1. + Z_0))
-
-    p_z_mult = np.exp((B + beta * lnk) * lnz)
+    p_z_mult = np.power(x0, B + beta * np.log(q0))
 
     return pd13_lorentzian_fitting_function_k(k, A, n, alpha, lmd) * p_z_mult
 
