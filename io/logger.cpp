@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdarg>
+#include <sstream> // std::ostringstream
 
 #include "io/io_helper_functions.hpp"
 
@@ -14,23 +15,36 @@ Logger::Logger()
 
 Logger::~Logger()
 {
-    if (stdfile != stdout)    fclose(stdfile);
-    if (errfile != NULL)    fclose(errfile);
-    if (iofile  != NULL)    fclose(iofile);
+    close();
 }
 
 void Logger::open(const char *outdir)
 {
-    char buf[700];
-    sprintf(buf, "%s/log.txt", outdir);
-    stdfile = open_file(buf, "wa");
-    freopen(buf, "wa", stdout);
+    std_fname = outdir;
+    std_fname += "/log.txt";
+    stdfile = open_file(std_fname.c_str(), "w");
 
-    sprintf(buf, "%s/error_log.txt", outdir);
-    errfile = open_file(buf, "wa");
+    err_fname = outdir;
+    err_fname += "/error_log.txt";
+    errfile = open_file(err_fname.c_str(), "w");
 
-    sprintf(buf, "%s/io_log.txt", outdir);
-    iofile = open_file(buf, "wa");
+    io_fname = outdir;
+    io_fname += "/io_log.txt";
+    iofile = open_file(io_fname.c_str(), "w");
+}
+
+void Logger::close()
+{
+    if (stdfile != stdout)  fclose(stdfile);
+    if (errfile != NULL)    fclose(errfile);
+    if (iofile  != NULL)    fclose(iofile);
+}
+
+void Logger::reopen()
+{
+    stdfile = open_file(std_fname.c_str(), "a");
+    errfile = open_file(err_fname.c_str(), "a");
+    iofile  = open_file(io_fname.c_str(),  "a");
 }
 
 void Logger::log(LOG_TYPE lt, const char *fmt, ...)
@@ -43,14 +57,13 @@ void Logger::log(LOG_TYPE lt, const char *fmt, ...)
     switch(lt)
     {
         case STD:
-            // if (stdfile == NULL) stdfile=stdout;
             vfprintf(stdfile, fmt, args);
             fflush(stdfile);
             break;
         case ERR:
+            vfprintf(stderr, fmt, args);
             if (errfile == NULL) throw "error_log.txt is not open.\n";
             vfprintf(errfile, fmt, args);
-            vfprintf(stderr, fmt, args);
             fflush(errfile);
             break;
         case IO:
@@ -63,20 +76,18 @@ void Logger::log(LOG_TYPE lt, const char *fmt, ...)
     va_end(args);
 }
 
-void Logger::copy()
+std::string Logger::getFileName(LOG_TYPE lt) const
 {
-    // f = fopen(stdout, "r");
-
-    char buffer;
-
-    while(!feof(stdout))
+    switch(lt)
     {
-        buffer = fgetc(stdout);
-        fputc(buffer, stdfile);
-        // printf("%c", buffer);
+        case STD:   return std_fname;
+        case ERR:   return err_fname;
+        case IO:    return io_fname;
     }
-    // fclose(stdout);
+
+    return NULL;
 }
+
 
 
 

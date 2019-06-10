@@ -56,13 +56,15 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
     // Read R values
     FILE *toRead = open_file(fname_rlist, "r");
     fscanf(toRead, "%d\n", &NUMBER_OF_R_VALUES);
-
     LOGGER.log(STD, "Number of R values: %d\n", NUMBER_OF_R_VALUES);
 
     R_VALUES = new int[NUMBER_OF_R_VALUES];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
+    {
         fscanf(toRead, "%d\n", &R_VALUES[r]);
+        LOGGER.log(STD, "%d\n", R_VALUES[r]);
+    }
 
     fclose(toRead);
     // Reading R values done
