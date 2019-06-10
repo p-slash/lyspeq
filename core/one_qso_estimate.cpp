@@ -69,7 +69,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 {
     sprintf(qso_sp_fname, "%s", fname_qso);
 
-    LOGGER.log(IO, "Reading from %s.", qso_sp_fname);
+    LOGGER.log(IO, "Reading from %s.\n", qso_sp_fname);
 
     // Construct and read data arrays
     QSOFile qFile(qso_sp_fname);
@@ -80,6 +80,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 
     LOGGER.log(IO, "Data size is %d\n", DATA_SIZE);
     LOGGER.log(IO, "Pixel Width is %.1f\n", DV_KMS);
+    LOGGER.log(IO, "Spectral Resolution is %d.\n", SPECT_RES_FWHM);
 
     lambda_array    = new double[DATA_SIZE];
     velocity_array  = new double[DATA_SIZE];

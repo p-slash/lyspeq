@@ -12,6 +12,7 @@
 #include <cassert>
 
 #include <string>
+#include <sstream>      // std::ostringstream
 
 //-------------------------------------------------------
 int qso_cputime_compare(const void * a, const void * b)
@@ -152,7 +153,8 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 
 void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 {
-    char tmp_ps_fname[320], tmp_fit_fname[320], buf[1000];
+    char tmp_ps_fname[320], tmp_fit_fname[320];
+    std::ostringstream command;
 
     FILE *tmp_fit_file;
     int s1, s2, kn, zm;
@@ -177,26 +179,21 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     write_spectrum_estimates(tmp_ps_fname);
 
-    if (NUMBER_OF_Z_BINS == 1)
-    {
-        // Do not pass redshift evolution parameters
-       sprintf(buf, "lorentzian_fit.py %s %s %.2le %.2le %.2le %.2le", \
-                tmp_ps_fname, tmp_fit_fname, \
-                fit_params[0], fit_params[1], \
-                fit_params[2], fit_params[5]);
-    }
-    else
-    {
-        sprintf(buf, "lorentzian_fit.py %s %s %.2le %.2le %.2le %.2le %.2le %.2le", \
-                tmp_ps_fname, tmp_fit_fname, \
-                fit_params[0], fit_params[1], fit_params[2], \
-                fit_params[3], fit_params[4], fit_params[5]);
-    }
+    command << "lorentzian_fit.py " << tmp_ps_fname << " " << tmp_fit_fname << " "
+            << fit_params[0] << " " << fit_params[1] << " " << fit_params[2] << " ";
 
-    LOGGER.log(STD, "%s\n", buf);
+    // Do not pass redshift parameters is there is only one redshift bin
+    if (NUMBER_OF_Z_BINS > 1)  command << fit_params[3] << " " << fit_params[4] << " ";
+    
+    command << fit_params[5] << " >> " << LOGGER.getFileName(STD);
+
+    LOGGER.log(STD, "%s\n", command.str().c_str());
+    LOGGER.close();
 
     // Print from python does not go into LOGGER
-    s1 = system(buf);
+    s1 = system(command.str().c_str());
+    
+    LOGGER.reopen();
 
     if (s1 != 0)
     {
@@ -448,6 +445,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname)
     fclose(toWrite);
         
     LOGGER.log(IO, "Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+    LOGGER.log(STD, "Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
 }
 
 void OneDQuadraticPowerEstimate::initializeIteration()
