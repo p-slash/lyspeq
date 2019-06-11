@@ -212,8 +212,9 @@ void read_config_file(  const char *FNAME_CONFIG, \
 
     char tmp_ps_fname[320];
     sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
-    // Test access
+    // TODO: Test access here
 
+    LOGGER.open(OUTPUT_DIR);
     TURN_OFF_SFID = sfid_off > 0;
 
     if (TURN_OFF_SFID)  LOGGER.log(STD, "Fiducial signal matrix is turned off.\n");
@@ -221,7 +222,6 @@ void read_config_file(  const char *FNAME_CONFIG, \
 
     // Redshift and wavenumber bins are constructed
     set_up_bins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
-    LOGGER.open(OUTPUT_DIR);
 }
 
 
