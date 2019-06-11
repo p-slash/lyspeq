@@ -36,8 +36,6 @@ int main(int argc, char const *argv[])
     pd13_fit_params FIDUCIAL_PD13_PARAMS;
 
     OneDQuadraticPowerEstimate *qps = NULL;
-    
-    print_build_specifics();
 
     try
     {
@@ -49,6 +47,8 @@ int main(int argc, char const *argv[])
                             &NUMBER_OF_ITERATIONS, \
                             NULL, NULL, NULL, NULL);
 
+        print_build_specifics();
+        
         // Allocate and read look up tables
         sq_shared_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
 
