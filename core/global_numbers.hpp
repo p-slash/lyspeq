@@ -3,6 +3,7 @@
 
 #include "core/sq_table.hpp"
 #include "core/fiducial_cosmology.hpp"
+#include "io/logger.hpp"
 
 // Mathematical numbers
 #define PI 3.14159265359
@@ -18,6 +19,8 @@
 // Quadratic Estimate numbers
 #define CONVERGENCE_EPS       1E-4
 extern double CHISQ_CONVERGENCE_EPS;
+
+extern Logger LOGGER;
 
 extern char TMP_FOLDER[300];
 

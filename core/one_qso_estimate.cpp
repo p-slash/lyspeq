@@ -69,14 +69,18 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 {
     sprintf(qso_sp_fname, "%s", fname_qso);
 
+    LOGGER.log(IO, "Reading from %s.\n", qso_sp_fname);
+
     // Construct and read data arrays
     QSOFile qFile(qso_sp_fname);
 
     double dummy_qso_z, dummy_s2n;
 
     qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
-    printf("Data size is %d\n", DATA_SIZE);
-    printf("Pixel Width is %.1f\n", DV_KMS);
+
+    LOGGER.log(IO, "Data size is %d\n", DATA_SIZE);
+    LOGGER.log(IO, "Pixel Width is %.1f\n", DV_KMS);
+    LOGGER.log(IO, "Spectral Resolution is %d.\n", SPECT_RES_FWHM);
 
     lambda_array    = new double[DATA_SIZE];
     velocity_array  = new double[DATA_SIZE];
@@ -95,8 +99,8 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     // Covert from wavelength to velocity units around median wavelength
     convert_lambda2v(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
 
-    printf("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
-    printf("Median redshift of spectrum chunk: %.2f\n", MEDIAN_REDSHIFT);
+    LOGGER.log(IO, "Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
+    LOGGER.log(IO, "Median redshift of spectrum chunk: %.2f\n", MEDIAN_REDSHIFT);
 
     // Assign to a redshift bin according to median redshift of this chunk
     ZBIN = (MEDIAN_REDSHIFT - ZBIN_CENTERS[0] + Z_BIN_WIDTH/2.) / Z_BIN_WIDTH;
@@ -104,7 +108,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     if (MEDIAN_REDSHIFT < ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.)     ZBIN = -1;
 
     if (ZBIN >= 0 && ZBIN < NUMBER_OF_Z_BINS)   BIN_REDSHIFT = ZBIN_CENTERS[ZBIN];
-    else                                        printf("This QSO does not belong to any redshift bin!\n");
+    else                                        {LOGGER.log(IO, "This QSO does not belong to any redshift bin!\n"); return;}
     
     // Find the resolution index for the look up table
     r_index = sq_private_table->findSpecResIndex(SPECT_RES_FWHM);
@@ -135,8 +139,8 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
         stored_qj = new gsl_matrix*[nqj_eff];
     }
 
-    printf("Number of stored Q matrices: %d\n", nqj_eff);
-    if (isSfidStored)   printf("Fiducial signal matrix is stored.\n");
+    LOGGER.log(IO, "Number of stored Q matrices: %d\n", nqj_eff);
+    if (isSfidStored)   LOGGER.log(IO, "Fiducial signal matrix is stored.\n");
     fflush(stdout);
 
     isQjSet   = false;
@@ -418,9 +422,10 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_
     }
     catch (const char* msg)
     {
-        fprintf(stderr, "%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n", \
+        LOGGER.log(ERR, "%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n", \
                 t_rank, numthreads, msg, qso_sp_fname);
-        fprintf(stderr, "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n", \
+
+        LOGGER.log(ERR, "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n", \
                 DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
     }
     

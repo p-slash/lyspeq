@@ -56,20 +56,21 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
     // Read R values
     FILE *toRead = open_file(fname_rlist, "r");
     fscanf(toRead, "%d\n", &NUMBER_OF_R_VALUES);
-
-    printf("Number of R values: %d\n", NUMBER_OF_R_VALUES);
+    LOGGER.log(STD, "Number of R values: %d\n", NUMBER_OF_R_VALUES);
 
     R_VALUES = new int[NUMBER_OF_R_VALUES];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
+    {
         fscanf(toRead, "%d\n", &R_VALUES[r]);
+        LOGGER.log(STD, "%d\n", R_VALUES[r]);
+    }
 
     fclose(toRead);
     // Reading R values done
     // ---------------------
 
-    printf("Setting tables..\n");
-    fflush(stdout);
+    LOGGER.log(STD, "Setting tables..\n");
 
     interp2d_signal_matrices     = new Interpolation2D*[NUMBER_OF_R_VALUES];
     interp_derivative_matrices   = new Interpolation*[NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS];
@@ -82,8 +83,7 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
 
 SQLookupTable::SQLookupTable(const SQLookupTable &sq)
 {
-    printf("Copying SQ table.\n");
-    fflush(stdout);
+    LOGGER.log(STD, "Copying SQ table.\n");
     
     NUMBER_OF_R_VALUES = sq.NUMBER_OF_R_VALUES;
 
@@ -153,6 +153,7 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
 
     // Read S table.
     STableFileNameConvention(buf, dir, s_base, R_VALUES[r_index]);
+    LOGGER.log(IO, "Reading sq_lookup_table_file %s.\n", buf);
     SQLookupTableFile s_table_file(buf, 'r');
     
     int dummy_R, dummy_Nz;
