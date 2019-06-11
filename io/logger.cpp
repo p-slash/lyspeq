@@ -8,8 +8,12 @@
 
 Logger::Logger()
 {
+    std_fname = "";
+    err_fname = "";
+    io_fname  = "";
+    
     stdfile = stdout;
-    errfile = NULL;
+    errfile = stderr;
     iofile  = NULL;
 }
 
@@ -36,7 +40,7 @@ void Logger::open(const char *outdir)
 void Logger::close()
 {
     if (stdfile != stdout)  fclose(stdfile);
-    if (errfile != NULL)    fclose(errfile);
+    if (errfile != stderr)    fclose(errfile);
     if (iofile  != NULL)    fclose(iofile);
 }
 
@@ -58,12 +62,12 @@ void Logger::log(LOG_TYPE lt, const char *fmt, ...)
     {
         case STD:
             vfprintf(stdfile, fmt, args);
+            if (stdfile != stdout)  vfprintf(stdout, fmt, args);
             fflush(stdfile);
             break;
         case ERR:
-            vfprintf(stderr, fmt, args);
-            if (errfile == NULL) throw "error_log.txt is not open.\n";
             vfprintf(errfile, fmt, args);
+            if (errfile != stderr) vfprintf(stderr, fmt, args);
             fflush(errfile);
             break;
         case IO:
