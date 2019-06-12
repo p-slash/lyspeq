@@ -47,7 +47,7 @@ config_file.o io_helper_functions.o sq_lookup_table_file.o logger.o
 cblas_tests: cblas_tests.o matrix_helper.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-.PHONY: all test install uninstall clean
+.PHONY: install uninstall clean
 
 install: LyaPowerEstimate CreateSQLookUpTable
 	mkdir -p $(bindir)
