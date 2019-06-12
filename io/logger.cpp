@@ -62,12 +62,12 @@ void Logger::log(LOG_TYPE lt, const char *fmt, ...)
     {
         case STD:
             vfprintf(stdfile, fmt, args);
-            if (stdfile != stdout)  vfprintf(stdout, fmt, args);
+            //if (stdfile != stdout)  vfprintf(stdout, fmt, args);
             fflush(stdfile);
             break;
         case ERR:
             vfprintf(errfile, fmt, args);
-            if (errfile != stderr) vfprintf(stderr, fmt, args);
+            //if (errfile != stderr) vfprintf(stderr, fmt, args);
             fflush(errfile);
             break;
         case IO:
