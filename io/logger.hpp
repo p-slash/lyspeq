@@ -12,7 +12,7 @@ enum LOG_TYPE
 };
 
 // Simple logging into a given directory. NOT thread safe. Only access on master process.
-// Writes STD to log.txt and stdout, ERR to error_log.txt and stderr, IO to io_log.txt
+// Writes STD to log.txt, ERR to error_log.txt, IO to io_log.txt
 // Default of STD is stdout, ERR is stderr.
 // Keeps files open and flushes immediately after logging.
 
