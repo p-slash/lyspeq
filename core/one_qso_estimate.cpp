@@ -1,6 +1,5 @@
 #include "core/one_qso_estimate.hpp"
 #include "core/fiducial_cosmology.hpp"
-#include "core/spectrograph_functions.hpp"
 #include "core/matrix_helper.hpp"
 #include "core/global_numbers.hpp"
 
@@ -169,7 +168,7 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
     }
     else
     {
-        for (int i = 0; i < DATA_SIZE && !TURN_OFF_SFID; i++)
+        for (int i = 0; i < DATA_SIZE; i++)
         {
             for (int j = i; j < DATA_SIZE; j++)
             {

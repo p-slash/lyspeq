@@ -6,7 +6,6 @@
 
 #include "core/global_numbers.hpp"
 #include "core/quadratic_estimate.hpp"
-#include "core/spectrograph_functions.hpp"
 
 #include "io/io_helper_functions.hpp"
 
