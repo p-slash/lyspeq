@@ -7,7 +7,6 @@
 #include <gsl/gsl_errno.h>
 
 #include "core/global_numbers.hpp"
-#include "core/spectrograph_functions.hpp"
 #include "core/fiducial_cosmology.hpp"
 
 #include "gsltools/fourier_integrator.hpp"
@@ -45,8 +44,6 @@ int main(int argc, char const *argv[])
     double PIXEL_WIDTH, LENGTH_V;
 
     pd13_fit_params FIDUCIAL_PD13_PARAMS;
-
-    print_build_specifics();
     
     try
     {
@@ -58,6 +55,8 @@ int main(int argc, char const *argv[])
                             NULL, \
                             &Nv, &Nz, &PIXEL_WIDTH, &LENGTH_V);
 
+        print_build_specifics();
+
         gsl_set_error_handler_off();
 
         // Read R values
@@ -66,7 +65,7 @@ int main(int argc, char const *argv[])
         FILE *toRead = open_file(FNAME_RLIST, "r");
         fscanf(toRead, "%d\n", &NUMBER_OF_Rs);
 
-        printf("Number of R values: %d\n", NUMBER_OF_Rs);
+        LOGGER.log(STD, "Number of R values: %d\n", NUMBER_OF_Rs);
 
         R_VALUES = new int[NUMBER_OF_Rs];
 
@@ -112,16 +111,14 @@ int main(int argc, char const *argv[])
             // Convert integer FWHM to 1 sigma km/s
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             
-            printf("T%d/%d - Creating look up table for signal matrix. R = %d : %.2f km/s.\n", \
+            LOGGER.log(STD, "T%d/%d - Creating look up table for signal matrix. R = %d : %.2f km/s.\n", \
                     t_rank, numthreads, R_VALUES[r], win_params.spectrograph_res);
-            fflush(stdout);
 
             STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
             
             if (!force_rewrite && file_exists(buf))
             {
-                printf("File %s already exists. Skip to next.\n", buf);
-                fflush(stdout);
+                LOGGER.log(STD, "File %s already exists. Skip to next.\n", buf);
                 continue;
             }
 
@@ -148,7 +145,7 @@ int main(int argc, char const *argv[])
 
             time_spent_table_sfid = get_time() - time_spent_table_sfid;
 
-            printf("T:%d/%d - Time spent on fiducial signal matrix table R %d is %.2f mins.\n", \
+            LOGGER.log(STD, "T:%d/%d - Time spent on fiducial signal matrix table R %d is %.2f mins.\n", \
                     t_rank, numthreads, R_VALUES[r], time_spent_table_sfid);
         }
 
@@ -170,23 +167,21 @@ DERIVATIVE:
             time_spent_table_q = get_time();
 
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
-            printf("T:%d/%d - Creating look up tables for derivative signal matrices. R = %d : %.2f km/s.\n", \
+            LOGGER.log(STD, "T:%d/%d - Creating look up tables for derivative signal matrices. R = %d : %.2f km/s.\n", \
                     t_rank, numthreads, R_VALUES[r], win_params.spectrograph_res);
-            fflush(stdout);
 
             for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
             {
                 double kvalue_1 = KBAND_EDGES[kn];
                 double kvalue_2 = KBAND_EDGES[kn + 1];
 
-                printf("Q matrix for k = [%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
+                LOGGER.log(STD, "Q matrix for k = [%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
 
                 QTableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_Q, R_VALUES[r], kvalue_1, kvalue_2);
                 
                 if (!force_rewrite && file_exists(buf))
                 {
-                    printf("File %s already exists. Skip to next.\n", buf);
-                    fflush(stdout);
+                    LOGGER.log(STD, "File %s already exists. Skip to next.\n", buf);
                     continue;
                 }
 
@@ -207,7 +202,7 @@ DERIVATIVE:
             }
             
             time_spent_table_q = get_time() - time_spent_table_q;
-            printf("T:%d/%d - Time spent on derivative matrix table R %d is %.2f mins.\n", \
+            LOGGER.log(STD, "T:%d/%d - Time spent on derivative matrix table R %d is %.2f mins.\n", \
                     t_rank, numthreads, R_VALUES[r], time_spent_table_q);
         }
         // Q matrices are written.

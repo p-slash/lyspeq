@@ -5,13 +5,13 @@
 #include "core/fiducial_cosmology.hpp"
 #include "io/logger.hpp"
 
-// Mathematical numbers
-#define PI 3.14159265359
+// Mathematical numbers defined in fiducial_cosmology.hpp
+// #define PI 3.14159265359
 #define ONE_SIGMA_2_FWHM 2.35482004503
 
-// Physical constants
-#define LYA_REST 1215.67
-#define SPEED_OF_LIGHT 299792.458
+// Physical constants defined in fiducial_cosmology.hpp
+// #define LYA_REST 1215.67
+// #define SPEED_OF_LIGHT 299792.458
 
 // One QSO Estimate numbers
 #define ADDED_CONST_TO_COVARIANCE 10.0
