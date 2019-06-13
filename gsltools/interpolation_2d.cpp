@@ -55,25 +55,23 @@ double Interpolation2D::evaluate(double x, double y) const
 
     if (x < lowest_x)
     {
-        // printf("WARNING: Extrapolating 2D interpolation for smaller x!\n");
+        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for x=%e is smaller than lowest x=%e!\n", x, lowest_x);
         x_eval = lowest_x;
     }
-
     else if (x > highest_x)
     {
-        // printf("WARNING: Extrapolating 2D interpolation for larger x!\n");
+        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for x=%e is larger than highest x=%e!\n", x, highest_x);
         x_eval = highest_x;
     }
 
     if (y < lowest_y)
     {
-        // printf("WARNING: Extrapolating 2D interpolation for smaller y!\n");
+        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for y=%e is smaller than lowest y=%e!\n", y, lowest_y);
         y_eval = lowest_y;
     }
-
     else if (y > highest_y)
     {
-        // printf("WARNING: Extrapolating 2D interpolation for larger y!\n");
+        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for y=%e is larger than highest y=%e!\n", y, highest_y);
         y_eval = highest_y;
     }
 
