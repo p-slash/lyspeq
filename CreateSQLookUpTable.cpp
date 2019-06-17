@@ -55,6 +55,9 @@ int main(int argc, char const *argv[])
                             NULL, \
                             &Nv, &Nz, &PIXEL_WIDTH, &LENGTH_V);
 
+        LOGGER.open(OUTPUT_DIR);
+        if (TURN_OFF_SFID)  LOGGER.log(STD, "Fiducial signal matrix is turned off.\n");
+        
         print_build_specifics();
 
         gsl_set_error_handler_off();
