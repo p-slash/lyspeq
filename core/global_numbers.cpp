@@ -213,11 +213,9 @@ void read_config_file(  const char *FNAME_CONFIG, \
     char tmp_ps_fname[320];
     sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
     // TODO: Test access here
-
-    LOGGER.open(OUTPUT_DIR);
+    
     TURN_OFF_SFID = sfid_off > 0;
 
-    if (TURN_OFF_SFID)  LOGGER.log(STD, "Fiducial signal matrix is turned off.\n");
     if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
 
     // Redshift and wavenumber bins are constructed

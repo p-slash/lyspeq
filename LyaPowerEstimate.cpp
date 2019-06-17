@@ -46,6 +46,9 @@ int main(int argc, char const *argv[])
                             &NUMBER_OF_ITERATIONS, \
                             NULL, NULL, NULL, NULL);
 
+        LOGGER.open(OUTPUT_DIR);
+        if (TURN_OFF_SFID)  LOGGER.log(STD, "Fiducial signal matrix is turned off.\n");
+    
         print_build_specifics();
         
         // Allocate and read look up tables
