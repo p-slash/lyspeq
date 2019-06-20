@@ -1,5 +1,5 @@
-#include "sq_lookup_table_file.hpp"
-#include "io_helper_functions.hpp"
+#include "io/sq_lookup_table_file.hpp"
+#include "io/io_helper_functions.hpp"
 
 void QTableFileNameConvention(  char *fname, const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_Q, \
                                 int r, double k1, double k2)
@@ -109,8 +109,6 @@ void SQLookupTableFile::writeData(double *data)
         printf("WARNING: Set header first before writing SQLookupTableFile!\n");
         return;
     }
-
-    printf("Saving SQLookupTableFile as %s.\n", file_name);
     
     int size = header.vpoints * header.zpoints;
     
@@ -128,8 +126,6 @@ void SQLookupTableFile::readData(double *data)
     readHeader();
     
     fseek(sq_file, sizeof(sq_io_header), SEEK_SET);
-
-    printf("Reading SQLookupTableFile %s.\n", file_name);
     
     int size = header.vpoints * header.zpoints;
     

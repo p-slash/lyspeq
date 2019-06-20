@@ -1,5 +1,5 @@
-#include "qso_file.hpp"
-#include "io_helper_functions.hpp"
+#include "io/qso_file.hpp"
+#include "io/io_helper_functions.hpp"
 
 QSOFile::QSOFile(const char *fname)
 {

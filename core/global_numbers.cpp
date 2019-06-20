@@ -1,5 +1,5 @@
-#include "global_numbers.hpp"
-#include "../io/config_file.hpp"
+#include "core/global_numbers.hpp"
+#include "io/config_file.hpp"
 
 #include <cstdio>
 #include <cmath>
@@ -11,6 +11,7 @@
 #endif
 
 char TMP_FOLDER[300] = ".";
+Logger LOGGER;
 
 double CHISQ_CONVERGENCE_EPS = 0.01;
 double MEMORY_ALLOC          = 0;
@@ -34,16 +35,16 @@ bool TURN_OFF_SFID;
 
 void printf_time_spent_details()
 {
-    printf("Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
-    printf("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
+    LOGGER.log(STD, "Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
+    LOGGER.log(STD, "Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
 
-    printf("Total time spent on setting Sfid is %.2f mins with %lu calls.\n", \
+    LOGGER.log(STD, "Total time spent on setting Sfid is %.2f mins with %lu calls.\n", \
             time_spent_on_set_sfid, number_of_times_called_setsfid);
-    printf("Total time spent on setting Qs is %.2f mins with %lu calls. \nInterpolation: %.2f and Copy: %.2f.\n", \
+    LOGGER.log(STD, "Total time spent on setting Qs is %.2f mins with %lu calls. \nInterpolation: %.2f and Copy: %.2f.\n", \
             time_spent_set_qs, number_of_times_called_setq, time_spent_on_q_interp, time_spent_on_q_copy);
     
-    printf("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
-    printf("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
+    LOGGER.log(STD, "Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
+    LOGGER.log(STD, "Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
 }
 
 void print_build_specifics()
@@ -73,13 +74,12 @@ void print_build_specifics()
     #define HIGH_K_TXT "OFF"
     #endif
 
-    printf("This version is build by the following options:\n");
-    printf("1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
-    printf("2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
-    printf("Fitting function: %s\n", FITTING_FUNC);
-    printf("Redshift binning shape: %s\n", BINNING_SHAPE);
-    printf("Last k bin: %s\n", HIGH_K_TXT);
-    fflush(stdout);
+    LOGGER.log(STD, "This version is build by the following options:\n");
+    LOGGER.log(STD, "1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
+    LOGGER.log(STD, "2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
+    LOGGER.log(STD, "Fitting function: %s\n", FITTING_FUNC);
+    LOGGER.log(STD, "Redshift binning shape: %s\n", BINNING_SHAPE);
+    LOGGER.log(STD, "Last k bin: %s\n", HIGH_K_TXT);
 
     #undef tostr
     #undef tovstr
@@ -212,11 +212,10 @@ void read_config_file(  const char *FNAME_CONFIG, \
 
     char tmp_ps_fname[320];
     sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
-    // Test access
-
+    // TODO: Test access here
+    
     TURN_OFF_SFID = sfid_off > 0;
 
-    if (TURN_OFF_SFID)  printf("Fiducial signal matrix is turned off.\n");
     if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
 
     // Redshift and wavenumber bins are constructed

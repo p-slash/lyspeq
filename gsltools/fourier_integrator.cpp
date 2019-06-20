@@ -1,4 +1,4 @@
-#include "fourier_integrator.hpp"
+#include "gsltools/fourier_integrator.hpp"
 
 #include <gsl/gsl_errno.h>
 #include <new>
@@ -6,9 +6,6 @@
 
 #define WORKSPACE_SIZE 3000
 #define TABLE_SIZE 300
-
-#define ABS_ERROR 1E-13
-#define REL_ERROR 1E-7
 
 FourierIntegrator::FourierIntegrator(gsl_integration_qawo_enum sin_cos, double (*integrand_function)(double, void*), void *params)
 {
@@ -46,12 +43,12 @@ void FourierIntegrator::setTableParameters(double omega, double L)
     else    gsl_integration_qawo_table_set(t, omega, L, GSL_SIN_COS);
 }
 
-double FourierIntegrator::evaluateAToInfty(double a)
+double FourierIntegrator::evaluateAToInfty(double a, double epsabs)
 {
     assert(t != NULL);
 
     double result, error;
-    int status = gsl_integration_qawf(  &F, a, ABS_ERROR, \
+    int status = gsl_integration_qawf(  &F, a, epsabs, \
                                         WORKSPACE_SIZE, w, cycle_w, t, \
                                         &result, &error);
     handle_gsl_status(status);
@@ -59,19 +56,19 @@ double FourierIntegrator::evaluateAToInfty(double a)
     return result;
 }
 
-double FourierIntegrator::evaluate0ToInfty()
+double FourierIntegrator::evaluate0ToInfty(double epsabs)
 {
-    return evaluateAToInfty(0);
+    return evaluateAToInfty(0, epsabs);
 }
 
-double FourierIntegrator::evaluate(double omega, double a, double b)
+double FourierIntegrator::evaluate(double omega, double a, double b, double epsabs, double epsrel)
 {
     int status;
     double result, error;
 
     setTableParameters(omega, b-a);
 
-    status = gsl_integration_qawo(  &F, a, ABS_ERROR, REL_ERROR, \
+    status = gsl_integration_qawo(  &F, a, epsabs, epsrel, \
                                     WORKSPACE_SIZE, w, t, \
                                     &result, &error);
 

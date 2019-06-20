@@ -1,7 +1,7 @@
-#include "config_file.hpp"
-#include "io_helper_functions.hpp"
+#include "io/config_file.hpp"
+#include "io/io_helper_functions.hpp"
 
-#include <cstring>
+#include <cstring> // strcpy
 #include <cstdlib>
 #include <cstdio>
 
