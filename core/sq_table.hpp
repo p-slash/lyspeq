@@ -1,8 +1,8 @@
 #ifndef SQ_TABLE_H
 #define SQ_TABLE_H
 
-#include "../gsltools/interpolation.hpp"
-#include "../gsltools/interpolation_2d.hpp"
+#include "gsltools/interpolation.hpp"
+#include "gsltools/interpolation_2d.hpp"
 
 // This table read, stores and interpolates pre-evaluated S and Q matrices for different 
 // spectral resolution (R) values. Here R is assumend to be an integer where c / R is in km/s.

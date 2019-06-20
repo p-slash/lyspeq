@@ -6,7 +6,6 @@
 
 #include "core/global_numbers.hpp"
 #include "core/quadratic_estimate.hpp"
-#include "core/spectrograph_functions.hpp"
 
 #include "io/io_helper_functions.hpp"
 
@@ -36,8 +35,6 @@ int main(int argc, char const *argv[])
     pd13_fit_params FIDUCIAL_PD13_PARAMS;
 
     OneDQuadraticPowerEstimate *qps = NULL;
-    
-    print_build_specifics();
 
     try
     {
@@ -49,6 +46,11 @@ int main(int argc, char const *argv[])
                             &NUMBER_OF_ITERATIONS, \
                             NULL, NULL, NULL, NULL);
 
+        LOGGER.open(OUTPUT_DIR);
+        if (TURN_OFF_SFID)  LOGGER.log(STD, "Fiducial signal matrix is turned off.\n");
+    
+        print_build_specifics();
+        
         // Allocate and read look up tables
         sq_shared_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
 
@@ -67,11 +69,10 @@ int main(int argc, char const *argv[])
 
         // Create private copy for interpolation is not thread safe!
         if (t_rank == 0)     sq_private_table = sq_shared_table;
-        else                    sq_private_table = new SQLookupTable(*sq_shared_table);
+        else                 sq_private_table = new SQLookupTable(*sq_shared_table);
 }
 
-        qps = new OneDQuadraticPowerEstimate(   FNAME_LIST, INPUT_DIR, \
-                                                &FIDUCIAL_PD13_PARAMS);
+        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR, &FIDUCIAL_PD13_PARAMS);
 
         sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
         qps->iterate(NUMBER_OF_ITERATIONS, buf);

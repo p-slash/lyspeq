@@ -1,7 +1,23 @@
 #ifndef FIDUCIAL_COSMOLOGY_H
 #define FIDUCIAL_COSMOLOGY_H
 
-#include "spectrograph_functions.hpp"
+#define SPEED_OF_LIGHT 299792.458
+#define LYA_REST 1215.67
+#define PI 3.14159265359
+
+struct spectrograph_windowfn_params
+{
+    double delta_v_ij;
+    double z_ij;
+    double pixel_width;
+    double spectrograph_res;    // This is 1 sigma km/s resolution
+};
+
+void convert_flux2deltaf_mean(double *flux, double *noise, int size);
+// void convert_flux2deltaf_becker(const double *lambda, double *flux, double *noise, int size);
+void convert_lambda2v(double &median_z, double *v_array, const double *lambda, int size);
+
+double spectral_response_window_fn(double k, struct spectrograph_windowfn_params *spec_params);
 
 // This function is defined in preprocessing
 double fiducial_power_spectrum(double k, double z, void *params);

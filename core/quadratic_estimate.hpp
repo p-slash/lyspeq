@@ -1,9 +1,12 @@
 #ifndef QUADRATIC_ESTIMATE_H
 #define QUADRATIC_ESTIMATE_H
 
-#include "one_qso_estimate.hpp"
-#include "fiducial_cosmology.hpp"
 #include <vector>
+#include <gsl/gsl_matrix.h> 
+#include <gsl/gsl_vector.h>
+
+#include "core/one_qso_estimate.hpp"
+#include "core/fiducial_cosmology.hpp"
 
 typedef struct
 {

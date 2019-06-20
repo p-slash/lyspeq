@@ -1,4 +1,4 @@
-#include "interpolation_2d.hpp"
+#include "gsltools/interpolation_2d.hpp"
 
 #include <gsl/gsl_interp2d.h>
 
@@ -43,7 +43,7 @@ Interpolation2D::Interpolation2D(const Interpolation2D &itp2d)
     
     long x_size = itp2d.spline->interp_object.xsize;
     long y_size = itp2d.spline->interp_object.ysize;
-    
+    // Copied from source code of GSL 2.5
     spline = gsl_spline2d_alloc(itp2d.spline->interp_object.type, x_size, y_size);
     
     gsl_spline2d_init(spline, itp2d.spline->xarr, itp2d.spline->yarr, itp2d.spline->zarr, x_size, y_size);
@@ -55,25 +55,23 @@ double Interpolation2D::evaluate(double x, double y) const
 
     if (x < lowest_x)
     {
-        // printf("WARNING: Extrapolating 2D interpolation for smaller x!\n");
+        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for x=%e is smaller than lowest x=%e!\n", x, lowest_x);
         x_eval = lowest_x;
     }
-
     else if (x > highest_x)
     {
-        // printf("WARNING: Extrapolating 2D interpolation for larger x!\n");
+        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for x=%e is larger than highest x=%e!\n", x, highest_x);
         x_eval = highest_x;
     }
 
     if (y < lowest_y)
     {
-        // printf("WARNING: Extrapolating 2D interpolation for smaller y!\n");
+        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for y=%e is smaller than lowest y=%e!\n", y, lowest_y);
         y_eval = lowest_y;
     }
-
     else if (y > highest_y)
     {
-        // printf("WARNING: Extrapolating 2D interpolation for larger y!\n");
+        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for y=%e is larger than highest y=%e!\n", y, highest_y);
         y_eval = highest_y;
     }
 

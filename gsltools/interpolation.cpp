@@ -1,4 +1,4 @@
-#include "interpolation.hpp"
+#include "gsltools/interpolation.hpp"
 
 #include <cstdio>
 
@@ -24,6 +24,7 @@ Interpolation::Interpolation(const Interpolation &itp)
 	highest_x     = itp.highest_x;
 
 	accelerator = gsl_interp_accel_alloc();
+	// Copied from source code of GSL 2.5
 	spline      = gsl_spline_alloc(itp.spline->interp->type, itp.spline->size);
 	gsl_spline_init(spline, itp.spline->x, itp.spline->y, itp.spline->size);
 }

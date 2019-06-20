@@ -25,9 +25,9 @@ public:
     // by this function to a value appropriate for the Fourier integration.
     void setTableParameters(double omega, double L);
 
-    double evaluate(double omega, double a, double b);
-    double evaluateAToInfty(double a);
-    double evaluate0ToInfty();
+    double evaluate(double omega, double a, double b, double epsabs=1E-13, double epsrel=1E-7);
+    double evaluateAToInfty(double a, double epsabs=1E-13);
+    double evaluate0ToInfty(double epsabs=1E-13);
 };
 
 #endif

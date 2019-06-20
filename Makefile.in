@@ -1,52 +1,60 @@
+#---------------------------------------
+# GSL recommends the following flags
 # removed flags: -ansi -Wmissing-prototypes -Wstrict-prototypes -Wconversion -Wnested-externs -Dinline=
-GSLRECFLAGS = -Wall -pedantic -Werror -W \
-				-Wshadow -Wpointer-arith \
-				-Wcast-qual -Wcast-align -Wwrite-strings \
-				-fshort-enums -fno-common \
-				-O3
+GSLRECFLAGS = -Wall -pedantic -Werror -W -Wno-unknown-pragmas\
+-Wshadow -Wpointer-arith \
+-Wcast-qual -Wcast-align -Wwrite-strings \
+-fshort-enums -fno-common \
+-O3
 				
 #---------------------------------------
-
-DIRS   = core io gsltools
+DIRS   = $(addprefix $(srcdir)/, core io gsltools tests)
+DEPDIR = $(addprefix $(srcdir)/, dep)
+$(shell mkdir -p $(DEPDIR))
 SRCEXT = cpp
-vpath  $(DIRS)
+VPATH  = $(srcdir):$(DIRS)
 
-SOURCES = $(shell find $(DIRS) -type f -name '*.$(SRCEXT)')
+SOURCES = fiducial_cosmology.cpp global_numbers.cpp matrix_helper.cpp one_qso_estimate.cpp quadratic_estimate.cpp sq_table.cpp \
+fourier_integrator.cpp interpolation.cpp interpolation_2d.cpp \
+config_file.cpp io_helper_functions.cpp qso_file.cpp sq_lookup_table_file.cpp logger.cpp
+
 OBJECTS = $(SOURCES:.$(SRCEXT)=.o)
-PROGS   = $(basename $(shell find . -type f -name '*.$(SRCEXT)'))
+bin_OBJ = LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o
+DEPS    = $(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
+
+CPPFLAGS += -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
-
-CPPFLAGS += $(DEPFLAGS) -std=gnu++11 -DHAVE_INLINE $(OPT)
+CPPFLAGS += -I$(srcdir) -std=gnu++11 -DHAVE_INLINE $(OPT)
 CXXFLAGS = $(GSLRECFLAGS)
-	
-all: LyaPowerEstimate CreateSQLookUpTable cblas_tests
 
+all: LyaPowerEstimate CreateSQLookUpTable
+
+test: cblas_tests
+	
 LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-CreateSQLookUpTable: CreateSQLookUpTable.o $(OBJECTS)
+CreateSQLookUpTable: CreateSQLookUpTable.o fiducial_cosmology.o global_numbers.o fourier_integrator.o \
+config_file.o io_helper_functions.o sq_lookup_table_file.o logger.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-cblas_tests: cblas_tests.o core/matrix_helper.o
+cblas_tests: cblas_tests.o matrix_helper.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-.PHONY: install
+.PHONY: install uninstall clean
+
 install: LyaPowerEstimate CreateSQLookUpTable
 	mkdir -p $(bindir)
-	cp LyaPowerEstimate CreateSQLookUpTable py/lorentzian_fit.py $(bindir)
+	cp LyaPowerEstimate CreateSQLookUpTable $(srcdir)/py/lorentzian_fit.py $(bindir)
 	chmod a+x $(bindir)/lorentzian_fit.py
 
-.PHONY: uninstall
 uninstall:
 	$(RM) $(bindir)/lorentzian_fit.py
 	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable
 
-.PHONY: clean
 clean:
-	$(RM) $(addsuffix /*.o, $(DIRS))
-	$(RM) LyaPowerEstimate LyaPowerEstimate.o
-	$(RM) CreateSQLookUpTable CreateSQLookUpTable.o
-	$(RM) cblas_tests cblas_tests.o
+	$(RM) $(OBJECTS) $(bin_OBJ) $(DEPS)
+	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests
 
-
+-include $(DEPS)
