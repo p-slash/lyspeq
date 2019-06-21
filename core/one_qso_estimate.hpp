@@ -3,7 +3,6 @@
 
 #include <gsl/gsl_matrix.h> 
 #include <gsl/gsl_vector.h>
-#include "core/sq_table.hpp"
 
 int  getFisherMatrixIndex(int kn, int zm);
 void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);
