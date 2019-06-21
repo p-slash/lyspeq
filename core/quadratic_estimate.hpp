@@ -36,8 +36,6 @@ class OneDQuadraticPowerEstimate
         NUMBER_OF_QSOS_OUT, \
        *Z_BIN_COUNTS;
 
-    pd13_fit_params *FIDUCIAL_PS_PARAMS;
-
     qso_computation_time *qso_estimators;
 
     // TOTAL_KZ_BINS sized vector
@@ -61,7 +59,7 @@ class OneDQuadraticPowerEstimate
     void loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads);
 
 public:
-    OneDQuadraticPowerEstimate(const char *fname_list, const char *dir, pd13_fit_params *pfp);
+    OneDQuadraticPowerEstimate(const char *fname_list, const char *dir);
 
     ~OneDQuadraticPowerEstimate();
     

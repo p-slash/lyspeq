@@ -32,15 +32,12 @@ int main(int argc, char const *argv[])
 
     int NUMBER_OF_ITERATIONS;
     
-    pd13_fit_params FIDUCIAL_PD13_PARAMS;
-
     OneDQuadraticPowerEstimate *qps = NULL;
 
     try
     {
         // Read variables from config file and set up bins.
         read_config_file(   FNAME_CONFIG, \
-                            FIDUCIAL_PD13_PARAMS, \
                             FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR, \
                             OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, \
                             &NUMBER_OF_ITERATIONS, \
@@ -72,7 +69,7 @@ int main(int argc, char const *argv[])
         else                 sq_private_table = new SQLookupTable(*sq_shared_table);
 }
 
-        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR, &FIDUCIAL_PD13_PARAMS);
+        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR);
 
         sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
         qps->iterate(NUMBER_OF_ITERATIONS, buf);

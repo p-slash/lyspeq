@@ -39,10 +39,8 @@ int index_of_min_element(double *a, int size)
 //-------------------------------------------------------
 
 
-OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, const char *dir, pd13_fit_params *pfp)
+OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, const char *dir)
 {
-    FIDUCIAL_PS_PARAMS  = pfp;
-
     Z_BIN_COUNTS     = new int[NUMBER_OF_Z_BINS+2]();
 
     // Allocate memory
@@ -158,12 +156,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     FILE *tmp_fit_file;
     int s1, s2, kn, zm;
-    static double fit_params[6] = { FIDUCIAL_PS_PARAMS->A, \
-                                    FIDUCIAL_PS_PARAMS->n, \
-                                    FIDUCIAL_PS_PARAMS->alpha, \
-                                    FIDUCIAL_PS_PARAMS->B, \
-                                    FIDUCIAL_PS_PARAMS->beta, \
-                                    FIDUCIAL_PS_PARAMS->lambda};
+    static pd13::pd13_fit_params iteration_fits = pd13::FIDUCIAL_PD13_PARAMS;
 
     sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
     sprintf(tmp_fit_fname, "%s/tmpfitfileXXXXXX", TMP_FOLDER);
@@ -180,12 +173,13 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     write_spectrum_estimates(tmp_ps_fname);
 
     command << "lorentzian_fit.py " << tmp_ps_fname << " " << tmp_fit_fname << " "
-            << fit_params[0] << " " << fit_params[1] << " " << fit_params[2] << " ";
+            << iteration_fits.A << " " << iteration_fits.n << " " << iteration_fits.n << " ";
 
     // Do not pass redshift parameters is there is only one redshift bin
-    if (NUMBER_OF_Z_BINS > 1)  command << fit_params[3] << " " << fit_params[4] << " ";
+    if (NUMBER_OF_Z_BINS > 1)  command << iteration_fits.B << " " << iteration_fits.beta << " ";
     
-    command << fit_params[5] << " >> " << LOGGER.getFileName(STD);
+    command << iteration_fits.lambda 
+            << " >> " << LOGGER.getFileName(STD);
 
     LOGGER.log(STD, "%s\n", command.str().c_str());
     LOGGER.close();
@@ -207,8 +201,8 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     tmp_fit_file = open_file(tmp_fit_fname, "r");
 
     fscanf( tmp_fit_file, "%le %le %le %le %le %le\n", \
-            &fit_params[0], &fit_params[1], &fit_params[2], \
-            &fit_params[3], &fit_params[4], &fit_params[5]);
+            &iteration_fits.A, &iteration_fits.n, &iteration_fits.alpha, \
+            &iteration_fits.B, &iteration_fits.beta, &iteration_fits.lambda);
 
     for (int i_kz = 0; i_kz < TOTAL_KZ_BINS; i_kz++)
     {
@@ -485,7 +479,7 @@ double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
 {
     if (TURN_OFF_SFID)  return 0;
     
-    return fiducial_power_spectrum(KBAND_CENTERS[kn], ZBIN_CENTERS[zm], FIDUCIAL_PS_PARAMS);
+    return fiducial_power_spectrum(KBAND_CENTERS[kn], ZBIN_CENTERS[zm], &pd13::FIDUCIAL_PD13_PARAMS);
 }
 
 

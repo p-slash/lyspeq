@@ -42,14 +42,11 @@ int main(int argc, char const *argv[])
     int NUMBER_OF_Rs, *R_VALUES, Nv, Nz;
 
     double PIXEL_WIDTH, LENGTH_V;
-
-    pd13_fit_params FIDUCIAL_PD13_PARAMS;
     
     try
     {
         // Read variables from config file and set up bins.
         read_config_file(   FNAME_CONFIG, \
-                            FIDUCIAL_PD13_PARAMS, \
                             NULL, FNAME_RLIST, OUTPUT_DIR, NULL, \
                             NULL, OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, \
                             NULL, \
@@ -94,7 +91,7 @@ int main(int argc, char const *argv[])
         #endif
         
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
-        struct sq_integrand_params              integration_parameters = {&FIDUCIAL_PD13_PARAMS, &win_params};
+        struct sq_integrand_params              integration_parameters = {&pd13::FIDUCIAL_PD13_PARAMS, &win_params};
         double *big_temp_array;
 
         // Integrate fiducial signal matrix

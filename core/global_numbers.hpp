@@ -2,7 +2,6 @@
 #define GLOBAL_NUMBERS_H
 
 #include "core/sq_table.hpp"
-#include "core/fiducial_cosmology.hpp"
 #include "io/logger.hpp"
 
 // Mathematical numbers defined in fiducial_cosmology.hpp
@@ -71,8 +70,7 @@ void set_up_bins(double k0, int nlin, double dklin, \
 
 void clean_up_bins();
 
-void read_config_file(  const char *FNAME_CONFIG, \
-                        pd13_fit_params &FIDUCIAL_PD13_PARAMS, \
+void read_config_file(  const char *FNAME_CONFIG, 
                         char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR, \
                         char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q, \
                         int *NUMBER_OF_ITERATIONS, \

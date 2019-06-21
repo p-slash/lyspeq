@@ -1,4 +1,5 @@
 #include "core/global_numbers.hpp"
+#include "core/fiducial_cosmology.hpp"
 #include "io/config_file.hpp"
 
 #include <cstdio>
@@ -146,8 +147,7 @@ double get_time()
 }
 
 // Pass NULL for not needed variables!
-void read_config_file(  const char *FNAME_CONFIG, \
-                        pd13_fit_params &FIDUCIAL_PD13_PARAMS, \
+void read_config_file(  const char *FNAME_CONFIG,
                         char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR, \
                         char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q, \
                         int *NUMBER_OF_ITERATIONS, \
@@ -191,12 +191,12 @@ void read_config_file(  const char *FNAME_CONFIG, \
     cFile.addKey("VelocityLength",  LENGTH_V,    DOUBLE);
 
     // Fiducial Palanque fit function parameters
-    cFile.addKey("FiducialAmplitude",           &FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
-    cFile.addKey("FiducialSlope",               &FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
-    cFile.addKey("FiducialCurvature",           &FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
-    cFile.addKey("FiducialRedshiftPower",       &FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
-    cFile.addKey("FiducialRedshiftCurvature",   &FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
-    cFile.addKey("FiducialLorentzianLambda",    &FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
+    cFile.addKey("FiducialAmplitude",           &pd13::FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
+    cFile.addKey("FiducialSlope",               &pd13::FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
+    cFile.addKey("FiducialCurvature",           &pd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
+    cFile.addKey("FiducialRedshiftPower",       &pd13::FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
+    cFile.addKey("FiducialRedshiftCurvature",   &pd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
+    cFile.addKey("FiducialLorentzianLambda",    &pd13::FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
 
     cFile.addKey("NumberOfIterations", NUMBER_OF_ITERATIONS, INTEGER);
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
