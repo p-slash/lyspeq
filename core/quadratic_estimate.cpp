@@ -3,6 +3,7 @@
 #include "core/global_numbers.hpp"
 
 #include "io/io_helper_functions.hpp"
+#include "io/logger.hpp"
 
 #include <gsl/gsl_cblas.h>
 
@@ -53,10 +54,10 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
     isFisherInverted = false; 
 
     // Read the file
-    FILE *toRead = open_file(fname_list, "r");
+    FILE *toRead = ioh::open_file(fname_list, "r");
     fscanf(toRead, "%d\n", &NUMBER_OF_QSOS);
 
-    LOGGER.log(STD, "Number of QSOs: %d\n", NUMBER_OF_QSOS);
+    LOG::LOGGER.STD("Number of QSOs: %d\n", NUMBER_OF_QSOS);
 
     std::vector<std::string> fpaths(NUMBER_OF_QSOS);
     char buf[1024], temp_fname[700];
@@ -92,12 +93,12 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
     
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[NUMBER_OF_Z_BINS+1];
 
-    LOGGER.log(STD, "Z bin counts: ");
+    LOG::LOGGER.STD("Z bin counts: ");
     for (int zm = 0; zm < NUMBER_OF_Z_BINS+2; zm++)
-        LOGGER.log(STD, "%d ", Z_BIN_COUNTS[zm]);
-    LOGGER.log(STD, "\nNumber of quasars: %d\nQSOs in z bins: %d\n", NUMBER_OF_QSOS, NUMBER_OF_QSOS - NUMBER_OF_QSOS_OUT);
+        LOG::LOGGER.STD("%d ", Z_BIN_COUNTS[zm]);
+    LOG::LOGGER.STD("\nNumber of quasars: %d\nQSOs in z bins: %d\n", NUMBER_OF_QSOS, NUMBER_OF_QSOS - NUMBER_OF_QSOS_OUT);
 
-    LOGGER.log(STD, "Sorting with respect to estimated cpu time.\n");
+    LOG::LOGGER.STD("Sorting with respect to estimated cpu time.\n");
     qsort(qso_estimators, NUMBER_OF_QSOS, sizeof(qso_computation_time), qso_cputime_compare);
 }
 
@@ -120,7 +121,7 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 {
     double t = get_time();
 
-    LOGGER.log(STD, "Inverting Fisher matrix.\n");
+    LOG::LOGGER.STD("Inverting Fisher matrix.\n");
 
     gsl_matrix *fisher_copy = gsl_matrix_alloc(TOTAL_KZ_BINS, TOTAL_KZ_BINS);
     gsl_matrix_memcpy(fisher_copy, fisher_matrix_sum);
@@ -139,7 +140,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 {
     assert(isFisherInverted);
 
-    LOGGER.log(STD, "Estimating power spectrum.\n");
+    LOG::LOGGER.STD("Estimating power spectrum.\n");
 
     gsl_vector_memcpy(previous_pmn_estimate_vector, pmn_estimate_vector);
 
@@ -166,7 +167,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     if (s1 == -1 || s2 == -1)
     {
-        LOGGER.log(ERR, "ERROR: Temp filename cannot be generated!\n");
+        LOG::LOGGER.ERR("ERROR: Temp filename cannot be generated!\n");
         throw "tmp";
     }
 
@@ -179,26 +180,26 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     if (NUMBER_OF_Z_BINS > 1)  command << iteration_fits.B << " " << iteration_fits.beta << " ";
     
     command << iteration_fits.lambda 
-            << " >> " << LOGGER.getFileName(STD);
+            << " >> " << LOG::LOGGER.getFileName(LOG::TYPE::STD);
 
-    LOGGER.log(STD, "%s\n", command.str().c_str());
-    LOGGER.close();
+    LOG::LOGGER.STD("%s\n", command.str().c_str());
+    LOG::LOGGER.close();
 
-    // Print from python does not go into LOGGER
+    // Print from python does not go into LOG::LOGGER
     s1 = system(command.str().c_str());
     
-    LOGGER.reopen();
+    LOG::LOGGER.reopen();
 
     if (s1 != 0)
     {
-        LOGGER.log(ERR, "Error in fitting.\n");
+        LOG::LOGGER.ERR("Error in fitting.\n");
         remove(tmp_ps_fname);
         throw "fit";
     }
 
     remove(tmp_ps_fname);
 
-    tmp_fit_file = open_file(tmp_fit_fname, "r");
+    tmp_fit_file = ioh::open_file(tmp_fit_fname, "r");
 
     fscanf( tmp_fit_file, "%le %le %le %le %le %le\n", \
             &iteration_fits.A, &iteration_fits.n, &iteration_fits.alpha, \
@@ -221,7 +222,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
 void OneDQuadraticPowerEstimate::loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads)
 {
-    LOGGER.log(STD, "Load balancing for %d threads available.\n", maxthreads);
+    LOG::LOGGER.STD("Load balancing for %d threads available.\n", maxthreads);
     double load_balance_time = get_time();
 
     double *bucket_time = new double[maxthreads]();
@@ -237,14 +238,14 @@ void OneDQuadraticPowerEstimate::loadBalancing(std::vector<qso_computation_time*
         bucket_time[min_ind] += qso_estimators[q].est_cpu_time;
     }
 
-    LOGGER.log(STD, "Balanced estimated cpu times: ");
-    for (int thr = 0; thr < maxthreads; ++thr)  LOGGER.log(STD, "%.1e ", bucket_time[thr]);
-    LOGGER.log(STD, "\n");
+    LOG::LOGGER.STD("Balanced estimated cpu times: ");
+    for (int thr = 0; thr < maxthreads; ++thr)  LOG::LOGGER.STD("%.1e ", bucket_time[thr]);
+    LOG::LOGGER.STD("\n");
 
     delete [] bucket_time;
     load_balance_time = get_time() - load_balance_time;
     
-    LOGGER.log(STD, "Load balancing took %.2f min.\n", load_balance_time);
+    LOG::LOGGER.STD("Load balancing took %.2f min.\n", load_balance_time);
 }
 
 void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *fname_base)
@@ -259,7 +260,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
     for (int i = 0; i < number_of_iterations; i++)
     {
-        LOGGER.log(STD, "Iteration number %d of %d.\n", i+1, number_of_iterations);
+        LOG::LOGGER.STD("Iteration number %d of %d.\n", i+1, number_of_iterations);
         
         total_time_1it = get_time();
     
@@ -275,14 +276,14 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         std::vector<qso_computation_time*> *local_que     = &queue_qso[t_rank];
 
-        LOGGER.log(STD, "Start working in %d/%d thread with %lu qso in queue.\n", t_rank, numthreads, local_que->size());
+        LOG::LOGGER.STD("Start working in %d/%d thread with %lu qso in queue.\n", t_rank, numthreads, local_que->size());
 
         for (std::vector<qso_computation_time*>::iterator it = local_que->begin(); it != local_que->end(); ++it)
             (*it)->qso->oneQSOiteration(powerspectra_fits, local_pmn_before_fisher_estimate_vs, local_fisher_ms);
 
         thread_time = get_time() - thread_time;
 
-        LOGGER.log(STD, "Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n", \
+        LOG::LOGGER.STD("Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n", \
                 t_rank, numthreads, thread_time);
 
         #pragma omp critical
@@ -304,7 +305,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         }
         catch (const char* msg)
         {
-            LOGGER.log(ERR,  "ERROR %s: Fisher matrix is not invertable.\n", msg);
+            LOG::LOGGER.ERR("ERROR %s: Fisher matrix is not invertable.\n", msg);
             throw msg;
         }
         
@@ -318,13 +319,13 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         total_time_1it  = get_time() - total_time_1it;
         total_time     += total_time_1it;
-        LOGGER.log(STD, "This iteration took %.1f minutes. ", total_time_1it);
-        LOGGER.log(STD, "Elapsed time so far is %.1f minutes.\n", total_time);
+        LOG::LOGGER.STD("This iteration took %.1f minutes. ", total_time_1it);
+        LOG::LOGGER.STD("Elapsed time so far is %.1f minutes.\n", total_time);
         printf_time_spent_details();
 
         if (hasConverged())
         {
-            LOGGER.log(STD, "Iteration has converged in %d iterations.\n", i+1);
+            LOG::LOGGER.STD("Iteration has converged in %d iterations.\n", i+1);
             break;
         }
     }
@@ -361,9 +362,9 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         abs_max   = std::max(r, abs_max);
     }
 
-    LOGGER.log(STD, "Mean relative change is %.1e.\n", abs_mean);
-    LOGGER.log(STD, "Maximum relative change is %.1e. ", abs_max);
-    LOGGER.log(STD, "Old test: Iteration converges when this is less than %.1e\n", CONVERGENCE_EPS);
+    LOG::LOGGER.STD("Mean relative change is %.1e.\n", abs_mean);
+    LOG::LOGGER.STD("Maximum relative change is %.1e. ", abs_max);
+    LOG::LOGGER.STD("Old test: Iteration converges when this is less than %.1e\n", CONVERGENCE_EPS);
     
     // Perform a chi-square test as well
     // Maybe just do diagonal (dx)^2/F-1_ii
@@ -386,8 +387,8 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     // r = my_cblas_dsymvdot(previous_pmn_estimate_vector, fisher_matrix_sum) / TOTAL_KZ_BINS;
 
-    LOGGER.log(STD, "Chi square convergence test: %.3f per dof. ", r);
-    LOGGER.log(STD, "Iteration converges when this is less than %.2f\n", CHISQ_CONVERGENCE_EPS);
+    LOG::LOGGER.STD("Chi square convergence test: %.3f per dof. ", r);
+    LOG::LOGGER.STD("Iteration converges when this is less than %.2f\n", CHISQ_CONVERGENCE_EPS);
 
     bool_converged = r < CHISQ_CONVERGENCE_EPS;
 
@@ -398,7 +399,7 @@ void OneDQuadraticPowerEstimate::write_fisher_matrix(const char *fname)
 {
     fprintf_matrix(fname, fisher_matrix_sum);
 
-    LOGGER.log(IO, "Fisher matrix saved as %s.\n", fname);
+    LOG::LOGGER.IO("Fisher matrix saved as %s.\n", fname);
 }
 
 void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname)
@@ -407,7 +408,7 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname)
     int i_kz, kn, zm;
     double z, k, p, e;
 
-    toWrite = open_file(fname, "w");
+    toWrite = ioh::open_file(fname, "w");
     
     #ifdef LAST_K_EDGE
     fprintf(toWrite, "%d %d\n", NUMBER_OF_Z_BINS, NUMBER_OF_K_BANDS-1);
@@ -438,8 +439,8 @@ void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname)
 
     fclose(toWrite);
         
-    LOGGER.log(IO, "Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
-    LOGGER.log(STD, "Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+    LOG::LOGGER.IO("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+    LOG::LOGGER.STD("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
 }
 
 void OneDQuadraticPowerEstimate::initializeIteration()
@@ -457,9 +458,9 @@ void OneDQuadraticPowerEstimate::printfSpectra()
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
-        LOGGER.log(STD, " P(%.1f, k) |", ZBIN_CENTERS[zm-1]);
+        LOG::LOGGER.STD(" P(%.1f, k) |", ZBIN_CENTERS[zm-1]);
     }
-    LOGGER.log(STD, "\n");
+    LOG::LOGGER.STD("\n");
     
     for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
     {
@@ -469,9 +470,9 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 
             i_kz = getFisherMatrixIndex(kn, zm-1);
 
-            LOGGER.log(STD, " %.3e |", pmn_estimate_vector->data[i_kz] + powerSpectrumFiducial(kn, zm-1));
+            LOG::LOGGER.STD(" %.3e |", pmn_estimate_vector->data[i_kz] + powerSpectrumFiducial(kn, zm-1));
         }
-        LOGGER.log(STD, "\n");
+        LOG::LOGGER.STD("\n");
     }
 }
 

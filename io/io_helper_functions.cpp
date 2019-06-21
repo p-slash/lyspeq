@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <new>
 
-bool file_exists(const char *fname)
+bool ioh::file_exists(const char *fname)
 {
     FILE *toCheck;
 
@@ -20,17 +20,17 @@ bool file_exists(const char *fname)
 }
 
 template <class T>
-T* copyArrayAlloc(const T* source, int size)
+T* ioh::copyArrayAlloc(const T* source, int size)
 {
     T* target = new T[size];
     std::copy(&source[0], &source[0] + size, &target[0]);
 
     return target;
 }
-template int* copyArrayAlloc<int>(const int *source, int size);
-template double* copyArrayAlloc<double>(const double *source, int size);
+template int* ioh::copyArrayAlloc<int>(const int *source, int size);
+template double* ioh::copyArrayAlloc<double>(const double *source, int size);
 
-FILE * open_file(const char *fname, const char *read_write)
+FILE * ioh::open_file(const char *fname, const char *read_write)
 {
     FILE *file_to_read_write;
 

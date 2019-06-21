@@ -13,6 +13,7 @@
 
 #include "io/io_helper_functions.hpp"
 #include "io/sq_lookup_table_file.hpp"
+#include "io/logger.hpp"
 
 #if defined(_OPENMP)
 #include <omp.h>
@@ -52,8 +53,8 @@ int main(int argc, char const *argv[])
                             NULL, \
                             &Nv, &Nz, &PIXEL_WIDTH, &LENGTH_V);
 
-        LOGGER.open(OUTPUT_DIR);
-        if (TURN_OFF_SFID)  LOGGER.log(STD, "Fiducial signal matrix is turned off.\n");
+        LOG::LOGGER.open(OUTPUT_DIR);
+        if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
         
         print_build_specifics();
 
@@ -62,10 +63,10 @@ int main(int argc, char const *argv[])
         // Read R values
         // These values are FWHM integer
         // spectrograph_windowfn_params takes 1 sigma km/s
-        FILE *toRead = open_file(FNAME_RLIST, "r");
+        FILE *toRead = ioh::open_file(FNAME_RLIST, "r");
         fscanf(toRead, "%d\n", &NUMBER_OF_Rs);
 
-        LOGGER.log(STD, "Number of R values: %d\n", NUMBER_OF_Rs);
+        LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_Rs);
 
         R_VALUES = new int[NUMBER_OF_Rs];
 
@@ -111,14 +112,14 @@ int main(int argc, char const *argv[])
             // Convert integer FWHM to 1 sigma km/s
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             
-            LOGGER.log(STD, "T%d/%d - Creating look up table for signal matrix. R = %d : %.2f km/s.\n", \
+            LOG::LOGGER.STD("T%d/%d - Creating look up table for signal matrix. R = %d : %.2f km/s.\n", \
                     t_rank, numthreads, R_VALUES[r], win_params.spectrograph_res);
 
             STableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_S, R_VALUES[r]);
             
-            if (!force_rewrite && file_exists(buf))
+            if (!force_rewrite && ioh::file_exists(buf))
             {
-                LOGGER.log(STD, "File %s already exists. Skip to next.\n", buf);
+                LOG::LOGGER.STD("File %s already exists. Skip to next.\n", buf);
                 continue;
             }
 
@@ -145,7 +146,7 @@ int main(int argc, char const *argv[])
 
             time_spent_table_sfid = get_time() - time_spent_table_sfid;
 
-            LOGGER.log(STD, "T:%d/%d - Time spent on fiducial signal matrix table R %d is %.2f mins.\n", \
+            LOG::LOGGER.STD("T:%d/%d - Time spent on fiducial signal matrix table R %d is %.2f mins.\n", \
                     t_rank, numthreads, R_VALUES[r], time_spent_table_sfid);
         }
 
@@ -167,7 +168,7 @@ DERIVATIVE:
             time_spent_table_q = get_time();
 
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
-            LOGGER.log(STD, "T:%d/%d - Creating look up tables for derivative signal matrices. R = %d : %.2f km/s.\n", \
+            LOG::LOGGER.STD("T:%d/%d - Creating look up tables for derivative signal matrices. R = %d : %.2f km/s.\n", \
                     t_rank, numthreads, R_VALUES[r], win_params.spectrograph_res);
 
             for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
@@ -175,13 +176,13 @@ DERIVATIVE:
                 double kvalue_1 = KBAND_EDGES[kn];
                 double kvalue_2 = KBAND_EDGES[kn + 1];
 
-                LOGGER.log(STD, "Q matrix for k = [%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
+                LOG::LOGGER.STD("Q matrix for k = [%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
 
                 QTableFileNameConvention(buf, OUTPUT_DIR, OUTPUT_FILEBASE_Q, R_VALUES[r], kvalue_1, kvalue_2);
                 
-                if (!force_rewrite && file_exists(buf))
+                if (!force_rewrite && ioh::file_exists(buf))
                 {
-                    LOGGER.log(STD, "File %s already exists. Skip to next.\n", buf);
+                    LOG::LOGGER.STD("File %s already exists. Skip to next.\n", buf);
                     continue;
                 }
 
@@ -202,7 +203,7 @@ DERIVATIVE:
             }
             
             time_spent_table_q = get_time() - time_spent_table_q;
-            LOGGER.log(STD, "T:%d/%d - Time spent on derivative matrix table R %d is %.2f mins.\n", \
+            LOG::LOGGER.STD("T:%d/%d - Time spent on derivative matrix table R %d is %.2f mins.\n", \
                     t_rank, numthreads, R_VALUES[r], time_spent_table_q);
         }
         // Q matrices are written.

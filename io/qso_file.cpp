@@ -5,7 +5,7 @@ QSOFile::QSOFile(const char *fname)
 {
     sprintf(file_name, "%s", fname);
 
-    qso_file = open_file(file_name, "rb");
+    qso_file = ioh::open_file(file_name, "rb");
 }
 
 QSOFile::~QSOFile()

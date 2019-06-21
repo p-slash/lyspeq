@@ -8,6 +8,7 @@
 #include "core/quadratic_estimate.hpp"
 
 #include "io/io_helper_functions.hpp"
+#include "io/logger.hpp"
 
 #if defined(_OPENMP)
 #include <omp.h> // omp_get_thread_num()
@@ -43,8 +44,8 @@ int main(int argc, char const *argv[])
                             &NUMBER_OF_ITERATIONS, \
                             NULL, NULL, NULL, NULL);
 
-        LOGGER.open(OUTPUT_DIR);
-        if (TURN_OFF_SFID)  LOGGER.log(STD, "Fiducial signal matrix is turned off.\n");
+        LOG::LOGGER.open(OUTPUT_DIR);
+        if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
     
         print_build_specifics();
         
