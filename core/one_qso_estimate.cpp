@@ -215,7 +215,8 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
                 v_ij = velocity_array[j] - velocity_array[i];
                 z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
                 
-                temp = sq_private_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
+                temp  = sq_private_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
+                temp *= fiducial_power_growth_factor(z_ij, KBAND_CENTERS[kn], ZBIN_CENTERS[zm], &pd13::FIDUCIAL_PD13_PARAMS);
                 gsl_matrix_set(qi, i, j, temp);
             }
         }
