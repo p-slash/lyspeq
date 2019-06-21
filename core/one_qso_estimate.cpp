@@ -261,8 +261,9 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     // add noise matrix diagonally
     cblas_daxpy(DATA_SIZE, 1., noise_array, 1, covariance_matrix->data, DATA_SIZE+1);
 
-    // printf_matrix(covariance_matrix, DATA_SIZE);
+    #define ADDED_CONST_TO_COVARIANCE 10.0
     gsl_matrix_add_constant(covariance_matrix, ADDED_CONST_TO_COVARIANCE);
+    #undef ADDED_CONST_TO_COVARIANCE
 
     isCovInverted = false;
 }

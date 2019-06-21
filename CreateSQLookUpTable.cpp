@@ -19,6 +19,8 @@
 #include <omp.h>
 #endif
 
+#define ONE_SIGMA_2_FWHM 2.35482004503
+
 int main(int argc, char const *argv[])
 {
     if (argc<2)

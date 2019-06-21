@@ -5,14 +5,15 @@
 
 // Mathematical numbers defined in fiducial_cosmology.hpp
 // #define PI 3.14159265359
-#define ONE_SIGMA_2_FWHM 2.35482004503
+// This constant defined and used in CreateSQLookUpTable.cpp
+// #define ONE_SIGMA_2_FWHM 2.35482004503
 
 // Physical constants defined in fiducial_cosmology.hpp
 // #define LYA_REST 1215.67
 // #define SPEED_OF_LIGHT 299792.458
 
 // One QSO Estimate numbers
-#define ADDED_CONST_TO_COVARIANCE 10.0
+// #define ADDED_CONST_TO_COVARIANCE 10.0
 
 // Quadratic Estimate numbers
 #define CONVERGENCE_EPS       1E-4
@@ -23,6 +24,16 @@ extern char TMP_FOLDER[300];
 // OpenMP thread rank and total number of threads
 // t_rank is threadprivate
 extern int t_rank, numthreads;
+
+extern double MEMORY_ALLOC;
+
+extern bool TURN_OFF_SFID;
+
+// Look up table, global and thread copy
+extern SQLookupTable *sq_shared_table, *sq_private_table;
+
+// OpenMP Threadprivate variables
+#pragma omp threadprivate(sq_private_table, t_rank)
 
 namespace bins
 {
@@ -62,17 +73,6 @@ namespace mytime
     void printf_time_spent_details();
 }
 
-extern double MEMORY_ALLOC;
-
-
-
-extern bool TURN_OFF_SFID;
-
-// Look up table, global and thread copy
-extern SQLookupTable *sq_shared_table, *sq_private_table;
-
-// OpenMP Threadprivate variables
-#pragma omp threadprivate(sq_private_table, t_rank)
 
 void print_build_specifics();
 
