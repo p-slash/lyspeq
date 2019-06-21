@@ -21,6 +21,7 @@ double spectral_response_window_fn(double k, struct spectrograph_windowfn_params
 
 // This function is defined in preprocessing
 double fiducial_power_spectrum(double k, double z, void *params);
+double fiducial_power_growth_factor(double z_ij, double k_kn, double z_zm, void *params);
 
 // Fitting function has the form in Palanque-Delabrouille et al. 2013
 // Added a Lorentzian decay to suppress small scale power
@@ -36,7 +37,7 @@ typedef struct
     double lambda;
 } pd13_fit_params;
 
-double Palanque_Delabrouille_etal_2013_fit(double k, double z, pd13_fit_params *params);
+// double Palanque_Delabrouille_etal_2013_fit(double k, double z, pd13_fit_params *params);
 
 // Data structures to integrate signal and derivative matrix expressions
 struct sq_integrand_params
