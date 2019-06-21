@@ -77,8 +77,8 @@ int main(int argc, char const *argv[])
         // Reading R values done
         // ---------------------
 
-        double  z_first  = ZBIN_CENTERS[0] - Z_BIN_WIDTH, \
-                z_length = Z_BIN_WIDTH * (NUMBER_OF_Z_BINS+1);
+        double  z_first  = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH, \
+                z_length = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
 
         #if defined(_OPENMP)
         omp_set_dynamic(0); // Turn off dynamic threads
@@ -107,7 +107,7 @@ int main(int argc, char const *argv[])
         #pragma omp for nowait
         for (int r = 0; r < NUMBER_OF_Rs; r++)
         {
-            time_spent_table_sfid = get_time();
+            time_spent_table_sfid = mytime::get_time();
 
             // Convert integer FWHM to 1 sigma km/s
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -140,11 +140,11 @@ int main(int argc, char const *argv[])
 
             signal_table.setHeader( Nv, Nz, LENGTH_V, z_length, \
                                     R_VALUES[r], PIXEL_WIDTH, \
-                                    0, KBAND_EDGES[NUMBER_OF_K_BANDS]);
+                                    0, bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
 
             signal_table.writeData(big_temp_array);
 
-            time_spent_table_sfid = get_time() - time_spent_table_sfid;
+            time_spent_table_sfid = mytime::get_time() - time_spent_table_sfid;
 
             LOG::LOGGER.STD("T:%d/%d - Time spent on fiducial signal matrix table R %d is %.2f mins.\n", \
                     t_rank, numthreads, R_VALUES[r], time_spent_table_sfid);
@@ -165,16 +165,16 @@ DERIVATIVE:
         #pragma omp for
         for (int r = 0; r < NUMBER_OF_Rs; r++)
         {
-            time_spent_table_q = get_time();
+            time_spent_table_q = mytime::get_time();
 
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             LOG::LOGGER.STD("T:%d/%d - Creating look up tables for derivative signal matrices. R = %d : %.2f km/s.\n", \
                     t_rank, numthreads, R_VALUES[r], win_params.spectrograph_res);
 
-            for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
+            for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
             {
-                double kvalue_1 = KBAND_EDGES[kn];
-                double kvalue_2 = KBAND_EDGES[kn + 1];
+                double kvalue_1 = bins::KBAND_EDGES[kn];
+                double kvalue_2 = bins::KBAND_EDGES[kn + 1];
 
                 LOG::LOGGER.STD("Q matrix for k = [%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
 
@@ -195,14 +195,14 @@ DERIVATIVE:
 
                 SQLookupTableFile derivative_signal_table(buf, 'w');
 
-                derivative_signal_table.setHeader(  Nv, 0, LENGTH_V, Z_BIN_WIDTH, \
+                derivative_signal_table.setHeader(  Nv, 0, LENGTH_V, bins::Z_BIN_WIDTH, \
                                                     R_VALUES[r], PIXEL_WIDTH, \
                                                     kvalue_1, kvalue_2);
                 
                 derivative_signal_table.writeData(big_temp_array);
             }
             
-            time_spent_table_q = get_time() - time_spent_table_q;
+            time_spent_table_q = mytime::get_time() - time_spent_table_q;
             LOG::LOGGER.STD("T:%d/%d - Time spent on derivative matrix table R %d is %.2f mins.\n", \
                     t_rank, numthreads, R_VALUES[r], time_spent_table_q);
         }
@@ -211,7 +211,7 @@ DERIVATIVE:
 
         delete [] big_temp_array;
 }
-        clean_up_bins();       
+        bins::clean_up_bins();       
     }
     catch (std::exception& e)
     {

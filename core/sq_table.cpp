@@ -10,9 +10,9 @@
 
 double tophat_z_bin(double z, int zm)
 {
-    double z_center = ZBIN_CENTERS[zm];
+    double z_center = bins::ZBIN_CENTERS[zm];
 
-    if (z_center - Z_BIN_WIDTH/2 < z && z < z_center + Z_BIN_WIDTH/2)
+    if (z_center - bins::Z_BIN_WIDTH/2 < z && z < z_center + bins::Z_BIN_WIDTH/2)
         return 1.;
 
     return 0;
@@ -20,17 +20,17 @@ double tophat_z_bin(double z, int zm)
 
 double triangular_z_bin(double z, int zm)
 {
-    double z_center = ZBIN_CENTERS[zm];
+    double z_center = bins::ZBIN_CENTERS[zm];
     
-    if (z_center - Z_BIN_WIDTH < z && z <= z_center)
+    if (z_center - bins::Z_BIN_WIDTH < z && z <= z_center)
     {
         if (zm == 0)    return 1.;
-        else            return (z - z_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
+        else            return (z - z_center + bins::Z_BIN_WIDTH) / bins::Z_BIN_WIDTH;
     }
-    else if (z_center < z && z < z_center + Z_BIN_WIDTH)
+    else if (z_center < z && z < z_center + bins::Z_BIN_WIDTH)
     {
-        if (zm == NUMBER_OF_Z_BINS - 1)     return 1.;
-        else                                return (z_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+        if (zm == bins::NUMBER_OF_Z_BINS - 1)     return 1.;
+        else                                return (z_center + bins::Z_BIN_WIDTH - z) / bins::Z_BIN_WIDTH;
     }
 
     return 0;
@@ -74,7 +74,7 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
     LOG::LOGGER.STD("Setting tables..\n");
 
     interp2d_signal_matrices     = new Interpolation2D*[NUMBER_OF_R_VALUES];
-    interp_derivative_matrices   = new Interpolation*[NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS];
+    interp_derivative_matrices   = new Interpolation*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
         readSQforR(r, dir, s_base, q_base);
@@ -97,12 +97,12 @@ SQLookupTable::SQLookupTable(const SQLookupTable &sq)
     R_VALUES = ioh::copyArrayAlloc<int>(sq.R_VALUES, NUMBER_OF_R_VALUES);
 
     interp2d_signal_matrices   = new Interpolation2D*[NUMBER_OF_R_VALUES];
-    interp_derivative_matrices = new Interpolation*[NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS];
+    interp_derivative_matrices = new Interpolation*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
         interp2d_signal_matrices[r] = new Interpolation2D(*sq.interp2d_signal_matrices[r]);
         
-    for (int q = 0; q < NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS; ++q)
+    for (int q = 0; q < NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS; ++q)
         interp_derivative_matrices[q] = new Interpolation(*sq.interp_derivative_matrices[q]);
 }
 
@@ -113,7 +113,7 @@ SQLookupTable::~SQLookupTable()
     for (int r = 0; r < NUMBER_OF_R_VALUES; r++)
         delete interp2d_signal_matrices[r];
 
-    for (int kr = 0; kr < NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS; ++kr)
+    for (int kr = 0; kr < NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS; ++kr)
         delete interp_derivative_matrices[kr];
 
     delete [] interp2d_signal_matrices;
@@ -129,7 +129,7 @@ void SQLookupTable::allocateTmpArrays()
 
     // Allocate and set redshift array
     LINEAR_Z_ARRAY = new double[N_Z_POINTS_OF_S];
-    double zfirst  = ZBIN_CENTERS[0] - Z_BIN_WIDTH;
+    double zfirst  = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
     for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
         LINEAR_Z_ARRAY[nz] = getLinearlySpacedValue(zfirst, LENGTH_Z_OF_S, N_Z_POINTS_OF_S, nz);
@@ -179,10 +179,10 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
     // Read Q tables. 
     double kvalue_1, kvalue_2, dummy_lzq;
 
-    for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
+    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
     {
-        kvalue_1 = KBAND_EDGES[kn];
-        kvalue_2 = KBAND_EDGES[kn + 1];
+        kvalue_1 = bins::KBAND_EDGES[kn];
+        kvalue_2 = bins::KBAND_EDGES[kn + 1];
 
         QTableFileNameConvention(buf, dir, q_base, R_VALUES[r_index], kvalue_1, kvalue_2);
 
@@ -228,7 +228,7 @@ Interpolation2D* SQLookupTable::getSignalMatrixInterp(int r_index) const
 
 int SQLookupTable::getIndex4DerivativeInterpolation(int kn, int r_index) const
 {
-    return kn + NUMBER_OF_K_BANDS * r_index;
+    return kn + bins::NUMBER_OF_K_BANDS * r_index;
 }
 
 int SQLookupTable::findSpecResIndex(int spec_res) const

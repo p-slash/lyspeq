@@ -78,7 +78,7 @@ int main(int argc, char const *argv[])
         delete qps;
         // delete sq_shared_table;
 
-        clean_up_bins();
+        bins::clean_up_bins();
     }
     catch (std::exception& e)
     {
