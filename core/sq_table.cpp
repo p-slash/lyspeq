@@ -3,6 +3,7 @@
 
 #include "io/io_helper_functions.hpp"
 #include "io/sq_lookup_table_file.hpp"
+#include "io/logger.hpp"
 
 #include <cstdio>
 #include <algorithm> // std::copy
@@ -54,23 +55,23 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
     derivative_array = NULL;
 
     // Read R values
-    FILE *toRead = open_file(fname_rlist, "r");
+    FILE *toRead = ioh::open_file(fname_rlist, "r");
     fscanf(toRead, "%d\n", &NUMBER_OF_R_VALUES);
-    LOGGER.log(STD, "Number of R values: %d\n", NUMBER_OF_R_VALUES);
+    LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_R_VALUES);
 
     R_VALUES = new int[NUMBER_OF_R_VALUES];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
     {
         fscanf(toRead, "%d\n", &R_VALUES[r]);
-        LOGGER.log(STD, "%d\n", R_VALUES[r]);
+        LOG::LOGGER.STD("%d\n", R_VALUES[r]);
     }
 
     fclose(toRead);
     // Reading R values done
     // ---------------------
 
-    LOGGER.log(STD, "Setting tables..\n");
+    LOG::LOGGER.STD("Setting tables..\n");
 
     interp2d_signal_matrices     = new Interpolation2D*[NUMBER_OF_R_VALUES];
     interp_derivative_matrices   = new Interpolation*[NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS];
@@ -83,7 +84,7 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
 
 SQLookupTable::SQLookupTable(const SQLookupTable &sq)
 {
-    LOGGER.log(STD, "Copying SQ table.\n");
+    LOG::LOGGER.STD("Copying SQ table.\n");
     
     NUMBER_OF_R_VALUES = sq.NUMBER_OF_R_VALUES;
 
@@ -93,7 +94,7 @@ SQLookupTable::SQLookupTable(const SQLookupTable &sq)
     LENGTH_V      = sq.LENGTH_V;
     LENGTH_Z_OF_S = sq.LENGTH_Z_OF_S;
 
-    R_VALUES = copyArrayAlloc<int>(sq.R_VALUES, NUMBER_OF_R_VALUES);
+    R_VALUES = ioh::copyArrayAlloc<int>(sq.R_VALUES, NUMBER_OF_R_VALUES);
 
     interp2d_signal_matrices   = new Interpolation2D*[NUMBER_OF_R_VALUES];
     interp_derivative_matrices = new Interpolation*[NUMBER_OF_R_VALUES * NUMBER_OF_K_BANDS];
@@ -153,7 +154,7 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
 
     // Read S table.
     STableFileNameConvention(buf, dir, s_base, R_VALUES[r_index]);
-    LOGGER.log(IO, "Reading sq_lookup_table_file %s.\n", buf);
+    LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf);
     SQLookupTableFile s_table_file(buf, 'r');
     
     int dummy_R, dummy_Nz;

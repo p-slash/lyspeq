@@ -3,11 +3,14 @@
 
 #include <complex>
 
-bool file_exists(const char *fname);
+namespace ioh
+{
+    bool file_exists(const char *fname);
 
-template <class T>
-T* copyArrayAlloc(const T* source, int size);
+    template <class T>
+    T* copyArrayAlloc(const T* source, int size);
 
-FILE * open_file(const char *fname, const char *read_write);
+    FILE * open_file(const char *fname, const char *read_write);
+}
 
 #endif

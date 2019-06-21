@@ -1,6 +1,7 @@
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
 #include "io/config_file.hpp"
+#include "io/logger.hpp"
 
 #include <cstdio>
 #include <cmath>
@@ -12,7 +13,6 @@
 #endif
 
 char TMP_FOLDER[300] = ".";
-Logger LOGGER;
 
 double CHISQ_CONVERGENCE_EPS = 0.01;
 double MEMORY_ALLOC          = 0;
@@ -36,16 +36,16 @@ bool TURN_OFF_SFID;
 
 void printf_time_spent_details()
 {
-    LOGGER.log(STD, "Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
-    LOGGER.log(STD, "Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
+    LOG::LOGGER.STD("Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
+    LOG::LOGGER.STD("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
 
-    LOGGER.log(STD, "Total time spent on setting Sfid is %.2f mins with %lu calls.\n", \
+    LOG::LOGGER.STD("Total time spent on setting Sfid is %.2f mins with %lu calls.\n", \
             time_spent_on_set_sfid, number_of_times_called_setsfid);
-    LOGGER.log(STD, "Total time spent on setting Qs is %.2f mins with %lu calls. \nInterpolation: %.2f and Copy: %.2f.\n", \
+    LOG::LOGGER.STD("Total time spent on setting Qs is %.2f mins with %lu calls. \nInterpolation: %.2f and Copy: %.2f.\n", \
             time_spent_set_qs, number_of_times_called_setq, time_spent_on_q_interp, time_spent_on_q_copy);
     
-    LOGGER.log(STD, "Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
-    LOGGER.log(STD, "Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
+    LOG::LOGGER.STD("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
+    LOG::LOGGER.STD("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
 }
 
 void print_build_specifics()
@@ -75,12 +75,12 @@ void print_build_specifics()
     #define HIGH_K_TXT "OFF"
     #endif
 
-    LOGGER.log(STD, "This version is build by the following options:\n");
-    LOGGER.log(STD, "1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
-    LOGGER.log(STD, "2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
-    LOGGER.log(STD, "Fitting function: %s\n", FITTING_FUNC);
-    LOGGER.log(STD, "Redshift binning shape: %s\n", BINNING_SHAPE);
-    LOGGER.log(STD, "Last k bin: %s\n", HIGH_K_TXT);
+    LOG::LOGGER.STD("This version is build by the following options:\n");
+    LOG::LOGGER.STD("1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
+    LOG::LOGGER.STD("2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
+    LOG::LOGGER.STD("Fitting function: %s\n", FITTING_FUNC);
+    LOG::LOGGER.STD("Redshift binning shape: %s\n", BINNING_SHAPE);
+    LOG::LOGGER.STD("Last k bin: %s\n", HIGH_K_TXT);
 
     #undef tostr
     #undef tovstr
