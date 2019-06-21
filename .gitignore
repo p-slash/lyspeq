@@ -8,3 +8,4 @@ CreateSQLookUpTable
 cblas_tests
 TODO
 Makefile
+config.status

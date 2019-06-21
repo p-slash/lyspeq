@@ -7,6 +7,7 @@
 # Intel compilers: This has been tested for only Parallel Studio XE 2018 icpc and MKL.
 
 function save_makefile() {
+    echo "# Generated automatically by configure."
     echo "OPT=${OPT}" > Makefile
     echo "CXX=${CXX}" >> Makefile
     echo "CPPFLAGS=${CPPFLAGS}" >> Makefile
@@ -16,6 +17,7 @@ function save_makefile() {
     echo "srcdir=${srcdir}" >> Makefile
     cat ${srcdir}/Makefile.in >> Makefile
     echo "Makefile set. Run make to compile."
+    
     exit 0
 }
 
@@ -208,6 +210,10 @@ prefix="/usr/local"
 exec_prefix="${prefix}"
 bindir="${exec_prefix}/bin"
 srcdir="."
+set_gsl_inc_lib
+
+echo "./configure $@" > config.status
+
 for i in "$@"
 do
     case $i in
@@ -276,7 +282,6 @@ do
 done
 
 OPT+=" ${interp1d} ${interp2d} ${binz_fn} ${lastk_feat} ${debug}"
-set_gsl_inc_lib
 
 case ${SYSTYPE} in
     GNU_XE18MKL|x64-linux-gnu-mklxe18 )
@@ -326,3 +331,4 @@ esac
 
 user_overwrite_defined_variables
 save_makefile
+
