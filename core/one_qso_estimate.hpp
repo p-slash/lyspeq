@@ -3,6 +3,7 @@
 
 #include <gsl/gsl_matrix.h> 
 #include <gsl/gsl_vector.h>
+#include <string>
 
 int  getFisherMatrixIndex(int kn, int zm);
 void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);
@@ -24,32 +25,30 @@ void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);
 // This scheme speeds up the algorithm.
 class OneQSOEstimate
 {
-    char qso_sp_fname[250];
+    std::string qso_sp_fname;
     
     int SPECT_RES_FWHM;
 
     int N_Q_MATRICES, fisher_index_start, r_index;
 
-    double  MEDIAN_REDSHIFT, BIN_REDSHIFT, \
-            DV_KMS;
+    double MEDIAN_REDSHIFT, BIN_REDSHIFT, DV_KMS;
     
     // DATA_SIZE sized vectors
-    double *lambda_array, \
-           *velocity_array, \
-           *flux_array, \
-           *noise_array;
+    double *lambda_array, *velocity_array, *flux_array, *noise_array;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
-    gsl_matrix  *covariance_matrix, \
-                *inverse_covariance_matrix, \
-                *temp_matrix[2];
+    gsl_matrix  *covariance_matrix, *inverse_covariance_matrix, *temp_matrix[2];
 
     gsl_matrix  **stored_qj, *stored_sfid;
     int           nqj_eff;
     bool          isQjSet, isSfidSet, isSfidStored;
 
     bool isCovInverted;
+
+    void readFromFile(const char *fname_qso);
+    bool findRedshiftBin(double median_z);
+    void setStoredMatrices();
 
     void allocateMatrices();
     void freeMatrices();

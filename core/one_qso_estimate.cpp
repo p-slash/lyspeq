@@ -65,14 +65,14 @@ void setNQandFisherIndex(int &nq, int &fi, int ZBIN)
     nq *= bins::NUMBER_OF_K_BANDS;
 }
 
-OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
+void OneQSOEstimate::readFromFile(const char *fname_qso)
 {
-    sprintf(qso_sp_fname, "%s", fname_qso);
+    qso_sp_fname = fname_qso;
 
-    LOG::LOGGER.IO("Reading from %s.\n", qso_sp_fname);
+    LOG::LOGGER.IO("Reading from %s.\n", qso_sp_fname.c_str());
 
     // Construct and read data arrays
-    QSOFile qFile(qso_sp_fname);
+    QSOFile qFile(qso_sp_fname.c_str());
 
     double dummy_qso_z, dummy_s2n;
 
@@ -89,37 +89,32 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 
     qFile.readData(lambda_array, flux_array, noise_array);
 
-    // Convert flux to fluctuation around the mean flux
-    convert_flux2deltaf_mean(flux_array, noise_array, DATA_SIZE);
-    
-    // Keep noise as error squared (variance)
-    for (int i = 0; i < DATA_SIZE; ++i)
-        noise_array[i] *= noise_array[i];
-
-    // Covert from wavelength to velocity units around median wavelength
-    convert_lambda2v(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
-
-    LOG::LOGGER.IO("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
-    LOG::LOGGER.IO("Median redshift of spectrum chunk: %.2f\n", MEDIAN_REDSHIFT);
-
-    // Assign to a redshift bin according to median redshift of this chunk
-    ZBIN = (MEDIAN_REDSHIFT - bins::ZBIN_CENTERS[0] + bins::Z_BIN_WIDTH/2.) / bins::Z_BIN_WIDTH;
-    
-    if (MEDIAN_REDSHIFT < bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH/2.)     ZBIN = -1;
-
-    if (ZBIN >= 0 && ZBIN < bins::NUMBER_OF_Z_BINS)   BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
-    else                                        {LOG::LOGGER.IO("This QSO does not belong to any redshift bin!\n"); return;}
-    
     // Find the resolution index for the look up table
     r_index = sq_private_table->findSpecResIndex(SPECT_RES_FWHM);
     
     if (r_index == -1)      throw "SPECRES not found in tables!";
+}
 
-    // Set up number of matrices, index for Fisher matrix
-    setNQandFisherIndex(N_Q_MATRICES, fisher_index_start, ZBIN);
+bool OneQSOEstimate::findRedshiftBin(double median_z)
+{
+    // Assign to a redshift bin according to median redshift of this chunk
+    ZBIN = (median_z - bins::ZBIN_CENTERS[0] + bins::Z_BIN_WIDTH/2.) / bins::Z_BIN_WIDTH;
+    
+    if (median_z < bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH/2.)     ZBIN = -1;
 
-    isCovInverted    = false;
+    if (ZBIN >= 0 && ZBIN < bins::NUMBER_OF_Z_BINS)
+        BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
+    else
+    {
+        LOG::LOGGER.IO("This QSO does not belong to any redshift bin!\n"); 
+        return false;
+    }
 
+    return true;
+}
+
+void OneQSOEstimate::setStoredMatrices()
+{
     // Number of Qj matrices to preload.
     double size_m1 = (double)sizeof(double) * DATA_SIZE * DATA_SIZE / 1048576.; // in MB
     
@@ -145,6 +140,32 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 
     isQjSet   = false;
     isSfidSet = false;
+}
+
+OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
+{
+    isCovInverted = false;
+    readFromFile(fname_qso);
+
+    // Convert flux to fluctuation around the mean flux
+    convert_flux2deltaf_mean(flux_array, noise_array, DATA_SIZE);
+    
+    // Keep noise as error squared (variance)
+    for (int i = 0; i < DATA_SIZE; ++i)
+        noise_array[i] *= noise_array[i];
+
+    // Covert from wavelength to velocity units around median wavelength
+    convert_lambda2v(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
+
+    LOG::LOGGER.IO("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
+    LOG::LOGGER.IO("Median redshift of spectrum chunk: %.2f\n", MEDIAN_REDSHIFT);
+
+    if (!findRedshiftBin(MEDIAN_REDSHIFT))     return;
+    
+    // Set up number of matrices, index for Fisher matrix
+    setNQandFisherIndex(N_Q_MATRICES, fisher_index_start, ZBIN);
+
+    setStoredMatrices();
 }
 
 OneQSOEstimate::~OneQSOEstimate()
@@ -217,7 +238,7 @@ void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
                 z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
                 
                 temp  = sq_private_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
-                temp *= fiducial_power_growth_factor(z_ij, bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], &pd13::FIDUCIAL_PD13_PARAMS);
+                temp *= fiducial_power_growth_factor(z_ij, bins::KBAND_CENTERS[kn], BIN_REDSHIFT, &pd13::FIDUCIAL_PD13_PARAMS);
                 gsl_matrix_set(qi, i, j, temp);
             }
         }
@@ -253,8 +274,8 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
         setQiMatrix(temp_matrix[0], i_kz);
 
-        cblas_daxpy(DATA_SIZE*DATA_SIZE, \
-                    ps_estimate[i_kz + fisher_index_start], temp_matrix[0]->data, 1, \
+        cblas_daxpy(DATA_SIZE*DATA_SIZE, 
+                    ps_estimate[i_kz + fisher_index_start], temp_matrix[0]->data, 1, 
                     covariance_matrix->data, 1);
     }
 
@@ -294,15 +315,15 @@ void OneQSOEstimate::getWeightedMatrix(gsl_matrix *m)
     double t = mytime::get_time();
 
     //C-1 . Q
-    cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper, \
-                 DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE, \
-                 m->data, DATA_SIZE, \
+    cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper,
+                 DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE,
+                 m->data, DATA_SIZE,
                  0, temp_matrix[1]->data, DATA_SIZE);
 
     //C-1 . Q . C-1
-    cblas_dsymm( CblasRowMajor, CblasRight, CblasUpper, \
-                 DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE, \
-                 temp_matrix[1]->data, DATA_SIZE, \
+    cblas_dsymm( CblasRowMajor, CblasRight, CblasUpper,
+                 DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE,
+                 temp_matrix[1]->data, DATA_SIZE,
                  0, m->data, DATA_SIZE);
 
     t = mytime::get_time() - t;
@@ -326,14 +347,8 @@ void OneQSOEstimate::getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
         temp = 0.5 * trace_dsymm(Q_ikz_matrix, Q_jkz_matrix);
         throw_isnan(temp, "F=TrQwQw");
 
-        gsl_matrix_set( fisher_matrix, \
-                        i_kz + fisher_index_start, \
-                        j_kz + fisher_index_start, \
-                        temp);
-        gsl_matrix_set( fisher_matrix, \
-                        j_kz + fisher_index_start, \
-                        i_kz + fisher_index_start, \
-                        temp);
+        gsl_matrix_set(fisher_matrix, i_kz + fisher_index_start, j_kz + fisher_index_start, temp);
+        gsl_matrix_set(fisher_matrix, j_kz + fisher_index_start, i_kz + fisher_index_start, temp);
     }
 
     t = mytime::get_time() - t;
@@ -346,12 +361,12 @@ void OneQSOEstimate::computePSbeforeFvector()
 {
     gsl_vector  *weighted_data_vector = gsl_vector_alloc(DATA_SIZE);
 
-    gsl_matrix  *Q_ikz_matrix = temp_matrix[0], \
+    gsl_matrix  *Q_ikz_matrix = temp_matrix[0],
                 *Sfid_matrix  = temp_matrix[1];
 
-    cblas_dsymv(CblasRowMajor, CblasUpper, \
-                DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE, \
-                flux_array, 1, \
+    cblas_dsymv(CblasRowMajor, CblasUpper,
+                DATA_SIZE, 1., inverse_covariance_matrix->data, DATA_SIZE,
+                flux_array, 1,
                 0, weighted_data_vector->data, 1);
 
     double temp_bk, temp_tk = 0, temp_d;
@@ -424,10 +439,10 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_
     }
     catch (const char* msg)
     {
-        LOG::LOGGER.ERR("%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n", \
+        LOG::LOGGER.ERR("%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n",
                 t_rank, numthreads, msg, qso_sp_fname);
 
-        LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n", \
+        LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
                 DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
     }
     
