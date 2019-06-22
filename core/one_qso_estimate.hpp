@@ -46,17 +46,17 @@ class OneQSOEstimate
 
     bool isCovInverted;
 
-    void readFromFile(const char *fname_qso);
-    bool findRedshiftBin(double median_z);
-    void setStoredMatrices();
+    void _readFromFile(const char *fname_qso);
+    bool _findRedshiftBin(double median_z);
+    void _setStoredMatrices();
 
-    void allocateMatrices();
-    void freeMatrices();
+    void _allocateMatrices();
+    void _freeMatrices();
 
-    void setFiducialSignalMatrix(gsl_matrix *sm);
-    void setQiMatrix(gsl_matrix *qi, int i_kz);
-    void getWeightedMatrix(gsl_matrix *m);
-    void getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz);
+    void _setFiducialSignalMatrix(gsl_matrix *sm);
+    void _setQiMatrix(gsl_matrix *qi, int i_kz);
+    void _getWeightedMatrix(gsl_matrix *m);
+    void _getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz);
 
 public:
     int ZBIN, DATA_SIZE;

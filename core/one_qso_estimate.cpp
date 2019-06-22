@@ -65,7 +65,7 @@ void setNQandFisherIndex(int &nq, int &fi, int ZBIN)
     nq *= bins::NUMBER_OF_K_BANDS;
 }
 
-void OneQSOEstimate::readFromFile(const char *fname_qso)
+void OneQSOEstimate::_readFromFile(const char *fname_qso)
 {
     qso_sp_fname = fname_qso;
 
@@ -95,7 +95,7 @@ void OneQSOEstimate::readFromFile(const char *fname_qso)
     if (r_index == -1)      throw "SPECRES not found in tables!";
 }
 
-bool OneQSOEstimate::findRedshiftBin(double median_z)
+bool OneQSOEstimate::_findRedshiftBin(double median_z)
 {
     // Assign to a redshift bin according to median redshift of this chunk
     ZBIN = (median_z - bins::ZBIN_CENTERS[0] + bins::Z_BIN_WIDTH/2.) / bins::Z_BIN_WIDTH;
@@ -113,7 +113,7 @@ bool OneQSOEstimate::findRedshiftBin(double median_z)
     return true;
 }
 
-void OneQSOEstimate::setStoredMatrices()
+void OneQSOEstimate::_setStoredMatrices()
 {
     // Number of Qj matrices to preload.
     double size_m1 = (double)sizeof(double) * DATA_SIZE * DATA_SIZE / 1048576.; // in MB
@@ -145,7 +145,7 @@ void OneQSOEstimate::setStoredMatrices()
 OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
 {
     isCovInverted = false;
-    readFromFile(fname_qso);
+    _readFromFile(fname_qso);
 
     // Convert flux to fluctuation around the mean flux
     convert_flux2deltaf_mean(flux_array, noise_array, DATA_SIZE);
@@ -160,12 +160,12 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     LOG::LOGGER.IO("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
     LOG::LOGGER.IO("Median redshift of spectrum chunk: %.2f\n", MEDIAN_REDSHIFT);
 
-    if (!findRedshiftBin(MEDIAN_REDSHIFT))     return;
+    if (!_findRedshiftBin(MEDIAN_REDSHIFT))     return;
     
     // Set up number of matrices, index for Fisher matrix
     setNQandFisherIndex(N_Q_MATRICES, fisher_index_start, ZBIN);
 
-    setStoredMatrices();
+    _setStoredMatrices();
 }
 
 OneQSOEstimate::~OneQSOEstimate()
@@ -176,7 +176,7 @@ OneQSOEstimate::~OneQSOEstimate()
     delete [] noise_array;
 }
 
-void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
+void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
 {
     #pragma omp atomic update
     mytime::number_of_times_called_setsfid++;
@@ -211,7 +211,7 @@ void OneQSOEstimate::setFiducialSignalMatrix(gsl_matrix *sm)
     mytime::time_spent_on_set_sfid += t;
 }
 
-void OneQSOEstimate::setQiMatrix(gsl_matrix *qi, int i_kz)
+void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
 {
     #pragma omp atomic update
     mytime::number_of_times_called_setq++;
@@ -264,7 +264,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 {
     // Set fiducial signal matrix
     if (!TURN_OFF_SFID)
-        setFiducialSignalMatrix(covariance_matrix);
+        _setFiducialSignalMatrix(covariance_matrix);
     else
         gsl_matrix_set_zero(covariance_matrix);
 
@@ -272,7 +272,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
-        setQiMatrix(temp_matrix[0], i_kz);
+        _setQiMatrix(temp_matrix[0], i_kz);
 
         cblas_daxpy(DATA_SIZE*DATA_SIZE, 
                     ps_estimate[i_kz + fisher_index_start], temp_matrix[0]->data, 1, 
@@ -310,7 +310,7 @@ void OneQSOEstimate::invertCovarianceMatrix()
     mytime::time_spent_on_c_inv += t;
 }
 
-void OneQSOEstimate::getWeightedMatrix(gsl_matrix *m)
+void OneQSOEstimate::_getWeightedMatrix(gsl_matrix *m)
 {
     double t = mytime::get_time();
 
@@ -332,7 +332,7 @@ void OneQSOEstimate::getWeightedMatrix(gsl_matrix *m)
     mytime::time_spent_set_modqs += t;
 }
 
-void OneQSOEstimate::getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
+void OneQSOEstimate::_getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
 {
     double temp;
     gsl_matrix *Q_jkz_matrix = temp_matrix[1];
@@ -342,7 +342,7 @@ void OneQSOEstimate::getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
     // Now compute Fisher Matrix
     for (int j_kz = i_kz; j_kz < N_Q_MATRICES; j_kz++)
     {
-        setQiMatrix(Q_jkz_matrix, j_kz);
+        _setQiMatrix(Q_jkz_matrix, j_kz);
 
         temp = 0.5 * trace_dsymm(Q_ikz_matrix, Q_jkz_matrix);
         throw_isnan(temp, "F=TrQwQw");
@@ -374,7 +374,7 @@ void OneQSOEstimate::computePSbeforeFvector()
     for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
     {
         // Set derivative matrix ikz
-        setQiMatrix(Q_ikz_matrix, i_kz);
+        _setQiMatrix(Q_ikz_matrix, i_kz);
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
@@ -383,7 +383,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         throw_isnan(temp_d, "d");
 
         // Get weighted derivative matrix ikz
-        getWeightedMatrix(Q_ikz_matrix);
+        _getWeightedMatrix(Q_ikz_matrix);
 
         // Get Noise contribution
         temp_bk = trace_ddiagmv(Q_ikz_matrix, noise_array);
@@ -393,7 +393,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         // Set Fiducial Signal Matrix
         if (!TURN_OFF_SFID)
         {
-            setFiducialSignalMatrix(Sfid_matrix);
+            _setFiducialSignalMatrix(Sfid_matrix);
 
             temp_tk = trace_dsymm(Q_ikz_matrix, Sfid_matrix);
 
@@ -401,7 +401,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         }
                 
         gsl_vector_set(ps_before_fisher_estimate_vector, i_kz + fisher_index_start, temp_d - temp_bk - temp_tk);
-        getFisherMatrix(Q_ikz_matrix, i_kz);
+        _getFisherMatrix(Q_ikz_matrix, i_kz);
     }
 
     // printf("PS before f: %.3e\n", gsl_vector_get(ps_before_fisher_estimate_vector, 0));
@@ -410,19 +410,19 @@ void OneQSOEstimate::computePSbeforeFvector()
 
 void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_before, gsl_matrix *fisher_sum)
 {
-    allocateMatrices();
+    _allocateMatrices();
 
     // Preload last nqj_eff matrices
     // 0 is the last matrix
     for (int j_kz = 0; j_kz < nqj_eff; j_kz++)
-        setQiMatrix(stored_qj[j_kz], N_Q_MATRICES - j_kz - 1);
+        _setQiMatrix(stored_qj[j_kz], N_Q_MATRICES - j_kz - 1);
     
     if (nqj_eff > 0)    isQjSet = true;
 
     // Preload fiducial signal matrix if memory allows
     if (isSfidStored)
     {
-        setFiducialSignalMatrix(stored_sfid);
+        _setFiducialSignalMatrix(stored_sfid);
         isSfidSet = true;
     }
 
@@ -446,10 +446,10 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_
                 DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
     }
     
-    freeMatrices();
+    _freeMatrices();
 }
 
-void OneQSOEstimate::allocateMatrices()
+void OneQSOEstimate::_allocateMatrices()
 {
     ps_before_fisher_estimate_vector = gsl_vector_calloc(bins::TOTAL_KZ_BINS);
     fisher_matrix                    = gsl_matrix_calloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
@@ -469,7 +469,7 @@ void OneQSOEstimate::allocateMatrices()
     isSfidSet = false;
 }
 
-void OneQSOEstimate::freeMatrices()
+void OneQSOEstimate::_freeMatrices()
 {
     gsl_vector_free(ps_before_fisher_estimate_vector);
     gsl_matrix_free(fisher_matrix);

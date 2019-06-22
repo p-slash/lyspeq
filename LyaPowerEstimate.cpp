@@ -92,10 +92,10 @@ int main(int argc, char const *argv[])
             qps->printfSpectra();
 
             sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
-            qps->write_spectrum_estimates(buf);
+            qps->writeSpectrumEstimates(buf);
             
             sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
-            qps->write_fisher_matrix(buf);
+            qps->writeFisherMatrix(buf);
 
             delete qps;
         }
