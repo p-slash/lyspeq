@@ -1,6 +1,7 @@
 #include "core/quadratic_estimate.hpp"
 #include "core/matrix_helper.hpp"
 #include "core/global_numbers.hpp"
+#include "core/fiducial_cosmology.hpp"
 
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
@@ -18,7 +19,7 @@
 //-------------------------------------------------------
 int qso_cputime_compare(const void * a, const void * b)
 {
-    double t_a = ((const qso_computation_time*)a)->est_cpu_time, \
+    double t_a = ((const qso_computation_time*)a)->est_cpu_time,
            t_b = ((const qso_computation_time*)b)->est_cpu_time;
 
     if (t_a <  t_b) return -1;
@@ -144,13 +145,13 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 
     gsl_vector_memcpy(previous_pmn_estimate_vector, pmn_estimate_vector);
 
-    cblas_dsymv(CblasRowMajor, CblasUpper, \
-                bins::TOTAL_KZ_BINS, 0.5, inverse_fisher_matrix_sum->data, bins::TOTAL_KZ_BINS, \
-                pmn_before_fisher_estimate_vector_sum->data, 1, \
+    cblas_dsymv(CblasRowMajor, CblasUpper,
+                bins::TOTAL_KZ_BINS, 0.5, inverse_fisher_matrix_sum->data, bins::TOTAL_KZ_BINS,
+                pmn_before_fisher_estimate_vector_sum->data, 1,
                 0, pmn_estimate_vector->data, 1);
 }
 
-void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
+void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
 {
     char tmp_ps_fname[320], tmp_fit_fname[320];
     std::ostringstream command;
@@ -171,7 +172,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
         throw "tmp";
     }
 
-    write_spectrum_estimates(tmp_ps_fname);
+    writeSpectrumEstimates(tmp_ps_fname);
 
     command << "lorentzian_fit.py " << tmp_ps_fname << " " << tmp_fit_fname << " "
             << iteration_fits.A << " " << iteration_fits.n << " " << iteration_fits.n << " ";
@@ -201,8 +202,8 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
 
     tmp_fit_file = ioh::open_file(tmp_fit_fname, "r");
 
-    fscanf( tmp_fit_file, "%le %le %le %le %le %le\n", \
-            &iteration_fits.A, &iteration_fits.n, &iteration_fits.alpha, \
+    fscanf( tmp_fit_file, "%le %le %le %le %le %le\n",
+            &iteration_fits.A, &iteration_fits.n, &iteration_fits.alpha,
             &iteration_fits.B, &iteration_fits.beta, &iteration_fits.lambda);
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; i_kz++)
@@ -220,7 +221,7 @@ void OneDQuadraticPowerEstimate::fitPowerSpectra(double *fit_values)
     remove(tmp_fit_fname);
 }
 
-void OneDQuadraticPowerEstimate::loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads)
+void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads)
 {
     LOG::LOGGER.STD("Load balancing for %d threads available.\n", maxthreads);
     double load_balance_time = mytime::get_time();
@@ -254,7 +255,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     double total_time = 0, total_time_1it = 0;
 
     std::vector<qso_computation_time*> *queue_qso = new std::vector<qso_computation_time*>[numthreads];
-    loadBalancing(queue_qso, numthreads);
+    _loadBalancing(queue_qso, numthreads);
 
     double *powerspectra_fits = new double[bins::TOTAL_KZ_BINS]();
 
@@ -283,7 +284,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         thread_time = mytime::get_time() - thread_time;
 
-        LOG::LOGGER.STD("Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n", \
+        LOG::LOGGER.STD("Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n",
                 t_rank, numthreads, thread_time);
 
         #pragma omp critical
@@ -301,7 +302,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             invertTotalFisherMatrix();
             computePowerSpectrumEstimates();
 
-            fitPowerSpectra(powerspectra_fits);
+            _fitPowerSpectra(powerspectra_fits);
         }
         catch (const char* msg)
         {
@@ -312,10 +313,10 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         printfSpectra();
 
         sprintf(buf, "%s_it%d_quadratic_power_estimate.dat", fname_base, i+1);
-        write_spectrum_estimates(buf);
+        writeSpectrumEstimates(buf);
 
         sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, i+1);
-        write_fisher_matrix(buf);
+        writeFisherMatrix(buf);
 
         total_time_1it  = mytime::get_time() - total_time_1it;
         total_time     += total_time_1it;
@@ -377,7 +378,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
         
-        double  t = gsl_vector_get(previous_pmn_estimate_vector, i_kz), \
+        double  t = gsl_vector_get(previous_pmn_estimate_vector, i_kz),
                 e = gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz);
 
         r += (t*t) / e / (bins::TOTAL_KZ_BINS - bins::NUMBER_OF_Z_BINS);
@@ -395,14 +396,14 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     return bool_converged;
 }
 
-void OneDQuadraticPowerEstimate::write_fisher_matrix(const char *fname)
+void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
 {
     fprintf_matrix(fname, fisher_matrix_sum);
 
     LOG::LOGGER.IO("Fisher matrix saved as %s.\n", fname);
 }
 
-void OneDQuadraticPowerEstimate::write_spectrum_estimates(const char *fname)
+void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 {
     FILE *toWrite;
     int i_kz, kn, zm;

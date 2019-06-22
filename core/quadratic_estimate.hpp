@@ -6,7 +6,6 @@
 #include <gsl/gsl_vector.h>
 
 #include "core/one_qso_estimate.hpp"
-#include "core/fiducial_cosmology.hpp"
 
 typedef struct
 {
@@ -32,20 +31,15 @@ typedef struct
 
 class OneDQuadraticPowerEstimate
 {
-    int NUMBER_OF_QSOS, \
-        NUMBER_OF_QSOS_OUT, \
-       *Z_BIN_COUNTS;
+    int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS;
 
     qso_computation_time *qso_estimators;
 
-    // TOTAL_KZ_BINS sized vector
-    gsl_vector  *pmn_before_fisher_estimate_vector_sum, \
-                *previous_pmn_estimate_vector, \
-                *pmn_estimate_vector;
+    // 3 TOTAL_KZ_BINS sized vectors
+    gsl_vector *pmn_before_fisher_estimate_vector_sum, *previous_pmn_estimate_vector, *pmn_estimate_vector;
 
-    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
-    gsl_matrix  *fisher_matrix_sum,\
-                *inverse_fisher_matrix_sum;
+    // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
+    gsl_matrix  *fisher_matrix_sum, *inverse_fisher_matrix_sum;
 
     bool isFisherInverted;
 
@@ -53,10 +47,10 @@ class OneDQuadraticPowerEstimate
     // Intermadiate files are saved in TMP_FOLDER (read as TemporaryFolder in config file)
     // make install will copy this script to $HOME/bin and make it executable.
     // Add $HOME/bin to your $PATH
-    void fitPowerSpectra(double *fit_values);
+    void _fitPowerSpectra(double *fit_values);
 
     // Performs a load balancing operation based on N^3 estimation
-    void loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads);
+    void _loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads);
 
 public:
     OneDQuadraticPowerEstimate(const char *fname_list, const char *dir);
@@ -72,11 +66,11 @@ public:
     bool hasConverged();
     
     void printfSpectra();
-    void write_fisher_matrix(const char *fname_base);
+    void writeFisherMatrix(const char *fname_base);
 
-    // Does not write the last bin since it is ignored
+    // Does not write the last bin since it is ignored when LAST_K_EDGE defined
     // You can find that value in logs--printfSpectra prints all
-    void write_spectrum_estimates(const char *fname_base);
+    void writeSpectrumEstimates(const char *fname_base);
 };
 
 
