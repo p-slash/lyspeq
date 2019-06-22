@@ -21,8 +21,17 @@ int main(int argc, char const *argv[])
         fprintf(stderr, "Missing config file!\n");
         return -1;
     }
+
     const char *FNAME_CONFIG = argv[1];
-    
+    int r = 0;
+
+    #if defined(_OPENMP)
+    omp_set_dynamic(0); // Turn off dynamic threads
+    numthreads = omp_get_max_threads();
+    #endif
+
+    gsl_set_error_handler_off();
+
     char FNAME_LIST[300], \
          FNAME_RLIST[300], \
          INPUT_DIR[300], \
@@ -43,71 +52,105 @@ int main(int argc, char const *argv[])
                             OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, \
                             &NUMBER_OF_ITERATIONS, \
                             NULL, NULL, NULL, NULL);
+    }
+    catch (std::exception& e)
+    {
+        fprintf(stderr, "Error while reading config file.\n");
+        fprintf(stderr, "%s\n", e.what());
+        return -1;
+    }
 
+    try
+    {
         LOG::LOGGER.open(OUTPUT_DIR);
         if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
     
         print_build_specifics();
-        
+    }
+    catch (std::exception& e)
+    {   
+        fprintf(stderr, "Error while logging contructed.\n");
+        fprintf(stderr, "%s\n", e.what());
+        bins::clean_up_bins();
+        return -1;
+    }
+
+    try
+    {
         // Allocate and read look up tables
         sq_shared_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
 
-        #if defined(_OPENMP)
-        omp_set_dynamic(0); // Turn off dynamic threads
-        numthreads = omp_get_max_threads();
-        #endif
+        #pragma omp parallel
+        {
+            #if defined(_OPENMP)
+            t_rank  = omp_get_thread_num();
+            #endif
 
-        gsl_set_error_handler_off();
-        
-#pragma omp parallel
-{
-        #if defined(_OPENMP)
-        t_rank  = omp_get_thread_num();
-        #endif
-
-        // Create private copy for interpolation is not thread safe!
-        if (t_rank == 0)     sq_private_table = sq_shared_table;
-        else                 sq_private_table = new SQLookupTable(*sq_shared_table);
-}
-
-        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR);
-
-        sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
-        qps->iterate(NUMBER_OF_ITERATIONS, buf);
-
-        delete qps;
-        
-#pragma omp parallel
-{
-        delete sq_shared_table;
-}
-        bins::clean_up_bins();
+            // Create private copy for interpolation is not thread safe!
+            if (t_rank == 0)     sq_private_table = sq_shared_table;
+            else                 sq_private_table = new SQLookupTable(*sq_shared_table);
+        }
     }
     catch (std::exception& e)
     {
-        printf("%s\n", e.what());
+        fprintf(stderr, "Error while SQ Table contructed.\n");
+        fprintf(stderr, "%s\n", e.what());
+        bins::clean_up_bins();
         return -1;
+    }
+    
+    try
+    {
+        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR);
+    }
+    catch (std::exception& e)
+    {
+        fprintf(stderr, "Error while Quadratic Estimator contructed.\n");
+        fprintf(stderr, "%s\n", e.what());
+        bins::clean_up_bins();
+        #pragma omp parallel
+        {
+            delete sq_shared_table;
+        }
+
+        return -1;
+    } 
+
+    try
+    {
+        sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
+        qps->iterate(NUMBER_OF_ITERATIONS, buf);
+    }
+    catch (std::exception& e)
+    {
+        fprintf(stderr, "Error while Iteration.\n");
+        fprintf(stderr, "%s\n", e.what());
+        r=-1;
     }
     catch (const char* msg)
     {
-        if (qps != NULL)
-        {
-            qps->printfSpectra();
+        qps->printfSpectra();
 
-            sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
-            qps->writeSpectrumEstimates(buf);
-            
-            sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
-            qps->writeFisherMatrix(buf);
-
-            delete qps;
-        }
+        sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
+        qps->writeSpectrumEstimates(buf);
         
-        // fprintf(stderr, "%s\n", msg);
-        return -1;
+        sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
+        qps->writeFisherMatrix(buf);
+
+        fprintf(stderr, "%s\n", msg);
+        r=-1;
+    }
+    
+    delete qps;
+
+    #pragma omp parallel
+    {
+        delete sq_shared_table;
     }
 
-    return 0;
+    bins::clean_up_bins();
+
+    return r;
 }
 
 
