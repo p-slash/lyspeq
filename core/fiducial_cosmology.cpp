@@ -94,7 +94,13 @@ void convert_lambda2v(double &median_z, double *v_array, const double *lambda, i
     median_z = median_lambda / LYA_REST - 1.;
 
     for (int i = 0; i < size; i++)
+    {
+        #ifdef USE_LOG_V
+        v_array[i] = SPEED_OF_LIGHT * log(lambda[i]/median_lambda);
+        #else
         v_array[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(median_lambda / lambda[i]));
+        #endif
+    }
 }
 
 // Fiducial Functions
