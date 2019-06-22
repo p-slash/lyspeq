@@ -53,6 +53,8 @@ class OneQSOEstimate
     void _allocateMatrices();
     void _freeMatrices();
 
+    void _getVandZ(double &v_ij, double &z_ij, int i, int j);
+    
     void _setFiducialSignalMatrix(gsl_matrix *sm);
     void _setQiMatrix(gsl_matrix *qi, int i_kz);
     void _getWeightedMatrix(gsl_matrix *m);

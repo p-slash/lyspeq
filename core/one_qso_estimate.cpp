@@ -176,6 +176,12 @@ OneQSOEstimate::~OneQSOEstimate()
     delete [] noise_array;
 }
 
+void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
+{
+    v_ij = velocity_array[j] - velocity_array[i];
+    z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
+}
+
 void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
 {
     #pragma omp atomic update
@@ -194,8 +200,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
         {
             for (int j = i; j < DATA_SIZE; j++)
             {
-                v_ij = velocity_array[j] - velocity_array[i];
-                z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
+                _getVandZ(v_ij, z_ij, i, j);
 
                 temp = sq_private_table->getSignalMatrixValue(v_ij, z_ij, r_index);
                 gsl_matrix_set(sm, i, j, temp);
@@ -234,11 +239,12 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
         {
             for (int j = i; j < DATA_SIZE; j++)
             {
-                v_ij = velocity_array[j] - velocity_array[i];
-                z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
+                _getVandZ(v_ij, z_ij, i, j);
                 
                 temp  = sq_private_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
+                #ifdef MY_Z_EVO_INTERP
                 temp *= fiducial_power_growth_factor(z_ij, bins::KBAND_CENTERS[kn], BIN_REDSHIFT, &pd13::FIDUCIAL_PD13_PARAMS);
+                #endif
                 gsl_matrix_set(qi, i, j, temp);
             }
         }
