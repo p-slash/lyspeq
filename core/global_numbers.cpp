@@ -29,8 +29,8 @@ namespace bins
     double *KBAND_EDGES, *KBAND_CENTERS;
     double  Z_BIN_WIDTH, *ZBIN_CENTERS;
 
-    void set_up_bins(double k0, int nlin, double dklin, \
-                                int nlog, double dklog, \
+    void set_up_bins(double k0, int nlin, double dklin,
+                                int nlog, double dklog,
                      double z0)
     {
         // Construct k edges
@@ -80,7 +80,7 @@ namespace bins
 namespace mytime
 {
     double   time_spent_on_c_inv    = 0, time_spent_on_f_inv   = 0;
-    double   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0, \
+    double   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0,
              time_spent_set_modqs   = 0, time_spent_set_fisher = 0;
 
     double   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
@@ -101,9 +101,9 @@ namespace mytime
         LOG::LOGGER.STD("Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
         LOG::LOGGER.STD("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
 
-        LOG::LOGGER.STD("Total time spent on setting Sfid is %.2f mins with %lu calls.\n", \
+        LOG::LOGGER.STD("Total time spent on setting Sfid is %.2f mins with %lu calls.\n",
                 time_spent_on_set_sfid, number_of_times_called_setsfid);
-        LOG::LOGGER.STD("Total time spent on setting Qs is %.2f mins with %lu calls. \nInterpolation: %.2f and Copy: %.2f.\n", \
+        LOG::LOGGER.STD("Total time spent on setting Qs is %.2f mins with %lu calls.\nInterpolation: %.2f and Copy: %.2f.\n",
                 time_spent_set_qs, number_of_times_called_setq, time_spent_on_q_interp, time_spent_on_q_copy);
         
         LOG::LOGGER.STD("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
@@ -154,14 +154,14 @@ void print_build_specifics()
 
 // Pass NULL for not needed variables!
 void read_config_file(  const char *FNAME_CONFIG,
-                        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR, \
-                        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q, \
-                        int *NUMBER_OF_ITERATIONS, \
+                        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
+                        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
+                        int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
     int N_KLIN_BIN, N_KLOG_BIN, sfid_off;
 
-    double  K_0, LIN_K_SPACING, LOG_K_SPACING, \
+    double  K_0, LIN_K_SPACING, LOG_K_SPACING,
             Z_0, temp_chisq = -1;
 
     // Set up config file to read variables.
