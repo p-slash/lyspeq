@@ -76,8 +76,11 @@ int main(int argc, char const *argv[])
         qps->iterate(NUMBER_OF_ITERATIONS, buf);
 
         delete qps;
-        // delete sq_shared_table;
-
+        
+#pragma omp parallel
+{
+        delete sq_shared_table;
+}
         bins::clean_up_bins();
     }
     catch (std::exception& e)
