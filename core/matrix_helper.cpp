@@ -59,9 +59,9 @@ double my_cblas_dsymvdot(const gsl_vector *v, const gsl_matrix *S)
 
     double *temp_vector = new double[size], r;
 
-    cblas_dsymv(CblasRowMajor, CblasUpper, \
-                size, 1., S->data, size, \
-                v->data, 1, \
+    cblas_dsymv(CblasRowMajor, CblasUpper,
+                size, 1., S->data, size,
+                v->data, 1,
                 0, temp_vector, 1);
 
     r = cblas_ddot(size, v->data, 1, temp_vector, 1);

@@ -30,7 +30,7 @@ double triangular_z_bin(double z, int zm)
     else if (z_center < z && z < z_center + bins::Z_BIN_WIDTH)
     {
         if (zm == bins::NUMBER_OF_Z_BINS - 1)     return 1.;
-        else                                return (z_center + bins::Z_BIN_WIDTH - z) / bins::Z_BIN_WIDTH;
+        else                                      return (z_center + bins::Z_BIN_WIDTH - z) / bins::Z_BIN_WIDTH;
     }
 
     return 0;
@@ -160,8 +160,8 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
     int dummy_R, dummy_Nz;
     double temp_px_width, temp_ki, temp_kf;
 
-    s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, \
-                            dummy_R, temp_px_width, \
+    s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S,
+                            dummy_R, temp_px_width,
                             temp_ki, temp_kf);
 
     // Allocate memory before reading further
@@ -171,9 +171,9 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
     s_table_file.readData(signal_array);
 
     // Interpolate
-    interp2d_signal_matrices[r_index] = new Interpolation2D(INTERP_2D_TYPE, \
-                                                            LINEAR_V_ARRAY, LINEAR_Z_ARRAY, \
-                                                            signal_array, \
+    interp2d_signal_matrices[r_index] = new Interpolation2D(INTERP_2D_TYPE,
+                                                            LINEAR_V_ARRAY, LINEAR_Z_ARRAY,
+                                                            signal_array,
                                                             N_V_POINTS, N_Z_POINTS_OF_S);
 
     // Read Q tables. 
@@ -188,8 +188,8 @@ void SQLookupTable::readSQforR(int r_index, const char *dir, const char *s_base,
 
         SQLookupTableFile q_table_file(buf, 'r');
 
-        q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, \
-                                dummy_R, temp_px_width, \
+        q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq,
+                                dummy_R, temp_px_width,
                                 temp_ki, temp_kf);
 
         q_table_file.readData(derivative_array);

@@ -47,8 +47,8 @@ namespace bins
     extern double *KBAND_EDGES, *KBAND_CENTERS;
     extern double Z_BIN_WIDTH, *ZBIN_CENTERS;
 
-    void set_up_bins(double k0, int nlin, double dklin, \
-                            int nlog, double dklog, \
+    void set_up_bins(double k0, int nlin, double dklin,
+                            int nlog, double dklog,
                      double z0);
     void clean_up_bins();
 
@@ -63,7 +63,7 @@ namespace mytime
 {
     // Keeping track of time
     extern double time_spent_on_c_inv, time_spent_on_f_inv;
-    extern double time_spent_on_set_sfid, time_spent_set_qs, \
+    extern double time_spent_on_set_sfid, time_spent_set_qs,
                   time_spent_set_modqs, time_spent_set_fisher;
 
     extern double time_spent_on_q_interp, time_spent_on_q_copy;
@@ -77,9 +77,9 @@ namespace mytime
 void print_build_specifics();
 
 void read_config_file(  const char *FNAME_CONFIG, 
-                        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR, \
-                        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q, \
-                        int *NUMBER_OF_ITERATIONS, \
+                        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
+                        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
+                        int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V);
 
 
