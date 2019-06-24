@@ -158,8 +158,11 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     // Covert from wavelength to velocity units around median wavelength
     conv::convertLambdaToVelocity(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
 
-    LOG::LOGGER.IO("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
-    LOG::LOGGER.IO("Median redshift of spectrum chunk: %.2f\n", MEDIAN_REDSHIFT);
+    LOG::LOGGER.IO("Length of v is %.1f\n"
+                   "Median redshift: %.2f\n"
+                   "Redshift range: %.2f--%.2f\n", 
+                   velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT,
+                   lambda_array[0]/LYA_REST-1, lambda_array[DATA_SIZE-1]/LYA_REST-1);
 
     if (!_findRedshiftBin(MEDIAN_REDSHIFT))     return;
     
@@ -447,7 +450,7 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_
     catch (const char* msg)
     {
         LOG::LOGGER.ERR("%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n",
-                t_rank, numthreads, msg, qso_sp_fname);
+                t_rank, numthreads, msg, qso_sp_fname.c_str());
 
         LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
                 DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);

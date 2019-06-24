@@ -363,9 +363,10 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         abs_max   = std::max(r, abs_max);
     }
 
-    LOG::LOGGER.STD("Mean relative change is %.1e.\n", abs_mean);
-    LOG::LOGGER.STD("Maximum relative change is %.1e. ", abs_max);
-    LOG::LOGGER.STD("Old test: Iteration converges when this is less than %.1e\n", CONVERGENCE_EPS);
+    LOG::LOGGER.STD("Mean relative change is %.1e.\n"
+                    "Maximum relative change is %.1e. "
+                    "Old test: Iteration converges when this is less than %.1e\n", 
+                    abs_mean, abs_max, CONVERGENCE_EPS);
     
     // Perform a chi-square test as well
     // Maybe just do diagonal (dx)^2/F-1_ii
@@ -388,8 +389,9 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     // r = my_cblas_dsymvdot(previous_pmn_estimate_vector, fisher_matrix_sum) / bins::TOTAL_KZ_BINS;
 
-    LOG::LOGGER.STD("Chi square convergence test: %.3f per dof. ", r);
-    LOG::LOGGER.STD("Iteration converges when this is less than %.2f\n", CHISQ_CONVERGENCE_EPS);
+    LOG::LOGGER.STD("Chi square convergence test: %.3f per dof. "
+                    "Iteration converges when this is less than %.2f\n", 
+                    r, CHISQ_CONVERGENCE_EPS);
 
     bool_converged = r < CHISQ_CONVERGENCE_EPS;
 
