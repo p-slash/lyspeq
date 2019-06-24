@@ -97,10 +97,11 @@ void OneQSOEstimate::_readFromFile(const char *fname_qso)
 
 bool OneQSOEstimate::_findRedshiftBin(double median_z)
 {
+    double z0_edge = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH/2.;
     // Assign to a redshift bin according to median redshift of this chunk
-    ZBIN = (median_z - bins::ZBIN_CENTERS[0] + bins::Z_BIN_WIDTH/2.) / bins::Z_BIN_WIDTH;
+    ZBIN = (median_z - z0_edge) / bins::Z_BIN_WIDTH;
     
-    if (median_z < bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH/2.)     ZBIN = -1;
+    if (median_z < z0_edge)     ZBIN = -1;
 
     if (ZBIN >= 0 && ZBIN < bins::NUMBER_OF_Z_BINS)
         BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
@@ -148,14 +149,14 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     _readFromFile(fname_qso);
 
     // Convert flux to fluctuation around the mean flux
-    convert_flux2deltaf_mean(flux_array, noise_array, DATA_SIZE);
+    conv::convertFluxToDeltaf(flux_array, noise_array, DATA_SIZE);
     
     // Keep noise as error squared (variance)
     for (int i = 0; i < DATA_SIZE; ++i)
         noise_array[i] *= noise_array[i];
 
     // Covert from wavelength to velocity units around median wavelength
-    convert_lambda2v(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
+    conv::convertLambdaToVelocity(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
 
     LOG::LOGGER.IO("Length of v is %.1f\n", velocity_array[DATA_SIZE-1] - velocity_array[0]);
     LOG::LOGGER.IO("Median redshift of spectrum chunk: %.2f\n", MEDIAN_REDSHIFT);
@@ -207,7 +208,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
             }
         }
 
-        copy_upper2lower(sm);
+        mxhelp::copyUpperToLower(sm);
     }
     
     t = mytime::get_time() - t;
@@ -243,7 +244,7 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
                 
                 temp  = sq_private_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
                 #ifdef MY_Z_EVO_INTERP
-                temp *= fiducial_power_growth_factor(z_ij, bins::KBAND_CENTERS[kn], BIN_REDSHIFT, &pd13::FIDUCIAL_PD13_PARAMS);
+                temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], BIN_REDSHIFT, &pd13::FIDUCIAL_PD13_PARAMS);
                 #endif
                 gsl_matrix_set(qi, i, j, temp);
             }
@@ -251,7 +252,7 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
 
         t_interp = mytime::get_time() - t;
 
-        copy_upper2lower(qi);
+        mxhelp::copyUpperToLower(qi);
     }
 
     t = mytime::get_time() - t; 
@@ -303,7 +304,7 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
     inverse_covariance_matrix  = temp_matrix[0];
 
-    invert_matrix_LU(covariance_matrix, inverse_covariance_matrix);
+    mxhelp::invertMatrixLU(covariance_matrix, inverse_covariance_matrix);
     
     temp_matrix[0]    = covariance_matrix;
     covariance_matrix = inverse_covariance_matrix;
@@ -350,7 +351,7 @@ void OneQSOEstimate::_getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
     {
         _setQiMatrix(Q_jkz_matrix, j_kz);
 
-        temp = 0.5 * trace_dsymm(Q_ikz_matrix, Q_jkz_matrix);
+        temp = 0.5 * mxhelp::trace_dsymm(Q_ikz_matrix, Q_jkz_matrix);
         throw_isnan(temp, "F=TrQwQw");
 
         gsl_matrix_set(fisher_matrix, i_kz + fisher_index_start, j_kz + fisher_index_start, temp);
@@ -384,7 +385,7 @@ void OneQSOEstimate::computePSbeforeFvector()
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        temp_d = my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix);
+        temp_d = mxhelp::my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix);
 
         throw_isnan(temp_d, "d");
 
@@ -392,7 +393,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         _getWeightedMatrix(Q_ikz_matrix);
 
         // Get Noise contribution
-        temp_bk = trace_ddiagmv(Q_ikz_matrix, noise_array);
+        temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, noise_array);
         
         throw_isnan(temp_bk, "bk");
 
@@ -401,7 +402,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         {
             _setFiducialSignalMatrix(Sfid_matrix);
 
-            temp_tk = trace_dsymm(Q_ikz_matrix, Sfid_matrix);
+            temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix);
 
             throw_isnan(temp_tk, "tk");
         }
