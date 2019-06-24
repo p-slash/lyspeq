@@ -8,38 +8,38 @@
 #include <cstdio>
 #include <algorithm> // std::copy
 
-double tophat_z_bin(double z, int zm)
-{
-    double z_center = bins::ZBIN_CENTERS[zm];
+// double tophat_z_bin(double z, int zm)
+// {
+//     double z_center = bins::ZBIN_CENTERS[zm];
 
-    if (z_center - bins::Z_BIN_WIDTH/2 < z && z < z_center + bins::Z_BIN_WIDTH/2)
-        return 1.;
+//     if (z_center - bins::Z_BIN_WIDTH/2 < z && z < z_center + bins::Z_BIN_WIDTH/2)
+//         return 1.;
 
-    return 0;
-}
+//     return 0;
+// }
 
 double triangular_z_bin(double z, int zm)
 {
     double z_center = bins::ZBIN_CENTERS[zm];
     
-    if (z_center - bins::Z_BIN_WIDTH < z && z <= z_center)
+    if (z <= z_center)
     {
         if (zm == 0)    return 1.;
         else            return (z - z_center + bins::Z_BIN_WIDTH) / bins::Z_BIN_WIDTH;
     }
-    else if (z_center < z && z < z_center + bins::Z_BIN_WIDTH)
+    else
     {
         if (zm == bins::NUMBER_OF_Z_BINS - 1)     return 1.;
         else                                      return (z_center + bins::Z_BIN_WIDTH - z) / bins::Z_BIN_WIDTH;
     }
-
-    return 0;
 }
 
 double redshift_binning_function(double z, int zm)
 {
     #ifdef TOPHAT_Z_BINNING_FN
-    return tophat_z_bin(z, zm);
+    double zz  __attribute__((unused)) = z;
+    int    zzm __attribute__((unused)) = zm;
+    return 1.;
     #endif
 
     #ifdef TRIANGLE_Z_BINNING_FN
@@ -110,7 +110,7 @@ SQLookupTable::~SQLookupTable()
 {
     delete [] R_VALUES;
 
-    for (int r = 0; r < NUMBER_OF_R_VALUES; r++)
+    for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
         delete interp2d_signal_matrices[r];
 
     for (int kr = 0; kr < NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS; ++kr)
@@ -209,8 +209,6 @@ double SQLookupTable::getDerivativeMatrixValue(double v_ij, double z_ij, int zm,
 {
     double z_result = redshift_binning_function(z_ij, zm);
     
-    if (z_result == 0)      return 0;
-
     double v_result = interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)]->evaluate(v_ij);
 
     return z_result * v_result;
