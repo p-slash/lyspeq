@@ -52,13 +52,6 @@ namespace pd13
 //     return true;
 // }
 
-// double becker13_meanflux(double z)
-// {
-//     double tau = 0.751 * pow((1. + z) / 4.5, 2.90) - 0.132;
-
-//     return exp(-tau);
-// }
-
 // void convert_flux2deltaf_becker(const double *lambda, double *flux, double *noise, int size)
 // {
 //     double mean_f, z_i;
@@ -77,6 +70,19 @@ namespace pd13
 namespace conv
 {
     bool USE_LOG_V;
+
+    double meanFluxBecker13(double z)
+    {
+        double tau = 0.751 * pow((1. + z) / 4.5, 2.90) - 0.132;
+        return exp(-tau);
+    }
+
+    double meanFluxLee12(double z)
+    {
+        double tau = 0.001845 * np.power(1. + z, 3.924);
+        return exp(-tau);
+    }
+
     void convertFluxToDeltaf(double *flux, double *noise, int size)
     {
         double mean_f = 0.;
