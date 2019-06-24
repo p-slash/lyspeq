@@ -202,7 +202,6 @@ OPT=
 interp1d=-DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
 interp2d=-DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
 binz_fn=-DTRIANGLE_Z_BINNING_FN
-logv=
 lastk_feat=
 debug=
 
@@ -227,8 +226,6 @@ do
             srcdir="${i#*=}";;
         --enable-last-k-bin=* )
             lastk_feat="-DLAST_K_EDGE=${i#*=}";;
-        --use-log-velocity )
-            logv="-DUSE_LOG_V";;
         --enable-openmp )
             CPPFLAGS_OMP="-fopenmp";;
         --interp1d=* )
@@ -285,7 +282,7 @@ do
     shift
 done
 
-OPT+=" ${interp1d} ${interp2d} ${binz_fn} ${lastk_feat} ${logv} ${debug}"
+OPT+=" ${interp1d} ${interp2d} ${binz_fn} ${lastk_feat} ${debug}"
 
 case ${SYSTYPE} in
     GNU_XE18MKL|x64-linux-gnu-mklxe18 )
