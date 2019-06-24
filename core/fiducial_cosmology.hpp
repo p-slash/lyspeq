@@ -24,13 +24,20 @@ namespace pd13
     extern pd13_fit_params FIDUCIAL_PD13_PARAMS;
 }
 
-void convert_flux2deltaf_mean(double *flux, double *noise, int size);
-// void convert_flux2deltaf_becker(const double *lambda, double *flux, double *noise, int size);
-void convert_lambda2v(double &median_z, double *v_array, const double *lambda, int size);
+namespace conv
+{
+    extern bool USE_LOG_V;
+    void convertFluxToDeltaf(double *flux, double *noise, int size);
+    // void convert_flux2deltaf_becker(const double *lambda, double *flux, double *noise, int size);
+    void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size);
+}
 
-// This function is defined in preprocessing
-double fiducial_power_spectrum(double k, double z, void *params);
-double fiducial_power_growth_factor(double z_ij, double k_kn, double z_zm, void *params);
+namespace fidcosmo
+{
+    // This function is defined in preprocessing
+    double fiducialPowerSpectrum(double k, double z, void *params);
+    double fiducialPowerGrowthFactor(double z_ij, double k_kn, double z_zm, void *params);
+}
 
 struct spectrograph_windowfn_params
 {
