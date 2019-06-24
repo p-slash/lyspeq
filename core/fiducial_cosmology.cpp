@@ -72,34 +72,42 @@ namespace pd13
 //     }
 // }
 
+
 // Conversion functions
-void convert_flux2deltaf_mean(double *flux, double *noise, int size)
+namespace conv
 {
-    double mean_f = 0.;
-
-    for (int i = 0; i < size; i++)
-        mean_f += flux[i] / size;
-
-    for (int i = 0; i < size; i++)
+    bool USE_LOG_V;
+    void convertFluxToDeltaf(double *flux, double *noise, int size)
     {
-        flux[i]   = (flux[i] / mean_f) - 1.;
-        noise[i] /= mean_f;
+        double mean_f = 0.;
+
+        for (int i = 0; i < size; i++)
+            mean_f += flux[i] / size;
+
+        for (int i = 0; i < size; i++)
+        {
+            flux[i]   = (flux[i] / mean_f) - 1.;
+            noise[i] /= mean_f;
+        }
     }
-}
 
-void convert_lambda2v(double &median_z, double *v_array, const double *lambda, int size)
-{
-    double median_lambda = lambda[size / 2];
-    
-    median_z = median_lambda / LYA_REST - 1.;
-
-    for (int i = 0; i < size; i++)
+    // void convert_flux2deltaf_becker(const double *lambda, double *flux, double *noise, int size);
+    void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size)
     {
-        #ifdef USE_LOG_V
-        v_array[i] = SPEED_OF_LIGHT * log(lambda[i]/median_lambda);
-        #else
-        v_array[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(median_lambda / lambda[i]));
-        #endif
+        double median_lambda = lambda[size / 2];
+    
+        median_z = median_lambda / LYA_REST - 1.;
+
+        if (USE_LOG_V)
+        {
+            for (int i = 0; i < size; i++)
+                v_array[i] = SPEED_OF_LIGHT * log(lambda[i]/median_lambda);
+        }
+        else
+        {
+            for (int i = 0; i < size; i++)
+                v_array[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(median_lambda / lambda[i]));
+        }
     }
 }
 
@@ -126,16 +134,20 @@ void convert_lambda2v(double &median_z, double *v_array, const double *lambda, i
 //     void  *pp __attribute__((unused)) = params; // remove this line if using params
 //     return k_kn*z_ij/z_zm;
 // }
-double fiducial_power_spectrum(double k, double z, void *params)
-{    
-    pd13::pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
-    return pd13::Palanque_Delabrouille_etal_2013_fit(k, z, pfp);   
-}
 
-double fiducial_power_growth_factor(double z_ij, double k_kn, double z_zm, void *params)
+namespace fidcosmo
 {
-    pd13::pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
-    return pd13::Palanque_Delabrouille_etal_2013_fit_growth_factor(z_ij, k_kn, z_zm, pfp);
+    // This function is defined in preprocessing
+    double fiducialPowerSpectrum(double k, double z, void *params)
+    {    
+        pd13::pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
+        return pd13::Palanque_Delabrouille_etal_2013_fit(k, z, pfp);   
+    }
+    double fiducialPowerGrowthFactor(double z_ij, double k_kn, double z_zm, void *params)
+    {
+        pd13::pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
+        return pd13::Palanque_Delabrouille_etal_2013_fit_growth_factor(z_ij, k_kn, z_zm, pfp);
+    }
 }
 
 // Signal and Derivative Integrands and Window Function
@@ -161,7 +173,7 @@ double signal_matrix_integrand(double k, void *params)
 
     double result = spectral_response_window_fn(k, wp);
 
-    result *= fiducial_power_spectrum(k, wp->z_ij, pfp) * result / PI;
+    result *= fidcosmo::fiducialPowerSpectrum(k, wp->z_ij, pfp) * result / PI;
 
     return result;
 }
