@@ -127,7 +127,7 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     gsl_matrix *fisher_copy = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     gsl_matrix_memcpy(fisher_copy, fisher_matrix_sum);
     
-    invert_matrix_LU(fisher_copy, inverse_fisher_matrix_sum);
+    mxhelp::invertMatrixLU(fisher_copy, inverse_fisher_matrix_sum);
     
     gsl_matrix_free(fisher_copy);
 
@@ -398,7 +398,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
 void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
 {
-    fprintf_matrix(fname, fisher_matrix_sum);
+    mxhelp::fprintfMatrix(fname, fisher_matrix_sum);
 
     LOG::LOGGER.IO("Fisher matrix saved as %s.\n", fname);
 }
@@ -481,7 +481,7 @@ double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
 {
     if (TURN_OFF_SFID)  return 0;
     
-    return fiducial_power_spectrum(bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], &pd13::FIDUCIAL_PD13_PARAMS);
+    return fidcosmo::fiducialPowerSpectrum(bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], &pd13::FIDUCIAL_PD13_PARAMS);
 }
 
 
