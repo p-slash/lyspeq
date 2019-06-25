@@ -110,7 +110,7 @@ int main(int argc, char const *argv[])
         bins::clean_up_bins();
         #pragma omp parallel
         {
-            delete sq_shared_table;
+            delete sq_private_table;
         }
 
         return -1;
@@ -145,7 +145,7 @@ int main(int argc, char const *argv[])
 
     #pragma omp parallel
     {
-        delete sq_shared_table;
+        delete sq_private_table;
     }
 
     bins::clean_up_bins();
