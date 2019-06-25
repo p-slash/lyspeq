@@ -79,7 +79,7 @@ namespace conv
 
     double meanFluxLee12(double z)
     {
-        double tau = 0.001845 * np.power(1. + z, 3.924);
+        double tau = 0.001845 * pow(1. + z, 3.924);
         return exp(-tau);
     }
 
