@@ -54,6 +54,10 @@ uninstall:
 	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable
 
 clean:
+	$(RM) $(OBJECTS) $(bin_OBJ)
+	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests
+
+deepclean:
 	$(RM) $(OBJECTS) $(bin_OBJ) $(DEPS)
 	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests
 
