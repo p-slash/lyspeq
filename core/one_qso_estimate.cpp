@@ -246,7 +246,9 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
                 _getVandZ(v_ij, z_ij, i, j);
                 
                 temp  = sq_private_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
-                #ifdef MY_Z_EVO_INTERP
+                #ifdef TOPHAT_Z_BINNING_FN
+                // When using top hat redshift binning, we need to evolve pixels
+                // to central redshift
                 temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], BIN_REDSHIFT, &pd13::FIDUCIAL_PD13_PARAMS);
                 #endif
                 gsl_matrix_set(qi, i, j, temp);
