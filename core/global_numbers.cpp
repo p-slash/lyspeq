@@ -149,7 +149,7 @@ void read_config_file(  const char *FNAME_CONFIG,
                         int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
-    int N_KLIN_BIN, N_KLOG_BIN, sfid_off, ulogv=-1;
+    int N_KLIN_BIN, N_KLOG_BIN, sfid_off, ulogv=-1, ulee12=-1;
 
     double  K_0, LIN_K_SPACING, LOG_K_SPACING,
             Z_0, temp_chisq = -1;
@@ -204,6 +204,7 @@ void read_config_file(  const char *FNAME_CONFIG,
 
     cFile.addKey("TemporaryFolder", &TMP_FOLDER, STRING);
     cFile.addKey("UseLogarithmicVelocity", &ulogv, INTEGER);
+    cFile.addKey("UseLee12MeanFlux", &ulee12, INTEGER);
 
     cFile.readAll();
 
@@ -213,6 +214,7 @@ void read_config_file(  const char *FNAME_CONFIG,
     
     TURN_OFF_SFID   = sfid_off > 0;
     conv::USE_LOG_V = ulogv > 0;
+    conv::USE_FID_LEE12_MEAN_FLUX = ulee12 > 0;
 
     if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
 
