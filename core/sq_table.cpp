@@ -8,53 +8,6 @@
 #include <cstdio>
 #include <algorithm> // std::copy
 
-// double tophat_z_bin(double z, int zm)
-// {
-//     double z_center = bins::ZBIN_CENTERS[zm];
-
-//     if (z_center - bins::Z_BIN_WIDTH/2 < z && z < z_center + bins::Z_BIN_WIDTH/2)
-//         return 1.;
-
-//     return 0;
-// }
-
-// This needs more thought
-// What happens when a pixel goes outside of triangular bins?
-//    Imagine our central bin is z(m) and its left most pixel is at z_ij less than z(m-1).
-//    Its behavior can be well defined in z(m) bin, simply take z_ij < z(m).
-//    However, it should be distributed to z(m-1), and there occurs the problem.
-//    Since z_ij is also on the left of z(m-1), it belongs to the wrong interpolation kernel.
-//    In other words, that pixel is not normally distributed (sum of wieghts not equal to 1).
-//    That pixel does not belong to the correct z bin. There should not be such pixels.
-double triangular_z_bin(double z, int zm)
-{
-    double z_center = bins::ZBIN_CENTERS[zm];
-    
-    if (z <= z_center)
-    {
-        if (zm == 0)    return 1.;
-        else            return (z - z_center + bins::Z_BIN_WIDTH) / bins::Z_BIN_WIDTH;
-    }
-    else
-    {
-        if (zm == bins::NUMBER_OF_Z_BINS - 1)     return 1.;
-        else                                      return (z_center + bins::Z_BIN_WIDTH - z) / bins::Z_BIN_WIDTH;
-    }
-}
-
-double redshift_binning_function(double z, int zm)
-{
-    #ifdef TOPHAT_Z_BINNING_FN
-    double zz  __attribute__((unused)) = z;
-    int    zzm __attribute__((unused)) = zm;
-    return 1.;
-    #endif
-
-    #ifdef TRIANGLE_Z_BINNING_FN
-    return triangular_z_bin(z, zm);
-    #endif
-}
-
 SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist)
 {
     LINEAR_V_ARRAY   = NULL;
@@ -213,13 +166,11 @@ double SQLookupTable::getSignalMatrixValue(double v_ij, double z_ij, int r_index
     return interp2d_signal_matrices[r_index]->evaluate(v_ij, z_ij);
 }
 
-double SQLookupTable::getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int r_index) const
+double SQLookupTable::getDerivativeMatrixValue(double v_ij, int kn, int r_index) const
 {
-    double z_result = redshift_binning_function(z_ij, zm);
-    
-    double v_result = interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)]->evaluate(v_ij);
+        double v_result = interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)]->evaluate(v_ij);
 
-    return z_result * v_result;
+    return v_result;
 }
 
 Interpolation* SQLookupTable::getDerivativeMatrixInterp(int kn, int r_index) const
