@@ -27,7 +27,7 @@ namespace bins
 {
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
     double *KBAND_EDGES, *KBAND_CENTERS;
-    double  Z_BIN_WIDTH, *ZBIN_CENTERS;
+    double  Z_BIN_WIDTH, *ZBIN_CENTERS, z0_edge;
 
     void set_up_bins(double k0, int nlin, double dklin,
                                 int nlog, double dklog,
@@ -67,13 +67,77 @@ namespace bins
 
         for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
             ZBIN_CENTERS[zm] = z0 + Z_BIN_WIDTH * zm;
+
+        z0_edge = ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.;
     }
+
 
     void clean_up_bins()
     {
         delete [] KBAND_EDGES;
         delete [] KBAND_CENTERS;
         delete [] ZBIN_CENTERS;
+    }
+
+    int findRedshiftBin(double z)
+    {
+        if (z < z0_edge)
+            return -1;
+        
+        int r = (z - z0_edge) / Z_BIN_WIDTH;
+
+        if (r >= NUMBER_OF_Z_BINS)
+            r = NUMBER_OF_Z_BINS;
+        
+        return r;        
+    }
+
+    // This needs more thought
+    // What happens when a pixel goes outside of triangular bins?
+    //    Imagine our central bin is z(m) and its left most pixel is at z_ij less than z(m-1).
+    //    Its behavior can be well defined in z(m) bin, simply take z_ij < z(m).
+    //    However, it should be distributed to z(m-1), and there occurs the problem.
+    //    Since z_ij is also on the left of z(m-1), it belongs to the wrong interpolation kernel.
+    //    In other words, that pixel is not normally distributed (sum of wieghts not equal to 1).
+    //    That pixel does not belong to the correct z bin. There should not be such pixels.
+    //    Below is my fix by keeping track of left and right bins.
+    double zBinTriangular(double z, int zm, int zc)
+    {
+        double zm_center = bins::ZBIN_CENTERS[zm], z_pivot = ZBIN_CENTERS[zc];
+        
+        if ((zm < zc && z >= z_pivot) || (zm > zc && z <= z_pivot))
+            return 0.;
+
+        // if (zm < zc)
+        //     return (z_pivot - z) / Z_BIN_WIDTH;
+        // else if (zm > zc)
+        //     return (z - z_pivot) / Z_BIN_WIDTH;
+        if (zm != zc)
+            return (zm-zc) * (z - z_pivot) / Z_BIN_WIDTH;
+        else if (z <= zm_center)
+        {
+            if (zm == 0)    return 1.;
+            else            return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
+        }
+        else
+        {
+            if (zm == NUMBER_OF_Z_BINS - 1) return 1.;
+            else                            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+        }
+    }
+
+    double redshiftBinningFunction(double z, int zm, int zc)
+    {
+        #ifdef TOPHAT_Z_BINNING_FN
+        double zz  __attribute__((unused)) = z;
+        int    zzm __attribute__((unused)) = zm,
+               zzc __attribute__((unused)) = zc;
+        return 1.;
+        #endif
+
+        #ifdef TRIANGLE_Z_BINNING_FN
+        return zBinTriangular(z, zm, zc);
+        #endif
     }
 }
 

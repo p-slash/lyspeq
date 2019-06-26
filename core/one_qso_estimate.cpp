@@ -97,12 +97,9 @@ void OneQSOEstimate::_readFromFile(const char *fname_qso)
 
 bool OneQSOEstimate::_findRedshiftBin(double median_z)
 {
-    double z0_edge = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH/2.;
     // Assign to a redshift bin according to median redshift of this chunk
-    ZBIN = (median_z - z0_edge) / bins::Z_BIN_WIDTH;
+    ZBIN = bins::findRedshiftBin(median_z);
     
-    if (median_z < z0_edge)     ZBIN = -1;
-
     if (ZBIN >= 0 && ZBIN < bins::NUMBER_OF_Z_BINS)
         BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
     else
@@ -247,7 +244,8 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
             {
                 _getVandZ(v_ij, z_ij, i, j);
                 
-                temp  = sq_private_table->getDerivativeMatrixValue(v_ij, z_ij, zm, kn, r_index);
+                temp  = sq_private_table->getDerivativeMatrixValue(v_ij, kn, r_index);
+                temp *= bins::redshiftBinningFunction(z_ij, zm, ZBIN);
                 #ifdef TOPHAT_Z_BINNING_FN
                 // When using top hat redshift binning, we need to evolve pixels
                 // to central redshift
