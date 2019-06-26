@@ -27,29 +27,18 @@ void throw_isnan(double t, const char *step)
     if (std::isnan(t))   throw err_msg;
 }
 
-int getFisherMatrixIndex(int kn, int zm)
-{
-    return kn + bins::NUMBER_OF_K_BANDS * zm;
-}
-
-void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm)
-{
-    kn = i % bins::NUMBER_OF_K_BANDS;
-    zm = i / bins::NUMBER_OF_K_BANDS;
-}
-
 // For a top hat redshift bin, only access 1 redshift bin
 // For triangular z bins, access 3 (2 for first and last z bins) redshift bins
 void setNQandFisherIndex(int &nq, int &fi, int ZBIN)
 {
     #ifdef TOPHAT_Z_BINNING_FN
     nq = 1;
-    fi = getFisherMatrixIndex(0, ZBIN);
+    fi = bins::getFisherMatrixIndex(0, ZBIN);
     #endif
 
     #ifdef TRIANGLE_Z_BINNING_FN
     nq = 3;
-    fi = getFisherMatrixIndex(0, ZBIN - 1);
+    fi = bins::getFisherMatrixIndex(0, ZBIN - 1);
 
     if (ZBIN == 0) 
     {
@@ -236,7 +225,7 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
     }
     else
     {
-        getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
+        bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
         for (int i = 0; i < DATA_SIZE; ++i)
         {

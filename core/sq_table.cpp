@@ -168,9 +168,7 @@ double SQLookupTable::getSignalMatrixValue(double v_ij, double z_ij, int r_index
 
 double SQLookupTable::getDerivativeMatrixValue(double v_ij, int kn, int r_index) const
 {
-        double v_result = interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)]->evaluate(v_ij);
-
-    return v_result;
+    return interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)]->evaluate(v_ij);
 }
 
 Interpolation* SQLookupTable::getDerivativeMatrixInterp(int kn, int r_index) const

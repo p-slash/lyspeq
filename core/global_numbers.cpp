@@ -88,7 +88,7 @@ namespace bins
 
         if (r >= NUMBER_OF_Z_BINS)
             r = NUMBER_OF_Z_BINS;
-        
+
         return r;        
     }
 
@@ -138,6 +138,17 @@ namespace bins
         #ifdef TRIANGLE_Z_BINNING_FN
         return zBinTriangular(z, zm, zc);
         #endif
+    }
+
+    int getFisherMatrixIndex(int kn, int zm)
+    {
+        return kn + bins::NUMBER_OF_K_BANDS * zm;
+    }
+
+    void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm)
+    {
+        kn = i % bins::NUMBER_OF_K_BANDS;
+        zm = i / bins::NUMBER_OF_K_BANDS;
     }
 }
 

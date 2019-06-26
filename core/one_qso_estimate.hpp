@@ -5,9 +5,6 @@
 #include <gsl/gsl_vector.h>
 #include <string>
 
-int  getFisherMatrixIndex(int kn, int zm);
-void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);
-
 // This object creates and computes C, S, Q, Q-slash matrices,
 // as well as a power spectrum estimate and a fisher matrix for individual quasar spectrum.
 // Matrices are not stored indefinitely. They are allocated when needed and deleted when done.
