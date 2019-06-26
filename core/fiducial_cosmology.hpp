@@ -33,7 +33,7 @@ namespace conv
     void convertLambdaToRedshift(double *lambda, int size);
 
     void convertFluxToDeltaf(double *flux, double *noise, int size);
-    void convertFluxToDeltafLee12(const double *z, double *flux, double *noise, int size);
+    void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size);
 }
 
 namespace fidcosmo

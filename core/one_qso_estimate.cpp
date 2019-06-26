@@ -148,15 +148,17 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     isCovInverted = false;
     _readFromFile(fname_qso);
 
-    // Convert flux to fluctuation around the mean flux
-    conv::convertFluxToDeltaf(flux_array, noise_array, DATA_SIZE);
+    // Covert from wavelength to velocity units around median wavelength
+    conv::convertLambdaToVelocity(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
+
+    if (conv::USE_FID_LEE12_MEAN_FLUX) // Use fiducial mean flux from Lee12
+        conv::convertFluxToDeltafLee12(lambda_array, flux_array, noise_array, DATA_SIZE);
+    else    // Convert flux to fluctuation around the mean flux
+        conv::convertFluxToDeltaf(flux_array, noise_array, DATA_SIZE);
     
     // Keep noise as error squared (variance)
     for (int i = 0; i < DATA_SIZE; ++i)
         noise_array[i] *= noise_array[i];
-
-    // Covert from wavelength to velocity units around median wavelength
-    conv::convertLambdaToVelocity(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
 
     LOG::LOGGER.IO("Length of v is %.1f\n"
                    "Median redshift: %.2f\n"
@@ -189,7 +191,7 @@ void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
 void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
 {
     #pragma omp atomic update
-    mytime::number_of_times_called_setsfid++;
+    ++mytime::number_of_times_called_setsfid;
 
     double t = mytime::get_time();
     double v_ij, z_ij, temp;
@@ -200,9 +202,9 @@ void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
     }
     else
     {
-        for (int i = 0; i < DATA_SIZE; i++)
+        for (int i = 0; i < DATA_SIZE; ++i)
         {
-            for (int j = i; j < DATA_SIZE; j++)
+            for (int j = i; j < DATA_SIZE; ++j)
             {
                 _getVandZ(v_ij, z_ij, i, j);
 
@@ -223,7 +225,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
 void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
 {
     #pragma omp atomic update
-    mytime::number_of_times_called_setq++;
+    ++mytime::number_of_times_called_setq;
 
     double t = mytime::get_time(), t_interp;
     int kn, zm;
@@ -239,9 +241,9 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
     {
         getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
-        for (int i = 0; i < DATA_SIZE; i++)
+        for (int i = 0; i < DATA_SIZE; ++i)
         {
-            for (int j = i; j < DATA_SIZE; j++)
+            for (int j = i; j < DATA_SIZE; ++j)
             {
                 _getVandZ(v_ij, z_ij, i, j);
                 
@@ -280,7 +282,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     else
         gsl_matrix_set_zero(covariance_matrix);
 
-    for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
+    for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
@@ -352,7 +354,7 @@ void OneQSOEstimate::_getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
     double t = mytime::get_time();
     
     // Now compute Fisher Matrix
-    for (int j_kz = i_kz; j_kz < N_Q_MATRICES; j_kz++)
+    for (int j_kz = i_kz; j_kz < N_Q_MATRICES; ++j_kz)
     {
         _setQiMatrix(Q_jkz_matrix, j_kz);
 
@@ -383,7 +385,7 @@ void OneQSOEstimate::computePSbeforeFvector()
 
     double temp_bk, temp_tk = 0, temp_d;
 
-    for (int i_kz = 0; i_kz < N_Q_MATRICES; i_kz++)
+    for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
         // Set derivative matrix ikz
         _setQiMatrix(Q_ikz_matrix, i_kz);
@@ -426,7 +428,7 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_
 
     // Preload last nqj_eff matrices
     // 0 is the last matrix
-    for (int j_kz = 0; j_kz < nqj_eff; j_kz++)
+    for (int j_kz = 0; j_kz < nqj_eff; ++j_kz)
         _setQiMatrix(stored_qj[j_kz], N_Q_MATRICES - j_kz - 1);
     
     if (nqj_eff > 0)    isQjSet = true;
@@ -468,10 +470,10 @@ void OneQSOEstimate::_allocateMatrices()
 
     covariance_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
 
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 2; ++i)
         temp_matrix[i] = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
     
-    for (int i = 0; i < nqj_eff; i++)
+    for (int i = 0; i < nqj_eff; ++i)
         stored_qj[i] = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
     
     if (isSfidStored)
@@ -488,10 +490,10 @@ void OneQSOEstimate::_freeMatrices()
 
     gsl_matrix_free(covariance_matrix);
 
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 2; ++i)
         gsl_matrix_free(temp_matrix[i]);
     
-    for (int i = 0; i < nqj_eff; i++)
+    for (int i = 0; i < nqj_eff; ++i)
         gsl_matrix_free(stored_qj[i]);
 
     if (isSfidStored)
