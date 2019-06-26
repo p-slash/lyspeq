@@ -142,6 +142,11 @@ void print_build_specifics()
     #undef HIGH_K_TXT
 }
 
+void print_config_specifics()
+{
+
+}
+
 // Pass NULL for not needed variables!
 void read_config_file(  const char *FNAME_CONFIG,
                         char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,

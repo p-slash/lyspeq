@@ -75,6 +75,7 @@ namespace mytime
 
 
 void print_build_specifics();
+void print_config_specifics();
 
 void read_config_file(  const char *FNAME_CONFIG, 
                         char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
