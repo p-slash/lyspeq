@@ -27,9 +27,13 @@ namespace pd13
 namespace conv
 {
     extern bool USE_LOG_V;
-    void convertFluxToDeltaf(double *flux, double *noise, int size);
-    // void convert_flux2deltaf_becker(const double *lambda, double *flux, double *noise, int size);
+    extern bool USE_FID_LEE12_MEAN_FLUX;
+    
     void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size);
+    void convertLambdaToRedshift(double *lambda, int size);
+
+    void convertFluxToDeltaf(double *flux, double *noise, int size);
+    void convertFluxToDeltafLee12(const double *z, double *flux, double *noise, int size);
 }
 
 namespace fidcosmo

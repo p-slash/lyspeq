@@ -69,7 +69,34 @@ namespace pd13
 // Conversion functions
 namespace conv
 {
-    bool USE_LOG_V;
+    bool USE_LOG_V = false, USE_FID_LEE12_MEAN_FLUX = false;
+    
+    void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size)
+    {
+        double median_lambda = lambda[size / 2];
+    
+        median_z = median_lambda / LYA_REST - 1.;
+
+        if (USE_LOG_V)
+        {
+            for (int i = 0; i < size; ++i)
+                v_array[i] = SPEED_OF_LIGHT * log(lambda[i]/median_lambda);
+        }
+        else
+        {
+            for (int i = 0; i < size; ++i)
+                v_array[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(median_lambda / lambda[i]));
+        }
+    }
+
+    void convertLambdaToRedshift(double *lambda, int size)
+    {
+        for (int i = 0; i < size; ++i)
+        {
+            lambda[i] /= LYA_REST;
+            lambda[i] -= 1.;
+        }
+    }
 
     double meanFluxBecker13(double z)
     {
@@ -87,32 +114,25 @@ namespace conv
     {
         double mean_f = 0.;
 
-        for (int i = 0; i < size; i++)
+        for (int i = 0; i < size; ++i)
             mean_f += flux[i] / size;
 
-        for (int i = 0; i < size; i++)
+        for (int i = 0; i < size; ++i)
         {
             flux[i]   = (flux[i] / mean_f) - 1.;
             noise[i] /= mean_f;
         }
     }
 
-    // void convert_flux2deltaf_becker(const double *lambda, double *flux, double *noise, int size);
-    void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size)
+    void convertFluxToDeltafLee12(const double *z, double *flux, double *noise, int size)
     {
-        double median_lambda = lambda[size / 2];
-    
-        median_z = median_lambda / LYA_REST - 1.;
+        double mean_f;
 
-        if (USE_LOG_V)
+        for (int i = 0; i < size; ++i)
         {
-            for (int i = 0; i < size; i++)
-                v_array[i] = SPEED_OF_LIGHT * log(lambda[i]/median_lambda);
-        }
-        else
-        {
-            for (int i = 0; i < size; i++)
-                v_array[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(median_lambda / lambda[i]));
+            mean_f    = meanFluxLee12(z[i]);
+            flux[i]   = (flux[i] / mean_f) - 1.;
+            noise[i] /= mean_f;
         }
     }
 }
