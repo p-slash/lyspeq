@@ -121,14 +121,6 @@ void print_build_specifics()
     #define BINNING_SHAPE "ERROR NOT DEFINED"
     #endif
 
-    #if defined(DEBUG_FIT_FUNCTION)
-    #define FITTING_FUNC "Debug"
-    #elif defined(PD13_FIT_FUNCTION)
-    #define FITTING_FUNC "PD13"
-    #else
-    #define FITTING_FUNC "ERROR NOT DEFINED"
-    #endif
-
     #define tostr(a) #a
     #define tovstr(a) tostr(a)
     
@@ -141,14 +133,12 @@ void print_build_specifics()
     LOG::LOGGER.STD("This version is build by the following options:\n");
     LOG::LOGGER.STD("1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
     LOG::LOGGER.STD("2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
-    LOG::LOGGER.STD("Fitting function: %s\n", FITTING_FUNC);
     LOG::LOGGER.STD("Redshift binning shape: %s\n", BINNING_SHAPE);
     LOG::LOGGER.STD("Last k bin: %s\n", HIGH_K_TXT);
 
     #undef tostr
     #undef tovstr
     #undef BINNING_SHAPE
-    #undef FITTING_FUNC
     #undef HIGH_K_TXT
 }
 
