@@ -204,7 +204,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
-        getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         fscanf(tmp_fit_file, "%le\n", &fit_values[i_kz]);
 
@@ -340,7 +340,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
-        getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         if (Z_BIN_COUNTS[zm+1] == 0)  continue;
 
@@ -422,7 +422,7 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
-        getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         if (Z_BIN_COUNTS[zm+1] == 0)  continue;
 
@@ -465,7 +465,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
         {
             if (Z_BIN_COUNTS[zm] == 0)  continue;
 
-            i_kz = getFisherMatrixIndex(kn, zm-1);
+            i_kz = bins::getFisherMatrixIndex(kn, zm-1);
 
             LOG::LOGGER.STD(" %.3e |", pmn_estimate_vector->data[i_kz] + powerSpectrumFiducial(kn, zm-1));
         }
