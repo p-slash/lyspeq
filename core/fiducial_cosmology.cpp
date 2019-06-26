@@ -115,23 +115,26 @@ namespace conv
         double mean_f = 0.;
 
         for (int i = 0; i < size; ++i)
-            mean_f += flux[i] / size;
+            mean_f += flux[i];
+        mean_f /= size;
 
         for (int i = 0; i < size; ++i)
         {
-            flux[i]   = (flux[i] / mean_f) - 1.;
+            flux[i]  /= mean_f;
+            flux[i]  -= 1.;
             noise[i] /= mean_f;
         }
     }
 
-    void convertFluxToDeltafLee12(const double *z, double *flux, double *noise, int size)
+    void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size)
     {
         double mean_f;
 
         for (int i = 0; i < size; ++i)
         {
-            mean_f    = meanFluxLee12(z[i]);
-            flux[i]   = (flux[i] / mean_f) - 1.;
+            mean_f    = meanFluxLee12(lambda[i]/LYA_REST-1);
+            flux[i]  /= mean_f;
+            flux[i]  -= 1.;
             noise[i] /= mean_f;
         }
     }
