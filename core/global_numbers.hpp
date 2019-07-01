@@ -52,6 +52,13 @@ namespace bins
                      double z0);
     void clean_up_bins();
 
+    // returns -1 if below, NUMBER_OF_Z_BINS if above
+    int    findRedshiftBin(double z);
+    double redshiftBinningFunction(double z, int zm, int zc);
+
+    int  getFisherMatrixIndex(int kn, int zm);
+    void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);
+    
     #ifdef LAST_K_EDGE
     #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;
     #else
