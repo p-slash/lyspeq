@@ -47,10 +47,10 @@ namespace bins
     extern double *KBAND_EDGES, *KBAND_CENTERS;
     extern double Z_BIN_WIDTH, *ZBIN_CENTERS;
 
-    void set_up_bins(double k0, int nlin, double dklin,
+    void setUpBins(double k0, int nlin, double dklin,
                             int nlog, double dklog,
                      double z0);
-    void clean_up_bins();
+    void cleanUpBins();
 
     // returns -1 if below, NUMBER_OF_Z_BINS if above
     int    findRedshiftBin(double z);
@@ -76,19 +76,19 @@ namespace mytime
     extern double time_spent_on_q_interp, time_spent_on_q_copy;
     extern long   number_of_times_called_setq, number_of_times_called_setsfid;
 
-    double get_time(); // in minutes
-    void printf_time_spent_details();
+    double getTime(); // in minutes
+    void printfTimeSpentDetails();
 }
 
 
-void print_build_specifics();
-void print_config_specifics();
+void printBuildSpecifics();
+void printConfigSpecifics();
 
-void read_config_file(  const char *FNAME_CONFIG, 
-                        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
-                        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
-                        int *NUMBER_OF_ITERATIONS,
-                        int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V);
+void readConfigFile(const char *FNAME_CONFIG, 
+                    char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
+                    char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
+                    int *NUMBER_OF_ITERATIONS,
+                    int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V);
 
 
 #endif

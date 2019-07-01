@@ -49,17 +49,18 @@ int main(int argc, char const *argv[])
     try
     {
         // Read variables from config file and set up bins.
-        read_config_file(   FNAME_CONFIG, \
-                            NULL, FNAME_RLIST, OUTPUT_DIR, NULL, \
-                            NULL, OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, \
-                            NULL, \
-                            &Nv, &Nz, &PIXEL_WIDTH, &LENGTH_V);
+        readConfigFile( FNAME_CONFIG, 
+                        NULL, FNAME_RLIST, OUTPUT_DIR, NULL, 
+                        NULL, OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, 
+                        NULL, 
+                        &Nv, &Nz, &PIXEL_WIDTH, &LENGTH_V);
 
         LOG::LOGGER.open(OUTPUT_DIR);
         if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
         
-        print_build_specifics();
-
+        printBuildSpecifics();
+        printConfigSpecifics();
+        
         gsl_set_error_handler_off();
 
         // Read R values
@@ -109,7 +110,7 @@ int main(int argc, char const *argv[])
         #pragma omp for nowait
         for (int r = 0; r < NUMBER_OF_Rs; r++)
         {
-            time_spent_table_sfid = mytime::get_time();
+            time_spent_table_sfid = mytime::getTime();
 
             // Convert integer FWHM to 1 sigma km/s
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -146,7 +147,7 @@ int main(int argc, char const *argv[])
 
             signal_table.writeData(big_temp_array);
 
-            time_spent_table_sfid = mytime::get_time() - time_spent_table_sfid;
+            time_spent_table_sfid = mytime::getTime() - time_spent_table_sfid;
 
             LOG::LOGGER.STD("T:%d/%d - Time spent on fiducial signal matrix table R %d is %.2f mins.\n", \
                     t_rank, numthreads, R_VALUES[r], time_spent_table_sfid);
@@ -167,7 +168,7 @@ DERIVATIVE:
         #pragma omp for
         for (int r = 0; r < NUMBER_OF_Rs; r++)
         {
-            time_spent_table_q = mytime::get_time();
+            time_spent_table_q = mytime::getTime();
 
             win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
             LOG::LOGGER.STD("T:%d/%d - Creating look up tables for derivative signal matrices. R = %d : %.2f km/s.\n", \
@@ -204,7 +205,7 @@ DERIVATIVE:
                 derivative_signal_table.writeData(big_temp_array);
             }
             
-            time_spent_table_q = mytime::get_time() - time_spent_table_q;
+            time_spent_table_q = mytime::getTime() - time_spent_table_q;
             LOG::LOGGER.STD("T:%d/%d - Time spent on derivative matrix table R %d is %.2f mins.\n", \
                     t_rank, numthreads, R_VALUES[r], time_spent_table_q);
         }
@@ -213,7 +214,7 @@ DERIVATIVE:
 
         delete [] big_temp_array;
 }
-        bins::clean_up_bins();       
+        bins::cleanUpBins();       
     }
     catch (std::exception& e)
     {
