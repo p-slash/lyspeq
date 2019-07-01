@@ -210,7 +210,8 @@ bindir="${exec_prefix}/bin"
 srcdir="."
 set_gsl_inc_lib
 
-for i in "$@"
+CONFIGURE_ARGS="$@"
+for i in "${CONFIGURE_ARGS}"
 do
     case $i in
         --prefix=* | --exec_prefix=*)
@@ -328,5 +329,5 @@ esac
 
 user_overwrite_defined_variables
 save_makefile
-echo "./configure $@" > config.status
+echo "./configure ${CONFIGURE_ARGS}" > config.status
 
