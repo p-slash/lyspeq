@@ -17,8 +17,6 @@ function save_makefile() {
     echo "srcdir=${srcdir}" >> Makefile
     cat ${srcdir}/Makefile.in >> Makefile
     echo "Makefile set. Run make to compile."
-    
-    exit 0
 }
 
 function user_overwrite_defined_variables()
