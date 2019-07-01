@@ -144,7 +144,13 @@ void print_build_specifics()
 
 void print_config_specifics()
 {
-
+    LOG::LOGGER.STD("Using following configuration parameters:\n"
+        "Fiducial Signal Baseline: %s"
+        "Velocity Spacing: %s"
+        "Fiducial Flux: %s", 
+        TURN_OFF_SFID ? "OFF" : "ON",
+        conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
+        conv::USE_FID_LEE12_MEAN_FLUX ? "Lee12" : "OFF");
 }
 
 // Pass NULL for not needed variables!
