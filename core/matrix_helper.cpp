@@ -11,9 +11,9 @@ namespace mxhelp
         double temp;
         int size = A->size1;
 
-        for (int i = 1; i < size; i++)
+        for (int i = 1; i < size; ++i)
         {
-            for (int j = 0; j < i; j++)
+            for (int j = 0; j < i; ++j)
             {
                 temp = gsl_matrix_get(A, j, i);
                 gsl_matrix_set(A, i, j, temp);
@@ -27,9 +27,9 @@ namespace mxhelp
 
         double result = 0.;
 
-        for (int i = 0; i < size; i++)
+        for (int i = 0; i < size; ++i)
         {
-            for (int j = 0; j < size; j++)
+            for (int j = 0; j < size; ++j)
             {
                 result += gsl_matrix_get(A, i, j) * gsl_matrix_get(B, j, i);
             }
@@ -149,9 +149,9 @@ namespace mxhelp
     {
         int nrows = m->size1, ncols = m->size2;
 
-        for (int i = 0; i < nrows; i++)
+        for (int i = 0; i < nrows; ++i)
         {
-            for (int j = 0; j < ncols; j++)
+            for (int j = 0; j < ncols; ++j)
             {
                 printf("%le ", gsl_matrix_get(m, i, j));
             }
@@ -169,9 +169,9 @@ namespace mxhelp
 
         fprintf(toWrite, "%d %d\n", nrows, ncols);
         
-        for (int i = 0; i < nrows; i++)
+        for (int i = 0; i < nrows; ++i)
         {
-            for (int j = 0; j < ncols; j++)
+            for (int j = 0; j < ncols; ++j)
             {
                 fprintf(toWrite, "%le ", gsl_matrix_get(m, i, j));
             }

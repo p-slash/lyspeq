@@ -314,8 +314,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         total_time_1it  = mytime::getTime() - total_time_1it;
         total_time     += total_time_1it;
-        LOG::LOGGER.STD("This iteration took %.1f minutes. ", total_time_1it);
-        LOG::LOGGER.STD("Elapsed time so far is %.1f minutes.\n", total_time);
+        LOG::LOGGER.STD("This iteration took %.1f minutes. Elapsed time so far is %.1f minutes.\n", 
+            total_time_1it, total_time);
         mytime::printfTimeSpentDetails();
 
         if (hasConverged())
@@ -336,7 +336,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     bool bool_converged = true;
     int kn, zm;
 
-    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; i_kz++)
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
@@ -369,7 +369,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     r = 0;
 
-    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; i_kz++)
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
         
@@ -413,12 +413,12 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
     fprintf(toWrite, "%d %d\n", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
     #endif
 
-    for (zm = 0; zm <= bins::NUMBER_OF_Z_BINS+1; zm++)
+    for (zm = 0; zm <= bins::NUMBER_OF_Z_BINS+1; ++zm)
         fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
 
     fprintf(toWrite, "\n");
 
-    for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; i_kz++)
+    for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
@@ -451,7 +451,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 {
     int i_kz;
 
-    for (int zm = 1; zm <= bins::NUMBER_OF_Z_BINS; zm++)
+    for (int zm = 1; zm <= bins::NUMBER_OF_Z_BINS; ++zm)
     {
         if (Z_BIN_COUNTS[zm] == 0)  continue;
 
@@ -459,9 +459,9 @@ void OneDQuadraticPowerEstimate::printfSpectra()
     }
     LOG::LOGGER.STD("\n");
     
-    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; kn++)
+    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
     {
-        for (int zm = 1; zm <= bins::NUMBER_OF_Z_BINS; zm++)
+        for (int zm = 1; zm <= bins::NUMBER_OF_Z_BINS; ++zm)
         {
             if (Z_BIN_COUNTS[zm] == 0)  continue;
 

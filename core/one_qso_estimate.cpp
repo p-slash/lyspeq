@@ -58,8 +58,6 @@ void OneQSOEstimate::_readFromFile(const char *fname_qso)
 {
     qso_sp_fname = fname_qso;
 
-    LOG::LOGGER.IO("Reading from %s.\n", qso_sp_fname.c_str());
-
     // Construct and read data arrays
     QSOFile qFile(qso_sp_fname.c_str());
 
@@ -67,9 +65,8 @@ void OneQSOEstimate::_readFromFile(const char *fname_qso)
 
     qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
 
-    LOG::LOGGER.IO("Data size is %d\n", DATA_SIZE);
-    LOG::LOGGER.IO("Pixel Width is %.1f\n", DV_KMS);
-    LOG::LOGGER.IO("Spectral Resolution is %d.\n", SPECT_RES_FWHM);
+    LOG::LOGGER.IO("Reading from %s.\n" "Data size is %d\n" "Pixel Width is %.1f\n" "Spectral Resolution is %d.\n", 
+        qso_sp_fname.c_str(), DATA_SIZE, DV_KMS, SPECT_RES_FWHM);
 
     lambda_array    = new double[DATA_SIZE];
     velocity_array  = new double[DATA_SIZE];
@@ -123,7 +120,6 @@ void OneQSOEstimate::_setStoredMatrices()
 
     LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
     if (isSfidStored)   LOG::LOGGER.IO("Fiducial signal matrix is stored.\n");
-    fflush(stdout);
 
     isQjSet   = false;
     isSfidSet = false;
@@ -146,9 +142,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     for (int i = 0; i < DATA_SIZE; ++i)
         noise_array[i] *= noise_array[i];
 
-    LOG::LOGGER.IO("Length of v is %.1f\n"
-                   "Median redshift: %.2f\n"
-                   "Redshift range: %.2f--%.2f\n", 
+    LOG::LOGGER.IO("Length of v is %.1f\n" "Median redshift: %.2f\n" "Redshift range: %.2f--%.2f\n", 
                    velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT,
                    lambda_array[0]/LYA_REST-1, lambda_array[DATA_SIZE-1]/LYA_REST-1);
 
