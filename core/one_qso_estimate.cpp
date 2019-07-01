@@ -179,7 +179,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
     #pragma omp atomic update
     ++mytime::number_of_times_called_setsfid;
 
-    double t = mytime::get_time();
+    double t = mytime::getTime();
     double v_ij, z_ij, temp;
 
     if (isSfidSet)
@@ -202,7 +202,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
         mxhelp::copyUpperToLower(sm);
     }
     
-    t = mytime::get_time() - t;
+    t = mytime::getTime() - t;
 
     #pragma omp atomic update
     mytime::time_spent_on_set_sfid += t;
@@ -213,7 +213,7 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
     #pragma omp atomic update
     ++mytime::number_of_times_called_setq;
 
-    double t = mytime::get_time(), t_interp;
+    double t = mytime::getTime(), t_interp;
     int kn, zm;
     double v_ij, z_ij, temp;
 
@@ -244,12 +244,12 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
             }
         }
 
-        t_interp = mytime::get_time() - t;
+        t_interp = mytime::getTime() - t;
 
         mxhelp::copyUpperToLower(qi);
     }
 
-    t = mytime::get_time() - t; 
+    t = mytime::getTime() - t; 
 
     #pragma omp atomic update
     mytime::time_spent_set_qs += t;
@@ -294,7 +294,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 // Then swap the pointer with covariance matrix
 void OneQSOEstimate::invertCovarianceMatrix()
 {
-    double t = mytime::get_time();
+    double t = mytime::getTime();
 
     inverse_covariance_matrix  = temp_matrix[0];
 
@@ -305,7 +305,7 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
     isCovInverted = true;
 
-    t = mytime::get_time() - t;
+    t = mytime::getTime() - t;
 
     #pragma omp atomic update
     mytime::time_spent_on_c_inv += t;
@@ -313,7 +313,7 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
 void OneQSOEstimate::_getWeightedMatrix(gsl_matrix *m)
 {
-    double t = mytime::get_time();
+    double t = mytime::getTime();
 
     //C-1 . Q
     cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper,
@@ -327,7 +327,7 @@ void OneQSOEstimate::_getWeightedMatrix(gsl_matrix *m)
                  temp_matrix[1]->data, DATA_SIZE,
                  0, m->data, DATA_SIZE);
 
-    t = mytime::get_time() - t;
+    t = mytime::getTime() - t;
 
     #pragma omp atomic update
     mytime::time_spent_set_modqs += t;
@@ -338,7 +338,7 @@ void OneQSOEstimate::_getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
     double temp;
     gsl_matrix *Q_jkz_matrix = temp_matrix[1];
 
-    double t = mytime::get_time();
+    double t = mytime::getTime();
     
     // Now compute Fisher Matrix
     for (int j_kz = i_kz; j_kz < N_Q_MATRICES; ++j_kz)
@@ -352,7 +352,7 @@ void OneQSOEstimate::_getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
         gsl_matrix_set(fisher_matrix, j_kz + fisher_index_start, i_kz + fisher_index_start, temp);
     }
 
-    t = mytime::get_time() - t;
+    t = mytime::getTime() - t;
 
     #pragma omp atomic update
     mytime::time_spent_set_fisher += t;

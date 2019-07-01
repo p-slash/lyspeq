@@ -29,7 +29,7 @@ namespace bins
     double *KBAND_EDGES, *KBAND_CENTERS;
     double  Z_BIN_WIDTH, *ZBIN_CENTERS, z0_edge;
 
-    void set_up_bins(double k0, int nlin, double dklin,
+    void setUpBins(double k0, int nlin, double dklin,
                                 int nlog, double dklog,
                      double z0)
     {
@@ -71,8 +71,7 @@ namespace bins
         z0_edge = ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.;
     }
 
-
-    void clean_up_bins()
+    void cleanUpBins()
     {
         delete [] KBAND_EDGES;
         delete [] KBAND_CENTERS;
@@ -161,7 +160,7 @@ namespace mytime
     double   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
     long     number_of_times_called_setq = 0, number_of_times_called_setsfid = 0;
 
-    double get_time()
+    double getTime()
     {
         #if defined(_OPENMP)
         return omp_get_wtime() / 60.;
@@ -171,7 +170,7 @@ namespace mytime
         #endif
     }
 
-    void printf_time_spent_details()
+    void printfTimeSpentDetails()
     {
         LOG::LOGGER.STD("Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
         LOG::LOGGER.STD("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
@@ -186,7 +185,7 @@ namespace mytime
     }
 }
 
-void print_build_specifics()
+void printBuildSpecifics()
 {
     #if defined(TOPHAT_Z_BINNING_FN)
     #define BINNING_SHAPE "Top Hat"
@@ -217,7 +216,7 @@ void print_build_specifics()
     #undef HIGH_K_TXT
 }
 
-void print_config_specifics()
+void printConfigSpecifics()
 {
     LOG::LOGGER.STD("Using following configuration parameters:\n"
         "Fiducial Signal Baseline: %s"
@@ -229,7 +228,7 @@ void print_config_specifics()
 }
 
 // Pass NULL for not needed variables!
-void read_config_file(  const char *FNAME_CONFIG,
+void readConfigFile(  const char *FNAME_CONFIG,
                         char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
                         char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
                         int *NUMBER_OF_ITERATIONS,
@@ -305,7 +304,7 @@ void read_config_file(  const char *FNAME_CONFIG,
     if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
 
     // Redshift and wavenumber bins are constructed
-    bins::set_up_bins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
+    bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
 }
 
 

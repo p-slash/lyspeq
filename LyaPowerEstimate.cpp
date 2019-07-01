@@ -47,11 +47,11 @@ int main(int argc, char const *argv[])
     try
     {
         // Read variables from config file and set up bins.
-        read_config_file(   FNAME_CONFIG, \
-                            FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR, \
-                            OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, \
-                            &NUMBER_OF_ITERATIONS, \
-                            NULL, NULL, NULL, NULL);
+        readConfigFile( FNAME_CONFIG,
+                        FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR,
+                        OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q,
+                        &NUMBER_OF_ITERATIONS,
+                        NULL, NULL, NULL, NULL);
     }
     catch (std::exception& e)
     {
@@ -65,13 +65,14 @@ int main(int argc, char const *argv[])
         LOG::LOGGER.open(OUTPUT_DIR);
         if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
     
-        print_build_specifics();
+        printBuildSpecifics();
+        printConfigSpecifics();
     }
     catch (std::exception& e)
     {   
         fprintf(stderr, "Error while logging contructed.\n");
         fprintf(stderr, "%s\n", e.what());
-        bins::clean_up_bins();
+        bins::cleanUpBins();
         return -1;
     }
 
@@ -95,7 +96,7 @@ int main(int argc, char const *argv[])
     {
         fprintf(stderr, "Error while SQ Table contructed.\n");
         fprintf(stderr, "%s\n", e.what());
-        bins::clean_up_bins();
+        bins::cleanUpBins();
         return -1;
     }
     
@@ -107,7 +108,7 @@ int main(int argc, char const *argv[])
     {
         fprintf(stderr, "Error while Quadratic Estimator contructed.\n");
         fprintf(stderr, "%s\n", e.what());
-        bins::clean_up_bins();
+        bins::cleanUpBins();
         #pragma omp parallel
         {
             delete sq_private_table;
@@ -148,7 +149,7 @@ int main(int argc, char const *argv[])
         delete sq_private_table;
     }
 
-    bins::clean_up_bins();
+    bins::cleanUpBins();
 
     return r;
 }

@@ -114,7 +114,7 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 {
-    double t = mytime::get_time();
+    double t = mytime::getTime();
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
 
@@ -127,7 +127,7 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
     isFisherInverted = true;
 
-    t = mytime::get_time() - t;
+    t = mytime::getTime() - t;
     mytime::time_spent_on_f_inv += t;
 }
 
@@ -218,7 +218,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
 void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads)
 {
     LOG::LOGGER.STD("Load balancing for %d threads available.\n", maxthreads);
-    double load_balance_time = mytime::get_time();
+    double load_balance_time = mytime::getTime();
 
     double *bucket_time = new double[maxthreads]();
 
@@ -238,7 +238,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<qso_computation_time
     LOG::LOGGER.STD("\n");
 
     delete [] bucket_time;
-    load_balance_time = mytime::get_time() - load_balance_time;
+    load_balance_time = mytime::getTime() - load_balance_time;
     
     LOG::LOGGER.STD("Load balancing took %.2f min.\n", load_balance_time);
 }
@@ -257,14 +257,14 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     {
         LOG::LOGGER.STD("Iteration number %d of %d.\n", i+1, number_of_iterations);
         
-        total_time_1it = mytime::get_time();
+        total_time_1it = mytime::getTime();
     
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
 #pragma omp parallel
 {
-        double thread_time = mytime::get_time();
+        double thread_time = mytime::getTime();
 
         gsl_vector *local_pmn_before_fisher_estimate_vs   = gsl_vector_calloc(bins::TOTAL_KZ_BINS);
         gsl_matrix *local_fisher_ms                       = gsl_matrix_calloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
@@ -276,7 +276,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         for (std::vector<qso_computation_time*>::iterator it = local_que->begin(); it != local_que->end(); ++it)
             (*it)->qso->oneQSOiteration(powerspectra_fits, local_pmn_before_fisher_estimate_vs, local_fisher_ms);
 
-        thread_time = mytime::get_time() - thread_time;
+        thread_time = mytime::getTime() - thread_time;
 
         LOG::LOGGER.STD("Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n",
                 t_rank, numthreads, thread_time);
@@ -312,11 +312,11 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, i+1);
         writeFisherMatrix(buf);
 
-        total_time_1it  = mytime::get_time() - total_time_1it;
+        total_time_1it  = mytime::getTime() - total_time_1it;
         total_time     += total_time_1it;
         LOG::LOGGER.STD("This iteration took %.1f minutes. ", total_time_1it);
         LOG::LOGGER.STD("Elapsed time so far is %.1f minutes.\n", total_time);
-        mytime::printf_time_spent_details();
+        mytime::printfTimeSpentDetails();
 
         if (hasConverged())
         {
