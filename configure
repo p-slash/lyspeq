@@ -210,8 +210,8 @@ bindir="${exec_prefix}/bin"
 srcdir="."
 set_gsl_inc_lib
 
-CONFIGURE_ARGS="$@"
-for i in "${CONFIGURE_ARGS}"
+CONFIGURE_ARGS="$*"
+for i in "$@"
 do
     case $i in
         --prefix=* | --exec_prefix=*)
