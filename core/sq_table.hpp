@@ -55,7 +55,7 @@ public:
     int findSpecResIndex(int spec_res) const;
 
     double getSignalMatrixValue(double v_ij, double z_ij, int r_index) const;
-    double getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int r_index) const;
+    double getDerivativeMatrixValue(double v_ij, int kn, int r_index) const;
 
     Interpolation*   getDerivativeMatrixInterp(int kn, int r_index) const;
     Interpolation2D* getSignalMatrixInterp(int r_index) const;

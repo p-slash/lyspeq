@@ -78,18 +78,12 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
     {
         qso_estimators[q].qso = new OneQSOEstimate(fpaths[q].c_str());
 
-        int temp_qso_zbin = qso_estimators[q].qso->ZBIN;
-
-        // See if qso does not belong to any redshift
-        if (temp_qso_zbin < 0)                      temp_qso_zbin = -1;
-        else if (temp_qso_zbin >= bins::NUMBER_OF_Z_BINS) temp_qso_zbin = bins::NUMBER_OF_Z_BINS;
-        
-        if (temp_qso_zbin == -1 || temp_qso_zbin == bins::NUMBER_OF_Z_BINS)
+        if (qso_estimators[q].qso->ZBIN == -1 || qso_estimators[q].qso->ZBIN == bins::NUMBER_OF_Z_BINS)
             qso_estimators[q].est_cpu_time = 0;
         else
             qso_estimators[q].est_cpu_time = pow((double)(qso_estimators[q].qso->DATA_SIZE), 3);
 
-        Z_BIN_COUNTS[temp_qso_zbin + 1]++;
+        Z_BIN_COUNTS[qso_estimators[q].qso->ZBIN + 1]++;
     }
     
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
@@ -210,7 +204,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
-        getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         fscanf(tmp_fit_file, "%le\n", &fit_values[i_kz]);
 
@@ -346,7 +340,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
-        getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         if (Z_BIN_COUNTS[zm+1] == 0)  continue;
 
@@ -428,7 +422,7 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
-        getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         if (Z_BIN_COUNTS[zm+1] == 0)  continue;
 
@@ -471,7 +465,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
         {
             if (Z_BIN_COUNTS[zm] == 0)  continue;
 
-            i_kz = getFisherMatrixIndex(kn, zm-1);
+            i_kz = bins::getFisherMatrixIndex(kn, zm-1);
 
             LOG::LOGGER.STD(" %.3e |", pmn_estimate_vector->data[i_kz] + powerSpectrumFiducial(kn, zm-1));
         }
