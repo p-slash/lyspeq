@@ -97,7 +97,7 @@ namespace bins
     //    Its behavior can be well defined in z(m) bin, simply take z_ij < z(m).
     //    However, it should be distributed to z(m-1), and there occurs the problem.
     //    Since z_ij is also on the left of z(m-1), it belongs to the wrong interpolation kernel.
-    //    In other words, that pixel is not normally distributed (sum of wieghts not equal to 1).
+    //    In other words, that pixel is not normally distributed (sum of weights not equal to 1).
     //    That pixel does not belong to the correct z bin. There should not be such pixels.
     //    Below is my fix by keeping track of left and right bins.
     double zBinTriangular(double z, int zm, int zc)
