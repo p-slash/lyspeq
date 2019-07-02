@@ -219,9 +219,9 @@ void printBuildSpecifics()
 void printConfigSpecifics()
 {
     LOG::LOGGER.STD("Using following configuration parameters:\n"
-        "Fiducial Signal Baseline: %s"
-        "Velocity Spacing: %s"
-        "Fiducial Flux: %s", 
+        "Fiducial Signal Baseline: %s\n"
+        "Velocity Spacing: %s\n"
+        "Fiducial Flux: %s\n", 
         TURN_OFF_SFID ? "OFF" : "ON",
         conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
         conv::USE_FID_LEE12_MEAN_FLUX ? "Lee12" : "OFF");
