@@ -27,33 +27,6 @@ void throw_isnan(double t, const char *step)
     if (std::isnan(t))   throw err_msg;
 }
 
-// For a top hat redshift bin, only access 1 redshift bin
-// For triangular z bins, access 3 (2 for first and last z bins) redshift bins
-void setNQandFisherIndex(int &nq, int &fi, int ZBIN)
-{
-    #ifdef TOPHAT_Z_BINNING_FN
-    nq = 1;
-    fi = bins::getFisherMatrixIndex(0, ZBIN);
-    #endif
-
-    #ifdef TRIANGLE_Z_BINNING_FN
-    nq = 3;
-    fi = bins::getFisherMatrixIndex(0, ZBIN - 1);
-
-    if (ZBIN == 0) 
-    {
-        nq = 2;
-        fi = 0;
-    }
-    else if (ZBIN == bins::NUMBER_OF_Z_BINS - 1) 
-    {
-        nq = 2;
-    }
-    #endif
-
-    nq *= bins::NUMBER_OF_K_BANDS;
-}
-
 void OneQSOEstimate::_readFromFile(const char *fname_qso)
 {
     qso_sp_fname = fname_qso;
@@ -97,6 +70,48 @@ bool OneQSOEstimate::_findRedshiftBin(double median_z)
     return true;
 }
 
+// For a top hat redshift bin, only access 1 redshift bin
+// For triangular z bins, access 3 (2 for first and last z bins) redshift bins
+void OneQSOEstimate::_setNQandFisherIndex()
+{
+    #ifdef TOPHAT_Z_BINNING_FN
+    N_Q_MATRICES        = 1;
+    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN);
+    #endif
+
+    #ifdef TRIANGLE_Z_BINNING_FN
+    N_Q_MATRICES        = 3;
+    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN - 1);
+
+    if (ZBIN == 0) 
+    {
+        N_Q_MATRICES        = 2;
+        fisher_index_start  = 0;
+    }
+    else if (ZBIN == bins::NUMBER_OF_Z_BINS - 1) 
+    {
+        N_Q_MATRICES = 2;
+    }
+
+    double  z_left  = lambda_array[0] / LYA_REST - 1.,
+            z_right = lambda_array[DATA_SIZE-1] / LYA_REST - 1.;
+
+    if (BIN_REDSHIFT < MEDIAN_REDSHIFT && BIN_REDSHIFT <= z_left)
+    {
+        // No left bin
+        --N_Q_MATRICES;
+        fisher_index_start += bins::NUMBER_OF_K_BANDS;
+    }
+    else if (BIN_REDSHIFT > MEDIAN_REDSHIFT && BIN_REDSHIFT >= z_right)
+    {
+        // No right bin
+        --N_Q_MATRICES;
+    }
+    #endif
+
+    N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
+}
+
 void OneQSOEstimate::_setStoredMatrices()
 {
     // Number of Qj matrices to preload.
@@ -106,7 +121,8 @@ void OneQSOEstimate::_setStoredMatrices()
     nqj_eff      = MEMORY_ALLOC / size_m1 - 3;
     isSfidStored = false;
     
-    if (nqj_eff <= 0 )   nqj_eff = 0;
+    if (nqj_eff <= 0 )
+        nqj_eff = 0;
     else 
     {
         if (nqj_eff > N_Q_MATRICES)
@@ -149,7 +165,7 @@ OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
     if (!_findRedshiftBin(MEDIAN_REDSHIFT))     return;
     
     // Set up number of matrices, index for Fisher matrix
-    setNQandFisherIndex(N_Q_MATRICES, fisher_index_start, ZBIN);
+    _setNQandFisherIndex();
 
     _setStoredMatrices();
 }
@@ -160,6 +176,9 @@ OneQSOEstimate::~OneQSOEstimate()
     delete [] lambda_array;
     delete [] velocity_array;
     delete [] noise_array;
+
+    if (nqj_eff > 0)
+        delete [] stored_qj;
 }
 
 void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
@@ -177,9 +196,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
     double v_ij, z_ij, temp;
 
     if (isSfidSet)
-    {
         gsl_matrix_memcpy(sm, stored_sfid);
-    }
     else
     {
         for (int i = 0; i < DATA_SIZE; ++i)

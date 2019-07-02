@@ -45,6 +45,7 @@ class OneQSOEstimate
 
     void _readFromFile(const char *fname_qso);
     bool _findRedshiftBin(double median_z);
+    void _setNQandFisherIndex();
     void _setStoredMatrices();
 
     void _allocateMatrices();
