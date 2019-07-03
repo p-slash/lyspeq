@@ -27,7 +27,7 @@ void throw_isnan(double t, const char *step)
     if (std::isnan(t))   throw err_msg;
 }
 
-void OneQSOEstimate::_readFromFile(const char *fname_qso)
+void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
     qso_sp_fname = fname_qso;
 
@@ -141,7 +141,7 @@ void OneQSOEstimate::_setStoredMatrices()
     isSfidSet = false;
 }
 
-OneQSOEstimate::OneQSOEstimate(const char *fname_qso)
+OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 {
     isCovInverted = false;
     _readFromFile(fname_qso);
@@ -179,6 +179,14 @@ OneQSOEstimate::~OneQSOEstimate()
 
     if (nqj_eff > 0)
         delete [] stored_qj;
+}
+
+double OneQSOEstimate::getComputeTimeEst()
+{
+    if (ZBIN == -1 || ZBIN == bins::NUMBER_OF_Z_BINS)
+        return 0;
+    else
+        return std::pow(DATA_SIZE/10., 3) * N_Q_MATRICES * (N_Q_MATRICES + 1);
 }
 
 void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)

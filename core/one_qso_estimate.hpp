@@ -26,7 +26,7 @@ class OneQSOEstimate
     
     int SPECT_RES_FWHM;
 
-    int N_Q_MATRICES, fisher_index_start, r_index;
+    int DATA_SIZE, N_Q_MATRICES, fisher_index_start, r_index;
 
     double MEDIAN_REDSHIFT, BIN_REDSHIFT, DV_KMS;
     
@@ -43,7 +43,7 @@ class OneQSOEstimate
 
     bool isCovInverted;
 
-    void _readFromFile(const char *fname_qso);
+    void _readFromFile(std::string fname_qso);
     bool _findRedshiftBin(double median_z);
     void _setNQandFisherIndex();
     void _setStoredMatrices();
@@ -59,7 +59,7 @@ class OneQSOEstimate
     void _getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz);
 
 public:
-    int ZBIN, DATA_SIZE;
+    int ZBIN;
 
     // TOTAL_KZ_BINS sized vector 
     gsl_vector  *ps_before_fisher_estimate_vector;
@@ -67,8 +67,10 @@ public:
     // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
     gsl_matrix  *fisher_matrix;
 
-    OneQSOEstimate(const char *fname_qso);
+    OneQSOEstimate(std::string fname_qso);
     ~OneQSOEstimate();
+
+    double getComputeTimeEst();
 
     void setCovarianceMatrix(const double *ps_estimate);
     void invertCovarianceMatrix();
