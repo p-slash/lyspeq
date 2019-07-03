@@ -60,14 +60,13 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     LOG::LOGGER.STD("Number of QSOs: %d\n", NUMBER_OF_QSOS);
 
-    std::vector<std::string> fpaths(NUMBER_OF_QSOS);
-    char buf[1024], temp_fname[700];
+    std::vector<std::string> fpaths(NUMBER_OF_QSOS, dir);
+    char temp_fname[700];
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
         fscanf(toRead, "%s\n", temp_fname);
-        sprintf(buf, "%s/%s", dir, temp_fname);
-        fpaths[q] = buf;
+        fpaths[q] += '/' + temp_fname;
     }
     fclose(toRead);
 
@@ -76,14 +75,10 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
-        qso_estimators[q].qso = new OneQSOEstimate(fpaths[q].c_str());
+        qso_estimators[q].qso = new OneQSOEstimate(fpaths[q]);
+        qso_estimators[q].est_cpu_time = qso_estimators[q].qso->getComputeTimeEst();
 
-        if (qso_estimators[q].qso->ZBIN == -1 || qso_estimators[q].qso->ZBIN == bins::NUMBER_OF_Z_BINS)
-            qso_estimators[q].est_cpu_time = 0;
-        else
-            qso_estimators[q].est_cpu_time = pow((double)(qso_estimators[q].qso->DATA_SIZE), 3);
-
-        Z_BIN_COUNTS[qso_estimators[q].qso->ZBIN + 1]++;
+        ++Z_BIN_COUNTS[qso_estimators[q].qso->ZBIN + 1];
     }
     
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
