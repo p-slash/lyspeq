@@ -272,12 +272,12 @@ void readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("VelocityLength",  LENGTH_V,    DOUBLE);
 
     // Fiducial Palanque fit function parameters
-    cFile.addKey("FiducialAmplitude",           &pd13::FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
-    cFile.addKey("FiducialSlope",               &pd13::FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
-    cFile.addKey("FiducialCurvature",           &pd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
-    cFile.addKey("FiducialRedshiftPower",       &pd13::FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
-    cFile.addKey("FiducialRedshiftCurvature",   &pd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
-    cFile.addKey("FiducialLorentzianLambda",    &pd13::FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
+    cFile.addKey("FiducialAmplitude",           &fidpd13::FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
+    cFile.addKey("FiducialSlope",               &fidpd13::FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
+    cFile.addKey("FiducialCurvature",           &fidpd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
+    cFile.addKey("FiducialRedshiftPower",       &fidpd13::FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
+    cFile.addKey("FiducialRedshiftCurvature",   &fidpd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
+    cFile.addKey("FiducialLorentzianLambda",    &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
 
     cFile.addKey("NumberOfIterations", NUMBER_OF_ITERATIONS, INTEGER);
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);

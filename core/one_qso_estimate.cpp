@@ -259,7 +259,7 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
                 // // to central redshift
                 
                 // #endif
-                temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], BIN_REDSHIFT, &pd13::FIDUCIAL_PD13_PARAMS);
+                temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], BIN_REDSHIFT, &fidpd13::FIDUCIAL_PD13_PARAMS);
                 gsl_matrix_set(qi, i, j, temp);
             }
         }

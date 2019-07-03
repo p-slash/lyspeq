@@ -147,7 +147,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
 
     FILE *tmp_fit_file;
     int s1, s2, kn, zm;
-    static pd13::pd13_fit_params iteration_fits = pd13::FIDUCIAL_PD13_PARAMS;
+    static fidpd13::pd13_fit_params iteration_fits = fidpd13::FIDUCIAL_PD13_PARAMS;
 
     sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
     sprintf(tmp_fit_fname, "%s/tmpfitfileXXXXXX", TMP_FOLDER);
@@ -472,7 +472,7 @@ double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
 {
     if (TURN_OFF_SFID)  return 0;
     
-    return fidcosmo::fiducialPowerSpectrum(bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], &pd13::FIDUCIAL_PD13_PARAMS);
+    return fidcosmo::fiducialPowerSpectrum(bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], &fidpd13::FIDUCIAL_PD13_PARAMS);
 }
 
 

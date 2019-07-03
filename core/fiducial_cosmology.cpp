@@ -2,42 +2,6 @@
 
 #include <cmath>
 
-// Palanque_Delabrouille et al. 2013 based functions. Extra Lorentzian decay
-namespace pd13
-{
-// Defined values for PD fit
-#define K_0 0.009 // s km^-1
-#define Z_0 3.0
-
-    pd13_fit_params FIDUCIAL_PD13_PARAMS;
-
-    double Palanque_Delabrouille_etal_2013_fit(double k, double z, pd13_fit_params *params)
-    {
-        double  q0 = k / K_0 + 1E-10, \
-                x0 = (1. + z) / (1. + Z_0);
-
-        return    (params->A * PI / K_0) \
-                * pow(q0,   2. + params->n + \
-                            params->alpha * log(q0) + \
-                            params->beta  * log(x0)) \
-                * pow(x0,   params->B) \
-                / (1. + params->lambda * k * k);
-    }
-
-#undef Z_0 // Do not need Z_0 after this point
-
-    double Palanque_Delabrouille_etal_2013_fit_growth_factor(double z_ij, double k_kn, double z_zm, pd13_fit_params *params)
-    {
-        double  q0 = k_kn / K_0 + 1E-10, \
-                x0 = (1. + z_ij) / (1. + z_zm);
-
-        return  pow(x0, params->B + params->beta  * log(q0));
-    }
-
-#undef K_0 // Do not need K_0 either
-}
-
-
 // bool check_linearly_spaced(double *v, int size)
 // {
 //     double dv, cv = v[1]-v[0], eps = 1e-3;
@@ -166,6 +130,41 @@ namespace conv
 
 namespace fidcosmo
 {
+    // Palanque_Delabrouille et al. 2013 based functions. Extra Lorentzian decay
+    namespace pd13
+    {
+    // Defined values for PD fit
+    #define K_0 0.009 // s km^-1
+    #define Z_0 3.0
+
+        pd13_fit_params FIDUCIAL_PD13_PARAMS;
+
+        double Palanque_Delabrouille_etal_2013_fit(double k, double z, pd13_fit_params *params)
+        {
+            double  q0 = k / K_0 + 1E-10, \
+                    x0 = (1. + z) / (1. + Z_0);
+
+            return    (params->A * PI / K_0) \
+                    * pow(q0,   2. + params->n + \
+                                params->alpha * log(q0) + \
+                                params->beta  * log(x0)) \
+                    * pow(x0,   params->B) \
+                    / (1. + params->lambda * k * k);
+        }
+
+    #undef Z_0 // Do not need Z_0 after this point
+
+        double Palanque_Delabrouille_etal_2013_fit_growth_factor(double z_ij, double k_kn, double z_zm, pd13_fit_params *params)
+        {
+            double  q0 = k_kn / K_0 + 1E-10, \
+                    x0 = (1. + z_ij) / (1. + z_zm);
+
+            return  pow(x0, params->B + params->beta  * log(q0));
+        }
+
+    #undef K_0 // Do not need K_0 either
+    }
+
     // This function is defined in preprocessing
     double fiducialPowerSpectrum(double k, double z, void *params)
     {    
@@ -198,7 +197,7 @@ double signal_matrix_integrand(double k, void *params)
 {
     struct sq_integrand_params          *sqip = (struct sq_integrand_params*) params;
     struct spectrograph_windowfn_params *wp   = sqip->spec_window_params;
-    pd13::pd13_fit_params               *pfp  = sqip->fiducial_pd_params;
+    fidpd13::pd13_fit_params            *pfp  = sqip->fiducial_pd_params;
 
     double result = spectral_response_window_fn(k, wp);
 

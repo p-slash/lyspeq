@@ -5,25 +5,6 @@
 #define LYA_REST 1215.67
 #define PI 3.14159265359
 
-namespace pd13
-{
-    // Fitting function has the form in Palanque-Delabrouille et al. 2013
-    // Added a Lorentzian decay to suppress small scale power
-    typedef struct
-    {
-        double A;
-        double n;
-        double alpha;
-
-        double B;
-        double beta;
-
-        double lambda;
-    } pd13_fit_params;
-
-    extern pd13_fit_params FIDUCIAL_PD13_PARAMS;
-}
-
 namespace conv
 {
     extern bool USE_LOG_V;
@@ -38,10 +19,31 @@ namespace conv
 
 namespace fidcosmo
 {
+    namespace pd13
+    {
+        // Fitting function has the form in Palanque-Delabrouille et al. 2013
+        // Added a Lorentzian decay to suppress small scale power
+        typedef struct
+        {
+            double A;
+            double n;
+            double alpha;
+
+            double B;
+            double beta;
+
+            double lambda;
+        } pd13_fit_params;
+
+        extern pd13_fit_params FIDUCIAL_PD13_PARAMS;
+    }
+
     // This function is defined in preprocessing
     double fiducialPowerSpectrum(double k, double z, void *params);
     double fiducialPowerGrowthFactor(double z_ij, double k_kn, double z_zm, void *params);
 }
+
+namespace fidpd13 = fidcosmo::pd13;
 
 struct spectrograph_windowfn_params
 {
@@ -56,7 +58,7 @@ double spectral_response_window_fn(double k, struct spectrograph_windowfn_params
 // Data structures to integrate signal and derivative matrix expressions
 struct sq_integrand_params
 {
-    pd13::pd13_fit_params               *fiducial_pd_params;
+    fidpd13::pd13_fit_params            *fiducial_pd_params;
     struct spectrograph_windowfn_params *spec_window_params;
 };
 

@@ -95,7 +95,7 @@ int main(int argc, char const *argv[])
         #endif
         
         struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
-        struct sq_integrand_params              integration_parameters = {&pd13::FIDUCIAL_PD13_PARAMS, &win_params};
+        struct sq_integrand_params              integration_parameters = {&fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
         double *big_temp_array;
 
         // Integrate fiducial signal matrix
