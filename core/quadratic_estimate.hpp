@@ -7,13 +7,6 @@
 
 #include "core/one_qso_estimate.hpp"
 
-typedef struct
-{
-    OneQSOEstimate *qso;
-    double est_cpu_time;
-} qso_computation_time;
-
-
 // This umbrella class manages the quadratic estimator by 
 //      storing the total Fisher matrix and its inverse,
 //      computing the power spectrum estimate,
@@ -33,7 +26,7 @@ class OneDQuadraticPowerEstimate
 {
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS;
 
-    qso_computation_time *qso_estimators;
+    std::vector< std::pair <double, OneQSOEstimate*> > qso_estimators;
 
     // 3 TOTAL_KZ_BINS sized vectors
     gsl_vector *pmn_before_fisher_estimate_vector_sum, *previous_pmn_estimate_vector, *pmn_estimate_vector;
@@ -50,7 +43,7 @@ class OneDQuadraticPowerEstimate
     void _fitPowerSpectra(double *fit_values);
 
     // Performs a load balancing operation based on N^3 estimation
-    void _loadBalancing(std::vector<qso_computation_time*> *queue_qso, int maxthreads);
+    void _loadBalancing(std::vector<OneQSOEstimate*> *queue_qso, int maxthreads);
 
 public:
     OneDQuadraticPowerEstimate(const char *fname_list, const char *dir);
