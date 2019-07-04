@@ -61,12 +61,12 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
     LOG::LOGGER.STD("Number of QSOs: %d\n", NUMBER_OF_QSOS);
 
     std::vector<std::string> fpaths(NUMBER_OF_QSOS, dir);
-    char temp_fname[700];
+    char temp_fname[700]="/";
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
-        fscanf(toRead, "%s\n", temp_fname);
-        fpaths[q] += '/' + temp_fname;
+        fscanf(toRead, "%s\n", temp_fname+1);
+        fpaths[q] += temp_fname;
     }
     fclose(toRead);
 
