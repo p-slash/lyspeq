@@ -36,13 +36,14 @@ namespace bins
         // Construct k edges
         NUMBER_OF_K_BANDS = nlin + nlog;
         
+        DEGREE_OF_FREEDOM = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
+
         // One last bin is created when LAST_K_EDGE is set in Makefile.
         #ifdef LAST_K_EDGE
         ++NUMBER_OF_K_BANDS;
         #endif
 
-        TOTAL_KZ_BINS     = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
-        DEGREE_OF_FREEDOM = TOTAL_KZ_BINS - NUMBER_OF_Z_BINS;
+        TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
 
         KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
         KBAND_CENTERS = new double[NUMBER_OF_K_BANDS];
