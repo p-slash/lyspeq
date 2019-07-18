@@ -96,6 +96,9 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 
     gsl_matrix_free(fisher_matrix_sum);
     gsl_matrix_free(inverse_fisher_matrix_sum);
+
+    for (std::vector<std::pair <double, OneQSOEstimate*>>::iterator qe = qso_estimators.end(); qe != qso_estimators.begin(); --qe)
+        delete qe->second;
 }
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
@@ -208,13 +211,13 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> *qu
 
     double *bucket_time = new double[maxthreads]();
 
-    for (std::vector<std::pair <double, OneQSOEstimate*>>::iterator qe = qso_estimators.end(); qe != qso_estimators.begin(); --qe)
+    for (int q = NUMBER_OF_QSOS-1; q >= NUMBER_OF_QSOS_OUT; --q)
     {
         // find min time bucket
         int min_ind = index_of_min_element(bucket_time, maxthreads);
         // add max time consuming to that bucket
-        queue_qso[min_ind].push_back(qe->second);
-        bucket_time[min_ind] += qe->first;
+        queue_qso[min_ind].push_back(qso_estimators[q].second);
+        bucket_time[min_ind] += qso_estimators[q].first;
     }
 
     LOG::LOGGER.STD("Balanced estimated cpu times: ");
@@ -351,7 +354,6 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     gsl_vector_sub(previous_pmn_estimate_vector, pmn_estimate_vector);
 
     r = 0;
-    int deg_of_fdm = bins::DEGREE_OF_FREEDOM;
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
@@ -360,17 +362,12 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         double  t = gsl_vector_get(previous_pmn_estimate_vector, i_kz),
                 e = gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz);
 
-        if (e < 0)
-        {
-            --deg_of_fdm;
-            continue;
-        }
+        if (e < 0)  continue;
 
         r += (t*t) / e;
     }
 
-    r /= deg_of_fdm;
-    r  = sqrt(r);
+    r  = sqrt(r / bins::DEGREE_OF_FREEDOM);
 
     // r = my_cblas_dsymvdot(previous_pmn_estimate_vector, fisher_matrix_sum) / bins::TOTAL_KZ_BINS;
 
