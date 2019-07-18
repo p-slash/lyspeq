@@ -254,13 +254,12 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
                 
                 temp  = sq_private_table->getDerivativeMatrixValue(v_ij, kn, r_index);
                 temp *= bins::redshiftBinningFunction(z_ij, zm, ZBIN);
-                // #ifdef TOPHAT_Z_BINNING_FN
-                // // When using top hat redshift binning, we need to evolve pixels
-                // // to central redshift
                 
-                // #endif
+                #ifdef REDSHIFT_GROWTH_POWER
                 temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 
                                                             &fidpd13::FIDUCIAL_PD13_PARAMS);
+                #endif
+                
                 gsl_matrix_set(qi, i, j, temp);
             }
         }
@@ -512,10 +511,123 @@ void OneQSOEstimate::_freeMatrices()
 }
 
 
+/*
+// Move constructor
+OneQSOEstimate::OneQSOEstimate(OneQSOEstimate &&rhs)
+    : qso_sp_fname(rhs.qso_sp_fname), SPECT_RES_FWHM(rhs.SPECT_RES_FWHM), DATA_SIZE(rhs.DATA_SIZE), 
+      N_Q_MATRICES(rhs.N_Q_MATRICES), fisher_index_start(rhs.fisher_index_start), r_index(rhs.r_index),
+      MEDIAN_REDSHIFT(rhs.MEDIAN_REDSHIFT), BIN_REDSHIFT(rhs.BIN_REDSHIFT), DV_KMS(rhs.DV_KMS), 
+      lambda_array(NULL), velocity_array(NULL), flux_array(NULL), noise_array(NULL),
+      covariance_matrix(NULL), inverse_covariance_matrix(NULL),
+      stored_qj(NULL), stored_sfid(NULL),
+      nqj_eff(rhs.nqj_eff), isQjSet(rhs.isQjSet), isSfidSet(rhs.isSfidSet), isSfidStored(rhs.isSfidStored),
+      isCovInverted(rhs.isCovInverted), 
+      ZBIN(rhs.ZBIN), ps_before_fisher_estimate_vector(NULL), fisher_matrix(NULL)
+{
+    // Move
+    lambda_array   = rhs.lambda_array;
+    velocity_array = rhs.velocity_array;
+    flux_array     = rhs.flux_array;
+    noise_array    = rhs.noise_array;
 
+    covariance_matrix         = rhs.covariance_matrix;
+    inverse_covariance_matrix = rhs.inverse_covariance_matrix;
 
+    temp_matrix[0] = rhs.temp_matrix[0];
+    temp_matrix[1] = rhs.temp_matrix[1];
 
+    stored_qj   = rhs.stored_qj;
+    stored_sfid = rhs.stored_sfid;
 
+    ps_before_fisher_estimate_vector = rhs.ps_before_fisher_estimate_vector;
+    fisher_matrix                    = rhs.fisher_matrix;
+
+    // Set rhs to NULL to prevent double deleting
+    rhs.lambda_array   = NULL;
+    rhs.velocity_array = NULL;
+    rhs.flux_array     = NULL;
+    rhs.noise_array    = NULL;
+
+    rhs.covariance_matrix         = NULL;
+    rhs.inverse_covariance_matrix = NULL;
+
+    rhs.temp_matrix[0] = NULL;
+    rhs.temp_matrix[1] = NULL;
+
+    rhs.stored_qj   = NULL;
+    rhs.stored_sfid = NULL;
+
+    rhs.ps_before_fisher_estimate_vector = NULL;
+    rhs.fisher_matrix                    = NULL;
+}
+
+OneQSOEstimate& OneQSOEstimate::operator=(OneQSOEstimate&& rhs)
+: qso_sp_fname(rhs.qso_sp_fname), SPECT_RES_FWHM(rhs.SPECT_RES_FWHM), DATA_SIZE(rhs.DATA_SIZE), 
+      N_Q_MATRICES(rhs.N_Q_MATRICES), fisher_index_start(rhs.fisher_index_start), r_index(rhs.r_index),
+      MEDIAN_REDSHIFT(rhs.MEDIAN_REDSHIFT), BIN_REDSHIFT(rhs.BIN_REDSHIFT), DV_KMS(rhs.DV_KMS), 
+      lambda_array(NULL), velocity_array(NULL), flux_array(NULL), noise_array(NULL),
+      covariance_matrix(NULL), inverse_covariance_matrix(NULL),
+      stored_qj(NULL), stored_sfid(NULL),
+      nqj_eff(rhs.nqj_eff), isQjSet(rhs.isQjSet), isSfidSet(rhs.isSfidSet), isSfidStored(rhs.isSfidStored),
+      isCovInverted(rhs.isCovInverted), 
+      ZBIN(rhs.ZBIN), ps_before_fisher_estimate_vector(NULL), fisher_matrix(NULL)
+{
+    if (this != &rhs)
+    {
+        // Free the existing resource.
+        delete [] flux_array;
+        delete [] lambda_array;
+        delete [] velocity_array;
+        delete [] noise_array;
+
+        if (nqj_eff > 0)
+            delete [] stored_qj;
+
+        // Copy the data pointer and its length from the
+        // source object.
+        qso_sp_fname = rhs.qso_sp_fname;
+        
+        lambda_array   = rhs.lambda_array;
+        velocity_array = rhs.velocity_array;
+        flux_array     = rhs.flux_array;
+        noise_array    = rhs.noise_array;
+
+        covariance_matrix         = rhs.covariance_matrix;
+        inverse_covariance_matrix = rhs.inverse_covariance_matrix;
+
+        temp_matrix[0] = rhs.temp_matrix[0];
+        temp_matrix[1] = rhs.temp_matrix[1];
+
+        stored_qj   = rhs.stored_qj;
+        stored_sfid = rhs.stored_sfid;
+
+        ps_before_fisher_estimate_vector = rhs.ps_before_fisher_estimate_vector;
+        fisher_matrix                    = rhs.fisher_matrix;
+
+        // Release the data pointer from the source object so that
+        // the destructor does not free the memory multiple times.
+        // Set rhs to NULL to prevent double deleting
+        rhs.lambda_array   = NULL;
+        rhs.velocity_array = NULL;
+        rhs.flux_array     = NULL;
+        rhs.noise_array    = NULL;
+
+        rhs.covariance_matrix         = NULL;
+        rhs.inverse_covariance_matrix = NULL;
+
+        rhs.temp_matrix[0] = NULL;
+        rhs.temp_matrix[1] = NULL;
+
+        rhs.stored_qj   = NULL;
+        rhs.stored_sfid = NULL;
+
+        rhs.ps_before_fisher_estimate_vector = NULL;
+        rhs.fisher_matrix                    = NULL;
+    }
+    return *this;
+}
+
+*/
 
 
 
