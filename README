@@ -1,3 +1,13 @@
+v1
+=====
+After many modifications, this is the first release. 
++ Set `UseLogarithmicVelocity` in config file to 1 to convert by logarithmic spacing.
++ All redshift binning schemes scales derivative matrices with fiducial growth unless `--disable-redshift-growth` is passed to configure or '-DREDSHIFT_GROWTH_POWER' is not passed to preprocessor.
++ Convergence checks if estimated error is negative. Negative errors are substituted with infinite error *only* in convergence---Fisher matrix is not modified.
++ Load balancing takes how many matrices are needed in triangular bins into account. Some bins are skipped since no pixel pair belongs to them.
++ Specify allocated memory in MB to store additional derivative matrices and fiducial signal matrix if possible. This speeds up calculations.
++ The large number added to covariance matrix is 10000.
+
 Prerequisites
 =====
 + [GSL](https://www.gnu.org/software/gsl/) is needed for matrix algebra, integration and interpolation.
@@ -97,6 +107,12 @@ Specify allocated memory in MB to store additional derivative matrices and fiduc
 Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with [py/lorentzian_fit.py](py/lorentzian_fit.py) script. For clusters, you are typically assigned a scratch space such as `scratch` or `project`.
 
     TemporaryFolder /tmp
+
+To convert with logarithmic velocity, set this to 1. 0 will use EdS approximation.
+    UseLogarithmicVelocity 1
+    
+Instead of averaging spectral chunks to get mean flux, you can use empirical mean flux from Lee et al. 2012
+    UseLee12MeanFlux  0
 
 Quasar Spectrum File
 ====
