@@ -254,13 +254,12 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
                 
                 temp  = sq_private_table->getDerivativeMatrixValue(v_ij, kn, r_index);
                 temp *= bins::redshiftBinningFunction(z_ij, zm, ZBIN);
-                // #ifdef TOPHAT_Z_BINNING_FN
-                // // When using top hat redshift binning, we need to evolve pixels
-                // // to central redshift
                 
-                // #endif
+                #ifdef REDSHIFT_GROWTH_POWER
                 temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 
                                                             &fidpd13::FIDUCIAL_PD13_PARAMS);
+                #endif
+                
                 gsl_matrix_set(qi, i, j, temp);
             }
         }
