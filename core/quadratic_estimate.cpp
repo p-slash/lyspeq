@@ -351,6 +351,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     gsl_vector_sub(previous_pmn_estimate_vector, pmn_estimate_vector);
 
     r = 0;
+    int deg_of_fdm = bins::DEGREE_OF_FREEDOM;
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
@@ -359,10 +360,17 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         double  t = gsl_vector_get(previous_pmn_estimate_vector, i_kz),
                 e = gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz);
 
-        r += (t*t) / e / (bins::TOTAL_KZ_BINS - bins::NUMBER_OF_Z_BINS);
+        if (e < 0)
+        {
+            --deg_of_fdm;
+            continue;
+        }
+
+        r += (t*t) / e;
     }
 
-    r = sqrt(r);
+    r /= deg_of_fdm;
+    r  = sqrt(r);
 
     // r = my_cblas_dsymvdot(previous_pmn_estimate_vector, fisher_matrix_sum) / bins::TOTAL_KZ_BINS;
 
