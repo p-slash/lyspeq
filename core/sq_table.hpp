@@ -28,16 +28,14 @@
 // conventions have their own functions.
 class SQLookupTable
 {
-    int NUMBER_OF_R_VALUES, N_V_POINTS, \
-        N_Z_POINTS_OF_S;
+    int NUMBER_OF_R_VALUES, N_V_POINTS, N_Z_POINTS_OF_S;
 
     int *R_VALUES;
 
     double LENGTH_V, LENGTH_Z_OF_S;
 
     // Temporary arrays. They are not stored after construction!
-    double  *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY, \
-            *signal_array, *derivative_array;
+    double *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY, *signal_array, *derivative_array;
 
     Interpolation2D **interp2d_signal_matrices;
     Interpolation   **interp_derivative_matrices;
@@ -57,7 +55,7 @@ public:
     int findSpecResIndex(int spec_res) const;
 
     double getSignalMatrixValue(double v_ij, double z_ij, int r_index) const;
-    double getDerivativeMatrixValue(double v_ij, double z_ij, int zm, int kn, int r_index) const;
+    double getDerivativeMatrixValue(double v_ij, int kn, int r_index) const;
 
     Interpolation*   getDerivativeMatrixInterp(int kn, int r_index) const;
     Interpolation2D* getSignalMatrixInterp(int r_index) const;

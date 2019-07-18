@@ -30,7 +30,7 @@ SQLookupTableFile::SQLookupTableFile(const char *fname, char rw)
     read_write[1] = 'b';
     read_write[2] = '\0';
 
-    sq_file = open_file(file_name, read_write);
+    sq_file = ioh::open_file(file_name, read_write);
 
     isHeaderSet = false;
 }

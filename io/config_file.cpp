@@ -25,7 +25,7 @@ void ConfigFile::addKey(const std::string key, void *variable, VariableType vt)
 
 void ConfigFile::readAll()
 {
-    FILE *config_file = open_file(file_name, "r");
+    FILE *config_file = ioh::open_file(file_name, "r");
     
     char line[1024], buffer_key[200], buffer_value[200];
 

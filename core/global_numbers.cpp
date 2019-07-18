@@ -1,5 +1,7 @@
 #include "core/global_numbers.hpp"
+#include "core/fiducial_cosmology.hpp"
 #include "io/config_file.hpp"
+#include "io/logger.hpp"
 
 #include <cstdio>
 #include <cmath>
@@ -11,43 +13,181 @@
 #endif
 
 char TMP_FOLDER[300] = ".";
-Logger LOGGER;
 
 double CHISQ_CONVERGENCE_EPS = 0.01;
 double MEMORY_ALLOC          = 0;
 
-int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS;
 int t_rank = 0, numthreads = 1;
 
 SQLookupTable *sq_shared_table, *sq_private_table;
 
-double *KBAND_EDGES, *KBAND_CENTERS;
-double  Z_BIN_WIDTH, *ZBIN_CENTERS;
-
-double   time_spent_on_c_inv    = 0, time_spent_on_f_inv   = 0;
-double   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0, \
-         time_spent_set_modqs   = 0, time_spent_set_fisher = 0;
-
-double   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
-long     number_of_times_called_setq = 0, number_of_times_called_setsfid = 0;
-
 bool TURN_OFF_SFID;
 
-void printf_time_spent_details()
+namespace bins
 {
-    LOGGER.log(STD, "Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
-    LOGGER.log(STD, "Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
+    int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, DEGREE_OF_FREEDOM;
+    double *KBAND_EDGES, *KBAND_CENTERS;
+    double  Z_BIN_WIDTH, *ZBIN_CENTERS, z0_edge;
 
-    LOGGER.log(STD, "Total time spent on setting Sfid is %.2f mins with %lu calls.\n", \
-            time_spent_on_set_sfid, number_of_times_called_setsfid);
-    LOGGER.log(STD, "Total time spent on setting Qs is %.2f mins with %lu calls. \nInterpolation: %.2f and Copy: %.2f.\n", \
-            time_spent_set_qs, number_of_times_called_setq, time_spent_on_q_interp, time_spent_on_q_copy);
-    
-    LOGGER.log(STD, "Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
-    LOGGER.log(STD, "Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
+    void setUpBins(double k0, int nlin, double dklin,
+                                int nlog, double dklog,
+                     double z0)
+    {
+        // Construct k edges
+        NUMBER_OF_K_BANDS = nlin + nlog;
+        
+        DEGREE_OF_FREEDOM = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
+
+        // One last bin is created when LAST_K_EDGE is set in Makefile.
+        #ifdef LAST_K_EDGE
+        ++NUMBER_OF_K_BANDS;
+        #endif
+
+        TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
+
+        KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
+        KBAND_CENTERS = new double[NUMBER_OF_K_BANDS];
+
+        // Linearly spaced bins
+        for (int i = 0; i < nlin + 1; i++)
+            KBAND_EDGES[i] = k0 + dklin * i;
+        // Logarithmicly spaced bins
+        for (int i = 1, j = nlin + 1; i < nlog + 1; i++, j++)
+            KBAND_EDGES[j] = KBAND_EDGES[nlin] * pow(10., i * dklog);
+        
+        // Last bin
+        #ifdef LAST_K_EDGE
+        KBAND_EDGES[NUMBER_OF_K_BANDS] = LAST_K_EDGE;
+        #endif
+
+        // Set up k bin centers
+        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
+            KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
+
+        // Construct redshift bins
+        ZBIN_CENTERS = new double[NUMBER_OF_Z_BINS];
+
+        for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
+            ZBIN_CENTERS[zm] = z0 + Z_BIN_WIDTH * zm;
+
+        z0_edge = ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.;
+    }
+
+    void cleanUpBins()
+    {
+        delete [] KBAND_EDGES;
+        delete [] KBAND_CENTERS;
+        delete [] ZBIN_CENTERS;
+    }
+
+    int findRedshiftBin(double z)
+    {
+        if (z < z0_edge)
+            return -1;
+        
+        int r = (z - z0_edge) / Z_BIN_WIDTH;
+
+        if (r >= NUMBER_OF_Z_BINS)
+            r = NUMBER_OF_Z_BINS;
+
+        return r;        
+    }
+
+    // This needs more thought
+    // What happens when a pixel goes outside of triangular bins?
+    //    Imagine our central bin is z(m) and its left most pixel is at z_ij less than z(m-1).
+    //    Its behavior can be well defined in z(m) bin, simply take z_ij < z(m).
+    //    However, it should be distributed to z(m-1), and there occurs the problem.
+    //    Since z_ij is also on the left of z(m-1), it belongs to the wrong interpolation kernel.
+    //    In other words, that pixel is not normally distributed (sum of weights not equal to 1).
+    //    That pixel does not belong to the correct z bin. There should not be such pixels.
+    //    Below is my fix by keeping track of left and right bins.
+    double zBinTriangular(double z, int zm, int zc)
+    {
+        double zm_center = bins::ZBIN_CENTERS[zm], z_pivot = ZBIN_CENTERS[zc];
+        
+        if ((zm < zc && z >= z_pivot) || (zm > zc && z <= z_pivot))
+            return 0.;
+
+        // if (zm < zc)
+        //     return (z_pivot - z) / Z_BIN_WIDTH;
+        // else if (zm > zc)
+        //     return (z - z_pivot) / Z_BIN_WIDTH;
+        if (zm != zc)
+            return (zm-zc) * (z - z_pivot) / Z_BIN_WIDTH;
+        else if (z <= zm_center)
+        {
+            if (zm == 0)    return 1.;
+            else            return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
+        }
+        else
+        {
+            if (zm == NUMBER_OF_Z_BINS - 1) return 1.;
+            else                            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+        }
+    }
+
+    double redshiftBinningFunction(double z, int zm, int zc)
+    {
+        #ifdef TOPHAT_Z_BINNING_FN
+        double zz  __attribute__((unused)) = z;
+        int    zzm __attribute__((unused)) = zm,
+               zzc __attribute__((unused)) = zc;
+        return 1.;
+        #endif
+
+        #ifdef TRIANGLE_Z_BINNING_FN
+        return zBinTriangular(z, zm, zc);
+        #endif
+    }
+
+    int getFisherMatrixIndex(int kn, int zm)
+    {
+        return kn + bins::NUMBER_OF_K_BANDS * zm;
+    }
+
+    void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm)
+    {
+        kn = i % bins::NUMBER_OF_K_BANDS;
+        zm = i / bins::NUMBER_OF_K_BANDS;
+    }
 }
 
-void print_build_specifics()
+namespace mytime
+{
+    double   time_spent_on_c_inv    = 0, time_spent_on_f_inv   = 0;
+    double   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0,
+             time_spent_set_modqs   = 0, time_spent_set_fisher = 0;
+
+    double   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
+    long     number_of_times_called_setq = 0, number_of_times_called_setsfid = 0;
+
+    double getTime()
+    {
+        #if defined(_OPENMP)
+        return omp_get_wtime() / 60.;
+        #else
+        clock_t t = clock();
+        return ((double) t) / CLOCKS_PER_SEC / 60.;
+        #endif
+    }
+
+    void printfTimeSpentDetails()
+    {
+        LOG::LOGGER.STD("Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
+        LOG::LOGGER.STD("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
+
+        LOG::LOGGER.STD("Total time spent on setting Sfid is %.2f mins with %lu calls.\n",
+                time_spent_on_set_sfid, number_of_times_called_setsfid);
+        LOG::LOGGER.STD("Total time spent on setting Qs is %.2f mins with %lu calls.\nInterpolation: %.2f and Copy: %.2f.\n",
+                time_spent_set_qs, number_of_times_called_setq, time_spent_on_q_interp, time_spent_on_q_copy);
+        
+        LOG::LOGGER.STD("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
+        LOG::LOGGER.STD("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
+    }
+}
+
+void printBuildSpecifics()
 {
     #if defined(TOPHAT_Z_BINNING_FN)
     #define BINNING_SHAPE "Top Hat"
@@ -55,14 +195,6 @@ void print_build_specifics()
     #define BINNING_SHAPE "Triangular"
     #else
     #define BINNING_SHAPE "ERROR NOT DEFINED"
-    #endif
-
-    #if defined(DEBUG_FIT_FUNCTION)
-    #define FITTING_FUNC "Debug"
-    #elif defined(PD13_FIT_FUNCTION)
-    #define FITTING_FUNC "PD13"
-    #else
-    #define FITTING_FUNC "ERROR NOT DEFINED"
     #endif
 
     #define tostr(a) #a
@@ -74,88 +206,39 @@ void print_build_specifics()
     #define HIGH_K_TXT "OFF"
     #endif
 
-    LOGGER.log(STD, "This version is build by the following options:\n");
-    LOGGER.log(STD, "1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
-    LOGGER.log(STD, "2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
-    LOGGER.log(STD, "Fitting function: %s\n", FITTING_FUNC);
-    LOGGER.log(STD, "Redshift binning shape: %s\n", BINNING_SHAPE);
-    LOGGER.log(STD, "Last k bin: %s\n", HIGH_K_TXT);
+    LOG::LOGGER.STD("This version is build by the following options:\n");
+    LOG::LOGGER.STD("1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
+    LOG::LOGGER.STD("2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
+    LOG::LOGGER.STD("Redshift binning shape: %s\n", BINNING_SHAPE);
+    LOG::LOGGER.STD("Last k bin: %s\n", HIGH_K_TXT);
 
     #undef tostr
     #undef tovstr
     #undef BINNING_SHAPE
-    #undef FITTING_FUNC
     #undef HIGH_K_TXT
 }
 
-void set_up_bins(double k0, int nlin, double dklin, \
-                            int nlog, double dklog, \
-                 double z0)
+void printConfigSpecifics()
 {
-    // Construct k edges
-    NUMBER_OF_K_BANDS = nlin + nlog;
-    
-    // One last bin is created when LAST_K_EDGE is set in Makefile.
-    #ifdef LAST_K_EDGE
-    NUMBER_OF_K_BANDS++;
-    #endif
-
-    TOTAL_KZ_BINS     = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
-
-    KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
-    KBAND_CENTERS = new double[NUMBER_OF_K_BANDS];
-
-    // Linearly spaced bins
-    for (int i = 0; i < nlin + 1; i++)
-        KBAND_EDGES[i] = k0 + dklin * i;
-    // Logarithmicly spaced bins
-    for (int i = 1, j = nlin + 1; i < nlog + 1; i++, j++)
-        KBAND_EDGES[j] = KBAND_EDGES[nlin] * pow(10., i * dklog);
-    
-    // Last bin
-    #ifdef LAST_K_EDGE
-    KBAND_EDGES[NUMBER_OF_K_BANDS] = LAST_K_EDGE;
-    #endif
-
-    // Set up k bin centers
-    for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
-        KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
-
-    // Construct redshift bins
-    ZBIN_CENTERS = new double[NUMBER_OF_Z_BINS];
-
-    for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
-        ZBIN_CENTERS[zm] = z0 + Z_BIN_WIDTH * zm;
-}
-
-void clean_up_bins()
-{
-    delete [] KBAND_EDGES;
-    delete [] KBAND_CENTERS;
-    delete [] ZBIN_CENTERS;
-}
-
-double get_time()
-{
-    #if defined(_OPENMP)
-    return omp_get_wtime() / 60.;
-    #else
-    clock_t t = clock();
-    return ((double) t) / CLOCKS_PER_SEC / 60.;
-    #endif
+    LOG::LOGGER.STD("Using following configuration parameters:\n"
+        "Fiducial Signal Baseline: %s\n"
+        "Velocity Spacing: %s\n"
+        "Fiducial Flux: %s\n", 
+        TURN_OFF_SFID ? "OFF" : "ON",
+        conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
+        conv::USE_FID_LEE12_MEAN_FLUX ? "Lee12" : "OFF");
 }
 
 // Pass NULL for not needed variables!
-void read_config_file(  const char *FNAME_CONFIG, \
-                        pd13_fit_params &FIDUCIAL_PD13_PARAMS, \
-                        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR, \
-                        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q, \
-                        int *NUMBER_OF_ITERATIONS, \
+void readConfigFile(  const char *FNAME_CONFIG,
+                        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
+                        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
+                        int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
-    int N_KLIN_BIN, N_KLOG_BIN, sfid_off;
+    int N_KLIN_BIN, N_KLOG_BIN, sfid_off, ulogv=-1, ulee12=-1;
 
-    double  K_0, LIN_K_SPACING, LOG_K_SPACING, \
+    double  K_0, LIN_K_SPACING, LOG_K_SPACING,
             Z_0, temp_chisq = -1;
 
     // Set up config file to read variables.
@@ -167,11 +250,11 @@ void read_config_file(  const char *FNAME_CONFIG, \
 
     cFile.addKey("LinearKBinWidth",  &LIN_K_SPACING, DOUBLE);
     cFile.addKey("Log10KBinWidth",   &LOG_K_SPACING, DOUBLE);
-    cFile.addKey("RedshiftBinWidth", &Z_BIN_WIDTH,   DOUBLE);
+    cFile.addKey("RedshiftBinWidth", &bins::Z_BIN_WIDTH,   DOUBLE);
 
     cFile.addKey("NumberOfLinearBins",   &N_KLIN_BIN, INTEGER);
     cFile.addKey("NumberOfLog10Bins",    &N_KLOG_BIN, INTEGER);
-    cFile.addKey("NumberOfRedshiftBins", &NUMBER_OF_Z_BINS,   INTEGER);
+    cFile.addKey("NumberOfRedshiftBins", &bins::NUMBER_OF_Z_BINS,   INTEGER);
     
     // // File names and paths
     cFile.addKey("FileNameList", FNAME_LIST, STRING);
@@ -191,12 +274,12 @@ void read_config_file(  const char *FNAME_CONFIG, \
     cFile.addKey("VelocityLength",  LENGTH_V,    DOUBLE);
 
     // Fiducial Palanque fit function parameters
-    cFile.addKey("FiducialAmplitude",           &FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
-    cFile.addKey("FiducialSlope",               &FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
-    cFile.addKey("FiducialCurvature",           &FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
-    cFile.addKey("FiducialRedshiftPower",       &FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
-    cFile.addKey("FiducialRedshiftCurvature",   &FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
-    cFile.addKey("FiducialLorentzianLambda",    &FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
+    cFile.addKey("FiducialAmplitude",           &fidpd13::FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
+    cFile.addKey("FiducialSlope",               &fidpd13::FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
+    cFile.addKey("FiducialCurvature",           &fidpd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
+    cFile.addKey("FiducialRedshiftPower",       &fidpd13::FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
+    cFile.addKey("FiducialRedshiftCurvature",   &fidpd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
+    cFile.addKey("FiducialLorentzianLambda",    &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
 
     cFile.addKey("NumberOfIterations", NUMBER_OF_ITERATIONS, INTEGER);
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
@@ -207,6 +290,8 @@ void read_config_file(  const char *FNAME_CONFIG, \
     cFile.addKey("AllocatedMemoryMB", &MEMORY_ALLOC, DOUBLE);
 
     cFile.addKey("TemporaryFolder", &TMP_FOLDER, STRING);
+    cFile.addKey("UseLogarithmicVelocity", &ulogv, INTEGER);
+    cFile.addKey("UseLee12MeanFlux", &ulee12, INTEGER);
 
     cFile.readAll();
 
@@ -214,12 +299,14 @@ void read_config_file(  const char *FNAME_CONFIG, \
     sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
     // TODO: Test access here
     
-    TURN_OFF_SFID = sfid_off > 0;
+    TURN_OFF_SFID   = sfid_off > 0;
+    conv::USE_LOG_V = ulogv > 0;
+    conv::USE_FID_LEE12_MEAN_FLUX = ulee12 > 0;
 
     if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
 
     // Redshift and wavenumber bins are constructed
-    set_up_bins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
+    bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
 }
 
 

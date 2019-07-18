@@ -22,10 +22,9 @@ OBJECTS = $(SOURCES:.$(SRCEXT)=.o)
 bin_OBJ = LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o
 DEPS    = $(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
-CPPFLAGS += -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
-
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
 CPPFLAGS += -I$(srcdir) -std=gnu++11 -DHAVE_INLINE $(OPT)
+CPPFLAGS += -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 CXXFLAGS = $(GSLRECFLAGS)
 
 all: LyaPowerEstimate CreateSQLookUpTable
@@ -54,6 +53,10 @@ uninstall:
 	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable
 
 clean:
+	$(RM) $(OBJECTS) $(bin_OBJ)
+	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests
+
+deepclean:
 	$(RM) $(OBJECTS) $(bin_OBJ) $(DEPS)
 	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests
 

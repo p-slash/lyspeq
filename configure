@@ -7,6 +7,7 @@
 # Intel compilers: This has been tested for only Parallel Studio XE 2018 icpc and MKL.
 
 function save_makefile() {
+    echo "# Generated automatically by configure."
     echo "OPT=${OPT}" > Makefile
     echo "CXX=${CXX}" >> Makefile
     echo "CPPFLAGS=${CPPFLAGS}" >> Makefile
@@ -16,7 +17,6 @@ function save_makefile() {
     echo "srcdir=${srcdir}" >> Makefile
     cat ${srcdir}/Makefile.in >> Makefile
     echo "Makefile set. Run make to compile."
-    exit 0
 }
 
 function user_overwrite_defined_variables()
@@ -196,10 +196,11 @@ function interactive() {
 }
 
 # Default values
-OPT=-DPD13_FIT_FUNCTION
+OPT=
 interp1d=-DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
 interp2d=-DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
 binz_fn=-DTRIANGLE_Z_BINNING_FN
+z_growth=-DREDSHIFT_GROWTH_POWER
 lastk_feat=
 debug=
 
@@ -208,6 +209,9 @@ prefix="/usr/local"
 exec_prefix="${prefix}"
 bindir="${exec_prefix}/bin"
 srcdir="."
+set_gsl_inc_lib
+
+CONFIGURE_ARGS="$*"
 for i in "$@"
 do
     case $i in
@@ -220,6 +224,8 @@ do
             srcdir="${i#*=}";;
         --enable-last-k-bin=* )
             lastk_feat="-DLAST_K_EDGE=${i#*=}";;
+        --disable-redshift-growth )
+            z_growth="";;
         --enable-openmp )
             CPPFLAGS_OMP="-fopenmp";;
         --interp1d=* )
@@ -257,6 +263,7 @@ do
             echo "--bindir=[directory] : Executables are installed in ${bindir}. Default is /usr/local/bin"
             echo "--srcdir=[directory] : Source directory. Default is current directory (.)"
             echo "--enable-last-k-bin=[number] : Enables a feature that adds a high k bin edge."
+            echo "--disable-redshift-growth : Disables scaling derivative matrices with fiducial growth function."
             echo "--enable-openmp : Enable OpenMP"
             echo "--build=[build type] or [build type]: Sets the build type"
             echo "--interactive : Use interactive mode."
@@ -275,8 +282,7 @@ do
     shift
 done
 
-OPT+=" ${interp1d} ${interp2d} ${binz_fn} ${lastk_feat} ${debug}"
-set_gsl_inc_lib
+OPT+=" ${interp1d} ${interp2d} ${binz_fn} ${lastk_feat} ${z_growth} ${debug}"
 
 case ${SYSTYPE} in
     GNU_XE18MKL|x64-linux-gnu-mklxe18 )
@@ -326,3 +332,5 @@ esac
 
 user_overwrite_defined_variables
 save_makefile
+echo "./configure ${CONFIGURE_ARGS}" > config.status
+
