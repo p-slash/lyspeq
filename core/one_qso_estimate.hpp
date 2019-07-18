@@ -68,7 +68,12 @@ public:
     gsl_matrix  *fisher_matrix;
 
     OneQSOEstimate(std::string fname_qso);
+    
     ~OneQSOEstimate();
+    
+    // Move constructor 
+    // OneQSOEstimate(OneQSOEstimate &&rhs);
+    // OneQSOEstimate& operator=(OneQSOEstimate&& rhs);
 
     double getComputeTimeEst();
 
