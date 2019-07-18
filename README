@@ -110,9 +110,11 @@ Specify temporary folder. Smooth power spectrum fitting creates temp files to co
     TemporaryFolder /tmp
 
 To convert with logarithmic velocity, set this to 1. 0 will use EdS approximation.
+
     UseLogarithmicVelocity 1
     
-Instead of averaging spectral chunks to get mean flux, you can use empirical mean flux from Lee et al. 2012
+Instead of averaging spectral chunks to get mean flux, you can use empirical mean flux from Lee et al. 2012.
+
     UseLee12MeanFlux  0
 
 Quasar Spectrum File
