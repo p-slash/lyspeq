@@ -205,17 +205,25 @@ void printBuildSpecifics()
     #else
     #define HIGH_K_TXT "OFF"
     #endif
+    
+    #if define(REDSHIFT_GROWTH_POWER)
+    #define RGP_TEXT "ON"
+    #else
+    #define RGP_TEXT "OFF"
+    #endif
 
     LOG::LOGGER.STD("This version is build by the following options:\n");
     LOG::LOGGER.STD("1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
     LOG::LOGGER.STD("2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
     LOG::LOGGER.STD("Redshift binning shape: %s\n", BINNING_SHAPE);
+    LOG::LOGGER.STD("Redshift growth scaling: %s\n", RGP_TEXT);
     LOG::LOGGER.STD("Last k bin: %s\n", HIGH_K_TXT);
 
     #undef tostr
     #undef tovstr
     #undef BINNING_SHAPE
     #undef HIGH_K_TXT
+    #undef RGP_TEXT
 }
 
 void printConfigSpecifics()
