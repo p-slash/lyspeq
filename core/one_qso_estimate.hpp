@@ -3,10 +3,7 @@
 
 #include <gsl/gsl_matrix.h> 
 #include <gsl/gsl_vector.h>
-#include "core/sq_table.hpp"
-
-int  getFisherMatrixIndex(int kn, int zm);
-void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);
+#include <string>
 
 // This object creates and computes C, S, Q, Q-slash matrices,
 // as well as a power spectrum estimate and a fisher matrix for individual quasar spectrum.
@@ -25,26 +22,20 @@ void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);
 // This scheme speeds up the algorithm.
 class OneQSOEstimate
 {
-    char qso_sp_fname[250];
+    std::string qso_sp_fname;
     
     int SPECT_RES_FWHM;
 
-    int N_Q_MATRICES, fisher_index_start, r_index;
+    int DATA_SIZE, N_Q_MATRICES, fisher_index_start, r_index;
 
-    double  MEDIAN_REDSHIFT, BIN_REDSHIFT, \
-            DV_KMS;
+    double MEDIAN_REDSHIFT, BIN_REDSHIFT, DV_KMS;
     
     // DATA_SIZE sized vectors
-    double *lambda_array, \
-           *velocity_array, \
-           *flux_array, \
-           *noise_array;
+    double *lambda_array, *velocity_array, *flux_array, *noise_array;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
-    gsl_matrix  *covariance_matrix, \
-                *inverse_covariance_matrix, \
-                *temp_matrix[2];
+    gsl_matrix  *covariance_matrix, *inverse_covariance_matrix, *temp_matrix[2];
 
     gsl_matrix  **stored_qj, *stored_sfid;
     int           nqj_eff;
@@ -52,16 +43,23 @@ class OneQSOEstimate
 
     bool isCovInverted;
 
-    void allocateMatrices();
-    void freeMatrices();
+    void _readFromFile(std::string fname_qso);
+    bool _findRedshiftBin(double median_z);
+    void _setNQandFisherIndex();
+    void _setStoredMatrices();
 
-    void setFiducialSignalMatrix(gsl_matrix *sm);
-    void setQiMatrix(gsl_matrix *qi, int i_kz);
-    void getWeightedMatrix(gsl_matrix *m);
-    void getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz);
+    void _allocateMatrices();
+    void _freeMatrices();
+
+    void _getVandZ(double &v_ij, double &z_ij, int i, int j);
+    
+    void _setFiducialSignalMatrix(gsl_matrix *sm);
+    void _setQiMatrix(gsl_matrix *qi, int i_kz);
+    void _getWeightedMatrix(gsl_matrix *m);
+    void _getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz);
 
 public:
-    int ZBIN, DATA_SIZE;
+    int ZBIN;
 
     // TOTAL_KZ_BINS sized vector 
     gsl_vector  *ps_before_fisher_estimate_vector;
@@ -69,8 +67,15 @@ public:
     // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
     gsl_matrix  *fisher_matrix;
 
-    OneQSOEstimate(const char *fname_qso);
+    OneQSOEstimate(std::string fname_qso);
+    
     ~OneQSOEstimate();
+    
+    // Move constructor 
+    // OneQSOEstimate(OneQSOEstimate &&rhs);
+    // OneQSOEstimate& operator=(OneQSOEstimate&& rhs);
+
+    double getComputeTimeEst();
 
     void setCovarianceMatrix(const double *ps_estimate);
     void invertCovarianceMatrix();

@@ -1,7 +1,7 @@
 Prerequisites
 =====
 + [GSL](https://www.gnu.org/software/gsl/) is needed for matrix algebra, integration and interpolation.
-+ [Python](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
++ [Python3](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
 + [OpenMP](https://www.openmp.org) is needed to enable parallel computing on shared memory.
 
 Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl), [ATLAS](http://math-atlas.sourceforge.net) or [OpenBLAS](https://www.openblas.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).

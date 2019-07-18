@@ -5,6 +5,46 @@
 #define LYA_REST 1215.67
 #define PI 3.14159265359
 
+namespace conv
+{
+    extern bool USE_LOG_V;
+    extern bool USE_FID_LEE12_MEAN_FLUX;
+    
+    void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size);
+    void convertLambdaToRedshift(double *lambda, int size);
+
+    void convertFluxToDeltaf(double *flux, double *noise, int size);
+    void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size);
+}
+
+namespace fidcosmo
+{
+    namespace pd13
+    {
+        // Fitting function has the form in Palanque-Delabrouille et al. 2013
+        // Added a Lorentzian decay to suppress small scale power
+        typedef struct
+        {
+            double A;
+            double n;
+            double alpha;
+
+            double B;
+            double beta;
+
+            double lambda;
+        } pd13_fit_params;
+
+        extern pd13_fit_params FIDUCIAL_PD13_PARAMS;
+    }
+
+    // This function is defined in preprocessing
+    double fiducialPowerSpectrum(double k, double z, void *params);
+    double fiducialPowerGrowthFactor(double z_ij, double k_kn, double z_zm, void *params);
+}
+
+namespace fidpd13 = fidcosmo::pd13;
+
 struct spectrograph_windowfn_params
 {
     double delta_v_ij;
@@ -13,35 +53,12 @@ struct spectrograph_windowfn_params
     double spectrograph_res;    // This is 1 sigma km/s resolution
 };
 
-void convert_flux2deltaf_mean(double *flux, double *noise, int size);
-// void convert_flux2deltaf_becker(const double *lambda, double *flux, double *noise, int size);
-void convert_lambda2v(double &median_z, double *v_array, const double *lambda, int size);
-
 double spectral_response_window_fn(double k, struct spectrograph_windowfn_params *spec_params);
-
-// This function is defined in preprocessing
-double fiducial_power_spectrum(double k, double z, void *params);
-
-// Fitting function has the form in Palanque-Delabrouille et al. 2013
-// Added a Lorentzian decay to suppress small scale power
-typedef struct
-{
-    double A;
-    double n;
-    double alpha;
-
-    double B;
-    double beta;
-
-    double lambda;
-} pd13_fit_params;
-
-double Palanque_Delabrouille_etal_2013_fit(double k, double z, pd13_fit_params *params);
 
 // Data structures to integrate signal and derivative matrix expressions
 struct sq_integrand_params
 {
-    pd13_fit_params                     *fiducial_pd_params;
+    fidpd13::pd13_fit_params            *fiducial_pd_params;
     struct spectrograph_windowfn_params *spec_window_params;
 };
 
