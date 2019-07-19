@@ -71,9 +71,12 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
         q_temp     = new OneQSOEstimate(*fq);
         cpu_t_temp = q_temp->getComputeTimeEst();
 
-        qso_estimators.push_back( std::make_pair(cpu_t_temp, q_temp) );
-
         ++Z_BIN_COUNTS[q_temp->ZBIN + 1];
+
+        if (cpu_t_temp < 1e-6)
+            delete q_temp;
+        else
+            qso_estimators.push_back( std::make_pair(cpu_t_temp, q_temp) );
     }
     
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
@@ -84,7 +87,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
     LOG::LOGGER.STD("\nNumber of quasars: %d\nQSOs in z bins: %d\n", NUMBER_OF_QSOS, NUMBER_OF_QSOS - NUMBER_OF_QSOS_OUT);
 
     LOG::LOGGER.STD("Sorting with respect to estimated cpu time.\n");
-    // Ascending order, that is 0s are at the beginning.
+    // Ascending order
     std::sort(qso_estimators.begin(), qso_estimators.end());
 }
 
@@ -97,7 +100,8 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
     gsl_matrix_free(fisher_matrix_sum);
     gsl_matrix_free(inverse_fisher_matrix_sum);
 
-    for (std::vector<std::pair <double, OneQSOEstimate*>>::iterator qe = qso_estimators.end(); qe != qso_estimators.begin(); --qe)
+    std::vector<std::pair <double, OneQSOEstimate*>>::iterator qe = qso_estimators.begin();
+    for (; qe != qso_estimators.end(); ++qe)
         delete qe->second;
 }
 
@@ -211,13 +215,14 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> *qu
 
     double *bucket_time = new double[maxthreads]();
 
-    for (int q = NUMBER_OF_QSOS-1; q >= NUMBER_OF_QSOS_OUT; --q)
+    std::vector<std::pair <double, OneQSOEstimate*>>::reverse_iterator qe = qso_estimators.rbegin();
+    for (; qe != qso_estimators.rend(); ++qe)
     {
         // find min time bucket
         int min_ind = index_of_min_element(bucket_time, maxthreads);
         // add max time consuming to that bucket
-        queue_qso[min_ind].push_back(qso_estimators[q].second);
-        bucket_time[min_ind] += qso_estimators[q].first;
+        queue_qso[min_ind].push_back(qe->second);
+        bucket_time[min_ind] += qe->first;
     }
 
     LOG::LOGGER.STD("Balanced estimated cpu times: ");
@@ -227,7 +232,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> *qu
     delete [] bucket_time;
     load_balance_time = mytime::getTime() - load_balance_time;
     
-    LOG::LOGGER.STD("Load balancing took %.2f min.\n", load_balance_time);
+    LOG::LOGGER.STD("Load balancing took %.2f sec.\n", load_balance_time*60.);
 }
 
 void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *fname_base)
