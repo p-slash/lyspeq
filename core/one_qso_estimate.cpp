@@ -162,6 +162,8 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
                    velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT,
                    lambda_array[0]/LYA_REST-1, lambda_array[DATA_SIZE-1]/LYA_REST-1);
 
+    nqj_eff = 0;
+
     if (!_findRedshiftBin(MEDIAN_REDSHIFT))     return;
     
     // Set up number of matrices, index for Fisher matrix
