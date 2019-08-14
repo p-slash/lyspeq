@@ -3,7 +3,7 @@ v1
 After many modifications, this is the first release. 
 
 + Set `UseLogarithmicVelocity` in config file to 1 to convert by logarithmic spacing.
-+ All redshift binning schemes scales derivative matrices with fiducial growth unless `--disable-redshift-growth` is passed to configure or '-DREDSHIFT_GROWTH_POWER' is not passed to preprocessor.
++ All redshift binning schemes scales derivative matrices with fiducial growth unless `--disable-redshift-growth` is passed to configure or `-DREDSHIFT_GROWTH_POWER` is not passed to preprocessor.
 + Convergence checks if estimated error is negative. Negative errors are substituted with infinite error *only* in convergence---Fisher matrix is not modified.
 + Load balancing takes how many matrices are needed in triangular bins into account. Some bins are skipped since no pixel pair belongs to them.
 + Specify allocated memory in MB to store additional derivative matrices and fiducial signal matrix if possible. This speeds up calculations.
