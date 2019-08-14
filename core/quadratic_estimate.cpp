@@ -138,6 +138,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
                 0, pmn_estimate_vector->data, 1);
 }
 
+// Note that fitting is done on bin averaged values plus fiducial power
 void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
 {
     char tmp_ps_fname[320], tmp_fit_fname[320];
@@ -300,6 +301,9 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         sprintf(buf, "%s_it%d_quadratic_power_estimate.dat", fname_base, i+1);
         writeSpectrumEstimates(buf);
 
+        sprintf(buf, "%s_it%d_quadratic_power_estimate_detailed.dat", fname_base, i+1);
+        writeDetailedSpectrumEstimates(buf);
+
         sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, i+1);
         writeFisherMatrix(buf);
 
@@ -425,6 +429,82 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
         e = sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz));
 
         fprintf(toWrite, "%.3lf %e %e %e\n", z, k, p, e);
+    }
+
+    fclose(toWrite);
+        
+    LOG::LOGGER.IO("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+    LOG::LOGGER.STD("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+}
+
+void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fname)
+{
+    FILE *toWrite;
+    int i_kz, kn, zm;
+    double z, k1, k2, kc, Pfid, ThetaP, ErrorP;
+
+    toWrite = ioh::open_file(fname, "w");
+    
+    fprintf(toWrite, "# Fiducial Power Spectrum\n"
+                     "# Pfid(k, z) = (A*pi/k0) * q^(2+n+alpha*ln(q)+beta*ln(x)) * x^B / (1 + lambda * k^2)\n"
+                     "# k0=0.009 s km^-1, z0=3.0 and q=k/k0, x=(1+z)/(1+z0)\n"
+                     "# Parameters set by config file:\n");
+    fprintf(toWrite, "# A      = %e\n"
+                     "# n      = %e\n"
+                     "# alpha  = %e\n"
+                     "# B      = %e\n"
+                     "# beta   = %e\n"
+                     "# lambda = %e\n", 
+                     fidpd13::FIDUCIAL_PD13_PARAMS.A, fidpd13::FIDUCIAL_PD13_PARAMS.n, fidpd13::FIDUCIAL_PD13_PARAMS.alpha,
+                     fidpd13::FIDUCIAL_PD13_PARAMS.B, fidpd13::FIDUCIAL_PD13_PARAMS.beta, fidpd13::FIDUCIAL_PD13_PARAMS.lambda);
+    fprintf(toWrite, "# -----------------------------------------------------------------\n"
+                     "# File Template\n"
+                     "# Nz Nk\n"
+                     "# n[0] n[1] ... n[Nz] n[Nz+1]\n"
+                     "# z | k1 | k2 | kc | Pfid | ThetaP | ErrorP\n"
+                     "# Nz                Number of redshift bins\n"
+                     "# Nk                Number of k bins\n"
+                     "# n[i]              Spectral chunk counts in redshift bin i. Left-most and right-most are out of range\n"
+                     "# z                 Redshift bin center\n"
+                     "# k1                Lower edge of the k bin [s km^-1]\n"
+                     "# k2                Upper edge of the k bin [s km^-1]\n"
+                     "# kc                Center of the k bin [s km^-1]\n"
+                     "# Pfid              Fiducial power at kc [km s^-1]\n"
+                     "# ThetaP            Deviation from Pfid found by quadratic estimator [km s^-1]\n"
+                     "# ErrorP            Error estimated from diagonal terms of the inverse Fisher matrix [km s^-1]\n"
+                     "# -----------------------------------------------------------------\n");
+
+    #ifdef LAST_K_EDGE
+    fprintf(toWrite, "%d %d\n", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS-1);
+    #else
+    fprintf(toWrite, "%d %d\n", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
+    #endif
+
+    for (zm = 0; zm <= bins::NUMBER_OF_Z_BINS+1; ++zm)
+        fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
+
+    fprintf(toWrite, "\n");
+
+    for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
+    {
+        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
+
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
+        
+        if (Z_BIN_COUNTS[zm+1] == 0)  continue;
+
+        z  = bins::ZBIN_CENTERS[zm];
+        
+        k1 = bins::KBAND_EDGES[kn];
+        k2 = bins::KBAND_EDGES[kn+1];
+        kc = bins::KBAND_CENTERS[kn];
+
+        Pfid = powerSpectrumFiducial(kn, zm);
+        ThetaP = gsl_vector_get(pmn_estimate_vector, i_kz);
+        ErrorP = sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz));
+
+        fprintf(toWrite, "%.3lf    %e    %e    %e    %e    %e    %e\n", 
+                            z,     k1,   k2,  kc,  Pfid, ThetaP, ErrorP);
     }
 
     fclose(toWrite);
