@@ -61,10 +61,10 @@ class OneQSOEstimate
 public:
     int ZBIN;
 
-    // TOTAL_KZ_BINS sized vector 
-    gsl_vector  *ps_before_fisher_estimate_vector;
+    // 3 TOTAL_KZ_BINS sized vectors
+    gsl_vector  *dbt_estimate_before_fisher_vector[3];
 
-    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
+    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
     gsl_matrix  *fisher_matrix;
 
     OneQSOEstimate(std::string fname_qso);
@@ -83,7 +83,7 @@ public:
     void computePSbeforeFvector();
     void computeFisherMatrix();
 
-    void oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_before, gsl_matrix *fisher_sum);
+    void oneQSOiteration(const double *ps_estimate, gsl_vector *dbt_sum_vector[3], gsl_matrix *fisher_sum);
 };
 
 #endif

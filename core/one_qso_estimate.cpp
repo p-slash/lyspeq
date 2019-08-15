@@ -392,7 +392,7 @@ void OneQSOEstimate::computePSbeforeFvector()
                 flux_array, 1,
                 0, weighted_data_vector->data, 1);
 
-    double temp_bk, temp_tk = 0, temp_d;
+    double temp_bk, temp_tk = 0, temp_dk;
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
@@ -401,16 +401,14 @@ void OneQSOEstimate::computePSbeforeFvector()
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        temp_d = mxhelp::my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix);
-
-        throw_isnan(temp_d, "d");
+        temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix);
+        throw_isnan(temp_dk, "d");
 
         // Get weighted derivative matrix ikz
         _getWeightedMatrix(Q_ikz_matrix);
 
         // Get Noise contribution
         temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, noise_array);
-        
         throw_isnan(temp_bk, "bk");
 
         // Set Fiducial Signal Matrix
@@ -419,19 +417,20 @@ void OneQSOEstimate::computePSbeforeFvector()
             _setFiducialSignalMatrix(Sfid_matrix);
 
             temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix);
-
             throw_isnan(temp_tk, "tk");
         }
-                
-        gsl_vector_set(ps_before_fisher_estimate_vector, i_kz + fisher_index_start, temp_d - temp_bk - temp_tk);
+        
+        gsl_vector_set(dbt_estimate_before_fisher_vector[0], i_kz + fisher_index_start, temp_dk);
+        gsl_vector_set(dbt_estimate_before_fisher_vector[1], i_kz + fisher_index_start, temp_bk);
+        gsl_vector_set(dbt_estimate_before_fisher_vector[2], i_kz + fisher_index_start, temp_tk);
+
         _getFisherMatrix(Q_ikz_matrix, i_kz);
     }
 
-    // printf("PS before f: %.3e\n", gsl_vector_get(ps_before_fisher_estimate_vector, 0));
     gsl_vector_free(weighted_data_vector);
 }
 
-void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_before, gsl_matrix *fisher_sum)
+void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *dbt_sum_vector[3], gsl_matrix *fisher_sum)
 {
     _allocateMatrices();
 
@@ -458,7 +457,9 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_
         computePSbeforeFvector();
 
         gsl_matrix_add(fisher_sum, fisher_matrix);
-        gsl_vector_add(pmn_before, ps_before_fisher_estimate_vector);
+        
+        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+            gsl_vector_add(dbt_sum_vector[dbt_i], dbt_estimate_before_fisher_vector[dbt_i]);
     }
     catch (const char* msg)
     {
@@ -474,8 +475,10 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *pmn_
 
 void OneQSOEstimate::_allocateMatrices()
 {
-    ps_before_fisher_estimate_vector = gsl_vector_calloc(bins::TOTAL_KZ_BINS);
-    fisher_matrix                    = gsl_matrix_calloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+        dbt_estimate_before_fisher_vector[dbt_i] = gsl_vector_calloc(bins::TOTAL_KZ_BINS);
+
+    fisher_matrix = gsl_matrix_calloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
 
     covariance_matrix = gsl_matrix_alloc(DATA_SIZE, DATA_SIZE);
 
@@ -494,7 +497,9 @@ void OneQSOEstimate::_allocateMatrices()
 
 void OneQSOEstimate::_freeMatrices()
 {
-    gsl_vector_free(ps_before_fisher_estimate_vector);
+    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+        gsl_vector_free(dbt_estimate_before_fisher_vector[dbt_i]);
+
     gsl_matrix_free(fisher_matrix);
 
     gsl_matrix_free(covariance_matrix);
