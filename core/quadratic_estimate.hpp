@@ -29,10 +29,12 @@ class OneDQuadraticPowerEstimate
     std::vector< std::pair <double, OneQSOEstimate*> > qso_estimators;
 
     // 3 TOTAL_KZ_BINS sized vectors
-    gsl_vector *pmn_before_fisher_estimate_vector_sum, *previous_pmn_estimate_vector, *pmn_estimate_vector;
-    
+    gsl_vector  *dbt_estimate_sum_before_fisher_vector[3],
+                *dbt_estimate_fisher_weighted_vector[3], 
+                *previous_power_estimate_vector, *current_power_estimate_vector;
+
     // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
-    gsl_matrix  *fisher_matrix_sum, *inverse_fisher_matrix_sum;
+    gsl_matrix *fisher_matrix_sum, *inverse_fisher_matrix_sum;
 
     bool isFisherInverted;
 
