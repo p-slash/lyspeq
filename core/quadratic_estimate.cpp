@@ -37,9 +37,14 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
     Z_BIN_COUNTS     = new int[bins::NUMBER_OF_Z_BINS+2]();
 
     // Allocate memory
-    pmn_before_fisher_estimate_vector_sum   = gsl_vector_alloc(bins::TOTAL_KZ_BINS); 
-    previous_pmn_estimate_vector            = gsl_vector_alloc(bins::TOTAL_KZ_BINS);
-    pmn_estimate_vector                     = gsl_vector_calloc(bins::TOTAL_KZ_BINS);
+    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+    {
+        dbt_estimate_sum_before_fisher_vector[dbt_i] = gsl_vector_alloc(bins::TOTAL_KZ_BINS);
+        dbt_estimate_fisher_weighted_vector[dbt_i]   = gsl_vector_alloc(bins::TOTAL_KZ_BINS);
+    }
+
+    previous_power_estimate_vector          = gsl_vector_alloc(bins::TOTAL_KZ_BINS);
+    current_power_estimate_vector           = gsl_vector_calloc(bins::TOTAL_KZ_BINS);
     fisher_matrix_sum                       = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     inverse_fisher_matrix_sum               = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
 
@@ -93,9 +98,14 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 {
-    gsl_vector_free(pmn_before_fisher_estimate_vector_sum);
-    gsl_vector_free(previous_pmn_estimate_vector);
-    gsl_vector_free(pmn_estimate_vector);
+    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+    {
+        gsl_vector_free(dbt_estimate_sum_before_fisher_vector[dbt_i]);
+        gsl_vector_free(dbt_estimate_fisher_weighted_vector[dbt_i]);
+    }
+
+    gsl_vector_free(previous_power_estimate_vector);
+    gsl_vector_free(current_power_estimate_vector);
 
     gsl_matrix_free(fisher_matrix_sum);
     gsl_matrix_free(inverse_fisher_matrix_sum);
@@ -130,14 +140,22 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 
     LOG::LOGGER.STD("Estimating power spectrum.\n");
 
-    gsl_vector_memcpy(previous_pmn_estimate_vector, pmn_estimate_vector);
+    gsl_vector_memcpy(previous_power_estimate_vector, current_power_estimate_vector);
 
-    cblas_dsymv(CblasRowMajor, CblasUpper,
-                bins::TOTAL_KZ_BINS, 0.5, inverse_fisher_matrix_sum->data, bins::TOTAL_KZ_BINS,
-                pmn_before_fisher_estimate_vector_sum->data, 1,
-                0, pmn_estimate_vector->data, 1);
+    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+    {
+        cblas_dsymv(CblasRowMajor, CblasUpper,
+                    bins::TOTAL_KZ_BINS, 0.5, inverse_fisher_matrix_sum->data, bins::TOTAL_KZ_BINS,
+                    dbt_estimate_sum_before_fisher_vector[dbt_i]->data, 1,
+                    0, dbt_estimate_fisher_weighted_vector[dbt_i]->data, 1);
+    }
+
+    gsl_vector_memcpy(current_power_estimate_vector, dbt_estimate_fisher_weighted_vector[0]);
+    gsl_vector_sub(current_power_estimate_vector, dbt_estimate_fisher_weighted_vector[1]);
+    gsl_vector_sub(current_power_estimate_vector, dbt_estimate_fisher_weighted_vector[2]);
 }
 
+// Note that fitting is done on bin averaged values plus fiducial power
 void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
 {
     char tmp_ps_fname[320], tmp_fit_fname[320];
@@ -257,15 +275,18 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 {
         double thread_time = mytime::getTime();
 
-        gsl_vector *local_pmn_before_fisher_estimate_vs = gsl_vector_calloc(bins::TOTAL_KZ_BINS);
-        gsl_matrix *local_fisher_ms                     = gsl_matrix_calloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+        gsl_vector *local_dbt_array[3];
+        gsl_matrix *local_fisher_ms = gsl_matrix_calloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+        
+        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+            local_dbt_array[dbt_i] = gsl_vector_calloc(bins::TOTAL_KZ_BINS);
 
         std::vector<OneQSOEstimate*> local_que(queue_qso[t_rank]);
 
         LOG::LOGGER.STD("Start working in %d/%d thread with %lu qso in queue.\n", t_rank, numthreads, local_que.size());
 
         for (std::vector<OneQSOEstimate*>::iterator it = local_que.begin(); it != local_que.end(); ++it)
-            (*it)->oneQSOiteration(powerspectra_fits, local_pmn_before_fisher_estimate_vs, local_fisher_ms);
+            (*it)->oneQSOiteration(powerspectra_fits, local_dbt_array, local_fisher_ms);
 
         thread_time = mytime::getTime() - thread_time;
 
@@ -275,10 +296,13 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         #pragma omp critical
         {
             gsl_matrix_add(fisher_matrix_sum, local_fisher_ms);
-            gsl_vector_add(pmn_before_fisher_estimate_vector_sum, local_pmn_before_fisher_estimate_vs);
+            for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+                gsl_vector_add(dbt_estimate_sum_before_fisher_vector[dbt_i], local_dbt_array[dbt_i]);
+
         } 
         
-        gsl_vector_free(local_pmn_before_fisher_estimate_vs);
+        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+            gsl_vector_free(local_dbt_array[dbt_i]);
         gsl_matrix_free(local_fisher_ms);
 }
 
@@ -299,6 +323,9 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         sprintf(buf, "%s_it%d_quadratic_power_estimate.dat", fname_base, i+1);
         writeSpectrumEstimates(buf);
+
+        sprintf(buf, "%s_it%d_quadratic_power_estimate_detailed.dat", fname_base, i+1);
+        writeDetailedSpectrumEstimates(buf);
 
         sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, i+1);
         writeFisherMatrix(buf);
@@ -335,8 +362,8 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         
         if (Z_BIN_COUNTS[zm+1] == 0)  continue;
 
-        p1 = fabs(gsl_vector_get(pmn_estimate_vector, i_kz));
-        p2 = fabs(gsl_vector_get(previous_pmn_estimate_vector, i_kz));
+        p1 = fabs(gsl_vector_get(current_power_estimate_vector, i_kz));
+        p2 = fabs(gsl_vector_get(previous_power_estimate_vector, i_kz));
         
         diff = fabs(p1 - p2);
         pMax = std::max(p1, p2);
@@ -356,7 +383,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     // Perform a chi-square test as well
     // Maybe just do diagonal (dx)^2/F-1_ii
     
-    gsl_vector_sub(previous_pmn_estimate_vector, pmn_estimate_vector);
+    gsl_vector_sub(previous_power_estimate_vector, current_power_estimate_vector);
 
     r = 0;
 
@@ -364,7 +391,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
         
-        double  t = gsl_vector_get(previous_pmn_estimate_vector, i_kz),
+        double  t = gsl_vector_get(previous_power_estimate_vector, i_kz),
                 e = gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz);
 
         if (e < 0)  continue;
@@ -374,7 +401,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     r  = sqrt(r / bins::DEGREE_OF_FREEDOM);
 
-    // r = my_cblas_dsymvdot(previous_pmn_estimate_vector, fisher_matrix_sum) / bins::TOTAL_KZ_BINS;
+    // r = my_cblas_dsymvdot(previous_power_estimate_vector, fisher_matrix_sum) / bins::TOTAL_KZ_BINS;
 
     LOG::LOGGER.STD("Chi square convergence test: %.3f per dof. "
                     "Iteration converges when this is less than %.2f\n", 
@@ -421,7 +448,7 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 
         z = bins::ZBIN_CENTERS[zm];
         k = bins::KBAND_CENTERS[kn];
-        p = gsl_vector_get(pmn_estimate_vector, i_kz) + powerSpectrumFiducial(kn, zm);
+        p = gsl_vector_get(current_power_estimate_vector, i_kz) + powerSpectrumFiducial(kn, zm);
         e = sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz));
 
         fprintf(toWrite, "%.3lf %e %e %e\n", z, k, p, e);
@@ -433,9 +460,97 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
     LOG::LOGGER.STD("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
 }
 
+void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fname)
+{
+    FILE *toWrite;
+    int i_kz, kn, zm;
+    double z, k1, k2, kc, Pfid, ThetaP, ErrorP, dk, bk, tk;
+
+    toWrite = ioh::open_file(fname, "w");
+    
+    fprintf(toWrite, "# Fiducial Power Spectrum\n"
+                     "# Pfid(k, z) = (A*pi/k0) * q^(2+n+alpha*ln(q)+beta*ln(x)) * x^B / (1 + lambda * k^2)\n"
+                     "# k0=0.009 s km^-1, z0=3.0 and q=k/k0, x=(1+z)/(1+z0)\n"
+                     "# Parameters set by config file:\n");
+    fprintf(toWrite, "# A      = %e\n"
+                     "# n      = %e\n"
+                     "# alpha  = %e\n"
+                     "# B      = %e\n"
+                     "# beta   = %e\n"
+                     "# lambda = %e\n", 
+                     fidpd13::FIDUCIAL_PD13_PARAMS.A, fidpd13::FIDUCIAL_PD13_PARAMS.n, fidpd13::FIDUCIAL_PD13_PARAMS.alpha,
+                     fidpd13::FIDUCIAL_PD13_PARAMS.B, fidpd13::FIDUCIAL_PD13_PARAMS.beta, fidpd13::FIDUCIAL_PD13_PARAMS.lambda);
+    fprintf(toWrite, "# -----------------------------------------------------------------\n"
+                     "# File Template\n"
+                     "# Nz Nk\n"
+                     "# n[0] n[1] ... n[Nz] n[Nz+1]\n"
+                     "# z | k1 | k2 | kc | Pfid | ThetaP | Pest | ErrorP | d | b | t\n"
+                     "# Nz                Number of redshift bins\n"
+                     "# Nk                Number of k bins\n"
+                     "# n[i]              Spectral chunk count in redshift bin i. Left-most and right-most are out of range\n"
+                     "# z                 Redshift bin center\n"
+                     "# k1                Lower edge of the k bin [s km^-1]\n"
+                     "# k2                Upper edge of the k bin [s km^-1]\n"
+                     "# kc                Center of the k bin [s km^-1]\n"
+                     "# Pfid              Fiducial power at kc [km s^-1]\n"
+                     "# ThetaP            Deviation from Pfid found by quadratic estimator = d - b - t [km s^-1]\n"
+                     "# Pest              Pfid + ThetaP [km s^-1]\n"
+                     "# ErrorP            Error estimated from diagonal terms of the inverse Fisher matrix [km s^-1]\n"
+                     "# d                 Power estimate before noise (b) and fiducial power (t) subtracted [km s^-1]\n"
+                     "# b                 Noise estimate[km s^-1]\n"
+                     "# t                 Fiducial power estimate[km s^-1]\n"
+                     "# -----------------------------------------------------------------\n");
+
+    #ifdef LAST_K_EDGE
+    fprintf(toWrite, "# %d %d\n# ", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS-1);
+    #else
+    fprintf(toWrite, "# %d %d\n# ", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
+    #endif
+
+    for (zm = 0; zm <= bins::NUMBER_OF_Z_BINS+1; ++zm)
+        fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
+
+    fprintf(toWrite, "\n");
+    fprintf(toWrite, "z %15s %15s %15s %15s %15s %15s %15s %15s %15s %15s\n", 
+        "k1", "k2", "kc", "Pfid", "ThetaP", "Pest", "ErrorP", "d", "b", "t");
+
+    for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
+    {
+        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
+
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
+        
+        if (Z_BIN_COUNTS[zm+1] == 0)  continue;
+
+        z  = bins::ZBIN_CENTERS[zm];
+        
+        k1 = bins::KBAND_EDGES[kn];
+        k2 = bins::KBAND_EDGES[kn+1];
+        kc = bins::KBAND_CENTERS[kn];
+
+        Pfid = powerSpectrumFiducial(kn, zm);
+        ThetaP = gsl_vector_get(current_power_estimate_vector, i_kz);
+        ErrorP = sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz));
+
+        dk = gsl_vector_get(dbt_estimate_fisher_weighted_vector[0], i_kz);
+        bk = gsl_vector_get(dbt_estimate_fisher_weighted_vector[1], i_kz);
+        tk = gsl_vector_get(dbt_estimate_fisher_weighted_vector[2], i_kz);
+
+        fprintf(toWrite, "%.3lf %15e %15e %15e %15e %15e %15e %15e %15e %15e %15e\n", 
+                            z,  k1,  k2,  kc,  Pfid,ThetaP, Pfid+ThetaP, ErrorP, dk, bk, tk);
+    }
+
+    fclose(toWrite);
+        
+    LOG::LOGGER.IO("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+    LOG::LOGGER.STD("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+}
+
 void OneDQuadraticPowerEstimate::initializeIteration()
 {
-    gsl_vector_set_zero(pmn_before_fisher_estimate_vector_sum);
+    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+        gsl_vector_set_zero(dbt_estimate_sum_before_fisher_vector[dbt_i]);
+           
     gsl_matrix_set_zero(fisher_matrix_sum);
     isFisherInverted = false;
 }
@@ -460,7 +575,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 
             i_kz = bins::getFisherMatrixIndex(kn, zm-1);
 
-            LOG::LOGGER.STD(" %.3e |", pmn_estimate_vector->data[i_kz] + powerSpectrumFiducial(kn, zm-1));
+            LOG::LOGGER.STD(" %.3e |", current_power_estimate_vector->data[i_kz] + powerSpectrumFiducial(kn, zm-1));
         }
         LOG::LOGGER.STD("\n");
     }

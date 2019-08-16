@@ -29,10 +29,12 @@ class OneDQuadraticPowerEstimate
     std::vector< std::pair <double, OneQSOEstimate*> > qso_estimators;
 
     // 3 TOTAL_KZ_BINS sized vectors
-    gsl_vector *pmn_before_fisher_estimate_vector_sum, *previous_pmn_estimate_vector, *pmn_estimate_vector;
+    gsl_vector  *dbt_estimate_sum_before_fisher_vector[3],
+                *dbt_estimate_fisher_weighted_vector[3], 
+                *previous_power_estimate_vector, *current_power_estimate_vector;
 
     // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
-    gsl_matrix  *fisher_matrix_sum, *inverse_fisher_matrix_sum;
+    gsl_matrix *fisher_matrix_sum, *inverse_fisher_matrix_sum;
 
     bool isFisherInverted;
 
@@ -59,11 +61,12 @@ public:
     bool hasConverged();
     
     void printfSpectra();
-    void writeFisherMatrix(const char *fname_base);
+    void writeFisherMatrix(const char *fname);
 
     // Does not write the last bin since it is ignored when LAST_K_EDGE defined
     // You can find that value in logs--printfSpectra prints all
-    void writeSpectrumEstimates(const char *fname_base);
+    void writeSpectrumEstimates(const char *fname);
+    void writeDetailedSpectrumEstimates(const char *fname);
 };
 
 
