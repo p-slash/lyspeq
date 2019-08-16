@@ -1,7 +1,10 @@
+v1.1
+=====
++ Prints detailed power spectrum output file.
++ Computes Fisher matrix weighted d (raw power), b (noise estimate) and t (fiducial signal estimate) values storing 3 more gsl_vectors.
+
 v1
 =====
-After many modifications, this is the first release. 
-
 + Set `UseLogarithmicVelocity` in config file to 1 to convert by logarithmic spacing.
 + All redshift binning schemes scales derivative matrices with fiducial growth unless `--disable-redshift-growth` is passed to configure or `-DREDSHIFT_GROWTH_POWER` is not passed to preprocessor.
 + Convergence checks if estimated error is negative. Negative errors are substituted with infinite error *only* in convergence---Fisher matrix is not modified.
