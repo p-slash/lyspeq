@@ -52,7 +52,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     // Read the file
     FILE *toRead = ioh::open_file(fname_list, "r");
-    fscanf(toRead, "%d\n", &NUMBER_OF_QSOS);
+    if (fscanf(toRead, "%d\n", &NUMBER_OF_QSOS) != 1) throw "ERR: N_QSO in file!\n";
 
     LOG::LOGGER.STD("Number of QSOs: %d\n", NUMBER_OF_QSOS);
 
@@ -61,7 +61,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
-        fscanf(toRead, "%s\n", temp_fname+1);
+        if (fscanf(toRead, "%s\n", temp_fname+1) != 1) throw "ERR: Fname QSO in file\n";
         fpaths[q] += temp_fname;
     }
     fclose(toRead);
@@ -162,7 +162,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     std::ostringstream command;
 
     FILE *tmp_fit_file;
-    int s1, s2, kn, zm;
+    int s1, s2, kn, zm, fr;
     static fidpd13::pd13_fit_params iteration_fits = fidpd13::FIDUCIAL_PD13_PARAMS;
 
     sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
@@ -207,9 +207,12 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
 
     tmp_fit_file = ioh::open_file(tmp_fit_fname, "r");
 
-    fscanf( tmp_fit_file, "%le %le %le %le %le %le\n",
-            &iteration_fits.A, &iteration_fits.n, &iteration_fits.alpha,
-            &iteration_fits.B, &iteration_fits.beta, &iteration_fits.lambda);
+    fr = fscanf(tmp_fit_file, "%le %le %le %le %le %le\n",
+                &iteration_fits.A, &iteration_fits.n, &iteration_fits.alpha,
+                &iteration_fits.B, &iteration_fits.beta, &iteration_fits.lambda);
+
+    if (fr != 6)
+        throw "ERROR: Reading fit parameters from tmp_fit_file!\n";
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; i_kz++)
     {
@@ -217,7 +220,10 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
 
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        fscanf(tmp_fit_file, "%le\n", &fit_values[i_kz]);
+        fr = fscanf(tmp_fit_file, "%le\n", &fit_values[i_kz]);
+
+        if (fr != 1)
+            throw "ERROR: Reading fit power values from tmp_fit_file!\n";
 
         fit_values[i_kz] -= powerSpectrumFiducial(kn, zm);
     }
@@ -497,8 +503,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
                      "# Pest              Pfid + ThetaP [km s^-1]\n"
                      "# ErrorP            Error estimated from diagonal terms of the inverse Fisher matrix [km s^-1]\n"
                      "# d                 Power estimate before noise (b) and fiducial power (t) subtracted [km s^-1]\n"
-                     "# b                 Noise estimate[km s^-1]\n"
-                     "# t                 Fiducial power estimate[km s^-1]\n"
+                     "# b                 Noise estimate [km s^-1]\n"
+                     "# t                 Fiducial power estimate [km s^-1]\n"
                      "# -----------------------------------------------------------------\n");
 
     #ifdef LAST_K_EDGE
