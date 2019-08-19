@@ -206,7 +206,7 @@ void printBuildSpecifics()
     #define HIGH_K_TXT "OFF"
     #endif
     
-    #if define(REDSHIFT_GROWTH_POWER)
+    #if defined(REDSHIFT_GROWTH_POWER)
     #define RGP_TEXT "ON"
     #else
     #define RGP_TEXT "OFF"
