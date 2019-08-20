@@ -4,8 +4,7 @@
 GSLRECFLAGS = -Wall -pedantic -Werror -W -Wno-unknown-pragmas\
 -Wshadow -Wpointer-arith \
 -Wcast-qual -Wcast-align -Wwrite-strings \
--fshort-enums -fno-common \
--O3
+-fshort-enums -fno-common
 				
 #---------------------------------------
 DIRS   = $(addprefix $(srcdir)/, core io gsltools tests)
@@ -25,7 +24,7 @@ DEPS    = $(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
 CPPFLAGS += -I$(srcdir) -std=gnu++11 -DHAVE_INLINE $(OPT)
 CPPFLAGS += -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
-CXXFLAGS = $(GSLRECFLAGS)
+CXXFLAGS = -O3 $(GSLRECFLAGS)
 
 all: LyaPowerEstimate CreateSQLookUpTable
 
