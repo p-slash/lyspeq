@@ -67,14 +67,18 @@ int main(int argc, char const *argv[])
         // These values are FWHM integer
         // spectrograph_windowfn_params takes 1 sigma km/s
         FILE *toRead = ioh::open_file(FNAME_RLIST, "r");
-        fscanf(toRead, "%d\n", &NUMBER_OF_Rs);
+        if (fscanf(toRead, "%d\n", &NUMBER_OF_Rs) != 1)
+            throw "ERROR: fscanf error in NUMBER_OF_Rs from FNAME_RLIST!\n";
 
         LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_Rs);
 
         R_VALUES = new int[NUMBER_OF_Rs];
 
         for (int r = 0; r < NUMBER_OF_Rs; ++r)
-            fscanf(toRead, "%d\n", &R_VALUES[r]);
+        {
+            if (fscanf(toRead, "%d\n", &R_VALUES[r]) != 1)
+                throw "ERROR: fscanf error in R_VALUES from FNAME_RLIST!\n";
+        }
 
         fclose(toRead);
         // Reading R values done
