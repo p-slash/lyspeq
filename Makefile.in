@@ -29,6 +29,8 @@ CXXFLAGS = -O3 $(GSLRECFLAGS)
 all: LyaPowerEstimate CreateSQLookUpTable
 
 test: cblas_tests
+	./cblas_tests > output_tests.log 
+	diff output_tests.log $(srcdir)/tests/expected_output.txt
 	
 LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
