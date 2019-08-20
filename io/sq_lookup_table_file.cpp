@@ -70,7 +70,8 @@ void SQLookupTableFile::readHeader()
     if (!isHeaderSet)
     {
         rewind(sq_file);
-        fread(&header, sizeof(sq_io_header), 1, sq_file);
+        if (fread(&header, sizeof(sq_io_header), 1, sq_file) != 1)
+            throw "ERROR: fread error in header SQLookupTableFile!\n";
         
         isHeaderSet = true;
     }
@@ -117,8 +118,14 @@ void SQLookupTableFile::writeData(double *data)
         size = header.vpoints;
     }
 
-    fwrite(&header, sizeof(sq_io_header), 1, sq_file);
-    fwrite(data, size, sizeof(double), sq_file);
+    int fw;
+
+    fw = fwrite(&header, sizeof(sq_io_header), 1, sq_file);
+    if (fw != 1)
+        throw "ERROR: fwrite error in header SQLookupTableFile!\n";
+    fw = fwrite(data, sizeof(double), size, sq_file);
+    if (fw != 1)
+        throw "ERROR: fwrite error in data SQLookupTableFile!\n";
 }
 
 void SQLookupTableFile::readData(double *data)
@@ -127,14 +134,15 @@ void SQLookupTableFile::readData(double *data)
     
     fseek(sq_file, sizeof(sq_io_header), SEEK_SET);
     
-    int size = header.vpoints * header.zpoints;
+    size_t size = header.vpoints * header.zpoints;
     
     if (size == 0)
     {
         size = header.vpoints;
     }
 
-    fread(data, size, sizeof(double), sq_file);
+    if (fread(data, sizeof(double), size, sq_file) != size)
+        throw "ERROR: fread error in data SQLookupTableFile!\n";
 }
 
 
