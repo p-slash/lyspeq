@@ -32,7 +32,7 @@ void ConfigFile::readAll()
     while (!feof(config_file))
     {
         if (fgets(line, 1024, config_file) == NULL)
-            throw "ERROR: Reading line in config_file!\n";
+            continue;
 
         if (line[0] == '%' || line[0] == '#')
             continue;
