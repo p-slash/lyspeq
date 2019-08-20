@@ -158,7 +158,7 @@ function interactive() {
             fi
             
             LDFLAGS_CBLAS="-L${CBLAS_DIR}/lib"
-            LDLIBS_CBLAS="-latlas"
+            LDLIBS_CBLAS="-lcblas -latlas"
             ;;
         openblas|OpenBLAS|openBLAS )
             echo "Where is OpenBLAS?"
