@@ -6,7 +6,7 @@ pipelines:
   default:
     - step:
         script:
-          - ./configure --build=linux-gcc-gslcblas
+          - ./configure --build=x64-linux-gcc-gslcblas
           - make
           - make test
     - step:
