@@ -55,7 +55,7 @@ function print_build_types() {
     echo "-------------------------"
     echo "* x64-linux-gcc-atlas"
     echo "* x64-linux-gcc-openblas"
-    echo "* linux-gcc-gslcblas"
+    echo "* x64-linux-gcc-gslcblas"
     echo "# Compile with g++ and uses ATLAS, OpenBLAS and GSL CBLAS respectively."
     echo "# Pass --enable-openmp for threading"
 }
@@ -330,7 +330,7 @@ case ${SYSTYPE} in
         LDFLAGS="${gsl_lib}"
         LDLIBS="-lgsl -lopenblas -lm -ldl"
         ;;
-    linux-gcc-gslcblas )
+    x64-linux-gcc-gslcblas )
         CXX="g++"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
