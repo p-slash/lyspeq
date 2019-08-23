@@ -1,10 +1,19 @@
 # Only use spaces to indent your .yml configuration.
 # -----
 # You can use any Docker image from Docker Hub, or your own container registry, as your build environment.
-image: naimgk/ubuntu_gcc_gsl
+image: naimgk/scientific-ubuntu
 pipelines:
   default:
     - step:
         script:
           - ./configure --build=linux-gcc
           - make
+          - make test
+    - step:
+        script:
+          - ./configure --build=x64-linux-gcc-atlas --enable-openmp
+          - make && make test
+    - step:
+        script:
+          - ./configure --build=x64-linux-gcc-openblas --enable-openmp
+          - make && make test
