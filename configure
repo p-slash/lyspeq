@@ -53,8 +53,11 @@ function print_build_types() {
 # because macOS provides BLAS and LAPACK in the Accelerate framework.
 # It is in /usr/local/opt/openblas/lib"
     echo "-------------------------"
-    echo "* linux-gcc"
-    echo "# Use GSL for CBLAS. Pass --enable-openmp for threading"
+    echo "* x64-linux-gcc-atlas"
+    echo "* x64-linux-gcc-openblas"
+    echo "* linux-gcc-gslcblas"
+    echo "# Compile with g++ and uses ATLAS, OpenBLAS and GSL CBLAS respectively."
+    echo "# Pass --enable-openmp for threading"
 }
 
 function set_omp_flags() {
@@ -313,7 +316,21 @@ case ${SYSTYPE} in
         LDFLAGS="${gsl_lib} -L/usr/local/opt/openblas/lib"
         LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
         ;;
-    linux-gcc )
+    x64-linux-gcc-atlas )
+        CXX="g++"
+        set_omp_flags
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
+        LDFLAGS="${gsl_lib}"
+        LDLIBS="-lgsl -lcblas -latlas -lm -ldl"
+        ;;
+    x64-linux-gcc-openblas )
+        CXX="g++"
+        set_omp_flags
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
+        LDFLAGS="${gsl_lib}"
+        LDLIBS="-lgsl -lopenblas -lm -ldl"
+        ;;
+    linux-gcc-gslcblas )
         CXX="g++"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
