@@ -129,7 +129,7 @@ namespace bins
 
     double redshiftBinningFunction(double z, int zm, int zc)
     {
-        #ifdef TOPHAT_Z_BINNING_FN
+        #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
         double zz  __attribute__((unused)) = z;
         int    zzm __attribute__((unused)) = zm,
                zzc __attribute__((unused)) = zc;
@@ -189,7 +189,7 @@ namespace mytime
 
 void printBuildSpecifics()
 {
-    #if defined(TOPHAT_Z_BINNING_FN)
+    #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
     #define BINNING_SHAPE "Top Hat"
     #elif defined(TRIANGLE_Z_BINNING_FN)
     #define BINNING_SHAPE "Triangular"
@@ -205,6 +205,12 @@ void printBuildSpecifics()
     #else
     #define HIGH_K_TXT "OFF"
     #endif
+
+    #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
+    #define TORE_TEXT "OFF. This overwrites redshift binning to Top Hat"
+    #else
+    #define TORE_TEXT "ON"
+    #endif
     
     #if defined(REDSHIFT_GROWTH_POWER)
     #define RGP_TEXT "ON"
@@ -216,6 +222,7 @@ void printBuildSpecifics()
     LOG::LOGGER.STD("1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
     LOG::LOGGER.STD("2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
     LOG::LOGGER.STD("Redshift binning shape: %s\n", BINNING_SHAPE);
+    LOG::LOGGER.STD("Redshift evolution: %s\n", TORE_TEXT);
     LOG::LOGGER.STD("Redshift growth scaling: %s\n", RGP_TEXT);
     LOG::LOGGER.STD("Last k bin: %s\n", HIGH_K_TXT);
 
@@ -224,6 +231,7 @@ void printBuildSpecifics()
     #undef BINNING_SHAPE
     #undef HIGH_K_TXT
     #undef RGP_TEXT
+    #undef TORE_TEXT
 }
 
 void printConfigSpecifics()

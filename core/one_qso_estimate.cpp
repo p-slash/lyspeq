@@ -74,12 +74,11 @@ bool OneQSOEstimate::_findRedshiftBin(double median_z)
 // For triangular z bins, access 3 (2 for first and last z bins) redshift bins
 void OneQSOEstimate::_setNQandFisherIndex()
 {
-    #ifdef TOPHAT_Z_BINNING_FN
+    #if defined TOPHAT_Z_BINNING_FN || defined TURN_OFF_REDSHIFT_EVOLUTION
     N_Q_MATRICES        = 1;
     fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN);
-    #endif
-
-    #ifdef TRIANGLE_Z_BINNING_FN
+    
+    #elif defined TRIANGLE_Z_BINNING_FN
     N_Q_MATRICES        = 3;
     fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN - 1);
 
@@ -191,10 +190,16 @@ double OneQSOEstimate::getComputeTimeEst()
         return std::pow(DATA_SIZE/10., 3) * N_Q_MATRICES * (N_Q_MATRICES + 1);
 }
 
+// If redshift evolution is turned off, always set pixel pair's redshift to MEDIAN_REDSHIFT of the chunk.
 void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
 {
     v_ij = velocity_array[j] - velocity_array[i];
+
+    #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
+    z_ij = MEDIAN_REDSHIFT;
+    #else
     z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
+    #endif
 }
 
 void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
@@ -255,8 +260,12 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
                 _getVandZ(v_ij, z_ij, i, j);
                 
                 temp  = sq_private_table->getDerivativeMatrixValue(v_ij, kn, r_index);
+
+                // When redshift evolution is turned off, always use top-hat binning
                 temp *= bins::redshiftBinningFunction(z_ij, zm, ZBIN);
                 
+                // Allow growing with redshift even redshift evolution is turned off.
+                // Every pixel pair should scale to the bin redshift
                 #ifdef REDSHIFT_GROWTH_POWER
                 temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 
                                                             &fidpd13::FIDUCIAL_PD13_PARAMS);
