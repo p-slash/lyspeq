@@ -478,12 +478,12 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
                      "# Pfid(k, z) = (A*pi/k0) * q^(2+n+alpha*ln(q)+beta*ln(x)) * x^B / (1 + lambda * k^2)\n"
                      "# k0=0.009 s km^-1, z0=3.0 and q=k/k0, x=(1+z)/(1+z0)\n"
                      "# Parameters set by config file:\n");
-    fprintf(toWrite, "# A      = %e\n"
-                     "# n      = %e\n"
-                     "# alpha  = %e\n"
-                     "# B      = %e\n"
-                     "# beta   = %e\n"
-                     "# lambda = %e\n", 
+    fprintf(toWrite, "# A      = %15e\n"
+                     "# n      = %15e\n"
+                     "# alpha  = %15e\n"
+                     "# B      = %15e\n"
+                     "# beta   = %15e\n"
+                     "# lambda = %15e\n", 
                      fidpd13::FIDUCIAL_PD13_PARAMS.A, fidpd13::FIDUCIAL_PD13_PARAMS.n, fidpd13::FIDUCIAL_PD13_PARAMS.alpha,
                      fidpd13::FIDUCIAL_PD13_PARAMS.B, fidpd13::FIDUCIAL_PD13_PARAMS.beta, fidpd13::FIDUCIAL_PD13_PARAMS.lambda);
     fprintf(toWrite, "# -----------------------------------------------------------------\n"
