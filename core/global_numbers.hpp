@@ -54,6 +54,11 @@ namespace bins
 
     // returns -1 if below, NUMBER_OF_Z_BINS if above
     int    findRedshiftBin(double z);
+
+    // Given the redshift z, returns binning weight. 1 for top-hats, interpolation for triangular
+    // zm: Bin number to consider
+    // zc: Central bin number for triangular bins. Binning weights depend on being to the left 
+    // or to the right of this number.
     double redshiftBinningFunction(double z, int zm, int zc);
 
     int  getFisherMatrixIndex(int kn, int zm);
