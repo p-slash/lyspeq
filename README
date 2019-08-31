@@ -1,5 +1,7 @@
-v1.1
-=====
+# Changelog
++ Turn of redshift evolution by passing `--disable-redshift-evolution` to configure script. When redshift evolution is turned off, every pixel pair in each chunk assumed to be at the median redshift of the chunk, and switched to using top-hat bins. However, scaling with a growth function is still functional if passed.
+
+### v1.1
 + Prints detailed power spectrum output file.
 + Computes Fisher matrix weighted d (raw power), b (noise estimate) and t (fiducial signal estimate) values storing 3 more gsl_vectors.
 
