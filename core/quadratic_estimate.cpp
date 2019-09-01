@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib> // system
 #include <cassert>
+#include <stdexcept>
 
 #include <string>
 #include <sstream>      // std::ostringstream
@@ -52,7 +53,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     // Read the file
     FILE *toRead = ioh::open_file(fname_list, "r");
-    if (fscanf(toRead, "%d\n", &NUMBER_OF_QSOS) != 1) throw "ERR: N_QSO in file!\n";
+    if (fscanf(toRead, "%d\n", &NUMBER_OF_QSOS) != 1) throw std::runtime_error("N_QSO in file");
 
     LOG::LOGGER.STD("Number of QSOs: %d\n", NUMBER_OF_QSOS);
 
@@ -61,7 +62,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
-        if (fscanf(toRead, "%s\n", temp_fname+1) != 1) throw "ERR: Fname QSO in file\n";
+        if (fscanf(toRead, "%s\n", temp_fname+1) != 1) throw std::runtime_error("Fname QSO in file");
         fpaths[q] += temp_fname;
     }
     fclose(toRead);
@@ -174,7 +175,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     if (s1 == -1 || s2 == -1)
     {
         LOG::LOGGER.ERR("ERROR: Temp filename cannot be generated!\n");
-        throw "tmp";
+        throw std::runtime_error("tmp filename");
     }
 
     writeSpectrumEstimates(tmp_ps_fname);
@@ -200,7 +201,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     {
         LOG::LOGGER.ERR("Error in fitting.\n");
         remove(tmp_ps_fname);
-        throw "fit";
+        throw std::runtime_error("fitting error");
     }
 
     remove(tmp_ps_fname);
@@ -212,7 +213,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
                 &iteration_fits.B, &iteration_fits.beta, &iteration_fits.lambda);
 
     if (fr != 6)
-        throw "ERROR: Reading fit parameters from tmp_fit_file!\n";
+        throw std::runtime_error("Reading fit parameters from tmp_fit_file!");
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; i_kz++)
     {
@@ -223,7 +224,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
         fr = fscanf(tmp_fit_file, "%le\n", &fit_values[i_kz]);
 
         if (fr != 1)
-            throw "ERROR: Reading fit power values from tmp_fit_file!\n";
+            throw std::runtime_error("Reading fit power values from tmp_fit_file!");
 
         fit_values[i_kz] -= powerSpectrumFiducial(kn, zm);
     }
@@ -322,7 +323,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         catch (const char* msg)
         {
             LOG::LOGGER.ERR("ERROR %s: Fisher matrix is not invertable.\n", msg);
-            throw msg;
+            throw std::runtime_error(msg);
         }
         
         printfSpectra();

@@ -1,6 +1,8 @@
 #include "io/sq_lookup_table_file.hpp"
 #include "io/io_helper_functions.hpp"
 
+#include <stdexcept>
+
 void QTableFileNameConvention(  char *fname, const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_Q, \
                                 int r, double k1, double k2)
 {
@@ -71,7 +73,7 @@ void SQLookupTableFile::readHeader()
     {
         rewind(sq_file);
         if (fread(&header, sizeof(sq_io_header), 1, sq_file) != 1)
-            throw "ERROR: fread error in header SQLookupTableFile!\n";
+            throw std::runtime_error("fread error in header SQLookupTableFile!");
         
         isHeaderSet = true;
     }
@@ -122,10 +124,10 @@ void SQLookupTableFile::writeData(double *data)
 
     fw = fwrite(&header, sizeof(sq_io_header), 1, sq_file);
     if (fw != 1)
-        throw "ERROR: fwrite error in header SQLookupTableFile!\n";
+        std::runtime_error( "fwrite error in header SQLookupTableFile!");
     fw = fwrite(data, sizeof(double), size, sq_file);
     if (fw != 1)
-        throw "ERROR: fwrite error in data SQLookupTableFile!\n";
+        std::runtime_error( "fwrite error in data SQLookupTableFile!");
 }
 
 void SQLookupTableFile::readData(double *data)
@@ -142,7 +144,7 @@ void SQLookupTableFile::readData(double *data)
     }
 
     if (fread(data, sizeof(double), size, sq_file) != size)
-        throw "ERROR: fread error in data SQLookupTableFile!\n";
+        std::runtime_error("fread error in data SQLookupTableFile!");
 }
 
 
