@@ -189,7 +189,7 @@ namespace mytime
 
 void specifics::printBuildSpecifics()
 {
-    LOG::LOGGER.STD(BUILD_SPECIFICS);
+    LOG::LOGGER.STD("%s\n", BUILD_SPECIFICS);
 }
 
 void specifics::printConfigSpecifics(FILE *toWrite)
