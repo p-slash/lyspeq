@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <new>
+#include <stdexcept>
 
 bool ioh::file_exists(const char *fname)
 {
@@ -39,7 +40,7 @@ FILE * ioh::open_file(const char *fname, const char *read_write)
     if (file_to_read_write == NULL)
     {
         fprintf(stderr, "ERROR FILE with %s: %s\n", read_write, fname);
-        throw "ERROR: FILE OPERATION";
+        throw std::runtime_error("Cannot open file");
     }
 
     return file_to_read_write;

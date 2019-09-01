@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
+#include <stdexcept>
 
 #if defined(_OPENMP)
 #include <omp.h>
@@ -24,7 +25,7 @@ void throw_isnan(double t, const char *step)
     char err_msg[25];
     sprintf(err_msg, "NaN in %s", step);
 
-    if (std::isnan(t))   throw err_msg;
+    if (std::isnan(t))   throw std::runtime_error(err_msg);
 }
 
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
@@ -51,7 +52,7 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     // Find the resolution index for the look up table
     r_index = sq_private_table->findSpecResIndex(SPECT_RES_FWHM);
     
-    if (r_index == -1)      throw "SPECRES not found in tables!";
+    if (r_index == -1)      throw std::runtime_error("SPECRES not found in tables!");
 }
 
 bool OneQSOEstimate::_findRedshiftBin(double median_z)

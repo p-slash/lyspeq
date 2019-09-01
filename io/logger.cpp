@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdarg>
 #include <sstream> // std::ostringstream
+#include <stdexcept>
 
 #include "io/io_helper_functions.hpp"
 
@@ -78,7 +79,7 @@ void Logger::reopen()
 //             fflush(errfile);
 //             break;
 //         case IO:
-//             if (iofile  == NULL) throw "io_log.txt is not open.\n";
+//             if (iofile  == NULL) throw std::runtime_error("io_log.txt is not open.");
 //             vfprintf(iofile, fmt, args);
 //             fflush(iofile);
 //             break;
@@ -103,7 +104,7 @@ void Logger::IO(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    if (iofile  == NULL) throw "io_log.txt is not open.\n";
+    if (iofile  == NULL) throw std::runtime_error("io_log.txt is not open.");
     vfprintf(iofile, fmt, args);
     fflush(iofile);
     va_end(args);

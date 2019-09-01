@@ -126,10 +126,6 @@ int main(int argc, char const *argv[])
     {
         fprintf(stderr, "Error while Iteration.\n");
         fprintf(stderr, "%s\n", e.what());
-        r=-1;
-    }
-    catch (const char* msg)
-    {
         qps->printfSpectra();
 
         sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
@@ -138,7 +134,6 @@ int main(int argc, char const *argv[])
         sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
         qps->writeFisherMatrix(buf);
 
-        fprintf(stderr, "%s\n", msg);
         r=-1;
     }
     
