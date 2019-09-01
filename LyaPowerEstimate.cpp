@@ -65,8 +65,8 @@ int main(int argc, char const *argv[])
         LOG::LOGGER.open(OUTPUT_DIR);
         if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
     
-        printBuildSpecifics();
-        printConfigSpecifics();
+        specifics::printBuildSpecifics();
+        specifics::printConfigSpecifics();
     }
     catch (std::exception& e)
     {   

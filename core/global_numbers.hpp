@@ -2,6 +2,7 @@
 #define GLOBAL_NUMBERS_H
 
 #include "core/sq_table.hpp"
+#include <cstdio>
 
 // Mathematical numbers defined in fiducial_cosmology.hpp
 // #define PI 3.14159265359
@@ -85,9 +86,54 @@ namespace mytime
     void printfTimeSpentDetails();
 }
 
+namespace specifics
+{
+    #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
+    #define BINNING_SHAPE "Top Hat"
+    #elif defined(TRIANGLE_Z_BINNING_FN)
+    #define BINNING_SHAPE "Triangular"
+    #else
+    #define BINNING_SHAPE "ERROR NOT DEFINED"
+    #endif
 
-void printBuildSpecifics();
-void printConfigSpecifics();
+    #define tostr(a) #a
+    #define tovstr(a) tostr(a)
+    
+    #if defined(LAST_K_EDGE)
+    #define HIGH_K_TXT tovstr(LAST_K_EDGE)
+    #else
+    #define HIGH_K_TXT "OFF"
+    #endif
+
+    #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
+    #define TORE_TEXT "OFF. This overwrites redshift binning to Top Hat"
+    #else
+    #define TORE_TEXT "ON"
+    #endif
+    
+    #if defined(REDSHIFT_GROWTH_POWER)
+    #define RGP_TEXT "ON"
+    #else
+    #define RGP_TEXT "OFF"
+    #endif
+    
+    const char BUILD_SPECIFICS[] =  "# This version is build by the following options:\n"
+                                    "# 1D Interpolation: " tovstr(INTERP_1D_TYPE) "\n"
+                                    "# 2D Interpolation: " tovstr(INTERP_2D_TYPE) "\n"
+                                    "# Redshift binning shape: " BINNING_SHAPE "\n" 
+                                    "# Redshift evolution: " TORE_TEXT "\n"
+                                    "# Redshift growth scaling: " RGP_TEXT "\n"
+                                    "# Last k bin: " HIGH_K_TXT "\n";
+    #undef tostr
+    #undef tovstr
+    #undef BINNING_SHAPE
+    #undef HIGH_K_TXT
+    #undef RGP_TEXT
+    #undef TORE_TEXT
+
+    void printBuildSpecifics();
+    void printConfigSpecifics(FILE *toWrite=NULL);
+}
 
 void readConfigFile(const char *FNAME_CONFIG, 
                     char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,

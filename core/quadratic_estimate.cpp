@@ -474,6 +474,9 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 
     toWrite = ioh::open_file(fname, "w");
     
+    fprintf(toWrite, specifics::BUILD_SPECIFICS);
+    specifics::printConfigSpecifics(toWrite);
+    
     fprintf(toWrite, "# Fiducial Power Spectrum\n"
                      "# Pfid(k, z) = (A*pi/k0) * q^(2+n+alpha*ln(q)+beta*ln(x)) * x^B / (1 + lambda * k^2)\n"
                      "# k0=0.009 s km^-1, z0=3.0 and q=k/k0, x=(1+z)/(1+z0)\n"
