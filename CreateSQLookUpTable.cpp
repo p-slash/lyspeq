@@ -102,11 +102,11 @@ int main(int argc, char const *argv[])
         struct sq_integrand_params              integration_parameters = {&fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
         double *big_temp_array;
 
-        // Skip this section if fiducial signal matrix is turned off.
-        if (TURN_OFF_SFID) goto DERIVATIVE;
-
         // Integrate fiducial signal matrix
         FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
+
+        // Skip this section if fiducial signal matrix is turned off.
+        if (TURN_OFF_SFID) goto DERIVATIVE;
         
         // Allocate memory to store results
         big_temp_array = new double[Nv * Nz];
