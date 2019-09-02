@@ -1,5 +1,9 @@
 # Changelog
-+ Turn of redshift evolution by passing `--disable-redshift-evolution` to configure script. When redshift evolution is turned off, every pixel pair in each chunk assumed to be at the median redshift of the chunk, and switched to using top-hat bins. However, scaling with a growth function is still functional if passed.
+### v1.2
++ Turn of redshift evolution by passing `--disable-redshift-evolution` to configure script. When redshift evolution is turned off, every pixel pair in each chunk assumed to be at the median redshift of the chunk, and switched to using top-hat bins. However, scaling with a growth function is still functional if passed. Using `beta=0` in fiducial power is recomended.
++ Detailed power spectrum output has build and configuration specifics in the beginning.
++ Log to both `OutputDir` log files and `stdout/stderr`. Save time statistics to `OutputDir/time_log.txt` in fixed width table.
++ Throw `std::runtime_error(msg)` instead of only message.
 
 ### v1.1
 + Prints detailed power spectrum output file.
