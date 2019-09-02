@@ -269,6 +269,9 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     std::vector<OneQSOEstimate*> *queue_qso = new std::vector<OneQSOEstimate*>[numthreads];
     _loadBalancing(queue_qso, numthreads);
 
+    LOG::LOGGER.TIME("| %2s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s |\n", 
+        "i", "T_i", "T_tot", "T_Cinv", "T_Finv", "T_Sfid", "N_Sfid", "T_Q", "N_Q", "T_Qmod", "T_F", "DChi2", "DMean");
+
     for (int i = 0; i < number_of_iterations; i++)
     {
         LOG::LOGGER.STD("Iteration number %d of %d.\n", i+1, number_of_iterations);
@@ -341,6 +344,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         total_time     += total_time_1it;
         LOG::LOGGER.STD("This iteration took %.1f minutes. Elapsed time so far is %.1f minutes.\n", 
             total_time_1it, total_time);
+        LOG::LOGGER.TIME("| %2d | %9.3e | %9.3e | ", i, total_time_1it, total_time);
+
         mytime::printfTimeSpentDetails();
 
         if (hasConverged())
@@ -409,6 +414,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     r  = sqrt(r / bins::DEGREE_OF_FREEDOM);
 
     // r = my_cblas_dsymvdot(previous_power_estimate_vector, fisher_matrix_sum) / bins::TOTAL_KZ_BINS;
+    LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
 
     LOG::LOGGER.STD("Chi square convergence test: %.3f per dof. "
                     "Iteration converges when this is less than %.2f\n", 

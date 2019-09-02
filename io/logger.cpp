@@ -24,9 +24,9 @@ void write_log(FILE *f1, FILE *f2, const char *fmt, va_list &args1)
     {
         vfprintf(f2, fmt, args2);
         fflush(f2);
-        va_end(args2);
     }
-    
+
+    va_end(args2);
 }
 
 using namespace LOG;
@@ -41,7 +41,7 @@ Logger::Logger()
     stdfile  = stdout;
     errfile  = stderr;
     iofile   = stdout;
-    timefile = stdout;
+    timefile = NULL;
 }
 
 Logger::~Logger()
@@ -73,7 +73,7 @@ void Logger::close()
     if (stdfile  != stdout)  fclose(stdfile);
     if (errfile  != stderr)  fclose(errfile);
     if (iofile   != stdout)  fclose(iofile);
-    if (timefile != stdout)  fclose(timefile);
+    if (timefile != NULL)    fclose(timefile);
 }
 
 void Logger::reopen()
@@ -129,10 +129,13 @@ void Logger::ERR(const char *fmt, ...)
 
 void Logger::TIME(const char *fmt, ...)
 {
+    if (timefile == NULL)
+        throw std::runtime_error("timelog file is not open");
+    
     va_list args;
     va_start(args, fmt);
 
-    write_log(timefile, stdout, fmt, args);
+    write_log(timefile, timefile, fmt, args);
 
     va_end(args);
 }
