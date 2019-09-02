@@ -4,6 +4,8 @@
 #include <gsl/gsl_cblas.h>
 #include <gsl/gsl_permutation.h>
 
+#include <stdexcept>
+
 namespace mxhelp
 {
     void copyUpperToLower(gsl_matrix *A)
@@ -87,7 +89,7 @@ namespace mxhelp
             const char *err_msg = gsl_strerror(status);
             // fprintf(stderr, "ERROR in Cholesky Decomp: %s\n", err_msg);
             gsl_vector_free(S);
-            throw err_msg;
+            throw std::runtime_error(err_msg);
         }
 
         gsl_linalg_cholesky_invert(A);
@@ -104,7 +106,7 @@ namespace mxhelp
             const char *err_msg = gsl_strerror(status);
             // fprintf(stderr, "ERROR in Cholesky Decomp: %s\n", err_msg);
 
-            throw err_msg;
+            throw std::runtime_error(err_msg);
         }
 
         status = gsl_linalg_cholesky_invert(A);
@@ -113,7 +115,7 @@ namespace mxhelp
         {
             const char *err_msg = gsl_strerror(status);
             fprintf(stderr, "ERROR in Cholesky Invert: %s\n", err_msg);
-            throw err_msg;
+            throw std::runtime_error(err_msg);
         }
     }
 
@@ -130,7 +132,7 @@ namespace mxhelp
             const char *err_msg = gsl_strerror(status);
             fprintf(stderr, "ERROR in LU Decomp: %s\n", err_msg);
 
-            throw err_msg;
+            throw std::runtime_error(err_msg);
         }
 
         status = gsl_linalg_LU_invert(A, p, Ainv);
@@ -141,7 +143,7 @@ namespace mxhelp
         {
             const char *err_msg = gsl_strerror(status);
             fprintf(stderr, "ERROR in LU Invert: %s\n", err_msg);
-            throw err_msg;
+            throw std::runtime_error(err_msg);
         }
     }
 

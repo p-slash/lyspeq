@@ -1,5 +1,11 @@
-v1.1
-=====
+# Changelog
+### v1.2
++ Turn of redshift evolution by passing `--disable-redshift-evolution` to configure script. When redshift evolution is turned off, every pixel pair in each chunk assumed to be at the median redshift of the chunk, and switched to using top-hat bins. However, scaling with a growth function is still functional if passed. Using `beta=0` in fiducial power is recomended.
++ Detailed power spectrum output has build and configuration specifics in the beginning.
++ Log to both `OutputDir` log files and `stdout/stderr`. Save time statistics to `OutputDir/time_log.txt` in fixed width table.
++ Throw `std::runtime_error(msg)` instead of only message.
+
+### v1.1
 + Prints detailed power spectrum output file.
 + Computes Fisher matrix weighted d (raw power), b (noise estimate) and t (fiducial signal estimate) values storing 3 more gsl_vectors.
 
@@ -18,7 +24,7 @@ Prerequisites
 + [Python3](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
 + [OpenMP](https://www.openmp.org) is needed to enable parallel computing on shared memory.
 
-Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl), [ATLAS](http://math-atlas.sourceforge.net) or [OpenBLAS](https://www.openblas.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
+Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl), [ATLAS](http://math-atlas.sourceforge.net) or [OpenBLAS](https://www.openblas.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. To link one of these libraries to gsl_cblas, remove `-lgslcblas` from `LDLIBS`. For ATLAS, add `-lcblas -latlas` to `LDLIBS` in your Makefile. To link OpenBLAS, add `-lopenblas`. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
 
 Compile and Install
 =====

@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <algorithm> // std::copy
+#include <stdexcept>
 
 SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist)
 {
@@ -17,14 +18,18 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
 
     // Read R values
     FILE *toRead = ioh::open_file(fname_rlist, "r");
-    fscanf(toRead, "%d\n", &NUMBER_OF_R_VALUES);
+    if (fscanf(toRead, "%d\n", &NUMBER_OF_R_VALUES) != 1)
+        throw std::runtime_error("SQLookupTable NUMBER_OF_R_VALUES reading!");
+
     LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_R_VALUES);
 
     R_VALUES = new int[NUMBER_OF_R_VALUES];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
     {
-        fscanf(toRead, "%d\n", &R_VALUES[r]);
+        if (fscanf(toRead, "%d\n", &R_VALUES[r]) != 1 )
+            throw std::runtime_error("SQLookupTable R value reading!");
+        
         LOG::LOGGER.STD("%d\n", R_VALUES[r]);
     }
 

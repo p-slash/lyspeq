@@ -3,6 +3,7 @@
 #include <gsl/gsl_errno.h>
 #include <new>
 #include <cassert>
+#include <stdexcept>
 
 #define WORKSPACE_SIZE 3000
 #define TABLE_SIZE 300
@@ -89,7 +90,7 @@ void FourierIntegrator::handle_gsl_status(int status)
 
         if (status == GSL_EDIVERGE)
             fprintf(stderr, "The integral is divergent, or too slowly convergent to be integrated numerically.\n");
-        throw err_msg;
+        throw std::runtime_error(err_msg);
     }
 }
 

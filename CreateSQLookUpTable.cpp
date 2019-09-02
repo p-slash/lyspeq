@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstring> // strcmp
 #include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
+#include <stdexcept>
 
 #include <gsl/gsl_errno.h>
 
@@ -54,50 +55,83 @@ int main(int argc, char const *argv[])
                         NULL, OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, 
                         NULL, 
                         &Nv, &Nz, &PIXEL_WIDTH, &LENGTH_V);
+    }
+    catch (std::exception& e)
+    {
+        fprintf(stderr, "Error while reading config file.\n");
+        fprintf(stderr, "%s\n", e.what());
+        return -1;
+    }
 
+    try
+    {
         LOG::LOGGER.open(OUTPUT_DIR);
         if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
         
-        printBuildSpecifics();
-        printConfigSpecifics();
-        
-        gsl_set_error_handler_off();
+        specifics::printBuildSpecifics();
+        specifics::printConfigSpecifics();
+    }
+    catch (std::exception& e)
+    {   
+        fprintf(stderr, "Error while logging contructed.\n");
+        fprintf(stderr, "%s\n", e.what());
+        bins::cleanUpBins();
+        return -1;
+    }
 
+    gsl_set_error_handler_off();
+
+    try
+    {
         // Read R values
         // These values are FWHM integer
         // spectrograph_windowfn_params takes 1 sigma km/s
         FILE *toRead = ioh::open_file(FNAME_RLIST, "r");
-        fscanf(toRead, "%d\n", &NUMBER_OF_Rs);
+        if (fscanf(toRead, "%d\n", &NUMBER_OF_Rs) != 1)
+            throw std::runtime_error("fscanf error in NUMBER_OF_Rs from FNAME_RLIST!");
 
         LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_Rs);
 
         R_VALUES = new int[NUMBER_OF_Rs];
 
         for (int r = 0; r < NUMBER_OF_Rs; ++r)
-            fscanf(toRead, "%d\n", &R_VALUES[r]);
+        {
+            if (fscanf(toRead, "%d\n", &R_VALUES[r]) != 1)
+                throw std::runtime_error("fscanf error in R_VALUES from FNAME_RLIST!");
+        }
 
         fclose(toRead);
         // Reading R values done
         // ---------------------
+    }
+    catch (std::exception& e)
+    {   
+        LOG::LOGGER.ERR("Error while reading R values contructed.\n");
+        LOG::LOGGER.ERR("%s\n", e.what());
+        bins::cleanUpBins();
+        return -1;
+    }
 
-        double  z_first  = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH, \
-                z_length = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
+    double  z_first  = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH, \
+            z_length = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
 
-        #if defined(_OPENMP)
-        omp_set_dynamic(0); // Turn off dynamic threads
-        numthreads = omp_get_max_threads();
-        #endif
+    #if defined(_OPENMP)
+    omp_set_dynamic(0); // Turn off dynamic threads
+    numthreads = omp_get_max_threads();
+    #endif
 
 #pragma omp parallel private(buf, time_spent_table_sfid, time_spent_table_q)
 {       
-        #if defined(_OPENMP)
-        t_rank = omp_get_thread_num();
-        #endif
+    #if defined(_OPENMP)
+    t_rank = omp_get_thread_num();
+    #endif
         
-        struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
-        struct sq_integrand_params              integration_parameters = {&fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
-        double *big_temp_array;
+    struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
+    struct sq_integrand_params              integration_parameters = {&fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
+    double *big_temp_array;
 
+    try
+    {
         // Integrate fiducial signal matrix
         FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
 
@@ -157,8 +191,16 @@ int main(int argc, char const *argv[])
 
         // S matrices are written.
         // ---------------------
+    }
+    catch (std::exception& e)
+    {   
+        LOG::LOGGER.ERR("Error in signal computation.\n");
+        LOG::LOGGER.ERR("%s\n", e.what());
+    }
 
 DERIVATIVE:
+    try
+    {
         // Integrate derivative matrices
         // int subNz = Nz / NUMBER_OF_Z_BINS;
         FourierIntegrator q_integrator(GSL_INTEG_COSINE, q_matrix_integrand, &integration_parameters);
@@ -213,19 +255,16 @@ DERIVATIVE:
         // ---------------------
 
         delete [] big_temp_array;
-}
-        bins::cleanUpBins();       
     }
     catch (std::exception& e)
-    {
-        printf("%s\n", e.what());
-        return -1;
-    }
-    catch (const char* msg)
     {   
-        printf("%s\n", msg);
-        return -1;
+        LOG::LOGGER.ERR("Error derivative computation.\n");
+        LOG::LOGGER.ERR("%s\n", e.what());
+        bins::cleanUpBins();
+
     }
+}
+    bins::cleanUpBins();       
 
     return 0;
 }
