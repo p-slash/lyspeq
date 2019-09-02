@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib> // system
 #include <cassert>
+#include <stdexcept>
 
 #include <string>
 #include <sstream>      // std::ostringstream
@@ -52,7 +53,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     // Read the file
     FILE *toRead = ioh::open_file(fname_list, "r");
-    fscanf(toRead, "%d\n", &NUMBER_OF_QSOS);
+    if (fscanf(toRead, "%d\n", &NUMBER_OF_QSOS) != 1) throw std::runtime_error("N_QSO in file");
 
     LOG::LOGGER.STD("Number of QSOs: %d\n", NUMBER_OF_QSOS);
 
@@ -61,7 +62,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     for (int q = 0; q < NUMBER_OF_QSOS; q++)
     {
-        fscanf(toRead, "%s\n", temp_fname+1);
+        if (fscanf(toRead, "%s\n", temp_fname+1) != 1) throw std::runtime_error("Fname QSO in file");
         fpaths[q] += temp_fname;
     }
     fclose(toRead);
@@ -162,7 +163,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     std::ostringstream command;
 
     FILE *tmp_fit_file;
-    int s1, s2, kn, zm;
+    int s1, s2, kn, zm, fr;
     static fidpd13::pd13_fit_params iteration_fits = fidpd13::FIDUCIAL_PD13_PARAMS;
 
     sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
@@ -174,7 +175,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     if (s1 == -1 || s2 == -1)
     {
         LOG::LOGGER.ERR("ERROR: Temp filename cannot be generated!\n");
-        throw "tmp";
+        throw std::runtime_error("tmp filename");
     }
 
     writeSpectrumEstimates(tmp_ps_fname);
@@ -200,16 +201,19 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     {
         LOG::LOGGER.ERR("Error in fitting.\n");
         remove(tmp_ps_fname);
-        throw "fit";
+        throw std::runtime_error("fitting error");
     }
 
     remove(tmp_ps_fname);
 
     tmp_fit_file = ioh::open_file(tmp_fit_fname, "r");
 
-    fscanf( tmp_fit_file, "%le %le %le %le %le %le\n",
-            &iteration_fits.A, &iteration_fits.n, &iteration_fits.alpha,
-            &iteration_fits.B, &iteration_fits.beta, &iteration_fits.lambda);
+    fr = fscanf(tmp_fit_file, "%le %le %le %le %le %le\n",
+                &iteration_fits.A, &iteration_fits.n, &iteration_fits.alpha,
+                &iteration_fits.B, &iteration_fits.beta, &iteration_fits.lambda);
+
+    if (fr != 6)
+        throw std::runtime_error("Reading fit parameters from tmp_fit_file!");
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; i_kz++)
     {
@@ -217,7 +221,10 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
 
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        fscanf(tmp_fit_file, "%le\n", &fit_values[i_kz]);
+        fr = fscanf(tmp_fit_file, "%le\n", &fit_values[i_kz]);
+
+        if (fr != 1)
+            throw std::runtime_error("Reading fit power values from tmp_fit_file!");
 
         fit_values[i_kz] -= powerSpectrumFiducial(kn, zm);
     }
@@ -261,6 +268,9 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
     std::vector<OneQSOEstimate*> *queue_qso = new std::vector<OneQSOEstimate*>[numthreads];
     _loadBalancing(queue_qso, numthreads);
+
+    LOG::LOGGER.TIME("| %2s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s |\n", 
+        "i", "T_i", "T_tot", "T_Cinv", "T_Finv", "T_Sfid", "N_Sfid", "T_Q", "N_Q", "T_Qmod", "T_F", "DChi2", "DMean");
 
     for (int i = 0; i < number_of_iterations; i++)
     {
@@ -316,7 +326,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         catch (const char* msg)
         {
             LOG::LOGGER.ERR("ERROR %s: Fisher matrix is not invertable.\n", msg);
-            throw msg;
+            throw std::runtime_error(msg);
         }
         
         printfSpectra();
@@ -334,6 +344,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         total_time     += total_time_1it;
         LOG::LOGGER.STD("This iteration took %.1f minutes. Elapsed time so far is %.1f minutes.\n", 
             total_time_1it, total_time);
+        LOG::LOGGER.TIME("| %2d | %9.3e | %9.3e | ", i, total_time_1it, total_time);
+
         mytime::printfTimeSpentDetails();
 
         if (hasConverged())
@@ -402,6 +414,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     r  = sqrt(r / bins::DEGREE_OF_FREEDOM);
 
     // r = my_cblas_dsymvdot(previous_power_estimate_vector, fisher_matrix_sum) / bins::TOTAL_KZ_BINS;
+    LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
 
     LOG::LOGGER.STD("Chi square convergence test: %.3f per dof. "
                     "Iteration converges when this is less than %.2f\n", 
@@ -468,16 +481,19 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 
     toWrite = ioh::open_file(fname, "w");
     
+    fprintf(toWrite, specifics::BUILD_SPECIFICS);
+    specifics::printConfigSpecifics(toWrite);
+    
     fprintf(toWrite, "# Fiducial Power Spectrum\n"
                      "# Pfid(k, z) = (A*pi/k0) * q^(2+n+alpha*ln(q)+beta*ln(x)) * x^B / (1 + lambda * k^2)\n"
                      "# k0=0.009 s km^-1, z0=3.0 and q=k/k0, x=(1+z)/(1+z0)\n"
                      "# Parameters set by config file:\n");
-    fprintf(toWrite, "# A      = %e\n"
-                     "# n      = %e\n"
-                     "# alpha  = %e\n"
-                     "# B      = %e\n"
-                     "# beta   = %e\n"
-                     "# lambda = %e\n", 
+    fprintf(toWrite, "# A      = %15e\n"
+                     "# n      = %15e\n"
+                     "# alpha  = %15e\n"
+                     "# B      = %15e\n"
+                     "# beta   = %15e\n"
+                     "# lambda = %15e\n", 
                      fidpd13::FIDUCIAL_PD13_PARAMS.A, fidpd13::FIDUCIAL_PD13_PARAMS.n, fidpd13::FIDUCIAL_PD13_PARAMS.alpha,
                      fidpd13::FIDUCIAL_PD13_PARAMS.B, fidpd13::FIDUCIAL_PD13_PARAMS.beta, fidpd13::FIDUCIAL_PD13_PARAMS.lambda);
     fprintf(toWrite, "# -----------------------------------------------------------------\n"
@@ -497,8 +513,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
                      "# Pest              Pfid + ThetaP [km s^-1]\n"
                      "# ErrorP            Error estimated from diagonal terms of the inverse Fisher matrix [km s^-1]\n"
                      "# d                 Power estimate before noise (b) and fiducial power (t) subtracted [km s^-1]\n"
-                     "# b                 Noise estimate[km s^-1]\n"
-                     "# t                 Fiducial power estimate[km s^-1]\n"
+                     "# b                 Noise estimate [km s^-1]\n"
+                     "# t                 Fiducial power estimate [km s^-1]\n"
                      "# -----------------------------------------------------------------\n");
 
     #ifdef LAST_K_EDGE

@@ -129,7 +129,7 @@ namespace bins
 
     double redshiftBinningFunction(double z, int zm, int zc)
     {
-        #ifdef TOPHAT_Z_BINNING_FN
+        #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
         double zz  __attribute__((unused)) = z;
         int    zzm __attribute__((unused)) = zm,
                zzc __attribute__((unused)) = zc;
@@ -184,57 +184,42 @@ namespace mytime
         
         LOG::LOGGER.STD("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
         LOG::LOGGER.STD("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
+
+        //                Cinv     Finv     S      NS      Q       N_Q     TQmod   T_F
+        LOG::LOGGER.TIME("%9.3e | %9.3e | %9.3e | %9.3e | %9.3e | %9.3e | %9.3e | %9.3e | ",
+            time_spent_on_c_inv, time_spent_on_f_inv, time_spent_on_set_sfid, (double)number_of_times_called_setsfid,
+            time_spent_set_qs, (double)number_of_times_called_setq, time_spent_set_modqs, time_spent_set_fisher);
     }
 }
 
-void printBuildSpecifics()
+void specifics::printBuildSpecifics()
 {
-    #if defined(TOPHAT_Z_BINNING_FN)
-    #define BINNING_SHAPE "Top Hat"
-    #elif defined(TRIANGLE_Z_BINNING_FN)
-    #define BINNING_SHAPE "Triangular"
-    #else
-    #define BINNING_SHAPE "ERROR NOT DEFINED"
-    #endif
-
-    #define tostr(a) #a
-    #define tovstr(a) tostr(a)
-    
-    #if defined(LAST_K_EDGE)
-    #define HIGH_K_TXT tovstr(LAST_K_EDGE)
-    #else
-    #define HIGH_K_TXT "OFF"
-    #endif
-    
-    #if defined(REDSHIFT_GROWTH_POWER)
-    #define RGP_TEXT "ON"
-    #else
-    #define RGP_TEXT "OFF"
-    #endif
-
-    LOG::LOGGER.STD("This version is build by the following options:\n");
-    LOG::LOGGER.STD("1D Interpolation: %s\n", tovstr(INTERP_1D_TYPE));
-    LOG::LOGGER.STD("2D Interpolation: %s\n", tovstr(INTERP_2D_TYPE));
-    LOG::LOGGER.STD("Redshift binning shape: %s\n", BINNING_SHAPE);
-    LOG::LOGGER.STD("Redshift growth scaling: %s\n", RGP_TEXT);
-    LOG::LOGGER.STD("Last k bin: %s\n", HIGH_K_TXT);
-
-    #undef tostr
-    #undef tovstr
-    #undef BINNING_SHAPE
-    #undef HIGH_K_TXT
-    #undef RGP_TEXT
+    LOG::LOGGER.STD(specifics::BUILD_SPECIFICS);
 }
 
-void printConfigSpecifics()
+void specifics::printConfigSpecifics(FILE *toWrite)
 {
-    LOG::LOGGER.STD("Using following configuration parameters:\n"
+    if (toWrite == NULL)
+    {
+        LOG::LOGGER.STD("Using following configuration parameters:\n"
         "Fiducial Signal Baseline: %s\n"
         "Velocity Spacing: %s\n"
         "Fiducial Flux: %s\n", 
         TURN_OFF_SFID ? "OFF" : "ON",
         conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
         conv::USE_FID_LEE12_MEAN_FLUX ? "Lee12" : "OFF");
+    }
+    else
+    {
+        fprintf(toWrite, "# Using following configuration parameters:\n"
+        "# Fiducial Signal Baseline: %s\n"
+        "# Velocity Spacing: %s\n"
+        "# Fiducial Flux: %s\n", 
+        TURN_OFF_SFID ? "OFF" : "ON",
+        conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
+        conv::USE_FID_LEE12_MEAN_FLUX ? "Lee12" : "OFF");
+    }
+    
 }
 
 // Pass NULL for not needed variables!

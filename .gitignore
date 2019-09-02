@@ -1,6 +1,6 @@
 .DS_Store
 *.o
-*.txt
+*.log
 backup/
 dep/
 wiki/

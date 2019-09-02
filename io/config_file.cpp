@@ -31,7 +31,8 @@ void ConfigFile::readAll()
 
     while (!feof(config_file))
     {
-        fgets(line, 1024, config_file);
+        if (fgets(line, 1024, config_file) == NULL)
+            continue;
 
         if (line[0] == '%' || line[0] == '#')
             continue;
