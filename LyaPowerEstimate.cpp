@@ -65,8 +65,8 @@ int main(int argc, char const *argv[])
         LOG::LOGGER.open(OUTPUT_DIR);
         if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
     
-        printBuildSpecifics();
-        printConfigSpecifics();
+        specifics::printBuildSpecifics();
+        specifics::printConfigSpecifics();
     }
     catch (std::exception& e)
     {   
@@ -94,8 +94,8 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {
-        fprintf(stderr, "Error while SQ Table contructed.\n");
-        fprintf(stderr, "%s\n", e.what());
+        LOG::LOGGER.ERR("Error while SQ Table contructed.\n");
+        LOG::LOGGER.ERR("%s\n", e.what());
         bins::cleanUpBins();
         return -1;
     }
@@ -106,8 +106,8 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {
-        fprintf(stderr, "Error while Quadratic Estimator contructed.\n");
-        fprintf(stderr, "%s\n", e.what());
+        LOG::LOGGER.ERR("Error while Quadratic Estimator contructed.\n");
+        LOG::LOGGER.ERR("%s\n", e.what());
         bins::cleanUpBins();
         #pragma omp parallel
         {
@@ -124,12 +124,8 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {
-        fprintf(stderr, "Error while Iteration.\n");
-        fprintf(stderr, "%s\n", e.what());
-        r=-1;
-    }
-    catch (const char* msg)
-    {
+        LOG::LOGGER.ERR("Error while Iteration.\n");
+        LOG::LOGGER.ERR("%s\n", e.what());
         qps->printfSpectra();
 
         sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
@@ -138,7 +134,6 @@ int main(int argc, char const *argv[])
         sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
         qps->writeFisherMatrix(buf);
 
-        fprintf(stderr, "%s\n", msg);
         r=-1;
     }
     
