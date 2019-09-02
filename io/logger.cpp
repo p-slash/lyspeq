@@ -33,13 +33,15 @@ using namespace LOG;
 
 Logger::Logger()
 {
-    std_fname = "";
-    err_fname = "";
-    io_fname  = "";
-    
-    stdfile = stdout;
-    errfile = stderr;
-    iofile  = NULL;
+    std_fname  = "";
+    err_fname  = "";
+    io_fname   = "";
+    time_fname = "";
+
+    stdfile  = stdout;
+    errfile  = stderr;
+    iofile   = stdout;
+    timefile = stdout;
 }
 
 Logger::~Logger()
@@ -60,20 +62,26 @@ void Logger::open(const char *outdir)
     io_fname = outdir;
     io_fname += "/io_log.txt";
     iofile = ioh::open_file(io_fname.c_str(), "w");
+
+    time_fname = outdir;
+    time_fname += "/time_log.txt";
+    timefile = ioh::open_file(time_fname.c_str(), "w");
 }
 
 void Logger::close()
 {
-    if (stdfile != stdout)  fclose(stdfile);
-    if (errfile != stderr)  fclose(errfile);
-    if (iofile  != NULL)    fclose(iofile);
+    if (stdfile  != stdout)  fclose(stdfile);
+    if (errfile  != stderr)  fclose(errfile);
+    if (iofile   != stdout)  fclose(iofile);
+    if (timefile != stdout)  fclose(timefile);
 }
 
 void Logger::reopen()
 {
-    stdfile = ioh::open_file(std_fname.c_str(), "a");
-    errfile = ioh::open_file(err_fname.c_str(), "a");
-    iofile  = ioh::open_file(io_fname.c_str(),  "a");
+    stdfile   = ioh::open_file(std_fname.c_str(), "a");
+    errfile   = ioh::open_file(err_fname.c_str(), "a");
+    iofile    = ioh::open_file(io_fname.c_str(),  "a");
+    timefile  = ioh::open_file(time_fname.c_str(),  "a");
 }
 
 std::string Logger::getFileName(TYPE::LOG_TYPE lt) const
@@ -83,6 +91,7 @@ std::string Logger::getFileName(TYPE::LOG_TYPE lt) const
         case TYPE::STD:   return std_fname;
         case TYPE::ERR:   return err_fname;
         case TYPE::IO:    return io_fname;
+        case TYPE::TIME:  return time_fname;
     }
 
     return NULL;
@@ -90,13 +99,10 @@ std::string Logger::getFileName(TYPE::LOG_TYPE lt) const
 
 void Logger::IO(const char *fmt, ...)
 {
-    if (iofile  == NULL)
-        throw std::runtime_error("io_log.txt is not open.");
-
     va_list args;
     va_start(args, fmt);
 
-    write_log(iofile, iofile, fmt, args);
+    write_log(iofile, stdout, fmt, args);
 
     va_end(args);
 }
@@ -110,6 +116,7 @@ void Logger::STD(const char *fmt, ...)
 
     va_end(args);
 }
+
 void Logger::ERR(const char *fmt, ...)
 {
     va_list args;
@@ -119,6 +126,22 @@ void Logger::ERR(const char *fmt, ...)
 
     va_end(args);
 }
+
+void Logger::TIME(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    write_log(timefile, stdout, fmt, args);
+
+    va_end(args);
+}
+
+
+
+
+
+
 
 
 
