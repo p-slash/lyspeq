@@ -12,6 +12,15 @@ namespace LOG
     Logger LOGGER;
 }
 
+void write_log(FILE *ff, const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(ff, fmt, args);
+    fflush(ff);
+    va_end(args);
+}
+
 using namespace LOG;
 
 Logger::Logger()
@@ -59,35 +68,6 @@ void Logger::reopen()
     iofile  = ioh::open_file(io_fname.c_str(),  "a");
 }
 
-// void Logger::log(LOG_TYPE lt, const char *fmt, ...)
-// {
-//     assert(lt == STD || lt == ERR || lt == IO);
-
-//     va_list args;
-//     va_start(args, fmt);
-
-//     switch(lt)
-//     {
-//         case STD:
-//             vfprintf(stdfile, fmt, args);
-//             //if (stdfile != stdout)  vfprintf(stdout, fmt, args);
-//             fflush(stdfile);
-//             break;
-//         case ERR:
-//             vfprintf(errfile, fmt, args);
-//             //if (errfile != stderr) vfprintf(stderr, fmt, args);
-//             fflush(errfile);
-//             break;
-//         case IO:
-//             if (iofile  == NULL) throw std::runtime_error("io_log.txt is not open.");
-//             vfprintf(iofile, fmt, args);
-//             fflush(iofile);
-//             break;
-//     }
-
-//     va_end(args);
-// }
-
 std::string Logger::getFileName(TYPE::LOG_TYPE lt) const
 {
     switch(lt)
@@ -102,29 +82,25 @@ std::string Logger::getFileName(TYPE::LOG_TYPE lt) const
 
 void Logger::IO(const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    if (iofile  == NULL) throw std::runtime_error("io_log.txt is not open.");
-    vfprintf(iofile, fmt, args);
-    fflush(iofile);
-    va_end(args);
+    if (iofile  == NULL)
+        throw std::runtime_error("io_log.txt is not open.");
+
+    write_log(iofile, fmt);
 }
 
 void Logger::STD(const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(stdfile, fmt, args);
-    fflush(stdfile);
-    va_end(args);
+    if (stdfile != stdout)
+        write_log(stdout, fmt);
+
+    write_log(stdfile, fmt);
 }
 void Logger::ERR(const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(errfile, fmt, args);
-    fflush(errfile);
-    va_end(args);
+    if (errfile != stderr)
+        write_log(stderr, fmt);
+
+    write_log(errfile, fmt);
 }
 
 
