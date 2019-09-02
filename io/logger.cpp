@@ -12,13 +12,21 @@ namespace LOG
     Logger LOGGER;
 }
 
-void write_log(FILE *ff, const char *fmt, ...)
+void write_log(FILE *f1, FILE *f2, const char *fmt, va_list &args1)
 {
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(ff, fmt, args);
-    fflush(ff);
-    va_end(args);
+    va_list args2;
+    va_copy(args2, args1);
+
+    vfprintf(f1, fmt, args1);
+    fflush(f1);
+
+    if (f1 != f2)
+    {
+        vfprintf(f2, fmt, args2);
+        fflush(f2);
+        va_end(args2);
+    }
+    
 }
 
 using namespace LOG;
@@ -85,22 +93,31 @@ void Logger::IO(const char *fmt, ...)
     if (iofile  == NULL)
         throw std::runtime_error("io_log.txt is not open.");
 
-    write_log(iofile, fmt);
+    va_list args;
+    va_start(args, fmt);
+
+    write_log(iofile, iofile, fmt, args);
+
+    va_end(args);
 }
 
 void Logger::STD(const char *fmt, ...)
 {
-    if (stdfile != stdout)
-        write_log(stdout, fmt);
+    va_list args;
+    va_start(args, fmt);
 
-    write_log(stdfile, fmt);
+    write_log(stdfile, stdout, fmt, args);
+
+    va_end(args);
 }
 void Logger::ERR(const char *fmt, ...)
 {
-    if (errfile != stderr)
-        write_log(stderr, fmt);
+    va_list args;
+    va_start(args, fmt);
 
-    write_log(errfile, fmt);
+    write_log(errfile, stderr, fmt, args);
+
+    va_end(args);
 }
 
 
