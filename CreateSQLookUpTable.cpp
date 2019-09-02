@@ -106,8 +106,8 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {   
-        fprintf(stderr, "Error while reading R values contructed.\n");
-        fprintf(stderr, "%s\n", e.what());
+        LOG::LOGGER.ERR("Error while reading R values contructed.\n");
+        LOG::LOGGER.ERR("%s\n", e.what());
         bins::cleanUpBins();
         return -1;
     }
@@ -194,8 +194,8 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {   
-        fprintf(stderr, "Error in signal computation.\n");
-        fprintf(stderr, "%s\n", e.what());
+        LOG::LOGGER.ERR("Error in signal computation.\n");
+        LOG::LOGGER.ERR("%s\n", e.what());
     }
 
 DERIVATIVE:
@@ -258,8 +258,8 @@ DERIVATIVE:
     }
     catch (std::exception& e)
     {   
-        fprintf(stderr, "Error derivative computation.\n");
-        fprintf(stderr, "%s\n", e.what());
+        LOG::LOGGER.ERR("Error derivative computation.\n");
+        LOG::LOGGER.ERR("%s\n", e.what());
         bins::cleanUpBins();
 
     }
