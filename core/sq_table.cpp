@@ -16,26 +16,12 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
     signal_array     = NULL;
     derivative_array = NULL;
 
-    // Read R values
-    FILE *toRead = ioh::open_file(fname_rlist, "r");
-    if (fscanf(toRead, "%d\n", &NUMBER_OF_R_VALUES) != 1)
-        throw std::runtime_error("SQLookupTable NUMBER_OF_R_VALUES reading!");
+    NUMBER_OF_R_VALUES = ioh::readList(fname_rlist, R_VALUES);
 
     LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_R_VALUES);
 
-    R_VALUES = new int[NUMBER_OF_R_VALUES];
-
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-    {
-        if (fscanf(toRead, "%d\n", &R_VALUES[r]) != 1 )
-            throw std::runtime_error("SQLookupTable R value reading!");
-        
         LOG::LOGGER.STD("%d\n", R_VALUES[r]);
-    }
-
-    fclose(toRead);
-    // Reading R values done
-    // ---------------------
 
     LOG::LOGGER.STD("Setting tables..\n");
 
@@ -60,7 +46,7 @@ SQLookupTable::SQLookupTable(const SQLookupTable &sq)
     LENGTH_V      = sq.LENGTH_V;
     LENGTH_Z_OF_S = sq.LENGTH_Z_OF_S;
 
-    R_VALUES = ioh::copyArrayAlloc<int>(sq.R_VALUES, NUMBER_OF_R_VALUES);
+    R_VALUES = sq.R_VALUES;
 
     interp2d_signal_matrices   = new Interpolation2D*[NUMBER_OF_R_VALUES];
     interp_derivative_matrices = new Interpolation*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
@@ -74,8 +60,6 @@ SQLookupTable::SQLookupTable(const SQLookupTable &sq)
 
 SQLookupTable::~SQLookupTable()
 {
-    delete [] R_VALUES;
-
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
         delete interp2d_signal_matrices[r];
 

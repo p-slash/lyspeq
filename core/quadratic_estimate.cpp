@@ -51,21 +51,9 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     isFisherInverted = false; 
 
-    // Read the file
-    FILE *toRead = ioh::open_file(fname_list, "r");
-    if (fscanf(toRead, "%d\n", &NUMBER_OF_QSOS) != 1) throw std::runtime_error("N_QSO in file");
+    std::vector<std::string> fpaths;
 
-    LOG::LOGGER.STD("Number of QSOs: %d\n", NUMBER_OF_QSOS);
-
-    std::vector<std::string> fpaths(NUMBER_OF_QSOS, dir);
-    char temp_fname[700]="/";
-
-    for (int q = 0; q < NUMBER_OF_QSOS; q++)
-    {
-        if (fscanf(toRead, "%s\n", temp_fname+1) != 1) throw std::runtime_error("Fname QSO in file");
-        fpaths[q] += temp_fname;
-    }
-    fclose(toRead);
+    NUMBER_OF_QSOS = ioh::readList(fname_list, fpaths);
 
     // Create objects for each QSO
     qso_estimators.reserve(NUMBER_OF_QSOS);
@@ -74,6 +62,9 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     for (std::vector<std::string>::iterator fq = fpaths.begin(); fq != fpaths.end(); ++fq)
     {
+        fq->insert(0, "/");
+        fq->insert(0, dir);
+
         q_temp     = new OneQSOEstimate(*fq);
         cpu_t_temp = q_temp->getComputeTimeEst();
 
