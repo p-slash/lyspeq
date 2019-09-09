@@ -17,15 +17,15 @@
 
 #define ONE_SIGMA_2_FWHM 2.35482004503
 
-SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist)
-:
-DIR(dir), S_BASE(s_base), Q_BASE(q_base)
-{
-    LINEAR_V_ARRAY   = NULL;
-    LINEAR_Z_ARRAY   = NULL;
-    signal_array     = NULL;
-    derivative_array = NULL;
+// Internal Functions and Variables
+// Temporary arrays. They are not stored after construction!
+double *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY, *signal_array, *derivative_array;
+#pragma omp threadprivate(LINEAR_V_ARRAY, LINEAR_Z_ARRAY, signal_array, derivative_array)
+// ---------------------------------------
 
+SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist)
+    : DIR(dir), S_BASE(s_base), Q_BASE(q_base)
+{
     NUMBER_OF_R_VALUES = ioh::readList(fname_rlist, R_VALUES);
 
     LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_R_VALUES);
@@ -47,14 +47,19 @@ void SQLookupTable::readTables()
     deallocateTmpArrays();
 }
 
+void SQLookupTable::computeSignalTables()
+{
+
+}
+
 void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv, bool force_rewrite)
 {
-    N_V_POINTS = Nv;
+    N_V_POINTS      = Nv;
     N_Z_POINTS_OF_S = Nz;
-    LENGTH_V = Lv;
+    LENGTH_V        = Lv;
     double z_length = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
     
-#pragma omp parallel private(LINEAR_V_ARRAY, LINEAR_Z_ARRAY, signal_array, derivative_array)
+#pragma omp parallel
 {       
     char buf[700];
     double time_spent_table_sfid, time_spent_table_q;
@@ -100,7 +105,7 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
 
             win_params.delta_v_ij = LINEAR_V_ARRAY[nv];         // 0 + LENGTH_V * nv / (Nv - 1.);
             win_params.z_ij       = LINEAR_Z_ARRAY[nz];         // z_first + z_length * nz / (Nz - 1.);  
-            
+            // LOG::LOGGER.STD("DV: %e, Zij: %e", win_params.delta_v_ij, win_params.z_ij);
             s_integrator.setTableParameters(win_params.delta_v_ij, 10.);
             // 1E-15 gave roundoff error for smoothing with 20.8 km/s
             signal_array[xy]    = s_integrator.evaluate0ToInfty(1E-14);
@@ -215,20 +220,30 @@ SQLookupTable::~SQLookupTable()
 void SQLookupTable::allocateTmpArrays()
 {
     // Allocate and set v array
-    LINEAR_V_ARRAY = new double[N_V_POINTS];
-    for (int nv = 0; nv < N_V_POINTS; ++nv)
-        LINEAR_V_ARRAY[nv] = getLinearlySpacedValue(0, LENGTH_V, N_V_POINTS, nv);
+    if (LINEAR_V_ARRAY == NULL)
+    {
+        LINEAR_V_ARRAY = new double[N_V_POINTS];
+        for (int nv = 0; nv < N_V_POINTS; ++nv)
+            LINEAR_V_ARRAY[nv] = getLinearlySpacedValue(0, LENGTH_V, N_V_POINTS, nv);
+    }
+    
+    if (LINEAR_Z_ARRAY == NULL)
+    {
+        // Allocate and set redshift array
+        LINEAR_Z_ARRAY = new double[N_Z_POINTS_OF_S];
+        double zfirst  = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
-    // Allocate and set redshift array
-    LINEAR_Z_ARRAY = new double[N_Z_POINTS_OF_S];
-    double zfirst  = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
-
-    for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
-        LINEAR_Z_ARRAY[nz] = getLinearlySpacedValue(zfirst, LENGTH_Z_OF_S, N_Z_POINTS_OF_S, nz);
+        for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
+            LINEAR_Z_ARRAY[nz] = getLinearlySpacedValue(zfirst, LENGTH_Z_OF_S, N_Z_POINTS_OF_S, nz);
+    }
+    
 
     // Allocate signal and derivative arrays
-    signal_array     = new double[N_V_POINTS * N_Z_POINTS_OF_S];
-    derivative_array = new double[N_V_POINTS];
+    if (signal_array == NULL)
+        signal_array     = new double[N_V_POINTS * N_Z_POINTS_OF_S];
+    
+    if (derivative_array == NULL)
+        derivative_array = new double[N_V_POINTS];
 }
 
 void SQLookupTable::deallocateTmpArrays()

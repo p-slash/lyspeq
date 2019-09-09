@@ -35,8 +35,9 @@ test: cblas_tests
 LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-CreateSQLookUpTable: CreateSQLookUpTable.o fiducial_cosmology.o global_numbers.o fourier_integrator.o \
-config_file.o io_helper_functions.o sq_lookup_table_file.o logger.o
+CreateSQLookUpTable: CreateSQLookUpTable.o fiducial_cosmology.o global_numbers.o sq_table.o \
+fourier_integrator.o interpolation.cpp interpolation_2d.cpp \
+config_file.o io_helper_functions.o sq_lookup_table_file.o logger.o 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 cblas_tests: cblas_tests.o matrix_helper.o
