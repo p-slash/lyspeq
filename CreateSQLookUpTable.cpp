@@ -7,7 +7,6 @@
 #include <gsl/gsl_errno.h>
 
 #include "core/global_numbers.hpp"
-#include "core/fiducial_cosmology.hpp"
 #include "core/sq_table.hpp"
 #include "io/logger.hpp"
 

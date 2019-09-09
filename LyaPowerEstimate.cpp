@@ -7,7 +7,6 @@
 #include "core/global_numbers.hpp"
 #include "core/quadratic_estimate.hpp"
 
-#include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
 
 #if defined(_OPENMP)
