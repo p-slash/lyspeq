@@ -223,7 +223,7 @@ void specifics::printConfigSpecifics(FILE *toWrite)
 }
 
 // Pass NULL for not needed variables!
-void readConfigFile(  const char *FNAME_CONFIG,
+void ioh::readConfigFile(  const char *FNAME_CONFIG,
                         char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
                         char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
                         int *NUMBER_OF_ITERATIONS,

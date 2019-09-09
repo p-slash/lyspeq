@@ -3,36 +3,31 @@
 
 #include <stdexcept>
 
-void QTableFileNameConvention(  char *fname, const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_Q, \
-                                int r, double k1, double k2)
+std::string sqhelper::QTableFileNameConvention(const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_Q, int r, double k1, double k2)
 {
     sprintf(fname, "%s/%s_R%d_k%.1e_%.1e.dat", OUTPUT_DIR, OUTPUT_FILEBASE_Q, r, k1, k2);
 }
 
-void STableFileNameConvention(  char *fname, const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_S, \
-                                int r)
+std::string sqhelper::STableFileNameConvention(const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_S, int r)
 {
-    sprintf(fname, "%s/%s_R%d.dat", OUTPUT_DIR, OUTPUT_FILEBASE_S, r);
+    std::string st_fname(OUTPUT_DIR);
+    st_fname += "/";
+    st_fname += OUTPUT_FILEBASE_S;
+    st_fname += r;
+    st_fname += ".dat";
+
+    return st_fname;
+    // sprintf(fname, "%s/%s_R%d.dat", OUTPUT_DIR, OUTPUT_FILEBASE_S, r);
 }
 
-// return y = c + deltaY / (N-1) * n
-double getLinearlySpacedValue(double c, double delta_y, int N, int n)
+SQLookupTableFile::SQLookupTableFile(std::string fname, char rw)
+    : file_name(fname)
 {
-    if (N == 1)     return c + delta_y/2;
-
-    return c + delta_y / (N - 1.) * n;
-}
-
-
-SQLookupTableFile::SQLookupTableFile(const char *fname, char rw)
-{
-    sprintf(file_name, "%s", fname);
-
     read_write[0] = rw;
     read_write[1] = 'b';
     read_write[2] = '\0';
 
-    sq_file = ioh::open_file(file_name, read_write);
+    sq_file = ioh::open_file(file_name.c_str(), read_write);
 
     isHeaderSet = false;
 }
