@@ -39,9 +39,6 @@ class SQLookupTable
 
     double LENGTH_V, LENGTH_Z_OF_S;
 
-    // Temporary arrays. They are not stored after construction!
-    double *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY, *signal_array, *derivative_array;
-
     Interpolation2D **interp2d_signal_matrices;
     Interpolation   **interp_derivative_matrices;
 
@@ -49,7 +46,11 @@ class SQLookupTable
 
     void allocateTmpArrays();
     void deallocateTmpArrays();
+
     void readSQforR(int r_index);
+
+    void computeSignalTables();
+    // void computeDerivativeTables();
 
 public:
     SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist);

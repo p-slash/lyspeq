@@ -78,6 +78,7 @@ int main(int argc, char const *argv[])
     {
         // Allocate and read look up tables
         sq_shared_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
+        sq_shared_table->readTables();
 
         #pragma omp parallel
         {
