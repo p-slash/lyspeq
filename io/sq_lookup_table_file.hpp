@@ -2,22 +2,21 @@
 #define SQ_LOOKUP_TABLE_FILE_H
 
 #include <cstdio>
+#include <string>
 
-void QTableFileNameConvention(  char *fname, const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_Q, \
-                                int r, double k1, double k2);
+namespace sqhelper
+{
+    std::string QTableFileNameConvention(const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_Q, int r, double k1, double k2);
 
-void STableFileNameConvention(  char *fname, const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_S, \
-                                int r);
-
-// Returns y = c + deltaY / (N-1) * n
-double getLinearlySpacedValue(double c, double delta_y, int N, int n);
+    std::string STableFileNameConvention(const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_S, int r);
+}
 
 // This file object reads and writes evaluated S and Q matrices in a standard file format.
 // spectrograph_resolution, pixel_width and k values can be used to check consistency.
 class SQLookupTableFile
 {
     FILE *sq_file;
-    char file_name[256];
+    std::string file_name;
     char read_write[3];
 
     struct sq_io_header
@@ -40,7 +39,7 @@ class SQLookupTableFile
     void readHeader();
     
 public:
-    SQLookupTableFile(const char *fname, char rw);
+    SQLookupTableFile(std::string fname, char rw);
     ~SQLookupTableFile();
 
     void setHeader( int nv, int nz, double len_v, double len_z, \

@@ -47,7 +47,7 @@ int main(int argc, char const *argv[])
     try
     {
         // Read variables from config file and set up bins.
-        readConfigFile( FNAME_CONFIG,
+        ioh::readConfigFile( FNAME_CONFIG,
                         FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR,
                         OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q,
                         &NUMBER_OF_ITERATIONS,
