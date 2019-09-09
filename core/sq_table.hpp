@@ -2,6 +2,8 @@
 #define SQ_TABLE_H
 
 #include <vector>
+#include <string>
+
 #include "gsltools/interpolation.hpp"
 #include "gsltools/interpolation_2d.hpp"
 
@@ -31,6 +33,8 @@ class SQLookupTable
 {
     int NUMBER_OF_R_VALUES, N_V_POINTS, N_Z_POINTS_OF_S;
 
+    std::string DIR, S_BASE, Q_BASE;
+
     std::vector<int> R_VALUES;
 
     double LENGTH_V, LENGTH_Z_OF_S;
@@ -45,7 +49,7 @@ class SQLookupTable
 
     void allocateTmpArrays();
     void deallocateTmpArrays();
-    void readSQforR(int r_index, const char *dir, const char *s_base, const char *q_base);
+    void readSQforR(int r_index);
 
 public:
     SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist);
@@ -53,6 +57,9 @@ public:
 
     ~SQLookupTable();
     
+    void readTables();
+    void computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv, bool force_rewrite);
+
     int findSpecResIndex(int spec_res) const;
 
     double getSignalMatrixValue(double v_ij, double z_ij, int r_index) const;
