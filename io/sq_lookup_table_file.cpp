@@ -2,22 +2,28 @@
 #include "io/io_helper_functions.hpp"
 
 #include <stdexcept>
+#include <sstream>
+#include <iomanip>
 
-std::string sqhelper::QTableFileNameConvention(const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_Q, int r, double k1, double k2)
+std::string sqhelper::QTableFileNameConvention(const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_Q, 
+    int r, double k1, double k2)
 {
-    sprintf(fname, "%s/%s_R%d_k%.1e_%.1e.dat", OUTPUT_DIR, OUTPUT_FILEBASE_Q, r, k1, k2);
+    std::ostringstream qt_fname;
+
+    qt_fname << OUTPUT_DIR << "/" << OUTPUT_FILEBASE_Q  << "_R" << r 
+             << std::scientific << std::setprecision(1) << "_k" << k1 << "_" << k2
+             << ".dat";
+
+    return qt_fname.str();
 }
 
-std::string sqhelper::STableFileNameConvention(const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_S, int r)
+std::string sqhelper::STableFileNameConvention(const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_S, 
+    int r)
 {
-    std::string st_fname(OUTPUT_DIR);
-    st_fname += "/";
-    st_fname += OUTPUT_FILEBASE_S;
-    st_fname += r;
-    st_fname += ".dat";
+    std::ostringstream st_fname;
+    st_fname << OUTPUT_DIR << "/" << OUTPUT_FILEBASE_S << "_R" << r << ".dat";
 
-    return st_fname;
-    // sprintf(fname, "%s/%s_R%d.dat", OUTPUT_DIR, OUTPUT_FILEBASE_S, r);
+    return st_fname.str();
 }
 
 SQLookupTableFile::SQLookupTableFile(std::string fname, char rw)
@@ -111,15 +117,14 @@ void SQLookupTableFile::writeData(double *data)
     int size = header.vpoints * header.zpoints;
     
     if (size == 0)
-    {
         size = header.vpoints;
-    }
 
     int fw;
 
     fw = fwrite(&header, sizeof(sq_io_header), 1, sq_file);
     if (fw != 1)
         std::runtime_error( "fwrite error in header SQLookupTableFile!");
+
     fw = fwrite(data, sizeof(double), size, sq_file);
     if (fw != 1)
         std::runtime_error( "fwrite error in data SQLookupTableFile!");
@@ -134,9 +139,7 @@ void SQLookupTableFile::readData(double *data)
     size_t size = header.vpoints * header.zpoints;
     
     if (size == 0)
-    {
         size = header.vpoints;
-    }
 
     if (fread(data, sizeof(double), size, sq_file) != size)
         std::runtime_error("fread error in data SQLookupTableFile!");

@@ -6,9 +6,11 @@
 
 namespace sqhelper
 {
-    std::string QTableFileNameConvention(const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_Q, int r, double k1, double k2);
+    std::string QTableFileNameConvention(const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_Q, 
+        int r, double k1, double k2);
 
-    std::string STableFileNameConvention(const char *OUTPUT_DIR, const char *OUTPUT_FILEBASE_S, int r);
+    std::string STableFileNameConvention(const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_S, 
+        int r);
 }
 
 // This file object reads and writes evaluated S and Q matrices in a standard file format.

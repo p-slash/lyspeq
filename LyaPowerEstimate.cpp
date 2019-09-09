@@ -19,7 +19,7 @@ int main(int argc, char const *argv[])
     if (argc<2)
     {
         fprintf(stderr, "Missing config file!\n");
-        return -1;
+        return 1;
     }
 
     const char *FNAME_CONFIG = argv[1];
@@ -32,12 +32,12 @@ int main(int argc, char const *argv[])
 
     gsl_set_error_handler_off();
 
-    char FNAME_LIST[300], \
-         FNAME_RLIST[300], \
-         INPUT_DIR[300], \
-         FILEBASE_S[300], FILEBASE_Q[300], \
-         OUTPUT_DIR[300], \
-         OUTPUT_FILEBASE[300],\
+    char FNAME_LIST[300],
+         FNAME_RLIST[300],
+         INPUT_DIR[300],
+         FILEBASE_S[300], FILEBASE_Q[300],
+         OUTPUT_DIR[300],
+         OUTPUT_FILEBASE[300],
          buf[700];
 
     int NUMBER_OF_ITERATIONS;
@@ -56,7 +56,7 @@ int main(int argc, char const *argv[])
     catch (std::exception& e)
     {
         fprintf(stderr, "Error while reading config file: %s\n", e.what());
-        return -1;
+        return 1;
     }
 
     try
@@ -71,7 +71,7 @@ int main(int argc, char const *argv[])
     {   
         fprintf(stderr, "Error while logging contructed: %s\n", e.what());
         bins::cleanUpBins();
-        return -1;
+        return 1;
     }
 
     try
@@ -95,7 +95,7 @@ int main(int argc, char const *argv[])
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
         bins::cleanUpBins();
-        return -1;
+        return 1;
     }
     
     try
@@ -111,7 +111,7 @@ int main(int argc, char const *argv[])
             delete sq_private_table;
         }
 
-        return -1;
+        return 1;
     } 
 
     try
@@ -130,7 +130,7 @@ int main(int argc, char const *argv[])
         sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
         qps->writeFisherMatrix(buf);
 
-        r=-1;
+        r=1;
     }
     
     delete qps;

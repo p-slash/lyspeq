@@ -31,9 +31,9 @@ int main(int argc, char const *argv[])
     if (argc == 3)
         force_rewrite = !(strcmp(argv[2], "--unforce") == 0);
 
-    char FNAME_RLIST[300], \
-         OUTPUT_DIR[300], \
-         OUTPUT_FILEBASE_S[300],\
+    char FNAME_RLIST[300],
+         OUTPUT_DIR[300],
+         OUTPUT_FILEBASE_S[300],
          OUTPUT_FILEBASE_Q[300];
 
     int Nv, Nz;
@@ -52,7 +52,7 @@ int main(int argc, char const *argv[])
     catch (std::exception& e)
     {
         fprintf(stderr, "Error while reading config file: %s\n", e.what());
-        return -1;
+        return 1;
     }
 
     try
@@ -67,7 +67,7 @@ int main(int argc, char const *argv[])
     {   
         fprintf(stderr, "Error while logging contructed: %s\n", e.what());
         bins::cleanUpBins();
-        return -1;
+        return 1;
     }
 
     gsl_set_error_handler_off();
@@ -84,40 +84,10 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {   
-        LOG::LOGGER.ERR("Error constructing SQ Table (Reading R values): %s\n", e.what());
+        LOG::LOGGER.ERR("Error constructing SQ Table: %s\n", e.what());
         bins::cleanUpBins();
-        return -1;
+        return 1;
     }
-
-    // try
-    // {
-        
-
-    //     // S matrices are written.
-    //     // ---------------------
-    // }
-    // catch (std::exception& e)
-    // {   
-    //     LOG::LOGGER.ERR("Error in signal computation: %s\n", e.what());
-    // }
-
-
-    // try
-    // {
-    //     // Integrate derivative matrices
-    //     // int subNz = Nz / NUMBER_OF_Z_BINS;
-        
-    //     // Q matrices are written.
-    //     // ---------------------
-
-    //     // delete [] big_temp_array;
-    // }
-    // catch (std::exception& e)
-    // {   
-    //     LOG::LOGGER.ERR("Error derivative computation: %s\n", e.what());
-    //     bins::cleanUpBins();
-
-    // }
 
     bins::cleanUpBins();       
 
