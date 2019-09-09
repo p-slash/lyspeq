@@ -1,7 +1,11 @@
 #ifndef IO_HELPER_FUNCTIONS_H
 #define IO_HELPER_FUNCTIONS_H
 
+#include <cstdio>
+#include <fstream>
+
 #include <complex>
+#include <vector>
 
 namespace ioh
 {
@@ -11,6 +15,12 @@ namespace ioh
     T* copyArrayAlloc(const T* source, int size);
 
     FILE * open_file(const char *fname, const char *read_write);
+    std::fstream open_file(const char *fname);
+
+    // Allocates list_values, must dellocate manually!
+    // Returns number of elements
+    template <class T>
+    int readList(const char *fname, std::vector<T> &list_values);
 }
 
 #endif

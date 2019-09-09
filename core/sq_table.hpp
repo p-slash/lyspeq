@@ -1,6 +1,7 @@
 #ifndef SQ_TABLE_H
 #define SQ_TABLE_H
 
+#include <vector>
 #include "gsltools/interpolation.hpp"
 #include "gsltools/interpolation_2d.hpp"
 
@@ -30,7 +31,7 @@ class SQLookupTable
 {
     int NUMBER_OF_R_VALUES, N_V_POINTS, N_Z_POINTS_OF_S;
 
-    int *R_VALUES;
+    std::vector<int> R_VALUES;
 
     double LENGTH_V, LENGTH_Z_OF_S;
 

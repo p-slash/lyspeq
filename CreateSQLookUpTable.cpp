@@ -4,6 +4,7 @@
 #include <cstring> // strcmp
 #include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
 #include <stdexcept>
+#include <vector>
 
 #include <gsl/gsl_errno.h>
 
@@ -43,10 +44,11 @@ int main(int argc, char const *argv[])
          OUTPUT_FILEBASE_Q[300],\
          buf[500];
 
-    int NUMBER_OF_Rs, *R_VALUES, Nv, Nz;
+    int NUMBER_OF_Rs, Nv, Nz;
 
     double PIXEL_WIDTH, LENGTH_V;
-    
+    std::vector<int> R_VALUES;
+
     try
     {
         // Read variables from config file and set up bins.
@@ -73,8 +75,7 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {   
-        fprintf(stderr, "Error while logging contructed.\n");
-        fprintf(stderr, "%s\n", e.what());
+        fprintf(stderr, "Error while logging contructed. %s\n", e.what());
         bins::cleanUpBins();
         return -1;
     }
@@ -86,28 +87,13 @@ int main(int argc, char const *argv[])
         // Read R values
         // These values are FWHM integer
         // spectrograph_windowfn_params takes 1 sigma km/s
-        FILE *toRead = ioh::open_file(FNAME_RLIST, "r");
-        if (fscanf(toRead, "%d\n", &NUMBER_OF_Rs) != 1)
-            throw std::runtime_error("fscanf error in NUMBER_OF_Rs from FNAME_RLIST!");
+        NUMBER_OF_Rs = ioh::readList(FNAME_RLIST, R_VALUES);
 
         LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_Rs);
-
-        R_VALUES = new int[NUMBER_OF_Rs];
-
-        for (int r = 0; r < NUMBER_OF_Rs; ++r)
-        {
-            if (fscanf(toRead, "%d\n", &R_VALUES[r]) != 1)
-                throw std::runtime_error("fscanf error in R_VALUES from FNAME_RLIST!");
-        }
-
-        fclose(toRead);
-        // Reading R values done
-        // ---------------------
     }
     catch (std::exception& e)
     {   
-        LOG::LOGGER.ERR("Error while reading R values contructed.\n");
-        LOG::LOGGER.ERR("%s\n", e.what());
+        LOG::LOGGER.ERR("Error while reading R values contructed. %s\n", e.what());
         bins::cleanUpBins();
         return -1;
     }
@@ -194,8 +180,7 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {   
-        LOG::LOGGER.ERR("Error in signal computation.\n");
-        LOG::LOGGER.ERR("%s\n", e.what());
+        LOG::LOGGER.ERR("Error in signal computation. %s\n", e.what());
     }
 
 DERIVATIVE:

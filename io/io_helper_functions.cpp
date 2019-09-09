@@ -1,6 +1,8 @@
 #include "io/io_helper_functions.hpp"
 
-#include <cstdio>
+#include <iostream>
+#include <string>
+
 #include <algorithm>
 #include <new>
 #include <stdexcept>
@@ -45,5 +47,44 @@ FILE * ioh::open_file(const char *fname, const char *read_write)
 
     return file_to_read_write;
 }
+
+std::fstream ioh::open_file(const char *fname)
+{
+    std::fstream file_fs;
+    file_fs.open(fname);
+
+    if (!file_fs)
+    {
+        fprintf(stderr, "ERROR FSTREAM: %s\n", fname);
+        throw std::runtime_error("Cannot open file");
+    }
+
+    return file_fs;
+}
+
+
+template <class T>
+int ioh::readList(const char *fname, std::vector<T> &list_values)
+{
+    int nr;
+
+    std::fstream toRead = ioh::open_file(fname);
+    
+    toRead >> nr;
+
+    list_values.reserve(nr);
+    
+    T tmp;
+    while (toRead >> tmp)
+        list_values.push_back(tmp);
+
+    toRead.close();
+
+    return nr;
+}
+
+template int ioh::readList(const char *fname, std::vector<int> &list_values);
+template int ioh::readList(const char *fname, std::vector<std::string> &list_values);
+
 
 
