@@ -55,8 +55,7 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {
-        fprintf(stderr, "Error while reading config file.\n");
-        fprintf(stderr, "%s\n", e.what());
+        fprintf(stderr, "Error while reading config file: %s\n", e.what());
         return -1;
     }
 
@@ -70,8 +69,7 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {   
-        fprintf(stderr, "Error while logging contructed.\n");
-        fprintf(stderr, "%s\n", e.what());
+        fprintf(stderr, "Error while logging contructed: %s\n", e.what());
         bins::cleanUpBins();
         return -1;
     }
@@ -94,8 +92,7 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("Error while SQ Table contructed.\n");
-        LOG::LOGGER.ERR("%s\n", e.what());
+        LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
         bins::cleanUpBins();
         return -1;
     }
@@ -106,8 +103,7 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("Error while Quadratic Estimator contructed.\n");
-        LOG::LOGGER.ERR("%s\n", e.what());
+        LOG::LOGGER.ERR("Error while Quadratic Estimator contructed: %s\n", e.what());
         bins::cleanUpBins();
         #pragma omp parallel
         {
@@ -124,8 +120,7 @@ int main(int argc, char const *argv[])
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("Error while Iteration.\n");
-        LOG::LOGGER.ERR("%s\n", e.what());
+        LOG::LOGGER.ERR("Error while Iteration: %s\n", e.what());
         qps->printfSpectra();
 
         sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
