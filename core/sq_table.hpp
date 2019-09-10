@@ -32,12 +32,10 @@
 class SQLookupTable
 {
     int NUMBER_OF_R_VALUES, N_V_POINTS, N_Z_POINTS_OF_S;
-
-    std::string DIR, S_BASE, Q_BASE;
-
-    std::vector<int> R_VALUES;
-
     double LENGTH_V, LENGTH_Z_OF_S;
+    std::vector<int> R_VALUES;
+    
+    std::string DIR, S_BASE, Q_BASE;
 
     Interpolation2D **interp2d_signal_matrices;
     Interpolation   **interp_derivative_matrices;
@@ -59,6 +57,7 @@ public:
     ~SQLookupTable();
     
     void readTables();
+    // runs with omp parallel
     void computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv, bool force_rewrite);
 
     int findSpecResIndex(int spec_res) const;

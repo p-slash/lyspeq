@@ -31,6 +31,17 @@ namespace sqhelper
 
         return c + delta_y / (N - 1.) * n;
     }
+
+    // Allocates a double array with size N
+    // Must delocate after!!
+    double *allocLinearlySpacedArray(double x0, double lengthx, int N)
+    {
+        double *resulting_array = new double[N];
+        for (int j = 0; j < N; ++j)
+            resulting_array[j] = sqhelper::getLinearlySpacedValue(x0, lengthx, N, j);
+
+        return resulting_array;
+    }
 }
 // ---------------------------------------
 
@@ -68,7 +79,7 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
     N_V_POINTS      = Nv;
     N_Z_POINTS_OF_S = Nz;
     LENGTH_V        = Lv;
-    double z_length = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
+    LENGTH_Z_OF_S   = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
     
 #pragma omp parallel
 {       
@@ -116,14 +127,16 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
 
             win_params.delta_v_ij = sqhelper::LINEAR_V_ARRAY[nv];         // 0 + LENGTH_V * nv / (Nv - 1.);
             win_params.z_ij       = sqhelper::LINEAR_Z_ARRAY[nz];         // z_first + z_length * nz / (Nz - 1.);  
+            
             s_integrator.setTableParameters(win_params.delta_v_ij, 10.);
+
             // 1E-15 gave roundoff error for smoothing with 20.8 km/s
-            sqhelper::signal_array[xy]    = s_integrator.evaluate0ToInfty(1E-14);
+            sqhelper::signal_array[xy] = s_integrator.evaluate0ToInfty(1E-14);
         }
 
         SQLookupTableFile signal_table(buf_fnames, 'w');
 
-        signal_table.setHeader( N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, z_length,
+        signal_table.setHeader( N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S,
                                 R_VALUES[r], PIXEL_WIDTH,
                                 0, bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
 
@@ -229,31 +242,15 @@ SQLookupTable::~SQLookupTable()
 
 void SQLookupTable::allocateTmpArrays()
 {
-    // Allocate and set v array
-    if (sqhelper::LINEAR_V_ARRAY == NULL)
-    {
-        sqhelper::LINEAR_V_ARRAY = new double[N_V_POINTS];
-        for (int nv = 0; nv < N_V_POINTS; ++nv)
-            sqhelper::LINEAR_V_ARRAY[nv] = sqhelper::getLinearlySpacedValue(0, LENGTH_V, N_V_POINTS, nv);
-    }
-    
-    if (sqhelper::LINEAR_Z_ARRAY == NULL)
-    {
-        // Allocate and set redshift array
-        sqhelper::LINEAR_Z_ARRAY = new double[N_Z_POINTS_OF_S];
-        double zfirst  = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
+    double z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
-        for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
-            sqhelper::LINEAR_Z_ARRAY[nz] = sqhelper::getLinearlySpacedValue(zfirst, LENGTH_Z_OF_S, N_Z_POINTS_OF_S, nz);
-    }
-    
+    // Allocate, set velocity and redshift arrays
+    sqhelper::LINEAR_V_ARRAY = sqhelper::allocLinearlySpacedArray(0, LENGTH_V, N_V_POINTS);
+    sqhelper::LINEAR_Z_ARRAY = sqhelper::allocLinearlySpacedArray(z1, LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
 
     // Allocate signal and derivative arrays
-    if (sqhelper::signal_array == NULL)
-        sqhelper::signal_array     = new double[N_V_POINTS * N_Z_POINTS_OF_S];
-    
-    if (sqhelper::derivative_array == NULL)
-        sqhelper::derivative_array = new double[N_V_POINTS];
+    sqhelper::signal_array     = new double[N_V_POINTS * N_Z_POINTS_OF_S];
+    sqhelper::derivative_array = new double[N_V_POINTS];
 }
 
 void SQLookupTable::deallocateTmpArrays()
@@ -282,7 +279,8 @@ void SQLookupTable::readSQforR(int r_index)
                             temp_ki, temp_kf);
 
     // Allocate memory before reading further
-    if (sqhelper::LINEAR_V_ARRAY == NULL)     allocateTmpArrays();
+    if (sqhelper::LINEAR_V_ARRAY == NULL)
+        allocateTmpArrays();
 
     // Start reading data and interpolating
     s_table_file.readData(sqhelper::signal_array);
@@ -313,7 +311,10 @@ void SQLookupTable::readSQforR(int r_index)
 
         // Interpolate
         int i = getIndex4DerivativeInterpolation(kn, r_index);
-        interp_derivative_matrices[i] = new Interpolation(INTERP_1D_TYPE, sqhelper::LINEAR_V_ARRAY, sqhelper::derivative_array, N_V_POINTS);
+
+        interp_derivative_matrices[i] = new Interpolation(INTERP_1D_TYPE, 
+                                                          sqhelper::LINEAR_V_ARRAY, sqhelper::derivative_array, 
+                                                          N_V_POINTS);
     }
 }
 
