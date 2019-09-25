@@ -187,15 +187,13 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     s1 = system(command.str().c_str());
     
     LOG::LOGGER.reopen();
+    remove(tmp_ps_fname);
 
     if (s1 != 0)
     {
-        LOG::LOGGER.ERR("Error in fitting.\n");
-        remove(tmp_ps_fname);
+        LOG::LOGGER.ERR("Error in fitting.\n");  
         throw std::runtime_error("fitting error");
     }
-
-    remove(tmp_ps_fname);
 
     tmp_fit_file = ioh::open_file(tmp_fit_fname, "r");
 
@@ -374,7 +372,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
         if (r > CONVERGENCE_EPS)    bool_converged = false;
 
-        abs_mean += r / (bins::TOTAL_KZ_BINS - bins::NUMBER_OF_Z_BINS);
+        abs_mean += r / bins::DEGREE_OF_FREEDOM;
         abs_max   = std::max(r, abs_max);
     }
 
