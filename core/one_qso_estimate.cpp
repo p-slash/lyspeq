@@ -315,8 +315,23 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     // add noise matrix diagonally
     cblas_daxpy(DATA_SIZE, 1., noise_array, 1, covariance_matrix->data, DATA_SIZE+1);
 
-    #define ADDED_CONST_TO_COVARIANCE 10000.0
+    #define ADDED_CONST_TO_COVARIANCE 10000.
+    // Continuum  normalization
     gsl_matrix_add_constant(covariance_matrix, ADDED_CONST_TO_COVARIANCE);
+
+    // Continuum derivative
+    double *temp_t_vector = new double[DATA_SIZE];
+    double MEDIAN_LAMBDA = LYA_REST * (1 + MEDIAN_REDSHIFT);
+
+    for (int tvec_i = 0; tvec_i < DATA_SIZE; ++tvec_i)
+        temp_t_vector[tvec_i] = log(lambda_array[tvec_i]/MEDIAN_LAMBDA);
+
+    // cblas_dspr(CblasRowMajor, CblasUpper, DATA_SIZE, ADDED_CONST_TO_COVARIANCE, temp_t_vector, 1, covariance_matrix->data);
+    cblas_dger(CblasRowMajor, DATA_SIZE, DATA_SIZE, ADDED_CONST_TO_COVARIANCE, 
+        temp_t_vector, 1, temp_t_vector, 1, covariance_matrix->data, DATA_SIZE);
+
+    // mxhelp::fprintfMatrix("cov.txt", covariance_matrix);
+    delete [] temp_t_vector;
     #undef ADDED_CONST_TO_COVARIANCE
 
     isCovInverted = false;
