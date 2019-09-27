@@ -69,11 +69,6 @@ void SQLookupTable::readTables()
     deallocateTmpArrays();
 }
 
-void SQLookupTable::computeSignalTables()
-{
-
-}
-
 void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv, bool force_rewrite)
 {
     N_V_POINTS      = Nv;
