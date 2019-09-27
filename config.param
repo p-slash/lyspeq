@@ -53,4 +53,6 @@ NumberOfIterations 15
 
 AllocatedMemoryMB 5.
 TemporaryFolder /tmp
+UseLogarithmicVelocity 1
+ConvertFromFluxToDeltaf  0
 

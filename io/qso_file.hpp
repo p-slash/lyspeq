@@ -34,7 +34,7 @@ public:
 
     void readParameters(int &data_number, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms);
 
-    void readData(double *lambda, double *flux, double *noise);
+    void readData(double *lambda, double *fluxfluctuations, double *noise);
     
 };
 
