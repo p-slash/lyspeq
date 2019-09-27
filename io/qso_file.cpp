@@ -28,14 +28,14 @@ void QSOFile::readParameters(int &data_number, double &z, int &fwhm_resolution, 
     dv_kms           = header.pixel_width;
 }
 
-void QSOFile::readData(double *lambda, double *flux, double *noise)
+void QSOFile::readData(double *lambda, double *fluxfluctuations, double *noise)
 {
     int rl, rf, rn;
     fseek(qso_file, sizeof(qso_io_header), SEEK_SET);
 
-    rl = fread(lambda, sizeof(double), header.data_size, qso_file);
-    rf = fread(flux,   sizeof(double), header.data_size, qso_file);
-    rn = fread(noise,  sizeof(double), header.data_size, qso_file);
+    rl = fread(lambda,             sizeof(double), header.data_size, qso_file);
+    rf = fread(fluxfluctuations,   sizeof(double), header.data_size, qso_file);
+    rn = fread(noise,              sizeof(double), header.data_size, qso_file);
 
     if (rl != header.data_size || rf != header.data_size || rn != header.data_size)
         std::runtime_error("fread error in data QSOFile!");
