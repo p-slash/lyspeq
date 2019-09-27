@@ -47,9 +47,6 @@ class SQLookupTable
 
     void readSQforR(int r_index);
 
-    void computeSignalTables();
-    // void computeDerivativeTables();
-
 public:
     SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist);
     SQLookupTable(const SQLookupTable &sq);
