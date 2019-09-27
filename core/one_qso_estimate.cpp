@@ -149,9 +149,9 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     // Covert from wavelength to velocity units around median wavelength
     conv::convertLambdaToVelocity(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
 
-    if (conv::USE_FID_LEE12_MEAN_FLUX) // Use fiducial mean flux from Lee12
-        conv::convertFluxToDeltafLee12(lambda_array, flux_array, noise_array, DATA_SIZE);
-    else    // Convert flux to fluctuation around the mean flux
+    // Convert flux to fluctuations around the mean flux of the chunk
+    // Otherwise assume input data is fluctuations
+    if (conv::FLUX_TO_DELTAF_BY_CHUNKS)
         conv::convertFluxToDeltaf(flux_array, noise_array, DATA_SIZE);
     
     // Keep noise as error squared (variance)

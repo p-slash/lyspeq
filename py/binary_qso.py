@@ -22,7 +22,7 @@ class BinaryQSO:
     wave : float
         Wavelength array in Angstrom.
     flux : float
-        Normalized flux.
+        Normalized flux fluctuations.
     error : float
         Error on flux.
     N : int
