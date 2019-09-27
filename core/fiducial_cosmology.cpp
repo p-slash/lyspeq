@@ -33,7 +33,7 @@
 // Conversion functions
 namespace conv
 {
-    bool USE_LOG_V = false, USE_FID_LEE12_MEAN_FLUX = false;
+    bool USE_LOG_V = false, FLUX_TO_DELTAF_BY_CHUNKS = false; // , USE_FID_LEE12_MEAN_FLUX = false;
     
     void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size)
     {
@@ -62,17 +62,17 @@ namespace conv
         }
     }
 
-    double meanFluxBecker13(double z)
-    {
-        double tau = 0.751 * pow((1. + z) / 4.5, 2.90) - 0.132;
-        return exp(-tau);
-    }
+    // double meanFluxBecker13(double z)
+    // {
+    //     double tau = 0.751 * pow((1. + z) / 4.5, 2.90) - 0.132;
+    //     return exp(-tau);
+    // }
 
-    double meanFluxLee12(double z)
-    {
-        double tau = 0.001845 * pow(1. + z, 3.924);
-        return exp(-tau);
-    }
+    // double meanFluxLee12(double z)
+    // {
+    //     double tau = 0.001845 * pow(1. + z, 3.924);
+    //     return exp(-tau);
+    // }
 
     void convertFluxToDeltaf(double *flux, double *noise, int size)
     {
@@ -90,18 +90,18 @@ namespace conv
         }
     }
 
-    void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size)
-    {
-        double mean_f;
+    // void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size)
+    // {
+    //     double mean_f;
 
-        for (int i = 0; i < size; ++i)
-        {
-            mean_f    = meanFluxLee12(lambda[i]/LYA_REST-1);
-            flux[i]  /= mean_f;
-            flux[i]  -= 1.;
-            noise[i] /= mean_f;
-        }
-    }
+    //     for (int i = 0; i < size; ++i)
+    //     {
+    //         mean_f    = meanFluxLee12(lambda[i]/LYA_REST-1);
+    //         flux[i]  /= mean_f;
+    //         flux[i]  -= 1.;
+    //         noise[i] /= mean_f;
+    //     }
+    // }
 }
 
 // Fiducial Functions
