@@ -204,20 +204,20 @@ void specifics::printConfigSpecifics(FILE *toWrite)
         LOG::LOGGER.STD("Using following configuration parameters:\n"
         "Fiducial Signal Baseline: %s\n"
         "Velocity Spacing: %s\n"
-        "Fiducial Flux: %s\n", 
+        "Divide by mean flux of the chunk: %s\n", 
         TURN_OFF_SFID ? "OFF" : "ON",
         conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
-        conv::FLUX_TO_DELTAF_BY_CHUNKS ? "Divide by mean flux of the chunk" : "OFF");
+        conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
     }
     else
     {
         fprintf(toWrite, "# Using following configuration parameters:\n"
         "# Fiducial Signal Baseline: %s\n"
         "# Velocity Spacing: %s\n"
-        "# Fiducial Flux: %s\n", 
+        "# Divide by mean flux of the chunk: %s\n", 
         TURN_OFF_SFID ? "OFF" : "ON",
         conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
-        conv::FLUX_TO_DELTAF_BY_CHUNKS ? "Divide by mean flux of the chunk" : "OFF");
+        conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
     }
     
 }
