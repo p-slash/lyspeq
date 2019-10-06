@@ -38,6 +38,8 @@ class OneDQuadraticPowerEstimate
 
     bool isFisherInverted;
 
+    void _readQSOFiles(const char *fname_list, const char *dir);
+
     // Fitting procedure calls Python3 script lorentzian_fit.py.
     // Intermadiate files are saved in TMP_FOLDER (read as TemporaryFolder in config file)
     // make install will copy this script to $HOME/bin and make it executable.

@@ -53,8 +53,12 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     isFisherInverted = false; 
 
-    std::vector<std::string> fpaths;
+    _readQSOFiles(fname_list, dir);
+}
 
+void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const char *dir)
+{
+    std::vector<std::string> fpaths;
     NUMBER_OF_QSOS = ioh::readList(fname_list, fpaths);
 
     // Create objects for each QSO
@@ -183,10 +187,15 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     // Do not pass redshift parameters is there is only one redshift bin
     if (bins::NUMBER_OF_Z_BINS > 1)  command << iteration_fits.B << " " << iteration_fits.beta << " ";
     
-    command << iteration_fits.lambda 
-            << " >> " << LOG::LOGGER.getFileName(LOG::TYPE::STD);
+    command << iteration_fits.lambda;
+    
+    if (t_rank == 0) 
+    {
+        command
+            << " >> " << LOG::LOGGER.getFileName(LOG::TYPE::STD);           
+        LOG::LOGGER.STD("%s\n", command.str().c_str());
+    }
 
-    LOG::LOGGER.STD("%s\n", command.str().c_str());
     LOG::LOGGER.close();
 
     // Print from python does not go into LOG::LOGGER
@@ -266,6 +275,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     std::vector<OneQSOEstimate*> *queue_qso = new std::vector<OneQSOEstimate*>[numthreads];
     _loadBalancing(queue_qso, numthreads);
     std::vector<OneQSOEstimate*> local_que(queue_qso[t_rank]);
+
     if (t_rank == 0) 
         LOG::LOGGER.TIME("| %2s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s |\n", 
         "i", "T_i", "T_tot", "T_Cinv", "T_Finv", "T_Sfid", "N_Sfid", "T_Q", "N_Q", "T_Qmod", "T_F", "DChi2", "DMean");
@@ -336,7 +346,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         if (hasConverged())
         {
-            LOG::LOGGER.STD("Iteration has converged in %d iterations.\n", i+1);
+            if (t_rank == 0) LOG::LOGGER.STD("Iteration has converged in %d iterations.\n", i+1);
             break;
         }
     }
