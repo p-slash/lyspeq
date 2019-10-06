@@ -50,15 +50,19 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
 {
     NUMBER_OF_R_VALUES = ioh::readList(fname_rlist, R_VALUES);
 
-    LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_R_VALUES);
+    if (t_rank == 0)
+    {
+        LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_R_VALUES);
 
-    for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-        LOG::LOGGER.STD("%d\n", R_VALUES[r]);
+        for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
+            LOG::LOGGER.STD("%d\n", R_VALUES[r]);
+    }
+    
 }
 
 void SQLookupTable::readTables()
 {
-    LOG::LOGGER.STD("Setting tables..\n");
+    if (t_rank == 0) LOG::LOGGER.STD("Setting tables..\n");
 
     interp2d_signal_matrices     = new Interpolation2D*[NUMBER_OF_R_VALUES];
     interp_derivative_matrices   = new Interpolation*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
@@ -263,7 +267,7 @@ void SQLookupTable::readSQforR(int r_index)
 
     // Read S table.
     buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, R_VALUES[r_index]);
-    LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
+    if (t_rank == 0) LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
     SQLookupTableFile s_table_file(buf_fnames, 'r');
     
     int dummy_R, dummy_Nz;
