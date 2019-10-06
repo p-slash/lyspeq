@@ -31,10 +31,7 @@ extern double MEMORY_ALLOC;
 extern bool TURN_OFF_SFID;
 
 // Look up table, global and thread copy
-extern SQLookupTable *sq_shared_table, *sq_private_table;
-
-// OpenMP Threadprivate variables
-#pragma omp threadprivate(sq_private_table, t_rank)
+extern SQLookupTable *sq_private_table;
 
 namespace bins
 {

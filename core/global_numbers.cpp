@@ -19,7 +19,7 @@ double MEMORY_ALLOC          = 0;
 
 int t_rank = 0, numthreads = 1;
 
-SQLookupTable *sq_shared_table, *sq_private_table;
+SQLookupTable *sq_private_table;
 
 bool TURN_OFF_SFID;
 
@@ -288,8 +288,8 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
 
     cFile.readAll();
 
-    char tmp_ps_fname[320];
-    sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
+    // char tmp_ps_fname[320];
+    // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
     // TODO: Test access here
     
     TURN_OFF_SFID   = sfid_off > 0;

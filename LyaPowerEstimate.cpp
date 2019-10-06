@@ -9,25 +9,23 @@
 
 #include "io/logger.hpp"
 
-#if defined(_OPENMP)
-#include <omp.h> // omp_get_thread_num()
-#endif
+#include "mpi.h" 
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
+    MPI_Init(&argc, &argv);
+
     if (argc<2)
     {
         fprintf(stderr, "Missing config file!\n");
         return 1;
     }
 
+    MPI_Comm_rank(MPI_COMM_WORLD, &t_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &numthreads);
+
     const char *FNAME_CONFIG = argv[1];
     int r = 0;
-
-    #if defined(_OPENMP)
-    omp_set_dynamic(0); // Turn off dynamic threads
-    numthreads = omp_get_max_threads();
-    #endif
 
     gsl_set_error_handler_off();
 
@@ -43,14 +41,12 @@ int main(int argc, char const *argv[])
     
     OneDQuadraticPowerEstimate *qps = NULL;
 
+    // Let all PEs to read config at the same time.
     try
     {
         // Read variables from config file and set up bins.
-        ioh::readConfigFile( FNAME_CONFIG,
-                        FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR,
-                        OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q,
-                        &NUMBER_OF_ITERATIONS,
-                        NULL, NULL, NULL, NULL);
+        ioh::readConfigFile( FNAME_CONFIG, FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR,
+            OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, &NUMBER_OF_ITERATIONS, NULL, NULL, NULL, NULL);
     }
     catch (std::exception& e)
     {
@@ -61,39 +57,35 @@ int main(int argc, char const *argv[])
     try
     {
         LOG::LOGGER.open(OUTPUT_DIR);
-        if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
+
+        if (t_rank == 0)
+        {
+            if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
     
-        specifics::printBuildSpecifics();
-        specifics::printConfigSpecifics();
+            specifics::printBuildSpecifics();
+            specifics::printConfigSpecifics();
+        }
+        
     }
     catch (std::exception& e)
     {   
         fprintf(stderr, "Error while logging contructed: %s\n", e.what());
         bins::cleanUpBins();
+        MPI_Abort(MPI_COMM_WORLD, 1);
         return 1;
     }
 
     try
     {
         // Allocate and read look up tables
-        sq_shared_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
-        sq_shared_table->readTables();
-
-        #pragma omp parallel
-        {
-            #if defined(_OPENMP)
-            t_rank  = omp_get_thread_num();
-            #endif
-
-            // Create private copy for interpolation is not thread safe!
-            if (t_rank == 0)     sq_private_table = sq_shared_table;
-            else                 sq_private_table = new SQLookupTable(*sq_shared_table);
-        }
+        sq_private_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
+        sq_private_table->readTables();
     }
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
         bins::cleanUpBins();
+        MPI_Abort(MPI_COMM_WORLD, 1);
         return 1;
     }
     
@@ -105,11 +97,9 @@ int main(int argc, char const *argv[])
     {
         LOG::LOGGER.ERR("Error while Quadratic Estimator contructed: %s\n", e.what());
         bins::cleanUpBins();
-        #pragma omp parallel
-        {
-            delete sq_private_table;
-        }
 
+        delete sq_private_table;
+        MPI_Abort(MPI_COMM_WORLD, 1);
         return 1;
     } 
 
@@ -134,13 +124,10 @@ int main(int argc, char const *argv[])
     
     delete qps;
 
-    #pragma omp parallel
-    {
-        delete sq_private_table;
-    }
+    delete sq_private_table;
 
     bins::cleanUpBins();
-
+    MPI_Finalize();
     return r;
 }
 
