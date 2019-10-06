@@ -78,8 +78,8 @@ int main(int argc, char const *argv[])
 
     try
     {
-        sq_shared_table = new SQLookupTable(OUTPUT_DIR, OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, FNAME_RLIST);
-        sq_shared_table->computeTables(PIXEL_WIDTH, Nv, Nz, LENGTH_V, force_rewrite);
+        sq_private_table = new SQLookupTable(OUTPUT_DIR, OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, FNAME_RLIST);
+        sq_private_table->computeTables(PIXEL_WIDTH, Nv, Nz, LENGTH_V, force_rewrite);
     }
     catch (std::exception& e)
     {   

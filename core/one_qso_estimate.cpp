@@ -39,9 +39,10 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
 
     qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
 
-    LOG::LOGGER.IO("Reading from %s.\n" "Data size is %d\n" "Pixel Width is %.1f\n" "Spectral Resolution is %d.\n", 
-        qso_sp_fname.c_str(), DATA_SIZE, DV_KMS, SPECT_RES_FWHM);
-
+    if (t_rank == 0)
+        LOG::LOGGER.IO("Reading from %s.\n" "Data size is %d\n" "Pixel Width is %.1f\n" "Spectral Resolution is %d.\n",
+            qso_sp_fname.c_str(), DATA_SIZE, DV_KMS, SPECT_RES_FWHM);
+    
     lambda_array    = new double[DATA_SIZE];
     velocity_array  = new double[DATA_SIZE];
     flux_array      = new double[DATA_SIZE];
@@ -64,7 +65,7 @@ bool OneQSOEstimate::_findRedshiftBin(double median_z)
         BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
     else
     {
-        LOG::LOGGER.IO("This QSO does not belong to any redshift bin!\n"); 
+        if (t_rank == 0) LOG::LOGGER.IO("This QSO does not belong to any redshift bin!\n"); 
         return false;
     }
 
@@ -134,8 +135,11 @@ void OneQSOEstimate::_setStoredMatrices()
         stored_qj = new gsl_matrix*[nqj_eff];
     }
 
-    LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
-    if (isSfidStored)   LOG::LOGGER.IO("Fiducial signal matrix is stored.\n");
+    if (t_rank == 0)
+    {
+        LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
+        if (isSfidStored)   LOG::LOGGER.IO("Fiducial signal matrix is stored.\n");
+    }
 
     isQjSet   = false;
     isSfidSet = false;
@@ -158,9 +162,10 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     for (int i = 0; i < DATA_SIZE; ++i)
         noise_array[i] *= noise_array[i];
 
-    LOG::LOGGER.IO("Length of v is %.1f\n" "Median redshift: %.2f\n" "Redshift range: %.2f--%.2f\n", 
-                   velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT,
-                   lambda_array[0]/LYA_REST-1, lambda_array[DATA_SIZE-1]/LYA_REST-1);
+    if (t_rank == 0)
+        LOG::LOGGER.IO("Length of v is %.1f\n" "Median redshift: %.2f\n" "Redshift range: %.2f--%.2f\n", 
+                    velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT,
+                    lambda_array[0]/LYA_REST-1, lambda_array[DATA_SIZE-1]/LYA_REST-1);
 
     nqj_eff = 0;
 
