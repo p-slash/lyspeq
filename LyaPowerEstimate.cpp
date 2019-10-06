@@ -57,7 +57,8 @@ int main(int argc, char *argv[])
     try
     {
         LOG::LOGGER.open(OUTPUT_DIR);
-
+        MPI_Barrier(MPI_COMM_WORLD);
+        
         if (t_rank == 0)
         {
             if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
