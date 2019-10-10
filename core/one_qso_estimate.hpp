@@ -5,6 +5,9 @@
 #include <gsl/gsl_vector.h>
 #include <string>
 
+#include "gsltools/interpolation.hpp"
+#include "gsltools/interpolation_2d.hpp"
+
 // This object creates and computes C, S, Q, Q-slash matrices,
 // as well as a power spectrum estimate and a fisher matrix for individual quasar spectrum.
 // Matrices are not stored indefinitely. They are allocated when needed and deleted when done.
@@ -45,6 +48,9 @@ class OneQSOEstimate
     bool          isQjSet, isSfidSet, isSfidStored;
 
     bool isCovInverted;
+
+    Interpolation2D *interp2d_signal_matrix;
+    Interpolation   **interp_derivative_matrix;
 
     void _readFromFile(std::string fname_qso);
     bool _findRedshiftBin(double median_z);

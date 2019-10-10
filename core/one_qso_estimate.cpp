@@ -54,6 +54,12 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     r_index = sq_private_table->findSpecResIndex(SPECT_RES_FWHM);
     
     if (r_index == -1)      throw std::runtime_error("SPECRES not found in tables!");
+
+    interp2d_signal_matrix   = sq_private_table->getSignalMatrixInterp(r_index);
+    interp_derivative_matrix = new Interpolation*[bins::NUMBER_OF_K_BANDS];
+
+    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
+        interp_derivative_matrix[kn] = sq_private_table->getDerivativeMatrixInterp(kn, r_index);
 }
 
 bool OneQSOEstimate::_findRedshiftBin(double median_z)
@@ -226,7 +232,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
             {
                 _getVandZ(v_ij, z_ij, i, j);
 
-                temp = sq_private_table->getSignalMatrixValue(v_ij, z_ij, r_index);
+                temp = interp2d_signal_matrix->evaluate(v_ij, z_ij);
                 gsl_matrix_set(sm, i, j, temp);
             }
         }
@@ -265,7 +271,7 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
             {
                 _getVandZ(v_ij, z_ij, i, j);
                 
-                temp  = sq_private_table->getDerivativeMatrixValue(v_ij, kn, r_index);
+                temp  = interp_derivative_matrix[kn]->evaluate(v_ij);
 
                 // When redshift evolution is turned off, always use top-hat binning
                 temp *= bins::redshiftBinningFunction(z_ij, zm, ZBIN);
