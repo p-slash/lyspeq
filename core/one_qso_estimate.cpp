@@ -16,10 +16,6 @@
 #include <cassert>
 #include <stdexcept>
 
-#if defined(_OPENMP)
-#include <omp.h>
-#endif
-
 void throw_isnan(double t, const char *step)
 {
     char err_msg[25];
@@ -216,7 +212,6 @@ void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
 
 void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
 {
-    #pragma omp atomic update
     ++mytime::number_of_times_called_setsfid;
 
     double t = mytime::getTime();
@@ -232,7 +227,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
             {
                 _getVandZ(v_ij, z_ij, i, j);
 
-                temp = interp2d_signal_matrix->evaluate(v_ij, z_ij);
+                temp = interp2d_signal_matrix->evaluate(z_ij, v_ij);
                 gsl_matrix_set(sm, i, j, temp);
             }
         }
@@ -242,13 +237,11 @@ void OneQSOEstimate::_setFiducialSignalMatrix(gsl_matrix *sm)
     
     t = mytime::getTime() - t;
 
-    #pragma omp atomic update
     mytime::time_spent_on_set_sfid += t;
 }
 
 void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
 {
-    #pragma omp atomic update
     ++mytime::number_of_times_called_setq;
 
     double t = mytime::getTime(), t_interp;
@@ -294,13 +287,8 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
 
     t = mytime::getTime() - t; 
 
-    #pragma omp atomic update
     mytime::time_spent_set_qs += t;
-
-    #pragma omp atomic update
     mytime::time_spent_on_q_interp += t_interp;
-
-    #pragma omp atomic update
     mytime::time_spent_on_q_copy += t - t_interp;
 }
 
@@ -366,7 +354,6 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
     t = mytime::getTime() - t;
 
-    #pragma omp atomic update
     mytime::time_spent_on_c_inv += t;
 }
 
@@ -388,7 +375,6 @@ void OneQSOEstimate::_getWeightedMatrix(gsl_matrix *m)
 
     t = mytime::getTime() - t;
 
-    #pragma omp atomic update
     mytime::time_spent_set_modqs += t;
 }
 
@@ -413,7 +399,6 @@ void OneQSOEstimate::_getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
 
     t = mytime::getTime() - t;
 
-    #pragma omp atomic update
     mytime::time_spent_set_fisher += t;
 }
 

@@ -4,25 +4,30 @@
 
 #include <gsl/gsl_errno.h>
 
+#if defined(ENABLE_MPI)
+#include "mpi.h" 
+#endif
+
 #include "core/global_numbers.hpp"
 #include "core/quadratic_estimate.hpp"
-
 #include "io/logger.hpp"
-
-#include "mpi.h" 
 
 int main(int argc, char *argv[])
 {
+    #if defined(ENABLE_MPI)
     MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &t_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &numthreads);
+    #else
+    t_rank = 0;
+    numthreads = 1;
+    #endif
 
     if (argc<2)
     {
         fprintf(stderr, "Missing config file!\n");
         return 1;
     }
-
-    MPI_Comm_rank(MPI_COMM_WORLD, &t_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &numthreads);
 
     const char *FNAME_CONFIG = argv[1];
     int r = 0;
@@ -57,8 +62,11 @@ int main(int argc, char *argv[])
     try
     {
         LOG::LOGGER.open(OUTPUT_DIR);
-        MPI_Barrier(MPI_COMM_WORLD);
         
+        #if defined(ENABLE_MPI)
+        MPI_Barrier(MPI_COMM_WORLD);
+        #endif
+
         if (t_rank == 0)
         {
             if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
@@ -72,7 +80,11 @@ int main(int argc, char *argv[])
     {   
         fprintf(stderr, "Error while logging contructed: %s\n", e.what());
         bins::cleanUpBins();
+
+        #if defined(ENABLE_MPI)
         MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
+
         return 1;
     }
 
@@ -86,7 +98,11 @@ int main(int argc, char *argv[])
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
         bins::cleanUpBins();
+        
+        #if defined(ENABLE_MPI)
         MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
+
         return 1;
     }
     
@@ -100,7 +116,11 @@ int main(int argc, char *argv[])
         bins::cleanUpBins();
 
         delete sq_private_table;
+        
+        #if defined(ENABLE_MPI)
         MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
+        
         return 1;
     } 
 
@@ -128,7 +148,11 @@ int main(int argc, char *argv[])
     delete sq_private_table;
 
     bins::cleanUpBins();
+
+    #if defined(ENABLE_MPI)
     MPI_Finalize();
+    #endif
+
     return r;
 }
 

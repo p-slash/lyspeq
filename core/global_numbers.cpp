@@ -6,11 +6,7 @@
 #include <cstdio>
 #include <cmath>
 
-#if defined(_OPENMP)
-#include <omp.h> /*omp_get_wtime();*/
-#else
 #include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
-#endif
 
 char TMP_FOLDER[300] = ".";
 
@@ -164,12 +160,8 @@ namespace mytime
 
     double getTime()
     {
-        #if defined(_OPENMP)
-        return omp_get_wtime() / 60.;
-        #else
         clock_t t = clock();
         return ((double) t) / CLOCKS_PER_SEC / 60.;
-        #endif
     }
 
     void printfTimeSpentDetails()

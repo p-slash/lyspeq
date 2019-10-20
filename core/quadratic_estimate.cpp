@@ -1,12 +1,4 @@
 #include "core/quadratic_estimate.hpp"
-#include "core/matrix_helper.hpp"
-#include "core/global_numbers.hpp"
-#include "core/fiducial_cosmology.hpp"
-
-#include "io/io_helper_functions.hpp"
-#include "io/logger.hpp"
-
-#include <gsl/gsl_cblas.h>
 
 #include <cmath>
 #include <algorithm>
@@ -14,11 +6,20 @@
 #include <cstdlib> // system
 #include <cassert>
 #include <stdexcept>
-
 #include <string>
 #include <sstream>      // std::ostringstream
 
-#include "mpi.h"
+#include <gsl/gsl_cblas.h>
+
+#if defined(ENABLE_MPI)
+#include "mpi.h" 
+#endif
+
+#include "core/matrix_helper.hpp"
+#include "core/global_numbers.hpp"
+#include "core/fiducial_cosmology.hpp"
+#include "io/io_helper_functions.hpp"
+#include "io/logger.hpp"
 
 //-------------------------------------------------------
 
@@ -301,6 +302,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         LOG::LOGGER.STD("Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n",
                 t_rank, numthreads, thread_time);
 
+        #if defined(ENABLE_MPI)
         // allreduce
         MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum->data, bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS,
             MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -308,7 +310,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
             MPI_Allreduce(MPI_IN_PLACE, dbt_estimate_sum_before_fisher_vector[dbt_i]->data, bins::TOTAL_KZ_BINS,
                 MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
+        #endif
+        
         try
         {
             invertTotalFisherMatrix();

@@ -4,8 +4,8 @@
 #include <algorithm> // std::copy
 #include <stdexcept>
 
-#if defined(_OPENMP)
-#include <omp.h>
+#if defined(ENABLE_MPI)
+#include "mpi.h" 
 #endif
 
 #include "core/global_numbers.hpp"
@@ -22,7 +22,6 @@ namespace sqhelper
 {
     // Temporary arrays. They are not stored after construction!
     double *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY, *signal_array, *derivative_array;
-    #pragma omp threadprivate(LINEAR_V_ARRAY, LINEAR_Z_ARRAY, signal_array, derivative_array)
 
     // return y = c + deltaY / (N-1) * n
     double getLinearlySpacedValue(double c, double delta_y, int N, int n)
@@ -79,20 +78,18 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
     N_Z_POINTS_OF_S = Nz;
     LENGTH_V        = Lv;
     LENGTH_Z_OF_S   = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
-    
-#pragma omp parallel
-{       
+           
     std::string buf_fnames;
     double time_spent_table_sfid, time_spent_table_q;
-
-    #if defined(_OPENMP)
-    t_rank = omp_get_thread_num();
-    #endif
 
     struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
     struct sq_integrand_params              integration_parameters = {&fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
     
     allocateTmpArrays();
+
+    // Initialize loop for parallel computing
+    int delta_nr = NUMBER_OF_R_VALUES / numthreads, r_start_this = delta_nr * t_rank, r_end_this = delta_nr * (t_rank+1);
+    if (t_rank == numthreads-1) r_end_this = NUMBER_OF_R_VALUES;
 
     // Integrate fiducial signal matrix
     FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
@@ -100,8 +97,7 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
     // Skip this section if fiducial signal matrix is turned off.
     if (TURN_OFF_SFID) goto DERIVATIVE;
 
-    #pragma omp for nowait
-    for (int r = 0; r < NUMBER_OF_R_VALUES; r++)
+    for (int r = r_start_this; r < r_end_this; ++r)
     {
         time_spent_table_sfid = mytime::getTime();
 
@@ -119,18 +115,19 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
             continue;
         }
 
-        for (int xy = 0; xy < N_V_POINTS*N_Z_POINTS_OF_S; ++xy)
+        for (int nv = 0; nv < N_V_POINTS; ++nv)
         {
-            // xy = nv + Nv * nz
-            int nz = xy / Nv, nv = xy % Nv;
-
-            win_params.delta_v_ij = sqhelper::LINEAR_V_ARRAY[nv];         // 0 + LENGTH_V * nv / (Nv - 1.);
-            win_params.z_ij       = sqhelper::LINEAR_Z_ARRAY[nz];         // z_first + z_length * nz / (Nz - 1.);  
-            
+            win_params.delta_v_ij = sqhelper::LINEAR_V_ARRAY[nv];       // 0 + LENGTH_V * nv / (Nv - 1.);
             s_integrator.setTableParameters(win_params.delta_v_ij, 10.);
 
-            // 1E-15 gave roundoff error for smoothing with 20.8 km/s
-            sqhelper::signal_array[xy] = s_integrator.evaluate0ToInfty(1E-14);
+            for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
+            {
+                int xy = nz + N_Z_POINTS_OF_S * nv;
+                win_params.z_ij = sqhelper::LINEAR_Z_ARRAY[nz];   // z_first + z_length * nz / (Nz - 1.);
+                
+                // 1E-15 gave roundoff error for smoothing with 20.8 km/s
+                sqhelper::signal_array[xy] = s_integrator.evaluate0ToInfty(1E-14);
+            }
         }
 
         SQLookupTableFile signal_table(buf_fnames, 'w');
@@ -152,8 +149,7 @@ DERIVATIVE:
     // int subNz = Nz / NUMBER_OF_Z_BINS;
     FourierIntegrator q_integrator(GSL_INTEG_COSINE, q_matrix_integrand, &integration_parameters);
 
-    #pragma omp for
-    for (int r = 0; r < NUMBER_OF_R_VALUES; r++)
+    for (int r = r_start_this; r < r_end_this; ++r)
     {
         time_spent_table_q = mytime::getTime();
 
@@ -199,8 +195,6 @@ DERIVATIVE:
     // Q matrices are written.
     // ---------------------
     deallocateTmpArrays();
-
-}
 }
 
 SQLookupTable::SQLookupTable(const SQLookupTable &sq)
@@ -273,9 +267,7 @@ void SQLookupTable::readSQforR(int r_index)
     int dummy_R, dummy_Nz;
     double temp_px_width, temp_ki, temp_kf;
 
-    s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S,
-                            dummy_R, temp_px_width,
-                            temp_ki, temp_kf);
+    s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, dummy_R, temp_px_width, temp_ki, temp_kf);
 
     // Allocate memory before reading further
     if (sqhelper::LINEAR_V_ARRAY == NULL)
@@ -285,10 +277,8 @@ void SQLookupTable::readSQforR(int r_index)
     s_table_file.readData(sqhelper::signal_array);
 
     // Interpolate
-    interp2d_signal_matrices[r_index] = new Interpolation2D(INTERP_2D_TYPE,
-                                                            sqhelper::LINEAR_V_ARRAY, sqhelper::LINEAR_Z_ARRAY,
-                                                            sqhelper::signal_array,
-                                                            N_V_POINTS, N_Z_POINTS_OF_S);
+    interp2d_signal_matrices[r_index] = new Interpolation2D(INTERP_2D_TYPE, sqhelper::LINEAR_Z_ARRAY, sqhelper::LINEAR_V_ARRAY, 
+        sqhelper::signal_array, N_Z_POINTS_OF_S, N_V_POINTS);
 
     // Read Q tables. 
     double kvalue_1, kvalue_2, dummy_lzq;
@@ -302,24 +292,20 @@ void SQLookupTable::readSQforR(int r_index)
 
         SQLookupTableFile q_table_file(buf_fnames, 'r');
 
-        q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq,
-                                dummy_R, temp_px_width,
-                                temp_ki, temp_kf);
+        q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, dummy_R, temp_px_width, temp_ki, temp_kf);
 
         q_table_file.readData(sqhelper::derivative_array);
 
         // Interpolate
         int i = getIndex4DerivativeInterpolation(kn, r_index);
 
-        interp_derivative_matrices[i] = new Interpolation(INTERP_1D_TYPE, 
-                                                          sqhelper::LINEAR_V_ARRAY, sqhelper::derivative_array, 
-                                                          N_V_POINTS);
+        interp_derivative_matrices[i] = new Interpolation(INTERP_1D_TYPE, sqhelper::LINEAR_V_ARRAY, sqhelper::derivative_array, N_V_POINTS);
     }
 }
 
 double SQLookupTable::getSignalMatrixValue(double v_ij, double z_ij, int r_index) const 
 {
-    return interp2d_signal_matrices[r_index]->evaluate(v_ij, z_ij);
+    return interp2d_signal_matrices[r_index]->evaluate(z_ij, v_ij);
 }
 
 double SQLookupTable::getDerivativeMatrixValue(double v_ij, int kn, int r_index) const
