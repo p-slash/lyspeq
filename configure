@@ -2,7 +2,6 @@
 
 # ./configure will set up a vanilla version that relies only on GSL with cubic and bicubic interpolation and triangle z bins.
 # Change configuration by passing build types. For more info ./configure --print-builds
-# To enable OpenMP threading, pass --enable-openmp
 # For more options pass --help or -h
 # Intel compilers: This has been tested for only Parallel Studio XE 2018 icpc and MKL.
 
@@ -33,7 +32,6 @@ function print_build_types() {
     echo "# Parallel Studio XE 2018, MKL for cblas
 # Linux, GNU compiler, Intel(R) 64 arch
 # 32-bit integers interface, 64-bit interface has runtime errors on Grace
-# OpenMP threading with GNU
 # Dynamic linking, explicit MKL lib linking
 # No problems with GCC 7.3.0"
     echo "-------------------------"
@@ -41,7 +39,6 @@ function print_build_types() {
     echo "# Parallel Studio XE 2018
 # Linux, Intel compiler, Intel(R) 64 arch
 # Uses 32-bit integers interface even though 64-bit integers interface works
-# OpenMP threading with Intel when configure with --enable-openmp
 # Dynamic linking, no explicit MKL lib linking
 # Static linking fails for unknown reasons"
     echo "-------------------------"
@@ -57,35 +54,6 @@ function print_build_types() {
     echo "* x64-linux-gcc-openblas"
     echo "* x64-linux-gcc-gslcblas"
     echo "# Compile with g++ and uses ATLAS, OpenBLAS and GSL CBLAS respectively."
-    echo "# Pass --enable-openmp for threading"
-}
-
-function set_omp_flags() {
-    if [[ "${CPPFLAGS_OMP}" = "-fopenmp" ]]; then
-        case ${CXX} in
-            g++* )
-                CPPFLAGS_OMP="-fopenmp"
-                LDLIBS_OMP="-lgomp"
-                LDLIBS_GCC_MKL="-lmkl_gnu_thread"
-                ;;
-            clang++ )
-                CPPFLAGS_OMP="-Xpreprocessor -fopenmp"
-                LDLIBS_OMP="-lomp"
-                ;;
-            icpc )
-                CPPFLAGS_OMP="-qopenmp -mkl=parallel"
-                LDLIBS_OMP="-liomp5"
-                ;;
-        esac
-    else
-        CPPFLAGS_OMP=""
-        LDLIBS_OMP=""
-        LDLIBS_GCC_MKL="-lmkl_sequential"
-
-        if [[ "${CXX}" = "icpc" ]]; then
-            CPPFLAGS_OMP="-mkl=sequential"
-        fi
-    fi
 }
 
 function set_gsl_inc_lib() {
@@ -109,7 +77,6 @@ function set_gsl_inc_lib() {
 }
 
 # Selects compiler
-# Ask for openmp
 # Set up GSL directory
 # Set up cblas library
 function interactive() {
@@ -131,15 +98,6 @@ function interactive() {
 
     ${CXX} --version
 
-    # OpenMP
-    echo 'Do you want to use OpenMP (y/n)? '
-    read openmp_on
-
-    if [[ "${openmp_on:0:1}" = "y" || "${openmp_on:0:1}" = "Y" ]]; then
-        CPPFLAGS_OMP="-fopenmp"
-    fi
-    
-    set_omp_flags
     set_gsl_inc_lib
 
     # CBLAS
@@ -179,7 +137,6 @@ function interactive() {
                     exit 1
                 fi
 
-                CPPFLAGS_OMP+=" -m64"
                 LDFLAGS_CBLAS="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
                 LDLIBS_CBLAS="-lmkl_intel_lp64 ${LDLIBS_GCC_MKL} -lmkl_core -lpthread"
             else
@@ -193,13 +150,14 @@ function interactive() {
             ;;
     esac
 
-    CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
+    CPPFLAGS="${gsl_inc}"
     LDFLAGS="${gsl_lib} ${LDFLAGS_CBLAS}"
     LDLIBS="-lgsl ${LDLIBS_CBLAS} ${LDLIBS_OMP} -lm -ldl"
 }
 
 # Default values
 OPT=
+en_mpi=
 interp1d=-DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
 interp2d=-DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
 binz_fn=-DTRIANGLE_Z_BINNING_FN
@@ -232,8 +190,9 @@ do
             z_growth="";;
         --disable-redshift-evolution )
             z_evol="-DTURN_OFF_REDSHIFT_EVOLUTION";;
-        --enable-openmp )
-            CPPFLAGS_OMP="-fopenmp";;
+        --enable-mpi )
+            CXXu="mpic++"
+            en_mpi="-DENABLE_MPI";;
         --interp1d=* )
             if [[ "${i#*=}" ==  "GSL_CUBIC_INTERPOLATION" || "${i#*=}" ==  "GSL_LINEAR_INTERPOLATION" ]]; then
                 interp1d="-DINTERP_1D_TYPE=${i#*=}"
@@ -271,7 +230,7 @@ do
             echo "--enable-last-k-bin=[number] : Enables a feature that adds a high k bin edge."
             echo "--disable-redshift-growth : Disables scaling derivative matrices with fiducial growth function."
             echo "--disable-redshift-evolution : Turn off redshift evolution. Binning is overwritten to Top Hat. Redshift growth is still on when passed."
-            echo "--enable-openmp : Enable OpenMP"
+            echo "--enable-mpi : Sets C++ compiler to mpic++"
             echo "--build=[build type] or [build type]: Sets the build type"
             echo "--interactive : Use interactive mode."
             echo "--interp1d=[GSL_LINEAR_INTERPOLATION or GSL_CUBIC_INTERPOLATION] : Specify 1D interpolation type. Default is cubic."
@@ -293,55 +252,48 @@ if [[ ! -z "${z_evol}" ]]; then
     binz_fn=-DTOPHAT_Z_BINNING_FN
 fi
 
-OPT+=" ${interp1d} ${interp2d} ${binz_fn} ${lastk_feat} ${z_growth} ${z_evol} ${debug}"
+OPT+=" ${en_mpi} ${interp1d} ${interp2d} ${binz_fn} ${lastk_feat} ${z_growth} ${z_evol} ${debug}"
 
 case ${SYSTYPE} in
     GNU_XE18MKL|x64-linux-gnu-mklxe18 )
         CXX="g++"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} -m64 ${gsl_inc}"
+        CPPFLAGS="-m64 ${gsl_inc}"
         LDFLAGS="${gsl_lib} -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
         LDLIBS="-lgsl -lmkl_intel_lp64 ${LDLIBS_GCC_MKL} -lmkl_core ${LDLIBS_OMP} -lpthread -lm -ldl"
         ;;
     XE18_icpcMKL|x64-linux-icpc-mklxe18 )
         CXX="icpc"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
+        CPPFLAGS="${gsl_inc}"
         LDFLAGS="${gsl_lib}"
         LDLIBS="-lgsl ${LDLIBS_OMP} -lpthread -lm -ldl"
         ;;
     clang_openblas|x64-macos-clang-openblas )
         CXX="clang++"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
+        CPPFLAGS="${gsl_inc}"
         LDFLAGS="${gsl_lib} -L/usr/local/opt/openblas/lib"
         LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
         ;;
     x64-macos-gcc9-openblas )
         CXX="g++-9"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
+        CPPFLAGS="${gsl_inc}"
         LDFLAGS="${gsl_lib} -L/usr/local/opt/openblas/lib"
         LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
         ;;
     x64-linux-gcc-atlas )
         CXX="g++"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
+        CPPFLAGS="${gsl_inc}"
         LDFLAGS="${gsl_lib}"
         LDLIBS="-lgsl -lcblas -latlas -lm -ldl"
         ;;
     x64-linux-gcc-openblas )
         CXX="g++"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
+        CPPFLAGS="${gsl_inc}"
         LDFLAGS="${gsl_lib}"
         LDLIBS="-lgsl -lopenblas -lm -ldl"
         ;;
     x64-linux-gcc-gslcblas )
         CXX="g++"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
+        CPPFLAGS="${gsl_inc}"
         LDFLAGS="${gsl_lib}"
         LDLIBS="-lgsl -lgslcblas -lm -ldl"
         ;;
