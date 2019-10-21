@@ -2,6 +2,8 @@
 + Signal and derivative look up tables are controlled by one class: [sq_table.hpp](core/sq_table.hpp)
 + Input data are assumed to be fluctuations and not flux. Added `ConvertFromFluxToDeltaf` to config file to switch behaviors.
 + Using Lee12 mean flux option is removed. A better candidate would be interpolating an input flux file. 
++ Signal matrix interpolation axes are reversed to speed up the integration. This makes previous tables uncompetable.
++ MPI branch has been removed of any OpenMP code.
 
 ### v1.2
 + Turn of redshift evolution by passing `--disable-redshift-evolution` to configure script. When redshift evolution is turned off, every pixel pair in each chunk assumed to be at the median redshift of the chunk, and switched to using top-hat bins. However, scaling with a growth function is still functional if passed. Using `beta=0` in fiducial power is recomended.
