@@ -56,6 +56,34 @@ function print_build_types() {
     echo "# Compile with g++ and uses ATLAS, OpenBLAS and GSL CBLAS respectively."
 }
 
+function set_omp_flags() {
+    if [[ "${CPPFLAGS_OMP}" = "-fopenmp" ]]; then
+        case ${CXX} in
+            g++* )
+                CPPFLAGS_OMP="-fopenmp"
+                LDLIBS_OMP="-lgomp"
+                LDLIBS_GCC_MKL="-lmkl_gnu_thread"
+                ;;
+            clang++ )
+                CPPFLAGS_OMP="-Xpreprocessor -fopenmp"
+                LDLIBS_OMP="-lomp"
+                ;;
+            icpc )
+                CPPFLAGS_OMP="-qopenmp -mkl=parallel"
+                LDLIBS_OMP="-liomp5"
+                ;;
+        esac
+    else
+        CPPFLAGS_OMP=""
+        LDLIBS_OMP=""
+        LDLIBS_GCC_MKL="-lmkl_sequential"
+
+        if [[ "${CXX}" = "icpc" ]]; then
+            CPPFLAGS_OMP="-mkl=sequential"
+        fi
+    fi
+}
+
 function set_gsl_inc_lib() {
     if [[ -z "${GSL_DIR}" ]]; then
         gsl_inc=""
@@ -95,9 +123,8 @@ function interactive() {
     if [[ "${CXX}" = "icpc" ]]; then
         echo "WARNING: Assuming Parallel Studio XE 2018."
     fi
-
-    ${CXX} --version
-
+    
+    set_omp_flags
     set_gsl_inc_lib
 
     # CBLAS
@@ -137,6 +164,7 @@ function interactive() {
                     exit 1
                 fi
 
+                CPPFLAGS_OMP+=" -m64"
                 LDFLAGS_CBLAS="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
                 LDLIBS_CBLAS="-lmkl_intel_lp64 ${LDLIBS_GCC_MKL} -lmkl_core -lpthread"
             else
@@ -150,7 +178,7 @@ function interactive() {
             ;;
     esac
 
-    CPPFLAGS="${gsl_inc}"
+    CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
     LDFLAGS="${gsl_lib} ${LDFLAGS_CBLAS}"
     LDLIBS="-lgsl ${LDLIBS_CBLAS} ${LDLIBS_OMP} -lm -ldl"
 }
@@ -257,43 +285,50 @@ OPT+=" ${en_mpi} ${interp1d} ${interp2d} ${binz_fn} ${lastk_feat} ${z_growth} ${
 case ${SYSTYPE} in
     GNU_XE18MKL|x64-linux-gnu-mklxe18 )
         CXX="g++"
-        CPPFLAGS="-m64 ${gsl_inc}"
+        set_omp_flags
+        CPPFLAGS="${CPPFLAGS_OMP} -m64 ${gsl_inc}"
         LDFLAGS="${gsl_lib} -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
         LDLIBS="-lgsl -lmkl_intel_lp64 ${LDLIBS_GCC_MKL} -lmkl_core ${LDLIBS_OMP} -lpthread -lm -ldl"
         ;;
     XE18_icpcMKL|x64-linux-icpc-mklxe18 )
         CXX="icpc"
-        CPPFLAGS="${gsl_inc}"
+        set_omp_flags
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
         LDLIBS="-lgsl ${LDLIBS_OMP} -lpthread -lm -ldl"
         ;;
     clang_openblas|x64-macos-clang-openblas )
         CXX="clang++"
-        CPPFLAGS="${gsl_inc}"
+        set_omp_flags
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib} -L/usr/local/opt/openblas/lib"
         LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
         ;;
     x64-macos-gcc9-openblas )
         CXX="g++-9"
-        CPPFLAGS="${gsl_inc}"
+        set_omp_flags
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib} -L/usr/local/opt/openblas/lib"
         LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
         ;;
     x64-linux-gcc-atlas )
         CXX="g++"
-        CPPFLAGS="${gsl_inc}"
+        set_omp_flags
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
         LDLIBS="-lgsl -lcblas -latlas -lm -ldl"
         ;;
     x64-linux-gcc-openblas )
         CXX="g++"
-        CPPFLAGS="${gsl_inc}"
+        set_omp_flags
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
         LDLIBS="-lgsl -lopenblas -lm -ldl"
         ;;
     x64-linux-gcc-gslcblas )
         CXX="g++"
-        CPPFLAGS="${gsl_inc}"
+        set_omp_flags
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
         LDLIBS="-lgsl -lgslcblas -lm -ldl"
         ;;
