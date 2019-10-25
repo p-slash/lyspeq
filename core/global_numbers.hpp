@@ -45,9 +45,7 @@ namespace bins
     extern double *KBAND_EDGES, *KBAND_CENTERS;
     extern double Z_BIN_WIDTH, *ZBIN_CENTERS;
 
-    void setUpBins(double k0, int nlin, double dklin,
-                            int nlog, double dklog,
-                     double z0);
+    void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double z0);
     void cleanUpBins();
 
     // returns -1 if below, NUMBER_OF_Z_BINS if above
@@ -59,8 +57,10 @@ namespace bins
     // or to the right of this number.
     double redshiftBinningFunction(double z, int zm, int zc);
 
-    int  getFisherMatrixIndex(int kn, int zm);
-    void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm);
+    inline int  getFisherMatrixIndex(int kn, int zm) 
+        { return kn + bins::NUMBER_OF_K_BANDS * zm; };
+    inline void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm) 
+        { kn = i % bins::NUMBER_OF_K_BANDS; zm = i / bins::NUMBER_OF_K_BANDS; };
     
     #ifdef LAST_K_EDGE
     #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;
