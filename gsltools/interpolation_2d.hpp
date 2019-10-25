@@ -25,6 +25,9 @@ class Interpolation2D
 	gsl_interp_accel *x_accelerator;
 	gsl_interp_accel *y_accelerator;
 	gsl_spline2d *spline;
+
+	double extrapolate(double x, double y, 
+		double (*func)(const gsl_spline2d*, const double, const double, gsl_interp_accel*, gsl_interp_accel*)) const;
 	
 public:
 
@@ -36,6 +39,8 @@ public:
 	~Interpolation2D();
 
 	double evaluate(double x, double y) const;
+	double derivate_x(double x, double y) const;
+	double derivate_y(double x, double y) const;
 };
 
 #endif
