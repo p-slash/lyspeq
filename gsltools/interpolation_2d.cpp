@@ -106,23 +106,23 @@ double Interpolation2D::extrapolate(double x, double y,
 
     if (x < lowest_x)
     {
-        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for x=%e is smaller than lowest x=%e!\n", x, lowest_x);
+        // fprintf(stderr, "WARNING: Extrapolating 2D interpolation for x=%e is smaller than lowest x=%e!\n", x, lowest_x);
         x_eval = lowest_x;
     }
     else if (x > highest_x)
     {
-        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for x=%e is larger than highest x=%e!\n", x, highest_x);
+        // fprintf(stderr, "WARNING: Extrapolating 2D interpolation for x=%e is larger than highest x=%e!\n", x, highest_x);
         x_eval = highest_x;
     }
 
     if (y < lowest_y)
     {
-        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for y=%e is smaller than lowest y=%e!\n", y, lowest_y);
+        // fprintf(stderr, "WARNING: Extrapolating 2D interpolation for y=%e is smaller than lowest y=%e!\n", y, lowest_y);
         y_eval = lowest_y;
     }
     else if (y > highest_y)
     {
-        fprintf(stderr, "WARNING: Extrapolating 2D interpolation for y=%e is larger than highest y=%e!\n", y, highest_y);
+        // fprintf(stderr, "WARNING: Extrapolating 2D interpolation for y=%e is larger than highest y=%e!\n", y, highest_y);
         y_eval = highest_y;
     }
 
