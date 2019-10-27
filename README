@@ -53,9 +53,9 @@ Compile and Install
 =====
 The simplest version can be installed by `./configure && make && make install`. However, this does not enable MPI or any other CBLAS libraries. 
 
-MPI can be enabled by passing `--enable-openmpi`. 
+MPI can be enabled by passing `--enable-mpi`. 
 
-I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-openmpi`, which will enable OpenMPI and use OpenBLAS for matrix operations. Another important one is Intel compiler with MKL. If you have Parallel Studio XE 2018 installed: `./configure --build=x64-linux-icpc-mklxe18 --enable-openmpi`. To see all build types: `./configure --print-builds`.
+I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-mpi`, which will enable OpenMPI and use OpenBLAS for matrix operations. Another important one is Intel compiler with MKL. If you have Parallel Studio XE 2018 installed: `./configure --build=x64-linux-icpc-mklxe18 --enable-mpi`. To see all build types: `./configure --print-builds`.
 
 The executables are installed in `bindir`. This is `/usr/local/bin` by default. You can change it by setting `--bindir=your-path`. Make sure it is in your `$PATH`. Alternatively, you can change `/usr/local` by setting `--prefix` and `--exec_prefix`. Typically for clusters, you want to install binaries to `$HOME/bin`; so simply pass `--prefix=$HOME`.
 
