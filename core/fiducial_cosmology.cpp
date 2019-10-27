@@ -1,34 +1,13 @@
 #include "core/fiducial_cosmology.hpp"
 
 #include <cmath>
+#include <iostream>
+#include <vector>
+#include <set>
+#include <stdexcept>
 
-// bool check_linearly_spaced(double *v, int size)
-// {
-//     double dv, cv = v[1]-v[0], eps = 1e-3;
-
-//     for (int i = 1; i < size-1; i++)
-//     {
-//         dv = v[i+1] - v[i];
-
-//         if (fabs(dv - cv) > cv * eps)   return false;
-//     }
-
-//     return true;
-// }
-
-// void convert_flux2deltaf_becker(const double *lambda, double *flux, double *noise, int size)
-// {
-//     double mean_f, z_i;
-
-//     for (int i = 0; i < size; i++)
-//     {
-//         z_i       = lambda[i] / LYA_REST - 1.;
-//         mean_f    = becker13_meanflux(z_i);
-//         flux[i]   = (flux[i] / mean_f) - 1.;
-//         noise[i] /= mean_f;
-//     }
-// }
-
+#include "gsltools/interpolation_2d.hpp"
+#include "io/io_helper_functions.hpp"
 
 // Conversion functions
 namespace conv
@@ -105,31 +84,69 @@ namespace conv
 }
 
 // Fiducial Functions
-
-// Using Palanque-Delabrouille fit
-// Add #ifdef to implement other functions
-// #ifdef SOME_OTHER_FIT
-
-// return another_fitting_function(k, z, params);
-
-// #endif
-// Code another fitting function here
-// double another_fitting_function(double k, double z, void *params)
-// {
-//     // Code your own fitting function here
-//     void  *pp __attribute__((unused)) = params; // remove this line if using params
-//     return k*z;
-// }
-
-// double another_fitting_function_growth_factor(double z_ij, double k_kn, double z_zm, void *params)
-// {
-//     // Code your own fitting function here
-//     void  *pp __attribute__((unused)) = params; // remove this line if using params
-//     return k_kn*z_ij/z_zm;
-// }
-
 namespace fidcosmo
 {
+    namespace pd13
+    {
+        double Palanque_Delabrouille_etal_2013_fit(double, double, void*);
+        double Palanque_Delabrouille_etal_2013_fit_growth_factor(double, double, double, void*);
+    }
+
+    double (*fiducialPowerSpectrum)(double, double, void*)             = &pd13::Palanque_Delabrouille_etal_2013_fit;
+    double (*fiducialPowerGrowthFactor)(double, double, double, void*) = &pd13::Palanque_Delabrouille_etal_2013_fit_growth_factor;
+    
+    bool USE_INTERP_FIDUCIAL_POWER = false;
+    Interpolation2D *interp2d_fiducial_power = NULL;
+
+    inline double interpolationFiducialPower(double k, double z, void *params)
+    {
+        void  *pp __attribute__((unused)) = params;
+
+        return interp2d_fiducial_power->evaluate(z, k);
+    }
+
+    // Assume file starts with two integers, then has three columns
+    // Nk Nz
+    // z k P
+    // . . .
+    // Power is ordered for each redshift bin
+    void setFiducialPowerFromFile(const char * fname)
+    {
+        int n_k_points, n_z_points, size;
+        std::vector<double> fiducial_power_vector_from_file, k_values, z_values;
+
+        std::fstream to_read_fidpow = ioh::open_file(fname);
+        // Assume file starts with two integers 
+        // Nk Nz
+        to_read_fidpow >> n_k_points >> n_z_points;
+        size = n_k_points * n_z_points;
+
+        fiducial_power_vector_from_file.reserve(size);
+        k_values.reserve(n_k_points);
+        z_values.reserve(n_z_points);
+
+        // Assume file has three columns after
+        // z k P
+        // Power is ordered for each redshift bin
+        for (int nline = 0; nline < size; ++nline)
+        {
+            double tmp_z, tmp_k, tmp_p;
+            to_read_fidpow >> tmp_z >> tmp_k >> tmp_p;
+            
+            // First Nk values are k values
+            if (nline < n_k_points)         k_values.push_back(tmp_k);
+            // Every other Nk value form z values
+            if (nline % n_k_points == 0)    z_values.push_back(tmp_z);
+
+            fiducial_power_vector_from_file.push_back(tmp_p);
+        }
+        
+        interp2d_fiducial_power = new Interpolation2D(GSL_BICUBIC_INTERPOLATION, z_values.data(), k_values.data(),
+            fiducial_power_vector_from_file.data(), n_z_points, n_k_points);
+
+        fiducialPowerSpectrum = &interpolationFiducialPower;
+    }
+
     // Palanque_Delabrouille et al. 2013 based functions. Extra Lorentzian decay
     namespace pd13
     {
@@ -137,56 +154,43 @@ namespace fidcosmo
     #define K_0 0.009 // s km^-1
     #define Z_0 3.0
 
-        pd13_fit_params FIDUCIAL_PD13_PARAMS;
+        pd13_fit_params FIDUCIAL_PD13_PARAMS = {6.621420e-02, -2.685349e+00, -2.232763e-01, 3.591244e+00, -1.768045e-01, 3.598261e+02};
 
-        double Palanque_Delabrouille_etal_2013_fit(double k, double z, pd13_fit_params *params)
+        double Palanque_Delabrouille_etal_2013_fit(double k, double z, void *params)
         {
-            double  q0 = k / K_0 + 1E-10, \
-                    x0 = (1. + z) / (1. + Z_0);
+            pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
 
-            return    (params->A * PI / K_0) \
-                    * pow(q0,   2. + params->n + \
-                                params->alpha * log(q0) + \
-                                params->beta  * log(x0)) \
-                    * pow(x0,   params->B) \
-                    / (1. + params->lambda * k * k);
+            double  q0 = k / K_0 + 1E-10, x0 = (1. + z) / (1. + Z_0);
+
+            return    (pfp->A * PI / K_0)
+                    * pow(q0, 2. + pfp->n + pfp->alpha * log(q0) + pfp->beta  * log(x0)) 
+                    * pow(x0,   pfp->B) / (1. + pfp->lambda * k * k);
         }
 
     #undef Z_0 // Do not need Z_0 after this point
 
-        double Palanque_Delabrouille_etal_2013_fit_growth_factor(double z_ij, double k_kn, double z_zm, pd13_fit_params *params)
+        double Palanque_Delabrouille_etal_2013_fit_growth_factor(double z_ij, double k_kn, double z_zm, void *params)
         {
-            double  q0 = k_kn / K_0 + 1E-10, \
-                    x0 = (1. + z_ij) / (1. + z_zm);
+            pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
 
-            return  pow(x0, params->B + params->beta  * log(q0));
+            double  q0 = k_kn / K_0 + 1E-10, xm = (1. + z_ij) / (1. + z_zm);
+
+            return  pow(xm, pfp->B + pfp->beta  * log(q0));
         }
 
     #undef K_0 // Do not need K_0 either
     }
-
-    // This function is defined in preprocessing
-    double fiducialPowerSpectrum(double k, double z, void *params)
-    {    
-        pd13::pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
-        return pd13::Palanque_Delabrouille_etal_2013_fit(k, z, pfp);   
-    }
-    double fiducialPowerGrowthFactor(double z_ij, double k_kn, double z_zm, void *params)
-    {
-        pd13::pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
-        return pd13::Palanque_Delabrouille_etal_2013_fit_growth_factor(z_ij, k_kn, z_zm, pfp);
-    }
 }
 
 // Signal and Derivative Integrands and Window Function
-double sinc(double x)
+inline double sinc(double x)
 {
     if (fabs(x) < 1E-6)     return 1.;
 
     return sin(x) / x;
 }
 
-double spectral_response_window_fn(double k, struct spectrograph_windowfn_params *spec_params)
+inline double spectral_response_window_fn(double k, struct spectrograph_windowfn_params *spec_params)
 {
     double R = spec_params->spectrograph_res, dv_kms = spec_params->pixel_width;
 
@@ -195,27 +199,19 @@ double spectral_response_window_fn(double k, struct spectrograph_windowfn_params
 
 double signal_matrix_integrand(double k, void *params)
 {
-    struct sq_integrand_params          *sqip = (struct sq_integrand_params*) params;
-    struct spectrograph_windowfn_params *wp   = sqip->spec_window_params;
-    fidpd13::pd13_fit_params            *pfp  = sqip->fiducial_pd_params;
+    struct sq_integrand_params *sqip = (struct sq_integrand_params*) params;
 
-    double result = spectral_response_window_fn(k, wp);
+    double result = spectral_response_window_fn(k, sqip->spec_window_params);
 
-    result *= fidcosmo::fiducialPowerSpectrum(k, wp->z_ij, pfp) * result / PI;
-
-    return result;
+    return result * result * fidcosmo::fiducialPowerSpectrum(k, sqip->spec_window_params->z_ij, sqip->fiducial_pd_params) / PI;
 }
 
 double q_matrix_integrand(double k, void *params)
 {
-    struct sq_integrand_params          *sqip = (struct sq_integrand_params*) params;
-    struct spectrograph_windowfn_params *wp   = sqip->spec_window_params;
+    struct sq_integrand_params *sqip = (struct sq_integrand_params*) params;
 
-    double result = spectral_response_window_fn(k, wp);
-
-    result *= result / PI;
-
-    return result;
+    double result = spectral_response_window_fn(k, sqip->spec_window_params);
+    return result * result / PI;
 }
 
 

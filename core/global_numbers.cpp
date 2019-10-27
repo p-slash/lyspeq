@@ -136,17 +136,6 @@ namespace bins
         return zBinTriangular(z, zm, zc);
         #endif
     }
-
-    int getFisherMatrixIndex(int kn, int zm)
-    {
-        return kn + bins::NUMBER_OF_K_BANDS * zm;
-    }
-
-    void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm)
-    {
-        kn = i % bins::NUMBER_OF_K_BANDS;
-        zm = i / bins::NUMBER_OF_K_BANDS;
-    }
 }
 
 namespace mytime
@@ -221,10 +210,9 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
                         int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
-    int N_KLIN_BIN, N_KLOG_BIN, sfid_off, ulogv=-1, uchunkmean=-1;
-
-    double  K_0, LIN_K_SPACING, LOG_K_SPACING,
-            Z_0, temp_chisq = -1;
+    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off, ulogv=-1, uchunkmean=-1;
+    double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1;
+    char    FNAME_FID_POWER[300]="";
 
     // Set up config file to read variables.
     ConfigFile cFile(FNAME_CONFIG);
@@ -259,6 +247,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("VelocityLength",  LENGTH_V,    DOUBLE);
 
     // Fiducial Palanque fit function parameters
+    cFile.addKey("FiducialPowerFile",           FNAME_FID_POWER,                      STRING);
     cFile.addKey("FiducialAmplitude",           &fidpd13::FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
     cFile.addKey("FiducialSlope",               &fidpd13::FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
     cFile.addKey("FiducialCurvature",           &fidpd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
@@ -289,6 +278,9 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     conv::FLUX_TO_DELTAF_BY_CHUNKS = uchunkmean > 0;
 
     if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
+
+    if (FNAME_FID_POWER[0] != '\0')
+        fidcosmo::setFiducialPowerFromFile(FNAME_FID_POWER);
 
     // Redshift and wavenumber bins are constructed
     bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);

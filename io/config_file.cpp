@@ -27,7 +27,7 @@ void ConfigFile::readAll()
 {
     FILE *config_file = ioh::open_file(file_name, "r");
     
-    char line[1024], buffer_key[200], buffer_value[200];
+    char line[1024], buffer_key[200], buffer_value[500];
 
     while (!feof(config_file))
     {
