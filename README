@@ -1,4 +1,4 @@
-# Changelog
+### mpi-v1.3
 + Signal and derivative look up tables are controlled by one class: [sq_table.hpp](core/sq_table.hpp)
 + Input data are assumed to be fluctuations and not flux. Added `ConvertFromFluxToDeltaf` to config file to switch behaviors.
 + Using Lee12 mean flux option is removed. A better candidate would be interpolating an input flux file. 
@@ -28,17 +28,17 @@ Prerequisites
 =====
 + [GSL](https://www.gnu.org/software/gsl/) is needed for matrix algebra, integration and interpolation.
 + [Python3](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
-+ [OpenMP](https://www.openmp.org) is needed to enable parallel computing on shared memory.
++ [MPI](https://www.open-mpi.org) is needed to enable parallel computing.
 
 Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl), [ATLAS](http://math-atlas.sourceforge.net) or [OpenBLAS](https://www.openblas.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. To link one of these libraries to gsl_cblas, remove `-lgslcblas` from `LDLIBS`. For ATLAS, add `-lcblas -latlas` to `LDLIBS` in your Makefile. To link OpenBLAS, add `-lopenblas`. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
 
 Compile and Install
 =====
-The simplest version can be installed by `./configure && make && make install`. However, this does not enable OpenMP or any other CBLAS libraries. 
+The simplest version can be installed by `./configure && make && make install`. However, this does not enable MPI or any other CBLAS libraries. 
 
-OpenMP can be enabled by passing `--enable-openmp`. 
+MPI can be enabled by passing `--enable-openmpi`. 
 
-I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-openmp`, which will enable OpenMP and use OpenBLAS for matrix operations. Another important one is Intel compiler with MKL. If you have Parallel Studio XE 2018 installed: `./configure --build=x64-linux-icpc-mklxe18 --enable-openmp`. To see all build types: `./configure --print-builds`.
+I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-openmpi`, which will enable OpenMPI and use OpenBLAS for matrix operations. Another important one is Intel compiler with MKL. If you have Parallel Studio XE 2018 installed: `./configure --build=x64-linux-icpc-mklxe18 --enable-openmpi`. To see all build types: `./configure --print-builds`.
 
 The executables are installed in `bindir`. This is `/usr/local/bin` by default. You can change it by setting `--bindir=your-path`. Make sure it is in your `$PATH`. Alternatively, you can change `/usr/local` by setting `--prefix` and `--exec_prefix`. Typically for clusters, you want to install binaries to `$HOME/bin`; so simply pass `--prefix=$HOME`.
 
@@ -48,10 +48,10 @@ You can also change interpolation schemes and redshift binning shape. You can al
 
 Overview of Programs
 =====
-+ **LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method. When compiled with OpenMP compatibility, it distributes qso chunks to multiple CPUs, then reduces the results.
-+ **CreateSQLookUpTable** creates look up tables for signal and derivative matrices used in LyaPowerEstimate. When compiled with OpenMP compatibility, it computes tables for different resolution on multiple CPUs.
++ **LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method. When compiled with MPI compatibility, it distributes qso chunks to multiple CPUs, then reduces the results.
++ **CreateSQLookUpTable** creates look up tables for signal and derivative matrices used in LyaPowerEstimate. When compiled with MPI compatibility, it computes tables for different resolution on multiple CPUs.
 
-Both programs take one common config file. OpenMP versions must run on a single node.
+Both programs take one common config file.
 
 + **lorentzian_fit.py** is an intermediate fitting script.
 
