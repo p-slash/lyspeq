@@ -31,6 +31,8 @@ public:
     ~ConfigFile() {};
 
     void addKey(const std::string key, void *variable, VariableType vt);
+
+    // If key is not found in file, variable is untouched.
     void readAll();
 };
 
