@@ -122,9 +122,6 @@ namespace fidcosmo
         size = n_k_points * n_z_points;
 
         k_values = new double[n_k_points];
-        FID_LOWEST_K  = k_values[0];
-        FID_HIGHEST_K = k_values[n_k_points - 1];
-
         z_values = new double[n_z_points];
         fiducial_power_from_file = new double[size];
 
@@ -132,6 +129,9 @@ namespace fidcosmo
         to_read_fidpow.read((char *)z_values, n_z_points*sizeof(double));
         to_read_fidpow.read((char *)k_values, n_k_points*sizeof(double));
 
+        FID_LOWEST_K  = k_values[0];
+        FID_HIGHEST_K = k_values[n_k_points - 1];
+        
         // Remaining is power array
         to_read_fidpow.read((char *)fiducial_power_from_file, size*sizeof(double));
         to_read_fidpow.close();
