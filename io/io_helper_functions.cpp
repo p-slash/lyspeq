@@ -48,9 +48,10 @@ FILE * ioh::open_file(const char *fname, const char *read_write)
     return file_to_read_write;
 }
 
-std::fstream ioh::open_fstream(const char *fname, char binary)
+template <class T>
+T ioh::open_fstream(const char *fname, char binary)
 {
-    std::fstream file_fs;
+    T file_fs;
     if (binary=='b')
         file_fs.open(fname, std::ios::binary);
     else
@@ -65,13 +66,16 @@ std::fstream ioh::open_fstream(const char *fname, char binary)
     return file_fs;
 }
 
+template std::ifstream ioh::open_fstream<std::ifstream>(const char*, char);
+template std::ofstream ioh::open_fstream<std::ofstream>(const char*, char);
+template std::fstream  ioh::open_fstream<std::fstream>(const char*, char);
 
 template <class T>
 int ioh::readList(const char *fname, std::vector<T> &list_values)
 {
     int nr;
 
-    std::fstream toRead = ioh::open_fstream(fname);
+    std::ifstream toRead = ioh::open_fstream<std::ifstream>(fname);
     
     toRead >> nr;
 
