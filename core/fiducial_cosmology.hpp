@@ -26,10 +26,11 @@ namespace fidcosmo
     extern double (*fiducialPowerGrowthFactor)(double z_ij, double k_kn, double z_zm, void *params);
     extern bool USE_INTERP_FIDUCIAL_POWER;
 
-    // Assume file starts with two integers, then has three columns
-    // Nk Nz
-    // z k P
-    // . . .
+    // Assume binary file starts with 
+    // two integers, 
+    // then redshift values as doubles, 
+    // k values as doubles,
+    // finally power values as doubles.
     // Power is ordered for each redshift bin
     void setFiducialPowerFromFile(const char *fname);
 
