@@ -48,10 +48,13 @@ FILE * ioh::open_file(const char *fname, const char *read_write)
     return file_to_read_write;
 }
 
-std::fstream ioh::open_file(const char *fname)
+std::fstream ioh::open_file(const char *fname, char binary='')
 {
     std::fstream file_fs;
-    file_fs.open(fname);
+    if (binary=='b')
+        file_fs.open(fname, std::ios::binary);
+    else
+        file_fs.open(fname);
 
     if (!file_fs)
     {

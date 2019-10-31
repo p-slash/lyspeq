@@ -15,7 +15,8 @@ namespace ioh
     T* copyArrayAlloc(const T* source, int size);
 
     FILE * open_file(const char *fname, const char *read_write);
-    std::fstream open_file(const char *fname);
+    // Open binary file if binary='b'
+    std::fstream open_file(const char *fname, char binary='');
 
     // Allocates list_values, must dellocate manually!
     // Returns number of elements
