@@ -9,16 +9,13 @@
 #define TABLE_SIZE 300
 
 FourierIntegrator::FourierIntegrator(gsl_integration_qawo_enum sin_cos, double (*integrand_function)(double, void*), void *params)
+: GSL_SIN_COS(sin_cos), set_table_omega(0), set_table_length(0), t(NULL)
 {
-    GSL_SIN_COS = sin_cos;
-
     w       = gsl_integration_workspace_alloc(WORKSPACE_SIZE);
     cycle_w = gsl_integration_workspace_alloc(WORKSPACE_SIZE);
 
     if (w == NULL || cycle_w == NULL)
         throw std::bad_alloc();
-
-    t = NULL;
 
     F.function = integrand_function;
     F.params   = params;
@@ -34,7 +31,11 @@ FourierIntegrator::~FourierIntegrator()
 }
 
 void FourierIntegrator::setTableParameters(double omega, double L)
-{
+{   
+    // Do not change table parameters if omega and L does not change
+    if (fabs(omega - set_table_omega) < 1E-7 && fabs(L - set_table_length) < 1E-7)
+        return;
+
     int s = 0;
 
     if (t == NULL)
@@ -46,15 +47,21 @@ void FourierIntegrator::setTableParameters(double omega, double L)
     else    s = gsl_integration_qawo_table_set(t, omega, L, GSL_SIN_COS);
 
     handle_gsl_status(s);
+    set_table_omega  = omega;
+    set_table_length = L;
 }
 
 void FourierIntegrator::changeTableLength(double L)
 {
-    // assertif (t == NULL)  throw std::runtime_error("Table not allocated!");
     assert(t != NULL);
     
+    // Do not change table parameters if L does not change
+    if (fabs(L - set_table_length) < 1E-7)
+        return;
+
     int s = gsl_integration_qawo_table_set_length(t, L);
     handle_gsl_status(s);
+    set_table_length = L;
 }
 
 double FourierIntegrator::evaluateAToInfty(double a, double epsabs)
