@@ -130,8 +130,6 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
             }
         }
         
-        #undef SINT_CALC
-
         SQLookupTableFile signal_table(buf_fnames, 'w');
 
         signal_table.setHeader( N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S,

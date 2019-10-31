@@ -103,7 +103,7 @@ namespace fidcosmo
     {
         void  *pp __attribute__((unused)) = params;
 
-        return interp2d_fiducial_power->evaluate(z, k);
+        return interp2d_fiducial_power->evaluate(k, z);
     }
 
     // Assume binary file starts with two integers, then redshift values as double, k values as double,
@@ -136,8 +136,8 @@ namespace fidcosmo
         to_read_fidpow.read((char *)fiducial_power_from_file, size*sizeof(double));
         to_read_fidpow.close();
         
-        interp2d_fiducial_power = new Interpolation2D(GSL_BICUBIC_INTERPOLATION, z_values, k_values,
-            fiducial_power_from_file, n_z_points, n_k_points);
+        interp2d_fiducial_power = new Interpolation2D(GSL_BICUBIC_INTERPOLATION, k_values, z_values, 
+            fiducial_power_from_file, n_k_points, n_z_points);
 
         delete [] k_values;
         delete [] z_values;
