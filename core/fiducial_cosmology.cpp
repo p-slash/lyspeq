@@ -96,6 +96,7 @@ namespace fidcosmo
     double (*fiducialPowerGrowthFactor)(double, double, double, void*) = &pd13::Palanque_Delabrouille_etal_2013_fit_growth_factor;
     
     bool USE_INTERP_FIDUCIAL_POWER = false;
+    double FID_LOWEST_K = 0, FID_HIGHEST_K = 10.;
     Interpolation2D *interp2d_fiducial_power = NULL;
 
     inline double interpolationFiducialPower(double k, double z, void *params)
@@ -121,6 +122,9 @@ namespace fidcosmo
         size = n_k_points * n_z_points;
 
         k_values = new double[n_k_points];
+        FID_LOWEST_K  = k_values[0];
+        FID_HIGHEST_K = k_values[n_k_points - 1];
+
         z_values = new double[n_z_points];
         fiducial_power_from_file = new double[size];
 
