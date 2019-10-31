@@ -62,7 +62,7 @@ double Interpolation2D::evaluate(double x, double y) const
         return result;
 
     if (status == GSL_EDOM)
-        return extrapolate(x, y, &gsl_spline2d_eval);
+        return 0; // extrapolate(x, y, &gsl_spline2d_eval);
     else 
         throw std::runtime_error(gsl_strerror(status));
 }
@@ -78,7 +78,7 @@ double Interpolation2D::derivate_x(double x, double y) const
         return result;
 
     if (status == GSL_EDOM)
-        return extrapolate(x, y, &gsl_spline2d_eval_deriv_x);
+        return 0; // extrapolate(x, y, &gsl_spline2d_eval_deriv_x);
     else 
         throw std::runtime_error(gsl_strerror(status));
 }
@@ -94,7 +94,7 @@ double Interpolation2D::derivate_y(double x, double y) const
         return result;
 
     if (status == GSL_EDOM)
-        return extrapolate(x, y, &gsl_spline2d_eval_deriv_y);
+        return 0; // extrapolate(x, y, &gsl_spline2d_eval_deriv_y);
     else 
         throw std::runtime_error(gsl_strerror(status));
 }
