@@ -105,45 +105,40 @@ namespace fidcosmo
         return interp2d_fiducial_power->evaluate(z, k);
     }
 
-    // Assume file starts with two integers, then has three columns
-    // Nk Nz
-    // z k P
-    // . . .
+    // Assume binary file starts with two integers, then redshift values as double, k values as double,
+    // finally power values.
     // Power is ordered for each redshift bin
     void setFiducialPowerFromFile(const char * fname)
     {
         int n_k_points, n_z_points, size;
-        std::vector<double> fiducial_power_vector_from_file, k_values, z_values;
+        double *fiducial_power_from_file, *k_values, *z_values;
 
-        std::fstream to_read_fidpow = ioh::open_file(fname);
+        std::fstream to_read_fidpow = ioh::open_file(fname, 'b');
         // Assume file starts with two integers 
         // Nk Nz
-        to_read_fidpow >> n_k_points >> n_z_points;
+        to_read_fidpow.read((char *)&n_k_points, sizeof(int));
+        to_read_fidpow.read((char *)&n_z_points, sizeof(int));
         size = n_k_points * n_z_points;
 
-        fiducial_power_vector_from_file.reserve(size);
-        k_values.reserve(n_k_points);
-        z_values.reserve(n_z_points);
+        k_values = new double[n_k_points];
+        z_values = new double[n_z_points];
+        fiducial_power_from_file = new double[size];
 
-        // Assume file has three columns after
-        // z k P
-        // Power is ordered for each redshift bin
-        for (int nline = 0; nline < size; ++nline)
-        {
-            double tmp_z, tmp_k, tmp_p;
-            to_read_fidpow >> tmp_z >> tmp_k >> tmp_p;
-            
-            // First Nk values are k values
-            if (nline < n_k_points)         k_values.push_back(tmp_k);
-            // Every other Nk value form z values
-            if (nline % n_k_points == 0)    z_values.push_back(tmp_z);
+        // Redshift array, then k array as doubles
+        to_read_fidpow.read((char *)z_values, n_z_points*sizeof(double));
+        to_read_fidpow.read((char *)k_values, n_k_points*sizeof(double));
 
-            fiducial_power_vector_from_file.push_back(tmp_p);
-        }
+        // Remaining is power array
+        to_read_fidpow.read((char *)fiducial_power_from_file, size*sizeof(double));
+        to_read_fidpow.close();
         
-        interp2d_fiducial_power = new Interpolation2D(GSL_BICUBIC_INTERPOLATION, z_values.data(), k_values.data(),
-            fiducial_power_vector_from_file.data(), n_z_points, n_k_points);
+        interp2d_fiducial_power = new Interpolation2D(GSL_BICUBIC_INTERPOLATION, z_values, k_values,
+            fiducial_power_from_file, n_z_points, n_k_points);
 
+        delete [] k_values;
+        delete [] z_values;
+        delete [] fiducial_power_from_file;
+        
         fiducialPowerSpectrum = &interpolationFiducialPower;
     }
 
