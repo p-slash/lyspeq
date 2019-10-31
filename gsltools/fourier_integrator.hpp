@@ -11,6 +11,8 @@ class FourierIntegrator
     gsl_integration_qawo_table *t;
     gsl_integration_qawo_enum GSL_SIN_COS;
     
+    double set_table_omega, set_table_length;
+    
     void handle_gsl_status(int status);
     
 public:
