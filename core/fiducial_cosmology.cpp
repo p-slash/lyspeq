@@ -113,7 +113,7 @@ namespace fidcosmo
         int n_k_points, n_z_points, size;
         double *fiducial_power_from_file, *k_values, *z_values;
 
-        std::fstream to_read_fidpow = ioh::open_file(fname, 'b');
+        std::fstream to_read_fidpow = ioh::open_fstream(fname, 'b');
         // Assume file starts with two integers 
         // Nk Nz
         to_read_fidpow.read((char *)&n_k_points, sizeof(int));

@@ -48,7 +48,7 @@ FILE * ioh::open_file(const char *fname, const char *read_write)
     return file_to_read_write;
 }
 
-std::fstream ioh::open_file(const char *fname, char binary='')
+std::fstream ioh::open_fstream(const char *fname, char binary)
 {
     std::fstream file_fs;
     if (binary=='b')
@@ -71,7 +71,7 @@ int ioh::readList(const char *fname, std::vector<T> &list_values)
 {
     int nr;
 
-    std::fstream toRead = ioh::open_file(fname);
+    std::fstream toRead = ioh::open_fstream(fname);
     
     toRead >> nr;
 

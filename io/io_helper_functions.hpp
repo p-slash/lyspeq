@@ -16,7 +16,7 @@ namespace ioh
 
     FILE * open_file(const char *fname, const char *read_write);
     // Open binary file if binary='b'
-    std::fstream open_file(const char *fname, char binary='');
+    std::fstream open_fstream(const char *fname, char binary='0');
 
     // Allocates list_values, must dellocate manually!
     // Returns number of elements
