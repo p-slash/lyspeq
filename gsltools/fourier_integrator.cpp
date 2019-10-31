@@ -9,7 +9,7 @@
 #define TABLE_SIZE 300
 
 FourierIntegrator::FourierIntegrator(gsl_integration_qawo_enum sin_cos, double (*integrand_function)(double, void*), void *params)
-: GSL_SIN_COS(sin_cos), set_table_omega(0), set_table_length(0), t(NULL)
+: GSL_SIN_COS(sin_cos), set_table_omega(-10), set_table_length(-10), t(NULL)
 {
     w       = gsl_integration_workspace_alloc(WORKSPACE_SIZE);
     cycle_w = gsl_integration_workspace_alloc(WORKSPACE_SIZE);
@@ -32,10 +32,6 @@ FourierIntegrator::~FourierIntegrator()
 
 void FourierIntegrator::setTableParameters(double omega, double L)
 {   
-    // Do not change table parameters if omega and L does not change
-    if (fabs(omega - set_table_omega) < 1E-7 && fabs(L - set_table_length) < 1E-7)
-        return;
-
     int s = 0;
 
     if (t == NULL)
@@ -44,9 +40,14 @@ void FourierIntegrator::setTableParameters(double omega, double L)
         
         if (t == NULL)  throw std::bad_alloc();
     }
-    else    s = gsl_integration_qawo_table_set(t, omega, L, GSL_SIN_COS);
+    // Do not change table parameters if omega and L does not change
+    else if (fabs(omega - set_table_omega) < 1E-7 && fabs(L - set_table_length) < 1E-7)
+        return;
+    
+    s = gsl_integration_qawo_table_set(t, omega, L, GSL_SIN_COS);
 
     handle_gsl_status(s);
+    
     set_table_omega  = omega;
     set_table_length = L;
 }
