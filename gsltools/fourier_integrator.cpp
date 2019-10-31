@@ -35,13 +35,26 @@ FourierIntegrator::~FourierIntegrator()
 
 void FourierIntegrator::setTableParameters(double omega, double L)
 {
+    int s = 0;
+
     if (t == NULL)
     {
         t = gsl_integration_qawo_table_alloc(omega, L, GSL_SIN_COS, TABLE_SIZE);
         
         if (t == NULL)  throw std::bad_alloc();
     }
-    else    gsl_integration_qawo_table_set(t, omega, L, GSL_SIN_COS);
+    else    s = gsl_integration_qawo_table_set(t, omega, L, GSL_SIN_COS);
+
+    handle_gsl_status(s);
+}
+
+void FourierIntegrator::changeTableLength(double L)
+{
+    // assertif (t == NULL)  throw std::runtime_error("Table not allocated!");
+    assert(t != NULL);
+    
+    int s = gsl_integration_qawo_table_set_length(t, L);
+    handle_gsl_status(s);
 }
 
 double FourierIntegrator::evaluateAToInfty(double a, double epsabs)
@@ -62,12 +75,13 @@ double FourierIntegrator::evaluate0ToInfty(double epsabs)
     return evaluateAToInfty(0, epsabs);
 }
 
-double FourierIntegrator::evaluate(double omega, double a, double b, double epsabs, double epsrel)
+double FourierIntegrator::evaluate(double a, double b, double omega, double epsabs, double epsrel)
 {
     int status;
     double result, error;
 
-    setTableParameters(omega, b-a);
+    if (omega < 0)      changeTableLength(b-a);
+    else                setTableParameters(omega, b-a);
 
     status = gsl_integration_qawo(  &F, a, epsabs, epsrel, \
                                     WORKSPACE_SIZE, w, t, \
