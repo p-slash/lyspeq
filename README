@@ -13,12 +13,12 @@
     beta   =   -1.768045e-01
     lambda =    3.598261e+02
 
-+ When `FiducialPowerFile` set in config file, an interpolation function takes over. This file should have the following convention:
++ When `FiducialPowerFile` set in config file, an interpolation function takes over. This file should be a binary file and have the following convention:
 
     Nk Nz
-    z1 k1 P11
-    z1 k2 P12
-    .  .  .
+    z[1]...z[Nz]
+    k[1]...k[Nk]
+    P[nz=1, nk=1...Nk]...P[Nz, nk=1...Nk]
 
 + Some functions are turned into `inline`.
 
