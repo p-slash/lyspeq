@@ -118,7 +118,7 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
         for (int nv = 0; nv < N_V_POINTS; ++nv)
         {
             win_params.delta_v_ij = sqhelper::LINEAR_V_ARRAY[nv];  // 0 + LENGTH_V * nv / (Nv - 1.);
-            s_integrator.setTableParameters(win_params.delta_v_ij, fidcosmo::FID_LOWEST_K - fidcosmo::FID_LOWEST_K);
+            s_integrator.setTableParameters(win_params.delta_v_ij, fidcosmo::FID_HIGHEST_K - fidcosmo::FID_LOWEST_K);
 
             for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
             {
@@ -126,7 +126,7 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
                 win_params.z_ij = sqhelper::LINEAR_Z_ARRAY[nz];   // z_first + z_length * nz / (Nz - 1.);
                 
                 // 1E-15 gave roundoff error for smoothing with 20.8 km/s
-                sqhelper::signal_array[xy] = s_integrator.evaluate(fidcosmo::FID_LOWEST_K, fidcosmo::FID_LOWEST_K);
+                sqhelper::signal_array[xy] = s_integrator.evaluate(fidcosmo::FID_LOWEST_K, fidcosmo::FID_HIGHEST_K);
             }
         }
         
