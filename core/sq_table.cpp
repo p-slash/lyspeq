@@ -176,7 +176,7 @@ DERIVATIVE:
             {
                 win_params.delta_v_ij = sqhelper::LINEAR_V_ARRAY[nv];
 
-                sqhelper::derivative_array[nv] = q_integrator.evaluate(win_params.delta_v_ij, kvalue_1, kvalue_2, 0);
+                sqhelper::derivative_array[nv] = q_integrator.evaluate(kvalue_1, kvalue_2, win_params.delta_v_ij, 0);
             }
 
             SQLookupTableFile derivative_signal_table(buf_fnames, 'w');
