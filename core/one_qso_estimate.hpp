@@ -34,7 +34,7 @@ class OneQSOEstimate
 
     int DATA_SIZE, N_Q_MATRICES, fisher_index_start, r_index;
 
-    double MEDIAN_REDSHIFT, BIN_REDSHIFT, DV_KMS;
+    double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT, DV_KMS;
     
     // DATA_SIZE sized vectors
     double *lambda_array, *velocity_array, *flux_array, *noise_array;
@@ -53,7 +53,7 @@ class OneQSOEstimate
     Interpolation   **interp_derivative_matrix;
 
     void _readFromFile(std::string fname_qso);
-    bool _findRedshiftBin(double median_z);
+    bool _findRedshiftBin();
     void _setNQandFisherIndex();
     void _setStoredMatrices();
 
@@ -70,7 +70,7 @@ class OneQSOEstimate
     void _getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz);
 
 public:
-    int ZBIN;
+    int ZBIN, ZBIN_LOW, ZBIN_UPP;
 
     // 3 TOTAL_KZ_BINS sized vectors
     gsl_vector  *dbt_estimate_before_fisher_vector[3];
