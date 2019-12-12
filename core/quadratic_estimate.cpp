@@ -74,10 +74,13 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
         q_temp     = new OneQSOEstimate(*fq);
         cpu_t_temp = q_temp->getComputeTimeEst();
+        
+        if (t_rank == 0)
+            LOG::LOGGER.IO("Est CPU: %.1e\n", cpu_t_temp);   
 
         ++Z_BIN_COUNTS[q_temp->ZBIN + 1];
 
-        if (cpu_t_temp == 0)
+        if (cpu_t_temp < 1e-8)
             delete q_temp;
         else
             qso_estimators.push_back( std::make_pair(cpu_t_temp, q_temp) );
