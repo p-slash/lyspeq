@@ -58,58 +58,93 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
         interp_derivative_matrix[kn] = sq_private_table->getDerivativeMatrixInterp(kn, r_index);
 }
 
-bool OneQSOEstimate::_findRedshiftBin(double median_z)
+bool OneQSOEstimate::_findRedshiftBin()
 {
-    // Assign to a redshift bin according to median redshift of this chunk
-    ZBIN = bins::findRedshiftBin(median_z);
-    
-    if (ZBIN >= 0 && ZBIN < bins::NUMBER_OF_Z_BINS)
-        BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
-    else
+    ZBIN     = bins::findRedshiftBin(MEDIAN_REDSHIFT);
+    ZBIN_LOW = bins::findRedshiftBin(LOWER_REDSHIFT);
+    ZBIN_UPP = bins::findRedshiftBin(UPPER_REDSHIFT);
+
+    // Chunk is completely out
+    if (ZBIN_LOW > bins::NUMBER_OF_Z_BINS - 1 || ZBIN_UPP < 0)
     {
-        if (t_rank == 0) LOG::LOGGER.IO("This QSO does not belong to any redshift bin!\n"); 
+        if (t_rank == 0) 
+        {
+            LOG::LOGGER.IO("This QSO is completely out!\n");
+            LOG::LOGGER.ERR("This QSO is completely out!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+                qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
+        }
+
         return false;
     }
+
+    if (ZBIN_LOW < 0)
+    {
+        if (t_rank ==0)
+        {
+            LOG::LOGGER.IO("This QSO is out on the low end!\n");
+            LOG::LOGGER.ERR("This QSO is out on the low end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+                qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
+        }
+        
+        ZBIN_LOW = 0;
+    }
+    else if (ZBIN_UPP > bins::NUMBER_OF_Z_BINS - 1)
+    {
+        if (t_rank == 0) 
+        {
+            LOG::LOGGER.IO("This QSO is out on the high end!\n");
+            LOG::LOGGER.ERR("This QSO is out on the high end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+                qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
+        }
+
+        ZBIN_UPP = bins::NUMBER_OF_Z_BINS - 1;
+    }
+
+    // Assign to a redshift bin according to median redshift of this chunk
+    // This is just for bookkeeping purposes
+    if (ZBIN >= 0 && ZBIN < bins::NUMBER_OF_Z_BINS)
+        BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
 
     return true;
 }
 
-// For a top hat redshift bin, only access 1 redshift bin
-// For triangular z bins, access 3 (2 for first and last z bins) redshift bins
+// When redshift evolution is turned off, all pixels are assigned to one bin
+// For a top hat redshift bin, only access 1 redshift bin for each pixel
+// For triangular z bins, access 2 redshift bins for each pixel
 void OneQSOEstimate::_setNQandFisherIndex()
-{
-    #if defined TOPHAT_Z_BINNING_FN || defined TURN_OFF_REDSHIFT_EVOLUTION
-    N_Q_MATRICES        = 1;
+{   
+    #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
+    // All pixels belong to one redshift bin
+    N_Q_MATRICES = 1;
     fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN);
-    
-    #elif defined TRIANGLE_Z_BINNING_FN
-    N_Q_MATRICES        = 3;
-    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN - 1);
 
-    if (ZBIN == 0) 
+    #elif defined(TOPHAT_Z_BINNING_FN)
+    N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
+    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
+    
+    #elif defined(TRIANGLE_Z_BINNING_FN)
+    N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1 + 2;
+    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW - 1);
+
+    // If the lowest pixel belongs to zeroth bin, there is no left bin
+    if (ZBIN_LOW == 0) 
     {
-        N_Q_MATRICES        = 2;
+        --N_Q_MATRICES;
         fisher_index_start  = 0;
     }
-    else if (ZBIN == bins::NUMBER_OF_Z_BINS - 1) 
-    {
-        N_Q_MATRICES = 2;
-    }
+    // If the highest pixel belongs to the last bin, there is no right bin
+    else if (ZBIN_UPP == bins::NUMBER_OF_Z_BINS - 1) 
+        --N_Q_MATRICES;
 
-    double  z_left  = lambda_array[0] / LYA_REST - 1.,
-            z_right = lambda_array[DATA_SIZE-1] / LYA_REST - 1.;
-
-    if (BIN_REDSHIFT < MEDIAN_REDSHIFT && BIN_REDSHIFT <= z_left)
+    // None of the pixels need to be distributed to the left of ZBIN_LOW
+    if (0 < ZBIN_LOW && bins::ZBIN_CENTERS[ZBIN_LOW] <= LOWER_REDSHIFT)
     {
-        // No left bin
         --N_Q_MATRICES;
         fisher_index_start += bins::NUMBER_OF_K_BANDS;
     }
-    else if (BIN_REDSHIFT > MEDIAN_REDSHIFT && BIN_REDSHIFT >= z_right)
-    {
-        // No right bin
+    // None of the pixels need to be distributed to the right of ZBIN_UPP
+    if (ZBIN_UPP < bins::NUMBER_OF_Z_BINS - 1 && UPPER_REDSHIFT <= bins::ZBIN_CENTERS[ZBIN_UPP])
         --N_Q_MATRICES;
-    }
     #endif
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
@@ -154,6 +189,8 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 
     // Covert from wavelength to velocity units around median wavelength
     conv::convertLambdaToVelocity(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
+    LOWER_REDSHIFT = lambda_array[0] / LYA_REST - 1;
+    UPPER_REDSHIFT = lambda_array[DATA_SIZE-1] / LYA_REST - 1;
 
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
@@ -166,12 +203,11 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 
     if (t_rank == 0)
         LOG::LOGGER.IO("Length of v is %.1f\n" "Median redshift: %.2f\n" "Redshift range: %.2f--%.2f\n", 
-                    velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT,
-                    lambda_array[0]/LYA_REST-1, lambda_array[DATA_SIZE-1]/LYA_REST-1);
+            velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT, LOWER_REDSHIFT, UPPER_REDSHIFT);
 
     nqj_eff = 0;
 
-    if (!_findRedshiftBin(MEDIAN_REDSHIFT))     return;
+    if(_findRedshiftBin()) return;
     
     // Set up number of matrices, index for Fisher matrix
     _setNQandFisherIndex();
@@ -192,10 +228,10 @@ OneQSOEstimate::~OneQSOEstimate()
 
 double OneQSOEstimate::getComputeTimeEst()
 {
-    if (ZBIN == -1 || ZBIN == bins::NUMBER_OF_Z_BINS)
+    if (ZBIN_LOW > bins::NUMBER_OF_Z_BINS - 1 || ZBIN_UPP < 0)
         return 0;
     else
-        return std::pow(DATA_SIZE/10., 3) * N_Q_MATRICES * (N_Q_MATRICES + 1);
+        return std::pow(DATA_SIZE/100., 3) * N_Q_MATRICES * (N_Q_MATRICES + 1);
 }
 
 // If redshift evolution is turned off, always set pixel pair's redshift to MEDIAN_REDSHIFT of the chunk.
@@ -267,13 +303,13 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
                 temp  = interp_derivative_matrix[kn]->evaluate(v_ij);
 
                 // When redshift evolution is turned off, always use top-hat binning
-                temp *= bins::redshiftBinningFunction(z_ij, zm, ZBIN);
+                temp *= bins::redshiftBinningFunction(z_ij, zm);
                 
                 // Allow growing with redshift even redshift evolution is turned off.
                 // Every pixel pair should scale to the bin redshift
                 #ifdef REDSHIFT_GROWTH_POWER
                 temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 
-                                                            &fidpd13::FIDUCIAL_PD13_PARAMS);
+                    &fidpd13::FIDUCIAL_PD13_PARAMS);
                 #endif
                 
                 gsl_matrix_set(qi, i, j, temp);
