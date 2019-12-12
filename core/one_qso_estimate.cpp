@@ -64,6 +64,12 @@ bool OneQSOEstimate::_findRedshiftBin()
     ZBIN_LOW = bins::findRedshiftBin(LOWER_REDSHIFT);
     ZBIN_UPP = bins::findRedshiftBin(UPPER_REDSHIFT);
 
+    if (t_rank == 0)
+    {
+        LOG::LOGGER.IO("Redshift bins: %.1f--%d, %.1f--%d, %1f--%d\n", LOWER_REDSHIFT, ZBIN_LOW, MEDIAN_REDSHIFT, ZBIN,
+            UPPER_REDSHIFT, ZBIN_UPP);
+    }
+    
     // Chunk is completely out
     if (ZBIN_LOW > bins::NUMBER_OF_Z_BINS - 1 || ZBIN_UPP < 0)
     {
@@ -138,7 +144,7 @@ void OneQSOEstimate::_setNQandFisherIndex()
     {
         ++N_Q_MATRICES;
     }
-    
+
     #endif
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
