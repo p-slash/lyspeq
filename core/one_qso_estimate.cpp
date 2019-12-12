@@ -123,28 +123,22 @@ void OneQSOEstimate::_setNQandFisherIndex()
     fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
     
     #elif defined(TRIANGLE_Z_BINNING_FN)
-    N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1 + 2;
-    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW - 1);
+    // Assuming low and end points stay within their respective bins
+    N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
+    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
 
-    // If the lowest pixel belongs to zeroth bin, there is no left bin
-    if (ZBIN_LOW == 0) 
+    // If we need to distribute low end to a lefter bin
+    if (LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW] && ZBIN_LOW != 0)
     {
-        --N_Q_MATRICES;
-        fisher_index_start  = 0;
+        ++N_Q_MATRICES;
+        fisher_index_start -= bins::NUMBER_OF_K_BANDS;
     }
-    // If the highest pixel belongs to the last bin, there is no right bin
-    else if (ZBIN_UPP == bins::NUMBER_OF_Z_BINS - 1) 
-        --N_Q_MATRICES;
-
-    // None of the pixels need to be distributed to the left of ZBIN_LOW
-    if (0 < ZBIN_LOW && bins::ZBIN_CENTERS[ZBIN_LOW] <= LOWER_REDSHIFT)
+    // If we need to distribute high end to righter bin
+    if (bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT && ZBIN_UPP != bins::NUMBER_OF_Z_BINS - 1)
     {
-        --N_Q_MATRICES;
-        fisher_index_start += bins::NUMBER_OF_K_BANDS;
+        ++N_Q_MATRICES;
     }
-    // None of the pixels need to be distributed to the right of ZBIN_UPP
-    if (ZBIN_UPP < bins::NUMBER_OF_Z_BINS - 1 && UPPER_REDSHIFT <= bins::ZBIN_CENTERS[ZBIN_UPP])
-        --N_Q_MATRICES;
+    
     #endif
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
