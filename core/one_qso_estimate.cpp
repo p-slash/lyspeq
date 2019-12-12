@@ -148,9 +148,10 @@ void OneQSOEstimate::_setNQandFisherIndex()
     }
 
     LOG::LOGGER.IO("NQ: %d, FISH: %d\n", N_Q_MATRICES, fisher_index_start);
-    
+
     #endif
 
+    LOG::LOGGER.IO("NQ: %d, FISH: %d\n", N_Q_MATRICES, fisher_index_start);
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 }
 
