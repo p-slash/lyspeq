@@ -89,7 +89,8 @@ namespace bins
         return r;        
     }
 
-    // This needs more thought
+    // This is an extrapolating approach when limited to to only neighbouring bins
+    // Not used in latest versions
     // What happens when a pixel goes outside of triangular bins?
     //    Imagine our central bin is z(m) and its left most pixel is at z_ij less than z(m-1).
     //    Its behavior can be well defined in z(m) bin, simply take z_ij < z(m).
@@ -98,7 +99,7 @@ namespace bins
     //    In other words, that pixel is not normally distributed (sum of weights not equal to 1).
     //    That pixel does not belong to the correct z bin. There should not be such pixels.
     //    Below is my fix by keeping track of left and right bins.
-    double zBinTriangular(double z, int zm, int zc)
+    double zBinTriangularExtrapolate(double z, int zm, int zc)
     {
         double zm_center = bins::ZBIN_CENTERS[zm], z_pivot = ZBIN_CENTERS[zc];
         
@@ -123,19 +124,53 @@ namespace bins
         }
     }
 
-    double redshiftBinningFunction(double z, int zm, int zc)
+    // This binning function is zero outside next bins center
+    // Effectively removes any pixels that does not belong to any redshift bin.
+    double zBinTriangular(double z, int zm)
     {
-        #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
-        double zz  __attribute__((unused)) = z;
-        int    zzm __attribute__((unused)) = zm,
-               zzc __attribute__((unused)) = zc;
-        return 1.;
-        #endif
+        double zm_center = bins::ZBIN_CENTERS[zm];
+        
+        if (zm_center - Z_BIN_WIDTH < z <= zm_center)
+        {
+            if (zm == 0)    return 1;
+            else            return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
+        }   
+        else if (zm_center < z < zm_center + Z_BIN_WIDTH)
+        {
+            if (zm == NUMBER_OF_Z_BINS - 1) return 1;
+            else                            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+        }
+        else
+            return 0;
+    }
 
-        #ifdef TRIANGLE_Z_BINNING_FN
-        return zBinTriangular(z, zm, zc);
+    double redshiftBinningFunction(double z, int zm)
+    {
+        #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
+        return 1;
+
+        #elif defined(TOPHAT_Z_BINNING_FN)
+        if (zm == findRedshiftBin(z)) return 1;
+        else                          return 0;
+
+        #elif defined(TRIANGLE_Z_BINNING_FN)
+        return zBinTriangular(z, zm);
         #endif
     }
+
+    // double redshiftBinningFunction(double z, int zm, int zc)
+    // {
+    //     #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
+    //     double zz  __attribute__((unused)) = z;
+    //     int    zzm __attribute__((unused)) = zm,
+    //            zzc __attribute__((unused)) = zc;
+    //     return 1.;
+    //     #endif
+
+    //     #ifdef TRIANGLE_Z_BINNING_FN
+    //     return zBinTriangular(z, zm, zc);
+    //     #endif
+    // }
 }
 
 namespace mytime
