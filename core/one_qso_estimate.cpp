@@ -132,6 +132,8 @@ void OneQSOEstimate::_setNQandFisherIndex()
     // Assuming low and end points stay within their respective bins
     N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
     fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
+    
+    LOG::LOGGER.IO("NQ: %d, FISH: %d\n", N_Q_MATRICES, fisher_index_start);
 
     // If we need to distribute low end to a lefter bin
     if (LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW] && ZBIN_LOW != 0)
@@ -145,6 +147,8 @@ void OneQSOEstimate::_setNQandFisherIndex()
         ++N_Q_MATRICES;
     }
 
+    LOG::LOGGER.IO("NQ: %d, FISH: %d\n", N_Q_MATRICES, fisher_index_start);
+    
     #endif
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
