@@ -207,16 +207,10 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 
     nqj_eff = 0;
 
-    if (t_rank == 0)
-        LOG::LOGGER.IO("NQ: %d, FISH: %d\n", N_Q_MATRICES, fisher_index_start);
-
-    if(_findRedshiftBin()) return;
+    if(!_findRedshiftBin()) return;
     
     // Set up number of matrices, index for Fisher matrix
     _setNQandFisherIndex();
-
-    if (t_rank == 0)
-        LOG::LOGGER.IO("NQ: %d, FISH: %d\n", N_Q_MATRICES, fisher_index_start);
 
     _setStoredMatrices();
 }
