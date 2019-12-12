@@ -189,7 +189,7 @@ en_mpi=
 interp1d=-DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
 interp2d=-DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
 binz_fn=-DTRIANGLE_Z_BINNING_FN
-z_growth=-DREDSHIFT_GROWTH_POWER
+z_growth=
 z_evol=
 lastk_feat=
 debug=
@@ -214,8 +214,8 @@ do
             srcdir="${i#*=}";;
         --enable-last-k-bin=* )
             lastk_feat="-DLAST_K_EDGE=${i#*=}";;
-        --disable-redshift-growth )
-            z_growth="";;
+        --enable-redshift-growth )
+            z_growth="-DREDSHIFT_GROWTH_POWER";;
         --disable-redshift-evolution )
             z_evol="-DTURN_OFF_REDSHIFT_EVOLUTION";;
         --enable-mpi )
@@ -336,7 +336,7 @@ case ${SYSTYPE} in
         interactive
         ;;
     * )
-        echo "Unknown system type."
+        echo "Unknown system type ${SYSTYPE}."
         print_build_types
         exit 1
         ;;
