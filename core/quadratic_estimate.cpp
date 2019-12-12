@@ -77,7 +77,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
         ++Z_BIN_COUNTS[q_temp->ZBIN + 1];
 
-        if (cpu_t_temp < 1e-6)
+        if (cpu_t_temp == 0)
             delete q_temp;
         else
             qso_estimators.push_back( std::make_pair(cpu_t_temp, q_temp) );
