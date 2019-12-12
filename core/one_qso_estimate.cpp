@@ -66,10 +66,10 @@ bool OneQSOEstimate::_findRedshiftBin()
 
     if (t_rank == 0)
     {
-        LOG::LOGGER.IO("Redshift bins: %.1f--%d, %.1f--%d, %1f--%d\n", LOWER_REDSHIFT, ZBIN_LOW, MEDIAN_REDSHIFT, ZBIN,
+        LOG::LOGGER.IO("Redshift bins: %.2f--%d, %.2f--%d, %.2f--%d\n", LOWER_REDSHIFT, ZBIN_LOW, MEDIAN_REDSHIFT, ZBIN,
             UPPER_REDSHIFT, ZBIN_UPP);
     }
-    
+
     // Chunk is completely out
     if (ZBIN_LOW > bins::NUMBER_OF_Z_BINS - 1 || ZBIN_UPP < 0)
     {
@@ -231,7 +231,7 @@ double OneQSOEstimate::getComputeTimeEst()
     if (ZBIN_LOW > bins::NUMBER_OF_Z_BINS - 1 || ZBIN_UPP < 0)
         return 0;
     else
-        return std::pow(DATA_SIZE/100., 3) * N_Q_MATRICES * (N_Q_MATRICES + 1);
+        return std::pow(DATA_SIZE/10., 3) * N_Q_MATRICES * (N_Q_MATRICES + 1.);
 }
 
 // If redshift evolution is turned off, always set pixel pair's redshift to MEDIAN_REDSHIFT of the chunk.
