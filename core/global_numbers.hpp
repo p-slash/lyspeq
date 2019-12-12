@@ -55,7 +55,7 @@ namespace bins
     // zm: Bin number to consider
     // zc: Central bin number for triangular bins. Binning weights depend on being to the left 
     // or to the right of this number.
-    double redshiftBinningFunction(double z, int zm, int zc);
+    double redshiftBinningFunction(double z, int zm);
 
     inline int  getFisherMatrixIndex(int kn, int zm) 
         { return kn + bins::NUMBER_OF_K_BANDS * zm; };
