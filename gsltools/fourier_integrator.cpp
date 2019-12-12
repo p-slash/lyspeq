@@ -9,7 +9,7 @@
 #define TABLE_SIZE 300
 
 FourierIntegrator::FourierIntegrator(gsl_integration_qawo_enum sin_cos, double (*integrand_function)(double, void*), void *params)
-: GSL_SIN_COS(sin_cos), set_table_omega(-10), set_table_length(-10), t(NULL)
+: t(NULL), GSL_SIN_COS(sin_cos), set_table_omega(-10), set_table_length(-10)
 {
     w       = gsl_integration_workspace_alloc(WORKSPACE_SIZE);
     cycle_w = gsl_integration_workspace_alloc(WORKSPACE_SIZE);
