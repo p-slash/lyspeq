@@ -91,9 +91,7 @@ double FourierIntegrator::evaluate(double a, double b, double omega, double epsa
     if (omega < 0)      changeTableLength(b-a);
     else                setTableParameters(omega, b-a);
 
-    status = gsl_integration_qawo(  &F, a, epsabs, epsrel, \
-                                    WORKSPACE_SIZE, w, t, \
-                                    &result, &error);
+    status = gsl_integration_qawo(&F, a, epsabs, epsrel, WORKSPACE_SIZE, w, t, &result, &error);
 
     handle_gsl_status(status);
 
