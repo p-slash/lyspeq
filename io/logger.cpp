@@ -6,6 +6,7 @@
 #include <stdexcept>
 
 #include "io/io_helper_functions.hpp"
+#include "core/global_numbers.hpp"
 
 namespace LOG
 {
@@ -33,6 +34,8 @@ using namespace LOG;
 
 Logger::Logger()
 {
+    if (t_rank != 0)    return;
+
     std_fname  = "";
     err_fname  = "";
     io_fname   = "";
@@ -51,6 +54,8 @@ Logger::~Logger()
 
 void Logger::open(const char *outdir)
 {
+    if (t_rank != 0)    return;
+
     std_fname = outdir;
     std_fname += "/log.txt";
     stdfile = ioh::open_file(std_fname.c_str(), "w");
@@ -70,6 +75,8 @@ void Logger::open(const char *outdir)
 
 void Logger::close()
 {
+    if (t_rank != 0)    return;
+
     if (stdfile  != stdout)  fclose(stdfile);
     if (errfile  != stderr)  fclose(errfile);
     if (iofile   != stdout)  fclose(iofile);
@@ -78,6 +85,8 @@ void Logger::close()
 
 void Logger::reopen()
 {
+    if (t_rank != 0)    return;
+
     stdfile   = ioh::open_file(std_fname.c_str(), "a");
     errfile   = ioh::open_file(err_fname.c_str(), "a");
     iofile    = ioh::open_file(io_fname.c_str(),  "a");
@@ -99,6 +108,8 @@ std::string Logger::getFileName(TYPE::LOG_TYPE lt) const
 
 void Logger::IO(const char *fmt, ...)
 {
+    if (t_rank != 0)    return;
+
     va_list args;
     va_start(args, fmt);
 
@@ -109,6 +120,8 @@ void Logger::IO(const char *fmt, ...)
 
 void Logger::STD(const char *fmt, ...)
 {
+    if (t_rank != 0)    return;
+
     va_list args;
     va_start(args, fmt);
 
@@ -119,6 +132,8 @@ void Logger::STD(const char *fmt, ...)
 
 void Logger::ERR(const char *fmt, ...)
 {
+    if (t_rank != 0)    return;
+
     va_list args;
     va_start(args, fmt);
 
@@ -129,6 +144,8 @@ void Logger::ERR(const char *fmt, ...)
 
 void Logger::TIME(const char *fmt, ...)
 {
+    if (t_rank != 0)    return;
+    
     if (timefile == NULL)
         throw std::runtime_error("timelog file is not open");
     
