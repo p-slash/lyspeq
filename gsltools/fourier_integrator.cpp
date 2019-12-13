@@ -70,10 +70,8 @@ double FourierIntegrator::evaluateAToInfty(double a, double epsabs)
     assert(t != NULL);
 
     double result, error;
-    int status = gsl_integration_qawf(  &F, a, epsabs, \
-                                        WORKSPACE_SIZE, w, cycle_w, t, \
-                                        &result, &error);
-    handle_gsl_status(status);
+    int status = gsl_integration_qawf(&F, a, epsabs, WORKSPACE_SIZE, w, cycle_w, t, &result, &error);
+    handle_gsl_status(status, result, error);
 
     return result;
 }
@@ -93,24 +91,32 @@ double FourierIntegrator::evaluate(double a, double b, double omega, double epsa
 
     status = gsl_integration_qawo(&F, a, epsabs, epsrel, WORKSPACE_SIZE, w, t, &result, &error);
 
-    handle_gsl_status(status);
+    handle_gsl_status(status, result, error);
 
     return result;
 }
 
-void FourierIntegrator::handle_gsl_status(int status)
+void FourierIntegrator::handle_gsl_status(int status, double result, double error)
 {
     if (status)
     {
         const char *err_msg = gsl_strerror(status);
         fprintf(stderr, "ERROR in FourierIntegrator: %s\n", err_msg);
         
-        if (status == GSL_ETABLE)
-            fprintf(stderr, "Number of levels %d is insufficient for the requested accuracy.\n", TABLE_SIZE);
-
-        if (status == GSL_EDIVERGE)
-            fprintf(stderr, "The integral is divergent, or too slowly convergent to be integrated numerically.\n");
-        throw std::runtime_error(err_msg);
+        switch (status)
+        {
+            case GSL_EROUND:
+                fprintf(stderr, "Round off error. Current computation: %.2e pm %.2e\n", result, error);
+                break;
+            case GSL_ETABLE:
+                fprintf(stderr, "Number of levels %d is insufficient for the requested accuracy.\n", TABLE_SIZE);
+                throw std::runtime_error(err_msg);
+                break;
+            case GSL_EDIVERGE:
+                fprintf(stderr, "The integral is divergent, or too slowly convergent to be integrated numerically.\n");
+                throw std::runtime_error(err_msg);
+                break;
+        }
     }
 }
 

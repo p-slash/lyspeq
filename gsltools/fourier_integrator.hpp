@@ -13,7 +13,7 @@ class FourierIntegrator
     
     double set_table_omega, set_table_length;
     
-    void handle_gsl_status(int status);
+    void handle_gsl_status(int status, double result=0, double error=0);
     
 public:
     // gsl_integration_qawo_enum sin_cos should be chosen from below:
