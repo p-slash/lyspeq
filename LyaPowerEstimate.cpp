@@ -67,13 +67,12 @@ int main(int argc, char *argv[])
         MPI_Barrier(MPI_COMM_WORLD);
         #endif
 
-        if (t_rank == 0)
-        {
-            if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
-    
-            specifics::printBuildSpecifics();
-            specifics::printConfigSpecifics();
-        }
+
+        if (TURN_OFF_SFID)
+            LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
+
+        specifics::printBuildSpecifics();
+        specifics::printConfigSpecifics();
         
     }
     catch (std::exception& e)
