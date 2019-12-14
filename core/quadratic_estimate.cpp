@@ -234,7 +234,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     remove(tmp_fit_fname);
 }
 
-void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> local_queue)
+void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> &local_queue)
 {
     LOG::LOGGER.STD("Load balancing for %d threads available.\n", process::total_pes);
     

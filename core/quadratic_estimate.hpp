@@ -49,7 +49,7 @@ class OneDQuadraticPowerEstimate
     void _fitPowerSpectra(double *fit_values);
 
     // Performs a load balancing operation based on N^3 estimation
-    void _loadBalancing(std::vector<OneQSOEstimate*> local_queue);
+    void _loadBalancing(std::vector<OneQSOEstimate*> &local_queue);
 
 public:
     OneDQuadraticPowerEstimate(const char *fname_list, const char *dir);
