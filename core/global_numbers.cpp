@@ -13,7 +13,10 @@ char TMP_FOLDER[300] = ".";
 double CHISQ_CONVERGENCE_EPS = 0.01;
 double MEMORY_ALLOC          = 0;
 
-int t_rank = 0, numthreads = 1;
+namespace process
+{
+    int this_pe=0, total_pes=1;
+}
 
 SQLookupTable *sq_private_table;
 

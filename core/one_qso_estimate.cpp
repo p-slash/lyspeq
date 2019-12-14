@@ -35,9 +35,8 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
 
     qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
 
-    if (t_rank == 0)
-        LOG::LOGGER.IO("Reading from %s.\n" "Data size is %d\n" "Pixel Width is %.1f\n" "Spectral Resolution is %d.\n",
-            qso_sp_fname.c_str(), DATA_SIZE, DV_KMS, SPECT_RES_FWHM);
+    LOG::LOGGER.IO("Reading from %s.\n" "Data size is %d\n" "Pixel Width is %.1f\n" "Spectral Resolution is %d.\n",
+        qso_sp_fname.c_str(), DATA_SIZE, DV_KMS, SPECT_RES_FWHM);
     
     lambda_array    = new double[DATA_SIZE];
     velocity_array  = new double[DATA_SIZE];
@@ -64,44 +63,32 @@ bool OneQSOEstimate::_findRedshiftBin()
     ZBIN_LOW = bins::findRedshiftBin(LOWER_REDSHIFT);
     ZBIN_UPP = bins::findRedshiftBin(UPPER_REDSHIFT);
 
-    if (t_rank == 0)
-    {
-        LOG::LOGGER.IO("Redshift bins: %.2f--%d, %.2f--%d, %.2f--%d\n", LOWER_REDSHIFT, ZBIN_LOW, MEDIAN_REDSHIFT, ZBIN,
-            UPPER_REDSHIFT, ZBIN_UPP);
-    }
+    LOG::LOGGER.IO("Redshift bins: %.2f--%d, %.2f--%d, %.2f--%d\n", LOWER_REDSHIFT, ZBIN_LOW, MEDIAN_REDSHIFT, ZBIN,
+        UPPER_REDSHIFT, ZBIN_UPP);
 
     // Chunk is completely out
     if (ZBIN_LOW > bins::NUMBER_OF_Z_BINS - 1 || ZBIN_UPP < 0)
     {
-        if (t_rank == 0) 
-        {
-            LOG::LOGGER.IO("This QSO is completely out!\n");
-            LOG::LOGGER.ERR("This QSO is completely out!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
-                qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
-        }
+        LOG::LOGGER.IO("This QSO is completely out!\n");
+        LOG::LOGGER.ERR("This QSO is completely out!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+            qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
 
         return false;
     }
 
     if (ZBIN_LOW < 0)
     {
-        if (t_rank ==0)
-        {
-            LOG::LOGGER.IO("This QSO is out on the low end!\n");
-            LOG::LOGGER.ERR("This QSO is out on the low end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
-                qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
-        }
+        LOG::LOGGER.IO("This QSO is out on the low end!\n");
+        LOG::LOGGER.ERR("This QSO is out on the low end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+            qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
         
         ZBIN_LOW = 0;
     }
     else if (ZBIN_UPP > bins::NUMBER_OF_Z_BINS - 1)
     {
-        if (t_rank == 0) 
-        {
-            LOG::LOGGER.IO("This QSO is out on the high end!\n");
-            LOG::LOGGER.ERR("This QSO is out on the high end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
-                qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
-        }
+        LOG::LOGGER.IO("This QSO is out on the high end!\n");
+        LOG::LOGGER.ERR("This QSO is out on the high end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+            qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
 
         ZBIN_UPP = bins::NUMBER_OF_Z_BINS - 1;
     }
@@ -172,11 +159,8 @@ void OneQSOEstimate::_setStoredMatrices()
         stored_qj = new gsl_matrix*[nqj_eff];
     }
 
-    if (t_rank == 0)
-    {
-        LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
-        if (isSfidStored)   LOG::LOGGER.IO("Fiducial signal matrix is stored.\n");
-    }
+    LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
+    if (isSfidStored)   LOG::LOGGER.IO("Fiducial signal matrix is stored.\n");
 
     isQjSet   = false;
     isSfidSet = false;
@@ -201,9 +185,8 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     for (int i = 0; i < DATA_SIZE; ++i)
         noise_array[i] *= noise_array[i];
 
-    if (t_rank == 0)
-        LOG::LOGGER.IO("Length of v is %.1f\n" "Median redshift: %.2f\n" "Redshift range: %.2f--%.2f\n", 
-            velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT, LOWER_REDSHIFT, UPPER_REDSHIFT);
+    LOG::LOGGER.IO("Length of v is %.1f\n" "Median redshift: %.2f\n" "Redshift range: %.2f--%.2f\n", 
+        velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT, LOWER_REDSHIFT, UPPER_REDSHIFT);
 
     nqj_eff = 0;
 
@@ -522,7 +505,7 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, gsl_vector *dbt_
     catch (const char* msg)
     {
         LOG::LOGGER.ERR("%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n",
-                t_rank, numthreads, msg, qso_sp_fname.c_str());
+                process::this_pe, process::total_pes, msg, qso_sp_fname.c_str());
 
         LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
                 DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);

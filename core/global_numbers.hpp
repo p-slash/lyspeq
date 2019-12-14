@@ -22,9 +22,11 @@ extern double CHISQ_CONVERGENCE_EPS;
 
 extern char TMP_FOLDER[300];
 
-// OpenMP thread rank and total number of threads
-// t_rank is threadprivate
-extern int t_rank, numthreads;
+// PE rank and total number of threads
+namespace process
+{
+    extern int this_pe, total_pes;
+}
 
 extern double MEMORY_ALLOC;
 
