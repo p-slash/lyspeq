@@ -20,11 +20,11 @@ int main(int argc, char *argv[])
 {
     #if defined(ENABLE_MPI)
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &t_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &numthreads);
+    MPI_Comm_rank(MPI_COMM_WORLD, &process::this_pe);
+    MPI_Comm_size(MPI_COMM_WORLD, &process::total_pes);
     #else
-    t_rank = 0;
-    numthreads = 1;
+    process::this_pe = 0;
+    process::total_pes = 1;
     #endif
 
     if (argc<2)

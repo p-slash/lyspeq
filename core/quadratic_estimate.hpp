@@ -2,6 +2,8 @@
 #define QUADRATIC_ESTIMATE_H
 
 #include <vector>
+#include <string>
+
 #include <gsl/gsl_matrix.h> 
 #include <gsl/gsl_vector.h>
 
@@ -26,7 +28,7 @@ class OneDQuadraticPowerEstimate
 {
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS;
 
-    std::vector< std::pair <double, OneQSOEstimate*> > qso_estimators;
+    std::vector< std::pair <double, std::string> > cpu_fname_vector;
 
     // 3 TOTAL_KZ_BINS sized vectors
     gsl_vector  *dbt_estimate_sum_before_fisher_vector[3],
@@ -47,7 +49,7 @@ class OneDQuadraticPowerEstimate
     void _fitPowerSpectra(double *fit_values);
 
     // Performs a load balancing operation based on N^3 estimation
-    void _loadBalancing(std::vector<OneQSOEstimate*> *queue_qso, int maxthreads);
+    void _loadBalancing(std::vector<OneQSOEstimate*> local_queue);
 
 public:
     OneDQuadraticPowerEstimate(const char *fname_list, const char *dir);

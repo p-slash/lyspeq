@@ -49,19 +49,16 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
 {
     NUMBER_OF_R_VALUES = ioh::readList(fname_rlist, R_VALUES);
 
-    if (t_rank == 0)
-    {
-        LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_R_VALUES);
+    LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_R_VALUES);
 
-        for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-            LOG::LOGGER.STD("%d\n", R_VALUES[r]);
-    }
+    for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
+        LOG::LOGGER.STD("%d\n", R_VALUES[r]);
     
 }
 
 void SQLookupTable::readTables()
 {
-    if (t_rank == 0) LOG::LOGGER.STD("Setting tables..\n");
+    LOG::LOGGER.STD("Setting tables..\n");
 
     interp2d_signal_matrices     = new Interpolation2D*[NUMBER_OF_R_VALUES];
     interp_derivative_matrices   = new Interpolation*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
@@ -88,8 +85,8 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
     allocateTmpArrays();
 
     // Initialize loop for parallel computing
-    int delta_nr = NUMBER_OF_R_VALUES / numthreads, r_start_this = delta_nr * t_rank, r_end_this = delta_nr * (t_rank+1);
-    if (t_rank == numthreads-1) r_end_this = NUMBER_OF_R_VALUES;
+    int delta_nr = NUMBER_OF_R_VALUES / process::total_pes, r_start_this = delta_nr * process::this_pe, r_end_this = delta_nr * (process::this_pe+1);
+    if (process::this_pe == process::total_pes-1) r_end_this = NUMBER_OF_R_VALUES;
 
     // Integrate fiducial signal matrix
     FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
@@ -105,7 +102,7 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
         win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
         
         LOG::LOGGER.STD("T%d/%d - Creating look up table for signal matrix. R = %d : %.2f km/s.\n",
-                t_rank, numthreads, R_VALUES[r], win_params.spectrograph_res);
+                process::this_pe, process::total_pes, R_VALUES[r], win_params.spectrograph_res);
 
         buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, R_VALUES[r]);
         
@@ -141,7 +138,7 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
         time_spent_table_sfid = mytime::getTime() - time_spent_table_sfid;
 
         LOG::LOGGER.STD("T:%d/%d - Time spent on fiducial signal matrix table R %d is %.2f mins.\n",
-                t_rank, numthreads, R_VALUES[r], time_spent_table_sfid);
+                process::this_pe, process::total_pes, R_VALUES[r], time_spent_table_sfid);
     }
 
 DERIVATIVE:
@@ -155,7 +152,7 @@ DERIVATIVE:
 
         win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
         LOG::LOGGER.STD("T:%d/%d - Creating look up tables for derivative signal matrices. R = %d : %.2f km/s.\n",
-                t_rank, numthreads, R_VALUES[r], win_params.spectrograph_res);
+                process::this_pe, process::total_pes, R_VALUES[r], win_params.spectrograph_res);
 
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
         {
@@ -190,7 +187,7 @@ DERIVATIVE:
         
         time_spent_table_q = mytime::getTime() - time_spent_table_q;
         LOG::LOGGER.STD("T:%d/%d - Time spent on derivative matrix table R %d is %.2f mins.\n",
-                t_rank, numthreads, R_VALUES[r], time_spent_table_q);
+                process::this_pe, process::total_pes, R_VALUES[r], time_spent_table_q);
     }
     // Q matrices are written.
     // ---------------------
@@ -261,7 +258,8 @@ void SQLookupTable::readSQforR(int r_index)
 
     // Read S table.
     buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, R_VALUES[r_index]);
-    if (t_rank == 0) LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
+    LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
+    
     SQLookupTableFile s_table_file(buf_fnames, 'r');
     
     int dummy_R, dummy_Nz;
