@@ -24,7 +24,6 @@ namespace fidcosmo
     extern double (*fiducialPowerSpectrum)(double k, double z, void *params);
     // Currently growth factor is always given Palanqu Delabrouille fit.
     extern double (*fiducialPowerGrowthFactor)(double z_ij, double k_kn, double z_zm, void *params);
-    extern bool USE_INTERP_FIDUCIAL_POWER;
     extern double FID_LOWEST_K, FID_HIGHEST_K;
 
     // Assume binary file starts with 
