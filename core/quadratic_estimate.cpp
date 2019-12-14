@@ -61,6 +61,8 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 {
     std::vector<std::string> fpaths;
     NUMBER_OF_QSOS = ioh::readList(fname_list, fpaths);
+    
+    std::rotate(fpaths.begin(), fpaths.begin()+NUMBER_OF_QSOS*process::this_pe/process::total_pes, fpaths.end());
 
     // Create objects for each QSO
     cpu_fname_vector.reserve(NUMBER_OF_QSOS);
