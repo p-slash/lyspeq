@@ -95,7 +95,6 @@ namespace fidcosmo
     double (*fiducialPowerSpectrum)(double, double, void*)             = &pd13::Palanque_Delabrouille_etal_2013_fit;
     double (*fiducialPowerGrowthFactor)(double, double, double, void*) = &pd13::Palanque_Delabrouille_etal_2013_fit_growth_factor;
     
-    bool USE_INTERP_FIDUCIAL_POWER = false;
     double FID_LOWEST_K = 0, FID_HIGHEST_K = 10.;
     Interpolation2D *interp2d_fiducial_power = NULL;
 
