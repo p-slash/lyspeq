@@ -58,7 +58,7 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
 
 void SQLookupTable::readTables()
 {
-    LOG::LOGGER.STD("Setting tables..\n");
+    LOG::LOGGER.STD("Setting tables.\n");
 
     interp2d_signal_matrices     = new Interpolation2D*[NUMBER_OF_R_VALUES];
     interp_derivative_matrices   = new Interpolation*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
