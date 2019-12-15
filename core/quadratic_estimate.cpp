@@ -332,8 +332,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         {
             printfSpectra();
 
-            sprintf(buf, "%s_it%d_quadratic_power_estimate.dat", fname_base, i+1);
-            writeSpectrumEstimates(buf);
+            // sprintf(buf, "%s_it%d_quadratic_power_estimate.dat", fname_base, i+1);
+            // writeSpectrumEstimates(buf);
 
             sprintf(buf, "%s_it%d_quadratic_power_estimate_detailed.dat", fname_base, i+1);
             writeDetailedSpectrumEstimates(buf);
