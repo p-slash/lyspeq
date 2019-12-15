@@ -133,8 +133,8 @@ int main(int argc, char *argv[])
         LOG::LOGGER.ERR("Error while Iteration: %s\n", e.what());
         qps->printfSpectra();
 
-        sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
-        qps->writeSpectrumEstimates(buf);
+        sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate_detailed.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
+        qps->writeDetailedSpectrumEstimates(buf);
         
         sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
         qps->writeFisherMatrix(buf);
