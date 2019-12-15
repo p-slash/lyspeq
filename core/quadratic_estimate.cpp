@@ -38,7 +38,7 @@ int index_of_min_element(double *a, int size)
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, const char *dir)
 {
-    Z_BIN_COUNTS     = new int[bins::NUMBER_OF_Z_BINS+2]();
+    Z_BIN_COUNTS = new int[bins::NUMBER_OF_Z_BINS+2]();
 
     // Allocate memory
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
@@ -59,6 +59,8 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
 void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const char *dir)
 {
+    LOG::LOGGER.STD("Initial reading of quasar spectra and estimating CPU time.\n");
+
     std::vector<std::string> fpaths;
     NUMBER_OF_QSOS = ioh::readList(fname_list, fpaths);
     
@@ -90,9 +92,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     LOG::LOGGER.STD("\nNumber of quasars: %d\nQSOs in z bins: %d\n", NUMBER_OF_QSOS, NUMBER_OF_QSOS - NUMBER_OF_QSOS_OUT);
 
     LOG::LOGGER.STD("Sorting with respect to estimated cpu time.\n");
-    
-    // Ascending order
-    std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end());
+    std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end()); // Ascending order
 }
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
@@ -376,7 +376,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        if (Z_BIN_COUNTS[zm+1] == 0)  continue;
+        // if (Z_BIN_COUNTS[zm+1] == 0)  continue;
 
         p1 = fabs(gsl_vector_get(current_power_estimate_vector, i_kz));
         p2 = fabs(gsl_vector_get(previous_power_estimate_vector, i_kz));
@@ -417,14 +417,14 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     r  = sqrt(r / bins::DEGREE_OF_FREEDOM);
 
-    // r = my_cblas_dsymvdot(previous_power_estimate_vector, fisher_matrix_sum) / bins::TOTAL_KZ_BINS;
+    double rfull = mxhelp::my_cblas_dsymvdot(previous_power_estimate_vector, fisher_matrix_sum) / bins::DEGREE_OF_FREEDOM;
     
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
-    LOG::LOGGER.STD("Chi square convergence test: %.3f per dof. "
-                    "Iteration converges when this is less than %.2f\n", 
-                    r, CHISQ_CONVERGENCE_EPS);
+    LOG::LOGGER.STD("Chi square convergence test: Diagonal Err: %.3f per dof. Full Fisher: %.3f per dof."
+                    "Iteration converges when either is less than %.2f\n", 
+                    r, rfull, CHISQ_CONVERGENCE_EPS);
 
-    bool_converged = r < CHISQ_CONVERGENCE_EPS;
+    bool_converged = r < CHISQ_CONVERGENCE_EPS || fabs(rfull) < CHISQ_CONVERGENCE_EPS;
 
     return bool_converged;
 }
@@ -461,7 +461,7 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        if (Z_BIN_COUNTS[zm+1] == 0)  continue;
+        // if (Z_BIN_COUNTS[zm+1] == 0)  continue;
 
         z = bins::ZBIN_CENTERS[zm];
         k = bins::KBAND_CENTERS[kn];
@@ -540,7 +540,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        if (Z_BIN_COUNTS[zm+1] == 0)  continue;
+        // if (Z_BIN_COUNTS[zm+1] == 0)  continue;
 
         z  = bins::ZBIN_CENTERS[zm];
         
@@ -581,7 +581,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 
     for (int zm = 1; zm <= bins::NUMBER_OF_Z_BINS; ++zm)
     {
-        if (Z_BIN_COUNTS[zm] == 0)  continue;
+        // if (Z_BIN_COUNTS[zm] == 0)  continue;
 
         LOG::LOGGER.STD(" P(%.1f, k) |", bins::ZBIN_CENTERS[zm-1]);
     }
@@ -591,7 +591,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
     {
         for (int zm = 1; zm <= bins::NUMBER_OF_Z_BINS; ++zm)
         {
-            if (Z_BIN_COUNTS[zm] == 0)  continue;
+            // if (Z_BIN_COUNTS[zm] == 0)  continue;
 
             i_kz = bins::getFisherMatrixIndex(kn, zm-1);
 

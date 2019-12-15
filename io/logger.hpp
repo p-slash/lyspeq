@@ -17,7 +17,7 @@ namespace LOG
         };
     }
 
-    // Simple logging into a given directory. NOT thread safe. Only access on master process.
+    // Simple logging into a given directory. Only writes on master process.
     // Writes STD to log.txt, ERR to error_log.txt, IO to io_log.txt
     // Default of STD is stdout, ERR is stderr.
     // Keeps files open and flushes immediately after logging.
