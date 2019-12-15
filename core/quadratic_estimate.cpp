@@ -365,10 +365,9 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
 bool OneDQuadraticPowerEstimate::hasConverged()
 {
-    double  diff, pMax, p1, p2, r, \
-            abs_mean = 0., abs_max = 0.;
-    bool bool_converged = true;
-    int kn, zm;
+    double  diff, pMax, p1, p2, r, rfull, abs_mean = 0., abs_max = 0.;
+    bool    bool_converged = true;
+    int     kn, zm;
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
@@ -417,14 +416,14 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     r  = sqrt(r / bins::DEGREE_OF_FREEDOM);
 
-    double rfull = mxhelp::my_cblas_dsymvdot(previous_power_estimate_vector, fisher_matrix_sum) / bins::DEGREE_OF_FREEDOM;
+    rfull = sqrt(fabs(mxhelp::my_cblas_dsymvdot(previous_power_estimate_vector, fisher_matrix_sum)) / bins::DEGREE_OF_FREEDOM);
     
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
     LOG::LOGGER.STD("Chi square convergence test: Diagonal Err: %.3f per dof. Full Fisher: %.3f per dof."
                     "Iteration converges when either is less than %.2f\n", 
                     r, rfull, CHISQ_CONVERGENCE_EPS);
 
-    bool_converged = r < CHISQ_CONVERGENCE_EPS || fabs(rfull) < CHISQ_CONVERGENCE_EPS;
+    bool_converged = r < CHISQ_CONVERGENCE_EPS || rfull < CHISQ_CONVERGENCE_EPS;
 
     return bool_converged;
 }
