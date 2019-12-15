@@ -94,6 +94,7 @@ public:
     void computePSbeforeFvector();
     void computeFisherMatrix();
 
+    // Pass fit values for the power spectrum for numerical stability
     void oneQSOiteration(const double *ps_estimate, gsl_vector *dbt_sum_vector[3], gsl_matrix *fisher_sum);
 };
 
