@@ -61,7 +61,11 @@ public:
     void initializeIteration();
     void invertTotalFisherMatrix();
     void computePowerSpectrumEstimates();
+
+    // Passing fit values for the power spectrum for numerical stability
     void iterate(int number_of_iterations, const char *fname_base);
+
+    // Deviation between actual estimates (not fit values)
     bool hasConverged();
     
     void printfSpectra();
