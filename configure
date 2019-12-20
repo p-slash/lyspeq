@@ -214,7 +214,7 @@ do
             srcdir="${i#*=}";;
         --enable-last-k-bin=* )
             lastk_feat="-DLAST_K_EDGE=${i#*=}";;
-        --enable-redshift-growth )
+        --enable-fiducial-growth )
             z_growth="-DREDSHIFT_GROWTH_POWER";;
         --disable-redshift-evolution )
             z_evol="-DTURN_OFF_REDSHIFT_EVOLUTION";;
@@ -256,7 +256,7 @@ do
             echo "--bindir=[directory] : Executables are installed in ${bindir}. Default is /usr/local/bin"
             echo "--srcdir=[directory] : Source directory. Default is current directory (.)"
             echo "--enable-last-k-bin=[number] : Enables a feature that adds a high k bin edge."
-            echo "--disable-redshift-growth : Disables scaling derivative matrices with fiducial growth function."
+            echo "--enable-fiducial-growth : Enables scaling derivative matrices with fiducial growth function."
             echo "--disable-redshift-evolution : Turn off redshift evolution. Binning is overwritten to Top Hat. Redshift growth is still on when passed."
             echo "--enable-mpi : Sets C++ compiler to mpic++"
             echo "--build=[build type] or [build type]: Sets the build type"
