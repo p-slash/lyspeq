@@ -102,7 +102,7 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
         win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
         
         LOG::LOGGER.STD("T%d/%d - Creating look up table for signal matrix. R = %d : %.2f km/s.\n",
-                process::this_pe, process::total_pes, R_VALUES[r], win_params.spectrograph_res);
+            process::this_pe, process::total_pes, R_VALUES[r], win_params.spectrograph_res);
 
         buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, R_VALUES[r]);
         
@@ -129,16 +129,14 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
         
         SQLookupTableFile signal_table(buf_fnames, 'w');
 
-        signal_table.setHeader( N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S,
-                                R_VALUES[r], PIXEL_WIDTH,
-                                0, bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
+        signal_table.setHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, R_VALUES[r], PIXEL_WIDTH, 0, bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
 
         signal_table.writeData(sqhelper::signal_array);
 
         time_spent_table_sfid = mytime::getTime() - time_spent_table_sfid;
 
         LOG::LOGGER.STD("T:%d/%d - Time spent on fiducial signal matrix table R %d is %.2f mins.\n",
-                process::this_pe, process::total_pes, R_VALUES[r], time_spent_table_sfid);
+            process::this_pe, process::total_pes, R_VALUES[r], time_spent_table_sfid);
     }
 
 DERIVATIVE:
@@ -152,7 +150,7 @@ DERIVATIVE:
 
         win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
         LOG::LOGGER.STD("T:%d/%d - Creating look up tables for derivative signal matrices. R = %d : %.2f km/s.\n",
-                process::this_pe, process::total_pes, R_VALUES[r], win_params.spectrograph_res);
+            process::this_pe, process::total_pes, R_VALUES[r], win_params.spectrograph_res);
 
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
         {
@@ -178,9 +176,7 @@ DERIVATIVE:
 
             SQLookupTableFile derivative_signal_table(buf_fnames, 'w');
 
-            derivative_signal_table.setHeader(  N_V_POINTS, 0, LENGTH_V, bins::Z_BIN_WIDTH,
-                                                R_VALUES[r], PIXEL_WIDTH,
-                                                kvalue_1, kvalue_2);
+            derivative_signal_table.setHeader(N_V_POINTS, 0, LENGTH_V, bins::Z_BIN_WIDTH, R_VALUES[r], PIXEL_WIDTH, kvalue_1, kvalue_2);
             
             derivative_signal_table.writeData(sqhelper::derivative_array);
         }
