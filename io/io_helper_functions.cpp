@@ -73,7 +73,7 @@ template std::fstream  ioh::open_fstream<std::fstream>(const char*, char);
 template <class T>
 int ioh::readList(const char *fname, std::vector<T> &list_values)
 {
-    int nr;
+    int nr, ic=0;
 
     std::ifstream toRead = ioh::open_fstream<std::ifstream>(fname);
     
@@ -82,8 +82,11 @@ int ioh::readList(const char *fname, std::vector<T> &list_values)
     list_values.reserve(nr);
     
     T tmp;
-    while (toRead >> tmp)
+    while (toRead >> tmp && ic < nr)
+    {
         list_values.push_back(tmp);
+        ++ic;
+    }
 
     toRead.close();
 
