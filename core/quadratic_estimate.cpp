@@ -258,9 +258,13 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> &lo
         }
     }
 
-    LOG::LOGGER.STD("Balanced estimated cpu times: ");
+    double ave_balance = 0;
     for (int thr = 0; thr < process::total_pes; ++thr)
-        LOG::LOGGER.STD("%.1e ", bucket_time[thr]);
+        ave_balance += bucket_time[thr] / process::total_pes;
+
+    LOG::LOGGER.STD("Off-Balance: ");
+    for (int thr = 0; thr < process::total_pes; ++thr)
+        LOG::LOGGER.STD("%.1e ", bucket_time[thr]/ave_balance-1);
     LOG::LOGGER.STD("\n");
 
     delete [] bucket_time;
