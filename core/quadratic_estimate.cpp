@@ -181,7 +181,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     command << "lorentzian_fit.py " << tmp_ps_fname << " " << tmp_fit_fname << " "
             << iteration_fits.A << " " << iteration_fits.n << " " << iteration_fits.n << " ";
 
-    // Do not pass redshift parameters is there is only one redshift bin
+    // Do not pass redshift parameters if there is only one redshift bin
     if (bins::NUMBER_OF_Z_BINS > 1)  command << iteration_fits.B << " " << iteration_fits.beta << " ";
     
     command << iteration_fits.lambda;
