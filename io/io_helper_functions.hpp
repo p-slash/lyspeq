@@ -11,6 +11,8 @@ namespace ioh
 {
     bool file_exists(const char *fname);
 
+    void create_tmp_file(char *fname, const char *TMP_FOLDER);
+
     template <class T>
     T* copyArrayAlloc(const T* source, int size);
 
