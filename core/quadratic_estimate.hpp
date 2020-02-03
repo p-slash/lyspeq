@@ -42,11 +42,17 @@ class OneDQuadraticPowerEstimate
 
     void _readQSOFiles(const char *fname_list, const char *dir);
 
-    // Fitting procedure calls Python3 script lorentzian_fit.py.
+    // The next 2 functions call Python scripts.
     // Intermadiate files are saved in TMP_FOLDER (read as TemporaryFolder in config file)
     // make install will copy this script to $HOME/bin and make it executable.
     // Add $HOME/bin to your $PATH
-    void _fitPowerSpectra(double *fit_values);
+
+    // Fitting procedure calls Python3 script lorentzian_fit.py.
+    void _fitPowerSpectra(double *fitted_power);
+
+    // Weighted smoothing using 2D spline calls Python3 script smbivspline.py
+    void _smoothPowerSpectra(double *smoothed_power);
+    void _readScriptOutput(double *script_power, const char *fname, void *itsfits=NULL);
 
     // Performs a load balancing operation based on N^3 estimation
     void _loadBalancing(std::vector<OneQSOEstimate*> &local_queue);
