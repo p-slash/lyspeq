@@ -163,6 +163,17 @@ namespace bins
         return zBinTriangular(z, zm);
         #endif
     }
+    
+    int  getFisherMatrixIndex(int kn, int zm)
+    { 
+        return kn + NUMBER_OF_K_BANDS * zm; 
+    }
+
+    void getFisherMatrixBinNoFromIndex(int ikz, int &kn, int &zm)
+    {
+        kn = (ikz) % NUMBER_OF_K_BANDS; 
+        zm = (ikz) / NUMBER_OF_K_BANDS; 
+    }
 
     // double redshiftBinningFunction(double z, int zm, int zc)
     // {
