@@ -412,8 +412,8 @@ void OneQSOEstimate::_getFisherMatrix(const gsl_matrix *Qw_ikz_matrix, int i_kz)
         temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix);
         throw_isnan(temp, "F=TrQwQw");
 
-        gsl_matrix_set(fisher_matrix, i_kz + fisher_index_start, j_kz + fisher_index_start, temp);
-        gsl_matrix_set(fisher_matrix, j_kz + fisher_index_start, i_kz + fisher_index_start, temp);
+        gsl_matrix_set(fisher_matrix, (i_kz + fisher_index_start), (j_kz + fisher_index_start), temp);
+        gsl_matrix_set(fisher_matrix, (j_kz + fisher_index_start), (i_kz + fisher_index_start), temp);
     }
 
     t = mytime::getTime() - t;
@@ -462,9 +462,9 @@ void OneQSOEstimate::computePSbeforeFvector()
             throw_isnan(temp_tk, "tk");
         }
         
-        gsl_vector_set(dbt_estimate_before_fisher_vector[0], i_kz + fisher_index_start, temp_dk);
-        gsl_vector_set(dbt_estimate_before_fisher_vector[1], i_kz + fisher_index_start, temp_bk);
-        gsl_vector_set(dbt_estimate_before_fisher_vector[2], i_kz + fisher_index_start, temp_tk);
+        gsl_vector_set(dbt_estimate_before_fisher_vector[0], (i_kz + fisher_index_start), temp_dk);
+        gsl_vector_set(dbt_estimate_before_fisher_vector[1], (i_kz + fisher_index_start), temp_bk);
+        gsl_vector_set(dbt_estimate_before_fisher_vector[2], (i_kz + fisher_index_start), temp_tk);
 
         _getFisherMatrix(Q_ikz_matrix, i_kz);
     }
