@@ -51,7 +51,7 @@ namespace bins
     void cleanUpBins();
 
     // returns -1 if below, NUMBER_OF_Z_BINS if above
-    int    findRedshiftBin(double z);
+    int findRedshiftBin(double z);
 
     // Given the redshift z, returns binning weight. 1 for top-hats, interpolation for triangular
     // zm: Bin number to consider
@@ -60,9 +60,9 @@ namespace bins
     double redshiftBinningFunction(double z, int zm);
 
     inline int  getFisherMatrixIndex(int kn, int zm) 
-        { return kn + bins::NUMBER_OF_K_BANDS * zm; }
+    { return kn + NUMBER_OF_K_BANDS * zm; }
     inline void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm) 
-        { kn = i % bins::NUMBER_OF_K_BANDS; zm = i / bins::NUMBER_OF_K_BANDS; }
+    { kn = i % NUMBER_OF_K_BANDS; zm = i / NUMBER_OF_K_BANDS; }
     
     #ifdef LAST_K_EDGE
     #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;

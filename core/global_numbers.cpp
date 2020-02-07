@@ -131,7 +131,7 @@ namespace bins
     // Effectively removes any pixels that does not belong to any redshift bin.
     double zBinTriangular(double z, int zm)
     {
-        double zm_center = bins::ZBIN_CENTERS[zm];
+        double zm_center = ZBIN_CENTERS[zm];
         
         if (zm_center - Z_BIN_WIDTH < z <= zm_center)
         {
