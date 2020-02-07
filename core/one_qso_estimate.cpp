@@ -67,7 +67,7 @@ bool OneQSOEstimate::_findRedshiftBin()
         UPPER_REDSHIFT, ZBIN_UPP);
 
     // Chunk is completely out
-    if (ZBIN_LOW > bins::NUMBER_OF_Z_BINS - 1 || ZBIN_UPP < 0)
+    if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
     {
         LOG::LOGGER.IO("This QSO is completely out!\n");
         LOG::LOGGER.ERR("This QSO is completely out!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
@@ -85,7 +85,7 @@ bool OneQSOEstimate::_findRedshiftBin()
         ZBIN_LOW = 0;
     }
     
-    if (ZBIN_UPP > bins::NUMBER_OF_Z_BINS - 1)
+    if (ZBIN_UPP > (bins::NUMBER_OF_Z_BINS-1))
     {
         LOG::LOGGER.IO("This QSO is out on the high end!\n");
         LOG::LOGGER.ERR("This QSO is out on the high end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
@@ -96,7 +96,7 @@ bool OneQSOEstimate::_findRedshiftBin()
 
     // Assign to a redshift bin according to median redshift of this chunk
     // This is just for bookkeeping purposes
-    if (ZBIN >= 0 && ZBIN < bins::NUMBER_OF_Z_BINS)
+    if ((ZBIN >= 0) && (ZBIN < bins::NUMBER_OF_Z_BINS))
         BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
 
     return true;
@@ -122,13 +122,13 @@ void OneQSOEstimate::_setNQandFisherIndex()
     fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
     
     // If we need to distribute low end to a lefter bin
-    if (LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW] && ZBIN_LOW != 0)
+    if ((LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
     {
         ++N_Q_MATRICES;
         fisher_index_start -= bins::NUMBER_OF_K_BANDS;
     }
     // If we need to distribute high end to righter bin
-    if (bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT && ZBIN_UPP != bins::NUMBER_OF_Z_BINS - 1)
+    if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
     {
         ++N_Q_MATRICES;
     }
@@ -147,7 +147,7 @@ void OneQSOEstimate::_setStoredMatrices()
     nqj_eff      = MEMORY_ALLOC / size_m1 - 3;
     isSfidStored = false;
     
-    if (nqj_eff <= 0 )
+    if (nqj_eff <= 0)
         nqj_eff = 0;
     else 
     {
@@ -212,7 +212,7 @@ OneQSOEstimate::~OneQSOEstimate()
 
 double OneQSOEstimate::getComputeTimeEst()
 {
-    if (ZBIN_LOW > bins::NUMBER_OF_Z_BINS - 1 || ZBIN_UPP < 0)
+    if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
         return 0;
     else
         return std::pow(DATA_SIZE/100., 3) * N_Q_MATRICES * (N_Q_MATRICES + 1.);
@@ -268,7 +268,7 @@ void OneQSOEstimate::_setQiMatrix(gsl_matrix *qi, int i_kz)
     int kn, zm;
     double v_ij, z_ij, temp;
 
-    if (isQjSet && i_kz >= N_Q_MATRICES - nqj_eff)
+    if (isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)))
     {
         t_interp = 0;
         
