@@ -59,10 +59,11 @@ namespace bins
     // or to the right of this number.
     double redshiftBinningFunction(double z, int zm);
 
-    inline int  getFisherMatrixIndex(int kn, int zm) 
-    { return kn + NUMBER_OF_K_BANDS * zm; }
-    inline void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm) 
-    { kn = i % NUMBER_OF_K_BANDS; zm = i / NUMBER_OF_K_BANDS; }
+    int  getFisherMatrixIndex(int kn, int zm) 
+    { return (kn + NUMBER_OF_K_BANDS * zm); }
+    void getFisherMatrixBinNoFromIndex(int ikz, int &kn, int &zm) 
+    { kn = (ikz) % NUMBER_OF_K_BANDS; 
+      zm = (ikz) / NUMBER_OF_K_BANDS; }
     
     #ifdef LAST_K_EDGE
     #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;

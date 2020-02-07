@@ -47,10 +47,10 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
         dbt_estimate_fisher_weighted_vector[dbt_i]   = gsl_vector_alloc(bins::TOTAL_KZ_BINS);
     }
 
-    previous_power_estimate_vector          = gsl_vector_alloc(bins::TOTAL_KZ_BINS);
-    current_power_estimate_vector           = gsl_vector_calloc(bins::TOTAL_KZ_BINS);
-    fisher_matrix_sum                       = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    inverse_fisher_matrix_sum               = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    previous_power_estimate_vector = gsl_vector_alloc(bins::TOTAL_KZ_BINS);
+    current_power_estimate_vector  = gsl_vector_calloc(bins::TOTAL_KZ_BINS);
+    fisher_matrix_sum              = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    inverse_fisher_matrix_sum      = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
 
     isFisherInverted = false; 
 
