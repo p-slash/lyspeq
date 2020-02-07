@@ -9,28 +9,32 @@ namespace mxhelp
     // Copy upper triangle of matrix A to its lower triangle
     // Call gsl_matrix_get and set, passing -DHAVE_INLINE to precompiler make them inline (faster)
     void copyUpperToLower(gsl_matrix *A);
+    void copyUpperToLower(double *A, int size);
+
+    void vector_add(double *target, const double *source, int size);
+    void vector_sub(double *target, const double *source, int size);
 
     // Trace of A.B
     // Both are assumed to general and square
     // Call gsl_matrix_get, passing -DHAVE_INLINE to precompiler make them inline (faster)
-    double trace_dgemm(const gsl_matrix *A, const gsl_matrix *B);
+    double trace_dgemm(const double *A, const double *B, int N);
 
     // Trace of A.B
     // Assumes A and B square matrices, and at least one to be symmetric.
     // No stride or whatsoever. Continous allocation
     // Uses CBLAS dot product.
-    double trace_dsymm(const gsl_matrix *A, const gsl_matrix *B);
+    double trace_dsymm(const double *A, const double *B, int N);
 
     // Trace of A.B
     // Assumes A square matrix, B is diagonal. 
     // Only pass diagonal terms of B
     // If A is NxN, then B is N
     // Uses CBLAS dot product.
-    double trace_ddiagmv(const gsl_matrix *A, const double *B);
+    double trace_ddiagmv(const double *A, const double *B, int N);
 
     // vT . S . v
     // Assumes S is square symmetric matrix
-    double my_cblas_dsymvdot(const gsl_vector *v, const gsl_matrix *S);
+    double my_cblas_dsymvdot(const double *v, const double *S, int N);
 
     // In-place invert A
     // Apply scale as gsl_linalg_cholesky_scale
