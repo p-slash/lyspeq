@@ -130,16 +130,21 @@ namespace bins
     double zBinTriangular(double z, int zm)
     {
         double zm_center = ZBIN_CENTERS[zm];
+        double zlow = zm_center - Z_BIN_WIDTH, zupp = zm_center + Z_BIN_WIDTH;
         
-        if ((zm_center - Z_BIN_WIDTH < z) && (z <= zm_center))
+        if ((zlow < z) && (z <= zm_center))
         {
-            if (zm == 0)    return 1;
-            else            return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
+            if (zm == 0)
+                return 1;
+            else
+                return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
         }   
-        else if ((zm_center < z) && (z < zm_center + Z_BIN_WIDTH))
+        else if ((zm_center < z) && (z < zupp))
         {
-            if (zm == NUMBER_OF_Z_BINS - 1) return 1;
-            else                            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+            if (zm == (NUMBER_OF_Z_BINS-1))
+                return 1;
+            else
+                return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
         }
         else
             return 0;
