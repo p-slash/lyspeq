@@ -343,7 +343,10 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             writeDetailedSpectrumEstimates(buf);
 
             sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, i+1);
-            writeFisherMatrix(buf);
+            mxhelp::fprintfMatrix(buf, fisher_matrix_sum);
+            sprintf(buf, "%s_it%d_inversefisher_matrix.dat", fname_base, i+1);
+            mxhelp::fprintfMatrix(buf, inverse_fisher_matrix_sum);
+            LOG::LOGGER.IO("Fisher matrix and inverse are saved as %s.\n", buf);
 
             total_time_1it  = mytime::getTime() - total_time_1it;
             total_time     += total_time_1it;
@@ -379,8 +382,6 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        // if (Z_BIN_COUNTS[zm+1] == 0)  continue;
-
         p1 = fabs(gsl_vector_get(current_power_estimate_vector, i_kz));
         p2 = fabs(gsl_vector_get(previous_power_estimate_vector, i_kz));
         
@@ -582,24 +583,20 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 {
     int i_kz;
 
-    for (int zm = 1; zm <= bins::NUMBER_OF_Z_BINS; ++zm)
-    {
-        // if (Z_BIN_COUNTS[zm] == 0)  continue;
+    for (int zm = 0; zm < bins::NUMBER_OF_Z_BINS; ++zm)
+        LOG::LOGGER.STD(" P(%.1f, k) |", bins::ZBIN_CENTERS[zm]);
 
-        LOG::LOGGER.STD(" P(%.1f, k) |", bins::ZBIN_CENTERS[zm-1]);
-    }
     LOG::LOGGER.STD("\n");
     
     for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
     {
-        for (int zm = 1; zm <= bins::NUMBER_OF_Z_BINS; ++zm)
+        for (int zm = 0; zm < bins::NUMBER_OF_Z_BINS; ++zm)
         {
-            // if (Z_BIN_COUNTS[zm] == 0)  continue;
+            i_kz = bins::getFisherMatrixIndex(kn, zm);
 
-            i_kz = bins::getFisherMatrixIndex(kn, zm-1);
-
-            LOG::LOGGER.STD(" %.3e |", current_power_estimate_vector->data[i_kz] + powerSpectrumFiducial(kn, zm-1));
+            LOG::LOGGER.STD(" %.3e |", current_power_estimate_vector->data[i_kz] + powerSpectrumFiducial(kn, zm));
         }
+        
         LOG::LOGGER.STD("\n");
     }
 }
