@@ -23,11 +23,11 @@ namespace mxhelp
         }
     }
 
-    void copyUpperToLower(double *A, int size)
+    void copyUpperToLower(double *A, int N)
     {
-        for (int i = 1; i < size; ++i)
+        for (int i = 1; i < N; ++i)
             for (int j = 0; j < i; ++j)
-                *(A+(j+size*i)) = *(A+(i+size*j));
+                *(A+j+N*i) = *(A+i+N*j);
     }
 
     void vector_add(double *target, const double *source, int size)
@@ -70,10 +70,7 @@ namespace mxhelp
     {
         double *temp_vector = new double[N], r;
 
-        cblas_dsymv(CblasRowMajor, CblasUpper,
-                    N, 1., S, N,
-                    v, 1,
-                    0, temp_vector, 1);
+        cblas_dsymv(CblasRowMajor, CblasUpper, N, 1., S, N, v, 1, 0, temp_vector, 1);
 
         r = cblas_ddot(N, v, 1, temp_vector, 1);
 
@@ -179,9 +176,7 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
         {
             for (int j = 0; j < ncols; ++j)
-            {
                 fprintf(toWrite, "%le ", gsl_matrix_get(m, i, j));
-            }
             fprintf(toWrite, "\n");
         }
 

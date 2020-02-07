@@ -252,7 +252,6 @@ void specifics::printConfigSpecifics(FILE *toWrite)
         conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
         conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
     }
-    
 }
 
 // Pass NULL for not needed variables!
@@ -271,15 +270,14 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
 
     // Bin parameters
     cFile.addKey("K0", &K_0, DOUBLE);
-    cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
-
     cFile.addKey("LinearKBinWidth",  &LIN_K_SPACING, DOUBLE);
     cFile.addKey("Log10KBinWidth",   &LOG_K_SPACING, DOUBLE);
-    cFile.addKey("RedshiftBinWidth", &bins::Z_BIN_WIDTH,   DOUBLE);
-
     cFile.addKey("NumberOfLinearBins",   &N_KLIN_BIN, INTEGER);
     cFile.addKey("NumberOfLog10Bins",    &N_KLOG_BIN, INTEGER);
-    cFile.addKey("NumberOfRedshiftBins", &bins::NUMBER_OF_Z_BINS,   INTEGER);
+
+    cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
+    cFile.addKey("RedshiftBinWidth", &bins::Z_BIN_WIDTH, DOUBLE);
+    cFile.addKey("NumberOfRedshiftBins", &bins::NUMBER_OF_Z_BINS, INTEGER);
     
     // // File names and paths
     cFile.addKey("FileNameList", FNAME_LIST, STRING);
@@ -305,7 +303,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("FiducialCurvature",           &fidpd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
     cFile.addKey("FiducialRedshiftPower",       &fidpd13::FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
     cFile.addKey("FiducialRedshiftCurvature",   &fidpd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
-    cFile.addKey("FiducialLorentzianLambda",    &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
+    cFile.addKey("FiducialLorentzianLambda",    &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,DOUBLE);
 
     cFile.addKey("NumberOfIterations", NUMBER_OF_ITERATIONS, INTEGER);
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);

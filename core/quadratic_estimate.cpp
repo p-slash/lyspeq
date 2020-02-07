@@ -108,10 +108,6 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 
     delete [] fisher_matrix_sum;
     delete [] inverse_fisher_matrix_sum;
-
-    // std::vector<std::pair <double, OneQSOEstimate*>>::iterator qe = qso_estimators.begin();
-    // for (; qe != qso_estimators.end(); ++qe)
-    //     delete qe->second;
 }
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
@@ -315,7 +311,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         #if defined(ENABLE_MPI)
         // allreduce
-        MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS,
+        MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, (bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS),
             MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
@@ -349,7 +345,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             sprintf(buf, "%s_it%d_quadratic_power_estimate_detailed.dat", fname_base, i+1);
             writeDetailedSpectrumEstimates(buf);
 
-            gsl_matrix_view fisher_mv = gsl_matrix_view_array(fisher_matrix_sum, 
+            gsl_matrix_view fisher_mv    = gsl_matrix_view_array(fisher_matrix_sum, 
                 bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
             gsl_matrix_view invfisher_mv = gsl_matrix_view_array(inverse_fisher_matrix_sum, 
                 bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);

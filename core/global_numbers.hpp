@@ -63,7 +63,7 @@ namespace bins
     void getFisherMatrixBinNoFromIndex(int ikz, int &kn, int &zm);
     
     #ifdef LAST_K_EDGE
-    #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;
+    // #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;
     #else
     #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) 
     #endif

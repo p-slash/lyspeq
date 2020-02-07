@@ -243,14 +243,14 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *sm)
         std::copy(stored_sfid, stored_sfid + (DATA_SIZE*DATA_SIZE), sm);
     else
     {
-        for (int i = 0; i < DATA_SIZE; ++i)
+        for (int row = 0; row < DATA_SIZE; ++row)
         {
-            for (int j = i; j < DATA_SIZE; ++j)
+            for (int col = row; col < DATA_SIZE; ++col)
             {
-                _getVandZ(v_ij, z_ij, i, j);
+                _getVandZ(v_ij, z_ij, row, col);
 
                 temp = interp2d_signal_matrix->evaluate(z_ij, v_ij);
-                *(sm+(j+DATA_SIZE*i)) = temp;
+                *(sm+col+DATA_SIZE*row) = temp;
             }
         }
 
@@ -279,11 +279,11 @@ void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
-        for (int i = 0; i < DATA_SIZE; ++i)
+        for (int row = 0; row < DATA_SIZE; ++row)
         {
-            for (int j = i; j < DATA_SIZE; ++j)
+            for (int col = row; col < DATA_SIZE; ++col)
             {
-                _getVandZ(v_ij, z_ij, i, j);
+                _getVandZ(v_ij, z_ij, row, col);
                 
                 temp  = interp_derivative_matrix[kn]->evaluate(v_ij);
 
@@ -297,7 +297,7 @@ void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
                     &fidpd13::FIDUCIAL_PD13_PARAMS);
                 #endif
 
-                *(qi+(j+DATA_SIZE*i)) = temp;
+                *(qi+col+DATA_SIZE*row) = temp;
             }
         }
 
@@ -340,7 +340,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     #define ADDED_CONST_TO_COVARIANCE 10.
     // Continuum  normalization
     for (int i = 0; i < DATA_SIZE*DATA_SIZE; ++i)
-            *(covariance_matrix+i) += ADDED_CONST_TO_COVARIANCE;
+        *(covariance_matrix+i) += ADDED_CONST_TO_COVARIANCE;
 
     // Continuum derivative
     #if 0
