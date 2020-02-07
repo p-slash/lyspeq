@@ -52,6 +52,12 @@ class OneQSOEstimate
     Interpolation2D *interp2d_signal_matrix;
     Interpolation   **interp_derivative_matrix;
 
+    // 3 TOTAL_KZ_BINS sized vectors
+    gsl_vector  *dbt_estimate_before_fisher_vector[3];
+
+    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
+    gsl_matrix  *fisher_matrix;
+    
     void _readFromFile(std::string fname_qso);
     bool _findRedshiftBin();
     void _setNQandFisherIndex();
@@ -71,12 +77,6 @@ class OneQSOEstimate
 
 public:
     int ZBIN, ZBIN_LOW, ZBIN_UPP;
-
-    // 3 TOTAL_KZ_BINS sized vectors
-    gsl_vector  *dbt_estimate_before_fisher_vector[3];
-
-    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
-    gsl_matrix  *fisher_matrix;
 
     OneQSOEstimate(std::string fname_qso);
     
