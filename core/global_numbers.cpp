@@ -28,9 +28,7 @@ namespace bins
     double *KBAND_EDGES, *KBAND_CENTERS;
     double  Z_BIN_WIDTH, *ZBIN_CENTERS, z0_edge;
 
-    void setUpBins(double k0, int nlin, double dklin,
-                                int nlog, double dklog,
-                     double z0)
+    void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double z0)
     {
         // Construct k edges
         NUMBER_OF_K_BANDS = nlin + nlog;
@@ -133,12 +131,12 @@ namespace bins
     {
         double zm_center = ZBIN_CENTERS[zm];
         
-        if (zm_center - Z_BIN_WIDTH < z <= zm_center)
+        if ((zm_center - Z_BIN_WIDTH < z) && (z <= zm_center))
         {
             if (zm == 0)    return 1;
             else            return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
         }   
-        else if (zm_center < z < zm_center + Z_BIN_WIDTH)
+        else if ((zm_center < z) && (z < zm_center + Z_BIN_WIDTH))
         {
             if (zm == NUMBER_OF_Z_BINS - 1) return 1;
             else                            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
