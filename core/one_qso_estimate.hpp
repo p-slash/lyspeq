@@ -1,8 +1,6 @@
 #ifndef ONE_QSO_ESTIMATE_H
 #define ONE_QSO_ESTIMATE_H
 
-#include <gsl/gsl_matrix.h> 
-#include <gsl/gsl_vector.h>
 #include <string>
 
 #include "gsltools/interpolation.hpp"
@@ -41,11 +39,11 @@ class OneQSOEstimate
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
-    gsl_matrix  *covariance_matrix, *inverse_covariance_matrix, *temp_matrix[2];
+    double  *covariance_matrix, *inverse_covariance_matrix, *temp_matrix[2];
 
-    gsl_matrix  **stored_qj, *stored_sfid;
-    int           nqj_eff;
-    bool          isQjSet, isSfidSet, isSfidStored;
+    double  **stored_qj, *stored_sfid;
+    int       nqj_eff;
+    bool      isQjSet, isSfidSet, isSfidStored;
 
     bool isCovInverted;
 
@@ -53,10 +51,10 @@ class OneQSOEstimate
     Interpolation   **interp_derivative_matrix;
 
     // 3 TOTAL_KZ_BINS sized vectors
-    gsl_vector  *dbt_estimate_before_fisher_vector[3];
+    double  *dbt_estimate_before_fisher_vector[3];
 
     // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
-    gsl_matrix  *fisher_matrix;
+    double  *fisher_matrix;
     
     void _readFromFile(std::string fname_qso);
     bool _findRedshiftBin();
@@ -70,10 +68,10 @@ class OneQSOEstimate
     // always set pixel pair's redshift to MEDIAN_REDSHIFT of the chunk.
     void _getVandZ(double &v_ij, double &z_ij, int i, int j);
     
-    void _setFiducialSignalMatrix(gsl_matrix *sm);
-    void _setQiMatrix(gsl_matrix *qi, int i_kz);
-    void _getWeightedMatrix(gsl_matrix *m);
-    void _getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz);
+    void _setFiducialSignalMatrix(double *sm);
+    void _setQiMatrix(double *qi, int i_kz);
+    void _getWeightedMatrix(double *m);
+    void _getFisherMatrix(const double *Q_ikz_matrix, int i_kz);
 
 public:
     int ZBIN, ZBIN_LOW, ZBIN_UPP;
@@ -95,7 +93,7 @@ public:
     void computeFisherMatrix();
 
     // Pass fit values for the power spectrum for numerical stability
-    void oneQSOiteration(const double *ps_estimate, gsl_vector *dbt_sum_vector[3], gsl_matrix *fisher_sum);
+    void oneQSOiteration(const double *ps_estimate, double *dbt_sum_vector[3], double *fisher_sum);
 };
 
 #endif

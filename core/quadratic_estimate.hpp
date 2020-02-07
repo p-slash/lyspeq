@@ -4,9 +4,6 @@
 #include <vector>
 #include <string>
 
-#include <gsl/gsl_matrix.h> 
-#include <gsl/gsl_vector.h>
-
 #include "core/one_qso_estimate.hpp"
 
 // This umbrella class manages the quadratic estimator by 
@@ -31,12 +28,12 @@ class OneDQuadraticPowerEstimate
     std::vector< std::pair <double, std::string> > cpu_fname_vector;
 
     // 3 TOTAL_KZ_BINS sized vectors
-    gsl_vector  *dbt_estimate_sum_before_fisher_vector[3],
-                *dbt_estimate_fisher_weighted_vector[3], 
-                *previous_power_estimate_vector, *current_power_estimate_vector;
+    double  *dbt_estimate_sum_before_fisher_vector[3],
+            *dbt_estimate_fisher_weighted_vector[3], 
+            *previous_power_estimate_vector, *current_power_estimate_vector;
 
     // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
-    gsl_matrix *fisher_matrix_sum, *inverse_fisher_matrix_sum;
+    double *fisher_matrix_sum, *inverse_fisher_matrix_sum;
 
     bool isFisherInverted;
 
