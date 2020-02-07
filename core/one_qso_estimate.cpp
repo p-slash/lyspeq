@@ -84,7 +84,8 @@ bool OneQSOEstimate::_findRedshiftBin()
         
         ZBIN_LOW = 0;
     }
-    else if (ZBIN_UPP > bins::NUMBER_OF_Z_BINS - 1)
+    
+    if (ZBIN_UPP > bins::NUMBER_OF_Z_BINS - 1)
     {
         LOG::LOGGER.IO("This QSO is out on the high end!\n");
         LOG::LOGGER.ERR("This QSO is out on the high end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
@@ -325,15 +326,14 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
         _setQiMatrix(temp_matrix[0], i_kz);
 
-        cblas_daxpy(DATA_SIZE*DATA_SIZE, 
-                    ps_estimate[i_kz + fisher_index_start], temp_matrix[0]->data, 1, 
-                    covariance_matrix->data, 1);
+        cblas_daxpy(DATA_SIZE*DATA_SIZE, ps_estimate[i_kz + fisher_index_start], temp_matrix[0]->data, 1, 
+            covariance_matrix->data, 1);
     }
 
     // add noise matrix diagonally
     cblas_daxpy(DATA_SIZE, 1., noise_array, 1, covariance_matrix->data, DATA_SIZE+1);
 
-    #define ADDED_CONST_TO_COVARIANCE 10000.
+    #define ADDED_CONST_TO_COVARIANCE 10.
     // Continuum  normalization
     gsl_matrix_add_constant(covariance_matrix, ADDED_CONST_TO_COVARIANCE);
 
@@ -397,7 +397,7 @@ void OneQSOEstimate::_getWeightedMatrix(gsl_matrix *m)
     mytime::time_spent_set_modqs += t;
 }
 
-void OneQSOEstimate::_getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
+void OneQSOEstimate::_getFisherMatrix(const gsl_matrix *Qw_ikz_matrix, int i_kz)
 {
     double temp;
     gsl_matrix *Q_jkz_matrix = temp_matrix[1];
@@ -409,7 +409,7 @@ void OneQSOEstimate::_getFisherMatrix(const gsl_matrix *Q_ikz_matrix, int i_kz)
     {
         _setQiMatrix(Q_jkz_matrix, j_kz);
 
-        temp = 0.5 * mxhelp::trace_dsymm(Q_ikz_matrix, Q_jkz_matrix);
+        temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix);
         throw_isnan(temp, "F=TrQwQw");
 
         gsl_matrix_set(fisher_matrix, i_kz + fisher_index_start, j_kz + fisher_index_start, temp);
@@ -445,10 +445,10 @@ void OneQSOEstimate::computePSbeforeFvector()
         temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix);
         throw_isnan(temp_dk, "d");
 
-        // Get weighted derivative matrix ikz
+        // Get weighted derivative matrix ikz: C-1 Qi C-1
         _getWeightedMatrix(Q_ikz_matrix);
 
-        // Get Noise contribution
+        // Get Noise contribution: Tr(C-1 Qi C-1 N)
         temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, noise_array);
         throw_isnan(temp_bk, "bk");
 
@@ -457,6 +457,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         {
             _setFiducialSignalMatrix(Sfid_matrix);
 
+            // Tr(C-1 Qi C-1 Sfid)
             temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix);
             throw_isnan(temp_tk, "tk");
         }
