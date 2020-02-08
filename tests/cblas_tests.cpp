@@ -31,7 +31,7 @@ int main()
     gsl_matrix_view gmv_symA = gsl_matrix_view_array(smy_matrix_A, NA, NA);
 
     double vector_B[] = {4, 5, 6, 7}, vector_R[NA];
-    gsl_vector_view gvv_B = gsl_vector_view_array(vector_B, NA);
+    // gsl_vector_view gvv_B = gsl_vector_view_array(vector_B, NA);
 
     cblas_dsymv(CblasRowMajor, CblasUpper,
                 NA, 0.5, smy_matrix_A, NA,
@@ -43,11 +43,29 @@ int main()
 
     printf("\n");
 
+    // Test cblas_dsymm
+    double matrix_B[] = {3, 1, 9, 0,
+                        4, 8, 8, 8,
+                        4, 3, 2, 0,
+                        5, 5, 9, 2};
+    double result[NA*NA];
+
+    cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper,
+                 NA, NA, 1., smy_matrix_A, NA,
+                 matrix_B, NA,
+                 0, result, NA);
+    for (int i = 0; i < NA; ++i)
+    {
+        for (int j = 0; j < NA; ++j)
+            printf("%lf ", result[j + NA*i]);
+        printf("\n");
+    }
+
     // Test trace_ddiagmv
-    printf("%lf\n", mxhelp::trace_ddiagmv(&gmv_symA.matrix, vector_B));
+    printf("%lf\n", mxhelp::trace_ddiagmv(smy_matrix_A, vector_B, NA));
 
     // my_cblas_dsymvdot
-    printf("%lf\n", mxhelp::my_cblas_dsymvdot(&gvv_B.vector, &gmv_symA.matrix));
+    printf("%lf\n", mxhelp::my_cblas_dsymvdot(vector_B, smy_matrix_A, NA));
     
     // Test LU invert
     gsl_matrix *copy_A = gsl_matrix_alloc(NA, NA);
