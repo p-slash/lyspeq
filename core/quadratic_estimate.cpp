@@ -316,15 +316,11 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> &lo
 
 void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *fname_base)
 {
-    char buf[500];
     double total_time = 0, total_time_1it = 0;
     double *powerspectra_fits = new double[bins::TOTAL_KZ_BINS]();
 
     std::vector<OneQSOEstimate*> local_queue;
     _loadBalancing(local_queue);
-
-    LOG::LOGGER.TIME("| %2s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s |\n", 
-        "i", "T_i", "T_tot", "T_Cinv", "T_Finv", "T_Sfid", "N_Sfid", "T_Q", "N_Q", "T_Qmod", "T_F", "DChi2", "DMean");
 
     for (int i = 0; i < number_of_iterations; i++)
     {
@@ -335,6 +331,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
+        #if 0
         double thread_time = mytime::getTime();
 
         LOG::LOGGER.STD("Start working in %d/%d thread with %lu qso in queue.\n", 
@@ -347,9 +344,14 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         LOG::LOGGER.STD("Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n",
                 process::this_pe, process::total_pes, thread_time);
+        #endif
 
+        // Calculation for each spectrum
+        for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
+            (*it)->oneQSOiteration(powerspectra_fits, dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
+
+        // All reduce in MPI is enabled
         #if defined(ENABLE_MPI)
-        // allreduce
         MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, (bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS),
             MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         
@@ -361,54 +363,47 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         try
         {
             invertTotalFisherMatrix();
-            computePowerSpectrumEstimates();
-
-            _smoothPowerSpectra(powerspectra_fits);
         }
-        catch (const char* msg)
+        catch (std::exception& e)
         {
-            LOG::LOGGER.ERR("ERROR %s: Fisher matrix is not invertable.\n", msg);
+            LOG::LOGGER.ERR("ERROR while inverting Fisher matrix: %s.\n", e.what());
+            
+            delete [] powerspectra_fits;
             for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
                 delete *it;
             
-            throw std::runtime_error(msg);
+            throw e;
         }
         
+        computePowerSpectrumEstimates();
+        total_time_1it  = mytime::getTime() - total_time_1it;
+        total_time     += total_time_1it;
+        
         if (process::this_pe == 0)
-        {
-            printfSpectra();
+            iterationOutput(fname_base, i, total_time_1it, total_time);
 
-            // sprintf(buf, "%s_it%d_quadratic_power_estimate.dat", fname_base, i+1);
-            // writeSpectrumEstimates(buf);
-
-            sprintf(buf, "%s_it%d_quadratic_power_estimate_detailed.dat", fname_base, i+1);
-            writeDetailedSpectrumEstimates(buf);
-
-            gsl_matrix_view fisher_mv    = gsl_matrix_view_array(fisher_matrix_sum, 
-                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-            gsl_matrix_view invfisher_mv = gsl_matrix_view_array(inverse_fisher_matrix_sum, 
-                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-
-            sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, i+1);
-            mxhelp::fprintfMatrix(buf, &fisher_mv.matrix);
-            sprintf(buf, "%s_it%d_inversefisher_matrix.dat", fname_base, i+1);
-            mxhelp::fprintfMatrix(buf, &invfisher_mv.matrix);
-            LOG::LOGGER.IO("Fisher matrix and inverse are saved as %s.\n", buf);
-
-            total_time_1it  = mytime::getTime() - total_time_1it;
-            total_time     += total_time_1it;
-            LOG::LOGGER.STD("This iteration took %.1f minutes. Elapsed time so far is %.1f minutes.\n", 
-                total_time_1it, total_time);
-            LOG::LOGGER.TIME("| %2d | %9.3e | %9.3e | ", i, total_time_1it, total_time);
-
-            mytime::printfTimeSpentDetails();
-        }
 
         if (hasConverged())
         {
             LOG::LOGGER.STD("Iteration has converged in %d iterations.\n", i+1);
             break;
         }
+
+        try
+        {
+            _smoothPowerSpectra(powerspectra_fits);
+        }
+        catch (std::exception& e)
+        {
+            LOG::LOGGER.ERR("ERROR in Python script: %s\n", e.what());
+
+            delete [] powerspectra_fits;
+            for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
+                delete *it;
+
+            throw e;
+        }
+        
     }
 
     for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
@@ -661,6 +656,31 @@ double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
     return fidcosmo::fiducialPowerSpectrum(bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], &fidpd13::FIDUCIAL_PD13_PARAMS);
 }
 
+void OneDQuadraticPowerEstimate::iterationOutput(const char *fname_base, int it, double t1, double tot)
+{
+    char buf[500];
+    printfSpectra();
+
+    sprintf(buf, "%s_it%d_quadratic_power_estimate_detailed.dat", fname_base, it+1);
+    writeDetailedSpectrumEstimates(buf);
+
+    gsl_matrix_view fisher_mv    = gsl_matrix_view_array(fisher_matrix_sum, 
+        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    gsl_matrix_view invfisher_mv = gsl_matrix_view_array(inverse_fisher_matrix_sum, 
+        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+
+    sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, it+1);
+    mxhelp::fprintfMatrix(buf, &fisher_mv.matrix);
+    sprintf(buf, "%s_it%d_inversefisher_matrix.dat", fname_base, it+1);
+    mxhelp::fprintfMatrix(buf, &invfisher_mv.matrix);
+    LOG::LOGGER.IO("Fisher matrix and inverse are saved as %s.\n", buf);
+
+    LOG::LOGGER.STD("This iteration took %.1f minutes. Elapsed time so far is %.1f minutes.\n", 
+        t1, tot);
+    LOG::LOGGER.TIME("| %2d | %9.3e | %9.3e | ", it, t1, tot);
+
+    mytime::printfTimeSpentDetails();
+}
 
 
 

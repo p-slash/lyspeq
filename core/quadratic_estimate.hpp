@@ -78,6 +78,7 @@ public:
     // You can find that value in logs--printfSpectra prints all
     void writeSpectrumEstimates(const char *fname);
     void writeDetailedSpectrumEstimates(const char *fname);
+    void iterationOutput(const char *fnamebase, int it, double t1, double tot);
 };
 
 
