@@ -28,9 +28,7 @@ namespace bins
     double *KBAND_EDGES, *KBAND_CENTERS;
     double  Z_BIN_WIDTH, *ZBIN_CENTERS, z0_edge;
 
-    void setUpBins(double k0, int nlin, double dklin,
-                                int nlog, double dklog,
-                     double z0)
+    void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double z0)
     {
         // Construct k edges
         NUMBER_OF_K_BANDS = nlin + nlog;
@@ -60,7 +58,7 @@ namespace bins
         #endif
 
         // Set up k bin centers
-        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
+        for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
             KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
 
         // Construct redshift bins
@@ -131,20 +129,24 @@ namespace bins
     // Effectively removes any pixels that does not belong to any redshift bin.
     double zBinTriangular(double z, int zm)
     {
-        double zm_center = bins::ZBIN_CENTERS[zm];
+        double zm_center = ZBIN_CENTERS[zm];
+        double zlow = zm_center - Z_BIN_WIDTH, zupp = zm_center + Z_BIN_WIDTH;
         
-        if (zm_center - Z_BIN_WIDTH < z <= zm_center)
+        if ((zlow < z) && (z <= zm_center))
         {
-            if (zm == 0)    return 1;
-            else            return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
+            if (zm == 0)
+                return 1;
+            return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
         }   
-        else if (zm_center < z < zm_center + Z_BIN_WIDTH)
+        
+        if ((zm_center < z) && (z < zupp))
         {
-            if (zm == NUMBER_OF_Z_BINS - 1) return 1;
-            else                            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+            if (zm == (NUMBER_OF_Z_BINS-1))
+                return 1;
+            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
         }
-        else
-            return 0;
+        
+        return 0;
     }
 
     double redshiftBinningFunction(double z, int zm)
@@ -159,6 +161,17 @@ namespace bins
         #elif defined(TRIANGLE_Z_BINNING_FN)
         return zBinTriangular(z, zm);
         #endif
+    }
+    
+    int  getFisherMatrixIndex(int kn, int zm)
+    { 
+        return kn + NUMBER_OF_K_BANDS * zm; 
+    }
+
+    void getFisherMatrixBinNoFromIndex(int ikz, int &kn, int &zm)
+    {
+        kn = (ikz) % NUMBER_OF_K_BANDS; 
+        zm = (ikz) / NUMBER_OF_K_BANDS; 
     }
 
     // double redshiftBinningFunction(double z, int zm, int zc)
@@ -238,7 +251,6 @@ void specifics::printConfigSpecifics(FILE *toWrite)
         conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
         conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
     }
-    
 }
 
 // Pass NULL for not needed variables!
@@ -257,15 +269,14 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
 
     // Bin parameters
     cFile.addKey("K0", &K_0, DOUBLE);
-    cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
-
     cFile.addKey("LinearKBinWidth",  &LIN_K_SPACING, DOUBLE);
     cFile.addKey("Log10KBinWidth",   &LOG_K_SPACING, DOUBLE);
-    cFile.addKey("RedshiftBinWidth", &bins::Z_BIN_WIDTH,   DOUBLE);
-
     cFile.addKey("NumberOfLinearBins",   &N_KLIN_BIN, INTEGER);
     cFile.addKey("NumberOfLog10Bins",    &N_KLOG_BIN, INTEGER);
-    cFile.addKey("NumberOfRedshiftBins", &bins::NUMBER_OF_Z_BINS,   INTEGER);
+
+    cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
+    cFile.addKey("RedshiftBinWidth", &bins::Z_BIN_WIDTH, DOUBLE);
+    cFile.addKey("NumberOfRedshiftBins", &bins::NUMBER_OF_Z_BINS, INTEGER);
     
     // // File names and paths
     cFile.addKey("FileNameList", FNAME_LIST, STRING);
@@ -291,7 +302,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("FiducialCurvature",           &fidpd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
     cFile.addKey("FiducialRedshiftPower",       &fidpd13::FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
     cFile.addKey("FiducialRedshiftCurvature",   &fidpd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
-    cFile.addKey("FiducialLorentzianLambda",    &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
+    cFile.addKey("FiducialLorentzianLambda",    &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,DOUBLE);
 
     cFile.addKey("NumberOfIterations", NUMBER_OF_ITERATIONS, INTEGER);
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);

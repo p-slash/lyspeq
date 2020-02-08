@@ -43,14 +43,14 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
     // Allocate memory
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
     {
-        dbt_estimate_sum_before_fisher_vector[dbt_i] = gsl_vector_alloc(bins::TOTAL_KZ_BINS);
-        dbt_estimate_fisher_weighted_vector[dbt_i]   = gsl_vector_alloc(bins::TOTAL_KZ_BINS);
+        dbt_estimate_sum_before_fisher_vector[dbt_i] = new double[bins::TOTAL_KZ_BINS];
+        dbt_estimate_fisher_weighted_vector[dbt_i]   = new double[bins::TOTAL_KZ_BINS];
     }
 
-    previous_power_estimate_vector          = gsl_vector_alloc(bins::TOTAL_KZ_BINS);
-    current_power_estimate_vector           = gsl_vector_calloc(bins::TOTAL_KZ_BINS);
-    fisher_matrix_sum                       = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    inverse_fisher_matrix_sum               = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    previous_power_estimate_vector = new double[bins::TOTAL_KZ_BINS];
+    current_power_estimate_vector  = new double[bins::TOTAL_KZ_BINS]();
+    fisher_matrix_sum              = new double[bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS];
+    inverse_fisher_matrix_sum      = new double[bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS];
 
     isFisherInverted = false; 
 
@@ -99,19 +99,15 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 {
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
     {
-        gsl_vector_free(dbt_estimate_sum_before_fisher_vector[dbt_i]);
-        gsl_vector_free(dbt_estimate_fisher_weighted_vector[dbt_i]);
+        delete [] dbt_estimate_sum_before_fisher_vector[dbt_i];
+        delete [] dbt_estimate_fisher_weighted_vector[dbt_i];
     }
 
-    gsl_vector_free(previous_power_estimate_vector);
-    gsl_vector_free(current_power_estimate_vector);
+    delete [] previous_power_estimate_vector;
+    delete [] current_power_estimate_vector;
 
-    gsl_matrix_free(fisher_matrix_sum);
-    gsl_matrix_free(inverse_fisher_matrix_sum);
-
-    // std::vector<std::pair <double, OneQSOEstimate*>>::iterator qe = qso_estimators.begin();
-    // for (; qe != qso_estimators.end(); ++qe)
-    //     delete qe->second;
+    delete [] fisher_matrix_sum;
+    delete [] inverse_fisher_matrix_sum;
 }
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
@@ -119,11 +115,16 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     double t = mytime::getTime();
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
-   
-    gsl_matrix *fisher_copy = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    gsl_matrix_memcpy(fisher_copy, fisher_matrix_sum);
     
-    mxhelp::invertMatrixLU(fisher_copy, inverse_fisher_matrix_sum);
+    gsl_matrix_view fisher_mv    = gsl_matrix_view_array(fisher_matrix_sum, 
+        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    gsl_matrix_view invfisher_mv = gsl_matrix_view_array(inverse_fisher_matrix_sum, 
+        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+
+    gsl_matrix *fisher_copy = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    gsl_matrix_memcpy(fisher_copy, &fisher_mv.matrix);
+    
+    mxhelp::invertMatrixLU(fisher_copy, &invfisher_mv.matrix);
     
     gsl_matrix_free(fisher_copy);
 
@@ -139,19 +140,21 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 
     LOG::LOGGER.STD("Estimating power spectrum.\n");
 
-    gsl_vector_memcpy(previous_power_estimate_vector, current_power_estimate_vector);
+    std::copy(current_power_estimate_vector, current_power_estimate_vector + bins::TOTAL_KZ_BINS, 
+        previous_power_estimate_vector);
 
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
     {
         cblas_dsymv(CblasRowMajor, CblasUpper,
-                    bins::TOTAL_KZ_BINS, 0.5, inverse_fisher_matrix_sum->data, bins::TOTAL_KZ_BINS,
-                    dbt_estimate_sum_before_fisher_vector[dbt_i]->data, 1,
-                    0, dbt_estimate_fisher_weighted_vector[dbt_i]->data, 1);
+                    bins::TOTAL_KZ_BINS, 0.5, inverse_fisher_matrix_sum, bins::TOTAL_KZ_BINS,
+                    dbt_estimate_sum_before_fisher_vector[dbt_i], 1,
+                    0, dbt_estimate_fisher_weighted_vector[dbt_i], 1);
     }
 
-    gsl_vector_memcpy(current_power_estimate_vector, dbt_estimate_fisher_weighted_vector[0]);
-    gsl_vector_sub(current_power_estimate_vector, dbt_estimate_fisher_weighted_vector[1]);
-    gsl_vector_sub(current_power_estimate_vector, dbt_estimate_fisher_weighted_vector[2]);
+    std::copy(dbt_estimate_fisher_weighted_vector[0], dbt_estimate_fisher_weighted_vector[0] + bins::TOTAL_KZ_BINS, 
+        current_power_estimate_vector);
+    mxhelp::vector_sub(current_power_estimate_vector, dbt_estimate_fisher_weighted_vector[1], bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(current_power_estimate_vector, dbt_estimate_fisher_weighted_vector[2], bins::TOTAL_KZ_BINS);
 }
 
 void OneDQuadraticPowerEstimate::_readScriptOutput(double *script_power, const char *fname, void *itsfits)
@@ -296,9 +299,13 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> &lo
         }
     }
 
-    LOG::LOGGER.STD("Balanced estimated cpu times: ");
+    double ave_balance = 0;
     for (int thr = 0; thr < process::total_pes; ++thr)
-        LOG::LOGGER.STD("%.1e ", bucket_time[thr]);
+        ave_balance += bucket_time[thr] / process::total_pes;
+
+    LOG::LOGGER.STD("Off-Balance: ");
+    for (int thr = 0; thr < process::total_pes; ++thr)
+        LOG::LOGGER.STD("%.1e ", bucket_time[thr]/ave_balance-1);
     LOG::LOGGER.STD("\n");
 
     delete [] bucket_time;
@@ -330,7 +337,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         double thread_time = mytime::getTime();
 
-        LOG::LOGGER.STD("Start working in %d/%d thread with %lu qso in queue.\n", process::this_pe, process::total_pes, local_queue.size());
+        LOG::LOGGER.STD("Start working in %d/%d thread with %lu qso in queue.\n", 
+            process::this_pe, process::total_pes, local_queue.size());
 
         for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
             (*it)->oneQSOiteration(powerspectra_fits, dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
@@ -342,11 +350,11 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         #if defined(ENABLE_MPI)
         // allreduce
-        MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum->data, bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS,
+        MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, (bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS),
             MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            MPI_Allreduce(MPI_IN_PLACE, dbt_estimate_sum_before_fisher_vector[dbt_i]->data, bins::TOTAL_KZ_BINS,
+            MPI_Allreduce(MPI_IN_PLACE, dbt_estimate_sum_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS,
                 MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         #endif
         
@@ -376,8 +384,16 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             sprintf(buf, "%s_it%d_quadratic_power_estimate_detailed.dat", fname_base, i+1);
             writeDetailedSpectrumEstimates(buf);
 
+            gsl_matrix_view fisher_mv    = gsl_matrix_view_array(fisher_matrix_sum, 
+                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+            gsl_matrix_view invfisher_mv = gsl_matrix_view_array(inverse_fisher_matrix_sum, 
+                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+
             sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, i+1);
-            writeFisherMatrix(buf);
+            mxhelp::fprintfMatrix(buf, &fisher_mv.matrix);
+            sprintf(buf, "%s_it%d_inversefisher_matrix.dat", fname_base, i+1);
+            mxhelp::fprintfMatrix(buf, &invfisher_mv.matrix);
+            LOG::LOGGER.IO("Fisher matrix and inverse are saved as %s.\n", buf);
 
             total_time_1it  = mytime::getTime() - total_time_1it;
             total_time     += total_time_1it;
@@ -413,10 +429,8 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        // if (Z_BIN_COUNTS[zm+1] == 0)  continue;
-
-        p1 = fabs(gsl_vector_get(current_power_estimate_vector, i_kz));
-        p2 = fabs(gsl_vector_get(previous_power_estimate_vector, i_kz));
+        p1 = fabs(current_power_estimate_vector[i_kz]);
+        p2 = fabs(previous_power_estimate_vector[i_kz]);
         
         diff = fabs(p1 - p2);
         pMax = std::max(p1, p2);
@@ -436,7 +450,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     // Perform a chi-square test as well
     // Maybe just do diagonal (dx)^2/F-1_ii
     
-    gsl_vector_sub(previous_power_estimate_vector, current_power_estimate_vector);
+    mxhelp::vector_sub(previous_power_estimate_vector, current_power_estimate_vector, bins::TOTAL_KZ_BINS);
 
     r = 0;
 
@@ -444,8 +458,8 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     {
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
         
-        double  t = gsl_vector_get(previous_power_estimate_vector, i_kz),
-                e = gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz);
+        double  t = previous_power_estimate_vector[i_kz],
+                e = inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS) * i_kz];
 
         if (e < 0)  continue;
 
@@ -454,7 +468,8 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     r  = sqrt(r / bins::DEGREE_OF_FREEDOM);
 
-    rfull = sqrt(fabs(mxhelp::my_cblas_dsymvdot(previous_power_estimate_vector, fisher_matrix_sum)) / bins::DEGREE_OF_FREEDOM);
+    rfull = sqrt(fabs(mxhelp::my_cblas_dsymvdot(previous_power_estimate_vector, fisher_matrix_sum, bins::TOTAL_KZ_BINS)) 
+        / bins::DEGREE_OF_FREEDOM);
     
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
     LOG::LOGGER.STD("Chi square convergence test: Diagonal Err: %.3f per dof. Full Fisher: %.3f per dof."
@@ -468,7 +483,9 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
 void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
 {
-    mxhelp::fprintfMatrix(fname, fisher_matrix_sum);
+    gsl_matrix_view fisher_mv = gsl_matrix_view_array(fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+
+    mxhelp::fprintfMatrix(fname, &fisher_mv.matrix);
 
     LOG::LOGGER.IO("Fisher matrix saved as %s.\n", fname);
 }
@@ -502,8 +519,8 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 
         z = bins::ZBIN_CENTERS[zm];
         k = bins::KBAND_CENTERS[kn];
-        p = gsl_vector_get(current_power_estimate_vector, i_kz) + powerSpectrumFiducial(kn, zm);
-        e = sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz));
+        p = current_power_estimate_vector[i_kz] + powerSpectrumFiducial(kn, zm);
+        e = sqrt(inverse_fisher_matrix_sum[i_kz+bins::TOTAL_KZ_BINS*i_kz]);
 
         fprintf(toWrite, "%.3lf %e %e %e\n", z, k, p, e);
     }
@@ -586,12 +603,12 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
         kc = bins::KBAND_CENTERS[kn];
 
         Pfid = powerSpectrumFiducial(kn, zm);
-        ThetaP = gsl_vector_get(current_power_estimate_vector, i_kz);
-        ErrorP = sqrt(gsl_matrix_get(inverse_fisher_matrix_sum, i_kz, i_kz));
+        ThetaP = current_power_estimate_vector[i_kz];
+        ErrorP = sqrt(inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS)*i_kz]);
 
-        dk = gsl_vector_get(dbt_estimate_fisher_weighted_vector[0], i_kz);
-        bk = gsl_vector_get(dbt_estimate_fisher_weighted_vector[1], i_kz);
-        tk = gsl_vector_get(dbt_estimate_fisher_weighted_vector[2], i_kz);
+        dk = dbt_estimate_fisher_weighted_vector[0][i_kz];
+        bk = dbt_estimate_fisher_weighted_vector[1][i_kz];
+        tk = dbt_estimate_fisher_weighted_vector[2][i_kz];
 
         fprintf(toWrite, "%.3lf %15e %15e %15e %15e %15e %15e %15e %15e %15e %15e\n", 
                             z,  k1,  k2,  kc,  Pfid,ThetaP, Pfid+ThetaP, ErrorP, dk, bk, tk);
@@ -606,9 +623,12 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 void OneDQuadraticPowerEstimate::initializeIteration()
 {
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-        gsl_vector_set_zero(dbt_estimate_sum_before_fisher_vector[dbt_i]);
-           
-    gsl_matrix_set_zero(fisher_matrix_sum);
+        for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
+            *(dbt_estimate_sum_before_fisher_vector[dbt_i]+i_kz) = 0;
+    
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS; ++i_kz)
+        *(fisher_matrix_sum+i_kz) = 0;  
+
     isFisherInverted = false;
 }
 
@@ -616,24 +636,20 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 {
     int i_kz;
 
-    for (int zm = 1; zm <= bins::NUMBER_OF_Z_BINS; ++zm)
-    {
-        // if (Z_BIN_COUNTS[zm] == 0)  continue;
+    for (int zm = 0; zm < bins::NUMBER_OF_Z_BINS; ++zm)
+        LOG::LOGGER.STD(" P(%.1f, k) |", bins::ZBIN_CENTERS[zm]);
 
-        LOG::LOGGER.STD(" P(%.1f, k) |", bins::ZBIN_CENTERS[zm-1]);
-    }
     LOG::LOGGER.STD("\n");
     
     for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
     {
-        for (int zm = 1; zm <= bins::NUMBER_OF_Z_BINS; ++zm)
+        for (int zm = 0; zm < bins::NUMBER_OF_Z_BINS; ++zm)
         {
-            // if (Z_BIN_COUNTS[zm] == 0)  continue;
+            i_kz = bins::getFisherMatrixIndex(kn, zm);
 
-            i_kz = bins::getFisherMatrixIndex(kn, zm-1);
-
-            LOG::LOGGER.STD(" %.3e |", current_power_estimate_vector->data[i_kz] + powerSpectrumFiducial(kn, zm-1));
+            LOG::LOGGER.STD(" %.3e |", current_power_estimate_vector[i_kz] + powerSpectrumFiducial(kn, zm));
         }
+        
         LOG::LOGGER.STD("\n");
     }
 }

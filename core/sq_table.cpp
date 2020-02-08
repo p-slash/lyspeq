@@ -53,7 +53,6 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
         LOG::LOGGER.STD("%d\n", R_VALUES[r]);
-    
 }
 
 void SQLookupTable::readTables()
@@ -85,12 +84,16 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
     allocateTmpArrays();
 
     // Initialize loop for parallel computing
-    int delta_nr = NUMBER_OF_R_VALUES / process::total_pes, r_start_this = delta_nr * process::this_pe, r_end_this = delta_nr * (process::this_pe+1);
-    if (process::this_pe == process::total_pes-1) r_end_this = NUMBER_OF_R_VALUES;
+    int delta_nr     = NUMBER_OF_R_VALUES / process::total_pes, 
+        r_start_this = delta_nr * process::this_pe, 
+        r_end_this   = delta_nr * (process::this_pe+1);
+
+    if (process::this_pe == process::total_pes-1)
+        r_end_this = NUMBER_OF_R_VALUES;
 
     // Integrate fiducial signal matrix
     FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
-
+    
     // Skip this section if fiducial signal matrix is turned off.
     if (TURN_OFF_SFID) goto DERIVATIVE;
 

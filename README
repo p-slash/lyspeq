@@ -21,6 +21,7 @@
     P[nz=1, nk=1...Nk]...P[Nz, nk=1...Nk]
 
 + Some functions are turned into `inline`.
++ The large number added to covariance matrix is 100.
 
 ### v1.2
 + Turn of redshift evolution by passing `--disable-redshift-evolution` to configure script. When redshift evolution is turned off, every pixel pair in each chunk assumed to be at the median redshift of the chunk, and switched to using top-hat bins. However, scaling with a growth function is still functional if passed. Using `beta=0` in fiducial power is recomended.
