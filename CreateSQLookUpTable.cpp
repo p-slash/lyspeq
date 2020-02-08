@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
         MPI_Barrier(MPI_COMM_WORLD);
         #endif
 
-        if (TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
+        if (specifics::TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
         
         specifics::printBuildSpecifics();
         specifics::printConfigSpecifics();
@@ -89,8 +89,8 @@ int main(int argc, char *argv[])
 
     try
     {
-        sq_private_table = new SQLookupTable(OUTPUT_DIR, OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, FNAME_RLIST);
-        sq_private_table->computeTables(PIXEL_WIDTH, Nv, Nz, LENGTH_V, force_rewrite);
+        process::sq_private_table = new SQLookupTable(OUTPUT_DIR, OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, FNAME_RLIST);
+        process::sq_private_table->computeTables(PIXEL_WIDTH, Nv, Nz, LENGTH_V, force_rewrite);
     }
     catch (std::exception& e)
     {   
