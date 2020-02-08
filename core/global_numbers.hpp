@@ -81,6 +81,7 @@ namespace mytime
 
     double getTime(); // in minutes
     void printfTimeSpentDetails();
+    void writeTimeLogHeader();
 }
 
 namespace specifics
