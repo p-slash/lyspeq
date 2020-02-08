@@ -337,7 +337,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     // add noise matrix diagonally
     cblas_daxpy(DATA_SIZE, 1., noise_array, 1, covariance_matrix, DATA_SIZE+1);
 
-    #define ADDED_CONST_TO_COVARIANCE 10.
+    #define ADDED_CONST_TO_COVARIANCE 100.
     // Continuum  normalization
     for (int i = 0; i < DATA_SIZE*DATA_SIZE; ++i)
         *(covariance_matrix+i) += ADDED_CONST_TO_COVARIANCE;
