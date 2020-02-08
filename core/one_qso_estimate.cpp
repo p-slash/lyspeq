@@ -273,7 +273,7 @@ void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
     if (isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)))
     {
         t_interp = 0;
-        std::copy(&stored_qj[N_Q_MATRICES-i_kz-1][0], &stored_qj[N_Q_MATRICES-i_kz-1][0] + (DATA_SIZE*DATA_SIZE), qi);
+        std::copy(stored_qj[N_Q_MATRICES-i_kz-1], stored_qj[N_Q_MATRICES-i_kz-1] + (DATA_SIZE*DATA_SIZE), qi);
     }
     else
     {
