@@ -136,18 +136,17 @@ namespace bins
         {
             if (zm == 0)
                 return 1;
-            else
-                return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
+            return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
         }   
-        else if ((zm_center < z) && (z < zupp))
+        
+        if ((zm_center < z) && (z < zupp))
         {
             if (zm == (NUMBER_OF_Z_BINS-1))
                 return 1;
-            else
-                return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
         }
-        else
-            return 0;
+        
+        return 0;
     }
 
     double redshiftBinningFunction(double z, int zm)
