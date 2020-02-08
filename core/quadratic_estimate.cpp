@@ -299,7 +299,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         double thread_time = mytime::getTime();
 
-        LOG::LOGGER.STD("Start working in %d/%d thread with %lu qso in queue.\n", process::this_pe, process::total_pes, local_queue.size());
+        LOG::LOGGER.STD("Start working in %d/%d thread with %lu qso in queue.\n", 
+            process::this_pe, process::total_pes, local_queue.size());
 
         for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
             (*it)->oneQSOiteration(powerspectra_fits, dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
@@ -420,7 +421,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
         
         double  t = previous_power_estimate_vector[i_kz],
-                e = inverse_fisher_matrix_sum[i_kz + bins::TOTAL_KZ_BINS * i_kz];
+                e = inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS) * i_kz];
 
         if (e < 0)  continue;
 
@@ -565,7 +566,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 
         Pfid = powerSpectrumFiducial(kn, zm);
         ThetaP = current_power_estimate_vector[i_kz];
-        ErrorP = sqrt(inverse_fisher_matrix_sum[i_kz+bins::TOTAL_KZ_BINS*i_kz]);
+        ErrorP = sqrt(inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS)*i_kz]);
 
         dk = dbt_estimate_fisher_weighted_vector[0][i_kz];
         bk = dbt_estimate_fisher_weighted_vector[1][i_kz];
