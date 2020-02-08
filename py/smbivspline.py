@@ -23,7 +23,7 @@ if __name__ == '__main__':
     # From scipy manual:
     # Default s=len(weight) which should be a good value 
     # if 1/weight[i] is an estimate of the standard deviation of power[i].
-    wsbispline = SmoothBivariateSpline(z, k, p, w=1./e, s=len(w))
+    wsbispline = SmoothBivariateSpline(z, k, p, w=1./e, s=len(e))
 
     smwe_power = wsbispline(z, k, grid=False)
 
