@@ -58,7 +58,7 @@ namespace bins
         #endif
 
         // Set up k bin centers
-        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
+        for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
             KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
 
         // Construct redshift bins
