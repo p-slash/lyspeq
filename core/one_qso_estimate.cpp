@@ -48,15 +48,15 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     qFile.readData(lambda_array, flux_array, noise_array);
 
     // Find the resolution index for the look up table
-    r_index = sq_private_table->findSpecResIndex(SPECT_RES_FWHM);
+    r_index = process::sq_private_table->findSpecResIndex(SPECT_RES_FWHM);
     
     if (r_index == -1)      throw std::runtime_error("SPECRES not found in tables!");
 
-    interp2d_signal_matrix   = sq_private_table->getSignalMatrixInterp(r_index);
+    interp2d_signal_matrix   = process::sq_private_table->getSignalMatrixInterp(r_index);
     interp_derivative_matrix = new Interpolation*[bins::NUMBER_OF_K_BANDS];
 
     for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-        interp_derivative_matrix[kn] = sq_private_table->getDerivativeMatrixInterp(kn, r_index);
+        interp_derivative_matrix[kn] = process::sq_private_table->getDerivativeMatrixInterp(kn, r_index);
 }
 
 bool OneQSOEstimate::_findRedshiftBin()
@@ -146,7 +146,7 @@ void OneQSOEstimate::_setStoredMatrices()
     double size_m1 = (double)sizeof(double) * DATA_SIZE * DATA_SIZE / 1048576.; // in MB
     
     // Need at least 3 matrices as temp
-    nqj_eff      = MEMORY_ALLOC / size_m1 - 3;
+    nqj_eff      = process::MEMORY_ALLOC / size_m1 - 3;
     isSfidStored = false;
     
     if (nqj_eff <= 0)
@@ -156,7 +156,7 @@ void OneQSOEstimate::_setStoredMatrices()
         if (nqj_eff > N_Q_MATRICES)
         {
             nqj_eff      = N_Q_MATRICES;
-            isSfidStored = !TURN_OFF_SFID;
+            isSfidStored = !specifics::TURN_OFF_SFID;
         }
 
         stored_qj = new double*[nqj_eff];
@@ -316,7 +316,7 @@ void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
 void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 {
     // Set fiducial signal matrix
-    if (!TURN_OFF_SFID)
+    if (!specifics::TURN_OFF_SFID)
         _setFiducialSignalMatrix(covariance_matrix);
     else
     {
@@ -463,7 +463,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         throw_isnan(temp_bk, "bk");
 
         // Set Fiducial Signal Matrix
-        if (!TURN_OFF_SFID)
+        if (!specifics::TURN_OFF_SFID)
         {
             _setFiducialSignalMatrix(Sfid_matrix);
 

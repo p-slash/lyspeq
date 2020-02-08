@@ -8,19 +8,13 @@
 
 #include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
 
-char TMP_FOLDER[300] = ".";
-
-double CHISQ_CONVERGENCE_EPS = 0.01;
-double MEMORY_ALLOC          = 0;
-
 namespace process
 {
     int this_pe=0, total_pes=1;
+    char TMP_FOLDER[300] = ".";
+    double MEMORY_ALLOC          = 0;
+    SQLookupTable *sq_private_table;
 }
-
-SQLookupTable *sq_private_table;
-
-bool TURN_OFF_SFID;
 
 namespace bins
 {
@@ -224,6 +218,9 @@ namespace mytime
     }
 }
 
+double specifics::CHISQ_CONVERGENCE_EPS = 0.01;
+bool   specifics::TURN_OFF_SFID;
+
 void specifics::printBuildSpecifics()
 {
     LOG::LOGGER.STD(specifics::BUILD_SPECIFICS);
@@ -310,9 +307,9 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     // Read integer if testing outside of Lya region
     cFile.addKey("TurnOffBaseline", &sfid_off, INTEGER);
 
-    cFile.addKey("AllocatedMemoryMB", &MEMORY_ALLOC, DOUBLE);
+    cFile.addKey("AllocatedMemoryMB", &process::MEMORY_ALLOC, DOUBLE);
 
-    cFile.addKey("TemporaryFolder", &TMP_FOLDER, STRING);
+    cFile.addKey("TemporaryFolder", &process::TMP_FOLDER, STRING);
     cFile.addKey("UseLogarithmicVelocity", &ulogv, INTEGER);
     cFile.addKey("ConvertFromFluxToDeltaf", &uchunkmean, INTEGER);
 
@@ -322,11 +319,11 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
     // TODO: Test access here
     
-    TURN_OFF_SFID   = sfid_off > 0;
+    specifics::TURN_OFF_SFID   = sfid_off > 0;
     conv::USE_LOG_V = ulogv > 0;
     conv::FLUX_TO_DELTAF_BY_CHUNKS = uchunkmean > 0;
 
-    if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
+    if (temp_chisq > 0) specifics::CHISQ_CONVERGENCE_EPS = temp_chisq;
 
     if (FNAME_FID_POWER[0] != '\0')
         fidcosmo::setFiducialPowerFromFile(FNAME_FID_POWER);

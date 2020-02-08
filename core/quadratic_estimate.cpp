@@ -167,8 +167,8 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     int s1, s2, kn, zm, fr;
     static fidpd13::pd13_fit_params iteration_fits = fidpd13::FIDUCIAL_PD13_PARAMS;
 
-    sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
-    sprintf(tmp_fit_fname, "%s/tmpfitfileXXXXXX", TMP_FOLDER);
+    sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", process::TMP_FOLDER);
+    sprintf(tmp_fit_fname, "%s/tmpfitfileXXXXXX", process::TMP_FOLDER);
 
     s1 = mkstemp(tmp_ps_fname);
     s2 = mkstemp(tmp_fit_fname);
@@ -436,9 +436,9 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
     LOG::LOGGER.STD("Chi square convergence test: Diagonal Err: %.3f per dof. Full Fisher: %.3f per dof."
                     "Iteration converges when either is less than %.2f\n", 
-                    r, rfull, CHISQ_CONVERGENCE_EPS);
+                    r, rfull, specifics::CHISQ_CONVERGENCE_EPS);
 
-    bool_converged = r < CHISQ_CONVERGENCE_EPS || rfull < CHISQ_CONVERGENCE_EPS;
+    bool_converged = r < specifics::CHISQ_CONVERGENCE_EPS || rfull < specifics::CHISQ_CONVERGENCE_EPS;
 
     return bool_converged;
 }
@@ -618,7 +618,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
 
 double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
 {
-    if (TURN_OFF_SFID)  return 0;
+    if (specifics::TURN_OFF_SFID)  return 0;
     
     return fidcosmo::fiducialPowerSpectrum(bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], &fidpd13::FIDUCIAL_PD13_PARAMS);
 }

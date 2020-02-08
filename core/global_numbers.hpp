@@ -4,36 +4,18 @@
 #include "core/sq_table.hpp"
 #include <cstdio>
 
-// Mathematical numbers defined in fiducial_cosmology.hpp
-// #define PI 3.14159265359
-// This constant defined and used in CreateSQLookUpTable.cpp
-// #define ONE_SIGMA_2_FWHM 2.35482004503
-
-// Physical constants defined in fiducial_cosmology.hpp
-// #define LYA_REST 1215.67
-// #define SPEED_OF_LIGHT 299792.458
-
-// One QSO Estimate numbers
-// #define ADDED_CONST_TO_COVARIANCE 10.0
-
 // Quadratic Estimate numbers
-#define CONVERGENCE_EPS       1E-4
-extern double CHISQ_CONVERGENCE_EPS;
-
-extern char TMP_FOLDER[300];
+#define CONVERGENCE_EPS 1E-4
 
 // PE rank and total number of threads
 namespace process
 {
     extern int this_pe, total_pes;
+    extern char TMP_FOLDER[300];
+    extern double MEMORY_ALLOC;
+    // Look up table, global and thread copy
+    extern SQLookupTable *sq_private_table;
 }
-
-extern double MEMORY_ALLOC;
-
-extern bool TURN_OFF_SFID;
-
-// Look up table, global and thread copy
-extern SQLookupTable *sq_private_table;
 
 namespace bins
 {
@@ -85,6 +67,9 @@ namespace mytime
 
 namespace specifics
 {
+    extern bool TURN_OFF_SFID;
+    extern double CHISQ_CONVERGENCE_EPS;
+
     #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
     #define BINNING_SHAPE "Top Hat"
     #elif defined(TRIANGLE_Z_BINNING_FN)

@@ -95,7 +95,7 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
     FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
     
     // Skip this section if fiducial signal matrix is turned off.
-    if (TURN_OFF_SFID) goto DERIVATIVE;
+    if (specifics::TURN_OFF_SFID) goto DERIVATIVE;
 
     for (int r = r_start_this; r < r_end_this; ++r)
     {
