@@ -25,7 +25,7 @@ bool ioh::file_exists(const char *fname)
 void ioh::create_tmp_file(char *fname, const char *TMP_FOLDER)
 {
     int s;
-    sprintf(fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
+    sprintf(fname, "%s/tmplyspeqfileXXXXXX", TMP_FOLDER);
 
     s = mkstemp(fname);
 
