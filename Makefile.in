@@ -47,8 +47,8 @@ cblas_tests: cblas_tests.o matrix_helper.o
 
 install: LyaPowerEstimate CreateSQLookUpTable
 	mkdir -p $(bindir)
-	cp LyaPowerEstimate CreateSQLookUpTable $(srcdir)/py/lorentzian_fit.py $(bindir)
-	chmod a+x $(bindir)/lorentzian_fit.py
+	cp LyaPowerEstimate CreateSQLookUpTable $(srcdir)/py/lorentzian_fit.py $(srcdir)/py/smbivspline.py $(bindir)
+	chmod a+x $(bindir)/lorentzian_fit.py $(bindir)/smbivspline.py
 
 uninstall:
 	$(RM) $(bindir)/lorentzian_fit.py
