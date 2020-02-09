@@ -157,30 +157,53 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
     mxhelp::vector_sub(current_power_estimate_vector, dbt_estimate_fisher_weighted_vector[2], bins::TOTAL_KZ_BINS);
 }
 
-// Note that fitting is done on bin averaged values plus fiducial power
-void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
+void OneDQuadraticPowerEstimate::_readScriptOutput(double *script_power, const char *fname, void *itsfits)
 {
-    char tmp_ps_fname[320], tmp_fit_fname[320];
-    std::ostringstream command;
+    int fr;
+    FILE *tmp_fit_file = ioh::open_file(fname, "r");
 
-    FILE *tmp_fit_file;
-    int s1, s2, kn, zm, fr;
-    static fidpd13::pd13_fit_params iteration_fits = fidpd13::FIDUCIAL_PD13_PARAMS;
-
-    sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", process::TMP_FOLDER);
-    sprintf(tmp_fit_fname, "%s/tmpfitfileXXXXXX", process::TMP_FOLDER);
-
-    s1 = mkstemp(tmp_ps_fname);
-    s2 = mkstemp(tmp_fit_fname);
-
-    if (s1 == -1 || s2 == -1)
+    if (itsfits != NULL)
     {
-        LOG::LOGGER.ERR("ERROR: Temp filename cannot be generated!\n");
-        throw std::runtime_error("tmp filename");
+        fidpd13::pd13_fit_params *iteration_fits = (fidpd13::pd13_fit_params *) itsfits;
+
+        fr = fscanf(tmp_fit_file, "%le %le %le %le %le %le\n",
+                &iteration_fits->A, &iteration_fits->n, &iteration_fits->alpha,
+                &iteration_fits->B, &iteration_fits->beta, &iteration_fits->lambda);
+
+        if (fr != 6)
+            throw std::runtime_error("Reading fit parameters from tmp_fit_file!");
+    }
+    
+    int kn, zm;
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; i_kz++)
+    {
+        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
+
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
+        
+        fr = fscanf(tmp_fit_file, "%le\n", &script_power[i_kz]);
+
+        if (fr != 1)
+            throw std::runtime_error("Reading fit power values from tmp_fit_file!");
+
+        script_power[i_kz] -= powerSpectrumFiducial(kn, zm);
     }
 
+    fclose(tmp_fit_file);
+}
+
+// Note that fitting is done deviations plus fiducial power
+void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fitted_power)
+{
+    static fidpd13::pd13_fit_params iteration_fits = fidpd13::FIDUCIAL_PD13_PARAMS;
+    
+    char tmp_ps_fname[320], tmp_fit_fname[320];
+    ioh::create_tmp_file(tmp_ps_fname, process::TMP_FOLDER);
+    ioh::create_tmp_file(tmp_fit_fname, process::TMP_FOLDER);
+    
     writeSpectrumEstimates(tmp_ps_fname);
 
+    std::ostringstream command;
     command << "lorentzian_fit.py " << tmp_ps_fname << " " << tmp_fit_fname << " "
             << iteration_fits.A << " " << iteration_fits.n << " " << iteration_fits.n << " ";
 
@@ -192,14 +215,14 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
     if (process::this_pe == 0) 
     {
         command
-            << " >> " << LOG::LOGGER.getFileName(LOG::TYPE::STD);
-        LOG::LOGGER.STD("%s\n", command.str().c_str());
+            << " >> " << LOG::LOGGER.getFileName(LOG::TYPE::STD);   
     }
 
+    LOG::LOGGER.STD("%s\n", command.str().c_str());
     LOG::LOGGER.close();
 
     // Print from python does not go into LOG::LOGGER
-    s1 = system(command.str().c_str());
+    int s1 = system(command.str().c_str());
     
     LOG::LOGGER.reopen();
     remove(tmp_ps_fname);
@@ -210,32 +233,47 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fit_values)
         throw std::runtime_error("fitting error");
     }
 
-    tmp_fit_file = ioh::open_file(tmp_fit_fname, "r");
-
-    fr = fscanf(tmp_fit_file, "%le %le %le %le %le %le\n",
-                &iteration_fits.A, &iteration_fits.n, &iteration_fits.alpha,
-                &iteration_fits.B, &iteration_fits.beta, &iteration_fits.lambda);
-
-    if (fr != 6)
-        throw std::runtime_error("Reading fit parameters from tmp_fit_file!");
-
-    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; i_kz++)
-    {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-
-        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
-        
-        fr = fscanf(tmp_fit_file, "%le\n", &fit_values[i_kz]);
-
-        if (fr != 1)
-            throw std::runtime_error("Reading fit power values from tmp_fit_file!");
-
-        fit_values[i_kz] -= powerSpectrumFiducial(kn, zm);
-    }
-    
-    fclose(tmp_fit_file);
+    _readScriptOutput(fitted_power, tmp_fit_fname, &iteration_fits);
     remove(tmp_fit_fname);
 }
+
+void OneDQuadraticPowerEstimate::_smoothPowerSpectra(double *smoothed_power)
+{
+    char tmp_ps_fname[320], tmp_smooth_fname[320];
+    
+    ioh::create_tmp_file(tmp_ps_fname, process::TMP_FOLDER);
+    ioh::create_tmp_file(tmp_smooth_fname, process::TMP_FOLDER);
+
+    writeSpectrumEstimates(tmp_ps_fname);
+
+    std::ostringstream command;
+    command << "smbivspline.py " << tmp_ps_fname << " " << tmp_smooth_fname; 
+    
+    if (process::this_pe == 0) 
+    {
+        command
+            << " >> " << LOG::LOGGER.getFileName(LOG::TYPE::STD);   
+    }
+      
+    LOG::LOGGER.STD("%s\n", command.str().c_str());
+    LOG::LOGGER.close();
+
+    // Print from python does not go into LOG::LOGGER
+    int s1 = system(command.str().c_str());
+    
+    LOG::LOGGER.reopen();
+    remove(tmp_ps_fname);
+
+    if (s1 != 0)
+    {
+        LOG::LOGGER.ERR("Error in smoothing.\n");  
+        throw std::runtime_error("smoothing error");
+    }
+
+    _readScriptOutput(smoothed_power, tmp_smooth_fname);
+    remove(tmp_smooth_fname);
+}
+
 
 void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> &local_queue)
 {
@@ -278,15 +316,11 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> &lo
 
 void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *fname_base)
 {
-    char buf[500];
     double total_time = 0, total_time_1it = 0;
     double *powerspectra_fits = new double[bins::TOTAL_KZ_BINS]();
 
     std::vector<OneQSOEstimate*> local_queue;
     _loadBalancing(local_queue);
-
-    LOG::LOGGER.TIME("| %2s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s |\n", 
-        "i", "T_i", "T_tot", "T_Cinv", "T_Finv", "T_Sfid", "N_Sfid", "T_Q", "N_Q", "T_Qmod", "T_F", "DChi2", "DMean");
 
     for (int i = 0; i < number_of_iterations; i++)
     {
@@ -297,6 +331,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
+        #if 0
         double thread_time = mytime::getTime();
 
         LOG::LOGGER.STD("Start working in %d/%d thread with %lu qso in queue.\n", 
@@ -309,9 +344,14 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 
         LOG::LOGGER.STD("Done for loop in %d/%d thread in %.2f minutes. Adding F and d critically.\n",
                 process::this_pe, process::total_pes, thread_time);
+        #endif
 
+        // Calculation for each spectrum
+        for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
+            (*it)->oneQSOiteration(powerspectra_fits, dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
+
+        // All reduce in MPI is enabled
         #if defined(ENABLE_MPI)
-        // allreduce
         MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, (bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS),
             MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         
@@ -323,54 +363,47 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         try
         {
             invertTotalFisherMatrix();
-            computePowerSpectrumEstimates();
-
-            _fitPowerSpectra(powerspectra_fits);
         }
-        catch (const char* msg)
+        catch (std::exception& e)
         {
-            LOG::LOGGER.ERR("ERROR %s: Fisher matrix is not invertable.\n", msg);
+            LOG::LOGGER.ERR("ERROR while inverting Fisher matrix: %s.\n", e.what());
+            
+            delete [] powerspectra_fits;
             for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
                 delete *it;
             
-            throw std::runtime_error(msg);
+            throw e;
         }
         
+        computePowerSpectrumEstimates();
+        total_time_1it  = mytime::getTime() - total_time_1it;
+        total_time     += total_time_1it;
+        
         if (process::this_pe == 0)
-        {
-            printfSpectra();
+            iterationOutput(fname_base, i, total_time_1it, total_time);
 
-            // sprintf(buf, "%s_it%d_quadratic_power_estimate.dat", fname_base, i+1);
-            // writeSpectrumEstimates(buf);
-
-            sprintf(buf, "%s_it%d_quadratic_power_estimate_detailed.dat", fname_base, i+1);
-            writeDetailedSpectrumEstimates(buf);
-
-            gsl_matrix_view fisher_mv    = gsl_matrix_view_array(fisher_matrix_sum, 
-                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-            gsl_matrix_view invfisher_mv = gsl_matrix_view_array(inverse_fisher_matrix_sum, 
-                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-
-            sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, i+1);
-            mxhelp::fprintfMatrix(buf, &fisher_mv.matrix);
-            sprintf(buf, "%s_it%d_inversefisher_matrix.dat", fname_base, i+1);
-            mxhelp::fprintfMatrix(buf, &invfisher_mv.matrix);
-            LOG::LOGGER.IO("Fisher matrix and inverse are saved as %s.\n", buf);
-
-            total_time_1it  = mytime::getTime() - total_time_1it;
-            total_time     += total_time_1it;
-            LOG::LOGGER.STD("This iteration took %.1f minutes. Elapsed time so far is %.1f minutes.\n", 
-                total_time_1it, total_time);
-            LOG::LOGGER.TIME("| %2d | %9.3e | %9.3e | ", i, total_time_1it, total_time);
-
-            mytime::printfTimeSpentDetails();
-        }
 
         if (hasConverged())
         {
             LOG::LOGGER.STD("Iteration has converged in %d iterations.\n", i+1);
             break;
         }
+
+        try
+        {
+            _smoothPowerSpectra(powerspectra_fits);
+        }
+        catch (std::exception& e)
+        {
+            LOG::LOGGER.ERR("ERROR in Python script: %s\n", e.what());
+
+            delete [] powerspectra_fits;
+            for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
+                delete *it;
+
+            throw e;
+        }
+        
     }
 
     for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
@@ -623,6 +656,31 @@ double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
     return fidcosmo::fiducialPowerSpectrum(bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], &fidpd13::FIDUCIAL_PD13_PARAMS);
 }
 
+void OneDQuadraticPowerEstimate::iterationOutput(const char *fname_base, int it, double t1, double tot)
+{
+    char buf[500];
+    printfSpectra();
+
+    sprintf(buf, "%s_it%d_quadratic_power_estimate_detailed.dat", fname_base, it+1);
+    writeDetailedSpectrumEstimates(buf);
+
+    gsl_matrix_view fisher_mv    = gsl_matrix_view_array(fisher_matrix_sum, 
+        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    gsl_matrix_view invfisher_mv = gsl_matrix_view_array(inverse_fisher_matrix_sum, 
+        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+
+    sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, it+1);
+    mxhelp::fprintfMatrix(buf, &fisher_mv.matrix);
+    sprintf(buf, "%s_it%d_inversefisher_matrix.dat", fname_base, it+1);
+    mxhelp::fprintfMatrix(buf, &invfisher_mv.matrix);
+    LOG::LOGGER.IO("Fisher matrix and inverse are saved as %s.\n", buf);
+
+    LOG::LOGGER.STD("This iteration took %.1f minutes. Elapsed time so far is %.1f minutes.\n", 
+        t1, tot);
+    LOG::LOGGER.TIME("| %2d | %9.3e | %9.3e | ", it, t1, tot);
+
+    mytime::printfTimeSpentDetails();
+}
 
 
 

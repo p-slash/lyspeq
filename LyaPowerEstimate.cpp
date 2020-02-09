@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 
         specifics::printBuildSpecifics();
         specifics::printConfigSpecifics();
-        
+        mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
     {   
