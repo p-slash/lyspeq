@@ -1,3 +1,6 @@
+### Changes
++ Python script does not fit, but applies a weighted smoothing.
+
 ### mpi-v1.3
 + Signal and derivative look up tables are controlled by one class: [sq_table.hpp](core/sq_table.hpp)
 + Input data are assumed to be fluctuations and not flux. Added `ConvertFromFluxToDeltaf` to config file to switch behaviors.
