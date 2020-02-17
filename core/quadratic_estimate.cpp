@@ -59,16 +59,22 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
 void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const char *dir)
 {
+    double cpu_t_temp, t1, t2;
+
     LOG::LOGGER.STD("Initial reading of quasar spectra and estimating CPU time.\n");
 
     std::vector<std::string> fpaths;
     NUMBER_OF_QSOS = ioh::readList(fname_list, fpaths);
     
-    std::rotate(fpaths.begin(), fpaths.begin()+NUMBER_OF_QSOS*process::this_pe/process::total_pes, fpaths.end());
+    // Rotate file list so that each PE accesses different files at the same time.
+    t1 = mytime::getTime();
+    std::rotate(fpaths.begin(), fpaths.begin() + (NUMBER_OF_QSOS*process::this_pe)/process::total_pes, fpaths.end());
+    t2 = mytime::getTime();
+    LOG::LOGGER.STD("Rotated the file list so that each PE accesses different files at a given time."
+        "It took %.2f m.\n", t2-t1);
 
-    // Create objects for each QSO
+    // Create vector for QSOs & read
     cpu_fname_vector.reserve(NUMBER_OF_QSOS);
-    double cpu_t_temp;
 
     for (std::vector<std::string>::iterator fq = fpaths.begin(); fq != fpaths.end(); ++fq)
     {
@@ -84,6 +90,10 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
             cpu_fname_vector.push_back(std::make_pair(cpu_t_temp, *fq));
     }
     
+    // Print out time it took to read all files into vector
+    t1 = mytime::getTime();
+    LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
+
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
 
     LOG::LOGGER.STD("Z bin counts: ");
@@ -93,6 +103,10 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     LOG::LOGGER.STD("Sorting with respect to estimated cpu time.\n");
     std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end()); // Ascending order
+    
+    // Print out time it took to sort files wrt CPU time
+    t2 = mytime::getTime();
+    LOG::LOGGER.STD("Sorting took %.2f m.\n", t2-t1);
 }
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
