@@ -415,6 +415,13 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
     // Now compute Fisher Matrix
     for (int j_kz = i_kz; j_kz < N_Q_MATRICES; ++j_kz)
     {
+        #ifdef FISHER_OPTIMIZATION
+        int diff_ji = j_kz - i_kz;
+
+        if ((diff_ji != 0) && (diff_ji != 1) && (diff_ji != bins::NUMBER_OF_K_BANDS))
+            continue;
+        #endif
+        
         _setQiMatrix(Q_jkz_matrix, j_kz);
 
         temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, DATA_SIZE);
