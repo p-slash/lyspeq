@@ -22,6 +22,147 @@
 #include "io/logger.hpp"
 
 //-------------------------------------------------------
+#define MPI_FNA_TAG 1
+#define MPI_CPU_TAG 0
+#define MPI_VEC_TAG 2
+
+void mpi_send_string(int target_pe, std::string &str)
+{
+    int length = str.length()+1;
+    MPI_Send(str.c_str(), length, MPI_CHAR, target_pe, MPI_FNA_TAG, MPI_COMM_WORLD);
+}
+
+void mpi_recv_string(int source_pe, std::string &str)
+{
+    // First recieve the size of the transmission
+    int length;
+    MPI_Status status;
+    MPI_Probe(source_pe, MPI_FNA_TAG, MPI_COMM_WORLD, &status);
+    MPI_Get_count(&status, MPI_CHAR, &length);
+
+    char *buf = new char[length+1];
+    MPI_Recv(buf, length+1, MPI_CHAR, source_pe, MPI_FNA_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    str = std::string(buf);
+
+    delete [] buf;
+}
+
+void mpi_bcast_string(int root_pe, std::string &str)
+{
+    int length = str.length()+1;
+    MPI_Bcast(&length, 1, MPI_INT, root_pe, MPI_COMM_WORLD);
+
+    char *buf = new char[length];
+    
+    if (process::this_pe == root_pe)
+        strcpy(buf, str.c_str());
+
+    MPI_Bcast(buf, length, MPI_CHAR, root_pe, MPI_COMM_WORLD);
+
+    if (process::this_pe != root_pe)
+        str = std::string(buf);
+    
+    delete [] buf;
+}
+
+void mpi_send_vec(int target_pe, std::vector<std::pair<double, std::string>> &vec)
+{
+    int size = vec.size();
+    MPI_Send(&size, 1, MPI_INT, target_pe, MPI_VEC_TAG, MPI_COMM_WORLD);
+    for (std::vector<std::pair<double, std::string>>::iterator it = vec.begin(); it != vec.end(); ++it)
+    {
+        MPI_Send(&(it->first), 1, MPI_DOUBLE, target_pe, MPI_VEC_TAG, MPI_COMM_WORLD);
+        mpi_send_string(target_pe, it->second);
+    }
+}
+
+void mpi_recv_vec(int source_pe, std::vector<std::pair<double, std::string>> &vec)
+{
+    int size;
+    MPI_Recv(&size, 1, MPI_INT, source_pe, MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    vec.reserve(size);
+
+    for (int i = 0; i < size; ++i)
+    {
+        double buf_cpu;
+        std::string buf;
+
+        MPI_Recv(&buf_cpu, 1, MPI_DOUBLE, source_pe, MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        mpi_recv_string(source_pe, buf);
+        vec.push_back(std::make_pair(buf_cpu, buf));
+    }
+}
+
+void mpi_bcast_cpu_fname_vec(std::vector<std::pair<double, std::string>> &cpu_fname_vec, int root_pe=0)
+{
+    int size;
+
+    // Root send the size of the vector
+    if (process::this_pe == root_pe)
+        size = cpu_fname_vec.size();
+    
+    MPI_Bcast(&size, 1, MPI_INT, root_pe, MPI_COMM_WORLD);
+    
+    if (process::this_pe != 0)
+        cpu_fname_vec.reserve(size);
+
+    for (int i = 0; i < size; ++i)
+    {
+        double cpu_time   = cpu_fname_vec[i].first;
+        std::string fname = cpu_fname_vec[i].second;
+
+        MPI_Bcast(&cpu_time, 1, MPI_DOUBLE, root_pe, MPI_COMM_WORLD);
+        mpi_bcast_string(root_pe, fname);
+
+        if (process::this_pe != root_pe)
+            cpu_fname_vec[i] = std::make_pair(cpu_time, fname);
+    }
+}
+
+void mpi_merge_sorted_arrays(int height, int Npe, int id, 
+    std::vector<std::pair<double, std::string>> &local_cpu_fname_vec)
+{
+    if (Npe == 1)  // We have reached to the final
+        return;
+
+    int parent_pe, child_pe, next_Npe, local_size = local_cpu_fname_vec.size();
+    next_Npe = (Npe + 1) / 2;
+
+    // Given a height, parent PEs are 2**(height+1), 1 << (height+1), height starts from 0 at the bottom (all PEs)
+    // This means e.g. at height 0 we need to map: 3->2, 2->2 and 5->4, 4->4 to find parents
+    parent_pe = (id & ~(1 << height));
+    
+    if (id == parent_pe)
+    {
+        // If this is the parent PE, receive from the child.
+        child_pe = (id | (1 << height));
+
+        // If childless, carry on to the next cycle
+        if (child_pe >= process::total_pes)
+        {
+            mpi_merge_sorted_arrays(height+1, next_Npe, id, local_cpu_fname_vec);
+            return;
+        }
+
+        // Receive child's sorted vector
+        std::vector<std::pair<double, std::string>> childs_sorted_vec;
+        mpi_recv_vec(child_pe, childs_sorted_vec);
+        
+        // Merge sorted these two arrays
+        local_cpu_fname_vec.insert(local_cpu_fname_vec.end(), childs_sorted_vec.begin(), childs_sorted_vec.end());
+        std::inplace_merge(local_cpu_fname_vec.begin(), local_cpu_fname_vec.begin()+local_size, 
+            local_cpu_fname_vec.end());
+       
+        // Recursive call 
+        mpi_merge_sorted_arrays(height+1, next_Npe, id, local_cpu_fname_vec);
+    }
+    else
+    {
+        // Child PE sends to its parent
+        mpi_send_vec(parent_pe, local_cpu_fname_vec);
+    }
+}
 
 int index_of_min_element(double *a, int size)
 {
@@ -66,17 +207,22 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     std::vector<std::string> fpaths;
     NUMBER_OF_QSOS = ioh::readList(fname_list, fpaths);
     
-    // Rotate file list so that each PE accesses different files at the same time.
-    t1 = mytime::getTime();
-    std::rotate(fpaths.begin(), fpaths.begin() + (NUMBER_OF_QSOS*process::this_pe)/process::total_pes, fpaths.end());
+    // Each PE reads a different section of files
+    // They sort individually, then merge in pairs
+    // Finally, the master PE broadcasts the sorted full array
+    int delta_nfiles = NUMBER_OF_QSOS / process::total_pes,
+        fstart_this  = delta_nfiles * process::this_pe,
+        fend_this    = delta_nfiles * (process::this_pe + 1);
+    
+    if (process::this_pe == process::total_pes - 1)
+        fend_this = NUMBER_OF_QSOS;
+
     t2 = mytime::getTime();
-    LOG::LOGGER.STD("Rotated the file list so that each PE accesses different files at a given time."
-        "It took %.2f m.\n", t2-t1);
 
     // Create vector for QSOs & read
     cpu_fname_vector.reserve(NUMBER_OF_QSOS);
 
-    for (std::vector<std::string>::iterator fq = fpaths.begin(); fq != fpaths.end(); ++fq)
+    for (std::vector<std::string>::iterator fq = fpaths.begin()+fstart_this; fq != fpaths.begin()+fend_this; ++fq)
     {
         fq->insert(0, "/");
         fq->insert(0, dir);
@@ -93,7 +239,9 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     // Print out time it took to read all files into vector
     t1 = mytime::getTime();
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
-
+    
+    // MPI Reduce ZBIN_COUNTS
+    MPI_Allreduce(MPI_IN_PLACE, Z_BIN_COUNTS, bins::NUMBER_OF_Z_BINS+2, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
 
     LOG::LOGGER.STD("Z bin counts: ");
@@ -103,7 +251,9 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     LOG::LOGGER.STD("Sorting with respect to estimated cpu time.\n");
     std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end()); // Ascending order
-    
+    mpi_merge_sorted_arrays(0, process::total_pes, process::this_pe, cpu_fname_vector);
+    // MPI bcast to all nodes
+
     // Print out time it took to sort files wrt CPU time
     t2 = mytime::getTime();
     LOG::LOGGER.STD("Sorting took %.2f m.\n", t2-t1);
