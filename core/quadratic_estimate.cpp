@@ -106,7 +106,10 @@ void mpi_bcast_cpu_fname_vec(std::vector<std::pair<double, std::string>> &cpu_fn
     MPI_Bcast(&size, 1, MPI_INT, root_pe, MPI_COMM_WORLD);
     
     if (process::this_pe != 0)
+    {
+        cpu_fname_vec.clear();
         cpu_fname_vec.reserve(size);
+    }
 
     for (int i = 0; i < size; ++i)
     {
@@ -117,7 +120,7 @@ void mpi_bcast_cpu_fname_vec(std::vector<std::pair<double, std::string>> &cpu_fn
         mpi_bcast_string(root_pe, fname);
 
         if (process::this_pe != root_pe)
-            cpu_fname_vec[i] = std::make_pair(cpu_time, fname);
+            cpu_fname_vec.push_back(std::make_pair(cpu_time, fname));
     }
 }
 
@@ -253,7 +256,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     LOG::LOGGER.STD("Sorting with respect to estimated cpu time.\n");
     std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end()); // Ascending order
     mpi_merge_sorted_arrays(0, process::total_pes, process::this_pe, cpu_fname_vector);
-    // MPI bcast to all nodes
+    mpi_bcast_cpu_fname_vec(cpu_fname_vector);
 
     // Print out time it took to sort files wrt CPU time
     t2 = mytime::getTime();
