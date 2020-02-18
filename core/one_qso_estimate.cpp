@@ -214,10 +214,18 @@ OneQSOEstimate::~OneQSOEstimate()
 
 double OneQSOEstimate::getComputeTimeEst()
 {
+    #ifdef FISHER_OPTIMIZATION
+    #define N_M_COMBO 3.
+    #else
+    #define N_M_COMBO (N_Q_MATRICES + 1.)
+    #endif
+
     if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
         return 0;
     else
-        return std::pow(DATA_SIZE/100., 3) * N_Q_MATRICES * (N_Q_MATRICES + 1.);
+        return std::pow(DATA_SIZE/100., 3) * N_Q_MATRICES * N_M_COMBO;
+
+    #undef N_M_COMBO
 }
 
 // If redshift evolution is turned off, always set pixel pair's redshift to MEDIAN_REDSHIFT of the chunk.
