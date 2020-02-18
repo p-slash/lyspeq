@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib> // system
+#include <cstring> // strcpy
 #include <cassert>
 #include <stdexcept>
 #include <string>
