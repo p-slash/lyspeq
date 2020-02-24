@@ -151,9 +151,17 @@ To convert with EdS velocity, set this to 1. Default 0 will use logarithmic spac
 
     UseEDSVelocity 0
     
-It is recommended that flux to fluctuations conversion done independently. However, if you want to input flux and convert using mean flux of each chunk, set this to 1.
+It is recommended that flux to fluctuations conversion done using an empirical or theoretical mean flux. Pass this binary filename (int size, double z[size], double flux[size])
 
-    ConvertFromFluxToDeltaf  0
+    MeanFluxFile ./true_mean_flux.dat
+
+However, if you want to convert using mean flux of each chunk, set the following to 1. This overrides the mean flux file.
+
+    UseChunksMeanFlux  0
+
+If your files have flux fluctuations, set the following to 1. This overrides all above.
+
+    InputIsDeltaFlux 0
 
 Quasar Spectrum File
 ====
