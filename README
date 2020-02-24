@@ -96,6 +96,10 @@ Redshift bins are linearly spaced.
     RedshiftBinWidth          0.2
     NumberOfRedshiftBins      6
 
+Fiducial power can be a tabulated file
+
+    FiducialPowerFile ./my_fiducial_estiamte.dat
+
 Fiducial Palanque fit function parameters when used.
     
     FiducialAmplitude            0.06

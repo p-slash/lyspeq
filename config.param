@@ -36,6 +36,9 @@ VelocityLength    9100.0
 # When testing outside of Lya region, turn off fiducial matrix by 1
 TurnOffBaseline   0
 
+# Fiducial power can be a tabulated file
+FiducialPowerFile ./my_fiducial_estiamte.dat
+
 # Fiducial Palanque fit function parameters
 FiducialAmplitude            0.06
 FiducialSlope               -2.6
