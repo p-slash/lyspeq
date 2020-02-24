@@ -251,7 +251,7 @@ void specifics::printConfigSpecifics(FILE *toWrite)
         fprintf(toWrite, "# Using following configuration parameters:\n"
         "# Fiducial Signal Baseline: %s\n"
         "# Velocity Spacing: %s\n"
-        "Input is delta flux: %s\n"
+        "# Input is delta flux: %s\n"
         "# Divide by mean flux of the chunk: %s\n", 
         TURN_OFF_SFID ? "OFF" : "ON",
         conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
