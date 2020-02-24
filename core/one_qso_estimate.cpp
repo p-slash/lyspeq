@@ -181,8 +181,7 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
-    if (conv::FLUX_TO_DELTAF_BY_CHUNKS)
-        conv::convertFluxToDeltaf(flux_array, noise_array, DATA_SIZE);
+    conv::convertFluxToDeltaF(lambda_array, flux_array, noise_array, DATA_SIZE);
     
     // Keep noise as error squared (variance)
     for (int i = 0; i < DATA_SIZE; ++i)
