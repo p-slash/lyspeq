@@ -303,9 +303,9 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("UseEDSVelocity",  &uedsv,     INTEGER);    // Default is using log velocity
 
     // How to convert from flux to delta_flux if at all
-    cFile.addKey("MeanFluxFile",            FNAME_MEAN_FLUX, STRING);  // File to interpolate for F-bar
-    cFile.addKey("UseRespectiveMeanFlux",   &uchunkmean,     INTEGER); // If 1, uses mean of each chunk as F-bar
-    cFile.addKey("InputIsDeltaFlux",        &udeltaf,        INTEGER); // If 1, input is delta_f
+    cFile.addKey("MeanFluxFile",        FNAME_MEAN_FLUX, STRING);  // File to interpolate for F-bar
+    cFile.addKey("UseChunksMeanFlux",   &uchunkmean,     INTEGER); // If 1, uses mean of each chunk as F-bar
+    cFile.addKey("InputIsDeltaFlux",    &udeltaf,        INTEGER); // If 1, input is delta_f
 
     // Baseline Power Spectrum
     cFile.addKey("FiducialPowerFile",           FNAME_FID_POWER,                      STRING);
