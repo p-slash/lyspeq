@@ -159,7 +159,7 @@ However, if you want to convert using mean flux of each chunk, set the following
 
     UseChunksMeanFlux  0
 
-If your files have flux fluctuations, set the following to 1. This overrides all above.
+If your files have flux fluctuations, set the following to 1. This overrides all above, even nothing was passed.
 
     InputIsDeltaFlux 0
 
