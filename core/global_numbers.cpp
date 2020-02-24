@@ -263,7 +263,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
                         int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
-    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off, ulogv=-1, uchunkmean=-1;
+    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off, uedsv=-1, uchunkmean=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1;
     char    FNAME_FID_POWER[300]="";
 
@@ -316,7 +316,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("AllocatedMemoryMB", &process::MEMORY_ALLOC, DOUBLE);
 
     cFile.addKey("TemporaryFolder", &process::TMP_FOLDER, STRING);
-    cFile.addKey("UseLogarithmicVelocity", &ulogv, INTEGER);
+    cFile.addKey("UseEDSVelocity", &uedsv, INTEGER);
     cFile.addKey("ConvertFromFluxToDeltaf", &uchunkmean, INTEGER);
 
     cFile.readAll();
@@ -326,7 +326,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     // TODO: Test access here
     
     specifics::TURN_OFF_SFID   = sfid_off > 0;
-    conv::USE_LOG_V = ulogv > 0;
+    conv::USE_LOG_V = !(uedsv > 0);
     conv::FLUX_TO_DELTAF_BY_CHUNKS = uchunkmean > 0;
 
     if (temp_chisq > 0) specifics::CHISQ_CONVERGENCE_EPS = temp_chisq;
