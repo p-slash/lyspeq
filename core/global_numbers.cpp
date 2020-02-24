@@ -239,9 +239,11 @@ void specifics::printConfigSpecifics(FILE *toWrite)
         LOG::LOGGER.STD("Using following configuration parameters:\n"
         "Fiducial Signal Baseline: %s\n"
         "Velocity Spacing: %s\n"
+        "Input is delta flux: %s\n"
         "Divide by mean flux of the chunk: %s\n", 
         TURN_OFF_SFID ? "OFF" : "ON",
         conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
+        conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
         conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
     }
     else
@@ -249,9 +251,11 @@ void specifics::printConfigSpecifics(FILE *toWrite)
         fprintf(toWrite, "# Using following configuration parameters:\n"
         "# Fiducial Signal Baseline: %s\n"
         "# Velocity Spacing: %s\n"
+        "Input is delta flux: %s\n"
         "# Divide by mean flux of the chunk: %s\n", 
         TURN_OFF_SFID ? "OFF" : "ON",
         conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
+        conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
         conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
     }
 }
@@ -263,7 +267,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
                         int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
-    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off, uedsv=-1, uchunkmean=-1, udeltaf=-1;
+    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off, uedsv=-1, uchunkmean=-1, udeltaf=1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="";
 
@@ -333,7 +337,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     specifics::TURN_OFF_SFID   = sfid_off > 0;
     conv::USE_LOG_V = !(uedsv > 0);
     conv::FLUX_TO_DELTAF_BY_CHUNKS = uchunkmean > 0;
-    conv::INPUT_IS_DELTA_FLUX = udeltaf > 1;
+    conv::INPUT_IS_DELTA_FLUX = udeltaf > 0;
 
     // resolve conflict: Input delta flux overrides all
     // Then, chunk means.
