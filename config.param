@@ -44,6 +44,14 @@ FiducialRedshiftPower        1
 FiducialRedshiftCurvature    0
 FiducialLorentzianLambda     0
 
+# Use true mean flux
+MeanFluxFile ./true_mean_flux.dat
+# To use chunks mean flux, set this to 1
+UseChunksMeanFlux 0
+# To not convert, set this to 1
+InputIsDeltaFlux 0
+
+
 # These lookup tables are saved with the follwoing file name bases to FileInputDir:
 SignalLookUpTableBase        signal_zon_lookup
 DerivativeSLookUpTableBase   derivative_zon_lookup
@@ -53,6 +61,5 @@ NumberOfIterations 15
 
 AllocatedMemoryMB 5.
 TemporaryFolder /tmp
-UseLogarithmicVelocity 1
-ConvertFromFluxToDeltaf  0
+UseEDSVelocity 0
 
