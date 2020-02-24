@@ -1,5 +1,6 @@
 ### Changes
 + Python script does not fit, but applies a weighted smoothing.
++ Default velocity is logarithmic. Changed the key in config.param
 
 ### mpi-v1.3
 + Signal and derivative look up tables are controlled by one class: [sq_table.hpp](core/sq_table.hpp)
@@ -145,9 +146,9 @@ Specify temporary folder. Smooth power spectrum fitting creates temp files to co
 
     TemporaryFolder /tmp
 
-To convert with logarithmic velocity, set this to 1. 0 will use EdS approximation.
+To convert with EdS velocity, set this to 1. Default 0 will use logarithmic spacing approximation.
 
-    UseLogarithmicVelocity 1
+    UseEDSVelocity 0
     
 It is recommended that flux to fluctuations conversion done independently. However, if you want to input flux and convert using mean flux of each chunk, set this to 1.
 
