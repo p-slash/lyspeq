@@ -263,9 +263,9 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
                         int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
-    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off, uedsv=-1, uchunkmean=-1;
+    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off, uedsv=-1, uchunkmean=-1, udeltaf=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1;
-    char    FNAME_FID_POWER[300]="";
+    char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="";
 
     // Set up config file to read variables.
     ConfigFile cFile(FNAME_CONFIG);
@@ -298,8 +298,18 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("PixelWidth",      PIXEL_WIDTH, DOUBLE);
     cFile.addKey("VelocityLength",  LENGTH_V,    DOUBLE);
 
-    // Fiducial Palanque fit function parameters
+    // Fiducial cosmology
+    cFile.addKey("TurnOffBaseline", &sfid_off,  INTEGER);    // Turns off the signal matrix
+    cFile.addKey("UseEDSVelocity",  &uedsv,     INTEGER);    // Default is using log velocity
+
+    // How to convert from flux to delta_flux if at all
+    cFile.addKey("MeanFluxFile",            FNAME_MEAN_FLUX, STRING);  // File to interpolate for F-bar
+    cFile.addKey("UseRespectiveMeanFlux",   &uchunkmean,     INTEGER); // If 1, uses mean of each chunk as F-bar
+    cFile.addKey("InputIsDeltaFlux",        &udeltaf,        INTEGER); // If 1, input is delta_f
+
+    // Baseline Power Spectrum
     cFile.addKey("FiducialPowerFile",           FNAME_FID_POWER,                      STRING);
+    // Fiducial Palanque fit function parameters
     cFile.addKey("FiducialAmplitude",           &fidpd13::FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
     cFile.addKey("FiducialSlope",               &fidpd13::FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
     cFile.addKey("FiducialCurvature",           &fidpd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
@@ -311,13 +321,8 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
 
     // Read integer if testing outside of Lya region
-    cFile.addKey("TurnOffBaseline", &sfid_off, INTEGER);
-
     cFile.addKey("AllocatedMemoryMB", &process::MEMORY_ALLOC, DOUBLE);
-
     cFile.addKey("TemporaryFolder", &process::TMP_FOLDER, STRING);
-    cFile.addKey("UseEDSVelocity", &uedsv, INTEGER);
-    cFile.addKey("ConvertFromFluxToDeltaf", &uchunkmean, INTEGER);
 
     cFile.readAll();
 
@@ -328,6 +333,34 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     specifics::TURN_OFF_SFID   = sfid_off > 0;
     conv::USE_LOG_V = !(uedsv > 0);
     conv::FLUX_TO_DELTAF_BY_CHUNKS = uchunkmean > 0;
+    conv::INPUT_IS_DELTA_FLUX = udeltaf > 1;
+
+    // resolve conflict: Input delta flux overrides all
+    // Then, chunk means.
+    if (conv::INPUT_IS_DELTA_FLUX && conv::FLUX_TO_DELTAF_BY_CHUNKS)
+    {
+        LOG::LOGGER.ERR("Both input delta flux and conversion using chunk's mean flux is turned on. "
+            "Assuming input is flux fluctuations delta_f.\n");
+        conv::FLUX_TO_DELTAF_BY_CHUNKS = false;
+    }
+
+    conv::setMeanFlux();
+
+    if (FNAME_MEAN_FLUX[0] != '\0')
+    {
+        if (conv::FLUX_TO_DELTAF_BY_CHUNKS)
+        {
+            LOG::LOGGER.ERR("Both mean flux file and using chunk's mean flux is turned on. "
+            "Using chunk's mean flux.\n");
+        }
+        else if (conv::INPUT_IS_DELTA_FLUX)
+        {
+            LOG::LOGGER.ERR("Both input delta flux and conversion using mean flux file is turned on. "
+            "Assuming input is flux fluctuations delta_f.\n");
+        }
+        else
+            conv::setMeanFlux(FNAME_MEAN_FLUX);
+    }
 
     if (temp_chisq > 0) specifics::CHISQ_CONVERGENCE_EPS = temp_chisq;
 
