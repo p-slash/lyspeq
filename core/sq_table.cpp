@@ -51,8 +51,7 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
 
     LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_R_VALUES);
 
-    for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-        LOG::LOGGER.STD("%d\n", R_VALUES[r]);
+    std::for_each(R_VALUES.begin(), R_VALUES.end(), [&](int &R) { LOG::LOGGER.STD("%d\n", R); } );
 }
 
 void SQLookupTable::readTables()
