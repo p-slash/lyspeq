@@ -29,8 +29,7 @@ namespace conv
     {
         const double *l __attribute__((unused)) = lambda;
         double chunk_mean = 0.;
-        std::accumulate(flux, flux+size, chunk_mean);
-        chunk_mean /= size;
+        chunk_mean = std::accumulate(flux, flux+size, chunk_mean) / size;
 
         for (int i = 0; i < size; ++i)
         {
