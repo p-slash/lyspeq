@@ -267,7 +267,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
                         int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
-    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off, uedsv=-1, uchunkmean=-1, udeltaf=1;
+    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off, uedsv=-1, uchunkmean=-1, udeltaf=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="";
 
@@ -365,6 +365,8 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
         else
             conv::setMeanFlux(FNAME_MEAN_FLUX);
     }
+    else if (!(conv::INPUT_IS_DELTA_FLUX || conv::FLUX_TO_DELTAF_BY_CHUNKS))
+        conv::INPUT_IS_DELTA_FLUX = true;
 
     if (temp_chisq > 0) specifics::CHISQ_CONVERGENCE_EPS = temp_chisq;
 

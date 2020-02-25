@@ -14,7 +14,7 @@
 // Conversion functions
 namespace conv
 {
-    bool USE_LOG_V = false, FLUX_TO_DELTAF_BY_CHUNKS = false, INPUT_IS_DELTA_FLUX = true;
+    bool USE_LOG_V = false, FLUX_TO_DELTAF_BY_CHUNKS = false, INPUT_IS_DELTA_FLUX = false;
     Interpolation *interp_mean_flux = NULL;
 
     void noConversion(const double *lambda, double *flux, double *noise, int size)
