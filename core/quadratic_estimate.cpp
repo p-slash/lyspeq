@@ -1,7 +1,8 @@
 #include "core/quadratic_estimate.hpp"
 
 #include <cmath>
-#include <algorithm>
+#include <algorithm> // std::for_each
+#include <memory> // std::default_delete
 #include <cstdio>
 #include <cstdlib> // system
 #include <cassert>
@@ -383,9 +384,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             LOG::LOGGER.ERR("ERROR while inverting Fisher matrix: %s.\n", e.what());
             
             delete [] powerspectra_fits;
-            for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
-                delete *it;
-            
+            std::for_each(local_queue.begin(), local_queue.end(), std::default_delete<OneQSOEstimate>());
+
             throw e;
         }
         
@@ -412,18 +412,15 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             LOG::LOGGER.ERR("ERROR in Python script: %s\n", e.what());
 
             delete [] powerspectra_fits;
-            for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
-                delete *it;
+            std::for_each(local_queue.begin(), local_queue.end(), std::default_delete<OneQSOEstimate>());
 
             throw e;
         }
         
     }
 
-    for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
-        delete *it;
-
     delete [] powerspectra_fits;
+    std::for_each(local_queue.begin(), local_queue.end(), std::default_delete<OneQSOEstimate>());
 }
 
 bool OneDQuadraticPowerEstimate::hasConverged()
@@ -603,8 +600,6 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        // if (Z_BIN_COUNTS[zm+1] == 0)  continue;
-
         z  = bins::ZBIN_CENTERS[zm];
         
         k1 = bins::KBAND_EDGES[kn];
@@ -632,11 +627,9 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 void OneDQuadraticPowerEstimate::initializeIteration()
 {
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-        for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
-            *(dbt_estimate_sum_before_fisher_vector[dbt_i]+i_kz) = 0;
-    
-    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS; ++i_kz)
-        *(fisher_matrix_sum+i_kz) = 0;  
+        std::fill_n(dbt_estimate_sum_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS, 0);
+
+    std::fill_n(fisher_matrix_sum, bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS, 0);
 
     isFisherInverted = false;
 }
