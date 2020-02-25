@@ -185,8 +185,6 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     
     // Keep noise as error squared (variance)
     std::for_each(noise_array, noise_array+DATA_SIZE, [](double &n) { n*=n; });
-    // for (int i = 0; i < DATA_SIZE; ++i)
-    //     noise_array[i] *= noise_array[i];
 
     LOG::LOGGER.IO("Length of v is %.1f\n" "Median redshift: %.2f\n" "Redshift range: %.2f--%.2f\n", 
         velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT, LOWER_REDSHIFT, UPPER_REDSHIFT);
@@ -348,10 +346,8 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     #define ADDED_CONST_TO_COVARIANCE 100.
     // Continuum  normalization
     std::for_each(covariance_matrix, covariance_matrix+DATA_SIZE*DATA_SIZE, 
-        [](double &c) { c+=ADDED_CONST_TO_COVARIANCE; });
-    // for (int i = 0; i < DATA_SIZE*DATA_SIZE; ++i)
-    //     *(covariance_matrix+i) += ADDED_CONST_TO_COVARIANCE;
-
+        [](double &c) { c += ADDED_CONST_TO_COVARIANCE; });
+    
     // Continuum derivative
     #if 0
     double *temp_t_vector = new double[DATA_SIZE];
