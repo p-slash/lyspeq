@@ -12,7 +12,7 @@ namespace process
 {
     int this_pe=0, total_pes=1;
     char TMP_FOLDER[300] = ".";
-    double MEMORY_ALLOC          = 0;
+    double MEMORY_ALLOC  = 0;
     SQLookupTable *sq_private_table;
 }
 

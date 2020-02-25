@@ -67,11 +67,6 @@ namespace conv
     void convertLambdaToRedshift(double *lambda, int size)
     {
         std::for_each(lambda, lambda+size, [](double &ld) { ld = ld/LYA_REST-1; });
-        // for (int i = 0; i < size; ++i)
-        // {
-        //     lambda[i] /= LYA_REST;
-        //     lambda[i] -= 1.;
-        // }
     }
 
     void (*convertFluxToDeltaF)(const double*, double*, double*, int) = &noConversion;
@@ -110,34 +105,6 @@ namespace conv
 
         convertFluxToDeltaF = &fullConversion;
     }
-
-    // void convertFluxToDeltaF(const double *lambda, double *flux, double *noise, int size)
-    // {
-    //     if (INPUT_IS_DELTA_FLUX)
-    //         return;
-
-    //     if (FLUX_TO_DELTAF_BY_CHUNKS)
-    //     {
-    //         double chunk_mean = 0.;
-    //         std::accumulate(flux, flux+size, chunk_mean);
-    //         chunk_mean /= size;
-
-    //         for (int i = 0; i < size; ++i)
-    //         {
-    //             flux[i] = flux[i]/chunk_mean - 1;
-    //             noise[i] = chunk_mean;
-    //         }
-    //     }
-    //     else
-    //     {
-    //         for (int i = 0; i < size; ++i)
-    //         {
-    //             double tmp_meanf = interp_mean_flux->evaluate(lambda[i]/LYA_REST-1);
-    //             flux[i] = flux[i]/tmp_meanf - 1;
-    //             noise[i] = tmp_meanf;
-    //         }
-    //     } 
-    // }
 
     // , USE_FID_LEE12_MEAN_FLUX = false;
     // double meanFluxBecker13(double z)
