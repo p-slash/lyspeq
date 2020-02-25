@@ -13,6 +13,7 @@
 #include <gsl/gsl_errno.h>
 
 #include <cmath>
+#include <algorithm> // std::for_each & transform
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
