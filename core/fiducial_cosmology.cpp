@@ -31,11 +31,13 @@ namespace conv
         double chunk_mean = 0.;
         chunk_mean = std::accumulate(flux, flux+size, chunk_mean) / size;
 
-        for (int i = 0; i < size; ++i)
-        {
-            flux[i]   = flux[i]/chunk_mean - 1;
-            noise[i] /= chunk_mean;
-        }
+        std::for_each(flux, flux+size, [&](double &f) { f = f/chunk_mean-1; });
+        std::for_each(noise, noise+size, [&](double &n) { n /= chunk_mean; });
+        // for (int i = 0; i < size; ++i)
+        // {
+        //     flux[i]   = flux[i]/chunk_mean - 1;
+        //     noise[i] /= chunk_mean;
+        // }
     }
 
     void fullConversion(const double *lambda, double *flux, double *noise, int size)
@@ -43,8 +45,8 @@ namespace conv
         for (int i = 0; i < size; ++i)
         {
             double tmp_meanf = interp_mean_flux->evaluate(lambda[i]/LYA_REST-1);
-            flux[i]   = flux[i]/tmp_meanf - 1;
-            noise[i] /= tmp_meanf;
+            *(flux+i)   = *(flux+i)/tmp_meanf - 1;
+            *(noise+i) /= tmp_meanf;
         }
     }
 
@@ -55,24 +57,21 @@ namespace conv
         median_z = median_lambda / LYA_REST - 1.;
 
         if (USE_LOG_V)
-        {
-            for (int i = 0; i < size; ++i)
-                v_array[i] = SPEED_OF_LIGHT * log(lambda[i]/median_lambda);
-        }
+            std::transform(lambda, lambda+size, v_array, 
+                [&](const double &l) { return SPEED_OF_LIGHT * log(l/median_lambda); });
         else
-        {
-            for (int i = 0; i < size; ++i)
-                v_array[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(median_lambda / lambda[i]));
-        }
+            std::transform(lambda, lambda+size, v_array, 
+                [&](const double &l) { return 2*SPEED_OF_LIGHT * (1. - sqrt(median_lambda/l)); });
     }
 
     void convertLambdaToRedshift(double *lambda, int size)
     {
-        for (int i = 0; i < size; ++i)
-        {
-            lambda[i] /= LYA_REST;
-            lambda[i] -= 1.;
-        }
+        std::for_each(lambda, lambda+size, [](double &ld) { ld = ld/LYA_REST-1; });
+        // for (int i = 0; i < size; ++i)
+        // {
+        //     lambda[i] /= LYA_REST;
+        //     lambda[i] -= 1.;
+        // }
     }
 
     void (*convertFluxToDeltaF)(const double*, double*, double*, int) = &noConversion;
