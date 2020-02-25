@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <numeric> // std::accumulate
+#include <algorithm> // std::for_each & transform
 #include <iostream>
 #include <vector>
 #include <set>
