@@ -56,7 +56,6 @@ namespace conv
 
         if (USE_LOG_V)
         {
-            std::for_each(v_array, v_array+size, [](int &v){} )
             for (int i = 0; i < size; ++i)
                 v_array[i] = SPEED_OF_LIGHT * log(lambda[i]/median_lambda);
         }
