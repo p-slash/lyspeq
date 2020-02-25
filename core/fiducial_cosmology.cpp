@@ -33,8 +33,8 @@ namespace conv
 
         for (int i = 0; i < size; ++i)
         {
-            flux[i] = flux[i]/chunk_mean - 1;
-            noise[i] = chunk_mean;
+            flux[i]   = flux[i]/chunk_mean - 1;
+            noise[i] /= chunk_mean;
         }
     }
 
@@ -43,8 +43,8 @@ namespace conv
         for (int i = 0; i < size; ++i)
         {
             double tmp_meanf = interp_mean_flux->evaluate(lambda[i]/LYA_REST-1);
-            flux[i] = flux[i]/tmp_meanf - 1;
-            noise[i] = tmp_meanf;
+            flux[i]   = flux[i]/tmp_meanf - 1;
+            noise[i] /= tmp_meanf;
         }
     }
 
@@ -56,6 +56,7 @@ namespace conv
 
         if (USE_LOG_V)
         {
+            std::for_each(v_array, v_array+size, [](int &v){} )
             for (int i = 0; i < size; ++i)
                 v_array[i] = SPEED_OF_LIGHT * log(lambda[i]/median_lambda);
         }
