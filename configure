@@ -2,6 +2,7 @@
 
 # ./configure will set up a vanilla version that relies only on GSL with cubic and bicubic interpolation and triangle z bins.
 # Change configuration by passing build types. For more info ./configure --print-builds
+# To enable OpenMP threading, pass --enable-openmp
 # For more options pass --help or -h
 # Intel compilers: This has been tested for only Parallel Studio XE 2018 icpc and MKL.
 
@@ -224,6 +225,8 @@ do
         --enable-mpi )
             CXXu="mpic++"
             en_mpi="-DENABLE_MPI";;
+        --enable-openmp )
+            CPPFLAGS_OMP="-fopenmp";;
         --interp1d=* )
             if [[ "${i#*=}" ==  "GSL_CUBIC_INTERPOLATION" || "${i#*=}" ==  "GSL_LINEAR_INTERPOLATION" ]]; then
                 interp1d="-DINTERP_1D_TYPE=${i#*=}"
@@ -263,6 +266,7 @@ do
             echo "--enable-fiducial-growth : Enables scaling derivative matrices with fiducial growth function."
             echo "--disable-redshift-evolution : Turn off redshift evolution. Binning is overwritten to Top Hat. Redshift growth is still on when passed."
             echo "--enable-mpi : Sets C++ compiler to mpic++"
+            echo "--enable-openmp : Enables OpenMP"
             echo "--build=[build type] or [build type]: Sets the build type"
             echo "--interactive : Use interactive mode."
             echo "--interp1d=[GSL_LINEAR_INTERPOLATION or GSL_CUBIC_INTERPOLATION] : Specify 1D interpolation type. Default is cubic."
