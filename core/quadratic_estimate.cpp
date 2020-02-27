@@ -314,7 +314,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> &lo
         }
     }
 
-    double ave_balance = std::accumulate(bucket_time.begin(), bucket_time.end(), 0) / process::total_pes;
+    double ave_balance = std::accumulate(bucket_time.begin(), bucket_time.end(), 0.) / process::total_pes;
 
     LOG::LOGGER.STD("Off-Balance: ");
     for (std::vector<double>::iterator it = bucket_time.begin(); it != bucket_time.end(); ++it)
