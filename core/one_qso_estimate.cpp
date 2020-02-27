@@ -344,27 +344,26 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     // add noise matrix diagonally
     cblas_daxpy(DATA_SIZE, 1., noise_array, 1, covariance_matrix, DATA_SIZE+1);
 
-    #define ADDED_CONST_TO_COVARIANCE 100.
-    // Continuum  normalization
-    std::for_each(covariance_matrix, covariance_matrix+DATA_SIZE*DATA_SIZE, 
-        [](double &c) { c += ADDED_CONST_TO_COVARIANCE; });
+    if (specifics::CONTINUUM_MARGINALIZATION_AMP > 0)
+    {
+        std::for_each(covariance_matrix, covariance_matrix+DATA_SIZE*DATA_SIZE, 
+            [](double &c) { c += specifics::CONTINUUM_MARGINALIZATION_AMP; });
+    }
+
+    if (specifics::CONTINUUM_MARGINALIZATION_DERV > 0)
+    {
+        double *temp_t_vector = new double[DATA_SIZE];
+        double MEDIAN_LAMBDA = LYA_REST * (1 + MEDIAN_REDSHIFT);
+
+        std::transform(lambda_array, lambda_array+DATA_SIZE, temp_t_vector, 
+            [&](const double &l) { return log(l/MEDIAN_LAMBDA); });
+
+        cblas_dger(CblasRowMajor, DATA_SIZE, DATA_SIZE, specifics::CONTINUUM_MARGINALIZATION_DERV, 
+            temp_t_vector, 1, temp_t_vector, 1, covariance_matrix, DATA_SIZE);
+
+        delete [] temp_t_vector;
+    }
     
-    // Continuum derivative
-    #if 0
-    double *temp_t_vector = new double[DATA_SIZE];
-    double MEDIAN_LAMBDA = LYA_REST * (1 + MEDIAN_REDSHIFT);
-
-    for (int tvec_i = 0; tvec_i < DATA_SIZE; ++tvec_i)
-        temp_t_vector[tvec_i] = log(lambda_array[tvec_i]/MEDIAN_LAMBDA);
-
-    cblas_dger(CblasRowMajor, DATA_SIZE, DATA_SIZE, ADDED_CONST_TO_COVARIANCE, 
-        temp_t_vector, 1, temp_t_vector, 1, covariance_matrix->data, DATA_SIZE);
-
-    delete [] temp_t_vector;
-    #endif
-    
-    #undef ADDED_CONST_TO_COVARIANCE
-
     isCovInverted = false;
 }
 

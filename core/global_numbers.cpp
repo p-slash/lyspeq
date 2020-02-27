@@ -224,39 +224,43 @@ namespace mytime
     }
 }
 
-double specifics::CHISQ_CONVERGENCE_EPS = 0.01;
-bool   specifics::TURN_OFF_SFID;
-
-void specifics::printBuildSpecifics()
+namespace specifics
 {
-    LOG::LOGGER.STD(specifics::BUILD_SPECIFICS);
-}
+    double CHISQ_CONVERGENCE_EPS = 0.01;
+    bool   TURN_OFF_SFID;
+    double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
 
-void specifics::printConfigSpecifics(FILE *toWrite)
-{
-    if (toWrite == NULL)
+    void printBuildSpecifics()
     {
-        LOG::LOGGER.STD("Using following configuration parameters:\n"
-        "Fiducial Signal Baseline: %s\n"
-        "Velocity Spacing: %s\n"
-        "Input is delta flux: %s\n"
-        "Divide by mean flux of the chunk: %s\n", 
-        TURN_OFF_SFID ? "OFF" : "ON",
-        conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
-        conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
-        conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
+        LOG::LOGGER.STD(BUILD_SPECIFICS);
     }
-    else
+
+    void printConfigSpecifics(FILE *toWrite)
     {
-        fprintf(toWrite, "# Using following configuration parameters:\n"
-        "# Fiducial Signal Baseline: %s\n"
-        "# Velocity Spacing: %s\n"
-        "# Input is delta flux: %s\n"
-        "# Divide by mean flux of the chunk: %s\n", 
-        TURN_OFF_SFID ? "OFF" : "ON",
-        conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
-        conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
-        conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
+        if (toWrite == NULL)
+        {
+            LOG::LOGGER.STD("Using following configuration parameters:\n"
+            "Fiducial Signal Baseline: %s\n"
+            "Velocity Spacing: %s\n"
+            "Input is delta flux: %s\n"
+            "Divide by mean flux of the chunk: %s\n", 
+            TURN_OFF_SFID ? "OFF" : "ON",
+            conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
+            conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
+            conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
+        }
+        else
+        {
+            fprintf(toWrite, "# Using following configuration parameters:\n"
+            "# Fiducial Signal Baseline: %s\n"
+            "# Velocity Spacing: %s\n"
+            "# Input is delta flux: %s\n"
+            "# Divide by mean flux of the chunk: %s\n", 
+            TURN_OFF_SFID ? "OFF" : "ON",
+            conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
+            conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
+            conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
+        }
     }
 }
 
@@ -267,7 +271,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
                         int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
-    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off, uedsv=-1, uchunkmean=-1, udeltaf=-1;
+    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="";
 
@@ -290,7 +294,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
 
     cFile.addKey("FileNameRList",  FNAME_RLIST, STRING);
     cFile.addKey("FileInputDir",   INPUT_DIR, STRING);
-    cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); // Lya
+    cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
 
     cFile.addKey("SignalLookUpTableBase",       FILEBASE_S, STRING);
@@ -304,7 +308,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
 
     // Fiducial cosmology
     cFile.addKey("TurnOffBaseline", &sfid_off,  INTEGER);    // Turns off the signal matrix
-    cFile.addKey("UseEDSVelocity",  &uedsv,     INTEGER);    // Default is using log velocity
+    cFile.addKey("UseEDSVelocity",  &uedsv,     INTEGER);    // Default is using eds velocity
 
     // How to convert from flux to delta_flux if at all
     cFile.addKey("MeanFluxFile",        FNAME_MEAN_FLUX, STRING);  // File to interpolate for F-bar
@@ -324,6 +328,10 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("NumberOfIterations", NUMBER_OF_ITERATIONS, INTEGER);
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
 
+    // Continuum marginalization coefficients. Defaults are 100. Pass <=0 to turn off
+    cFile.addKey("ContinuumMargAmp",  &specifics::CONTINUUM_MARGINALIZATION_AMP,  DOUBLE);
+    cFile.addKey("ContinuumMargDerv", &specifics::CONTINUUM_MARGINALIZATION_DERV, DOUBLE);
+
     // Read integer if testing outside of Lya region
     cFile.addKey("AllocatedMemoryMB", &process::MEMORY_ALLOC, DOUBLE);
     cFile.addKey("TemporaryFolder", &process::TMP_FOLDER, STRING);
@@ -334,10 +342,10 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
     // TODO: Test access here
     
-    specifics::TURN_OFF_SFID   = sfid_off > 0;
-    conv::USE_LOG_V = !(uedsv > 0);
-    conv::FLUX_TO_DELTAF_BY_CHUNKS = uchunkmean > 0;
-    conv::INPUT_IS_DELTA_FLUX = udeltaf > 0;
+    specifics::TURN_OFF_SFID        = sfid_off > 0;
+    conv::USE_LOG_V                 = !(uedsv > 0);
+    conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
+    conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
 
     // resolve conflict: Input delta flux overrides all
     // Then, chunk means.
