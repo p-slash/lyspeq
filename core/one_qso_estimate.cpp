@@ -347,7 +347,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     if (specifics::CONTINUUM_MARGINALIZATION_AMP > 0)
     {
         std::for_each(covariance_matrix, covariance_matrix+DATA_SIZE*DATA_SIZE, 
-            [](double &c) { c += specifics::CONTINUUM_MARGINALIZATION_AMP; });
+            [&](double &c) { c += specifics::CONTINUUM_MARGINALIZATION_AMP; });
     }
 
     if (specifics::CONTINUUM_MARGINALIZATION_DERV > 0)
