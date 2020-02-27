@@ -304,7 +304,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> &lo
         // find min time bucket
         auto min_bt = std::min_element(bucket_time.begin(), bucket_time.end());
         // add max time consuming to that bucket
-        *min_bt += qe->first;
+        (*min_bt) += qe->first;
 
         if (std::distance(bucket_time.begin(), min_bt) == process::this_pe)
         {
