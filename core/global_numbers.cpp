@@ -243,11 +243,15 @@ namespace specifics
             "Fiducial Signal Baseline: %s\n"
             "Velocity Spacing: %s\n"
             "Input is delta flux: %s\n"
-            "Divide by mean flux of the chunk: %s\n", 
+            "Divide by mean flux of the chunk: %s\n",
+            "ContinuumMargAmp: %.2e\n",
+            "ContinuumMargDerv: %.2e\n", 
             TURN_OFF_SFID ? "OFF" : "ON",
             conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
             conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
-            conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
+            conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF",
+            CONTINUUM_MARGINALIZATION_AMP,
+            CONTINUUM_MARGINALIZATION_DERV);
         }
         else
         {
@@ -256,10 +260,14 @@ namespace specifics
             "# Velocity Spacing: %s\n"
             "# Input is delta flux: %s\n"
             "# Divide by mean flux of the chunk: %s\n", 
+            "# ContinuumMargAmp: %.2e\n",
+            "# ContinuumMargDerv: %.2e\n", 
             TURN_OFF_SFID ? "OFF" : "ON",
             conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
             conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
-            conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
+            conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF",
+            CONTINUUM_MARGINALIZATION_AMP,
+            CONTINUUM_MARGINALIZATION_DERV);
         }
     }
 }
