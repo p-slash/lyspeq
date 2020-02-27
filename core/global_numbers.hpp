@@ -70,6 +70,7 @@ namespace specifics
 {
     extern bool TURN_OFF_SFID;
     extern double CHISQ_CONVERGENCE_EPS;
+    extern double CONTINUUM_MARGINALIZATION_AMP, CONTINUUM_MARGINALIZATION_DERV;
 
     #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
     #define BINNING_SHAPE "Top Hat"
