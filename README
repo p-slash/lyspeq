@@ -3,6 +3,7 @@
 + Default velocity is logarithmic. Changed the key in config.param
 + Implemented reading a mean flux file, which changed config.param keys
 + Created continuum marginalization coeffecients under specifics namespace. Read from config file.
++ Removed redshift evolution option
 
 ### mpi-v1.3
 + Signal and derivative look up tables are controlled by one class: [sq_table.hpp](core/sq_table.hpp)
