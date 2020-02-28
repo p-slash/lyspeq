@@ -145,10 +145,7 @@ namespace bins
 
     double redshiftBinningFunction(double z, int zm)
     {
-        #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
-        return 1;
-
-        #elif defined(TOPHAT_Z_BINNING_FN)
+        #if defined(TOPHAT_Z_BINNING_FN)
         if (zm == findRedshiftBin(z)) return 1;
         else                          return 0;
 
