@@ -105,17 +105,11 @@ bool OneQSOEstimate::_findRedshiftBin()
     return true;
 }
 
-// When redshift evolution is turned off, all pixels are assigned to one bin
 // For a top hat redshift bin, only access 1 redshift bin for each pixel
 // For triangular z bins, access 2 redshift bins for each pixel
 void OneQSOEstimate::_setNQandFisherIndex()
 {   
-    #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
-    // All pixels belong to one redshift bin
-    N_Q_MATRICES = 1;
-    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN);
-
-    #elif defined(TOPHAT_Z_BINNING_FN)
+    #if defined(TOPHAT_Z_BINNING_FN)
     N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
     fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
     
@@ -135,6 +129,8 @@ void OneQSOEstimate::_setNQandFisherIndex()
     {
         ++N_Q_MATRICES;
     }
+    #else
+    // Error
 
     #endif
 
@@ -227,16 +223,10 @@ double OneQSOEstimate::getComputeTimeEst()
     #undef N_M_COMBO
 }
 
-// If redshift evolution is turned off, always set pixel pair's redshift to MEDIAN_REDSHIFT of the chunk.
 void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
 {
     v_ij = velocity_array[j] - velocity_array[i];
-
-    #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
-    z_ij = MEDIAN_REDSHIFT;
-    #else
     z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
-    #endif
 }
 
 void OneQSOEstimate::_setFiducialSignalMatrix(double *sm)
@@ -293,11 +283,8 @@ void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
                 _getVandZ(v_ij, z_ij, row, col);
                 
                 temp  = interp_derivative_matrix[kn]->evaluate(v_ij);
-
-                // When redshift evolution is turned off, always use top-hat binning
                 temp *= bins::redshiftBinningFunction(z_ij, zm);
                 
-                // Allow growing with redshift even redshift evolution is turned off.
                 // Every pixel pair should scale to the bin redshift
                 #ifdef REDSHIFT_GROWTH_POWER
                 temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 

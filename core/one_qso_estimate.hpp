@@ -22,8 +22,6 @@
 // Fiducial signal matrix if there is still more space after all derivative matrices.
 // This scheme speeds up the algorithm.
 
-// When redshift evolution is turned off, always uses MEDIAN_REDSHIFT of the chunk.
-
 class OneQSOEstimate
 {
     std::string qso_sp_fname;
