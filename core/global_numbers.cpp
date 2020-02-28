@@ -164,20 +164,6 @@ namespace bins
         kn = (ikz) % NUMBER_OF_K_BANDS; 
         zm = (ikz) / NUMBER_OF_K_BANDS; 
     }
-
-    // double redshiftBinningFunction(double z, int zm, int zc)
-    // {
-    //     #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
-    //     double zz  __attribute__((unused)) = z;
-    //     int    zzm __attribute__((unused)) = zm,
-    //            zzc __attribute__((unused)) = zc;
-    //     return 1.;
-    //     #endif
-
-    //     #ifdef TRIANGLE_Z_BINNING_FN
-    //     return zBinTriangular(z, zm, zc);
-    //     #endif
-    // }
 }
 
 namespace mytime

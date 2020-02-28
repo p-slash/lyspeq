@@ -62,8 +62,6 @@ class OneQSOEstimate
     void _allocateMatrices();
     void _freeMatrices();
 
-    // If redshift evolution is turned off, 
-    // always set pixel pair's redshift to MEDIAN_REDSHIFT of the chunk.
     void _getVandZ(double &v_ij, double &z_ij, int i, int j);
     
     void _setFiducialSignalMatrix(double *sm);
