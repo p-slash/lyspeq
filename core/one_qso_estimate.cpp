@@ -38,8 +38,8 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
 
     qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
 
-    LOG::LOGGER.IO("Reading from %s.\n" "Data size is %d\n" "Pixel Width is %.1f\n" "Spectral Resolution is %d.\n",
-        qso_sp_fname.c_str(), DATA_SIZE, DV_KMS, SPECT_RES_FWHM);
+    // LOG::LOGGER.IO("Reading from %s.\n" "Data size is %d\n" "Pixel Width is %.1f\n" "Spectral Resolution is %d.\n",
+    //     qso_sp_fname.c_str(), DATA_SIZE, DV_KMS, SPECT_RES_FWHM);
     
     lambda_array    = new double[DATA_SIZE];
     velocity_array  = new double[DATA_SIZE];
@@ -66,14 +66,14 @@ bool OneQSOEstimate::_findRedshiftBin()
     ZBIN_LOW = bins::findRedshiftBin(LOWER_REDSHIFT);
     ZBIN_UPP = bins::findRedshiftBin(UPPER_REDSHIFT);
 
-    LOG::LOGGER.IO("Redshift bins: %.2f--%d, %.2f--%d, %.2f--%d\n", LOWER_REDSHIFT, ZBIN_LOW, MEDIAN_REDSHIFT, ZBIN,
-        UPPER_REDSHIFT, ZBIN_UPP);
+    // LOG::LOGGER.IO("Redshift bins: %.2f--%d, %.2f--%d, %.2f--%d\n", LOWER_REDSHIFT, ZBIN_LOW, MEDIAN_REDSHIFT, ZBIN,
+    //     UPPER_REDSHIFT, ZBIN_UPP);
 
     // Chunk is completely out
     if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
     {
-        LOG::LOGGER.IO("This QSO is completely out!\n");
-        LOG::LOGGER.ERR("This QSO is completely out!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+        // LOG::LOGGER.IO("This QSO is completely out!\n");
+        LOG::LOGGER.ERR("This QSO is completely out:\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
             qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
 
         return false;
@@ -81,8 +81,8 @@ bool OneQSOEstimate::_findRedshiftBin()
 
     if (ZBIN_LOW < 0)
     {
-        LOG::LOGGER.IO("This QSO is out on the low end!\n");
-        LOG::LOGGER.ERR("This QSO is out on the low end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+        // LOG::LOGGER.IO("This QSO is out on the low end!\n");
+        LOG::LOGGER.ERR("This QSO is out on the low end:\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
             qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
         
         ZBIN_LOW = 0;
@@ -90,8 +90,8 @@ bool OneQSOEstimate::_findRedshiftBin()
     
     if (ZBIN_UPP > (bins::NUMBER_OF_Z_BINS-1))
     {
-        LOG::LOGGER.IO("This QSO is out on the high end!\n");
-        LOG::LOGGER.ERR("This QSO is out on the high end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+        // LOG::LOGGER.IO("This QSO is out on the high end!\n");
+        LOG::LOGGER.ERR("This QSO is out on the high end:\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
             qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
 
         ZBIN_UPP = bins::NUMBER_OF_Z_BINS - 1;
@@ -159,8 +159,8 @@ void OneQSOEstimate::_setStoredMatrices()
         stored_qj = new double*[nqj_eff];
     }
 
-    LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
-    if (isSfidStored)   LOG::LOGGER.IO("Fiducial signal matrix is stored.\n");
+    // LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
+    // if (isSfidStored)   LOG::LOGGER.IO("Fiducial signal matrix is stored.\n");
 
     isQjSet   = false;
     isSfidSet = false;
@@ -183,8 +183,8 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     // Keep noise as error squared (variance)
     std::for_each(noise_array, noise_array+DATA_SIZE, [](double &n) { n*=n; });
 
-    LOG::LOGGER.IO("Length of v is %.1f\n" "Median redshift: %.2f\n" "Redshift range: %.2f--%.2f\n", 
-        velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT, LOWER_REDSHIFT, UPPER_REDSHIFT);
+    // LOG::LOGGER.IO("Length of v is %.1f\n" "Median redshift: %.2f\n" "Redshift range: %.2f--%.2f\n", 
+    //     velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT, LOWER_REDSHIFT, UPPER_REDSHIFT);
 
     nqj_eff = 0;
 
