@@ -51,8 +51,11 @@ FILE * ioh::open_file(const char *fname, const char *read_write)
 
     if (file_to_read_write == NULL)
     {
+        char err_buf[500];
+        sprintf(err_buf, "Cannot open file %s.", fname);
+
         fprintf(stderr, "ERROR FILE with %s: %s\n", read_write, fname);
-        throw std::runtime_error("Cannot open file");
+        throw std::runtime_error(err_buf);
     }
 
     return file_to_read_write;
@@ -69,8 +72,11 @@ T ioh::open_fstream(const char *fname, char binary)
 
     if (!file_fs)
     {
+        char err_buf[500];
+        sprintf(err_buf, "Cannot open file %s.", fname);
+        
         fprintf(stderr, "ERROR FSTREAM: %s\n", fname);
-        throw std::runtime_error("Cannot open file");
+        throw std::runtime_error(err_buf);
     }
 
     return file_fs;
