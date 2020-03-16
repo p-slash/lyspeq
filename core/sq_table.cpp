@@ -125,7 +125,9 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
                 win_params.z_ij = sqhelper::LINEAR_Z_ARRAY[nz];   // z_first + z_length * nz / (Nz - 1.);
                 
                 // 1E-15 gave roundoff error for smoothing with 20.8 km/s
-                sqhelper::signal_array[xy] = s_integrator.evaluate(fidcosmo::FID_LOWEST_K, fidcosmo::FID_HIGHEST_K, -1, 0);
+                // Correlation at dv=0 is between 0.01 and 1. 
+                // Giving room for 7 decades, absolute error can be 1e-9
+                sqhelper::signal_array[xy] = s_integrator.evaluate(fidcosmo::FID_LOWEST_K, fidcosmo::FID_HIGHEST_K, -1, 1E-9);
             }
         }
         
