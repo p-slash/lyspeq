@@ -7,13 +7,14 @@
 
 namespace conv
 {
-    extern bool USE_LOG_V, FLUX_TO_DELTAF_BY_CHUNKS;
-    // extern bool USE_FID_LEE12_MEAN_FLUX;
-    
+    extern bool USE_LOG_V, FLUX_TO_DELTAF_BY_CHUNKS, INPUT_IS_DELTA_FLUX;
+
+    void setMeanFlux(const char *fname=0);
+
     void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size);
     void convertLambdaToRedshift(double *lambda, int size);
 
-    void convertFluxToDeltaf(double *flux, double *noise, int size);
+    extern void (*convertFluxToDeltaF)(const double *lambda, double *flux, double *noise, int size);
     // void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size);
 }
 
