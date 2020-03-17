@@ -72,7 +72,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     t1 = mytime::getTime();
     std::rotate(fpaths.begin(), fpaths.begin() + (NUMBER_OF_QSOS*process::this_pe)/process::total_pes, fpaths.end());
     t2 = mytime::getTime();
-    LOG::LOGGER.STD("Rotated the file list so that each PE accesses different files at a given time."
+    LOG::LOGGER.STD("Rotated the file list so that each PE accesses different files at a given time. "
         "It took %.2f m.\n", t2-t1);
 
     // Create vector for QSOs & read
@@ -649,7 +649,7 @@ void OneDQuadraticPowerEstimate::printfSpectra()
         {
             i_kz = bins::getFisherMatrixIndex(kn, zm);
 
-            LOG::LOGGER.STD(" %.3e |", current_power_estimate_vector[i_kz] + powerSpectrumFiducial(kn, zm));
+            LOG::LOGGER.STD(" %10e |", current_power_estimate_vector[i_kz] + powerSpectrumFiducial(kn, zm));
         }
         
         LOG::LOGGER.STD("\n");
