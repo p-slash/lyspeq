@@ -70,8 +70,9 @@ namespace specifics
 {
     extern bool TURN_OFF_SFID;
     extern double CHISQ_CONVERGENCE_EPS;
+    extern double CONTINUUM_MARGINALIZATION_AMP, CONTINUUM_MARGINALIZATION_DERV;
 
-    #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
+    #if defined(TOPHAT_Z_BINNING_FN)
     #define BINNING_SHAPE "Top Hat"
     #elif defined(TRIANGLE_Z_BINNING_FN)
     #define BINNING_SHAPE "Triangular"
@@ -87,12 +88,6 @@ namespace specifics
     #else
     #define HIGH_K_TXT "OFF"
     #endif
-
-    #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
-    #define TORE_TEXT "OFF. This overwrites redshift binning to Top Hat"
-    #else
-    #define TORE_TEXT "ON"
-    #endif
     
     #if defined(REDSHIFT_GROWTH_POWER)
     #define RGP_TEXT "ON"
@@ -104,7 +99,6 @@ namespace specifics
                                     "# 1D Interpolation: " tovstr(INTERP_1D_TYPE) "\n"
                                     "# 2D Interpolation: " tovstr(INTERP_2D_TYPE) "\n"
                                     "# Redshift binning shape: " BINNING_SHAPE "\n" 
-                                    "# Redshift evolution: " TORE_TEXT "\n"
                                     "# Redshift growth scaling: " RGP_TEXT "\n"
                                     "# Last k bin: " HIGH_K_TXT "\n";
     #undef tostr

@@ -13,6 +13,7 @@
 #include <gsl/gsl_errno.h>
 
 #include <cmath>
+#include <algorithm> // std::for_each & transform
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
@@ -37,8 +38,8 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
 
     qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
 
-    LOG::LOGGER.IO("Reading from %s.\n" "Data size is %d\n" "Pixel Width is %.1f\n" "Spectral Resolution is %d.\n",
-        qso_sp_fname.c_str(), DATA_SIZE, DV_KMS, SPECT_RES_FWHM);
+    // LOG::LOGGER.IO("Reading from %s.\n" "Data size is %d\n" "Pixel Width is %.1f\n" "Spectral Resolution is %d.\n",
+    //     qso_sp_fname.c_str(), DATA_SIZE, DV_KMS, SPECT_RES_FWHM);
     
     lambda_array    = new double[DATA_SIZE];
     velocity_array  = new double[DATA_SIZE];
@@ -65,14 +66,14 @@ bool OneQSOEstimate::_findRedshiftBin()
     ZBIN_LOW = bins::findRedshiftBin(LOWER_REDSHIFT);
     ZBIN_UPP = bins::findRedshiftBin(UPPER_REDSHIFT);
 
-    LOG::LOGGER.IO("Redshift bins: %.2f--%d, %.2f--%d, %.2f--%d\n", LOWER_REDSHIFT, ZBIN_LOW, MEDIAN_REDSHIFT, ZBIN,
-        UPPER_REDSHIFT, ZBIN_UPP);
+    // LOG::LOGGER.IO("Redshift bins: %.2f--%d, %.2f--%d, %.2f--%d\n", LOWER_REDSHIFT, ZBIN_LOW, MEDIAN_REDSHIFT, ZBIN,
+    //     UPPER_REDSHIFT, ZBIN_UPP);
 
     // Chunk is completely out
     if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
     {
-        LOG::LOGGER.IO("This QSO is completely out!\n");
-        LOG::LOGGER.ERR("This QSO is completely out!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+        // LOG::LOGGER.IO("This QSO is completely out!\n");
+        LOG::LOGGER.ERR("This QSO is completely out:\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
             qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
 
         return false;
@@ -80,8 +81,8 @@ bool OneQSOEstimate::_findRedshiftBin()
 
     if (ZBIN_LOW < 0)
     {
-        LOG::LOGGER.IO("This QSO is out on the low end!\n");
-        LOG::LOGGER.ERR("This QSO is out on the low end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+        // LOG::LOGGER.IO("This QSO is out on the low end!\n");
+        LOG::LOGGER.ERR("This QSO is out on the low end:\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
             qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
         
         ZBIN_LOW = 0;
@@ -89,8 +90,8 @@ bool OneQSOEstimate::_findRedshiftBin()
     
     if (ZBIN_UPP > (bins::NUMBER_OF_Z_BINS-1))
     {
-        LOG::LOGGER.IO("This QSO is out on the high end!\n");
-        LOG::LOGGER.ERR("This QSO is out on the high end!\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+        // LOG::LOGGER.IO("This QSO is out on the high end!\n");
+        LOG::LOGGER.ERR("This QSO is out on the high end:\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
             qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
 
         ZBIN_UPP = bins::NUMBER_OF_Z_BINS - 1;
@@ -104,17 +105,11 @@ bool OneQSOEstimate::_findRedshiftBin()
     return true;
 }
 
-// When redshift evolution is turned off, all pixels are assigned to one bin
 // For a top hat redshift bin, only access 1 redshift bin for each pixel
 // For triangular z bins, access 2 redshift bins for each pixel
 void OneQSOEstimate::_setNQandFisherIndex()
 {   
-    #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
-    // All pixels belong to one redshift bin
-    N_Q_MATRICES = 1;
-    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN);
-
-    #elif defined(TOPHAT_Z_BINNING_FN)
+    #if defined(TOPHAT_Z_BINNING_FN)
     N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
     fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
     
@@ -134,6 +129,8 @@ void OneQSOEstimate::_setNQandFisherIndex()
     {
         ++N_Q_MATRICES;
     }
+    #else
+    // Error
 
     #endif
 
@@ -162,8 +159,8 @@ void OneQSOEstimate::_setStoredMatrices()
         stored_qj = new double*[nqj_eff];
     }
 
-    LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
-    if (isSfidStored)   LOG::LOGGER.IO("Fiducial signal matrix is stored.\n");
+    // LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
+    // if (isSfidStored)   LOG::LOGGER.IO("Fiducial signal matrix is stored.\n");
 
     isQjSet   = false;
     isSfidSet = false;
@@ -181,15 +178,13 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
-    if (conv::FLUX_TO_DELTAF_BY_CHUNKS)
-        conv::convertFluxToDeltaf(flux_array, noise_array, DATA_SIZE);
+    conv::convertFluxToDeltaF(lambda_array, flux_array, noise_array, DATA_SIZE);
     
     // Keep noise as error squared (variance)
-    for (int i = 0; i < DATA_SIZE; ++i)
-        noise_array[i] *= noise_array[i];
+    std::for_each(noise_array, noise_array+DATA_SIZE, [](double &n) { n*=n; });
 
-    LOG::LOGGER.IO("Length of v is %.1f\n" "Median redshift: %.2f\n" "Redshift range: %.2f--%.2f\n", 
-        velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT, LOWER_REDSHIFT, UPPER_REDSHIFT);
+    // LOG::LOGGER.IO("Length of v is %.1f\n" "Median redshift: %.2f\n" "Redshift range: %.2f--%.2f\n", 
+    //     velocity_array[DATA_SIZE-1] - velocity_array[0], MEDIAN_REDSHIFT, LOWER_REDSHIFT, UPPER_REDSHIFT);
 
     nqj_eff = 0;
 
@@ -214,22 +209,24 @@ OneQSOEstimate::~OneQSOEstimate()
 
 double OneQSOEstimate::getComputeTimeEst()
 {
+    #ifdef FISHER_OPTIMIZATION
+    #define N_M_COMBO 3.
+    #else
+    #define N_M_COMBO (N_Q_MATRICES + 1.)
+    #endif
+
     if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
         return 0;
     else
-        return std::pow(DATA_SIZE/100., 3) * N_Q_MATRICES * (N_Q_MATRICES + 1.);
+        return std::pow(DATA_SIZE/100., 3) * N_Q_MATRICES * N_M_COMBO;
+
+    #undef N_M_COMBO
 }
 
-// If redshift evolution is turned off, always set pixel pair's redshift to MEDIAN_REDSHIFT of the chunk.
 void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
 {
     v_ij = velocity_array[j] - velocity_array[i];
-
-    #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
-    z_ij = MEDIAN_REDSHIFT;
-    #else
     z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
-    #endif
 }
 
 void OneQSOEstimate::_setFiducialSignalMatrix(double *sm)
@@ -286,11 +283,8 @@ void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
                 _getVandZ(v_ij, z_ij, row, col);
                 
                 temp  = interp_derivative_matrix[kn]->evaluate(v_ij);
-
-                // When redshift evolution is turned off, always use top-hat binning
                 temp *= bins::redshiftBinningFunction(z_ij, zm);
                 
-                // Allow growing with redshift even redshift evolution is turned off.
                 // Every pixel pair should scale to the bin redshift
                 #ifdef REDSHIFT_GROWTH_POWER
                 temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 
@@ -337,27 +331,26 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     // add noise matrix diagonally
     cblas_daxpy(DATA_SIZE, 1., noise_array, 1, covariance_matrix, DATA_SIZE+1);
 
-    #define ADDED_CONST_TO_COVARIANCE 100.
-    // Continuum  normalization
-    for (int i = 0; i < DATA_SIZE*DATA_SIZE; ++i)
-        *(covariance_matrix+i) += ADDED_CONST_TO_COVARIANCE;
+    if (specifics::CONTINUUM_MARGINALIZATION_AMP > 0)
+    {
+        std::for_each(covariance_matrix, covariance_matrix+DATA_SIZE*DATA_SIZE, 
+            [&](double &c) { c += specifics::CONTINUUM_MARGINALIZATION_AMP; });
+    }
 
-    // Continuum derivative
-    #if 0
-    double *temp_t_vector = new double[DATA_SIZE];
-    double MEDIAN_LAMBDA = LYA_REST * (1 + MEDIAN_REDSHIFT);
+    if (specifics::CONTINUUM_MARGINALIZATION_DERV > 0)
+    {
+        double *temp_t_vector = new double[DATA_SIZE];
+        // double MEDIAN_LAMBDA = LYA_REST * (1 + MEDIAN_REDSHIFT);
 
-    for (int tvec_i = 0; tvec_i < DATA_SIZE; ++tvec_i)
-        temp_t_vector[tvec_i] = log(lambda_array[tvec_i]/MEDIAN_LAMBDA);
+        std::transform(lambda_array, lambda_array+DATA_SIZE, temp_t_vector, 
+            [](const double &l) { return log(l/LYA_REST); });
 
-    cblas_dger(CblasRowMajor, DATA_SIZE, DATA_SIZE, ADDED_CONST_TO_COVARIANCE, 
-        temp_t_vector, 1, temp_t_vector, 1, covariance_matrix->data, DATA_SIZE);
+        cblas_dger(CblasRowMajor, DATA_SIZE, DATA_SIZE, specifics::CONTINUUM_MARGINALIZATION_DERV, 
+            temp_t_vector, 1, temp_t_vector, 1, covariance_matrix, DATA_SIZE);
 
-    delete [] temp_t_vector;
-    #endif
+        delete [] temp_t_vector;
+    }
     
-    #undef ADDED_CONST_TO_COVARIANCE
-
     isCovInverted = false;
 }
 
