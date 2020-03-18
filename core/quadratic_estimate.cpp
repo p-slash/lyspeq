@@ -107,7 +107,7 @@ void mpi_bcast_cpu_fname_vec(std::vector<std::pair<double, std::string>> &cpu_fn
     
     MPI_Bcast(&size, 1, MPI_INT, root_pe, MPI_COMM_WORLD);
     
-    if (process::this_pe != 0)
+    if (process::this_pe != root_pe)
     {
         cpu_fname_vec.clear();
         cpu_fname_vec.reserve(size);
