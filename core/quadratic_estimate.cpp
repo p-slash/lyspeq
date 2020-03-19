@@ -69,37 +69,40 @@ void mpi_bcast_string(int root_pe, std::string &str)
     delete [] buf;
 }
 
-void mpi_send_vec(int target_pe, std::vector<std::pair<double, std::string>> &vec)
+void mpi_send_vec(int target_pe, std::vector<std::pair<double, int>> &vec)
 {
     int size = vec.size();
     MPI_Send(&size, 1, MPI_INT, target_pe, MPI_VEC_TAG, MPI_COMM_WORLD);
-    for (std::vector<std::pair<double, std::string>>::iterator it = vec.begin(); it != vec.end(); ++it)
+    for (std::vector<std::pair<double, int>>::iterator it = vec.begin(); it != vec.end(); ++it)
     {
         MPI_Send(&(it->first), 1, MPI_DOUBLE, target_pe, MPI_VEC_TAG, MPI_COMM_WORLD);
-        mpi_send_string(target_pe, it->second);
+        MPI_Send(&(it->second), 1, MPI_INT, target_pe, MPI_VEC_TAG, MPI_COMM_WORLD);
+        // mpi_send_string(target_pe, it->second);
     }
 }
 
-void mpi_recv_vec(int source_pe, std::vector<std::pair<double, std::string>> &vec)
+void mpi_recv_vec(int source_pe, std::vector<std::pair<double, int>> &vec)
 {
-    int size;
+    int size, buf_findex;
+    double buf_cpu;
+
     MPI_Recv(&size, 1, MPI_INT, source_pe, MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     vec.reserve(size);
 
     for (int i = 0; i < size; ++i)
     {
-        double buf_cpu;
-        std::string buf;
-
         MPI_Recv(&buf_cpu, 1, MPI_DOUBLE, source_pe, MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        mpi_recv_string(source_pe, buf);
-        vec.push_back(std::make_pair(buf_cpu, buf));
+        MPI_Recv(&buf_findex, 1, MPI_INT, source_pe, MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        // std::string buf;
+        // mpi_recv_string(source_pe, buf);
+        vec.push_back(std::make_pair(buf_cpu, buf_findex));
     }
 }
 
-void mpi_bcast_cpu_fname_vec(std::vector<std::pair<double, std::string>> &cpu_fname_vec, int root_pe=0)
+void mpi_bcast_cpu_fname_vec(std::vector<std::pair<double, int>> &cpu_fname_vec, int root_pe=0)
 {
-    int size;
+    int size, buf_findex;
+    double buf_cpu;
 
     // Root send the size of the vector
     if (process::this_pe == root_pe)
@@ -115,19 +118,20 @@ void mpi_bcast_cpu_fname_vec(std::vector<std::pair<double, std::string>> &cpu_fn
 
     for (int i = 0; i < size; ++i)
     {
-        double cpu_time   = cpu_fname_vec[i].first;
-        std::string fname = cpu_fname_vec[i].second;
+        buf_cpu     = cpu_fname_vec[i].first;
+        buf_findex  = cpu_fname_vec[i].second;
+        // std::string fname = cpu_fname_vec[i].second;
 
-        MPI_Bcast(&cpu_time, 1, MPI_DOUBLE, root_pe, MPI_COMM_WORLD);
-        mpi_bcast_string(root_pe, fname);
+        MPI_Bcast(&buf_cpu, 1, MPI_DOUBLE, root_pe, MPI_COMM_WORLD);
+        MPI_Bcast(&buf_findex, 1, MPI_INT, root_pe, MPI_COMM_WORLD);
+        // mpi_bcast_string(root_pe, fname);
 
         if (process::this_pe != root_pe)
-            cpu_fname_vec.push_back(std::make_pair(cpu_time, fname));
+            cpu_fname_vec.push_back(std::make_pair(buf_cpu, buf_findex));
     }
 }
 
-void mpi_merge_sorted_arrays(int height, int Npe, int id, 
-    std::vector<std::pair<double, std::string>> &local_cpu_fname_vec)
+void mpi_merge_sorted_arrays(int height, int Npe, int id, std::vector<std::pair<double, int>> &local_cpu_fname_vec)
 {
     if (Npe == 1)  // We have reached to the final
         return;
@@ -152,7 +156,7 @@ void mpi_merge_sorted_arrays(int height, int Npe, int id,
         }
 
         // Receive child's sorted vector
-        std::vector<std::pair<double, std::string>> childs_sorted_vec;
+        std::vector<std::pair<double, int>> childs_sorted_vec;
         mpi_recv_vec(child_pe, childs_sorted_vec);
         
         // Merge sorted these two arrays
@@ -210,8 +214,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     LOG::LOGGER.STD("Initial reading of quasar spectra and estimating CPU time.\n");
 
-    std::vector<std::string> fpaths;
-    NUMBER_OF_QSOS = ioh::readList(fname_list, fpaths);
+    NUMBER_OF_QSOS = ioh::readList(fname_list, filepaths);
     
     // Each PE reads a different section of files
     // They sort individually, then merge in pairs
@@ -225,14 +228,15 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     t2 = mytime::getTime();
 
-    LOG::LOGGER.STD("Rotated the file list so that each PE accesses different files at a given time. "
-        "It took %.2f m.\n", t2-t1);
+    // LOG::LOGGER.STD("Rotated the file list so that each PE accesses different files at a given time. "
+    //     "It took %.2f m.\n", t2-t1);
 
     // Create vector for QSOs & read
     cpu_fname_vector.reserve(NUMBER_OF_QSOS);
 
-    for (std::vector<std::string>::iterator fq = fpaths.begin()+fstart_this; fq != fpaths.begin()+fend_this; ++fq)
+    for (int findex = fstart_this; findex < fend_this; ++findex)
     {
+        std::string *fq = &filepaths[findex];
         fq->insert(0, "/");
         fq->insert(0, dir);
 
@@ -242,7 +246,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
         ++Z_BIN_COUNTS[q_temp.ZBIN + 1];
 
         if (cpu_t_temp != 0)
-            cpu_fname_vector.push_back(std::make_pair(cpu_t_temp, *fq));
+            cpu_fname_vector.push_back(std::make_pair(cpu_t_temp, findex));
     }
     
     // Print out time it took to read all files into vector
@@ -455,7 +459,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> &lo
     
     std::vector<double> bucket_time(process::total_pes, 0);
 
-    std::vector<std::pair <double, std::string>>::reverse_iterator qe = cpu_fname_vector.rbegin();
+    std::vector<std::pair <double, int>>::reverse_iterator qe = cpu_fname_vector.rbegin();
     for (; qe != cpu_fname_vector.rend(); ++qe)
     {
         // find min time bucket
@@ -466,7 +470,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> &lo
         if (std::distance(bucket_time.begin(), min_bt) == process::this_pe)
         {
             // Construct and add queue
-            OneQSOEstimate *q_temp = new OneQSOEstimate(qe->second);
+            OneQSOEstimate *q_temp = new OneQSOEstimate(filepaths[qe->second]);
             local_queue.push_back(q_temp);
         }
     }

@@ -25,7 +25,8 @@ class OneDQuadraticPowerEstimate
 {
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS;
 
-    std::vector< std::pair <double, std::string> > cpu_fname_vector;
+    std::vector<std::string> filepaths;
+    std::vector< std::pair <double, int> > cpu_fname_vector;
 
     // 3 TOTAL_KZ_BINS sized vectors
     double  *dbt_estimate_sum_before_fisher_vector[3],
