@@ -215,7 +215,13 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     LOG::LOGGER.STD("Initial reading of quasar spectra and estimating CPU time.\n");
 
     NUMBER_OF_QSOS = ioh::readList(fname_list, filepaths);
-    
+    // Add parent directory to file path
+    for (std::vector<std::string>::iterator fq = filepaths.begin(); fq != filepaths.end(); ++fq)
+    {
+        fq->insert(0, "/");
+        fq->insert(0, dir);
+    }
+
     // Each PE reads a different section of files
     // They sort individually, then merge in pairs
     // Finally, the master PE broadcasts the sorted full array
@@ -236,11 +242,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     for (int findex = fstart_this; findex < fend_this; ++findex)
     {
-        std::string *fq = &filepaths[findex];
-        fq->insert(0, "/");
-        fq->insert(0, dir);
-
-        OneQSOEstimate q_temp(*fq);
+        OneQSOEstimate q_temp(filepaths[findex]);
         cpu_t_temp = q_temp.getComputeTimeEst();
         
         ++Z_BIN_COUNTS[q_temp.ZBIN + 1];
