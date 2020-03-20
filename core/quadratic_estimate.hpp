@@ -25,8 +25,7 @@ class OneDQuadraticPowerEstimate
 {
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS;
 
-    std::vector<std::string> filepaths;
-    std::vector< std::pair <double, int> > cpu_fname_vector;
+    std::vector<OneQSOEstimate*> local_queue;
 
     // 3 TOTAL_KZ_BINS sized vectors
     double  *dbt_estimate_sum_before_fisher_vector[3],
@@ -53,7 +52,8 @@ class OneDQuadraticPowerEstimate
     void _readScriptOutput(double *script_power, const char *fname, void *itsfits=NULL);
 
     // Performs a load balancing operation based on N^3 estimation
-    void _loadBalancing(std::vector<OneQSOEstimate*> &local_queue);
+    void _loadBalancing(std::vector<std::string> &filepaths, 
+        std::vector< std::pair<double, int> > &cpu_fname_vector);
 
 public:
     OneDQuadraticPowerEstimate(const char *fname_list, const char *dir);

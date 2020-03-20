@@ -24,125 +24,102 @@
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
 
+#if defined(ENABLE_MPI)
 //-------------------------------------------------------
-#define MPI_FNA_TAG 1
-#define MPI_CPU_TAG 0
 #define MPI_VEC_TAG 2
+// void mpi_send_string(int target_pe, std::string &str)
+// {
+//     int length = str.length()+1;
+//     MPI_Send(str.c_str(), length, MPI_CHAR, target_pe, MPI_FNA_TAG, MPI_COMM_WORLD);
+// }
 
-void mpi_send_string(int target_pe, std::string &str)
-{
-    int length = str.length()+1;
-    MPI_Send(str.c_str(), length, MPI_CHAR, target_pe, MPI_FNA_TAG, MPI_COMM_WORLD);
-}
+// void mpi_recv_string(int source_pe, std::string &str)
+// {
+//     // First recieve the size of the transmission
+//     int length;
+//     MPI_Status status;
+//     MPI_Probe(source_pe, MPI_FNA_TAG, MPI_COMM_WORLD, &status);
+//     MPI_Get_count(&status, MPI_CHAR, &length);
 
-void mpi_recv_string(int source_pe, std::string &str)
-{
-    // First recieve the size of the transmission
-    int length;
-    MPI_Status status;
-    MPI_Probe(source_pe, MPI_FNA_TAG, MPI_COMM_WORLD, &status);
-    MPI_Get_count(&status, MPI_CHAR, &length);
+//     char *buf = new char[length+1];
+//     MPI_Recv(buf, length+1, MPI_CHAR, source_pe, MPI_FNA_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    char *buf = new char[length+1];
-    MPI_Recv(buf, length+1, MPI_CHAR, source_pe, MPI_FNA_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+//     str = std::string(buf);
 
-    str = std::string(buf);
+//     delete [] buf;
+// }
 
-    delete [] buf;
-}
+// void mpi_bcast_string(int root_pe, std::string &str)
+// {
+//     int length = str.length()+1;
+//     MPI_Bcast(&length, 1, MPI_INT, root_pe, MPI_COMM_WORLD);
 
-void mpi_bcast_string(int root_pe, std::string &str)
-{
-    int length = str.length()+1;
-    MPI_Bcast(&length, 1, MPI_INT, root_pe, MPI_COMM_WORLD);
-
-    char *buf = new char[length];
+//     char *buf = new char[length];
     
-    if (process::this_pe == root_pe)
-        strcpy(buf, str.c_str());
+//     if (process::this_pe == root_pe)
+//         strcpy(buf, str.c_str());
 
-    MPI_Bcast(buf, length, MPI_CHAR, root_pe, MPI_COMM_WORLD);
+//     MPI_Bcast(buf, length, MPI_CHAR, root_pe, MPI_COMM_WORLD);
 
-    if (process::this_pe != root_pe)
-        str = std::string(buf);
+//     if (process::this_pe != root_pe)
+//         str = std::string(buf);
     
-    delete [] buf;
+//     delete [] buf;
+// }
+
+MPI_Datatype mpi_get_pair_type()
+{
+    // Create MPI pair type
+    std::pair<double, int> tmp;
+
+    int blocklengths[] = {1, 1};
+    MPI_Aint disp[3];
+    MPI_Get_address(&tmp, disp);
+    MPI_Get_address(&tmp.first, disp+1);
+    MPI_Get_address(&tmp.second, disp+2);
+
+    MPI_Aint offsets[2] = { MPI_Aint_diff(disp[1], disp[0]), MPI_Aint_diff(disp[2], disp[0]) };
+
+    MPI_Aint lb, extent;
+    MPI_Datatype types[] = {MPI_DOUBLE, MPI_INT};
+    MPI_Datatype tmp_type, my_mpi_pair_type;
+
+    MPI_Type_create_struct(2, blocklengths, offsets, types, &tmp_type);
+    MPI_Type_get_extent(tmp_type, &lb, &extent);
+    MPI_Type_create_resized(tmp_type, lb, extent, &my_mpi_pair_type);
+    MPI_Type_commit(&my_mpi_pair_type);
+
+    return my_mpi_pair_type;
 }
 
-void mpi_send_vec(int target_pe, std::vector<std::pair<double, int>> &vec)
-{
-    int size = vec.size();
-    MPI_Send(&size, 1, MPI_INT, target_pe, MPI_VEC_TAG, MPI_COMM_WORLD);
-    for (std::vector<std::pair<double, int>>::iterator it = vec.begin(); it != vec.end(); ++it)
-    {
-        MPI_Send(&(it->first), 1, MPI_DOUBLE, target_pe, MPI_VEC_TAG, MPI_COMM_WORLD);
-        MPI_Send(&(it->second), 1, MPI_INT, target_pe, MPI_VEC_TAG, MPI_COMM_WORLD);
-        // mpi_send_string(target_pe, it->second);
-    }
-}
-
-void mpi_recv_vec(int source_pe, std::vector<std::pair<double, int>> &vec)
-{
-    int size, buf_findex;
-    double buf_cpu;
-
-    MPI_Recv(&size, 1, MPI_INT, source_pe, MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    vec.reserve(size);
-
-    for (int i = 0; i < size; ++i)
-    {
-        MPI_Recv(&buf_cpu, 1, MPI_DOUBLE, source_pe, MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&buf_findex, 1, MPI_INT, source_pe, MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        // std::string buf;
-        // mpi_recv_string(source_pe, buf);
-        vec.push_back(std::make_pair(buf_cpu, buf_findex));
-    }
-}
-
-void mpi_bcast_cpu_fname_vec(std::vector<std::pair<double, int>> &cpu_fname_vec, int root_pe=0)
-{
-    int size, buf_findex;
-    double buf_cpu;
+void mpi_bcast_cpu_fname_vec(std::vector<std::pair<double, int>> &cpu_index_vec, int root_pe=0)
+{   
+    MPI_Datatype MY_MPI_PAIR = mpi_get_pair_type();
+    int size = cpu_index_vec.size();
 
     // Root send the size of the vector
-    if (process::this_pe == root_pe)
-        size = cpu_fname_vec.size();
-    
     MPI_Bcast(&size, 1, MPI_INT, root_pe, MPI_COMM_WORLD);
-    
-    if (process::this_pe != root_pe)
-    {
-        cpu_fname_vec.clear();
-        cpu_fname_vec.reserve(size);
-    }
+    cpu_index_vec.resize(size);
 
-    for (int i = 0; i < size; ++i)
-    {
-        buf_cpu     = cpu_fname_vec[i].first;
-        buf_findex  = cpu_fname_vec[i].second;
-        // std::string fname = cpu_fname_vec[i].second;
-
-        MPI_Bcast(&buf_cpu, 1, MPI_DOUBLE, root_pe, MPI_COMM_WORLD);
-        MPI_Bcast(&buf_findex, 1, MPI_INT, root_pe, MPI_COMM_WORLD);
-        // mpi_bcast_string(root_pe, fname);
-
-        if (process::this_pe != root_pe)
-            cpu_fname_vec.push_back(std::make_pair(buf_cpu, buf_findex));
-    }
+    MPI_Bcast(cpu_index_vec.data(), size, MY_MPI_PAIR, root_pe, MPI_COMM_WORLD);
 }
 
-void mpi_merge_sorted_arrays(int height, int Npe, int id, std::vector<std::pair<double, int>> &local_cpu_fname_vec)
+void mpi_merge_sorted_arrays(int height, int Npe, int id, std::vector<std::pair<double, int>> &local_cpu_ind_vec)
 {
     if (Npe == 1)  // We have reached to the final
         return;
 
-    int parent_pe, child_pe, next_Npe, local_size = local_cpu_fname_vec.size();
+    int parent_pe, child_pe, next_Npe, local_size = local_cpu_ind_vec.size();
+    int transmission_count = local_size;
+    MPI_Status status;
+    MPI_Datatype MY_MPI_PAIR = mpi_get_pair_type();
+
     next_Npe = (Npe + 1) / 2;
 
     // Given a height, parent PEs are 2**(height+1), 1 << (height+1), height starts from 0 at the bottom (all PEs)
     // This means e.g. at height 0 we need to map: 3->2, 2->2 and 5->4, 4->4 to find parents
     parent_pe = (id & ~(1 << height));
-    
+
     if (id == parent_pe)
     {
         // If this is the parent PE, receive from the child.
@@ -151,29 +128,32 @@ void mpi_merge_sorted_arrays(int height, int Npe, int id, std::vector<std::pair<
         // If childless, carry on to the next cycle
         if (child_pe >= process::total_pes)
         {
-            mpi_merge_sorted_arrays(height+1, next_Npe, id, local_cpu_fname_vec);
+            mpi_merge_sorted_arrays(height+1, next_Npe, id, local_cpu_ind_vec);
             return;
         }
 
-        // Receive child's sorted vector
-        std::vector<std::pair<double, int>> childs_sorted_vec;
-        mpi_recv_vec(child_pe, childs_sorted_vec);
+        // First recieve the size of the transmission
+        MPI_Probe(child_pe, MPI_VEC_TAG, MPI_COMM_WORLD, &status);
+        MPI_Get_count(&status, MY_MPI_PAIR, &transmission_count);
+
+        local_cpu_ind_vec.resize(local_size+transmission_count);
+
+        MPI_Recv(local_cpu_ind_vec.data()+local_size, transmission_count, MY_MPI_PAIR, child_pe, 
+            MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         
-        // Merge sorted these two arrays
-        local_cpu_fname_vec.insert(local_cpu_fname_vec.end(), childs_sorted_vec.begin(), childs_sorted_vec.end());
-        std::inplace_merge(local_cpu_fname_vec.begin(), local_cpu_fname_vec.begin()+local_size, 
-            local_cpu_fname_vec.end());
+        std::inplace_merge(local_cpu_ind_vec.begin(), local_cpu_ind_vec.begin()+local_size, 
+            local_cpu_ind_vec.end());
        
         // Recursive call 
-        mpi_merge_sorted_arrays(height+1, next_Npe, id, local_cpu_fname_vec);
+        mpi_merge_sorted_arrays(height+1, next_Npe, id, local_cpu_ind_vec);
     }
     else
     {
-        // Child PE sends to its parent
-        mpi_send_vec(parent_pe, local_cpu_fname_vec);
+        MPI_Send(local_cpu_ind_vec.data(), transmission_count, MY_MPI_PAIR, parent_pe, MPI_VEC_TAG, MPI_COMM_WORLD);
     }
 }
-
+#undef MPI_VEC_TAG
+#endif
 // int index_of_min_element(double *a, int size)
 // {
 //     int i = 0;
@@ -210,7 +190,9 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
 void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const char *dir)
 {
-    double cpu_t_temp, t1, t2;
+    double t1, t2;
+    std::vector<std::string> filepaths;
+    std::vector< std::pair<double, int> > cpu_fname_vector;
 
     LOG::LOGGER.STD("Initial reading of quasar spectra and estimating CPU time.\n");
 
@@ -243,7 +225,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     for (int findex = fstart_this; findex < fend_this; ++findex)
     {
         OneQSOEstimate q_temp(filepaths[findex]);
-        cpu_t_temp = q_temp.getComputeTimeEst();
+        double cpu_t_temp = q_temp.getComputeTimeEst();
         
         ++Z_BIN_COUNTS[q_temp.ZBIN + 1];
 
@@ -256,7 +238,9 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
     
     // MPI Reduce ZBIN_COUNTS
-    MPI_Allreduce(MPI_IN_PLACE, Z_BIN_COUNTS, bins::NUMBER_OF_Z_BINS+2, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    #if defined(ENABLE_MPI)
+        MPI_Allreduce(MPI_IN_PLACE, Z_BIN_COUNTS, bins::NUMBER_OF_Z_BINS+2, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    #endif
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
 
     LOG::LOGGER.STD("Z bin counts: ");
@@ -266,12 +250,17 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     LOG::LOGGER.STD("Sorting with respect to estimated cpu time.\n");
     std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end()); // Ascending order
-    mpi_merge_sorted_arrays(0, process::total_pes, process::this_pe, cpu_fname_vector);
-    mpi_bcast_cpu_fname_vec(cpu_fname_vector);
+    
+    #if defined(ENABLE_MPI)
+        mpi_merge_sorted_arrays(0, process::total_pes, process::this_pe, cpu_fname_vector);
+        mpi_bcast_cpu_fname_vec(cpu_fname_vector);
+    #endif
 
     // Print out time it took to sort files wrt CPU time
     t2 = mytime::getTime();
     LOG::LOGGER.STD("Sorting took %.2f m.\n", t2-t1);
+
+    _loadBalancing(filepaths, cpu_fname_vector);
 }
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
@@ -453,7 +442,8 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra(double *smoothed_power)
     remove(tmp_smooth_fname);
 }
 
-void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<OneQSOEstimate*> &local_queue)
+void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepaths,
+    std::vector< std::pair<double, int> > &cpu_fname_vector)
 {
     LOG::LOGGER.STD("Load balancing for %d threads available.\n", process::total_pes);
     
@@ -493,9 +483,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
 {
     double total_time = 0, total_time_1it = 0;
     double *powerspectra_fits = new double[bins::TOTAL_KZ_BINS]();
-
-    std::vector<OneQSOEstimate*> local_queue;
-    _loadBalancing(local_queue);
 
     for (int i = 0; i < number_of_iterations; i++)
     {
