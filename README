@@ -4,6 +4,8 @@
 + Implemented reading a mean flux file, which changed config.param keys
 + Created continuum marginalization coeffecients under specifics namespace. Read from config file.
 + Removed redshift evolution option
++ Each PE reads and sorts its own spectra, then merge sorted. This saves significant amount of time reading ~1m files.
++ Smoothing script has --interp_log option, which can be enabled by setting SmoothLnkLnP to 1 in config.param
 
 ### mpi-v1.3
 + Signal and derivative look up tables are controlled by one class: [sq_table.hpp](core/sq_table.hpp)
@@ -121,6 +123,10 @@ Lookup tables are generated with the following parameters:
 Turn off fiducial signal matrix by setting this to a positive integer integer.
     
     TurnOffBaseline   0
+
+You can smooth lnk, lnP instead of k, P for better behaviour.
+
+    SmoothLnkLnP      1
 
 The maximum number of iterations are
 
