@@ -30,7 +30,8 @@ class OneDQuadraticPowerEstimate
     // 3 TOTAL_KZ_BINS sized vectors
     double  *dbt_estimate_sum_before_fisher_vector[3],
             *dbt_estimate_fisher_weighted_vector[3], 
-            *previous_power_estimate_vector, *current_power_estimate_vector;
+            *previous_power_estimate_vector, *current_power_estimate_vector,
+            *powerspectra_fits;
 
     // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
     double *fisher_matrix_sum, *inverse_fisher_matrix_sum;
