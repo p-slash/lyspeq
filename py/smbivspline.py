@@ -28,6 +28,7 @@ if __name__ == '__main__':
     # if 1/weight[i] is an estimate of the standard deviation of power[i].
 
     if args.interp_log:
+        print("Smoothing ln(k), ln(P) and removing p,e<=0 points.")
         mask = np.logical_and(p > 0, e > 0)
 
         lnk = np.log(k[mask])
@@ -39,6 +40,7 @@ if __name__ == '__main__':
         smwe_power = wsbispline(z, np.log(k), grid=False)
         smwe_power = np.exp(smwe_power)
     else:
+        print("Smoothing k, P without masking any points.")
         wsbispline = SmoothBivariateSpline(z, k, p, w=1./e, s=len(e))
 
         smwe_power = wsbispline(z, k, grid=False)
