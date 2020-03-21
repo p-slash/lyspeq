@@ -68,7 +68,7 @@ namespace mytime
 
 namespace specifics
 {
-    extern bool TURN_OFF_SFID;
+    extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
     extern double CHISQ_CONVERGENCE_EPS;
     extern double CONTINUUM_MARGINALIZATION_AMP, CONTINUUM_MARGINALIZATION_DERV;
 

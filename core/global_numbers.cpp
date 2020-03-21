@@ -210,7 +210,7 @@ namespace mytime
 namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
-    bool   TURN_OFF_SFID;
+    bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
     double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
 
     void printBuildSpecifics()
@@ -262,7 +262,8 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
                         int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
-    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1;
+    int     N_KLIN_BIN, N_KLOG_BIN, 
+            sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="";
 
@@ -299,6 +300,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
 
     // Fiducial cosmology
     cFile.addKey("TurnOffBaseline", &sfid_off,  INTEGER);    // Turns off the signal matrix
+    cFile.addKey("SmoothLnkLnP",  &usmoothlogs, INTEGER);    // Smooth lnk, lnP
     cFile.addKey("UseEDSVelocity",  &uedsv,     INTEGER);    // Default is using eds velocity
 
     // How to convert from flux to delta_flux if at all
@@ -334,6 +336,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     // TODO: Test access here
     
     specifics::TURN_OFF_SFID        = sfid_off > 0;
+    specifics::SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
     conv::USE_LOG_V                 = !(uedsv > 0);
     conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
     conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
