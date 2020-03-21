@@ -368,8 +368,8 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fitted_power)
     
     writeSpectrumEstimates(tmp_ps_fname);
 
-    std::ostringstream command;
-    command << "lorentzian_fit.py " << tmp_ps_fname << " " << tmp_fit_fname << " "
+    std::ostringstream command("lorentzian_fit.py ");
+    command << tmp_ps_fname << " " << tmp_fit_fname << " "
             << iteration_fits.A << " " << iteration_fits.n << " " << iteration_fits.n << " ";
 
     // Do not pass redshift parameters if there is only one redshift bin
@@ -411,14 +411,17 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra(double *smoothed_power)
 
     writeSpectrumEstimates(tmp_ps_fname);
 
-    std::ostringstream command;
-    command << "smbivspline.py " << tmp_ps_fname << " " << tmp_smooth_fname; 
+    std::ostringstream command("smbivspline.py ");
+    command << tmp_ps_fname << " " << tmp_smooth_fname; 
+    std::string additional_command = "";
+
+    if (specifics::SMOOTH_LOGK_LOGP)
+        additional_command = " --interp_log";
     
     if (process::this_pe == 0) 
-    {
-        command
-            << " >> " << LOG::LOGGER.getFileName(LOG::TYPE::STD);   
-    }
+        additional_command += " >> " + LOG::LOGGER.getFileName(LOG::TYPE::STD);
+
+    command << additional_command;
       
     LOG::LOGGER.STD("%s\n", command.str().c_str());
     LOG::LOGGER.close();
