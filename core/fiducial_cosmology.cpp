@@ -1,19 +1,55 @@
 #include "core/fiducial_cosmology.hpp"
 
 #include <cmath>
+#include <numeric> // std::accumulate
+#include <algorithm> // std::for_each & transform
 #include <iostream>
 #include <vector>
 #include <set>
 #include <stdexcept>
 
+#include "gsltools/interpolation.hpp"
 #include "gsltools/interpolation_2d.hpp"
 #include "io/io_helper_functions.hpp"
 
 // Conversion functions
 namespace conv
 {
-    bool USE_LOG_V = false, FLUX_TO_DELTAF_BY_CHUNKS = false; // , USE_FID_LEE12_MEAN_FLUX = false;
-    
+    bool USE_LOG_V = false, FLUX_TO_DELTAF_BY_CHUNKS = false, INPUT_IS_DELTA_FLUX = false;
+    Interpolation *interp_mean_flux = NULL;
+
+    void noConversion(const double *lambda, double *flux, double *noise, int size)
+    {
+        const double *l __attribute__((unused)) = lambda;
+        double *f __attribute__((unused)) = flux;
+        double *n __attribute__((unused)) = noise;
+        int s __attribute__((unused)) = size;
+    }
+
+    void chunkMeanConversion(const double *lambda, double *flux, double *noise, int size)
+    {
+        const double *l __attribute__((unused)) = lambda;
+        double chunk_mean = std::accumulate(flux, flux+size, 0.) / size;
+
+        std::for_each(flux, flux+size, [&](double &f) { f = f/chunk_mean-1; });
+        std::for_each(noise, noise+size, [&](double &n) { n /= chunk_mean; });
+        // for (int i = 0; i < size; ++i)
+        // {
+        //     flux[i]   = flux[i]/chunk_mean - 1;
+        //     noise[i] /= chunk_mean;
+        // }
+    }
+
+    void fullConversion(const double *lambda, double *flux, double *noise, int size)
+    {
+        for (int i = 0; i < size; ++i)
+        {
+            double tmp_meanf = interp_mean_flux->evaluate(lambda[i]/LYA_REST-1);
+            *(flux+i)   = *(flux+i)/tmp_meanf - 1;
+            *(noise+i) /= tmp_meanf;
+        }
+    }
+
     void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size)
     {
         double median_lambda = lambda[size / 2];
@@ -21,26 +57,56 @@ namespace conv
         median_z = median_lambda / LYA_REST - 1.;
 
         if (USE_LOG_V)
-        {
-            for (int i = 0; i < size; ++i)
-                v_array[i] = SPEED_OF_LIGHT * log(lambda[i]/median_lambda);
-        }
+            std::transform(lambda, lambda+size, v_array, 
+                [&](const double &l) { return SPEED_OF_LIGHT * log(l/median_lambda); });
         else
-        {
-            for (int i = 0; i < size; ++i)
-                v_array[i] = 2. * SPEED_OF_LIGHT * (1. - sqrt(median_lambda / lambda[i]));
-        }
+            std::transform(lambda, lambda+size, v_array, 
+                [&](const double &l) { return 2*SPEED_OF_LIGHT * (1. - sqrt(median_lambda/l)); });
     }
 
     void convertLambdaToRedshift(double *lambda, int size)
     {
-        for (int i = 0; i < size; ++i)
-        {
-            lambda[i] /= LYA_REST;
-            lambda[i] -= 1.;
-        }
+        std::for_each(lambda, lambda+size, [](double &ld) { ld = ld/LYA_REST-1; });
     }
 
+    void (*convertFluxToDeltaF)(const double*, double*, double*, int) = &noConversion;
+
+    void setMeanFlux(const char *fname)
+    {
+        if (fname == 0)
+        {
+            if (FLUX_TO_DELTAF_BY_CHUNKS)
+                convertFluxToDeltaF = &chunkMeanConversion;
+
+            return;
+        }
+
+        double *z_values, *f_values;
+        int size;
+
+        std::ifstream to_read_meanflux = ioh::open_fstream<std::ifstream>(fname, 'b');
+        // Assume file starts with two integers 
+        // Nk Nz
+        to_read_meanflux.read((char *)&size, sizeof(int));
+
+        z_values = new double[size];
+        f_values = new double[size];
+
+        // Redshift array as doubles
+        to_read_meanflux.read((char *)z_values, size*sizeof(double));
+        
+        // Remaining is flux array
+        to_read_meanflux.read((char *)f_values, size*sizeof(double));
+        to_read_meanflux.close();
+
+        interp_mean_flux = new Interpolation(GSL_CUBIC_INTERPOLATION, z_values, f_values, size);
+        delete [] z_values;
+        delete [] f_values;
+
+        convertFluxToDeltaF = &fullConversion;
+    }
+
+    // , USE_FID_LEE12_MEAN_FLUX = false;
     // double meanFluxBecker13(double z)
     // {
     //     double tau = 0.751 * pow((1. + z) / 4.5, 2.90) - 0.132;
@@ -52,22 +118,6 @@ namespace conv
     //     double tau = 0.001845 * pow(1. + z, 3.924);
     //     return exp(-tau);
     // }
-
-    void convertFluxToDeltaf(double *flux, double *noise, int size)
-    {
-        double mean_f = 0.;
-
-        for (int i = 0; i < size; ++i)
-            mean_f += flux[i];
-        mean_f /= size;
-
-        for (int i = 0; i < size; ++i)
-        {
-            flux[i]  /= mean_f;
-            flux[i]  -= 1.;
-            noise[i] /= mean_f;
-        }
-    }
 
     // void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size)
     // {
@@ -95,54 +145,52 @@ namespace fidcosmo
     double (*fiducialPowerSpectrum)(double, double, void*)             = &pd13::Palanque_Delabrouille_etal_2013_fit;
     double (*fiducialPowerGrowthFactor)(double, double, double, void*) = &pd13::Palanque_Delabrouille_etal_2013_fit_growth_factor;
     
-    bool USE_INTERP_FIDUCIAL_POWER = false;
+    double FID_LOWEST_K = 0, FID_HIGHEST_K = 10.;
     Interpolation2D *interp2d_fiducial_power = NULL;
 
     inline double interpolationFiducialPower(double k, double z, void *params)
     {
         void  *pp __attribute__((unused)) = params;
 
-        return interp2d_fiducial_power->evaluate(z, k);
+        return interp2d_fiducial_power->evaluate(k, z);
     }
 
-    // Assume file starts with two integers, then has three columns
-    // Nk Nz
-    // z k P
-    // . . .
+    // Assume binary file starts with two integers, then redshift values as double, k values as double,
+    // finally power values.
     // Power is ordered for each redshift bin
     void setFiducialPowerFromFile(const char * fname)
     {
         int n_k_points, n_z_points, size;
-        std::vector<double> fiducial_power_vector_from_file, k_values, z_values;
+        double *fiducial_power_from_file, *k_values, *z_values;
 
-        std::fstream to_read_fidpow = ioh::open_file(fname);
+        std::ifstream to_read_fidpow = ioh::open_fstream<std::ifstream>(fname, 'b');
         // Assume file starts with two integers 
         // Nk Nz
-        to_read_fidpow >> n_k_points >> n_z_points;
+        to_read_fidpow.read((char *)&n_k_points, sizeof(int));
+        to_read_fidpow.read((char *)&n_z_points, sizeof(int));
         size = n_k_points * n_z_points;
 
-        fiducial_power_vector_from_file.reserve(size);
-        k_values.reserve(n_k_points);
-        z_values.reserve(n_z_points);
+        k_values = new double[n_k_points];
+        z_values = new double[n_z_points];
+        fiducial_power_from_file = new double[size];
 
-        // Assume file has three columns after
-        // z k P
-        // Power is ordered for each redshift bin
-        for (int nline = 0; nline < size; ++nline)
-        {
-            double tmp_z, tmp_k, tmp_p;
-            to_read_fidpow >> tmp_z >> tmp_k >> tmp_p;
-            
-            // First Nk values are k values
-            if (nline < n_k_points)         k_values.push_back(tmp_k);
-            // Every other Nk value form z values
-            if (nline % n_k_points == 0)    z_values.push_back(tmp_z);
+        // Redshift array, then k array as doubles
+        to_read_fidpow.read((char *)z_values, n_z_points*sizeof(double));
+        to_read_fidpow.read((char *)k_values, n_k_points*sizeof(double));
 
-            fiducial_power_vector_from_file.push_back(tmp_p);
-        }
+        FID_LOWEST_K  = k_values[0];
+        FID_HIGHEST_K = k_values[n_k_points - 1];
         
-        interp2d_fiducial_power = new Interpolation2D(GSL_BICUBIC_INTERPOLATION, z_values.data(), k_values.data(),
-            fiducial_power_vector_from_file.data(), n_z_points, n_k_points);
+        // Remaining is power array
+        to_read_fidpow.read((char *)fiducial_power_from_file, size*sizeof(double));
+        to_read_fidpow.close();
+        
+        interp2d_fiducial_power = new Interpolation2D(GSL_BICUBIC_INTERPOLATION, k_values, z_values, 
+            fiducial_power_from_file, n_k_points, n_z_points);
+
+        delete [] k_values;
+        delete [] z_values;
+        delete [] fiducial_power_from_file;
 
         fiducialPowerSpectrum = &interpolationFiducialPower;
     }

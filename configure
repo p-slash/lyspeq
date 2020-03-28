@@ -189,8 +189,8 @@ en_mpi=
 interp1d=-DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
 interp2d=-DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
 binz_fn=-DTRIANGLE_Z_BINNING_FN
-z_growth=-DREDSHIFT_GROWTH_POWER
-z_evol=
+fisher_opt=
+z_growth=
 lastk_feat=
 debug=
 
@@ -212,12 +212,12 @@ do
             bindir="${i#*=}";;
         --srcdir=*)
             srcdir="${i#*=}";;
+        --enable-fisher-optimization )
+            fisher_opt="-DFISHER_OPTIMIZATION";;
         --enable-last-k-bin=* )
             lastk_feat="-DLAST_K_EDGE=${i#*=}";;
-        --disable-redshift-growth )
-            z_growth="";;
-        --disable-redshift-evolution )
-            z_evol="-DTURN_OFF_REDSHIFT_EVOLUTION";;
+        --enable-fiducial-growth )
+            z_growth="-DREDSHIFT_GROWTH_POWER";;
         --enable-mpi )
             CXXu="mpic++"
             en_mpi="-DENABLE_MPI";;
@@ -255,9 +255,9 @@ do
             echo "--prefix=[directory] --exec_prefix=[directory] : Executables are installed in $exec_prefix/bin. Default is /usr/local"
             echo "--bindir=[directory] : Executables are installed in ${bindir}. Default is /usr/local/bin"
             echo "--srcdir=[directory] : Source directory. Default is current directory (.)"
+            echo "--enable-fisher-optimization : Approximates Fisher matrix by computing only the band elements."
             echo "--enable-last-k-bin=[number] : Enables a feature that adds a high k bin edge."
-            echo "--disable-redshift-growth : Disables scaling derivative matrices with fiducial growth function."
-            echo "--disable-redshift-evolution : Turn off redshift evolution. Binning is overwritten to Top Hat. Redshift growth is still on when passed."
+            echo "--enable-fiducial-growth : Enables scaling derivative matrices with fiducial growth function."
             echo "--enable-mpi : Sets C++ compiler to mpic++"
             echo "--build=[build type] or [build type]: Sets the build type"
             echo "--interactive : Use interactive mode."
@@ -276,11 +276,7 @@ do
     shift
 done
 
-if [[ ! -z "${z_evol}" ]]; then
-    binz_fn=-DTOPHAT_Z_BINNING_FN
-fi
-
-OPT+=" ${en_mpi} ${interp1d} ${interp2d} ${binz_fn} ${lastk_feat} ${z_growth} ${z_evol} ${debug}"
+OPT+=" ${en_mpi} ${interp1d} ${interp2d} ${binz_fn} ${fisher_opt} ${lastk_feat} ${z_growth} ${debug}"
 
 case ${SYSTYPE} in
     GNU_XE18MKL|x64-linux-gnu-mklxe18 )
@@ -336,7 +332,7 @@ case ${SYSTYPE} in
         interactive
         ;;
     * )
-        echo "Unknown system type."
+        echo "Unknown system type ${SYSTYPE}."
         print_build_types
         exit 1
         ;;

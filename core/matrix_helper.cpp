@@ -23,19 +23,32 @@ namespace mxhelp
         }
     }
 
-    double trace_dgemm(const gsl_matrix *A, const gsl_matrix *B)
+    void copyUpperToLower(double *A, int N)
     {
-        int size = A->size1;
+        for (int i = 1; i < N; ++i)
+            for (int j = 0; j < i; ++j)
+                *(A+j+N*i) = *(A+i+N*j);
+    }
 
+    void vector_add(double *target, const double *source, int size)
+    {
+        for (int i = 0; i < size; ++i)
+            *(target+i) += *(source+i);
+    }
+
+    void vector_sub(double *target, const double *source, int size)
+    {
+        for (int i = 0; i < size; ++i)
+            *(target+i) -= *(source+i);
+    }
+
+    double trace_dgemm(const double *A, const double *B, int N)
+    {
         double result = 0.;
 
-        for (int i = 0; i < size; ++i)
-        {
-            for (int j = 0; j < size; ++j)
-            {
-                result += gsl_matrix_get(A, i, j) * gsl_matrix_get(B, j, i);
-            }
-        }
+        for (int i = 0; i < N; ++i)
+            for (int j = 0; j < N; ++j)
+                result += (*(A+j+N*i)) * (*(B+i+N*j));
 
         return result;
     }
@@ -43,32 +56,23 @@ namespace mxhelp
     // Assume A and B square symmetric matrices.
     // No stride or whatsoever. Continous allocation
     // Uses CBLAS dot product.
-    double trace_dsymm(const gsl_matrix *A, const gsl_matrix *B)
+    double trace_dsymm(const double *A, const double *B, int N)
     {
-        int size = A->size1;
-        size *= size;
-        return cblas_ddot(size, A->data, 1, B->data, 1);  
+        return cblas_ddot(N*N, A, 1, B, 1);  
     }
 
-    double trace_ddiagmv(const gsl_matrix *A, const double *B)
+    double trace_ddiagmv(const double *A, const double *B, int N)
     {
-        int size = A->size1;
-
-        return cblas_ddot(size, A->data, size+1, B, 1);  
+        return cblas_ddot(N, A, N+1, B, 1);  
     }
 
-    double my_cblas_dsymvdot(const gsl_vector *v, const gsl_matrix *S)
+    double my_cblas_dsymvdot(const double *v, const double *S, int N)
     {
-        int size = v->size;
+        double *temp_vector = new double[N], r;
 
-        double *temp_vector = new double[size], r;
+        cblas_dsymv(CblasRowMajor, CblasUpper, N, 1., S, N, v, 1, 0, temp_vector, 1);
 
-        cblas_dsymv(CblasRowMajor, CblasUpper,
-                    size, 1., S->data, size,
-                    v->data, 1,
-                    0, temp_vector, 1);
-
-        r = cblas_ddot(size, v->data, 1, temp_vector, 1);
+        r = cblas_ddot(N, v, 1, temp_vector, 1);
 
         delete [] temp_vector;
 
@@ -154,9 +158,7 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
         {
             for (int j = 0; j < ncols; ++j)
-            {
                 printf("%le ", gsl_matrix_get(m, i, j));
-            }
             printf("\n");
         }
     }
@@ -174,9 +176,7 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
         {
             for (int j = 0; j < ncols; ++j)
-            {
                 fprintf(toWrite, "%le ", gsl_matrix_get(m, i, j));
-            }
             fprintf(toWrite, "\n");
         }
 

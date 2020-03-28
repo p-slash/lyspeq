@@ -11,11 +11,16 @@ namespace ioh
 {
     bool file_exists(const char *fname);
 
+    void create_tmp_file(char *fname, const char *TMP_FOLDER);
+
     template <class T>
     T* copyArrayAlloc(const T* source, int size);
 
     FILE * open_file(const char *fname, const char *read_write);
-    std::fstream open_file(const char *fname);
+    // Open binary file if binary='b'
+    // T can be ifstream, ofstream or fstream.
+    template <class T>
+    T open_fstream(const char *fname, char binary='0');
 
     // Allocates list_values, must dellocate manually!
     // Returns number of elements
