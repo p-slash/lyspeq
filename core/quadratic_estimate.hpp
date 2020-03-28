@@ -2,8 +2,7 @@
 #define QUADRATIC_ESTIMATE_H
 
 #include <vector>
-#include <gsl/gsl_matrix.h> 
-#include <gsl/gsl_vector.h>
+#include <string>
 
 #include "core/one_qso_estimate.hpp"
 
@@ -26,28 +25,36 @@ class OneDQuadraticPowerEstimate
 {
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS;
 
-    std::vector< std::pair <double, OneQSOEstimate*> > qso_estimators;
+    std::vector<OneQSOEstimate*> local_queue;
 
     // 3 TOTAL_KZ_BINS sized vectors
-    gsl_vector  *dbt_estimate_sum_before_fisher_vector[3],
-                *dbt_estimate_fisher_weighted_vector[3], 
-                *previous_power_estimate_vector, *current_power_estimate_vector;
+    double  *dbt_estimate_sum_before_fisher_vector[3],
+            *dbt_estimate_fisher_weighted_vector[3], 
+            *previous_power_estimate_vector, *current_power_estimate_vector,
+            *powerspectra_fits;
 
     // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
-    gsl_matrix *fisher_matrix_sum, *inverse_fisher_matrix_sum;
+    double *fisher_matrix_sum, *inverse_fisher_matrix_sum;
 
     bool isFisherInverted;
 
     void _readQSOFiles(const char *fname_list, const char *dir);
 
-    // Fitting procedure calls Python3 script lorentzian_fit.py.
+    // The next 2 functions call Python scripts.
     // Intermadiate files are saved in TMP_FOLDER (read as TemporaryFolder in config file)
     // make install will copy this script to $HOME/bin and make it executable.
     // Add $HOME/bin to your $PATH
-    void _fitPowerSpectra(double *fit_values);
+
+    // Fitting procedure calls Python3 script lorentzian_fit.py.
+    void _fitPowerSpectra(double *fitted_power);
+
+    // Weighted smoothing using 2D spline calls Python3 script smbivspline.py
+    void _smoothPowerSpectra(double *smoothed_power);
+    void _readScriptOutput(double *script_power, const char *fname, void *itsfits=NULL);
 
     // Performs a load balancing operation based on N^3 estimation
-    void _loadBalancing(std::vector<OneQSOEstimate*> *queue_qso, int maxthreads);
+    void _loadBalancing(std::vector<std::string> &filepaths, 
+        std::vector< std::pair<double, int> > &cpu_fname_vector);
 
 public:
     OneDQuadraticPowerEstimate(const char *fname_list, const char *dir);
@@ -59,7 +66,11 @@ public:
     void initializeIteration();
     void invertTotalFisherMatrix();
     void computePowerSpectrumEstimates();
+
+    // Passing fit values for the power spectrum for numerical stability
     void iterate(int number_of_iterations, const char *fname_base);
+
+    // Deviation between actual estimates (not fit values)
     bool hasConverged();
     
     void printfSpectra();
@@ -69,6 +80,7 @@ public:
     // You can find that value in logs--printfSpectra prints all
     void writeSpectrumEstimates(const char *fname);
     void writeDetailedSpectrumEstimates(const char *fname);
+    void iterationOutput(const char *fnamebase, int it, double t1, double tot);
 };
 
 

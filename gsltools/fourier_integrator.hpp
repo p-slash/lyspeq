@@ -11,7 +11,9 @@ class FourierIntegrator
     gsl_integration_qawo_table *t;
     gsl_integration_qawo_enum GSL_SIN_COS;
     
-    void handle_gsl_status(int status);
+    double set_table_omega, set_table_length;
+    
+    void handle_gsl_status(int status, double result=0, double error=0);
     
 public:
     // gsl_integration_qawo_enum sin_cos should be chosen from below:
@@ -24,8 +26,11 @@ public:
     // The length L can take any value for infty integrals, since it is overridden 
     // by this function to a value appropriate for the Fourier integration.
     void setTableParameters(double omega, double L);
+    // Table t should be before allocated.
+    void changeTableLength(double L);
 
-    double evaluate(double omega, double a, double b, double epsabs=1E-13, double epsrel=1E-7);
+    // If omega < 0, keeps previous omega and only changes the table length.
+    double evaluate(double a, double b, double omega=-1, double epsabs=1E-13, double epsrel=1E-7);
     double evaluateAToInfty(double a, double epsabs=1E-13);
     double evaluate0ToInfty(double epsabs=1E-13);
 };

@@ -7,13 +7,14 @@
 
 namespace conv
 {
-    extern bool USE_LOG_V, FLUX_TO_DELTAF_BY_CHUNKS;
-    // extern bool USE_FID_LEE12_MEAN_FLUX;
-    
+    extern bool USE_LOG_V, FLUX_TO_DELTAF_BY_CHUNKS, INPUT_IS_DELTA_FLUX;
+
+    void setMeanFlux(const char *fname=0);
+
     void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size);
     void convertLambdaToRedshift(double *lambda, int size);
 
-    void convertFluxToDeltaf(double *flux, double *noise, int size);
+    extern void (*convertFluxToDeltaF)(const double *lambda, double *flux, double *noise, int size);
     // void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size);
 }
 
@@ -24,12 +25,13 @@ namespace fidcosmo
     extern double (*fiducialPowerSpectrum)(double k, double z, void *params);
     // Currently growth factor is always given Palanqu Delabrouille fit.
     extern double (*fiducialPowerGrowthFactor)(double z_ij, double k_kn, double z_zm, void *params);
-    extern bool USE_INTERP_FIDUCIAL_POWER;
+    extern double FID_LOWEST_K, FID_HIGHEST_K;
 
-    // Assume file starts with two integers, then has three columns
-    // Nk Nz
-    // z k P
-    // . . .
+    // Assume binary file starts with 
+    // two integers, 
+    // then redshift values as doubles, 
+    // k values as doubles,
+    // finally power values as doubles.
     // Power is ordered for each redshift bin
     void setFiducialPowerFromFile(const char *fname);
 

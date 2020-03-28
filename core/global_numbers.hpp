@@ -4,34 +4,18 @@
 #include "core/sq_table.hpp"
 #include <cstdio>
 
-// Mathematical numbers defined in fiducial_cosmology.hpp
-// #define PI 3.14159265359
-// This constant defined and used in CreateSQLookUpTable.cpp
-// #define ONE_SIGMA_2_FWHM 2.35482004503
-
-// Physical constants defined in fiducial_cosmology.hpp
-// #define LYA_REST 1215.67
-// #define SPEED_OF_LIGHT 299792.458
-
-// One QSO Estimate numbers
-// #define ADDED_CONST_TO_COVARIANCE 10.0
-
 // Quadratic Estimate numbers
-#define CONVERGENCE_EPS       1E-4
-extern double CHISQ_CONVERGENCE_EPS;
+#define CONVERGENCE_EPS 1E-4
 
-extern char TMP_FOLDER[300];
-
-// OpenMP thread rank and total number of threads
-// t_rank is threadprivate
-extern int t_rank, numthreads;
-
-extern double MEMORY_ALLOC;
-
-extern bool TURN_OFF_SFID;
-
-// Look up table, global and thread copy
-extern SQLookupTable *sq_private_table;
+// PE rank and total number of threads
+namespace process
+{
+    extern int this_pe, total_pes;
+    extern char TMP_FOLDER[300];
+    extern double MEMORY_ALLOC;
+    // Look up table, global and thread copy
+    extern SQLookupTable *sq_private_table;
+}
 
 namespace bins
 {
@@ -49,21 +33,19 @@ namespace bins
     void cleanUpBins();
 
     // returns -1 if below, NUMBER_OF_Z_BINS if above
-    int    findRedshiftBin(double z);
+    int findRedshiftBin(double z);
 
     // Given the redshift z, returns binning weight. 1 for top-hats, interpolation for triangular
     // zm: Bin number to consider
     // zc: Central bin number for triangular bins. Binning weights depend on being to the left 
     // or to the right of this number.
-    double redshiftBinningFunction(double z, int zm, int zc);
+    double redshiftBinningFunction(double z, int zm);
 
-    inline int  getFisherMatrixIndex(int kn, int zm) 
-        { return kn + bins::NUMBER_OF_K_BANDS * zm; };
-    inline void getFisherMatrixBinNoFromIndex(int i, int &kn, int &zm) 
-        { kn = i % bins::NUMBER_OF_K_BANDS; zm = i / bins::NUMBER_OF_K_BANDS; };
+    int getFisherMatrixIndex(int kn, int zm);
+    void getFisherMatrixBinNoFromIndex(int ikz, int &kn, int &zm);
     
     #ifdef LAST_K_EDGE
-    #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;
+    // #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;
     #else
     #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) 
     #endif
@@ -81,11 +63,16 @@ namespace mytime
 
     double getTime(); // in minutes
     void printfTimeSpentDetails();
+    void writeTimeLogHeader();
 }
 
 namespace specifics
 {
-    #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
+    extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
+    extern double CHISQ_CONVERGENCE_EPS;
+    extern double CONTINUUM_MARGINALIZATION_AMP, CONTINUUM_MARGINALIZATION_DERV;
+
+    #if defined(TOPHAT_Z_BINNING_FN)
     #define BINNING_SHAPE "Top Hat"
     #elif defined(TRIANGLE_Z_BINNING_FN)
     #define BINNING_SHAPE "Triangular"
@@ -101,12 +88,6 @@ namespace specifics
     #else
     #define HIGH_K_TXT "OFF"
     #endif
-
-    #if defined(TURN_OFF_REDSHIFT_EVOLUTION)
-    #define TORE_TEXT "OFF. This overwrites redshift binning to Top Hat"
-    #else
-    #define TORE_TEXT "ON"
-    #endif
     
     #if defined(REDSHIFT_GROWTH_POWER)
     #define RGP_TEXT "ON"
@@ -118,7 +99,6 @@ namespace specifics
                                     "# 1D Interpolation: " tovstr(INTERP_1D_TYPE) "\n"
                                     "# 2D Interpolation: " tovstr(INTERP_2D_TYPE) "\n"
                                     "# Redshift binning shape: " BINNING_SHAPE "\n" 
-                                    "# Redshift evolution: " TORE_TEXT "\n"
                                     "# Redshift growth scaling: " RGP_TEXT "\n"
                                     "# Last k bin: " HIGH_K_TXT "\n";
     #undef tostr

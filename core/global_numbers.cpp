@@ -8,16 +8,13 @@
 
 #include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
 
-char TMP_FOLDER[300] = ".";
-
-double CHISQ_CONVERGENCE_EPS = 0.01;
-double MEMORY_ALLOC          = 0;
-
-int t_rank = 0, numthreads = 1;
-
-SQLookupTable *sq_private_table;
-
-bool TURN_OFF_SFID;
+namespace process
+{
+    int this_pe=0, total_pes=1;
+    char TMP_FOLDER[300] = ".";
+    double MEMORY_ALLOC  = 0;
+    SQLookupTable *sq_private_table;
+}
 
 namespace bins
 {
@@ -25,9 +22,7 @@ namespace bins
     double *KBAND_EDGES, *KBAND_CENTERS;
     double  Z_BIN_WIDTH, *ZBIN_CENTERS, z0_edge;
 
-    void setUpBins(double k0, int nlin, double dklin,
-                                int nlog, double dklog,
-                     double z0)
+    void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double z0)
     {
         // Construct k edges
         NUMBER_OF_K_BANDS = nlin + nlog;
@@ -57,7 +52,7 @@ namespace bins
         #endif
 
         // Set up k bin centers
-        for (int kn = 0; kn < NUMBER_OF_K_BANDS; kn++)
+        for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
             KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
 
         // Construct redshift bins
@@ -89,7 +84,8 @@ namespace bins
         return r;        
     }
 
-    // This needs more thought
+    // This is an extrapolating approach when limited to to only neighbouring bins
+    // Not used in latest versions
     // What happens when a pixel goes outside of triangular bins?
     //    Imagine our central bin is z(m) and its left most pixel is at z_ij less than z(m-1).
     //    Its behavior can be well defined in z(m) bin, simply take z_ij < z(m).
@@ -98,7 +94,7 @@ namespace bins
     //    In other words, that pixel is not normally distributed (sum of weights not equal to 1).
     //    That pixel does not belong to the correct z bin. There should not be such pixels.
     //    Below is my fix by keeping track of left and right bins.
-    double zBinTriangular(double z, int zm, int zc)
+    double zBinTriangularExtrapolate(double z, int zm, int zc)
     {
         double zm_center = bins::ZBIN_CENTERS[zm], z_pivot = ZBIN_CENTERS[zc];
         
@@ -123,18 +119,50 @@ namespace bins
         }
     }
 
-    double redshiftBinningFunction(double z, int zm, int zc)
+    // This binning function is zero outside next bins center
+    // Effectively removes any pixels that does not belong to any redshift bin.
+    double zBinTriangular(double z, int zm)
     {
-        #if defined(TOPHAT_Z_BINNING_FN) || defined(TURN_OFF_REDSHIFT_EVOLUTION)
-        double zz  __attribute__((unused)) = z;
-        int    zzm __attribute__((unused)) = zm,
-               zzc __attribute__((unused)) = zc;
-        return 1.;
-        #endif
+        double zm_center = ZBIN_CENTERS[zm];
+        double zlow = zm_center - Z_BIN_WIDTH, zupp = zm_center + Z_BIN_WIDTH;
+        
+        if ((zlow < z) && (z <= zm_center))
+        {
+            if (zm == 0)
+                return 1;
+            return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
+        }   
+        
+        if ((zm_center < z) && (z < zupp))
+        {
+            if (zm == (NUMBER_OF_Z_BINS-1))
+                return 1;
+            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+        }
+        
+        return 0;
+    }
 
-        #ifdef TRIANGLE_Z_BINNING_FN
-        return zBinTriangular(z, zm, zc);
+    double redshiftBinningFunction(double z, int zm)
+    {
+        #if defined(TOPHAT_Z_BINNING_FN)
+        if (zm == findRedshiftBin(z)) return 1;
+        else                          return 0;
+
+        #elif defined(TRIANGLE_Z_BINNING_FN)
+        return zBinTriangular(z, zm);
         #endif
+    }
+    
+    int  getFisherMatrixIndex(int kn, int zm)
+    { 
+        return kn + NUMBER_OF_K_BANDS * zm; 
+    }
+
+    void getFisherMatrixBinNoFromIndex(int ikz, int &kn, int &zm)
+    {
+        kn = (ikz) % NUMBER_OF_K_BANDS; 
+        zm = (ikz) / NUMBER_OF_K_BANDS; 
     }
 }
 
@@ -171,36 +199,60 @@ namespace mytime
             time_spent_on_c_inv, time_spent_on_f_inv, time_spent_on_set_sfid, (double)number_of_times_called_setsfid,
             time_spent_set_qs, (double)number_of_times_called_setq, time_spent_set_modqs, time_spent_set_fisher);
     }
+
+    void writeTimeLogHeader()
+    {
+        LOG::LOGGER.TIME("| %2s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s |\n", 
+        "i", "T_i", "T_tot", "T_Cinv", "T_Finv", "T_Sfid", "N_Sfid", "T_Q", "N_Q", "T_Qmod", "T_F", "DChi2", "DMean");
+    }
 }
 
-void specifics::printBuildSpecifics()
+namespace specifics
 {
-    LOG::LOGGER.STD(specifics::BUILD_SPECIFICS);
-}
+    double CHISQ_CONVERGENCE_EPS = 0.01;
+    bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
+    double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
 
-void specifics::printConfigSpecifics(FILE *toWrite)
-{
-    if (toWrite == NULL)
+    void printBuildSpecifics()
     {
-        LOG::LOGGER.STD("Using following configuration parameters:\n"
-        "Fiducial Signal Baseline: %s\n"
-        "Velocity Spacing: %s\n"
-        "Divide by mean flux of the chunk: %s\n", 
-        TURN_OFF_SFID ? "OFF" : "ON",
-        conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
-        conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
+        LOG::LOGGER.STD(BUILD_SPECIFICS);
     }
-    else
+
+    void printConfigSpecifics(FILE *toWrite)
     {
-        fprintf(toWrite, "# Using following configuration parameters:\n"
-        "# Fiducial Signal Baseline: %s\n"
-        "# Velocity Spacing: %s\n"
-        "# Divide by mean flux of the chunk: %s\n", 
-        TURN_OFF_SFID ? "OFF" : "ON",
-        conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
-        conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF");
+        if (toWrite == NULL)
+        {
+            LOG::LOGGER.STD("Using following configuration parameters:\n"
+            "Fiducial Signal Baseline: %s\n"
+            "Velocity Spacing: %s\n"
+            "Input is delta flux: %s\n"
+            "Divide by mean flux of the chunk: %s\n"
+            "ContinuumMargAmp: %.2e\n"
+            "ContinuumMargDerv: %.2e\n", 
+            TURN_OFF_SFID ? "OFF" : "ON",
+            conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
+            conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
+            conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF",
+            CONTINUUM_MARGINALIZATION_AMP,
+            CONTINUUM_MARGINALIZATION_DERV);
+        }
+        else
+        {
+            fprintf(toWrite, "# Using following configuration parameters:\n"
+            "# Fiducial Signal Baseline: %s\n"
+            "# Velocity Spacing: %s\n"
+            "# Input is delta flux: %s\n"
+            "# Divide by mean flux of the chunk: %s\n"
+            "# ContinuumMargAmp: %.2e\n"
+            "# ContinuumMargDerv: %.2e\n", 
+            TURN_OFF_SFID ? "OFF" : "ON",
+            conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
+            conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
+            conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF",
+            CONTINUUM_MARGINALIZATION_AMP,
+            CONTINUUM_MARGINALIZATION_DERV);
+        }
     }
-    
 }
 
 // Pass NULL for not needed variables!
@@ -210,31 +262,31 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
                         int *NUMBER_OF_ITERATIONS,
                         int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
-    int     N_KLIN_BIN, N_KLOG_BIN, sfid_off, ulogv=-1, uchunkmean=-1;
+    int     N_KLIN_BIN, N_KLOG_BIN, 
+            sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1;
-    char    FNAME_FID_POWER[300]="";
+    char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="";
 
     // Set up config file to read variables.
     ConfigFile cFile(FNAME_CONFIG);
 
     // Bin parameters
     cFile.addKey("K0", &K_0, DOUBLE);
-    cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
-
     cFile.addKey("LinearKBinWidth",  &LIN_K_SPACING, DOUBLE);
     cFile.addKey("Log10KBinWidth",   &LOG_K_SPACING, DOUBLE);
-    cFile.addKey("RedshiftBinWidth", &bins::Z_BIN_WIDTH,   DOUBLE);
-
     cFile.addKey("NumberOfLinearBins",   &N_KLIN_BIN, INTEGER);
     cFile.addKey("NumberOfLog10Bins",    &N_KLOG_BIN, INTEGER);
-    cFile.addKey("NumberOfRedshiftBins", &bins::NUMBER_OF_Z_BINS,   INTEGER);
+
+    cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
+    cFile.addKey("RedshiftBinWidth", &bins::Z_BIN_WIDTH, DOUBLE);
+    cFile.addKey("NumberOfRedshiftBins", &bins::NUMBER_OF_Z_BINS, INTEGER);
     
     // // File names and paths
     cFile.addKey("FileNameList", FNAME_LIST, STRING);
 
     cFile.addKey("FileNameRList",  FNAME_RLIST, STRING);
     cFile.addKey("FileInputDir",   INPUT_DIR, STRING);
-    cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); // Lya
+    cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
 
     cFile.addKey("SignalLookUpTableBase",       FILEBASE_S, STRING);
@@ -246,26 +298,36 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("PixelWidth",      PIXEL_WIDTH, DOUBLE);
     cFile.addKey("VelocityLength",  LENGTH_V,    DOUBLE);
 
-    // Fiducial Palanque fit function parameters
+    // Fiducial cosmology
+    cFile.addKey("TurnOffBaseline", &sfid_off,  INTEGER);    // Turns off the signal matrix
+    cFile.addKey("SmoothLnkLnP",  &usmoothlogs, INTEGER);    // Smooth lnk, lnP
+    cFile.addKey("UseEDSVelocity",  &uedsv,     INTEGER);    // Default is using eds velocity
+
+    // How to convert from flux to delta_flux if at all
+    cFile.addKey("MeanFluxFile",        FNAME_MEAN_FLUX, STRING);  // File to interpolate for F-bar
+    cFile.addKey("UseChunksMeanFlux",   &uchunkmean,     INTEGER); // If 1, uses mean of each chunk as F-bar
+    cFile.addKey("InputIsDeltaFlux",    &udeltaf,        INTEGER); // If 1, input is delta_f
+
+    // Baseline Power Spectrum
     cFile.addKey("FiducialPowerFile",           FNAME_FID_POWER,                      STRING);
+    // Fiducial Palanque fit function parameters
     cFile.addKey("FiducialAmplitude",           &fidpd13::FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
     cFile.addKey("FiducialSlope",               &fidpd13::FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
     cFile.addKey("FiducialCurvature",           &fidpd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
     cFile.addKey("FiducialRedshiftPower",       &fidpd13::FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
     cFile.addKey("FiducialRedshiftCurvature",   &fidpd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
-    cFile.addKey("FiducialLorentzianLambda",    &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,  DOUBLE);
+    cFile.addKey("FiducialLorentzianLambda",    &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,DOUBLE);
 
     cFile.addKey("NumberOfIterations", NUMBER_OF_ITERATIONS, INTEGER);
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
 
+    // Continuum marginalization coefficients. Defaults are 100. Pass <=0 to turn off
+    cFile.addKey("ContinuumMargAmp",  &specifics::CONTINUUM_MARGINALIZATION_AMP,  DOUBLE);
+    cFile.addKey("ContinuumMargDerv", &specifics::CONTINUUM_MARGINALIZATION_DERV, DOUBLE);
+
     // Read integer if testing outside of Lya region
-    cFile.addKey("TurnOffBaseline", &sfid_off, INTEGER);
-
-    cFile.addKey("AllocatedMemoryMB", &MEMORY_ALLOC, DOUBLE);
-
-    cFile.addKey("TemporaryFolder", &TMP_FOLDER, STRING);
-    cFile.addKey("UseLogarithmicVelocity", &ulogv, INTEGER);
-    cFile.addKey("ConvertFromFluxToDeltaf", &uchunkmean, INTEGER);
+    cFile.addKey("AllocatedMemoryMB", &process::MEMORY_ALLOC, DOUBLE);
+    cFile.addKey("TemporaryFolder", &process::TMP_FOLDER, STRING);
 
     cFile.readAll();
 
@@ -273,11 +335,42 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
     // TODO: Test access here
     
-    TURN_OFF_SFID   = sfid_off > 0;
-    conv::USE_LOG_V = ulogv > 0;
-    conv::FLUX_TO_DELTAF_BY_CHUNKS = uchunkmean > 0;
+    specifics::TURN_OFF_SFID        = sfid_off > 0;
+    specifics::SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
+    conv::USE_LOG_V                 = !(uedsv > 0);
+    conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
+    conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
 
-    if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
+    // resolve conflict: Input delta flux overrides all
+    // Then, chunk means.
+    if (conv::INPUT_IS_DELTA_FLUX && conv::FLUX_TO_DELTAF_BY_CHUNKS)
+    {
+        LOG::LOGGER.ERR("Both input delta flux and conversion using chunk's mean flux is turned on. "
+            "Assuming input is flux fluctuations delta_f.\n");
+        conv::FLUX_TO_DELTAF_BY_CHUNKS = false;
+    }
+
+    conv::setMeanFlux();
+
+    if (FNAME_MEAN_FLUX[0] != '\0')
+    {
+        if (conv::FLUX_TO_DELTAF_BY_CHUNKS)
+        {
+            LOG::LOGGER.ERR("Both mean flux file and using chunk's mean flux is turned on. "
+            "Using chunk's mean flux.\n");
+        }
+        else if (conv::INPUT_IS_DELTA_FLUX)
+        {
+            LOG::LOGGER.ERR("Both input delta flux and conversion using mean flux file is turned on. "
+            "Assuming input is flux fluctuations delta_f.\n");
+        }
+        else
+            conv::setMeanFlux(FNAME_MEAN_FLUX);
+    }
+    else if (!(conv::INPUT_IS_DELTA_FLUX || conv::FLUX_TO_DELTAF_BY_CHUNKS))
+        conv::INPUT_IS_DELTA_FLUX = true;
+
+    if (temp_chisq > 0) specifics::CHISQ_CONVERGENCE_EPS = temp_chisq;
 
     if (FNAME_FID_POWER[0] != '\0')
         fidcosmo::setFiducialPowerFromFile(FNAME_FID_POWER);

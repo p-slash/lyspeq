@@ -1,3 +1,12 @@
+### Changes
++ Python script does not fit, but applies a weighted smoothing.
++ Default velocity is logarithmic. Changed the key in config.param
++ Implemented reading a mean flux file, which changed config.param keys
++ Created continuum marginalization coeffecients under specifics namespace. Read from config file.
++ Removed redshift evolution option
++ Each PE reads and sorts its own spectra, then merge sorted. This saves significant amount of time reading ~1m files.
++ Smoothing script has --interp_log option, which can be enabled by setting SmoothLnkLnP to 1 in config.param
+
 ### mpi-v1.3
 + Signal and derivative look up tables are controlled by one class: [sq_table.hpp](core/sq_table.hpp)
 + Input data are assumed to be fluctuations and not flux. Added `ConvertFromFluxToDeltaf` to config file to switch behaviors.
@@ -13,14 +22,15 @@
     beta   =   -1.768045e-01
     lambda =    3.598261e+02
 
-+ When `FiducialPowerFile` set in config file, an interpolation function takes over. This file should have the following convention:
++ When `FiducialPowerFile` set in config file, an interpolation function takes over. This file should be a binary file and have the following convention:
 
     Nk Nz
-    z1 k1 P11
-    z1 k2 P12
-    .  .  .
+    z[1]...z[Nz]
+    k[1]...k[Nk]
+    P[nz=1, nk=1...Nk]...P[Nz, nk=1...Nk]
 
 + Some functions are turned into `inline`.
++ The large number added to covariance matrix is 100.
 
 ### v1.2
 + Turn of redshift evolution by passing `--disable-redshift-evolution` to configure script. When redshift evolution is turned off, every pixel pair in each chunk assumed to be at the median redshift of the chunk, and switched to using top-hat bins. However, scaling with a growth function is still functional if passed. Using `beta=0` in fiducial power is recomended.
@@ -90,6 +100,10 @@ Redshift bins are linearly spaced.
     RedshiftBinWidth          0.2
     NumberOfRedshiftBins      6
 
+Fiducial power can be a tabulated file
+
+    FiducialPowerFile ./my_fiducial_estiamte.dat
+
 Fiducial Palanque fit function parameters when used.
     
     FiducialAmplitude            0.06
@@ -109,6 +123,10 @@ Lookup tables are generated with the following parameters:
 Turn off fiducial signal matrix by setting this to a positive integer integer.
     
     TurnOffBaseline   0
+
+You can smooth lnk, lnP instead of k, P for better behaviour.
+
+    SmoothLnkLnP      1
 
 The maximum number of iterations are
 
@@ -137,17 +155,30 @@ Specify allocated memory in MB to store additional derivative matrices and fiduc
 
     AllocatedMemoryMB 5.
 
+Specify continuum marginalization coefficients. Default is 100. Pass <=0 to turn off.
+
+    ContinuumMargAmp  100.
+    ContinuumMargDerv 100.
+    
 Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with [py/lorentzian_fit.py](py/lorentzian_fit.py) script. For clusters, you are typically assigned a scratch space such as `scratch` or `project`.
 
     TemporaryFolder /tmp
 
-To convert with logarithmic velocity, set this to 1. 0 will use EdS approximation.
+To convert with EdS velocity, set this to 1. Default 0 will use logarithmic spacing approximation.
 
-    UseLogarithmicVelocity 1
+    UseEDSVelocity 0
     
-It is recommended that flux to fluctuations conversion done independently. However, if you want to input flux and convert using mean flux of each chunk, set this to 1.
+It is recommended that flux to fluctuations conversion done using an empirical or theoretical mean flux. Pass this binary filename (int size, double z[size], double flux[size])
 
-    ConvertFromFluxToDeltaf  0
+    MeanFluxFile ./true_mean_flux.dat
+
+However, if you want to convert using mean flux of each chunk, set the following to 1. This overrides the mean flux file.
+
+    UseChunksMeanFlux  0
+
+If your files have flux fluctuations, set the following to 1. This overrides all above, even nothing was passed.
+
+    InputIsDeltaFlux 0
 
 Quasar Spectrum File
 ====
