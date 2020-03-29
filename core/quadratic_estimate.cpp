@@ -368,7 +368,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fitted_power)
     
     writeSpectrumEstimates(tmp_ps_fname);
 
-    std::ostringstream command("lorentzian_fit.py ");
+    std::ostringstream command("lorentzian_fit.py ", std::ostringstream::ate);
     command << tmp_ps_fname << " " << tmp_fit_fname << " "
             << iteration_fits.A << " " << iteration_fits.n << " " << iteration_fits.n << " ";
 
@@ -411,7 +411,7 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra(double *smoothed_power)
 
     writeSpectrumEstimates(tmp_ps_fname);
 
-    std::ostringstream command("smbivspline.py ");
+    std::ostringstream command("smbivspline.py ", std::ostringstream::ate);
     command << tmp_ps_fname << " " << tmp_smooth_fname; 
     std::string additional_command = "";
 
@@ -559,7 +559,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
     LOG::LOGGER.STD("Chi^2/dof convergence test:\nDiagonal: %.3f. Full Fisher: %.3f.\n"
-                    "Iteration converges when either is less than %.2f\n.", 
+                    "Iteration converges when either is less than %.2f.\n", 
                     r, rfull, specifics::CHISQ_CONVERGENCE_EPS);
 
     bool_converged = r < specifics::CHISQ_CONVERGENCE_EPS || rfull < specifics::CHISQ_CONVERGENCE_EPS;
