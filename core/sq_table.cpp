@@ -255,6 +255,8 @@ void SQLookupTable::deallocateTmpArrays()
 void SQLookupTable::readSQforR(int r_index)
 {
     std::string buf_fnames;
+    int dummy_R, dummy_Nz;
+    double temp_px_width, temp_ki, temp_kf;
 
     // Skip this section if fiducial signal matrix is turned off.
     if (specifics::TURN_OFF_SFID)
@@ -265,9 +267,6 @@ void SQLookupTable::readSQforR(int r_index)
         
         SQLookupTableFile s_table_file(buf_fnames, 'r');
         
-        int dummy_R, dummy_Nz;
-        double temp_px_width, temp_ki, temp_kf;
-
         s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, dummy_R, temp_px_width, temp_ki, temp_kf);
 
         // Allocate memory before reading further
