@@ -5,9 +5,10 @@
 # It then creates a weighted smooth spline:
 #   WITHOUT MASKING ANY POINTS,
 #   But weighting each point with 1/error
+# If --interp_log is passed as 3rd argument:
+#   It MASKS P, e < 0. 
+#   Interpolates (lnk, lnP) with weights e/P
 # Finally, it saves this smooth power in the same order to the output text file.
-
-from sys import argv as sys_argv
 
 import numpy as np
 from scipy.interpolate import SmoothBivariateSpline
@@ -18,7 +19,8 @@ if __name__ == '__main__':
     parser.add_argument("InputPS", help="Input power spectrum file.")
     parser.add_argument("OutputPS", help="Output power spectrum file.")
     parser.add_argument("--interp_log", help="Interpolate ln(k), ln(P) instead.", action="store_true")
-
+    args = parser.parse_args()
+    
     # Read input power file.
     z, k, p, e = np.genfromtxt(args.InputPS, delimiter = ' ', skip_header = 2, unpack = True, usecols=(0,1,2,3))
 
