@@ -29,8 +29,7 @@ namespace conv
     void chunkMeanConversion(const double *lambda, double *flux, double *noise, int size)
     {
         const double *l __attribute__((unused)) = lambda;
-        double chunk_mean = 0.;
-        chunk_mean = std::accumulate(flux, flux+size, chunk_mean) / size;
+        double chunk_mean = std::accumulate(flux, flux+size, 0.) / size;
 
         std::for_each(flux, flux+size, [&](double &f) { f = f/chunk_mean-1; });
         std::for_each(noise, noise+size, [&](double &n) { n /= chunk_mean; });

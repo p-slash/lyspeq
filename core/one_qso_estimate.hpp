@@ -22,8 +22,6 @@
 // Fiducial signal matrix if there is still more space after all derivative matrices.
 // This scheme speeds up the algorithm.
 
-// When redshift evolution is turned off, always uses MEDIAN_REDSHIFT of the chunk.
-
 class OneQSOEstimate
 {
     std::string qso_sp_fname;
@@ -64,8 +62,6 @@ class OneQSOEstimate
     void _allocateMatrices();
     void _freeMatrices();
 
-    // If redshift evolution is turned off, 
-    // always set pixel pair's redshift to MEDIAN_REDSHIFT of the chunk.
     void _getVandZ(double &v_ij, double &z_ij, int i, int j);
     
     void _setFiducialSignalMatrix(double *sm);

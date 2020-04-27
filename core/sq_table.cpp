@@ -125,7 +125,9 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
                 win_params.z_ij = sqhelper::LINEAR_Z_ARRAY[nz];   // z_first + z_length * nz / (Nz - 1.);
                 
                 // 1E-15 gave roundoff error for smoothing with 20.8 km/s
-                sqhelper::signal_array[xy] = s_integrator.evaluate(fidcosmo::FID_LOWEST_K, fidcosmo::FID_HIGHEST_K, -1, 0);
+                // Correlation at dv=0 is between 0.01 and 1. 
+                // Giving room for 7 decades, absolute error can be 1e-9
+                sqhelper::signal_array[xy] = s_integrator.evaluate(fidcosmo::FID_LOWEST_K, fidcosmo::FID_HIGHEST_K, -1, 1E-9);
             }
         }
         
@@ -253,28 +255,31 @@ void SQLookupTable::deallocateTmpArrays()
 void SQLookupTable::readSQforR(int r_index)
 {
     std::string buf_fnames;
-
-    // Read S table.
-    buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, R_VALUES[r_index]);
-    LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
-    
-    SQLookupTableFile s_table_file(buf_fnames, 'r');
-    
     int dummy_R, dummy_Nz;
     double temp_px_width, temp_ki, temp_kf;
 
-    s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, dummy_R, temp_px_width, temp_ki, temp_kf);
+    // Skip this section if fiducial signal matrix is turned off.
+    if (!specifics::TURN_OFF_SFID)
+    {
+        // Read S table.
+        buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, R_VALUES[r_index]);
+        LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
+        
+        SQLookupTableFile s_table_file(buf_fnames, 'r');
+        
+        s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, dummy_R, temp_px_width, temp_ki, temp_kf);
 
-    // Allocate memory before reading further
-    if (sqhelper::LINEAR_V_ARRAY == NULL)
-        allocateTmpArrays();
+        // Allocate memory before reading further
+        if (sqhelper::LINEAR_V_ARRAY == NULL)
+            allocateTmpArrays();
 
-    // Start reading data and interpolating
-    s_table_file.readData(sqhelper::signal_array);
+        // Start reading data and interpolating
+        s_table_file.readData(sqhelper::signal_array);
 
-    // Interpolate
-    interp2d_signal_matrices[r_index] = new Interpolation2D(INTERP_2D_TYPE, sqhelper::LINEAR_Z_ARRAY, sqhelper::LINEAR_V_ARRAY, 
-        sqhelper::signal_array, N_Z_POINTS_OF_S, N_V_POINTS);
+        // Interpolate
+        interp2d_signal_matrices[r_index] = new Interpolation2D(INTERP_2D_TYPE, sqhelper::LINEAR_Z_ARRAY, sqhelper::LINEAR_V_ARRAY, 
+            sqhelper::signal_array, N_Z_POINTS_OF_S, N_V_POINTS);
+    }
 
     // Read Q tables. 
     double kvalue_1, kvalue_2, dummy_lzq;
@@ -290,6 +295,10 @@ void SQLookupTable::readSQforR(int r_index)
 
         q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, dummy_R, temp_px_width, temp_ki, temp_kf);
 
+        // Allocate memory before reading further
+        if (sqhelper::LINEAR_V_ARRAY == NULL)
+            allocateTmpArrays();
+        
         q_table_file.readData(sqhelper::derivative_array);
 
         // Interpolate
