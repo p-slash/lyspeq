@@ -36,6 +36,9 @@ VelocityLength    9100.0
 # When testing outside of Lya region, turn off fiducial matrix by 1
 TurnOffBaseline   0
 
+# You can smooth lnk, lnP instead of k, P for better behaviour.
+SmoothLnkLnP      1
+
 # Fiducial power can be a tabulated file
 FiducialPowerFile ./my_fiducial_estiamte.dat
 
@@ -54,6 +57,9 @@ UseChunksMeanFlux 0
 # To not convert, set this to 1
 InputIsDeltaFlux 0
 
+# Specify continuum marginalization coefficients. Default is 100. Pass <=0 to turn off.
+ContinuumMargAmp  100.
+ContinuumMargDerv 100.
 
 # These lookup tables are saved with the follwoing file name bases to FileInputDir:
 SignalLookUpTableBase        signal_zon_lookup

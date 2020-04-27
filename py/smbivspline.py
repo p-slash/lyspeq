@@ -5,27 +5,47 @@
 # It then creates a weighted smooth spline:
 #   WITHOUT MASKING ANY POINTS,
 #   But weighting each point with 1/error
+# If --interp_log is passed as 3rd argument:
+#   It MASKS P, e < 0. 
+#   Interpolates (lnk, lnP) with weights e/P
 # Finally, it saves this smooth power in the same order to the output text file.
-
-from sys import argv as sys_argv
 
 import numpy as np
 from scipy.interpolate import SmoothBivariateSpline
+import argparse
 
 if __name__ == '__main__':
-    input_ps  = sys_argv[1]
-    output_ps = sys_argv[2]
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument("InputPS", help="Input power spectrum file.")
+    parser.add_argument("OutputPS", help="Output power spectrum file.")
+    parser.add_argument("--interp_log", help="Interpolate ln(k), ln(P) instead.", action="store_true")
+    args = parser.parse_args()
+    
     # Read input power file.
-    z, k, p, e = np.genfromtxt(input_ps, delimiter = ' ', skip_header = 2, unpack = True, usecols=(0,1,2,3))
+    z, k, p, e = np.genfromtxt(args.InputPS, delimiter = ' ', skip_header = 2, unpack = True, usecols=(0,1,2,3))
 
     # Create 2D Spline object
     # From scipy manual:
     # Default s=len(weight) which should be a good value 
     # if 1/weight[i] is an estimate of the standard deviation of power[i].
-    wsbispline = SmoothBivariateSpline(z, k, p, w=1./e, s=len(e))
 
-    smwe_power = wsbispline(z, k, grid=False)
+    if args.interp_log:
+        print("Smoothing ln(k), ln(P) and removing p,e<=0 points.")
+        mask = np.logical_and(p > 0, e > 0)
 
-    np.savetxt(output_ps, smwe_power, header='', comments='')
+        lnk = np.log(k[mask])
+        lnP = np.log(p[mask])
+        lnE = e[mask]/p[mask]
+
+        wsbispline = SmoothBivariateSpline(z[mask], lnk, lnP, w=1./lnE, s=len(lnE))
+
+        smwe_power = wsbispline(z, np.log(k), grid=False)
+        smwe_power = np.exp(smwe_power)
+    else:
+        print("Smoothing k, P without masking any points.")
+        wsbispline = SmoothBivariateSpline(z, k, p, w=1./e, s=len(e))
+
+        smwe_power = wsbispline(z, k, grid=False)
+
+    np.savetxt(args.OutputPS, smwe_power, header='', comments='')
     exit(0)

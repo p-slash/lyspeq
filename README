@@ -2,6 +2,10 @@
 + Python script does not fit, but applies a weighted smoothing.
 + Default velocity is logarithmic. Changed the key in config.param
 + Implemented reading a mean flux file, which changed config.param keys
++ Created continuum marginalization coeffecients under specifics namespace. Read from config file.
++ Removed redshift evolution option
++ Each PE reads and sorts its own spectra, then merge sorted. This saves significant amount of time reading ~1m files.
++ Smoothing script has --interp_log option, which can be enabled by setting SmoothLnkLnP to 1 in config.param
 
 ### mpi-v1.3
 + Signal and derivative look up tables are controlled by one class: [sq_table.hpp](core/sq_table.hpp)
@@ -120,6 +124,10 @@ Turn off fiducial signal matrix by setting this to a positive integer integer.
     
     TurnOffBaseline   0
 
+You can smooth lnk, lnP instead of k, P for better behaviour.
+
+    SmoothLnkLnP      1
+
 The maximum number of iterations are
 
     NumberOfIterations    10
@@ -147,6 +155,11 @@ Specify allocated memory in MB to store additional derivative matrices and fiduc
 
     AllocatedMemoryMB 5.
 
+Specify continuum marginalization coefficients. Default is 100. Pass <=0 to turn off.
+
+    ContinuumMargAmp  100.
+    ContinuumMargDerv 100.
+    
 Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with [py/lorentzian_fit.py](py/lorentzian_fit.py) script. For clusters, you are typically assigned a scratch space such as `scratch` or `project`.
 
     TemporaryFolder /tmp
