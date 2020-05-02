@@ -1,4 +1,5 @@
 #include "core/matrix_helper.hpp"
+#include "cblas.h"
 #include <cmath>
 
 #define N 8
@@ -27,7 +28,6 @@ int main()
                             6, 9, 2, 1,
                             7, 2, 0, 1,
                             8, 1, 1, 5};
-    gsl_matrix_view gmv_symA = gsl_matrix_view_array(smy_matrix_A, NA, NA);
 
     double vector_B[] = {4, 5, 6, 7}, vector_R[NA];
     // gsl_vector_view gvv_B = gsl_vector_view_array(vector_B, NA);
@@ -67,13 +67,8 @@ int main()
     printf("%lf\n", mxhelp::my_cblas_dsymvdot(vector_B, smy_matrix_A, NA));
     
     // Test LU invert
-    gsl_matrix *copy_A = gsl_matrix_alloc(NA, NA);
-    gsl_matrix_memcpy(copy_A, &gmv_symA.matrix);
-    
-    mxhelp::LAPACKE_InvertMatrixLU(copy_A);
-    mxhelp::printfMatrix(copy_A);
-
-    gsl_matrix_free(copy_A);
+    mxhelp::LAPACKE_InvertMatrixLU(smy_matrix_A, NA);
+    mxhelp::printfMatrix(smy_matrix_A, NA, NA);
 
     return 0;
 }
