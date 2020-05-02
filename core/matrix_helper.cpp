@@ -95,7 +95,7 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
         {
             for (int j = 0; j < ncols; ++j)
-                printf("%10.3le ", *(A+i+nrows*j));
+                printf("%15.4le ", *(A+i+nrows*j));
             printf("\n");
         }
     }
@@ -111,7 +111,7 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
         {
             for (int j = 0; j < ncols; ++j)
-                fprintf(toWrite, "%le ", *(A+i+nrows*j));
+                fprintf(toWrite, "%20le ", *(A+i+nrows*j));
             fprintf(toWrite, "\n");
         }
 
