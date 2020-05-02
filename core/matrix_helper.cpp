@@ -1,8 +1,8 @@
 #include "core/matrix_helper.hpp"
 
 #include <stdexcept>
-#include "lapacke.h"
-#include "cblas.h"
+#include "mkl_lapacke.h"
+#include "mkl_cblas.h"
 
 namespace mxhelp
 {
@@ -87,7 +87,7 @@ namespace mxhelp
         info = LAPACKE_degtri(LAPACK_ROW_MAJOR, LIN, A, LIN, &ipiv) //, work, lwork, info);
         LAPACKErrorHandle("ERROR in LU Decomp", info);
 
-        dpotrf(CblasUpper, N, A, N); // the Cholesky factorization of a symmetric positive-definite matrix
+        // dpotrf(CblasUpper, N, A, N); // the Cholesky factorization of a symmetric positive-definite matrix
     }
 
     void printfMatrix(const double *A, int nrows, int ncols)
