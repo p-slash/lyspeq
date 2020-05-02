@@ -80,11 +80,11 @@ namespace mxhelp
         lapack_int LIN = N, ipiv, info;
         // Factorize A
         // the LU factorization of a general m-by-n matrix.
-        info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, &ipiv, info);
+        info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, &ipiv);
         
         LAPACKErrorHandle("ERROR in LU Decomp", info);
 
-        info = LAPACKE_degtri(LAPACK_ROW_MAJOR, LIN, A, LIN, &ipiv) //, work, lwork, info);
+        info = LAPACKE_dgetri(LAPACK_ROW_MAJOR, LIN, A, LIN, &ipiv); //, work, lwork, info);
         LAPACKErrorHandle("ERROR in LU Decomp", info);
 
         // dpotrf(CblasUpper, N, A, N); // the Cholesky factorization of a symmetric positive-definite matrix
