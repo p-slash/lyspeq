@@ -1,14 +1,9 @@
 #ifndef MATRIX_HELPER_H
 #define MATRIX_HELPER_H
 
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_vector.h>
-
 namespace mxhelp
 {
     // Copy upper triangle of matrix A to its lower triangle
-    // Call gsl_matrix_get and set, passing -DHAVE_INLINE to precompiler make them inline (faster)
-    void copyUpperToLower(gsl_matrix *A);
     // A is NxN
     void copyUpperToLower(double *A, int N);
 
@@ -36,6 +31,7 @@ namespace mxhelp
     // Assumes S is square symmetric matrix NxN
     double my_cblas_dsymvdot(const double *v, const double *S, int N);
 
+    /*
     // In-place invert A
     // Apply scale as gsl_linalg_cholesky_scale
     // Assuming A is NxN, allocates and frees a vector of size N
@@ -49,13 +45,14 @@ namespace mxhelp
     // A is changed, do not use it again
     // Assuming A is NxN, allocates and frees a gsl_permutation of size N
     void invertMatrixLU(gsl_matrix *A, gsl_matrix *Ainv);
+    */
 
-    void printfMatrix(const gsl_matrix *m);
-    void fprintfMatrix(const char *fname, const gsl_matrix *m);
+    void printfMatrix(const double *A, int N1, int N2);
+    void fprintfMatrix(const char *fname, const double *A, int N1, int N2);
 
     // LAPACKE functions
     void LAPACKE_InvertMatrixLU(double *A, int N);
-    void LAPACKE_InvertMatrixLU(gsl_matrix *A);
+    // void LAPACKE_InvertMatrixLU(gsl_matrix *A);
 }
 
 #endif

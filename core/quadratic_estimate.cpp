@@ -16,6 +16,8 @@
 #include "mpi.h" 
 #endif
 
+#include "cblas.h"
+
 #include "core/matrix_helper.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
@@ -279,18 +281,9 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
     
-    gsl_matrix_view fisher_mv    = gsl_matrix_view_array(fisher_matrix_sum, 
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    gsl_matrix_view invfisher_mv = gsl_matrix_view_array(inverse_fisher_matrix_sum, 
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-
-    gsl_matrix *fisher_copy = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    gsl_matrix_memcpy(fisher_copy, &fisher_mv.matrix);
+    std::copy(fisher_matrix_sum, fisher_matrix_sum+bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS, inverse_fisher_matrix_sum);
+    mxhelp::LAPACKE_InvertMatrixLU(inverse_fisher_matrix_sum, bins::TOTAL_KZ_BINS);
     
-    mxhelp::invertMatrixLU(fisher_copy, &invfisher_mv.matrix);
-    
-    gsl_matrix_free(fisher_copy);
-
     isFisherInverted = true;
 
     t = mytime::getTime() - t;
@@ -567,9 +560,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
 void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
 {
-    gsl_matrix_view fisher_mv = gsl_matrix_view_array(fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-
-    mxhelp::fprintfMatrix(fname, &fisher_mv.matrix);
+    mxhelp::fprintfMatrix(fname, fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
 
     LOG::LOGGER.IO("Fisher matrix saved as %s.\n", fname);
 }
@@ -754,15 +745,10 @@ void OneDQuadraticPowerEstimate::iterationOutput(const char *fname_base, int it,
     sprintf(buf, "%s_it%d_quadratic_power_estimate_detailed.dat", fname_base, it+1);
     writeDetailedSpectrumEstimates(buf);
 
-    gsl_matrix_view fisher_mv    = gsl_matrix_view_array(fisher_matrix_sum, 
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    gsl_matrix_view invfisher_mv = gsl_matrix_view_array(inverse_fisher_matrix_sum, 
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-
     sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, it+1);
-    mxhelp::fprintfMatrix(buf, &fisher_mv.matrix);
+    mxhelp::fprintfMatrix(buf, fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     sprintf(buf, "%s_it%d_inversefisher_matrix.dat", fname_base, it+1);
-    mxhelp::fprintfMatrix(buf, &invfisher_mv.matrix);
+    mxhelp::fprintfMatrix(buf, inverse_fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     LOG::LOGGER.IO("Fisher matrix and inverse are saved as %s.\n", buf);
 
     LOG::LOGGER.STD("This iteration took %.1f minutes. Elapsed time so far is %.1f minutes.\n", 

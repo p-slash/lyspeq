@@ -7,9 +7,7 @@
 #include "io/qso_file.hpp"
 #include "io/logger.hpp"
 
-#include <gsl/gsl_matrix.h> 
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_errno.h>
+#include "cblas.h"
 
 #include <cmath>
 #include <algorithm> // std::for_each & transform
@@ -359,15 +357,9 @@ void OneQSOEstimate::invertCovarianceMatrix()
 {
     double t = mytime::getTime();
 
-    inverse_covariance_matrix  = temp_matrix[0];
-
-    gsl_matrix_view cov_mv    = gsl_matrix_view_array(covariance_matrix, DATA_SIZE, DATA_SIZE);
-    gsl_matrix_view invcov_mv = gsl_matrix_view_array(inverse_covariance_matrix, DATA_SIZE, DATA_SIZE);
-
-    mxhelp::invertMatrixLU(&cov_mv.matrix, &invcov_mv.matrix);
+    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, DATA_SIZE);
     
-    temp_matrix[0]    = covariance_matrix;
-    covariance_matrix = inverse_covariance_matrix;
+    inverse_covariance_matrix = covariance_matrix;
 
     isCovInverted = true;
 

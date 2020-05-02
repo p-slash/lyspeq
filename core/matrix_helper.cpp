@@ -1,29 +1,11 @@
 #include "core/matrix_helper.hpp"
 
-#include <gsl/gsl_linalg.h>
-#include <gsl/gsl_permutation.h>
-
 #include <stdexcept>
-// #include "lapacke.h"
-// #include "cblas.h"
+#include "lapacke.h"
+#include "cblas.h"
 
 namespace mxhelp
 {
-    void copyUpperToLower(gsl_matrix *A)
-    {
-        double temp;
-        int size = A->size1;
-
-        for (int i = 1; i < size; ++i)
-        {
-            for (int j = 0; j < i; ++j)
-            {
-                temp = gsl_matrix_get(A, j, i);
-                gsl_matrix_set(A, i, j, temp);
-            }
-        }
-    }
-
     void copyUpperToLower(double *A, int N)
     {
         for (int i = 1; i < N; ++i)
@@ -80,6 +62,63 @@ namespace mxhelp
         return r;
     }
 
+    void LAPACKErrorHandle(const char *base, int info)
+    {
+        if (info != 0)
+        {
+            char err_msg[50];
+            if (info < 0)   sprintf(err_msg, "%s", "Illegal value.");
+            else            sprintf(err_msg, "%s", "Singular.");
+
+            fprintf(stderr, "%s: %s\n", base, err_msg);
+            throw std::runtime_error(err_msg);
+        }
+    }
+
+    void LAPACKE_InvertMatrixLU(double *A, int N)
+    {
+        lapack_int LIN = N, ipiv, info;
+        // Factorize A
+        // the LU factorization of a general m-by-n matrix.
+        info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, &ipiv, info);
+        
+        LAPACKErrorHandle("ERROR in LU Decomp", info);
+
+        info = LAPACKE_degtri(LAPACK_ROW_MAJOR, LIN, A, LIN, &ipiv) //, work, lwork, info);
+        LAPACKErrorHandle("ERROR in LU Decomp", info);
+
+        dpotrf(CblasUpper, N, A, N); // the Cholesky factorization of a symmetric positive-definite matrix
+    }
+
+    void printfMatrix(const double *A, int nrows, int ncols)
+    {
+        for (int i = 0; i < nrows; ++i)
+        {
+            for (int j = 0; j < ncols; ++j)
+                printf("%10.3le ", *(A+i+nrows*j));
+            printf("\n");
+        }
+    }
+
+    void fprintfMatrix(const char *fname, const double *A, int nrows, int ncols)
+    {
+        FILE *toWrite;
+        
+        toWrite = fopen(fname, "w");
+
+        fprintf(toWrite, "%d %d\n", nrows, ncols);
+        
+        for (int i = 0; i < nrows; ++i)
+        {
+            for (int j = 0; j < ncols; ++j)
+                fprintf(toWrite, "%le ", *(A+i+nrows*j));
+            fprintf(toWrite, "\n");
+        }
+
+        fclose(toWrite);
+    }
+
+    /*
     void invertMatrixCholesky2(gsl_matrix *A)
     {
         int size = A->size1, status;
@@ -124,40 +163,6 @@ namespace mxhelp
         }
     }
 
-    void LAPACKErrorHandle(const char *base, int info)
-    {
-        if (info != 0)
-        {
-            char err_msg[50];
-            if (info < 0)   sprintf(err_msg, "%s", "Illegal value.");
-            else            sprintf(err_msg, "%s", "Singular.");
-
-            fprintf(stderr, "%s: %s\n", base, err_msg);
-            throw std::runtime_error(err_msg);
-        }
-    }
-
-    void LAPACKE_InvertMatrixLU(double *A, int N)
-    {
-        A[0] *= N;
-        // lapack_int LIN = N, ipiv, info;
-        // // Factorize A
-        // // the LU factorization of a general m-by-n matrix.
-        // info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, &ipiv, info);
-        
-        // LAPACKErrorHandle("ERROR in LU Decomp", info);
-
-        // info = LAPACKE_degtri(LAPACK_ROW_MAJOR, LIN, A, LIN, &ipiv) //, work, lwork, info);
-        // LAPACKErrorHandle("ERROR in LU Decomp", info);
-
-        // dpotrf(CblasUpper, N, A, N); // the Cholesky factorization of a symmetric positive-definite matrix
-    }
-
-    void LAPACKE_InvertMatrixLU(gsl_matrix *A)
-    {
-        LAPACKE_InvertMatrixLU(A->data, A->size1);
-    }
-
     void invertMatrixLU(gsl_matrix *A, gsl_matrix *Ainv)
     {
         int size = A->size1, signum, status;
@@ -185,36 +190,5 @@ namespace mxhelp
             throw std::runtime_error(err_msg);
         }
     }
-
-    void printfMatrix(const gsl_matrix *m)
-    {
-        int nrows = m->size1, ncols = m->size2;
-
-        for (int i = 0; i < nrows; ++i)
-        {
-            for (int j = 0; j < ncols; ++j)
-                printf("%le ", gsl_matrix_get(m, i, j));
-            printf("\n");
-        }
-    }
-
-    void fprintfMatrix(const char *fname, const gsl_matrix *m)
-    {
-        FILE *toWrite;
-        
-        toWrite = fopen(fname, "w");
-
-        int nrows = m->size1, ncols = m->size2;
-
-        fprintf(toWrite, "%d %d\n", nrows, ncols);
-        
-        for (int i = 0; i < nrows; ++i)
-        {
-            for (int j = 0; j < ncols; ++j)
-                fprintf(toWrite, "%le ", gsl_matrix_get(m, i, j));
-            fprintf(toWrite, "\n");
-        }
-
-        fclose(toWrite);
-    }
+    */
 }
