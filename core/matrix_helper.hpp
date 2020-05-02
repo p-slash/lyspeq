@@ -52,6 +52,10 @@ namespace mxhelp
 
     void printfMatrix(const gsl_matrix *m);
     void fprintfMatrix(const char *fname, const gsl_matrix *m);
+
+    // LAPACKE functions
+    void LAPACKE_InvertMatrixLU(double *A, int N);
+    void LAPACKE_InvertMatrixLU(gsl_matrix *A);
 }
 
 #endif
