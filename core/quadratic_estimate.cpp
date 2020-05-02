@@ -16,7 +16,7 @@
 #include "mpi.h" 
 #endif
 
-#include "cblas.h"
+#include "mkl_cblas.h"
 
 #include "core/matrix_helper.hpp"
 #include "core/global_numbers.hpp"

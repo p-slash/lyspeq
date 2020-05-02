@@ -7,7 +7,7 @@
 #include "io/qso_file.hpp"
 #include "io/logger.hpp"
 
-#include "cblas.h"
+#include "mkl_cblas.h"
 
 #include <cmath>
 #include <algorithm> // std::for_each & transform
