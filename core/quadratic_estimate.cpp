@@ -12,8 +12,6 @@
 #include <string>
 #include <sstream>      // std::ostringstream
 
-#include <gsl/gsl_cblas.h>
-
 #if defined(ENABLE_MPI)
 #include "mpi.h" 
 #endif

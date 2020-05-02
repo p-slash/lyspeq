@@ -1,5 +1,4 @@
 #include "core/matrix_helper.hpp"
-#include <gsl/gsl_cblas.h>
 #include <cmath>
 
 #define N 8
@@ -71,8 +70,8 @@ int main()
     gsl_matrix *copy_A = gsl_matrix_alloc(NA, NA);
     gsl_matrix_memcpy(copy_A, &gmv_symA.matrix);
     
-    mxhelp::invertMatrixLU(copy_A, &gmv_symA.matrix);
-    mxhelp::printfMatrix(&gmv_symA.matrix);
+    mxhelp::LAPACKE_InvertMatrixLU(copy_A);
+    mxhelp::printfMatrix(copy_A);
 
     gsl_matrix_free(copy_A);
 

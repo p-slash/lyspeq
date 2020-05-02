@@ -300,30 +300,30 @@ case ${SYSTYPE} in
     clang_openblas|x64-macos-clang-openblas )
         CXX="clang++"
         set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I/usr/local/opt/openblas/include"
         LDFLAGS="${gsl_lib} -L/usr/local/opt/openblas/lib"
-        LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
+        LDLIBS="-lgsl -lcblas -llapacke -lopenblas ${LDLIBS_OMP} -lm -ldl"
         ;;
     x64-macos-gcc9-openblas )
         CXX="g++-9"
         set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I/usr/local/opt/openblas/include"
         LDFLAGS="${gsl_lib} -L/usr/local/opt/openblas/lib"
-        LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
+        LDLIBS="-lgsl -lcblas -llapacke -lopenblas ${LDLIBS_OMP} -lm -ldl"
         ;;
     x64-linux-gcc-atlas )
         CXX="g++"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
-        LDLIBS="-lgsl -lcblas -latlas -lm -ldl"
+        LDLIBS="-lgsl -lcblas -llapacke -latlas -lm -ldl"
         ;;
     x64-linux-gcc-openblas )
         CXX="g++"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
-        LDLIBS="-lgsl -lopenblas -lm -ldl"
+        LDLIBS="-lgsl -lcblas -llapacke -lopenblas -lm -ldl"
         ;;
     x64-linux-gcc-gslcblas )
         CXX="g++"

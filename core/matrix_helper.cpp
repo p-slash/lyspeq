@@ -1,10 +1,11 @@
 #include "core/matrix_helper.hpp"
 
 #include <gsl/gsl_linalg.h>
-#include <gsl/gsl_cblas.h>
 #include <gsl/gsl_permutation.h>
 
 #include <stdexcept>
+// #include "lapacke.h"
+// #include "cblas.h"
 
 namespace mxhelp
 {
@@ -121,6 +122,40 @@ namespace mxhelp
             fprintf(stderr, "ERROR in Cholesky Invert: %s\n", err_msg);
             throw std::runtime_error(err_msg);
         }
+    }
+
+    void LAPACKErrorHandle(const char *base, int info)
+    {
+        if (info != 0)
+        {
+            char err_msg[50];
+            if (info < 0)   sprintf(err_msg, "%s", "Illegal value.");
+            else            sprintf(err_msg, "%s", "Singular.");
+
+            fprintf(stderr, "%s: %s\n", base, err_msg);
+            throw std::runtime_error(err_msg);
+        }
+    }
+
+    void LAPACKE_InvertMatrixLU(double *A, int N)
+    {
+        A[0] *= N;
+        // lapack_int LIN = N, ipiv, info;
+        // // Factorize A
+        // // the LU factorization of a general m-by-n matrix.
+        // info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, &ipiv, info);
+        
+        // LAPACKErrorHandle("ERROR in LU Decomp", info);
+
+        // info = LAPACKE_degtri(LAPACK_ROW_MAJOR, LIN, A, LIN, &ipiv) //, work, lwork, info);
+        // LAPACKErrorHandle("ERROR in LU Decomp", info);
+
+        // dpotrf(CblasUpper, N, A, N); // the Cholesky factorization of a symmetric positive-definite matrix
+    }
+
+    void LAPACKE_InvertMatrixLU(gsl_matrix *A)
+    {
+        LAPACKE_InvertMatrixLU(A->data, A->size1);
     }
 
     void invertMatrixLU(gsl_matrix *A, gsl_matrix *Ainv)
