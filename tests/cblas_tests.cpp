@@ -1,5 +1,6 @@
 #include "core/matrix_helper.hpp"
 #include <cmath>
+#include <cstdio>
 
 #define N 8
 #define NA 4
