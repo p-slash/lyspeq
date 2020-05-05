@@ -82,16 +82,19 @@ namespace mxhelp
 
     void LAPACKE_InvertMatrixLU(double *A, int N)
     {
-        lapack_int LIN = N, ipiv, info;
+        lapack_int LIN = N, *ipiv, info;
+        ipiv = new lapack_int[N];
+       
         // Factorize A
         // the LU factorization of a general m-by-n matrix.
-        info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, &ipiv);
+        info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, ipiv);
         
         LAPACKErrorHandle("ERROR in LU Decomp", info);
 
-        info = LAPACKE_dgetri(LAPACK_ROW_MAJOR, LIN, A, LIN, &ipiv); //, work, lwork, info);
+        info = LAPACKE_dgetri(LAPACK_ROW_MAJOR, LIN, A, LIN, ipiv);
         LAPACKErrorHandle("ERROR in LU Decomp", info);
 
+        delete [] ipiv;
         // dpotrf(CblasUpper, N, A, N); // the Cholesky factorization of a symmetric positive-definite matrix
     }
 
