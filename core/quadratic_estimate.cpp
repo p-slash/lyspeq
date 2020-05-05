@@ -16,8 +16,6 @@
 #include "mpi.h" 
 #endif
 
-#include "mkl_cblas.h"
-
 #include "core/matrix_helper.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
