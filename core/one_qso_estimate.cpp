@@ -7,8 +7,6 @@
 #include "io/qso_file.hpp"
 #include "io/logger.hpp"
 
-#include "mkl_cblas.h"
-
 #include <cmath>
 #include <algorithm> // std::for_each & transform
 #include <cstdio>
@@ -226,7 +224,7 @@ void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
     z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
 }
 
-void OneQSOEstimate::_setFiducialSignalMatrix(double *sm)
+void OneQSOEstimate::_setFiducialSignalMatrix(double *sm, bool copy=true)
 {
     ++mytime::number_of_times_called_setsfid;
 
@@ -234,7 +232,12 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *sm)
     double v_ij, z_ij, temp;
 
     if (isSfidSet)
-        std::copy(stored_sfid, stored_sfid + (DATA_SIZE*DATA_SIZE), sm);
+    {
+        if (copy)
+            std::copy(stored_sfid, stored_sfid + (DATA_SIZE*DATA_SIZE), sm);
+        else
+            sm = stored_sfid;
+    }
     else
     {
         for (int row = 0; row < DATA_SIZE; ++row)
@@ -256,7 +259,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *sm)
     mytime::time_spent_on_set_sfid += t;
 }
 
-void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
+void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz, bool copy=true)
 {
     ++mytime::number_of_times_called_setq;
 
@@ -267,7 +270,10 @@ void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
     if (isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)))
     {
         t_interp = 0;
-        std::copy(stored_qj[N_Q_MATRICES-i_kz-1], stored_qj[N_Q_MATRICES-i_kz-1] + (DATA_SIZE*DATA_SIZE), qi);
+        if (copy)
+            std::copy(stored_qj[N_Q_MATRICES-i_kz-1], stored_qj[N_Q_MATRICES-i_kz-1] + (DATA_SIZE*DATA_SIZE), qi);
+        else
+            qi = stored_qj[N_Q_MATRICES-i_kz-1];
     }
     else
     {
@@ -406,7 +412,7 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
             continue;
         #endif
         
-        _setQiMatrix(Q_jkz_matrix, j_kz);
+        _setQiMatrix(Q_jkz_matrix, j_kz, false);
 
         temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, DATA_SIZE);
         throw_isnan(temp, "F=TrQwQw");
@@ -456,7 +462,7 @@ void OneQSOEstimate::computePSbeforeFvector()
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
         {
-            _setFiducialSignalMatrix(Sfid_matrix);
+            _setFiducialSignalMatrix(Sfid_matrix, false);
 
             // Tr(C-1 Qi C-1 Sfid)
             temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, DATA_SIZE);

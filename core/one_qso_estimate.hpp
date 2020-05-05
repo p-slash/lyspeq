@@ -64,8 +64,8 @@ class OneQSOEstimate
 
     void _getVandZ(double &v_ij, double &z_ij, int i, int j);
     
-    void _setFiducialSignalMatrix(double *sm);
-    void _setQiMatrix(double *qi, int i_kz);
+    void _setFiducialSignalMatrix(double *sm, bool copy=true);
+    void _setQiMatrix(double *qi, int i_kz, bool copy=true);
     void _getWeightedMatrix(double *m);
     void _getFisherMatrix(const double *Q_ikz_matrix, int i_kz);
 
