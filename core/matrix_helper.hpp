@@ -1,6 +1,12 @@
 #ifndef MATRIX_HELPER_H
 #define MATRIX_HELPER_H
 
+#ifdef USE_MKL_CBLAS
+#include "mkl_cblas.h"
+#else
+#include "cblas.h"
+#endif
+
 namespace mxhelp
 {
     // Copy upper triangle of matrix A to its lower triangle

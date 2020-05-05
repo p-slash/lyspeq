@@ -1,8 +1,13 @@
 #include "core/matrix_helper.hpp"
 
 #include <stdexcept>
+
+#ifdef USE_MKL_CBLAS
 #include "mkl_lapacke.h"
-#include "mkl_cblas.h"
+#else
+#include "lapacke.h"
+#endif
+
 
 namespace mxhelp
 {
@@ -95,7 +100,7 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
         {
             for (int j = 0; j < ncols; ++j)
-                printf("%15.4le ", *(A+i+nrows*j));
+                printf("%.6le ", *(A+i+nrows*j));
             printf("\n");
         }
     }
