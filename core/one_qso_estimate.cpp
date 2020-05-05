@@ -363,7 +363,7 @@ void OneQSOEstimate::invertCovarianceMatrix()
 {
     double t = mytime::getTime();
 
-    mxhelp::LAPACKE_InvertMatrixLU(covarianLce_matrix, DATA_SIZE);
+    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, DATA_SIZE);
     
     inverse_covariance_matrix = covariance_matrix;
 
