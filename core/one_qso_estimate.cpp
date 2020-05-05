@@ -363,7 +363,7 @@ void OneQSOEstimate::invertCovarianceMatrix()
 {
     double t = mytime::getTime();
 
-    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, DATA_SIZE);
+    mxhelp::LAPACKE_InvertMatrixU(covarianLce_matrix, DATA_SIZE);
     
     inverse_covariance_matrix = covariance_matrix;
 
@@ -398,7 +398,6 @@ void OneQSOEstimate::_getWeightedMatrix(double *m)
 void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 {
     double temp;
-    double *Q_jkz_matrix = temp_matrix[1];
 
     double t = mytime::getTime();
     
@@ -412,6 +411,7 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
             continue;
         #endif
         
+        double *Q_jkz_matrix = temp_matrix[1];
         _setQiMatrix(Q_jkz_matrix, j_kz, false);
 
         temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, DATA_SIZE);
@@ -433,8 +433,6 @@ void OneQSOEstimate::computePSbeforeFvector()
 {
     double *weighted_data_vector = new double[DATA_SIZE];
 
-    double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix  = temp_matrix[1];
-
     cblas_dsymv(CblasRowMajor, CblasUpper,
                 DATA_SIZE, 1., inverse_covariance_matrix, DATA_SIZE,
                 flux_array, 1,
@@ -444,6 +442,8 @@ void OneQSOEstimate::computePSbeforeFvector()
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
+        double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix  = temp_matrix[1];
+
         // Set derivative matrix ikz
         _setQiMatrix(Q_ikz_matrix, i_kz);
 
