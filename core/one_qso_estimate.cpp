@@ -224,7 +224,7 @@ void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
     z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
 }
 
-void OneQSOEstimate::_setFiducialSignalMatrix(double *sm, bool copy=true)
+void OneQSOEstimate::_setFiducialSignalMatrix(double *sm, bool copy)
 {
     ++mytime::number_of_times_called_setsfid;
 
@@ -259,7 +259,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *sm, bool copy=true)
     mytime::time_spent_on_set_sfid += t;
 }
 
-void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz, bool copy=true)
+void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz, bool copy)
 {
     ++mytime::number_of_times_called_setq;
 
