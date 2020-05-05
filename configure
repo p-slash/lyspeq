@@ -216,9 +216,9 @@ case ${SYSTYPE} in
         CXX="icpc"
         set_omp_flags
         OPT+=" -DUSE_MKL_CBLAS"
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
-        LDFLAGS="${gsl_lib}"
-        LDLIBS="-lgsl ${LDLIBS_OMP} -lpthread -lm -ldl"
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -DMKL_ILP64 -I${MKLROOT}/include"
+        LDFLAGS="${gsl_lib} -L${MKLROOT}/lib/intel64"
+        LDLIBS="-lgsl -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core ${LDLIBS_OMP} -lpthread -lm -ldl"
         ;;
     clang_openblas|x64-macos-clang-openblas )
         CXX="clang++"
