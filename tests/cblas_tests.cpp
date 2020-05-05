@@ -1,5 +1,4 @@
 #include "core/matrix_helper.hpp"
-#include "cblas.h"
 #include <cmath>
 
 #define N 8
