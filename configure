@@ -79,7 +79,7 @@ function set_omp_flags() {
     elif [[ "${CPPFLAGS_OMP}" = "-tbb" && "${CXX}" = "icpc" ]]; then
         CPPFLAGS_OMP=
         LDLIBS_OMP=
-        MKL_THREAD_LIBS="lmkl_tbb_thread -lmkl_core -ltbb -lstdc++"
+        MKL_THREAD_LIBS="-lmkl_tbb_thread -lmkl_core -ltbb -lstdc++"
     else
         CPPFLAGS_OMP=""
         LDLIBS_OMP=""
