@@ -108,7 +108,7 @@ function set_gsl_inc_lib() {
 }
 
 # Default values
-OPT=-03
+OPT=-O3
 en_mpi=
 interp1d=-DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
 interp2d=-DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
