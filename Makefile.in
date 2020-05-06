@@ -1,10 +1,10 @@
 #---------------------------------------
 # GSL recommends the following flags
 # removed flags: -ansi -Wmissing-prototypes -Wstrict-prototypes -Wconversion -Wnested-externs -Dinline=
-GSLRECFLAGS=-Wall -pedantic -Werror -W -Wno-unknown-pragmas\
--Wshadow -Wpointer-arith \
--Wcast-qual -Wcast-align -Wwrite-strings \
--fshort-enums -fno-common
+# GSLRECFLAGS=-Wall -pedantic -Werror -W -Wno-unknown-pragmas\
+# -Wshadow -Wpointer-arith \
+# -Wcast-qual -Wcast-align -Wwrite-strings \
+# -fshort-enums -fno-common
 				
 #---------------------------------------
 DIRS=$(addprefix $(srcdir)/, core io gsltools tests)
