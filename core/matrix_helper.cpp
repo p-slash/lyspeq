@@ -119,7 +119,7 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
         {
             for (int j = 0; j < ncols; ++j)
-                fprintf(toWrite, "%20le ", *(A+i+nrows*j));
+                fprintf(toWrite, "%14le ", *(A+i+nrows*j));
             fprintf(toWrite, "\n");
         }
 
