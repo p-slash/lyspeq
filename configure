@@ -8,11 +8,12 @@
 
 function save_makefile() {
     echo "# Generated automatically by configure."
-    echo "OPT=${OPT}" > Makefile
-    echo "CXX=${CXX}" >> Makefile
+    echo "CXX=${CXX}" > Makefile
     echo "CPPFLAGS=${CPPFLAGS}" >> Makefile
     echo "LDFLAGS=${LDFLAGS}" >> Makefile
     echo "LDLIBS=${LDLIBS}" >> Makefile
+    echo "MORECPPFLAGS=${MORECPPFLAGS}" >> Makefile
+    echo "OPT=${OPT}" >> Makefile
     echo "bindir=${bindir}" >> Makefile
     echo "srcdir=${srcdir}" >> Makefile
     cat ${srcdir}/Makefile.in >> Makefile
@@ -106,7 +107,7 @@ function set_gsl_inc_lib() {
 }
 
 # Default values
-OPT=
+OPT=-03
 en_mpi=
 interp1d=-DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
 interp2d=-DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
@@ -169,7 +170,7 @@ do
         --interactive )
             SYSTYPE="interactive";;
         --debug )
-            debug=-g;;
+            OPT=-g;;
         --gsl_dir=* )
             GSL_DIR="${i#*=}";;
         --print-builds )
@@ -201,13 +202,13 @@ do
     shift
 done
 
-OPT+="${en_mpi} ${interp1d} ${interp2d} ${binz_fn} ${fisher_opt} ${lastk_feat} ${z_growth} ${debug}"
+MORECPPFLAGS="${interp1d} ${interp2d} ${binz_fn} ${en_mpi} ${fisher_opt} ${lastk_feat} ${z_growth}"
 
 case ${SYSTYPE} in
     GNU_XE18MKL|x64-linux-gnu-mklxe18 )
         CXX="g++"
         set_omp_flags
-        OPT+="-DUSE_MKL_CBLAS"
+        MORECPPFLAGS+="-DUSE_MKL_CBLAS"
         CPPFLAGS="${CPPFLAGS_OMP} -m64 ${gsl_inc} -I${MKLROOT}/include"
         LDFLAGS="${gsl_lib} -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
         LDLIBS="-lgsl -lmkl_intel_lp64 ${LDLIBS_GCC_MKL} -lmkl_core ${LDLIBS_OMP} -lpthread -lm -ldl"
@@ -215,7 +216,7 @@ case ${SYSTYPE} in
     XE18_icpcMKL|x64-linux-icpc-mklxe18 )
         CXX="icpc"
         set_omp_flags
-        OPT+="-DUSE_MKL_CBLAS"
+        MORECPPFLAGS+="-DUSE_MKL_CBLAS"
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -DMKL_ILP64 -I${MKLROOT}/include"
         LDFLAGS="${gsl_lib} -L${MKLROOT}/lib/intel64"
         LDLIBS="-lgsl -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core ${LDLIBS_OMP} -lpthread -lm -ldl"
