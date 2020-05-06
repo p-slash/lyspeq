@@ -221,7 +221,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepaths,
     std::vector< std::pair<double, int> > &cpu_fname_vector)
 {
-    LOG::LOGGER.STD("Load balancing for %d threads available.\n", process::total_pes);
+    LOG::LOGGER.STD("Load balancing for %d tasks available.\n", process::total_pes);
     
     double load_balance_time = mytime::getTime();
     
