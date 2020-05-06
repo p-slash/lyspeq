@@ -64,25 +64,26 @@ function set_omp_flags() {
             g++* )
                 CPPFLAGS_OMP="-fopenmp"
                 LDLIBS_OMP="-lgomp"
-                LDLIBS_GCC_MKL="-lmkl_gnu_thread"
+                MKL_THREAD_LIBS="-lmkl_gnu_thread -lmkl_core"
                 ;;
             clang++ )
                 CPPFLAGS_OMP="-Xpreprocessor -fopenmp"
                 LDLIBS_OMP="-lomp"
                 ;;
             icpc )
-                CPPFLAGS_OMP="-qopenmp -mkl=parallel"
+                CPPFLAGS_OMP="-qopenmp"
                 LDLIBS_OMP="-liomp5"
+                MKL_THREAD_LIBS="-lmkl_intel_thread -lmkl_core"
                 ;;
         esac
+    elif [[ "${CPPFLAGS_OMP}" = "-tbb" && "${CXX}" = "icpc" ]]; then
+        CPPFLAGS_OMP=
+        LDLIBS_OMP=
+        MKL_THREAD_LIBS="lmkl_tbb_thread -lmkl_core -ltbb -lstdc++"
     else
         CPPFLAGS_OMP=""
         LDLIBS_OMP=""
-        LDLIBS_GCC_MKL="-lmkl_sequential"
-
-        if [[ "${CXX}" = "icpc" ]]; then
-            CPPFLAGS_OMP="-mkl=sequential"
-        fi
+        MKL_THREAD_LIBS="-lmkl_sequential -lmkl_core"
     fi
 }
 
@@ -146,6 +147,8 @@ do
             en_mpi="-DENABLE_MPI";;
         --enable-openmp )
             CPPFLAGS_OMP="-fopenmp";;
+        --enable-tbb )
+            CPPFLAGS_OMP="-tbb";;
         --interp1d=* )
             if [[ "${i#*=}" ==  "GSL_CUBIC_INTERPOLATION" || "${i#*=}" ==  "GSL_LINEAR_INTERPOLATION" ]]; then
                 interp1d="-DINTERP_1D_TYPE=${i#*=}"
@@ -185,6 +188,7 @@ do
             echo "--enable-fiducial-growth : Enables scaling derivative matrices with fiducial growth function."
             echo "--enable-mpi : Sets C++ compiler to mpic++"
             echo "--enable-openmp : Enables OpenMP"
+            echo "--enable-tbb : Enables TBB (requires icpc)"
             echo "--build=[build type] or [build type]: Sets the build type"
             # echo "--interactive : Use interactive mode."
             echo "--interp1d=[GSL_LINEAR_INTERPOLATION or GSL_CUBIC_INTERPOLATION] : Specify 1D interpolation type. Default is cubic."
@@ -210,17 +214,17 @@ case ${SYSTYPE} in
         CXX="g++"
         set_omp_flags
         MORECPPFLAGS+="-DUSE_MKL_CBLAS"
-        CPPFLAGS="${CPPFLAGS_OMP} -m64 ${gsl_inc} -I${MKLROOT}/include"
+        CPPFLAGS="${CPPFLAGS_OMP} -DMKL_ILP64 -m64 -I${MKLROOT}/include ${gsl_inc}"
         LDFLAGS="${gsl_lib} -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
-        LDLIBS="-lgsl -lmkl_intel_lp64 ${LDLIBS_GCC_MKL} -lmkl_core ${LDLIBS_OMP} -lpthread -lm -ldl"
+        LDLIBS="-lgsl -lmkl_intel_ilp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl"
         ;;
     XE18_icpcMKL|x64-linux-icpc-mklxe18 )
         CXX="icpc"
         set_omp_flags
         MORECPPFLAGS+="-DUSE_MKL_CBLAS"
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -DMKL_ILP64 -I${MKLROOT}/include"
+        CPPFLAGS="${CPPFLAGS_OMP} -DMKL_ILP64 -I${MKLROOT}/include ${gsl_inc}"
         LDFLAGS="${gsl_lib} -L${MKLROOT}/lib/intel64"
-        LDLIBS="-lgsl -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core ${LDLIBS_OMP} -lpthread -lm -ldl"
+        LDLIBS="-lgsl -lmkl_intel_ilp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl"
         ;;
     clang_openblas|x64-macos-clang-openblas )
         CXX="clang++"
@@ -241,14 +245,14 @@ case ${SYSTYPE} in
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
-        LDLIBS="-lgsl -lcblas -llapacke -latlas -lm -ldl"
+        LDLIBS="-lgsl -lcblas -latlas -lm -ldl"
         ;;
     x64-linux-gcc-openblas )
         CXX="g++"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
-        LDLIBS="-lgsl -lcblas -llapacke -lopenblas -lm -ldl"
+        LDLIBS="-lgsl -lopenblas -lm -ldl"
         ;;
     # x64-linux-gcc-gslcblas )
     #     CXX="g++"
