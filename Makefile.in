@@ -22,9 +22,9 @@ bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
-CPPFLAGS+=-I$(srcdir) -std=gnu++11 -DHAVE_INLINE $(OPT)
+CPPFLAGS+=-I$(srcdir) -std=gnu++11 -DHAVE_INLINE $(MORECPPFLAGS)
 CPPFLAGS+=-MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
-CXXFLAGS=-O3 $(GSLRECFLAGS)
+CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
 all: LyaPowerEstimate CreateSQLookUpTable
 
