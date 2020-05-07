@@ -1,0 +1,56 @@
+# This version is build by the following options:
+# 1D Interpolation: GSL_CUBIC_INTERPOLATION
+# 2D Interpolation: GSL_BICUBIC_INTERPOLATION
+# Redshift binning shape: Triangular
+# Redshift growth scaling: OFF
+# Last k bin: OFF
+# Using following configuration parameters:
+# Fiducial Signal Baseline: ON
+# Velocity Spacing: LOGARITHMIC
+# Input is delta flux: YES
+# Divide by mean flux of the chunk: OFF
+# ContinuumMargAmp: 0.00e+00
+# ContinuumMargDerv: 0.00e+00
+# Fiducial Power Spectrum
+# Pfid(k, z) = (A*pi/k0) * q^(2+n+alpha*ln(q)+beta*ln(x)) * x^B / (1 + lambda * k^2)
+# k0=0.009 s km^-1, z0=3.0 and q=k/k0, x=(1+z)/(1+z0)
+# Parameters set by config file:
+# A      =    6.000000e-02
+# n      =   -2.600000e+00
+# alpha  =   -1.000000e-01
+# B      =    1.000000e+00
+# beta   =    0.000000e+00
+# lambda =    0.000000e+00
+# -----------------------------------------------------------------
+# File Template
+# Nz Nk
+# n[0] n[1] ... n[Nz] n[Nz+1]
+# z | k1 | k2 | kc | Pfid | ThetaP | Pest | ErrorP | d | b | t
+# Nz     : Number of redshift bins
+# Nk     : Number of k bins
+# n[i]   : Spectral chunk count in redshift bin i. Left-most and right-most are out of range
+# z      : Redshift bin center
+# k1     : Lower edge of the k bin [s km^-1]
+# k2     : Upper edge of the k bin [s km^-1]
+# kc     : Center of the k bin [s km^-1]
+# Pfid   : Fiducial power at kc [km s^-1]
+# ThetaP : Deviation from Pfid found by quadratic estimator = d - b - t [km s^-1]
+# Pest   : Pfid + ThetaP [km s^-1]
+# ErrorP : Error estimated from diagonal terms of the inverse Fisher matrix [km s^-1]
+# d      : Power estimate before noise (b) and fiducial power (t) subtracted [km s^-1]
+# b      : Noise estimate [km s^-1]
+# t      : Fiducial power estimate [km s^-1]
+# -----------------------------------------------------------------
+# 2 5
+# 0 0 1 0 
+z              k1              k2              kc            Pfid          ThetaP            Pest          ErrorP               d               b               t
+1.800    0.000000e+00    7.000000e-04    3.500000e-04    3.584026e+01   -3.145252e+02   -2.786849e+02    7.981115e+02   -2.860885e+02    3.783685e-01    2.805831e+01
+1.800    7.000000e-04    1.400000e-03    1.050000e-03    3.353731e+01    3.764822e+02    4.100195e+02    1.093512e+03    4.097905e+02    3.582568e-01    3.295008e+01
+1.800    1.400000e-03    2.100000e-03    1.750000e-03    2.995104e+01   -1.966612e+02   -1.667101e+02    9.107506e+02   -1.475026e+02    3.937750e-01    4.876479e+01
+1.800    2.100000e-03    6.640783e-03    4.370392e-03    2.146483e+01   -3.377239e+01   -1.230755e+01    1.568931e+02   -9.332426e+00    3.174397e-01    2.412252e+01
+1.800    6.640783e-03    2.100000e-02    1.382039e-02    1.112756e+01   -2.732070e+00    8.395494e+00    4.268996e+01    1.058958e+01    3.658281e-01    1.295582e+01
+2.000    0.000000e+00    7.000000e-04    3.500000e-04    3.840027e+01   -1.673319e+01    2.166708e+01    4.431458e+01    1.838797e+01    2.794336e-01    3.484173e+01
+2.000    7.000000e-04    1.400000e-03    1.050000e-03    3.593283e+01   -2.900603e+01    6.926806e+00    4.991088e+01    8.085759e+00    2.798978e-01    3.681189e+01
+2.000    1.400000e-03    2.100000e-03    1.750000e-03    3.209040e+01   -1.957125e+01    1.251914e+01    4.452194e+01    1.385197e+01    2.791335e-01    3.314409e+01
+2.000    2.100000e-03    6.640783e-03    4.370392e-03    2.299804e+01   -2.167388e+01    1.324156e+00    1.084430e+01    1.680911e+00    2.788954e-01    2.307590e+01
+2.000    6.640783e-03    2.100000e-02    1.382039e-02    1.192239e+01   -6.500144e+00    5.422246e+00    3.096034e+00    5.471229e+00    2.839322e-01    1.168744e+01

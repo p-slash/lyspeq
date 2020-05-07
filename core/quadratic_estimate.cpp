@@ -481,6 +481,9 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             break;
         }
 
+        if (i == number_of_iterations-1)
+            break;
+
         try
         {
             _smoothPowerSpectra(powerspectra_fits);
@@ -490,7 +493,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             LOG::LOGGER.ERR("ERROR in Python script: %s\n", e.what());
             throw e;
         }
-        
     }
 }
 
