@@ -37,28 +37,12 @@ namespace mxhelp
     // Assumes S is square symmetric matrix NxN
     double my_cblas_dsymvdot(const double *v, const double *S, int N);
 
-    /*
-    // In-place invert A
-    // Apply scale as gsl_linalg_cholesky_scale
-    // Assuming A is NxN, allocates and frees a vector of size N
-    void invertMatrixCholesky2(gsl_matrix *A);
-
-    // In-place invert A with Cholesky
-    // No scaling
-    void invertMatrixCholesky(gsl_matrix *A);
-
-    // Invert A into Ainv using LU decomposition
-    // A is changed, do not use it again
-    // Assuming A is NxN, allocates and frees a gsl_permutation of size N
-    void invertMatrixLU(gsl_matrix *A, gsl_matrix *Ainv);
-    */
-
     void printfMatrix(const double *A, int N1, int N2);
     void fprintfMatrix(const char *fname, const double *A, int N1, int N2);
 
     // LAPACKE functions
+    // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
-    // void LAPACKE_InvertMatrixLU(gsl_matrix *A);
 }
 
 #endif
