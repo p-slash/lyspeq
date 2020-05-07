@@ -1,0 +1,17 @@
+Initial values:
+pBB: 101072924
+pAA: 101072920
+pTb: 101072924
+------
+Call Function:
+pTa: 101072920
+------
+Copy B to pT:
+pAA: 101072920
+pTa: 101072920
+AA : 15
+*pT: 15
+------
+Set pT=pBB:
+pAA: 101072920
+pTa: 101072924
