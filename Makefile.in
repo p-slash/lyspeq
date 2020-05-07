@@ -29,6 +29,8 @@ CXXFLAGS = -O3 $(GSLRECFLAGS)
 all: cblas_tests LyaPowerEstimate CreateSQLookUpTable
 
 test: all
+	mkdir -p $(srcdir)/tests/output
+	
 	@echo "Testing CBLAS functions...."
 	@./cblas_tests > $(srcdir)/tests/output/output_cblas.txt 
 	@diff $(srcdir)/tests/output/output_cblas.txt $(srcdir)/tests/truth/expected_cblas_output.txt
