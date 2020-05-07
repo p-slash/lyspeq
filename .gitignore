@@ -4,9 +4,11 @@
 backup/
 dep/
 wiki/
+tests/output/*
 LyaPowerEstimate
 CreateSQLookUpTable
 cblas_tests
+testPointRef
 TODO
 Makefile
 config.status
