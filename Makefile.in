@@ -18,7 +18,7 @@ fourier_integrator.cpp interpolation.cpp interpolation_2d.cpp \
 config_file.cpp io_helper_functions.cpp qso_file.cpp sq_lookup_table_file.cpp logger.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
-bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o
+bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
@@ -28,9 +28,10 @@ CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
 all: LyaPowerEstimate CreateSQLookUpTable
 
-test: cblas_tests
+test: cblas_tests testPointRef
 	./cblas_tests > output_tests.log 
 	diff output_tests.log $(srcdir)/tests/expected_output.txt
+	./testPointRef
 	
 LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
@@ -41,6 +42,9 @@ config_file.o io_helper_functions.o sq_lookup_table_file.o logger.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 cblas_tests: cblas_tests.o matrix_helper.o
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+testPointRef: testPointRef.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 .PHONY: install uninstall clean
