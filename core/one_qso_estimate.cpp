@@ -433,33 +433,30 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 void OneQSOEstimate::computePSbeforeFvector()
 {
     double *weighted_data_vector = new double[DATA_SIZE];
-    double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix  = temp_matrix[1];
 
     cblas_dsymv(CblasRowMajor, CblasUpper,
                 DATA_SIZE, 1., inverse_covariance_matrix, DATA_SIZE,
                 flux_array, 1,
                 0, weighted_data_vector, 1);
 
-    double temp_bk, temp_tk = 0, temp_dk;
-
+    // #pragma omp parallel for
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
-        Q_ikz_matrix = temp_matrix[0];
-        Sfid_matrix  = temp_matrix[1];
+        double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix = temp_matrix[1], temp_tk = 0;
 
         // Set derivative matrix ikz
         _setQiMatrix(Q_ikz_matrix, i_kz);
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix, DATA_SIZE);
+        double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix, DATA_SIZE);
         throw_isnan(temp_dk, "d");
 
         // Get weighted derivative matrix ikz: C-1 Qi C-1
         _getWeightedMatrix(Q_ikz_matrix);
 
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, noise_array, DATA_SIZE);
+        double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, noise_array, DATA_SIZE);
         throw_isnan(temp_bk, "bk");
 
         // Set Fiducial Signal Matrix

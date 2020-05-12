@@ -6,7 +6,7 @@
 #include <stdexcept>
 
 #include "io/io_helper_functions.hpp"
-#include "core/global_numbers.hpp"
+// #include "core/global_numbers.hpp"
 
 namespace LOG
 {
@@ -34,8 +34,6 @@ using namespace LOG;
 
 Logger::Logger()
 {
-    if (process::this_pe != 0)    return;
-
     std_fname  = "";
     err_fname  = "";
     io_fname   = "";
@@ -52,31 +50,35 @@ Logger::~Logger()
     close();
 }
 
-void Logger::open(const char *outdir)
+void Logger::open(const char *outdir, int np)
 {
-    if (process::this_pe != 0)    return;
+    std::ostringstream oss_fname(outdir, std::ostringstream::ate);
 
-    std_fname = outdir;
-    std_fname += "/log.txt";
-    stdfile = ioh::open_file(std_fname.c_str(), "w");
+    oss_fname << "/log" << np << ".txt";
+    std_fname = oss_fname.str();
+    stdfile   = ioh::open_file(std_fname.c_str(), "w");
 
-    err_fname = outdir;
-    err_fname += "/error_log.txt";
+    oss_fname.str(outdir);
+    oss_fname.clear();
+    oss_fname << "/error_log" << np << ".txt";
+    err_fname = oss_fname.str();
     errfile = ioh::open_file(err_fname.c_str(), "w");
 
-    io_fname = outdir;
-    io_fname += "/io_log.txt";
-    iofile = ioh::open_file(io_fname.c_str(), "w");
+    oss_fname.str(outdir);
+    oss_fname.clear();
+    oss_fname << "/io_log" << np << ".txt";
+    io_fname = oss_fname.str();
+    iofile   = ioh::open_file(io_fname.c_str(), "w");
 
-    time_fname = outdir;
-    time_fname += "/time_log.txt";
-    timefile = ioh::open_file(time_fname.c_str(), "w");
+    oss_fname.str(outdir);
+    oss_fname.clear();
+    oss_fname << "/time_log" << np << ".txt";
+    time_fname = oss_fname.str();
+    timefile   = ioh::open_file(time_fname.c_str(), "w");
 }
 
 void Logger::close()
 {
-    if (process::this_pe != 0)    return;
-
     if (stdfile  != stdout)  fclose(stdfile);
     if (errfile  != stderr)  fclose(errfile);
     if (iofile   != stdout)  fclose(iofile);
@@ -85,8 +87,6 @@ void Logger::close()
 
 void Logger::reopen()
 {
-    if (process::this_pe != 0)    return;
-
     stdfile   = ioh::open_file(std_fname.c_str(), "a");
     errfile   = ioh::open_file(err_fname.c_str(), "a");
     iofile    = ioh::open_file(io_fname.c_str(),  "a");
@@ -108,8 +108,6 @@ std::string Logger::getFileName(TYPE::LOG_TYPE lt) const
 
 void Logger::IO(const char *fmt, ...)
 {
-    if (process::this_pe != 0)    return;
-
     va_list args;
     va_start(args, fmt);
 
@@ -120,8 +118,6 @@ void Logger::IO(const char *fmt, ...)
 
 void Logger::STD(const char *fmt, ...)
 {
-    if (process::this_pe != 0)    return;
-
     va_list args;
     va_start(args, fmt);
 
@@ -132,8 +128,6 @@ void Logger::STD(const char *fmt, ...)
 
 void Logger::ERR(const char *fmt, ...)
 {
-    if (process::this_pe != 0)    return;
-
     va_list args;
     va_start(args, fmt);
 
@@ -143,9 +137,7 @@ void Logger::ERR(const char *fmt, ...)
 }
 
 void Logger::TIME(const char *fmt, ...)
-{
-    if (process::this_pe != 0)    return;
-    
+{    
     if (timefile == NULL)
         throw std::runtime_error("timelog file is not open");
     

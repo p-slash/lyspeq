@@ -7,7 +7,7 @@ wiki/
 tests/output/*
 tests/input/deriv*
 tests/input/signal*
-tests/input/*log.txt
+tests/input/*log*.txt
 LyaPowerEstimate
 CreateSQLookUpTable
 cblas_tests

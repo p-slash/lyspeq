@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
     try
     {
-        LOG::LOGGER.open(OUTPUT_DIR);
+        LOG::LOGGER.open(OUTPUT_DIR, process::this_pe);
         
         #if defined(ENABLE_MPI)
         MPI_Barrier(MPI_COMM_WORLD);
