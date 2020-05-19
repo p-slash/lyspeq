@@ -37,7 +37,7 @@ test: all
 
 	@echo "Testing SQ table generation..."
 	@./CreateSQLookUpTable $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/CreateSQLookUpTable.log
-	@diff $(srcdir)/tests/input/signal_R70000.dat $(srcdir)/tests/truth/signal_R70000.dat 
+	-@diff $(srcdir)/tests/input/signal_R70000.dat $(srcdir)/tests/truth/signal_R70000.dat 
 
 	@echo "Testing QMLE..."
 	@./LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log
