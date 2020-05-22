@@ -98,7 +98,7 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
 
     for (int r = r_start_this; r < r_end_this; ++r)
     {
-        time_spent_table_sfid = mytime::getTime();
+        time_spent_table_sfid = mytime::timer.getTime();
 
         // Convert integer FWHM to 1 sigma km/s
         win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
@@ -137,7 +137,7 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
 
         signal_table.writeData(sqhelper::signal_array);
 
-        time_spent_table_sfid = mytime::getTime() - time_spent_table_sfid;
+        time_spent_table_sfid = mytime::timer.getTime() - time_spent_table_sfid;
 
         LOG::LOGGER.STD("T:%d/%d - Time spent on fiducial signal matrix table R %d is %.2f mins.\n",
             process::this_pe, process::total_pes, R_VALUES[r], time_spent_table_sfid);
@@ -150,7 +150,7 @@ DERIVATIVE:
 
     for (int r = r_start_this; r < r_end_this; ++r)
     {
-        time_spent_table_q = mytime::getTime();
+        time_spent_table_q = mytime::timer.getTime();
 
         win_params.spectrograph_res = SPEED_OF_LIGHT / R_VALUES[r] / ONE_SIGMA_2_FWHM;
         LOG::LOGGER.STD("T:%d/%d - Creating look up tables for derivative signal matrices. R = %d : %.2f km/s.\n",
@@ -185,7 +185,7 @@ DERIVATIVE:
             derivative_signal_table.writeData(sqhelper::derivative_array);
         }
         
-        time_spent_table_q = mytime::getTime() - time_spent_table_q;
+        time_spent_table_q = mytime::timer.getTime() - time_spent_table_q;
         LOG::LOGGER.STD("T:%d/%d - Time spent on derivative matrix table R %d is %.2f mins.\n",
                 process::this_pe, process::total_pes, R_VALUES[r], time_spent_table_q);
     }

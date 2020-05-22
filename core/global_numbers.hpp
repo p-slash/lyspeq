@@ -3,6 +3,7 @@
 
 #include "core/sq_table.hpp"
 #include <cstdio>
+#include <chrono>
 
 // Quadratic Estimate numbers
 #define CONVERGENCE_EPS 1E-4
@@ -61,9 +62,26 @@ namespace mytime
     extern double time_spent_on_q_interp, time_spent_on_q_copy;
     extern long   number_of_times_called_setq, number_of_times_called_setsfid;
 
-    double getTime(); // in minutes
     void printfTimeSpentDetails();
     void writeTimeLogHeader();
+
+    class Timer
+    {
+        using steady_c  = std::chrono::steady_clock;
+        using minutes_t = std::chrono::duration<double, std::ratio<60>>;
+
+        std::chrono::time_point<steady_c> m0;
+    public:
+        Timer() : m0(steady_c::now()) {};
+        ~Timer() {};
+
+        double getTime() const
+        {
+            return std::chrono::duration_cast<minutes_t>(steady_c::now() - m0).count();
+        } 
+    };
+
+    extern Timer timer;
 }
 
 namespace specifics

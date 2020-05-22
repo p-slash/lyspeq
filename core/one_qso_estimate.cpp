@@ -233,7 +233,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *sm)
 {
     ++mytime::number_of_times_called_setsfid;
 
-    double t = mytime::getTime();
+    double t = mytime::timer.getTime();
     double v_ij, z_ij, temp;
 
     if (isSfidSet)
@@ -254,7 +254,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *sm)
         mxhelp::copyUpperToLower(sm, DATA_SIZE);
     }
     
-    t = mytime::getTime() - t;
+    t = mytime::timer.getTime() - t;
 
     mytime::time_spent_on_set_sfid += t;
 }
@@ -262,8 +262,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *sm)
 void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
 {
     ++mytime::number_of_times_called_setq;
-
-    double t = mytime::getTime(), t_interp;
+    double t = mytime::timer.getTime(), t_interp;
     int kn, zm;
     double v_ij, z_ij, temp;
 
@@ -295,12 +294,12 @@ void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
             }
         }
 
-        t_interp = mytime::getTime() - t;
+        t_interp = mytime::timer.getTime() - t;
 
         mxhelp::copyUpperToLower(qi, DATA_SIZE);
     }
 
-    t = mytime::getTime() - t; 
+    t = mytime::timer.getTime() - t; 
 
     mytime::time_spent_set_qs += t;
     mytime::time_spent_on_q_interp += t_interp;
@@ -358,7 +357,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 // Then swap the pointer with covariance matrix
 void OneQSOEstimate::invertCovarianceMatrix()
 {
-    double t = mytime::getTime();
+    double t = mytime::timer.getTime();
 
     inverse_covariance_matrix  = temp_matrix[0];
 
@@ -372,14 +371,14 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
     isCovInverted = true;
 
-    t = mytime::getTime() - t;
+    t = mytime::timer.getTime() - t;
 
     mytime::time_spent_on_c_inv += t;
 }
 
 void OneQSOEstimate::_getWeightedMatrix(double *m)
 {
-    double t = mytime::getTime();
+    double t = mytime::timer.getTime();
 
     //C-1 . Q
     cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper,
@@ -393,7 +392,7 @@ void OneQSOEstimate::_getWeightedMatrix(double *m)
                  temp_matrix[1], DATA_SIZE,
                  0, m, DATA_SIZE);
 
-    t = mytime::getTime() - t;
+    t = mytime::timer.getTime() - t;
 
     mytime::time_spent_set_modqs += t;
 }
@@ -403,7 +402,7 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
     double temp;
     double *Q_jkz_matrix = temp_matrix[1];
 
-    double t = mytime::getTime();
+    double t = mytime::timer.getTime();
     
     // Now compute Fisher Matrix
     for (int j_kz = i_kz; j_kz < N_Q_MATRICES; ++j_kz)
@@ -427,7 +426,7 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
         *(fisher_matrix + ind_ji) = temp;
     }
 
-    t = mytime::getTime() - t;
+    t = mytime::timer.getTime() - t;
 
     mytime::time_spent_set_fisher += t;
 }
