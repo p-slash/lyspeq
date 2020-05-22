@@ -171,7 +171,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     if (process::this_pe == process::total_pes - 1)
         fend_this = NUMBER_OF_QSOS;
 
-    t2 = mytime::getTime();
+    t2 = mytime::timer.getTime();
 
     // Create vector for QSOs & read
     cpu_fname_vector.reserve(NUMBER_OF_QSOS);
@@ -188,7 +188,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     }
     
     // Print out time it took to read all files into vector
-    t1 = mytime::getTime();
+    t1 = mytime::timer.getTime();
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
     
     // MPI Reduce ZBIN_COUNTS
@@ -214,7 +214,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     #endif
 
     // Print out time it took to sort files wrt CPU time
-    t2 = mytime::getTime();
+    t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Sorting took %.2f m.\n", t2-t1);
 
     _loadBalancing(filepaths, cpu_fname_vector);
@@ -225,7 +225,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
 {
     LOG::LOGGER.STD("Load balancing for %d threads available.\n", process::total_pes);
     
-    double load_balance_time = mytime::getTime();
+    double load_balance_time = mytime::timer.getTime();
     
     std::vector<double> bucket_time(process::total_pes, 0);
 
@@ -252,7 +252,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
         LOG::LOGGER.STD("%.1e ", (*it)/ave_balance-1);
     LOG::LOGGER.STD("\n");
 
-    load_balance_time = mytime::getTime() - load_balance_time;
+    load_balance_time = mytime::timer.getTime() - load_balance_time;
     
     LOG::LOGGER.STD("Load balancing took %.2f sec.\n", load_balance_time*60.);
 }
@@ -277,7 +277,7 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 {
-    double t = mytime::getTime();
+    double t = mytime::timer.getTime();
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
     
@@ -295,7 +295,7 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
     isFisherInverted = true;
 
-    t = mytime::getTime() - t;
+    t = mytime::timer.getTime() - t;
     mytime::time_spent_on_f_inv += t;
 }
 
@@ -450,7 +450,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     {
         LOG::LOGGER.STD("Iteration number %d of %d.\n", i+1, number_of_iterations);
         
-        total_time_1it = mytime::getTime();
+        total_time_1it = mytime::timer.getTime();
     
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
@@ -480,7 +480,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         }
         
         computePowerSpectrumEstimates();
-        total_time_1it  = mytime::getTime() - total_time_1it;
+        total_time_1it  = mytime::timer.getTime() - total_time_1it;
         total_time     += total_time_1it;
         
         if (process::this_pe == 0)
