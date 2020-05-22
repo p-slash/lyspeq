@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <cmath>
 
-#include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
+#include <chrono>    /* clock_t, clock, CLOCKS_PER_SEC */
 
 namespace process
 {
@@ -168,18 +168,13 @@ namespace bins
 
 namespace mytime
 {
+    Timer timer;
     double   time_spent_on_c_inv    = 0, time_spent_on_f_inv   = 0;
     double   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0,
              time_spent_set_modqs   = 0, time_spent_set_fisher = 0;
 
     double   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
     long     number_of_times_called_setq = 0, number_of_times_called_setsfid = 0;
-
-    double getTime()
-    {
-        clock_t t = clock();
-        return ((double) t) / CLOCKS_PER_SEC / 60.;
-    }
 
     void printfTimeSpentDetails()
     {
