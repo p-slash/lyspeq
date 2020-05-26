@@ -1,4 +1,7 @@
 ### Changes
++ Use `chrono` library to measure time.
++ GSL flags are silenced in compilation.
++ Tests checking cblas & estimator results are added `make test`.
 + Python script does not fit, but applies a weighted smoothing.
 + Default velocity is logarithmic. Changed the key in config.param
 + Implemented reading a mean flux file, which changed config.param keys
