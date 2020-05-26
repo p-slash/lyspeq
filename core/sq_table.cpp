@@ -234,22 +234,27 @@ void SQLookupTable::allocateTmpArrays()
 {
     double z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
-    // Allocate, set velocity and redshift arrays
     sqhelper::LINEAR_V_ARRAY = sqhelper::allocLinearlySpacedArray(0, LENGTH_V, N_V_POINTS);
-    sqhelper::LINEAR_Z_ARRAY = sqhelper::allocLinearlySpacedArray(z1, LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
+    sqhelper::derivative_array = new double[N_V_POINTS]; 
 
-    // Allocate signal and derivative arrays
-    sqhelper::signal_array     = new double[N_V_POINTS * N_Z_POINTS_OF_S];
-    sqhelper::derivative_array = new double[N_V_POINTS];
+    // Allocate N_Z_POINTS_OF_S dependent arrays
+    if (!specifics::TURN_OFF_SFID)
+    {
+        sqhelper::LINEAR_Z_ARRAY = sqhelper::allocLinearlySpacedArray(z1, LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
+        sqhelper::signal_array = new double[N_V_POINTS * N_Z_POINTS_OF_S];
+    }       
 }
 
 void SQLookupTable::deallocateTmpArrays()
 {
     delete [] sqhelper::LINEAR_V_ARRAY;
-    delete [] sqhelper::LINEAR_Z_ARRAY;
-
-    delete [] sqhelper::signal_array;
     delete [] sqhelper::derivative_array;
+
+    if (!specifics::TURN_OFF_SFID)
+    {
+        delete [] sqhelper::LINEAR_Z_ARRAY;
+        delete [] sqhelper::signal_array;
+    }
 }
 
 void SQLookupTable::readSQforR(int r_index)
