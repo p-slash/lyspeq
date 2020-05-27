@@ -1,4 +1,6 @@
 ### Changes
++ Option to turn off copying S and Q matrices in order to reduce time.
++ Logger saves separately for each PE.
 + Use `chrono` library to measure time.
 + GSL flags are silenced in compilation.
 + Tests checking cblas & estimator results are added `make test`.

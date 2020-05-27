@@ -283,10 +283,10 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
             for (int col = row; col < DATA_SIZE; ++col)
             {
                 _getVandZ(v_ij, z_ij, row, col);
-                
+
                 temp  = interp_derivative_matrix[kn]->evaluate(v_ij);
                 temp *= bins::redshiftBinningFunction(z_ij, zm);
-                
+
                 // Every pixel pair should scale to the bin redshift
                 #ifdef REDSHIFT_GROWTH_POWER
                 temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 
