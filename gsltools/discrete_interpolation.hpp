@@ -7,7 +7,7 @@
 class DiscreteInterpolation1D
 {
     double x1, x2, dx, *y;
-    int N;
+    long N;
 
 public:
     DiscreteInterpolation1D(double x_start, double delta_x, const double *y_arr, long Nsize);
@@ -23,9 +23,9 @@ public:
 class DiscreteInterpolation2D
 {
     double  x1, x2, dx, y1, y2, dy, *z;
-    int     Nx, Ny, size;
+    long    Nx, Ny, size;
 
-    int _getIndex(int nx, int ny);
+    long _getIndex(long nx, long ny);
 public:
     DiscreteInterpolation2D(double x_start, double delta_x, double y_start, double delta_y,
         const double *z_arr, long Nxsize, long Nysize);

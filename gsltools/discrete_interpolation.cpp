@@ -18,7 +18,7 @@ double DiscreteInterpolation1D::evaluate(double x)
 {
     if (x > x2) return y[N-1];
 
-    int n = (x-x1)/dx;
+    long n = (x-x1)/dx;
     double xn = x1 + n*dx, y1 = y[n], y2=y[n+1];
 
     return y1 + (y2-y1)*(x-xn)/dx;
@@ -41,15 +41,15 @@ DiscreteInterpolation2D::~DiscreteInterpolation2D()
     delete [] z;
 }
 
-int DiscreteInterpolation2D::_getIndex(int nx, int ny)
+long DiscreteInterpolation2D::_getIndex(long nx, long ny)
 {
     return nx + Nx*ny;
 }
 
 double DiscreteInterpolation2D::evaluate(double x, double y)
 {
-    int nx = (x-x1)/dx;
-    int ny = (y-y1)/dy;
+    long nx = (x-x1)/dx;
+    long ny = (y-y1)/dy;
 
     double dnx = (x-x1)/dx - nx;
     double dny = (y-y1)/dy - ny;
