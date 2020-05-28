@@ -49,7 +49,7 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     if (r_index == -1)      throw std::runtime_error("SPECRES not found in tables!");
 
     interp2d_signal_matrix   = process::sq_private_table->getSignalMatrixInterp(r_index);
-    interp_derivative_matrix = new Interpolation*[bins::NUMBER_OF_K_BANDS];
+    interp_derivative_matrix = new DiscreteInterpolation1D*[bins::NUMBER_OF_K_BANDS];
 
     for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
         interp_derivative_matrix[kn] = process::sq_private_table->getDerivativeMatrixInterp(kn, r_index);

@@ -3,8 +3,7 @@
 
 #include <string>
 
-#include "gsltools/interpolation.hpp"
-#include "gsltools/interpolation_2d.hpp"
+#include "gsltools/discrete_interpolation.hpp"
 
 // This object creates and computes C, S, Q, Q-slash matrices,
 // as well as a power spectrum estimate and a fisher matrix for individual quasar spectrum.
@@ -45,8 +44,8 @@ class OneQSOEstimate
 
     bool isCovInverted;
 
-    Interpolation2D *interp2d_signal_matrix;
-    Interpolation   **interp_derivative_matrix;
+    DiscreteInterpolation2D  *interp2d_signal_matrix;
+    DiscreteInterpolation1D **interp_derivative_matrix;
 
     // 3 TOTAL_KZ_BINS sized vectors
     double  *dbt_estimate_before_fisher_vector[3];
@@ -63,7 +62,7 @@ class OneQSOEstimate
     void _freeMatrices();
 
     void _getVandZ(double &v_ij, double &z_ij, int i, int j);
-    
+
     void _setFiducialSignalMatrix(double *&sm, bool copy=true);
     void _setQiMatrix(double *&qi, int i_kz, bool copy=true);
     void _getWeightedMatrix(double *m);

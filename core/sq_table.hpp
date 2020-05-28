@@ -4,8 +4,7 @@
 #include <vector>
 #include <string>
 
-#include "gsltools/interpolation.hpp"
-#include "gsltools/interpolation_2d.hpp"
+#include "gsltools/discrete_interpolation.hpp"
 
 // This table read, stores and interpolates pre-evaluated S and Q matrices for different 
 // spectral resolution (R) values. Here R is assumend to be an integer where c / R is in km/s.
@@ -37,19 +36,22 @@ class SQLookupTable
     
     std::string DIR, S_BASE, Q_BASE;
 
-    Interpolation2D **interp2d_signal_matrices;
-    Interpolation   **interp_derivative_matrices;
+    DiscreteInterpolation2D **interp2d_signal_matrices;
+    DiscreteInterpolation1D **interp_derivative_matrices;
+    double itp_v1, itp_dv, itp_z1, itp_dz; 
 
     int getIndex4DerivativeInterpolation(int kn, int r_index) const;
 
-    void allocateTmpArrays();
-    void deallocateTmpArrays();
+    void allocateSignalAndDerivArrays();
+    void allocateVAndZArrays();
+    void deallocateSignalAndDerivArrays();
+    void deallocateVAndZArrays();
 
     void readSQforR(int r_index);
 
 public:
     SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist);
-    SQLookupTable(const SQLookupTable &sq);
+    // SQLookupTable(const SQLookupTable &sq);
 
     ~SQLookupTable();
     
@@ -59,11 +61,8 @@ public:
 
     int findSpecResIndex(int spec_res) const;
 
-    double getSignalMatrixValue(double v_ij, double z_ij, int r_index) const;
-    double getDerivativeMatrixValue(double v_ij, int kn, int r_index) const;
-
-    Interpolation*   getDerivativeMatrixInterp(int kn, int r_index) const;
-    Interpolation2D* getSignalMatrixInterp(int r_index) const;
+    DiscreteInterpolation1D* getDerivativeMatrixInterp(int kn, int r_index) const;
+    DiscreteInterpolation2D* getSignalMatrixInterp(int r_index) const;
 };
 
 #endif
