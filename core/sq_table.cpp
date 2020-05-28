@@ -25,11 +25,12 @@ namespace sqhelper
 
     double getLinearSpacing(double length, int N)
     {
-        return (N==1) ? 0 : length / (N - 1.);
+        double r = (N==1) ? 0 : (length / (N - 1.));
+        return r;
     }
 
     // Allocates a double array with size N
-    // Must delocate after!!
+    // Must deallocate after!!
     double *allocLinearlySpacedArray(double x0, double lengthx, int N)
     {
         double *resulting_array = new double[N];
@@ -44,8 +45,10 @@ namespace sqhelper
 // ---------------------------------------
 
 SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist)
-    : DIR(dir), S_BASE(s_base), Q_BASE(q_base)
+    : DIR(dir), S_BASE(s_base), Q_BASE(q_base), itp_v1(0)
 {
+    itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
+
     NUMBER_OF_R_VALUES = ioh::readList(fname_rlist, R_VALUES);
 
     LOG::LOGGER.STD("Number of R values: %d\n", NUMBER_OF_R_VALUES);
@@ -59,9 +62,6 @@ void SQLookupTable::readTables()
 
     interp2d_signal_matrices     = new DiscreteInterpolation2D*[NUMBER_OF_R_VALUES];
     interp_derivative_matrices   = new DiscreteInterpolation1D*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
-
-    itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
-    itp_v1 = 0;
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
         readSQforR(r);
@@ -79,8 +79,8 @@ void SQLookupTable::computeTables(double PIXEL_WIDTH, int Nv, int Nz, double Lv,
     std::string buf_fnames;
     double time_spent_table_sfid, time_spent_table_q;
 
-    struct spectrograph_windowfn_params     win_params             = {0, 0, PIXEL_WIDTH, 0};
-    struct sq_integrand_params              integration_parameters = {&fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
+    struct spectrograph_windowfn_params win_params             = {0, 0, PIXEL_WIDTH, 0};
+    struct sq_integrand_params          integration_parameters = {&fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
     
     allocateSignalAndDerivArrays();
     allocateVAndZArrays();
@@ -224,6 +224,7 @@ void SQLookupTable::readSQforR(int r_index)
 
         // Start reading data and set to intep pointer
         s_table_file.readData(sqhelper::signal_array);
+        itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
         itp_dz = sqhelper::getLinearSpacing(LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
 
         interp2d_signal_matrices[r_index] = new DiscreteInterpolation2D(itp_z1, itp_dz, itp_v1, itp_dv,
