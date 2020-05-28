@@ -509,10 +509,10 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
             mxhelp::vector_add(dbt_sum_vector[dbt_i], dbt_estimate_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS);
     }
-    catch (const char* msg)
+    catch (std::exception& e)
     {
         LOG::LOGGER.ERR("%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n",
-                process::this_pe, process::total_pes, msg, qso_sp_fname.c_str());
+                process::this_pe, process::total_pes, e.what(), qso_sp_fname.c_str());
 
         LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
                 DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
