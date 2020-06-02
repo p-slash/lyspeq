@@ -26,6 +26,7 @@ class DiscreteInterpolation2D
     long    Nx, Ny, size;
 
     long _getIndex(long nx, long ny);
+    void _limitBoundary(double &x, double &y);
 public:
     DiscreteInterpolation2D(double x_start, double delta_x, double y_start, double delta_y,
         const double *z_arr, long Nxsize, long Nysize);

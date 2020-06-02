@@ -46,8 +46,19 @@ long DiscreteInterpolation2D::_getIndex(long nx, long ny)
     return nx + Nx*ny;
 }
 
+void DiscreteInterpolation2D::_limitBoundary(double &x, double &y)
+{
+    if (x > x2)         x = x2;
+    else if (x < x1)    x = x1;
+
+    if (y > y2)         y = y2;
+    else if (y < y1)    y = y1;
+}
+
 double DiscreteInterpolation2D::evaluate(double x, double y)
 {
+    _limitBoundary(x, y);
+
     long nx = (x-x1)/dx;
     long ny = (y-y1)/dy;
     long ind = _getIndex(nx, ny);
