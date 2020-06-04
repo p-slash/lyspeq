@@ -12,6 +12,7 @@ LyaPowerEstimate
 CreateSQLookUpTable
 cblas_tests
 testPointRef
+testSQCMatrices
 TODO
 Makefile
 config.status
