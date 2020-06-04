@@ -24,6 +24,7 @@
 
 class OneQSOEstimate
 {
+protected:
     std::string qso_sp_fname;
     
     int SPECT_RES_FWHM;
