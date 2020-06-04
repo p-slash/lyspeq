@@ -35,16 +35,14 @@ test: all
 	@./cblas_tests > $(srcdir)/tests/output/output_cblas.txt 
 	@diff $(srcdir)/tests/output/output_cblas.txt $(srcdir)/tests/truth/expected_cblas_output.txt
 
-	@echo "Testing SQ table generation..."
+	@echo "Producing SQ table lookup tables..."
 	@./CreateSQLookUpTable $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/CreateSQLookUpTable.log
-	-@diff $(srcdir)/tests/input/signal_R70000.dat $(srcdir)/tests/truth/signal_R70000.dat 
 
 	@echo "Producing interpolated S & Q matrices..."
 	@./testSQCMatrices $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/testSQCMatrices.log
 
-	@echo "Testing QMLE..."
+	@echo "Running QMLE..."
 	@./LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log
-	@diff $(srcdir)/tests/truth/test_it1_quadratic_power_estimate_detailed.dat $(srcdir)/tests/output/test_it1_quadratic_power_estimate_detailed.dat
 
 	@python tests/compareTestResults.py $(srcdir)
 	
