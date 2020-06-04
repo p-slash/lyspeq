@@ -35,7 +35,7 @@ test: all
 	@./cblas_tests > $(srcdir)/tests/output/output_cblas.txt 
 	@diff $(srcdir)/tests/output/output_cblas.txt $(srcdir)/tests/truth/expected_cblas_output.txt
 
-	@echo "Producing SQ table lookup tables..."
+	@echo "Producing S & Q lookup tables..."
 	@./CreateSQLookUpTable $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/CreateSQLookUpTable.log
 
 	@echo "Producing interpolated S & Q matrices..."
