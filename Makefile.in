@@ -59,11 +59,7 @@ cblas_tests: cblas_tests.o matrix_helper.o
 
 testSQCMatrices: testSQCMatrices.o fiducial_cosmology.o global_numbers.o sq_table.o fourier_integrator.o \
 interpolation.cpp interpolation_2d.cpp one_qso_estimate.o qso_file.o matrix_helper.o \
-<<<<<<< HEAD
 config_file.o io_helper_functions.o sq_lookup_table_file.o logger.o discrete_interpolation.o
-=======
-config_file.o io_helper_functions.o sq_lookup_table_file.o logger.o
->>>>>>> dev
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testPointRef: testPointRef.o
