@@ -18,7 +18,7 @@ discrete_interpolation.cpp fourier_integrator.cpp interpolation.cpp interpolatio
 config_file.cpp io_helper_functions.cpp qso_file.cpp sq_lookup_table_file.cpp logger.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
-bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o
+bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o testSQCMatrices.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
@@ -26,7 +26,7 @@ CPPFLAGS+=-I$(srcdir) -std=gnu++11 -DHAVE_INLINE $(MORECPPFLAGS)
 CPPFLAGS+=-MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
-all: cblas_tests LyaPowerEstimate CreateSQLookUpTable
+all: cblas_tests testSQCMatrices LyaPowerEstimate CreateSQLookUpTable
 
 test: all
 	mkdir -p $(srcdir)/tests/output
@@ -39,9 +39,14 @@ test: all
 	@./CreateSQLookUpTable $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/CreateSQLookUpTable.log
 	-@diff $(srcdir)/tests/input/signal_R70000.dat $(srcdir)/tests/truth/signal_R70000.dat 
 
+	@echo "Producing interpolated S & Q matrices..."
+	@./testSQCMatrices $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/testSQCMatrices.log
+
 	@echo "Testing QMLE..."
 	@./LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log
 	@diff $(srcdir)/tests/truth/test_it1_quadratic_power_estimate_detailed.dat $(srcdir)/tests/output/test_it1_quadratic_power_estimate_detailed.dat
+
+	@python tests/compareTestResults.py $(srcdir)
 	
 LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
@@ -52,6 +57,11 @@ config_file.o io_helper_functions.o sq_lookup_table_file.o logger.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 cblas_tests: cblas_tests.o matrix_helper.o
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+testSQCMatrices: testSQCMatrices.o fiducial_cosmology.o global_numbers.o sq_table.o fourier_integrator.o \
+interpolation.cpp interpolation_2d.cpp one_qso_estimate.o qso_file.o matrix_helper.o \
+config_file.o io_helper_functions.o sq_lookup_table_file.o logger.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testPointRef: testPointRef.o
