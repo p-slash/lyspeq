@@ -14,9 +14,15 @@ DiscreteInterpolation1D::~DiscreteInterpolation1D()
     delete [] y;
 }
 
+void DiscreteInterpolation1D::_limitBoundary(double &x)
+{
+    if (x > x2)         x = x2;
+    else if (x < x1)    x = x1;
+}
+
 double DiscreteInterpolation1D::evaluate(double x)
 {
-    if (x > x2) return y[N-1];
+    _limitBoundary(x);
 
     long n = (x-x1)/dx;
     double dn = (x-x1)/dx - n, y1 = y[n], y2=y[n+1];
