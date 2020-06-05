@@ -4,11 +4,13 @@
 // Stores a copy of y array.
 // Assumes evenly spaced x.
 // Linearly interpolates
+// x equals to the boundary when it exceeds in either end
 class DiscreteInterpolation1D
 {
     double x1, x2, dx, *y;
     long N;
 
+    void _limitBoundary(double &x);
 public:
     DiscreteInterpolation1D(double x_start, double delta_x, const double *y_arr, long Nsize);
     ~DiscreteInterpolation1D();
@@ -19,7 +21,7 @@ public:
 // Stores a copy of z array
 // Assumes linearly spaced x, y
 // Linearly interpolates
-// Does not check for boundary!
+// x and y equal to the boundary when either exceeds in either end
 class DiscreteInterpolation2D
 {
     double  x1, x2, dx, y1, y2, dy, *z;
