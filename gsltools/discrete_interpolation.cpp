@@ -26,7 +26,7 @@ double DiscreteInterpolation1D::evaluate(double x)
 
 DiscreteInterpolation2D::DiscreteInterpolation2D(double x_start, double delta_x, double y_start, double delta_y,
     const double *z_arr, long Nxsize, long Nysize)
-: x1(x_start), dx(delta_x), y1(y_start), Nx(Nxsize), Ny(Nysize)
+: x1(x_start), dx(delta_x), y1(y_start), dy(delta_y), Nx(Nxsize), Ny(Nysize)
 {
     x2 = x1 + dx * (Nx-1);
     y2 = y1 + dy * (Ny-1);
