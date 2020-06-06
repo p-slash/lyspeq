@@ -208,9 +208,58 @@ namespace specifics
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
     double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
 
-    void printBuildSpecifics()
+    #if defined(TOPHAT_Z_BINNING_FN)
+    #define BINNING_SHAPE "Top Hat"
+    #elif defined(TRIANGLE_Z_BINNING_FN)
+    #define BINNING_SHAPE "Triangular"
+    #else
+    #define BINNING_SHAPE "ERROR NOT DEFINED"
+    #endif
+
+    #define tostr(a) #a
+    #define tovstr(a) tostr(a)
+    
+    #if defined(LAST_K_EDGE)
+    #define HIGH_K_TXT tovstr(LAST_K_EDGE)
+    #else
+    #define HIGH_K_TXT "OFF"
+    #endif
+
+    #if defined(FISHER_OPTIMIZATION)
+    #define FISHER_TXT "ON"
+    #else
+    #define FISHER_TXT "ON"
+    #endif
+    
+    #if defined(REDSHIFT_GROWTH_POWER)
+    #define RGP_TEXT "ON"
+    #else
+    #define RGP_TEXT "OFF"
+    #endif
+    
+    const char BUILD_SPECIFICS[] =  
+        "# This version is build by the following options:\n"
+        "# Fisher optimization: " FISHER_TXT "\n"
+        "# 1D Interpolation: " tovstr(INTERP_1D_TYPE) "\n"
+        "# 2D Interpolation: " tovstr(INTERP_2D_TYPE) "\n"
+        "# Redshift binning shape: " BINNING_SHAPE "\n" 
+        "# Redshift growth scaling: " RGP_TEXT "\n"
+        "# Last k bin: " HIGH_K_TXT "\n";
+
+    #undef tostr
+    #undef tovstr
+    #undef BINNING_SHAPE
+    #undef HIGH_K_TXT
+    #undef FISHER_TXT
+    #undef RGP_TEXT
+    #undef TORE_TEXT
+
+    void printBuildSpecifics(FILE *toWrite)
     {
-        LOG::LOGGER.STD(BUILD_SPECIFICS);
+        if (toWrite == NULL)
+            LOG::LOGGER.STD(BUILD_SPECIFICS);
+        else
+            fprintf(toWrite, specifics::BUILD_SPECIFICS);
     }
 
     void printConfigSpecifics(FILE *toWrite)
