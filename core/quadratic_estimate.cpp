@@ -2,12 +2,10 @@
 
 #include <cmath>
 #include <algorithm> // std::for_each
-#include <numeric>
+#include <numeric> // std::accumulate
 #include <memory> // std::default_delete
 #include <cstdio>
 #include <cstdlib> // system
-#include <cstring> // strcpy
-#include <cassert>
 #include <stdexcept>
 #include <string>
 #include <sstream>      // std::ostringstream
@@ -290,8 +288,6 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
 void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 {
-    assert(isFisherInverted);
-
     LOG::LOGGER.STD("Estimating power spectrum.\n");
 
     std::copy(current_power_estimate_vector, current_power_estimate_vector + bins::TOTAL_KZ_BINS, 
