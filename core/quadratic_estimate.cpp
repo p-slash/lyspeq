@@ -2,19 +2,13 @@
 
 #include <cmath>
 #include <algorithm> // std::for_each
-#include <numeric>
+#include <numeric> // std::accumulate
 #include <memory> // std::default_delete
 #include <cstdio>
 #include <cstdlib> // system
-#include <cstring> // strcpy
-#include <cassert>
 #include <stdexcept>
 #include <string>
 #include <sstream>      // std::ostringstream
-
-#if defined(ENABLE_MPI)
-#include "mpi.h" 
-#endif
 
 #include "core/matrix_helper.hpp"
 #include "core/global_numbers.hpp"
@@ -23,102 +17,9 @@
 #include "io/logger.hpp"
 
 #if defined(ENABLE_MPI)
-//-------------------------------------------------------
-#define MPI_VEC_TAG 2
-
-MPI_Datatype mpi_get_pair_type()
-{
-    // Create MPI pair type
-    std::pair<double, int> tmp;
-
-    int blocklengths[] = {1, 1};
-    MPI_Aint disp[3];
-    MPI_Get_address(&tmp, disp);
-    MPI_Get_address(&tmp.first, disp+1);
-    MPI_Get_address(&tmp.second, disp+2);
-
-    MPI_Aint offsets[2] = { MPI_Aint_diff(disp[1], disp[0]), MPI_Aint_diff(disp[2], disp[0]) };
-
-    MPI_Aint lb, extent;
-    MPI_Datatype types[] = {MPI_DOUBLE, MPI_INT};
-    MPI_Datatype tmp_type, my_mpi_pair_type;
-
-    MPI_Type_create_struct(2, blocklengths, offsets, types, &tmp_type);
-    MPI_Type_get_extent(tmp_type, &lb, &extent);
-    MPI_Type_create_resized(tmp_type, lb, extent, &my_mpi_pair_type);
-    MPI_Type_commit(&my_mpi_pair_type);
-
-    return my_mpi_pair_type;
-}
-
-void mpi_bcast_cpu_fname_vec(std::vector<std::pair<double, int>> &cpu_index_vec, int root_pe=0)
-{
-    MPI_Datatype MY_MPI_PAIR = mpi_get_pair_type();
-    int size = cpu_index_vec.size();
-
-    // Root send the size of the vector
-    MPI_Bcast(&size, 1, MPI_INT, root_pe, MPI_COMM_WORLD);
-    cpu_index_vec.resize(size);
-
-    MPI_Bcast(cpu_index_vec.data(), size, MY_MPI_PAIR, root_pe, MPI_COMM_WORLD);
-}
-
-void mpi_merge_sorted_arrays(int height, int Npe, int id, 
-    std::vector<std::pair<double, int>> &local_cpu_ind_vec)
-{
-    if (Npe == 1)  // We have reached the end
-        return;
-
-    int parent_pe, child_pe, next_Npe, local_size = local_cpu_ind_vec.size();
-    int transmission_count = local_size;
-    MPI_Status status;
-    MPI_Datatype MY_MPI_PAIR = mpi_get_pair_type();
-
-    next_Npe = (Npe + 1) / 2;
-
-    // Given a height, parent PEs are 2**(height+1), 1 << (height+1), 
-    // height starts from 0 at the bottom (all PEs)
-    // This means e.g. at height 0 we need to map: 3->2, 2->2 and 5->4, 4->4 to find parents
-    parent_pe = (id & ~(1 << height));
-
-    if (id == parent_pe)
-    {
-        // If this is the parent PE, receive from the child.
-        child_pe = (id | (1 << height));
-
-        // If childless, carry on to the next cycle
-        if (child_pe >= process::total_pes)
-        {
-            mpi_merge_sorted_arrays(height+1, next_Npe, id, local_cpu_ind_vec);
-            return;
-        }
-
-        // First recieve the size of the transmission
-        MPI_Probe(child_pe, MPI_VEC_TAG, MPI_COMM_WORLD, &status);
-        MPI_Get_count(&status, MY_MPI_PAIR, &transmission_count);
-
-        local_cpu_ind_vec.resize(local_size+transmission_count);
-
-        MPI_Recv(local_cpu_ind_vec.data()+local_size, transmission_count, MY_MPI_PAIR, child_pe, 
-            MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        
-        std::inplace_merge(local_cpu_ind_vec.begin(), local_cpu_ind_vec.begin()+local_size, 
-            local_cpu_ind_vec.end());
-       
-        // Recursive call 
-        mpi_merge_sorted_arrays(height+1, next_Npe, id, local_cpu_ind_vec);
-    }
-    else
-    {
-        MPI_Send(local_cpu_ind_vec.data(), transmission_count, MY_MPI_PAIR, parent_pe, 
-            MPI_VEC_TAG, MPI_COMM_WORLD);
-    }
-}
-
-#undef MPI_VEC_TAG
+#include "mpi.h" 
+#include "core/mpi_merge_sort.cpp"
 #endif
-//-------------------------------------------------------
-
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, const char *dir)
 {
@@ -207,8 +108,8 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end()); // Ascending order
     
     #if defined(ENABLE_MPI)
-        mpi_merge_sorted_arrays(0, process::total_pes, process::this_pe, cpu_fname_vector);
-        mpi_bcast_cpu_fname_vec(cpu_fname_vector);
+        mpisort::mergeSortedArrays(0, process::total_pes, process::this_pe, cpu_fname_vector);
+        mpisort::bcastCpuFnameVec(cpu_fname_vector);
     #endif
 
     // Print out time it took to sort files wrt CPU time
@@ -290,8 +191,6 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
 void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 {
-    assert(isFisherInverted);
-
     LOG::LOGGER.STD("Estimating power spectrum.\n");
 
     std::copy(current_power_estimate_vector, current_power_estimate_vector + bins::TOTAL_KZ_BINS, 
@@ -616,7 +515,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 
     toWrite = ioh::open_file(fname, "w");
     
-    fprintf(toWrite, specifics::BUILD_SPECIFICS);
+    specifics::printBuildSpecifics(toWrite);
     specifics::printConfigSpecifics(toWrite);
     
     fprintf(toWrite, "# Fiducial Power Spectrum\n"

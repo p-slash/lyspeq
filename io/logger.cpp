@@ -1,6 +1,5 @@
 #include "io/logger.hpp"
 
-#include <cassert>
 #include <cstdarg>
 #include <sstream> // std::ostringstream
 #include <stdexcept>

@@ -14,7 +14,6 @@ namespace process
     extern int this_pe, total_pes;
     extern char TMP_FOLDER[300];
     extern double MEMORY_ALLOC;
-    // Look up table, global and thread copy
     extern SQLookupTable *sq_private_table;
 }
 
@@ -90,53 +89,17 @@ namespace specifics
     extern double CHISQ_CONVERGENCE_EPS;
     extern double CONTINUUM_MARGINALIZATION_AMP, CONTINUUM_MARGINALIZATION_DERV;
 
-    #if defined(TOPHAT_Z_BINNING_FN)
-    #define BINNING_SHAPE "Top Hat"
-    #elif defined(TRIANGLE_Z_BINNING_FN)
-    #define BINNING_SHAPE "Triangular"
-    #else
-    #define BINNING_SHAPE "ERROR NOT DEFINED"
-    #endif
-
-    #define tostr(a) #a
-    #define tovstr(a) tostr(a)
-    
-    #if defined(LAST_K_EDGE)
-    #define HIGH_K_TXT tovstr(LAST_K_EDGE)
-    #else
-    #define HIGH_K_TXT "OFF"
-    #endif
-    
-    #if defined(REDSHIFT_GROWTH_POWER)
-    #define RGP_TEXT "ON"
-    #else
-    #define RGP_TEXT "OFF"
-    #endif
-    
-    const char BUILD_SPECIFICS[] =  "# This version is build by the following options:\n"
-                                    "# 1D Interpolation: " tovstr(INTERP_1D_TYPE) "\n"
-                                    "# 2D Interpolation: " tovstr(INTERP_2D_TYPE) "\n"
-                                    "# Redshift binning shape: " BINNING_SHAPE "\n" 
-                                    "# Redshift growth scaling: " RGP_TEXT "\n"
-                                    "# Last k bin: " HIGH_K_TXT "\n";
-    #undef tostr
-    #undef tovstr
-    #undef BINNING_SHAPE
-    #undef HIGH_K_TXT
-    #undef RGP_TEXT
-    #undef TORE_TEXT
-
-    void printBuildSpecifics();
+    void printBuildSpecifics(FILE *toWrite=NULL);
     void printConfigSpecifics(FILE *toWrite=NULL);
 }
 
 namespace ioh
 {
     void readConfigFile(const char *FNAME_CONFIG, 
-                        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
-                        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
-                        int *NUMBER_OF_ITERATIONS,
-                        int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V);
+        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
+        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
+        int *NUMBER_OF_ITERATIONS,
+        int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V);
 }
 
 #endif

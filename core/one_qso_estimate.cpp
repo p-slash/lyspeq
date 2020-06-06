@@ -11,7 +11,6 @@
 #include <algorithm> // std::for_each & transform
 #include <cstdio>
 #include <cstdlib>
-#include <cassert>
 #include <stdexcept>
 
 void throw_isnan(double t, const char *step)
