@@ -182,9 +182,10 @@ namespace mytime
         LOG::LOGGER.STD("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
 
         LOG::LOGGER.STD("Total time spent on setting Sfid is %.2f mins with %lu calls.\n",
-                time_spent_on_set_sfid, number_of_times_called_setsfid);
-        LOG::LOGGER.STD("Total time spent on setting Qs is %.2f mins with %lu calls.\nInterpolation: %.2f and Copy: %.2f.\n",
-                time_spent_set_qs, number_of_times_called_setq, time_spent_on_q_interp, time_spent_on_q_copy);
+            time_spent_on_set_sfid, number_of_times_called_setsfid);
+        LOG::LOGGER.STD("Total time spent on setting Qs is %.2f mins with %lu calls.\n"
+            "Interpolation: %.2f and Copy: %.2f.\n",
+            time_spent_set_qs, number_of_times_called_setq, time_spent_on_q_interp, time_spent_on_q_copy);
         
         LOG::LOGGER.STD("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
         LOG::LOGGER.STD("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
