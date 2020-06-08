@@ -13,14 +13,6 @@
 #include <cstdlib>
 #include <stdexcept>
 
-void throw_isnan(double t, const char *step)
-{
-    char err_msg[25];
-    sprintf(err_msg, "NaN in %s", step);
-
-    if (std::isnan(t))   throw std::runtime_error(err_msg);
-}
-
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
     qso_sp_fname = fname_qso;
@@ -283,8 +275,8 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
             {
                 _getVandZ(v_ij, z_ij, row, col);
 
-                temp  = interp_derivative_matrix[kn]->evaluate(v_ij);
-                temp *= bins::redshiftBinningFunction(z_ij, zm);
+                temp  = bins::redshiftBinningFunction(z_ij, zm);
+                temp *= interp_derivative_matrix[kn]->evaluate(v_ij);
 
                 // Every pixel pair should scale to the bin redshift
                 #ifdef REDSHIFT_GROWTH_POWER
@@ -448,14 +440,12 @@ void OneQSOEstimate::computePSbeforeFvector()
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
         double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix, DATA_SIZE);
-        throw_isnan(temp_dk, "d");
 
         // Get weighted derivative matrix ikz: C-1 Qi C-1
         _getWeightedMatrix(Q_ikz_matrix);
 
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
         double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, noise_array, DATA_SIZE);
-        throw_isnan(temp_bk, "bk");
 
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
@@ -464,7 +454,6 @@ void OneQSOEstimate::computePSbeforeFvector()
 
             // Tr(C-1 Qi C-1 Sfid)
             temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, DATA_SIZE);
-            throw_isnan(temp_tk, "tk");
         }
         
         dbt_estimate_before_fisher_vector[0][i_kz + fisher_index_start] = temp_dk;
