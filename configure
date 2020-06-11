@@ -110,15 +110,13 @@ function set_gsl_inc_lib() {
 # Default values
 OPT=-O3
 en_mpi=
-interp1d=-DINTERP_1D_TYPE=GSL_CUBIC_INTERPOLATION
-interp2d=-DINTERP_2D_TYPE=GSL_BICUBIC_INTERPOLATION
 binz_fn=-DTRIANGLE_Z_BINNING_FN
 fisher_opt=
 z_growth=
 lastk_feat=
 debug=
 
-SYSTYPE="linux-gcc"
+SYSTYPE=""
 prefix="/usr/local"
 exec_prefix="${prefix}"
 bindir="${exec_prefix}/bin"
@@ -149,20 +147,6 @@ do
             CPPFLAGS_OMP="-fopenmp";;
         --enable-tbb )
             CPPFLAGS_OMP="-tbb";;
-        --interp1d=* )
-            if [[ "${i#*=}" ==  "GSL_CUBIC_INTERPOLATION" || "${i#*=}" ==  "GSL_LINEAR_INTERPOLATION" ]]; then
-                interp1d="-DINTERP_1D_TYPE=${i#*=}"
-            else
-                echo "Wrong 1D interpolation parameter. Using cubic interpolation by default."
-                echo "Pass GSL_LINEAR_INTERPOLATION or GSL_CUBIC_INTERPOLATION"
-            fi;;
-        --interp2d=* )
-            if [[ "${i#*=}" ==  "GSL_BICUBIC_INTERPOLATION" || "${i#*=}" ==  "GSL_BILINEAR_INTERPOLATION" ]]; then
-                interp2d="-DINTERP_2D_TYPE=${i#*=}"
-            else
-                echo "Wrong 2D interpolation parameter. Using bicubic interpolation by default."
-                echo "Pass GSL_BILINEAR_INTERPOLATION or GSL_BICUBIC_INTERPOLATION"
-            fi;;
         --binz_fn=* )
             if [[ "${i#*=}" ==  "TRIANGLE_Z_BINNING_FN" || "${i#*=}" ==  "TOPHAT_Z_BINNING_FN" ]]; then
                 binz_fn="-D${i#*=}"
@@ -191,8 +175,6 @@ do
             echo "--enable-tbb : Enables TBB"
             echo "--build=[build type] or [build type]: Sets the build type"
             # echo "--interactive : Use interactive mode."
-            echo "--interp1d=[GSL_LINEAR_INTERPOLATION or GSL_CUBIC_INTERPOLATION] : Specify 1D interpolation type. Default is cubic."
-            echo "--interp2d=[GSL_BICUBIC_INTERPOLATION or GSL_BILINEAR_INTERPOLATION] : Specify 2D interpolation type. Default is bicubic."
             echo "--binz_fn=[TRIANGLE_Z_BINNING_FN or TOPHAT_Z_BINNING_FN] : Specify redshift binning function. Default is triangle."
             echo "--debug adds -g flag."
             echo "--gsl_dir=[directory] : GSL directory"
@@ -206,7 +188,7 @@ do
     shift
 done
 
-MORECPPFLAGS="${interp1d} ${interp2d} ${binz_fn} ${en_mpi} ${fisher_opt} ${lastk_feat} ${z_growth}"
+MORECPPFLAGS="${binz_fn} ${en_mpi} ${fisher_opt} ${lastk_feat} ${z_growth}"
 OPENBLAS_DIR=/usr/local/opt/openblas
 
 case ${SYSTYPE} in
