@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ./configure will set up a vanilla version that relies only on GSL with cubic and bicubic interpolation and triangle z bins.
+# ./configure x64-linux-gnu-mklxe18 will set up a version that that compiles with gcc and uses MKL.
 # Change configuration by passing build types. For more info ./configure --print-builds
 # To enable OpenMP threading, pass --enable-openmp
 # For more options pass --help or -h
