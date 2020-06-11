@@ -241,8 +241,6 @@ namespace specifics
     const char BUILD_SPECIFICS[] =  
         "# This version is build by the following options:\n"
         "# Fisher optimization: " FISHER_TXT "\n"
-        "# 1D Interpolation: " tovstr(INTERP_1D_TYPE) "\n"
-        "# 2D Interpolation: " tovstr(INTERP_2D_TYPE) "\n"
         "# Redshift binning shape: " BINNING_SHAPE "\n" 
         "# Redshift growth scaling: " RGP_TEXT "\n"
         "# Last k bin: " HIGH_K_TXT "\n";
