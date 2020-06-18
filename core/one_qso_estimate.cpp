@@ -116,8 +116,7 @@ void OneQSOEstimate::_setNQandFisherIndex()
         ++N_Q_MATRICES;
     }
     #else
-    // Error
-
+    #error "DEFINE A Z BINNING FUNCTION!"
     #endif
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
