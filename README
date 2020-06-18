@@ -100,6 +100,10 @@ Bin edges for k start with linear spacing: `K0 + LinearKBinWidth * n`, where `n=
     LinearKBinWidth       2E-4
     Log10KBinWidth        0.1
 
+Can add a last bin edge. This goes into effect when larger than the last bin as defined by parameters above.
+
+    LastKEdge 10
+
 Redshift bins are linearly spaced.
 
     FirstRedshiftBinCenter    1.9

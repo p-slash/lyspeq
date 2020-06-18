@@ -230,8 +230,6 @@ void OneDQuadraticPowerEstimate::_readScriptOutput(double *script_power, const c
     int kn, zm;
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; i_kz++)
     {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         fr = fscanf(tmp_fit_file, "%le\n", &script_power[i_kz]);
@@ -403,8 +401,6 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         p1 = fabs(current_power_estimate_vector[i_kz]);
@@ -431,9 +427,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     r = 0;
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
-    {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-        
+    {        
         double  t = previous_power_estimate_vector[i_kz],
                 e = inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS) * i_kz];
 
@@ -472,25 +466,16 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 
     toWrite = ioh::open_file(fname, "w");
     
-    #ifdef LAST_K_EDGE
-    fprintf(toWrite, "%d %d\n", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS-1);
-    #else
     fprintf(toWrite, "%d %d\n", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
-    #endif
 
     auto fprint = [&](const int& zc) { fprintf(toWrite, "%d ", zc); };
     
     std::for_each(Z_BIN_COUNTS, Z_BIN_COUNTS+bins::NUMBER_OF_Z_BINS+2, fprint);
 
-    // for (zm = 0; zm <= bins::NUMBER_OF_Z_BINS+1; ++zm)
-    //     fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
-
     fprintf(toWrite, "\n");
 
     for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         z = bins::ZBIN_CENTERS[zm];
@@ -552,11 +537,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
         "# t      : Fiducial power estimate [km s^-1]\n"
         "# -----------------------------------------------------------------\n");
 
-    #ifdef LAST_K_EDGE
-    fprintf(toWrite, "# %d %d\n# ", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS-1);
-    #else
     fprintf(toWrite, "# %d %d\n# ", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
-    #endif
 
     for (zm = 0; zm <= bins::NUMBER_OF_Z_BINS+1; ++zm)
         fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
@@ -567,8 +548,6 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 
     for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         z  = bins::ZBIN_CENTERS[zm];

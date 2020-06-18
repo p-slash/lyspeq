@@ -10,8 +10,11 @@ NumberOfLog10Bins 10
 LinearKBinWidth 7E-4
 Log10KBinWidth 0.1
 
-# Redshift bins are linearly spaced.
+# Can add a last bin edge. This goes into effect when larger than the last bin
+# as defined by parameters above
+LastKEdge 10
 
+# Redshift bins are linearly spaced.
 FirstRedshiftBinCenter 2.5
 RedshiftBinWidth 0.1125
 NumberOfRedshiftBins 10
