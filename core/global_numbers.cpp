@@ -257,13 +257,13 @@ namespace specifics
 
     void printConfigSpecifics(FILE *toWrite)
     {
-        #define CONFIG_TXT "Using following configuration parameters:\n" \
-            "Fiducial Signal Baseline: %s\n" \
-            "Velocity Spacing: %s\n" \
-            "Input is delta flux: %s\n" \
-            "Divide by mean flux of the chunk: %s\n" \
-            "ContinuumMargAmp: %.2e\n" \
-            "ContinuumMargDerv: %.2e\n",  \
+        #define CONFIG_TXT "# Using following configuration parameters:\n" \
+            "# Fiducial Signal Baseline: %s\n" \
+            "# Velocity Spacing: %s\n" \
+            "# Input is delta flux: %s\n" \
+            "# Divide by mean flux of the chunk: %s\n" \
+            "# ContinuumMargAmp: %.2e\n" \
+            "# ContinuumMargDerv: %.2e\n",  \
             TURN_OFF_SFID ? "OFF" : "ON", \
             conv::USE_LOG_V ? "LOGARITHMIC" : "EdS", \
             conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO", \
