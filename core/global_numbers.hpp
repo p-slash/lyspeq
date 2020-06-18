@@ -20,16 +20,14 @@ namespace process
 namespace bins
 {
     // Binning numbers
-    // One last bin is created when LAST_K_EDGE is set in Makefile to absorb high k power such as alias effect.
-    // This last bin is not calculated into covariance matrix, smooth power spectrum fitting or convergence test.
-    // But it has a place in Fisher matrix and in power spectrum estimates.
-    // NUMBER_OF_K_BANDS counts the last bin. So must use NUMBER_OF_K_BANDS - 1 when last bin ignored
+    // One last bin is created when LAST_K_EDGE is set in config to absorb high k power such as alias effect.
+    // This last bin is calculated into covariance matrix, smooth power spectrum fitting or convergence test.
     // TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS
     extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, DEGREE_OF_FREEDOM;
     extern double *KBAND_EDGES, *KBAND_CENTERS;
     extern double Z_BIN_WIDTH, *ZBIN_CENTERS;
 
-    void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double z0);
+    void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0);
     void cleanUpBins();
 
     // returns -1 if below, NUMBER_OF_Z_BINS if above
@@ -44,11 +42,11 @@ namespace bins
     int getFisherMatrixIndex(int kn, int zm);
     void getFisherMatrixBinNoFromIndex(int ikz, int &kn, int &zm);
     
-    #ifdef LAST_K_EDGE
-    // #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;
-    #else
-    #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) 
-    #endif
+    // #ifdef LAST_K_EDGE
+    // // #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) if (((x)+1) % NUMBER_OF_K_BANDS == 0)   continue;
+    // #else
+    // #define SKIP_LAST_K_BIN_WHEN_ENABLED(x) 
+    // #endif
 }
 
 namespace mytime
