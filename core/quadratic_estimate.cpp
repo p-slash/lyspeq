@@ -543,7 +543,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
         fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
 
     fprintf(toWrite, "\n");
-    fprintf(toWrite, "#%5s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n", 
+    fprintf(toWrite, "%5s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n", 
         "z", "k1", "k2", "kc", "Pfid", "ThetaP", "Pest", "ErrorP", "d", "b", "t");
 
     for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
