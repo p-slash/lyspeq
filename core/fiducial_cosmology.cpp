@@ -33,11 +33,6 @@ namespace conv
 
         std::for_each(flux, flux+size, [&](double &f) { f = f/chunk_mean-1; });
         std::for_each(noise, noise+size, [&](double &n) { n /= chunk_mean; });
-        // for (int i = 0; i < size; ++i)
-        // {
-        //     flux[i]   = flux[i]/chunk_mean - 1;
-        //     noise[i] /= chunk_mean;
-        // }
     }
 
     void fullConversion(const double *lambda, double *flux, double *noise, int size)
@@ -105,32 +100,6 @@ namespace conv
 
         convertFluxToDeltaF = &fullConversion;
     }
-
-    // , USE_FID_LEE12_MEAN_FLUX = false;
-    // double meanFluxBecker13(double z)
-    // {
-    //     double tau = 0.751 * pow((1. + z) / 4.5, 2.90) - 0.132;
-    //     return exp(-tau);
-    // }
-
-    // double meanFluxLee12(double z)
-    // {
-    //     double tau = 0.001845 * pow(1. + z, 3.924);
-    //     return exp(-tau);
-    // }
-
-    // void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size)
-    // {
-    //     double mean_f;
-
-    //     for (int i = 0; i < size; ++i)
-    //     {
-    //         mean_f    = meanFluxLee12(lambda[i]/LYA_REST-1);
-    //         flux[i]  /= mean_f;
-    //         flux[i]  -= 1.;
-    //         noise[i] /= mean_f;
-    //     }
-    // }
 }
 
 // Fiducial Functions

@@ -1,4 +1,5 @@
 ### Changes
++ Last k edge is now read from config file as `LastKEdge`.
 + Needs CBLAS & LAPACKE libraries to run.
 + Option to turn off copying S and Q matrices in order to reduce time.
 + Logger saves separately for each PE.
@@ -74,8 +75,6 @@ MPI can be enabled by passing `--enable-mpi`.
 I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-mpi`, which will enable OpenMPI and use OpenBLAS for matrix operations. Another important one is Intel compiler with MKL. If you have Parallel Studio XE 2018 installed: `./configure --build=x64-linux-icpc-mklxe18 --enable-mpi`. To see all build types: `./configure --print-builds`.
 
 The executables are installed in `bindir`. This is `/usr/local/bin` by default. You can change it by setting `--bindir=your-path`. Make sure it is in your `$PATH`. Alternatively, you can change `/usr/local` by setting `--prefix` and `--exec_prefix`. Typically for clusters, you want to install binaries to `$HOME/bin`; so simply pass `--prefix=$HOME`.
-
-To absorp high k power, you can enable a wide high k bin by setting `--enable-last-k-bin=[number]`. This number will be the last edge.
 
 You can also change interpolation schemes and redshift binning shape. You can also compile in another directory by setting `--srcdir=[source-path]`. For more options run `./configure --help`.
 
