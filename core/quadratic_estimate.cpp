@@ -543,8 +543,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
         fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
 
     fprintf(toWrite, "\n");
-    fprintf(toWrite, "z %15s %15s %15s %15s %15s %15s %15s %15s %15s %15s\n", 
-        "k1", "k2", "kc", "Pfid", "ThetaP", "Pest", "ErrorP", "d", "b", "t");
+    fprintf(toWrite, "#%5s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n", 
+        "z", "k1", "k2", "kc", "Pfid", "ThetaP", "Pest", "ErrorP", "d", "b", "t");
 
     for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
@@ -564,8 +564,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
         bk = dbt_estimate_fisher_weighted_vector[1][i_kz];
         tk = dbt_estimate_fisher_weighted_vector[2][i_kz];
 
-        fprintf(toWrite, "%.3lf %15e %15e %15e %15e %15e %15e %15e %15e %15e %15e\n", 
-                            z,  k1,  k2,  kc,  Pfid,ThetaP, Pfid+ThetaP, ErrorP, dk, bk, tk);
+        fprintf(toWrite, "%5.3lf %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e\n", 
+            z,  k1,  k2,  kc,  Pfid,ThetaP, Pfid+ThetaP, ErrorP, dk, bk, tk);
     }
 
     fclose(toWrite);
