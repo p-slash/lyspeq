@@ -243,12 +243,14 @@ void OneDQuadraticPowerEstimate::_readScriptOutput(double *script_power, const c
     fclose(tmp_fit_file);
 }
 
+
 // Note that fitting is done deviations plus fiducial power
 void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fitted_power)
 {
     static fidpd13::pd13_fit_params iteration_fits = fidpd13::FIDUCIAL_PD13_PARAMS;
     
     char tmp_ps_fname[320], tmp_fit_fname[320];
+
     ioh::create_tmp_file(tmp_ps_fname, process::TMP_FOLDER);
     ioh::create_tmp_file(tmp_fit_fname, process::TMP_FOLDER);
     
@@ -259,15 +261,16 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fitted_power)
             << iteration_fits.A << " " << iteration_fits.n << " " << iteration_fits.n << " ";
 
     // Do not pass redshift parameters if there is only one redshift bin
-    if (bins::NUMBER_OF_Z_BINS > 1)  command << iteration_fits.B << " " << iteration_fits.beta << " ";
+    if (bins::NUMBER_OF_Z_BINS > 1)
+        command << iteration_fits.B << " " << iteration_fits.beta << " ";
     
     command << iteration_fits.lambda;
     
+    // Sublime text acts weird when `<< " >> " <<` is explicitly typed
+    #define GGSTR " >> "
     if (process::this_pe == 0) 
-    {
-        command
-            << " >> " << LOG::LOGGER.getFileName(LOG::TYPE::STD);   
-    }
+        command << GGSTR << LOG::LOGGER.getFileName(LOG::TYPE::STD);   
+    #undef GGSTR
 
     LOG::LOGGER.STD("%s\n", command.str().c_str());
     LOG::LOGGER.close();
