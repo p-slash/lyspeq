@@ -283,7 +283,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
                         char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
                         char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
                         int *NUMBER_OF_ITERATIONS,
-                        int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
+                        int *Nv, int *Nz, double *LENGTH_V)
 {
     int     N_KLIN_BIN, N_KLOG_BIN, 
             sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1;
@@ -319,7 +319,6 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     // Integration grid parameters
     cFile.addKey("NumberVPoints",   Nv, INTEGER);
     cFile.addKey("NumberZPoints",   Nz, INTEGER);
-    cFile.addKey("PixelWidth",      PIXEL_WIDTH, DOUBLE);
     cFile.addKey("VelocityLength",  LENGTH_V,    DOUBLE);
 
     // Fiducial cosmology

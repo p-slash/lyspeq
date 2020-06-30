@@ -27,13 +27,12 @@ FileInputDir /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS
 OutputDir /Users/nk452/repos/data/Quadratic_test
 OutputFileBase pd13ps_zon
 
-# List of spectograph resolutions (R) is in FileNameRList. This file starts with number of Rs.
+# List of spectograph resolutions and pixel spacings (R [int], dv [double]) is in `FileNameRList`. This file starts with number of lines.
 FileNameRList     /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks_ZEvo/mock_specres_list.txt
 
 # Lookup tables are generated with the following parameters:
 NumberVPoints     1000
 NumberZPoints     80
-PixelWidth        64.0
 VelocityLength    9100.0
 
 # When testing outside of Lya region, turn off fiducial matrix by 1

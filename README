@@ -1,4 +1,5 @@
 ### Changes
++ R & dv pairs are read from a file, instead of assuming fixed dv for all spectra.
 + Last k edge is now read from config file as `LastKEdge`.
 + Needs CBLAS & LAPACKE libraries to run.
 + Option to turn off copying S and Q matrices in order to reduce time.
@@ -126,7 +127,6 @@ Lookup tables are generated with the following parameters:
 
     NumberVPoints     200
     NumberZPoints     200
-    PixelWidth        4.0
     VelocityLength    1000.
 
 Turn off fiducial signal matrix by setting this to a positive integer integer.
@@ -151,7 +151,7 @@ The directory for output files and file name base:
     OutputDir         ./data/qso_results/
     OutputFileBase    lya
 
-List of spectograph resolutions (R) is in `FileNameRList`. This file starts with number of Rs.
+List of spectograph resolutions and pixel spacings (R [int], dv [double]) is in `FileNameRList`. This file starts with number of lines.
 
     FileNameRList     ./data/qso_dir/specres_list.txt
 

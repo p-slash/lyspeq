@@ -91,7 +91,7 @@ namespace ioh
         char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
         char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
         int *NUMBER_OF_ITERATIONS,
-        int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V);
+        int *Nv, int *Nz, double *LENGTH_V);
 }
 
 #endif
