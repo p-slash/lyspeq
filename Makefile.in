@@ -44,7 +44,7 @@ test: all
 	@echo "Running QMLE..."
 	@./LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log
 
-	@python tests/compareTestResults.py $(srcdir)
+	@python3 tests/compareTestResults.py $(srcdir)
 	
 LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
