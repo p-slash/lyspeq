@@ -7,15 +7,10 @@ pipelines:
     dev:
     - step:
         script:
-          - ./configure --build=x64-linux-gcc-gslcblas
-          - make
-          - make test
-    - step:
-        script:
-          - ./configure --build=x64-linux-gcc-atlas --enable-openmp
+          - ./configure --build=x64-linux-gcc-atlas
           - make && make test
     - step:
         script:
-          - ./configure --build=x64-linux-gcc-openblas --enable-openmp
+          - ./configure --build=x64-linux-gcc-openblas
           - make && make test
 
