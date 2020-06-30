@@ -7,25 +7,11 @@
 #include "io/qso_file.hpp"
 #include "io/logger.hpp"
 
-#include <gsl/gsl_matrix.h> 
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_cblas.h>
-#include <gsl/gsl_errno.h>
-
 #include <cmath>
 #include <algorithm> // std::for_each & transform
 #include <cstdio>
 #include <cstdlib>
-#include <cassert>
 #include <stdexcept>
-
-void throw_isnan(double t, const char *step)
-{
-    char err_msg[25];
-    sprintf(err_msg, "NaN in %s", step);
-
-    if (std::isnan(t))   throw std::runtime_error(err_msg);
-}
 
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
@@ -54,7 +40,7 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     if (r_index == -1)      throw std::runtime_error("SPECRES not found in tables!");
 
     interp2d_signal_matrix   = process::sq_private_table->getSignalMatrixInterp(r_index);
-    interp_derivative_matrix = new Interpolation*[bins::NUMBER_OF_K_BANDS];
+    interp_derivative_matrix = new DiscreteInterpolation1D*[bins::NUMBER_OF_K_BANDS];
 
     for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
         interp_derivative_matrix[kn] = process::sq_private_table->getDerivativeMatrixInterp(kn, r_index);
@@ -130,8 +116,7 @@ void OneQSOEstimate::_setNQandFisherIndex()
         ++N_Q_MATRICES;
     }
     #else
-    // Error
-
+    #error "DEFINE A Z BINNING FUNCTION!"
     #endif
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
@@ -229,15 +214,20 @@ void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
     z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
 }
 
-void OneQSOEstimate::_setFiducialSignalMatrix(double *sm)
+void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
 {
     ++mytime::number_of_times_called_setsfid;
 
-    double t = mytime::getTime();
+    double t = mytime::timer.getTime();
     double v_ij, z_ij, temp;
 
     if (isSfidSet)
-        std::copy(stored_sfid, stored_sfid + (DATA_SIZE*DATA_SIZE), sm);
+    {
+        if (copy)
+            std::copy(stored_sfid, stored_sfid + (DATA_SIZE*DATA_SIZE), sm);
+        else
+            sm = stored_sfid;
+    }
     else
     {
         for (int row = 0; row < DATA_SIZE; ++row)
@@ -254,23 +244,25 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *sm)
         mxhelp::copyUpperToLower(sm, DATA_SIZE);
     }
     
-    t = mytime::getTime() - t;
+    t = mytime::timer.getTime() - t;
 
     mytime::time_spent_on_set_sfid += t;
 }
 
-void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
+void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
 {
     ++mytime::number_of_times_called_setq;
-
-    double t = mytime::getTime(), t_interp;
+    double t = mytime::timer.getTime(), t_interp;
     int kn, zm;
     double v_ij, z_ij, temp;
 
     if (isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)))
     {
         t_interp = 0;
-        std::copy(stored_qj[N_Q_MATRICES-i_kz-1], stored_qj[N_Q_MATRICES-i_kz-1] + (DATA_SIZE*DATA_SIZE), qi);
+        if (copy)
+            std::copy(stored_qj[N_Q_MATRICES-i_kz-1], stored_qj[N_Q_MATRICES-i_kz-1] + (DATA_SIZE*DATA_SIZE), qi);
+        else
+            qi = &stored_qj[N_Q_MATRICES-i_kz-1][0];
     }
     else
     {
@@ -281,10 +273,10 @@ void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
             for (int col = row; col < DATA_SIZE; ++col)
             {
                 _getVandZ(v_ij, z_ij, row, col);
-                
-                temp  = interp_derivative_matrix[kn]->evaluate(v_ij);
-                temp *= bins::redshiftBinningFunction(z_ij, zm);
-                
+
+                temp  = bins::redshiftBinningFunction(z_ij, zm);
+                temp *= interp_derivative_matrix[kn]->evaluate(v_ij);
+
                 // Every pixel pair should scale to the bin redshift
                 #ifdef REDSHIFT_GROWTH_POWER
                 temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 
@@ -295,12 +287,12 @@ void OneQSOEstimate::_setQiMatrix(double *qi, int i_kz)
             }
         }
 
-        t_interp = mytime::getTime() - t;
+        t_interp = mytime::timer.getTime() - t;
 
         mxhelp::copyUpperToLower(qi, DATA_SIZE);
     }
 
-    t = mytime::getTime() - t; 
+    t = mytime::timer.getTime() - t; 
 
     mytime::time_spent_set_qs += t;
     mytime::time_spent_on_q_interp += t_interp;
@@ -320,7 +312,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
+        // SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
 
         _setQiMatrix(temp_matrix[0], i_kz);
 
@@ -358,28 +350,22 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 // Then swap the pointer with covariance matrix
 void OneQSOEstimate::invertCovarianceMatrix()
 {
-    double t = mytime::getTime();
+    double t = mytime::timer.getTime();
 
-    inverse_covariance_matrix  = temp_matrix[0];
-
-    gsl_matrix_view cov_mv    = gsl_matrix_view_array(covariance_matrix, DATA_SIZE, DATA_SIZE);
-    gsl_matrix_view invcov_mv = gsl_matrix_view_array(inverse_covariance_matrix, DATA_SIZE, DATA_SIZE);
-
-    mxhelp::invertMatrixLU(&cov_mv.matrix, &invcov_mv.matrix);
+    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, DATA_SIZE);
     
-    temp_matrix[0]    = covariance_matrix;
-    covariance_matrix = inverse_covariance_matrix;
+    inverse_covariance_matrix = covariance_matrix;
 
     isCovInverted = true;
 
-    t = mytime::getTime() - t;
+    t = mytime::timer.getTime() - t;
 
     mytime::time_spent_on_c_inv += t;
 }
 
 void OneQSOEstimate::_getWeightedMatrix(double *m)
 {
-    double t = mytime::getTime();
+    double t = mytime::timer.getTime();
 
     //C-1 . Q
     cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper,
@@ -393,7 +379,7 @@ void OneQSOEstimate::_getWeightedMatrix(double *m)
                  temp_matrix[1], DATA_SIZE,
                  0, m, DATA_SIZE);
 
-    t = mytime::getTime() - t;
+    t = mytime::timer.getTime() - t;
 
     mytime::time_spent_set_modqs += t;
 }
@@ -403,7 +389,7 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
     double temp;
     double *Q_jkz_matrix = temp_matrix[1];
 
-    double t = mytime::getTime();
+    double t = mytime::timer.getTime();
     
     // Now compute Fisher Matrix
     for (int j_kz = i_kz; j_kz < N_Q_MATRICES; ++j_kz)
@@ -415,10 +401,10 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
             continue;
         #endif
         
-        _setQiMatrix(Q_jkz_matrix, j_kz);
+        Q_jkz_matrix = temp_matrix[1];
+        _setQiMatrix(Q_jkz_matrix, j_kz, false);
 
         temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, DATA_SIZE);
-        throw_isnan(temp, "F=TrQwQw");
 
         int ind_ij = (i_kz + fisher_index_start) + bins::TOTAL_KZ_BINS * (j_kz + fisher_index_start),
             ind_ji = (j_kz + fisher_index_start) + bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start);
@@ -427,7 +413,7 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
         *(fisher_matrix + ind_ji) = temp;
     }
 
-    t = mytime::getTime() - t;
+    t = mytime::timer.getTime() - t;
 
     mytime::time_spent_set_fisher += t;
 }
@@ -436,40 +422,36 @@ void OneQSOEstimate::computePSbeforeFvector()
 {
     double *weighted_data_vector = new double[DATA_SIZE];
 
-    double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix  = temp_matrix[1];
-
     cblas_dsymv(CblasRowMajor, CblasUpper,
                 DATA_SIZE, 1., inverse_covariance_matrix, DATA_SIZE,
                 flux_array, 1,
                 0, weighted_data_vector, 1);
 
-    double temp_bk, temp_tk = 0, temp_dk;
-
+    // #pragma omp parallel for
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
+        double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix = temp_matrix[1], temp_tk = 0;
+
         // Set derivative matrix ikz
         _setQiMatrix(Q_ikz_matrix, i_kz);
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix, DATA_SIZE);
-        throw_isnan(temp_dk, "d");
+        double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix, DATA_SIZE);
 
         // Get weighted derivative matrix ikz: C-1 Qi C-1
         _getWeightedMatrix(Q_ikz_matrix);
 
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, noise_array, DATA_SIZE);
-        throw_isnan(temp_bk, "bk");
+        double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, noise_array, DATA_SIZE);
 
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
         {
-            _setFiducialSignalMatrix(Sfid_matrix);
+            _setFiducialSignalMatrix(Sfid_matrix, false);
 
             // Tr(C-1 Qi C-1 Sfid)
             temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, DATA_SIZE);
-            throw_isnan(temp_tk, "tk");
         }
         
         dbt_estimate_before_fisher_vector[0][i_kz + fisher_index_start] = temp_dk;
@@ -513,10 +495,10 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
             mxhelp::vector_add(dbt_sum_vector[dbt_i], dbt_estimate_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS);
     }
-    catch (const char* msg)
+    catch (std::exception& e)
     {
         LOG::LOGGER.ERR("%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n",
-                process::this_pe, process::total_pes, msg, qso_sp_fname.c_str());
+                process::this_pe, process::total_pes, e.what(), qso_sp_fname.c_str());
 
         LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
                 DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);

@@ -17,7 +17,6 @@
 
 // It takes + a file path which should start with number of quasars followed by a list of quasar files,
 //          + the directory these qso placed as const char *dir
-//          + Fiducial fit parameters as defined in fiducial_cosmology.hpp
 // Call iterate with max number of iterations and output filename base to const char *fname_base
 //      fname_base should have output folder and output filebase in one string
 

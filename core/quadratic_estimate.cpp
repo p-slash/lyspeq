@@ -2,21 +2,13 @@
 
 #include <cmath>
 #include <algorithm> // std::for_each
-#include <numeric>
+#include <numeric> // std::accumulate
 #include <memory> // std::default_delete
 #include <cstdio>
 #include <cstdlib> // system
-#include <cstring> // strcpy
-#include <cassert>
 #include <stdexcept>
 #include <string>
 #include <sstream>      // std::ostringstream
-
-#include <gsl/gsl_cblas.h>
-
-#if defined(ENABLE_MPI)
-#include "mpi.h" 
-#endif
 
 #include "core/matrix_helper.hpp"
 #include "core/global_numbers.hpp"
@@ -25,102 +17,9 @@
 #include "io/logger.hpp"
 
 #if defined(ENABLE_MPI)
-//-------------------------------------------------------
-#define MPI_VEC_TAG 2
-
-MPI_Datatype mpi_get_pair_type()
-{
-    // Create MPI pair type
-    std::pair<double, int> tmp;
-
-    int blocklengths[] = {1, 1};
-    MPI_Aint disp[3];
-    MPI_Get_address(&tmp, disp);
-    MPI_Get_address(&tmp.first, disp+1);
-    MPI_Get_address(&tmp.second, disp+2);
-
-    MPI_Aint offsets[2] = { MPI_Aint_diff(disp[1], disp[0]), MPI_Aint_diff(disp[2], disp[0]) };
-
-    MPI_Aint lb, extent;
-    MPI_Datatype types[] = {MPI_DOUBLE, MPI_INT};
-    MPI_Datatype tmp_type, my_mpi_pair_type;
-
-    MPI_Type_create_struct(2, blocklengths, offsets, types, &tmp_type);
-    MPI_Type_get_extent(tmp_type, &lb, &extent);
-    MPI_Type_create_resized(tmp_type, lb, extent, &my_mpi_pair_type);
-    MPI_Type_commit(&my_mpi_pair_type);
-
-    return my_mpi_pair_type;
-}
-
-void mpi_bcast_cpu_fname_vec(std::vector<std::pair<double, int>> &cpu_index_vec, int root_pe=0)
-{
-    MPI_Datatype MY_MPI_PAIR = mpi_get_pair_type();
-    int size = cpu_index_vec.size();
-
-    // Root send the size of the vector
-    MPI_Bcast(&size, 1, MPI_INT, root_pe, MPI_COMM_WORLD);
-    cpu_index_vec.resize(size);
-
-    MPI_Bcast(cpu_index_vec.data(), size, MY_MPI_PAIR, root_pe, MPI_COMM_WORLD);
-}
-
-void mpi_merge_sorted_arrays(int height, int Npe, int id, 
-    std::vector<std::pair<double, int>> &local_cpu_ind_vec)
-{
-    if (Npe == 1)  // We have reached the end
-        return;
-
-    int parent_pe, child_pe, next_Npe, local_size = local_cpu_ind_vec.size();
-    int transmission_count = local_size;
-    MPI_Status status;
-    MPI_Datatype MY_MPI_PAIR = mpi_get_pair_type();
-
-    next_Npe = (Npe + 1) / 2;
-
-    // Given a height, parent PEs are 2**(height+1), 1 << (height+1), 
-    // height starts from 0 at the bottom (all PEs)
-    // This means e.g. at height 0 we need to map: 3->2, 2->2 and 5->4, 4->4 to find parents
-    parent_pe = (id & ~(1 << height));
-
-    if (id == parent_pe)
-    {
-        // If this is the parent PE, receive from the child.
-        child_pe = (id | (1 << height));
-
-        // If childless, carry on to the next cycle
-        if (child_pe >= process::total_pes)
-        {
-            mpi_merge_sorted_arrays(height+1, next_Npe, id, local_cpu_ind_vec);
-            return;
-        }
-
-        // First recieve the size of the transmission
-        MPI_Probe(child_pe, MPI_VEC_TAG, MPI_COMM_WORLD, &status);
-        MPI_Get_count(&status, MY_MPI_PAIR, &transmission_count);
-
-        local_cpu_ind_vec.resize(local_size+transmission_count);
-
-        MPI_Recv(local_cpu_ind_vec.data()+local_size, transmission_count, MY_MPI_PAIR, child_pe, 
-            MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        
-        std::inplace_merge(local_cpu_ind_vec.begin(), local_cpu_ind_vec.begin()+local_size, 
-            local_cpu_ind_vec.end());
-       
-        // Recursive call 
-        mpi_merge_sorted_arrays(height+1, next_Npe, id, local_cpu_ind_vec);
-    }
-    else
-    {
-        MPI_Send(local_cpu_ind_vec.data(), transmission_count, MY_MPI_PAIR, parent_pe, 
-            MPI_VEC_TAG, MPI_COMM_WORLD);
-    }
-}
-
-#undef MPI_VEC_TAG
+#include "mpi.h" 
+#include "core/mpi_merge_sort.cpp"
 #endif
-//-------------------------------------------------------
-
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, const char *dir)
 {
@@ -171,7 +70,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     if (process::this_pe == process::total_pes - 1)
         fend_this = NUMBER_OF_QSOS;
 
-    t2 = mytime::getTime();
+    t2 = mytime::timer.getTime();
 
     // Create vector for QSOs & read
     cpu_fname_vector.reserve(NUMBER_OF_QSOS);
@@ -188,7 +87,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     }
     
     // Print out time it took to read all files into vector
-    t1 = mytime::getTime();
+    t1 = mytime::timer.getTime();
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
     
     // MPI Reduce ZBIN_COUNTS
@@ -209,12 +108,12 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end()); // Ascending order
     
     #if defined(ENABLE_MPI)
-        mpi_merge_sorted_arrays(0, process::total_pes, process::this_pe, cpu_fname_vector);
-        mpi_bcast_cpu_fname_vec(cpu_fname_vector);
+        mpisort::mergeSortedArrays(0, process::total_pes, process::this_pe, cpu_fname_vector);
+        mpisort::bcastCpuFnameVec(cpu_fname_vector);
     #endif
 
     // Print out time it took to sort files wrt CPU time
-    t2 = mytime::getTime();
+    t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Sorting took %.2f m.\n", t2-t1);
 
     _loadBalancing(filepaths, cpu_fname_vector);
@@ -223,9 +122,9 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepaths,
     std::vector< std::pair<double, int> > &cpu_fname_vector)
 {
-    LOG::LOGGER.STD("Load balancing for %d threads available.\n", process::total_pes);
+    LOG::LOGGER.STD("Load balancing for %d tasks available.\n", process::total_pes);
     
-    double load_balance_time = mytime::getTime();
+    double load_balance_time = mytime::timer.getTime();
     
     std::vector<double> bucket_time(process::total_pes, 0);
 
@@ -252,7 +151,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
         LOG::LOGGER.STD("%.1e ", (*it)/ave_balance-1);
     LOG::LOGGER.STD("\n");
 
-    load_balance_time = mytime::getTime() - load_balance_time;
+    load_balance_time = mytime::timer.getTime() - load_balance_time;
     
     LOG::LOGGER.STD("Load balancing took %.2f sec.\n", load_balance_time*60.);
 }
@@ -277,32 +176,21 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 {
-    double t = mytime::getTime();
+    double t = mytime::timer.getTime();
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
     
-    gsl_matrix_view fisher_mv    = gsl_matrix_view_array(fisher_matrix_sum, 
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    gsl_matrix_view invfisher_mv = gsl_matrix_view_array(inverse_fisher_matrix_sum, 
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-
-    gsl_matrix *fisher_copy = gsl_matrix_alloc(bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    gsl_matrix_memcpy(fisher_copy, &fisher_mv.matrix);
+    std::copy(fisher_matrix_sum, fisher_matrix_sum+bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS, inverse_fisher_matrix_sum);
+    mxhelp::LAPACKE_InvertMatrixLU(inverse_fisher_matrix_sum, bins::TOTAL_KZ_BINS);
     
-    mxhelp::invertMatrixLU(fisher_copy, &invfisher_mv.matrix);
-    
-    gsl_matrix_free(fisher_copy);
-
     isFisherInverted = true;
 
-    t = mytime::getTime() - t;
+    t = mytime::timer.getTime() - t;
     mytime::time_spent_on_f_inv += t;
 }
 
 void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 {
-    assert(isFisherInverted);
-
     LOG::LOGGER.STD("Estimating power spectrum.\n");
 
     std::copy(current_power_estimate_vector, current_power_estimate_vector + bins::TOTAL_KZ_BINS, 
@@ -342,8 +230,6 @@ void OneDQuadraticPowerEstimate::_readScriptOutput(double *script_power, const c
     int kn, zm;
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; i_kz++)
     {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         fr = fscanf(tmp_fit_file, "%le\n", &script_power[i_kz]);
@@ -357,31 +243,34 @@ void OneDQuadraticPowerEstimate::_readScriptOutput(double *script_power, const c
     fclose(tmp_fit_file);
 }
 
+
 // Note that fitting is done deviations plus fiducial power
 void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fitted_power)
 {
     static fidpd13::pd13_fit_params iteration_fits = fidpd13::FIDUCIAL_PD13_PARAMS;
     
     char tmp_ps_fname[320], tmp_fit_fname[320];
+
     ioh::create_tmp_file(tmp_ps_fname, process::TMP_FOLDER);
     ioh::create_tmp_file(tmp_fit_fname, process::TMP_FOLDER);
     
     writeSpectrumEstimates(tmp_ps_fname);
 
-    std::ostringstream command("lorentzian_fit.py ");
+    std::ostringstream command("lorentzian_fit.py ", std::ostringstream::ate);
     command << tmp_ps_fname << " " << tmp_fit_fname << " "
             << iteration_fits.A << " " << iteration_fits.n << " " << iteration_fits.n << " ";
 
     // Do not pass redshift parameters if there is only one redshift bin
-    if (bins::NUMBER_OF_Z_BINS > 1)  command << iteration_fits.B << " " << iteration_fits.beta << " ";
+    if (bins::NUMBER_OF_Z_BINS > 1)
+        command << iteration_fits.B << " " << iteration_fits.beta << " ";
     
     command << iteration_fits.lambda;
     
+    // Sublime text acts weird when `<< " >> " <<` is explicitly typed
+    #define GGSTR " >> "
     if (process::this_pe == 0) 
-    {
-        command
-            << " >> " << LOG::LOGGER.getFileName(LOG::TYPE::STD);   
-    }
+        command << GGSTR << LOG::LOGGER.getFileName(LOG::TYPE::STD);   
+    #undef GGSTR
 
     LOG::LOGGER.STD("%s\n", command.str().c_str());
     LOG::LOGGER.close();
@@ -411,7 +300,7 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra(double *smoothed_power)
 
     writeSpectrumEstimates(tmp_ps_fname);
 
-    std::ostringstream command("smbivspline.py ");
+    std::ostringstream command("smbivspline.py ", std::ostringstream::ate);
     command << tmp_ps_fname << " " << tmp_smooth_fname; 
     std::string additional_command = "";
 
@@ -450,7 +339,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
     {
         LOG::LOGGER.STD("Iteration number %d of %d.\n", i+1, number_of_iterations);
         
-        total_time_1it = mytime::getTime();
+        total_time_1it = mytime::timer.getTime();
     
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
@@ -480,7 +369,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         }
         
         computePowerSpectrumEstimates();
-        total_time_1it  = mytime::getTime() - total_time_1it;
+        total_time_1it  = mytime::timer.getTime() - total_time_1it;
         total_time     += total_time_1it;
         
         if (process::this_pe == 0)
@@ -492,6 +381,9 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             break;
         }
 
+        if (i == number_of_iterations-1)
+            break;
+
         try
         {
             _smoothPowerSpectra(powerspectra_fits);
@@ -501,7 +393,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             LOG::LOGGER.ERR("ERROR in Python script: %s\n", e.what());
             throw e;
         }
-        
     }
 }
 
@@ -513,8 +404,6 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         p1 = fabs(current_power_estimate_vector[i_kz]);
@@ -541,9 +430,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     r = 0;
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
-    {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-        
+    {        
         double  t = previous_power_estimate_vector[i_kz],
                 e = inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS) * i_kz];
 
@@ -559,7 +446,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
     LOG::LOGGER.STD("Chi^2/dof convergence test:\nDiagonal: %.3f. Full Fisher: %.3f.\n"
-                    "Iteration converges when either is less than %.2f\n.", 
+                    "Iteration converges when either is less than %.2f.\n", 
                     r, rfull, specifics::CHISQ_CONVERGENCE_EPS);
 
     bool_converged = r < specifics::CHISQ_CONVERGENCE_EPS || rfull < specifics::CHISQ_CONVERGENCE_EPS;
@@ -569,9 +456,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
 void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
 {
-    gsl_matrix_view fisher_mv = gsl_matrix_view_array(fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-
-    mxhelp::fprintfMatrix(fname, &fisher_mv.matrix);
+    mxhelp::fprintfMatrix(fname, fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
 
     LOG::LOGGER.IO("Fisher matrix saved as %s.\n", fname);
 }
@@ -584,25 +469,16 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 
     toWrite = ioh::open_file(fname, "w");
     
-    #ifdef LAST_K_EDGE
-    fprintf(toWrite, "%d %d\n", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS-1);
-    #else
     fprintf(toWrite, "%d %d\n", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
-    #endif
 
     auto fprint = [&](const int& zc) { fprintf(toWrite, "%d ", zc); };
     
     std::for_each(Z_BIN_COUNTS, Z_BIN_COUNTS+bins::NUMBER_OF_Z_BINS+2, fprint);
 
-    // for (zm = 0; zm <= bins::NUMBER_OF_Z_BINS+1; ++zm)
-    //     fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
-
     fprintf(toWrite, "\n");
 
     for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         z = bins::ZBIN_CENTERS[zm];
@@ -627,7 +503,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 
     toWrite = ioh::open_file(fname, "w");
     
-    fprintf(toWrite, specifics::BUILD_SPECIFICS);
+    specifics::printBuildSpecifics(toWrite);
     specifics::printConfigSpecifics(toWrite);
     
     fprintf(toWrite, "# Fiducial Power Spectrum\n"
@@ -664,23 +540,17 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
         "# t      : Fiducial power estimate [km s^-1]\n"
         "# -----------------------------------------------------------------\n");
 
-    #ifdef LAST_K_EDGE
-    fprintf(toWrite, "# %d %d\n# ", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS-1);
-    #else
     fprintf(toWrite, "# %d %d\n# ", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
-    #endif
 
     for (zm = 0; zm <= bins::NUMBER_OF_Z_BINS+1; ++zm)
         fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
 
     fprintf(toWrite, "\n");
-    fprintf(toWrite, "z %15s %15s %15s %15s %15s %15s %15s %15s %15s %15s\n", 
-        "k1", "k2", "kc", "Pfid", "ThetaP", "Pest", "ErrorP", "d", "b", "t");
+    fprintf(toWrite, "%5s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n", 
+        "z", "k1", "k2", "kc", "Pfid", "ThetaP", "Pest", "ErrorP", "d", "b", "t");
 
     for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
-        SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         z  = bins::ZBIN_CENTERS[zm];
@@ -697,8 +567,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
         bk = dbt_estimate_fisher_weighted_vector[1][i_kz];
         tk = dbt_estimate_fisher_weighted_vector[2][i_kz];
 
-        fprintf(toWrite, "%.3lf %15e %15e %15e %15e %15e %15e %15e %15e %15e %15e\n", 
-                            z,  k1,  k2,  kc,  Pfid,ThetaP, Pfid+ThetaP, ErrorP, dk, bk, tk);
+        fprintf(toWrite, "%5.3lf %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e\n", 
+            z,  k1,  k2,  kc,  Pfid,ThetaP, Pfid+ThetaP, ErrorP, dk, bk, tk);
     }
 
     fclose(toWrite);
@@ -756,15 +626,10 @@ void OneDQuadraticPowerEstimate::iterationOutput(const char *fname_base, int it,
     sprintf(buf, "%s_it%d_quadratic_power_estimate_detailed.dat", fname_base, it+1);
     writeDetailedSpectrumEstimates(buf);
 
-    gsl_matrix_view fisher_mv    = gsl_matrix_view_array(fisher_matrix_sum, 
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    gsl_matrix_view invfisher_mv = gsl_matrix_view_array(inverse_fisher_matrix_sum, 
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-
     sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, it+1);
-    mxhelp::fprintfMatrix(buf, &fisher_mv.matrix);
+    mxhelp::fprintfMatrix(buf, fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     sprintf(buf, "%s_it%d_inversefisher_matrix.dat", fname_base, it+1);
-    mxhelp::fprintfMatrix(buf, &invfisher_mv.matrix);
+    mxhelp::fprintfMatrix(buf, inverse_fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     LOG::LOGGER.IO("Fisher matrix and inverse are saved as %s.\n", buf);
 
     LOG::LOGGER.STD("This iteration took %.1f minutes. Elapsed time so far is %.1f minutes.\n", 
