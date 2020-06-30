@@ -7,10 +7,10 @@ pipelines:
     dev:
     - step:
         script:
-          - ./configure --build=x64-linux-gcc-atlas
+          - ./configure --build=x64-ubuntu-gcc-atlas
           - make && make test
     - step:
         script:
-          - ./configure --build=x64-linux-gcc-openblas
+          - ./configure --build=x64-ubuntu-gcc-openblas
           - make && make test
 
