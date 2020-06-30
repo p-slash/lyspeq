@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <string>
+#include <vector>
 
 #include <gsl/gsl_errno.h>
 
@@ -9,8 +11,35 @@
 #endif
 
 #include "core/global_numbers.hpp"
-#include "core/quadratic_estimate.hpp"
+#include "core/matrix_helper.hpp"
+#include "core/one_qso_estimate.hpp"
 #include "io/logger.hpp"
+#include "io/io_helper_functions.hpp"
+
+class TestOneQSOEstimate: public OneQSOEstimate
+{
+public:
+    TestOneQSOEstimate(std::string fname_qso) : OneQSOEstimate(fname_qso) {};
+    ~TestOneQSOEstimate() {};
+
+    void saveMatrices(std::string out_dir)
+    {
+        _allocateMatrices();
+
+        // Save fiducial signal matrix
+        _setFiducialSignalMatrix(covariance_matrix);
+        std::string fsave(out_dir);
+        fsave+="/signal_matrix.txt";
+        mxhelp::fprintfMatrix(fsave.c_str(), covariance_matrix, DATA_SIZE, DATA_SIZE);
+
+        // Save Q0 matrix
+        _setQiMatrix(temp_matrix[0], 0);
+        fsave=out_dir+"/q0_matrix.txt";
+        mxhelp::fprintfMatrix(fsave.c_str(), temp_matrix[0], DATA_SIZE, DATA_SIZE);
+
+        _freeMatrices();
+    }   
+};
 
 int main(int argc, char *argv[])
 {
@@ -34,19 +63,11 @@ int main(int argc, char *argv[])
 
     gsl_set_error_handler_off();
 
-    char FNAME_LIST[300],
-         FNAME_RLIST[300],
-         INPUT_DIR[300],
-         FILEBASE_S[300], FILEBASE_Q[300],
-         OUTPUT_DIR[300],
-         OUTPUT_FILEBASE[300],
-         buf[700];
+    char FNAME_LIST[300], FNAME_RLIST[300], INPUT_DIR[300], FILEBASE_S[300], FILEBASE_Q[300],
+         OUTPUT_DIR[300], OUTPUT_FILEBASE[300], buf[700];
 
     int NUMBER_OF_ITERATIONS;
-    
-    OneDQuadraticPowerEstimate *qps = NULL;
 
-    // Let all PEs to read config at the same time.
     try
     {
         // Read variables from config file and set up bins.
@@ -62,18 +83,6 @@ int main(int argc, char *argv[])
     try
     {
         LOG::LOGGER.open(OUTPUT_DIR, process::this_pe);
-        
-        #if defined(ENABLE_MPI)
-        MPI_Barrier(MPI_COMM_WORLD);
-        #endif
-
-
-        if (specifics::TURN_OFF_SFID)
-            LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
-
-        specifics::printBuildSpecifics();
-        specifics::printConfigSpecifics();
-        mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
     {   
@@ -104,63 +113,18 @@ int main(int argc, char *argv[])
 
         return 1;
     }
-    
-    try
+
+    std::vector<std::string> filepaths;
+    int NUMBER_OF_QSOS = ioh::readList(FNAME_LIST, filepaths);
+    // Add parent directory to file path
+    for (std::vector<std::string>::iterator fq = filepaths.begin(); fq != filepaths.end(); ++fq)
     {
-        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR);
+        fq->insert(0, "/");
+        fq->insert(0, INPUT_DIR);
     }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR("Error while Quadratic Estimator contructed: %s\n", e.what());
-        bins::cleanUpBins();
 
-        delete process::sq_private_table;
-        
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-        
-        return 1;
-    } 
-
-    try
-    {
-        sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
-        qps->iterate(NUMBER_OF_ITERATIONS, buf);
-    }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR("Error while Iteration: %s\n", e.what());
-        qps->printfSpectra();
-
-        sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate_detailed.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
-        qps->writeDetailedSpectrumEstimates(buf);
-        
-        sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
-        qps->writeFisherMatrix(buf);
-
-        r=1;
-    }
-    
-    delete qps;
-
-    delete process::sq_private_table;
-
-    bins::cleanUpBins();
-
-    #if defined(ENABLE_MPI)
-    MPI_Finalize();
-    #endif
-
-    return r;
+    TestOneQSOEstimate toqso(filepaths[0]);
+    toqso.saveMatrices(std::string(OUTPUT_DIR));
+    return 0;
 }
-
-
-
-
-
-
-
-
-
 

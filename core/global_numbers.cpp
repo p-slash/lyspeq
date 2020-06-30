@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <cmath>
 
-#include <ctime>    /* clock_t, clock, CLOCKS_PER_SEC */
+#include <chrono>    /* clock_t, clock, CLOCKS_PER_SEC */
 
 namespace process
 {
@@ -22,17 +22,17 @@ namespace bins
     double *KBAND_EDGES, *KBAND_CENTERS;
     double  Z_BIN_WIDTH, *ZBIN_CENTERS, z0_edge;
 
-    void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double z0)
+    void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0)
     {
         // Construct k edges
         NUMBER_OF_K_BANDS = nlin + nlog;
         
-        DEGREE_OF_FREEDOM = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
+        // Add one more bin if klast is larger than the last bin
+        double ktemp = (k0 + dklin*nlin)*pow(10, nlog*dklog);
+        if (klast > ktemp)
+            ++NUMBER_OF_K_BANDS;
 
-        // One last bin is created when LAST_K_EDGE is set in Makefile.
-        #ifdef LAST_K_EDGE
-        ++NUMBER_OF_K_BANDS;
-        #endif
+        DEGREE_OF_FREEDOM = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
 
         TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
 
@@ -47,9 +47,9 @@ namespace bins
             KBAND_EDGES[j] = KBAND_EDGES[nlin] * pow(10., i * dklog);
         
         // Last bin
-        #ifdef LAST_K_EDGE
-        KBAND_EDGES[NUMBER_OF_K_BANDS] = LAST_K_EDGE;
-        #endif
+        if (klast > ktemp)
+            KBAND_EDGES[NUMBER_OF_K_BANDS] = klast;
+
 
         // Set up k bin centers
         for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
@@ -168,6 +168,7 @@ namespace bins
 
 namespace mytime
 {
+    Timer timer;
     double   time_spent_on_c_inv    = 0, time_spent_on_f_inv   = 0;
     double   time_spent_on_set_sfid = 0, time_spent_set_qs     = 0,
              time_spent_set_modqs   = 0, time_spent_set_fisher = 0;
@@ -175,21 +176,16 @@ namespace mytime
     double   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
     long     number_of_times_called_setq = 0, number_of_times_called_setsfid = 0;
 
-    double getTime()
-    {
-        clock_t t = clock();
-        return ((double) t) / CLOCKS_PER_SEC / 60.;
-    }
-
     void printfTimeSpentDetails()
     {
         LOG::LOGGER.STD("Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
         LOG::LOGGER.STD("Total time spent on inverting F is %.2f mins.\n", time_spent_on_f_inv);
 
         LOG::LOGGER.STD("Total time spent on setting Sfid is %.2f mins with %lu calls.\n",
-                time_spent_on_set_sfid, number_of_times_called_setsfid);
-        LOG::LOGGER.STD("Total time spent on setting Qs is %.2f mins with %lu calls.\nInterpolation: %.2f and Copy: %.2f.\n",
-                time_spent_set_qs, number_of_times_called_setq, time_spent_on_q_interp, time_spent_on_q_copy);
+            time_spent_on_set_sfid, number_of_times_called_setsfid);
+        LOG::LOGGER.STD("Total time spent on setting Qs is %.2f mins with %lu calls.\n"
+            "Interpolation: %.2f and Copy: %.2f.\n",
+            time_spent_set_qs, number_of_times_called_setq, time_spent_on_q_interp, time_spent_on_q_copy);
         
         LOG::LOGGER.STD("Total time spent on setting Mod Qs is %.2f mins.\n", time_spent_set_modqs  );
         LOG::LOGGER.STD("Total time spent on setting F is %.2f mins.\n",      time_spent_set_fisher );
@@ -213,45 +209,72 @@ namespace specifics
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
     double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
 
-    void printBuildSpecifics()
+    #if defined(TOPHAT_Z_BINNING_FN)
+    #define BINNING_SHAPE "Top Hat"
+    #elif defined(TRIANGLE_Z_BINNING_FN)
+    #define BINNING_SHAPE "Triangular"
+    #else
+    #define BINNING_SHAPE "ERROR NOT DEFINED"
+    #endif
+
+    #define tostr(a) #a
+    #define tovstr(a) tostr(a)
+
+    #if defined(FISHER_OPTIMIZATION)
+    #define FISHER_TXT "ON"
+    #else
+    #define FISHER_TXT "ON"
+    #endif
+    
+    #if defined(REDSHIFT_GROWTH_POWER)
+    #define RGP_TEXT "ON"
+    #else
+    #define RGP_TEXT "OFF"
+    #endif
+    
+    const char BUILD_SPECIFICS[] =  
+        "# This version is build by the following options:\n"
+        "# Fisher optimization: " FISHER_TXT "\n"
+        "# Redshift binning shape: " BINNING_SHAPE "\n" 
+        "# Redshift growth scaling: " RGP_TEXT "\n";
+
+    #undef tostr
+    #undef tovstr
+    #undef BINNING_SHAPE
+    #undef FISHER_TXT
+    #undef RGP_TEXT
+    #undef TORE_TEXT
+
+    void printBuildSpecifics(FILE *toWrite)
     {
-        LOG::LOGGER.STD(BUILD_SPECIFICS);
+        if (toWrite == NULL)
+            LOG::LOGGER.STD(BUILD_SPECIFICS);
+        else
+            fprintf(toWrite, specifics::BUILD_SPECIFICS);
     }
 
     void printConfigSpecifics(FILE *toWrite)
     {
+        #define CONFIG_TXT "# Using following configuration parameters:\n" \
+            "# Fiducial Signal Baseline: %s\n" \
+            "# Velocity Spacing: %s\n" \
+            "# Input is delta flux: %s\n" \
+            "# Divide by mean flux of the chunk: %s\n" \
+            "# ContinuumMargAmp: %.2e\n" \
+            "# ContinuumMargDerv: %.2e\n",  \
+            TURN_OFF_SFID ? "OFF" : "ON", \
+            conv::USE_LOG_V ? "LOGARITHMIC" : "EdS", \
+            conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO", \
+            conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF", \
+            CONTINUUM_MARGINALIZATION_AMP, \
+            CONTINUUM_MARGINALIZATION_DERV 
+
         if (toWrite == NULL)
-        {
-            LOG::LOGGER.STD("Using following configuration parameters:\n"
-            "Fiducial Signal Baseline: %s\n"
-            "Velocity Spacing: %s\n"
-            "Input is delta flux: %s\n"
-            "Divide by mean flux of the chunk: %s\n"
-            "ContinuumMargAmp: %.2e\n"
-            "ContinuumMargDerv: %.2e\n", 
-            TURN_OFF_SFID ? "OFF" : "ON",
-            conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
-            conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
-            conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF",
-            CONTINUUM_MARGINALIZATION_AMP,
-            CONTINUUM_MARGINALIZATION_DERV);
-        }
+            LOG::LOGGER.STD(CONFIG_TXT);
         else
-        {
-            fprintf(toWrite, "# Using following configuration parameters:\n"
-            "# Fiducial Signal Baseline: %s\n"
-            "# Velocity Spacing: %s\n"
-            "# Input is delta flux: %s\n"
-            "# Divide by mean flux of the chunk: %s\n"
-            "# ContinuumMargAmp: %.2e\n"
-            "# ContinuumMargDerv: %.2e\n", 
-            TURN_OFF_SFID ? "OFF" : "ON",
-            conv::USE_LOG_V ? "LOGARITHMIC" : "EdS",
-            conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
-            conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF",
-            CONTINUUM_MARGINALIZATION_AMP,
-            CONTINUUM_MARGINALIZATION_DERV);
-        }
+            fprintf(toWrite, CONFIG_TXT);
+
+        #undef CONFIG_TXT
     }
 }
 
@@ -264,7 +287,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
 {
     int     N_KLIN_BIN, N_KLOG_BIN, 
             sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1;
-    double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1;
+    double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="";
 
     // Set up config file to read variables.
@@ -276,6 +299,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("Log10KBinWidth",   &LOG_K_SPACING, DOUBLE);
     cFile.addKey("NumberOfLinearBins",   &N_KLIN_BIN, INTEGER);
     cFile.addKey("NumberOfLog10Bins",    &N_KLOG_BIN, INTEGER);
+    cFile.addKey("LastKEdge",    &klast, DOUBLE);
 
     cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
     cFile.addKey("RedshiftBinWidth", &bins::Z_BIN_WIDTH, DOUBLE);
@@ -376,7 +400,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
         fidcosmo::setFiducialPowerFromFile(FNAME_FID_POWER);
 
     // Redshift and wavenumber bins are constructed
-    bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, Z_0);
+    bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, klast, Z_0);
 }
 
 

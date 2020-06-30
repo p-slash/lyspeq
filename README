@@ -1,4 +1,11 @@
 ### Changes
++ Last k edge is now read from config file as `LastKEdge`.
++ Needs CBLAS & LAPACKE libraries to run.
++ Option to turn off copying S and Q matrices in order to reduce time.
++ Logger saves separately for each PE.
++ Use `chrono` library to measure time.
++ GSL flags are silenced in compilation.
++ Tests checking cblas & estimator results are added `make test`.
 + Python script does not fit, but applies a weighted smoothing.
 + Default velocity is logarithmic. Changed the key in config.param
 + Implemented reading a mean flux file, which changed config.param keys
@@ -61,15 +68,13 @@ Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS function
 
 Compile and Install
 =====
-The simplest version can be installed by `./configure && make && make install`. However, this does not enable MPI or any other CBLAS libraries. 
+The gcc & MKL version can be installed by `./configure x64-linux-gnu-mklxe18 && make && make install`. However, this does not enable MPI. 
 
 MPI can be enabled by passing `--enable-mpi`. 
 
 I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-mpi`, which will enable OpenMPI and use OpenBLAS for matrix operations. Another important one is Intel compiler with MKL. If you have Parallel Studio XE 2018 installed: `./configure --build=x64-linux-icpc-mklxe18 --enable-mpi`. To see all build types: `./configure --print-builds`.
 
 The executables are installed in `bindir`. This is `/usr/local/bin` by default. You can change it by setting `--bindir=your-path`. Make sure it is in your `$PATH`. Alternatively, you can change `/usr/local` by setting `--prefix` and `--exec_prefix`. Typically for clusters, you want to install binaries to `$HOME/bin`; so simply pass `--prefix=$HOME`.
-
-To absorp high k power, you can enable a wide high k bin by setting `--enable-last-k-bin=[number]`. This number will be the last edge.
 
 You can also change interpolation schemes and redshift binning shape. You can also compile in another directory by setting `--srcdir=[source-path]`. For more options run `./configure --help`.
 
@@ -93,6 +98,10 @@ Bin edges for k start with linear spacing: `K0 + LinearKBinWidth * n`, where `n=
 
     LinearKBinWidth       2E-4
     Log10KBinWidth        0.1
+
+Can add a last bin edge. This goes into effect when larger than the last bin as defined by parameters above.
+
+    LastKEdge 10
 
 Redshift bins are linearly spaced.
 
