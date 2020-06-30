@@ -52,10 +52,9 @@ function print_build_types() {
 # because macOS provides BLAS and LAPACK in the Accelerate framework.
 # It is in /usr/local/opt/openblas/lib"
     echo "-------------------------"
-    echo "* x64-linux-gcc-atlas"
-    echo "* x64-linux-gcc-openblas"
-    # echo "* x64-linux-gcc-gslcblas"
-    echo "# Compile with g++ and uses ATLAS and OpenBLAS respectively."
+    echo "* x64-ubuntu-gcc-atlas"
+    echo "* x64-ubuntu-gcc-openblas"
+    echo "# Compile with g++ and uses ATLAS and OpenBLAS respectively with -llapacke"
 }
 
 function set_omp_flags() {
@@ -219,30 +218,20 @@ case ${SYSTYPE} in
         LDFLAGS="${gsl_lib} -L${OPENBLAS_DIR}/lib"
         LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
         ;;
-    x64-linux-gcc-atlas )
+    x64-ubuntu-gcc-atlas )
         CXX="g++"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
-        LDLIBS="-lgsl -lcblas -latlas -lm -ldl"
+        LDLIBS="-lgsl -lcblas -llapacke -latlas -lm -ldl"
         ;;
-    x64-linux-gcc-openblas )
+    x64-ubuntu-gcc-openblas )
         CXX="g++"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
-        LDLIBS="-lgsl -lopenblas -lm -ldl"
+        LDLIBS="-lgsl -llapacke -lopenblas -lm -ldl"
         ;;
-    # x64-linux-gcc-gslcblas )
-    #     CXX="g++"
-    #     set_omp_flags
-    #     CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
-    #     LDFLAGS="${gsl_lib}"
-    #     LDLIBS="-lgsl -lgslcblas -lm -ldl"
-    #     ;;
-    # interactive )
-    #     interactive
-    #     ;;
     * )
         echo "Unknown system type ${SYSTYPE}."
         print_build_types
