@@ -22,10 +22,13 @@ namespace ioh
     template <class T>
     T open_fstream(const char *fname, char binary='0');
 
-    // Allocates list_values, must dellocate manually!
     // Returns number of elements
     template <class T>
     int readList(const char *fname, std::vector<T> &list_values);
+
+    // Reads for 2 column separated by space into vector of pairs
+    // Returns number of elements
+    int readListRdv(const char *fname, std::vector<std::pair<int, double>> &list_values);
 }
 
 #endif

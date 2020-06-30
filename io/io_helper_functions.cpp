@@ -112,5 +112,33 @@ int ioh::readList(const char *fname, std::vector<T> &list_values)
 template int ioh::readList(const char *fname, std::vector<int> &list_values);
 template int ioh::readList(const char *fname, std::vector<std::string> &list_values);
 
+int ioh::readListRdv(const char *fname, std::vector<std::pair<int, double>> &list_values)
+{
+    int nr, ic=0;
+
+    std::ifstream toRead = ioh::open_fstream<std::ifstream>(fname);
+    
+    toRead >> nr;
+
+    list_values.reserve(nr);
+    
+    int c1; double c2;
+
+    while (toRead.good() && ic < nr)
+    {
+        toRead >> c1 >> c2;
+        list_values.push_back(std::make_pair(c1, c2));
+        ++ic;
+    }
+
+    toRead.close();
+
+    return nr;
+}
+
+
+
+
+
 
 
