@@ -27,6 +27,9 @@ FileInputDir /Users/nk452/repos/data/Quadratic_test/New_Mocks_PD13PS
 OutputDir /Users/nk452/repos/data/Quadratic_test
 OutputFileBase pd13ps_zon
 
+# You can save individual results for each spectra by setting this to 1.
+SaveSpectrumResults 0
+
 # List of spectograph resolutions (R) is in FileNameRList. This file starts with number of Rs.
 FileNameRList     /Users/nk452/repos/data/Quadratic_test/Resampled_Binary_Simple_Mocks_ZEvo/mock_specres_list.txt
 
