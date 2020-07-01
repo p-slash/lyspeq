@@ -85,7 +85,7 @@ Overview of Programs
 
 Both programs take one common config file.
 
-+ **lorentzian_fit.py** is an intermediate fitting script.
++ **smbivspline.py** is an intermediate smoothing script. An intermediate fitting script is also provided by deprecated.
 
 Config File
 =====
