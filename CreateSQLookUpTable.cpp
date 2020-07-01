@@ -46,13 +46,13 @@ int main(int argc, char *argv[])
 
     int Nv, Nz;
 
-    double PIXEL_WIDTH, LENGTH_V;
+    double LENGTH_V;
 
     try
     {
         // Read variables from config file and set up bins.
-        ioh::readConfigFile( FNAME_CONFIG, NULL, FNAME_RLIST, OUTPUT_DIR, NULL, NULL, OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, 
-            NULL, &Nv, &Nz, &PIXEL_WIDTH, &LENGTH_V);
+        ioh::readConfigFile( FNAME_CONFIG, NULL, FNAME_RLIST, OUTPUT_DIR, NULL, NULL, 
+            OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, NULL, &Nv, &Nz, &LENGTH_V);
     }
     catch (std::exception& e)
     {
@@ -89,8 +89,9 @@ int main(int argc, char *argv[])
 
     try
     {
-        process::sq_private_table = new SQLookupTable(OUTPUT_DIR, OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, FNAME_RLIST);
-        process::sq_private_table->computeTables(PIXEL_WIDTH, Nv, Nz, LENGTH_V, force_rewrite);
+        process::sq_private_table = new SQLookupTable(OUTPUT_DIR, OUTPUT_FILEBASE_S, 
+            OUTPUT_FILEBASE_Q, FNAME_RLIST);
+        process::sq_private_table->computeTables(Nv, Nz, LENGTH_V, force_rewrite);
     }
     catch (std::exception& e)
     {   

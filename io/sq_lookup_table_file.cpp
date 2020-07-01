@@ -5,23 +5,25 @@
 #include <sstream>
 #include <iomanip>
 
-std::string sqhelper::QTableFileNameConvention(const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_Q, 
-    int r, double k1, double k2)
+std::string sqhelper::QTableFileNameConvention(const std::string &OUTPUT_DIR, 
+    const std::string &OUTPUT_FILEBASE_Q, int r, double dv, double k1, double k2)
 {
     std::ostringstream qt_fname;
 
     qt_fname << OUTPUT_DIR << "/" << OUTPUT_FILEBASE_Q  << "_R" << r 
-             << std::scientific << std::setprecision(1) << "_k" << k1 << "_" << k2
-             << ".dat";
+        << std::fixed << std::setprecision(1) << "_dv" << dv
+        << std::scientific << std::setprecision(1) << "_k" << k1 << "_" << k2
+        << ".dat";
 
     return qt_fname.str();
 }
 
-std::string sqhelper::STableFileNameConvention(const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_S, 
-    int r)
+std::string sqhelper::STableFileNameConvention(const std::string &OUTPUT_DIR, 
+    const std::string &OUTPUT_FILEBASE_S, int r, double dv)
 {
     std::ostringstream st_fname;
-    st_fname << OUTPUT_DIR << "/" << OUTPUT_FILEBASE_S << "_R" << r << ".dat";
+    st_fname << OUTPUT_DIR << "/" << OUTPUT_FILEBASE_S << "_R" << r 
+        << std::fixed << std::setprecision(1) << "_dv" << dv << ".dat";
 
     return st_fname.str();
 }
