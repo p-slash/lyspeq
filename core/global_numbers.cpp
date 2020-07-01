@@ -315,7 +315,7 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
 
-    cFile.addKey("SaveSpectrumResults", &save_spec_res, INTEGER);
+    cFile.addKey("SaveEachSpectrumResult", &save_spec_res, INTEGER);
 
     cFile.addKey("SignalLookUpTableBase",       FILEBASE_S, STRING);
     cFile.addKey("DerivativeSLookUpTableBase",  FILEBASE_Q, STRING);
