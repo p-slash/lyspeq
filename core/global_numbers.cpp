@@ -14,6 +14,7 @@ namespace process
     char TMP_FOLDER[300] = ".";
     double MEMORY_ALLOC  = 0;
     SQLookupTable *sq_private_table;
+    bool SAVE_EACH_SPEC_RESULT = false;
 }
 
 namespace bins
@@ -280,13 +281,14 @@ namespace specifics
 
 // Pass NULL for not needed variables!
 void ioh::readConfigFile(  const char *FNAME_CONFIG,
-                        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
-                        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
-                        int *NUMBER_OF_ITERATIONS,
-                        int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
+    char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
+    char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
+    int *NUMBER_OF_ITERATIONS,
+    int *Nv, int *Nz, double *PIXEL_WIDTH, double *LENGTH_V)
 {
-    int     N_KLIN_BIN, N_KLOG_BIN, 
-            sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1;
+    int N_KLIN_BIN, N_KLOG_BIN, 
+        sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
+        save_spec_res=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="";
 
@@ -312,6 +314,8 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     cFile.addKey("FileInputDir",   INPUT_DIR, STRING);
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
+
+    cFile.addKey("SaveSpectrumResults", &save_spec_res, INTEGER);
 
     cFile.addKey("SignalLookUpTableBase",       FILEBASE_S, STRING);
     cFile.addKey("DerivativeSLookUpTableBase",  FILEBASE_Q, STRING);
@@ -364,7 +368,8 @@ void ioh::readConfigFile(  const char *FNAME_CONFIG,
     conv::USE_LOG_V                 = !(uedsv > 0);
     conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
     conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
-
+    process::SAVE_EACH_SPEC_RESULT  = save_spec_res > 0;
+    
     // resolve conflict: Input delta flux overrides all
     // Then, chunk means.
     if (conv::INPUT_IS_DELTA_FLUX && conv::FLUX_TO_DELTAF_BY_CHUNKS)

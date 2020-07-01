@@ -15,6 +15,7 @@ namespace process
     extern char TMP_FOLDER[300];
     extern double MEMORY_ALLOC;
     extern SQLookupTable *sq_private_table;
+    extern bool SAVE_EACH_SPEC_RESULT;
 }
 
 namespace bins
