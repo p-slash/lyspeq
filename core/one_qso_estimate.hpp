@@ -61,6 +61,7 @@ protected:
 
     void _allocateMatrices();
     void _freeMatrices();
+    void _saveIndividualResult();
 
     void _getVandZ(double &v_ij, double &z_ij, int i, int j);
 

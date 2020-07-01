@@ -8,6 +8,7 @@ tests/output/*
 tests/input/deriv*
 tests/input/signal*
 tests/input/*log*.txt
+tests/input/*_Fp.bin
 LyaPowerEstimate
 CreateSQLookUpTable
 cblas_tests
