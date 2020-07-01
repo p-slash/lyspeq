@@ -32,7 +32,7 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     qFile.readData(lambda_array, flux_array, noise_array);
 
     // Find the resolution index for the look up table
-    r_index = process::sq_private_table->findSpecResIndex(SPECT_RES_FWHM);
+    r_index = process::sq_private_table->findSpecResIndex(SPECT_RES_FWHM, DV_KMS);
     
     if (r_index == -1)      throw std::runtime_error("SPECRES not found in tables!");
 
