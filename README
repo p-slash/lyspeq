@@ -1,4 +1,5 @@
 ### Changes
++ "SaveSpectrumResults" in config file saves each spectrum's Fisher and power' estimates
 + Last k edge is now read from config file as `LastKEdge`.
 + Needs CBLAS & LAPACKE libraries to run.
 + Option to turn off copying S and Q matrices in order to reduce time.
@@ -154,6 +155,10 @@ The directory for output files and file name base:
 List of spectograph resolutions (R) is in `FileNameRList`. This file starts with number of Rs.
 
     FileNameRList     ./data/qso_dir/specres_list.txt
+
+You can save individual results for each spectra by setting this to 1.
+
+    SaveSpectrumResults 0
 
 These lookup tables are saved with the follwoing file name bases to `FileInputDir`:
 
