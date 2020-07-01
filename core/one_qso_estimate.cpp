@@ -488,6 +488,10 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
             mxhelp::vector_add(dbt_sum_vector[dbt_i], dbt_estimate_before_fisher_vector[dbt_i], 
                 bins::TOTAL_KZ_BINS);
+
+        // Write results to file with their qso filename as base
+        if (process::SAVE_EACH_SPEC_RESULT)
+            _saveIndividualResult();
     }
     catch (std::exception& e)
     {
@@ -545,7 +549,26 @@ void OneQSOEstimate::_freeMatrices()
     isSfidSet = false;
 }
 
+void OneQSOEstimate::_saveIndividualResult()
+{
+    mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], dbt_estimate_before_fisher_vector[1], 
+        bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], dbt_estimate_before_fisher_vector[2], 
+        bins::TOTAL_KZ_BINS);
 
+    std::string resfname = qso_sp_fname;
+    resfname.replace(resfname.end()-4, resfname.end(), "_Fp.bin");
+
+    FILE *toWrite = ioh::open_file(resfname.c_str(), "wb");
+    
+    int r = fwrite(&bins::TOTAL_KZ_BINS, sizeof(int), 1, toWrite);
+    r+=fwrite(fisher_matrix, sizeof(double), bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS, toWrite);
+    r+=fwrite(dbt_estimate_before_fisher_vector[0], sizeof(double), bins::TOTAL_KZ_BINS, toWrite);
+    fclose(toWrite);
+
+    if (r != bins::TOTAL_KZ_BINS*(bins::TOTAL_KZ_BINS+1)+1)
+        LOG::LOGGER.ERR("ERROR %d saving individual results: %s\n", r, resfname.c_str());
+}
 
 
 
