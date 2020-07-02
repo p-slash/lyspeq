@@ -1,27 +1,14 @@
-### Changes
-+ "SaveEachSpectrumResult" in config file saves each spectrum's Fisher and power' estimates
-+ R & dv pairs are read from a file, instead of assuming fixed dv for all spectra.
-+ Last k edge is now read from config file as `LastKEdge`.
-+ Needs CBLAS & LAPACKE libraries to run.
-+ Option to turn off copying S and Q matrices in order to reduce time.
-+ Logger saves separately for each PE.
-+ Use `chrono` library to measure time.
-+ GSL flags are silenced in compilation.
-+ Tests checking cblas & estimator results are added `make test`.
-+ Python script does not fit, but applies a weighted smoothing.
-+ Default velocity is logarithmic. Changed the key in config.param
-+ Implemented reading a mean flux file, which changed config.param keys
-+ Created continuum marginalization coeffecients under specifics namespace. Read from config file.
-+ Removed redshift evolution option
-+ Each PE reads and sorts its own spectra, then merge sorted. This saves significant amount of time reading ~1m files.
-+ Smoothing script has --interp_log option, which can be enabled by setting SmoothLnkLnP to 1 in config.param
+`lyspeq` is highly efficient, parallelized and customizable program for 1D flux power spectrum of the Lyman-alpha forest that implements quadratic maximum likelihood estimator.
 
-### mpi-v1.3
-+ Signal and derivative look up tables are controlled by one class: [sq_table.hpp](core/sq_table.hpp)
+# v2
+Intermediate versions have been used to study DESI-lite mocks. Further modifications added configuration options, but most importantly optimizated the speed to run on high resolution quasars. This version 2.0 already gave preliminary results on full KODIAQ DR2 and XQ-100 sample that are in good agreement with previous measurements.
+
+### Highlighted Features
 + Input data are assumed to be fluctuations and not flux. Added `ConvertFromFluxToDeltaf` to config file to switch behaviors.
-+ Using Lee12 mean flux option is removed. A better candidate would be interpolating an input flux file. 
-+ Signal matrix interpolation axes are reversed to speed up the integration. This makes previous tables uncompetable.
-+ MPI branch has been removed of any OpenMP code.
++ Default velocity is logarithmic. Change this by setting `UseEDSVelocity` to ` in config file.
++ R & dv pairs are read from a file, instead of assuming fixed dv for all spectra.
++ A detailed python3 script in `make test` for CBLAS, SQ tables and the estimator results.
++ Specify allocated memory in MB to store additional derivative matrices and fiducial signal matrix if possible. This speeds up calculations.
 + Fiducial cosmology has default parameters:
 
     A      =    6.621420e-02
@@ -38,33 +25,30 @@
     k[1]...k[Nk]
     P[nz=1, nk=1...Nk]...P[Nz, nk=1...Nk]
 
-+ Some functions are turned into `inline`.
-+ The large number added to covariance matrix is 100.
++ Intermediate python script applies a weighted smoothing. This smoothing script has --interp_log option, which can be enabled by setting `SmoothLnkLnP` to 1 in the config file.
++ "SaveEachSpectrumResult" in config file saves each spectrum's Fisher and power' estimates.
++ Last k edge is now read from config file as `LastKEdge`.
++ Implemented reading a mean flux file, which can be read by `MeanFluxFile` from the config file.
 
-### v1.2
-+ Turn of redshift evolution by passing `--disable-redshift-evolution` to configure script. When redshift evolution is turned off, every pixel pair in each chunk assumed to be at the median redshift of the chunk, and switched to using top-hat bins. However, scaling with a growth function is still functional if passed. Using `beta=0` in fiducial power is recomended.
-+ Detailed power spectrum output has build and configuration specifics in the beginning.
-+ Log to both `OutputDir` log files and `stdout/stderr`. Save time statistics to `OutputDir/time_log.txt` in fixed width table.
-+ Throw `std::runtime_error(msg)` instead of only message.
+### Optimizations
++ Each PE reads and sorts its own spectra, then merge sorted. This saves significant amount of time reading ~1m files.
++ Using discrete interpolation instead of `gsl_interp` to eliminate time spent on binary search.
++ Does not copy S and Q matrices when they are not changed which save time.
++ Use `chrono` library to measure time.
++ No more `gsl_vector` and `gsl_matrix`, but use LAPACKE instead.
 
-### v1.1
-+ Prints detailed power spectrum output file.
-+ Computes Fisher matrix weighted d (raw power), b (noise estimate) and t (fiducial signal estimate) values storing 3 more gsl_vectors.
-
-v1
-=====
-+ Set `UseLogarithmicVelocity` in config file to 1 to convert by logarithmic spacing.
-+ All redshift binning schemes scales derivative matrices with fiducial growth unless `--disable-redshift-growth` is passed to configure or `-DREDSHIFT_GROWTH_POWER` is not passed to preprocessor.
-+ Convergence checks if estimated error is negative. Negative errors are substituted with infinite error *only* in convergence---Fisher matrix is not modified.
-+ Load balancing takes how many matrices are needed in triangular bins into account. Some bins are skipped since no pixel pair belongs to them.
-+ Specify allocated memory in MB to store additional derivative matrices and fiducial signal matrix if possible. This speeds up calculations.
-+ The large number added to covariance matrix is 10000.
+### Other
++ Logger saves separately for each PE.
++ Needs CBLAS & LAPACKE libraries to run, because not using `gsl_vector` and `gsl_matrix`.
++ GSL flags are silenced in compilation.
++ Removed redshift evolution option.
 
 Prerequisites
 =====
-+ [GSL](https://www.gnu.org/software/gsl/) is needed for matrix algebra, integration and interpolation.
++ [GSL](https://www.gnu.org/software/gsl/) is needed for some integration and interpolation.
 + [Python3](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
 + [MPI](https://www.open-mpi.org) is needed to enable parallel computing.
++ [CBLAS] and [LAPACKE].
 
 Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl), [ATLAS](http://math-atlas.sourceforge.net) or [OpenBLAS](https://www.openblas.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. To link one of these libraries to gsl_cblas, remove `-lgslcblas` from `LDLIBS`. For ATLAS, add `-lcblas -latlas` to `LDLIBS` in your Makefile. To link OpenBLAS, add `-lopenblas`. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
 
@@ -73,6 +57,8 @@ Compile and Install
 The gcc & MKL version can be installed by `./configure x64-linux-gnu-mklxe18 && make && make install`. However, this does not enable MPI. 
 
 MPI can be enabled by passing `--enable-mpi`. 
+
+Run `make test` to make sure everything works ok.
 
 I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-mpi`, which will enable OpenMPI and use OpenBLAS for matrix operations. Another important one is Intel compiler with MKL. If you have Parallel Studio XE 2018 installed: `./configure --build=x64-linux-icpc-mklxe18 --enable-mpi`. To see all build types: `./configure --print-builds`.
 
