@@ -224,7 +224,7 @@ namespace specifics
     #if defined(FISHER_OPTIMIZATION)
     #define FISHER_TXT "ON"
     #else
-    #define FISHER_TXT "ON"
+    #define FISHER_TXT "OFF"
     #endif
     
     #if defined(REDSHIFT_GROWTH_POWER)
