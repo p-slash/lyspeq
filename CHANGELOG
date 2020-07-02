@@ -1,0 +1,61 @@
+### CHANGELOG
++ "SaveEachSpectrumResult" in config file saves each spectrum's Fisher and power' estimates
++ R & dv pairs are read from a file, instead of assuming fixed dv for all spectra.
++ Last k edge is now read from config file as `LastKEdge`.
++ Needs CBLAS & LAPACKE libraries to run.
++ Option to turn off copying S and Q matrices in order to reduce time.
++ Logger saves separately for each PE.
++ Use `chrono` library to measure time.
++ GSL flags are silenced in compilation.
++ Tests checking cblas & estimator results are added `make test`.
++ Python script does not fit, but applies a weighted smoothing.
++ Default velocity is logarithmic. Changed the key in config.param
++ Implemented reading a mean flux file, which changed config.param keys
++ Created continuum marginalization coeffecients under specifics namespace. Read from config file.
++ Removed redshift evolution option
++ Each PE reads and sorts its own spectra, then merge sorted. This saves significant amount of time reading ~1m files.
++ Smoothing script has --interp_log option, which can be enabled by setting SmoothLnkLnP to 1 in config.param
+
+### mpi-v1.3
++ Signal and derivative look up tables are controlled by one class: [sq_table.hpp](core/sq_table.hpp)
++ Input data are assumed to be fluctuations and not flux. Added `ConvertFromFluxToDeltaf` to config file to switch behaviors.
++ Using Lee12 mean flux option is removed. A better candidate would be interpolating an input flux file. 
++ Signal matrix interpolation axes are reversed to speed up the integration. This makes previous tables uncompetable.
++ MPI branch has been removed of any OpenMP code.
++ Fiducial cosmology has default parameters:
+
+    A      =    6.621420e-02
+    n      =   -2.685349e+00
+    alpha  =   -2.232763e-01
+    B      =    3.591244e+00
+    beta   =   -1.768045e-01
+    lambda =    3.598261e+02
+
++ When `FiducialPowerFile` set in config file, an interpolation function takes over. This file should be a binary file and have the following convention:
+
+    Nk Nz
+    z[1]...z[Nz]
+    k[1]...k[Nk]
+    P[nz=1, nk=1...Nk]...P[Nz, nk=1...Nk]
+
++ Some functions are turned into `inline`.
++ The large number added to covariance matrix is 100.
+
+### v1.2
++ Turn of redshift evolution by passing `--disable-redshift-evolution` to configure script. When redshift evolution is turned off, every pixel pair in each chunk assumed to be at the median redshift of the chunk, and switched to using top-hat bins. However, scaling with a growth function is still functional if passed. Using `beta=0` in fiducial power is recomended.
++ Detailed power spectrum output has build and configuration specifics in the beginning.
++ Log to both `OutputDir` log files and `stdout/stderr`. Save time statistics to `OutputDir/time_log.txt` in fixed width table.
++ Throw `std::runtime_error(msg)` instead of only message.
+
+### v1.1
++ Prints detailed power spectrum output file.
++ Computes Fisher matrix weighted d (raw power), b (noise estimate) and t (fiducial signal estimate) values storing 3 more gsl_vectors.
+
+v1
+=====
++ Set `UseLogarithmicVelocity` in config file to 1 to convert by logarithmic spacing.
++ All redshift binning schemes scales derivative matrices with fiducial growth unless `--disable-redshift-growth` is passed to configure or `-DREDSHIFT_GROWTH_POWER` is not passed to preprocessor.
++ Convergence checks if estimated error is negative. Negative errors are substituted with infinite error *only* in convergence---Fisher matrix is not modified.
++ Load balancing takes how many matrices are needed in triangular bins into account. Some bins are skipped since no pixel pair belongs to them.
++ Specify allocated memory in MB to store additional derivative matrices and fiducial signal matrix if possible. This speeds up calculations.
++ The large number added to covariance matrix is 10000.
