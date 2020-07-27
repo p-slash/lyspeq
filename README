@@ -5,12 +5,12 @@ Intermediate versions have been used to study DESI-lite mocks. Further modificat
 
 ### Highlighted Features
 + Input data are assumed to be fluctuations and not flux. Added `ConvertFromFluxToDeltaf` to config file to switch behaviors.
-+ Default velocity is logarithmic. Change this by setting `UseEDSVelocity` to ` in config file.
++ Default velocity is logarithmic. Change this by setting `UseEDSVelocity` to 1 in config file.
 + R & dv pairs are read from a file, instead of assuming fixed dv for all spectra.
 + A detailed python3 script in `make test` for CBLAS, SQ tables and the estimator results.
 + Specify allocated memory in MB to store additional derivative matrices and fiducial signal matrix if possible. This speeds up calculations.
 + Fiducial cosmology has default parameters:
-
+    
     A      =    6.621420e-02
     n      =   -2.685349e+00
     alpha  =   -2.232763e-01
