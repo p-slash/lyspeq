@@ -36,11 +36,8 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     
     if (RES_INDEX == -1)      throw std::runtime_error("SPECRES not found in tables!");
 
-    // interp2d_signal_matrix   = process::sq_private_table->getSignalMatrixInterp(r_index);
+    interp2d_signal_matrix   = NULL;
     interp_derivative_matrix = new DiscreteInterpolation1D*[bins::NUMBER_OF_K_BANDS];
-
-    // for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-    //     interp_derivative_matrix[kn] = process::sq_private_table->getDerivativeMatrixInterp(kn, r_index);
 }
 
 bool OneQSOEstimate::_findRedshiftBin()
@@ -505,7 +502,8 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_
     }
     
     _freeMatrices();
-    delete interp2d_signal_matrix;
+    if (interp2d_signal_matrix!=NULL)
+        delete interp2d_signal_matrix;
     for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
         delete interp_derivative_matrix[kn];
 }
