@@ -52,6 +52,8 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
     NUMBER_OF_R_VALUES = ioh::readListRdv(fname_rlist, R_DV_VALUES);
 
     LOG::LOGGER.STD("Number of R-dv pairs: %d\n", NUMBER_OF_R_VALUES);
+    interp2d_signal_matrices = NULL;
+    interp_derivative_matrices = NULL;
 }
 
 void SQLookupTable::readTables()
@@ -62,7 +64,10 @@ void SQLookupTable::readTables()
     interp_derivative_matrices   = new DiscreteInterpolation1D*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-        readSQforR(r);
+    {
+        DiscreteInterpolation1D **qr = &interp_derivative_matrices[getIndex4DerivativeInterpolation(0, r)];
+        readSQforR(r, interp2d_signal_matrices[r], qr);
+    }
 
     deallocateSignalAndDerivArrays();
 }
@@ -209,7 +214,7 @@ DERIVATIVE:
     deallocateVAndZArrays();
 }
 
-void SQLookupTable::readSQforR(int r_index)
+void SQLookupTable::readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q)
 {
     std::string buf_fnames;
     int dummy_R, dummy_Nz;
@@ -239,7 +244,7 @@ void SQLookupTable::readSQforR(int r_index)
         itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
         itp_dz = sqhelper::getLinearSpacing(LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
 
-        interp2d_signal_matrices[r_index] = new DiscreteInterpolation2D(itp_z1, itp_dz, itp_v1, itp_dv,
+        s = new DiscreteInterpolation2D(itp_z1, itp_dz, itp_v1, itp_dv,
             sqhelper::signal_array, N_Z_POINTS_OF_S, N_V_POINTS);
     }
 
@@ -266,11 +271,9 @@ void SQLookupTable::readSQforR(int r_index)
         
         q_table_file.readData(sqhelper::derivative_array);
 
-        int i = getIndex4DerivativeInterpolation(kn, r_index);
         itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
 
-        interp_derivative_matrices[i] = new DiscreteInterpolation1D(itp_v1, itp_dv, 
-            sqhelper::derivative_array, N_V_POINTS);
+        q[kn] = new DiscreteInterpolation1D(itp_v1, itp_dv, sqhelper::derivative_array, N_V_POINTS);
     }
 }
 
@@ -300,14 +303,19 @@ int SQLookupTable::findSpecResIndex(int spec_res, double dv) const
 
 SQLookupTable::~SQLookupTable()
 {
-    for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-        delete interp2d_signal_matrices[r];
-
-    for (int kr = 0; kr < NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS; ++kr)
-        delete interp_derivative_matrices[kr];
-
-    delete [] interp2d_signal_matrices;
-    delete [] interp_derivative_matrices;
+    if (interp2d_signal_matrices != NULL)
+    {
+        for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
+            delete interp2d_signal_matrices[r];
+        delete [] interp2d_signal_matrices;
+    }
+    
+    if (interp_derivative_matrices != NULL)
+    {
+        for (int kr = 0; kr < NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS; ++kr)
+            delete interp_derivative_matrices[kr];
+        delete [] interp_derivative_matrices;
+    } 
 }
 
 void SQLookupTable::allocateSignalAndDerivArrays()

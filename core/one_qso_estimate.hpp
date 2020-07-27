@@ -26,7 +26,7 @@ class OneQSOEstimate
 protected:
     std::string qso_sp_fname;
     
-    int SPECT_RES_FWHM;
+    int SPECT_RES_FWHM, RES_INDEX;
 
     int DATA_SIZE, N_Q_MATRICES, fisher_index_start, r_index;
 
