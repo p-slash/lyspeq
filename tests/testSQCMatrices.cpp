@@ -25,6 +25,7 @@ public:
     void saveMatrices(std::string out_dir)
     {
         _allocateMatrices();
+        process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, interp_derivative_matrix);
 
         // Save fiducial signal matrix
         _setFiducialSignalMatrix(covariance_matrix);
@@ -38,7 +39,10 @@ public:
         mxhelp::fprintfMatrix(fsave.c_str(), temp_matrix[0], DATA_SIZE, DATA_SIZE);
 
         _freeMatrices();
-    }   
+        delete interp2d_signal_matrix;
+        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
+            delete interp_derivative_matrix[kn];
+    }
 };
 
 int main(int argc, char *argv[])
@@ -100,7 +104,7 @@ int main(int argc, char *argv[])
     {
         // Allocate and read look up tables
         process::sq_private_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
-        process::sq_private_table->readTables();
+        // process::sq_private_table->readTables();
     }
     catch (std::exception& e)
     {

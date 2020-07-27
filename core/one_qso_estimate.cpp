@@ -32,15 +32,15 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     qFile.readData(lambda_array, flux_array, noise_array);
 
     // Find the resolution index for the look up table
-    r_index = process::sq_private_table->findSpecResIndex(SPECT_RES_FWHM, DV_KMS);
+    RES_INDEX = process::sq_private_table->findSpecResIndex(SPECT_RES_FWHM, DV_KMS);
     
-    if (r_index == -1)      throw std::runtime_error("SPECRES not found in tables!");
+    if (RES_INDEX == -1)      throw std::runtime_error("SPECRES not found in tables!");
 
-    interp2d_signal_matrix   = process::sq_private_table->getSignalMatrixInterp(r_index);
+    // interp2d_signal_matrix   = process::sq_private_table->getSignalMatrixInterp(r_index);
     interp_derivative_matrix = new DiscreteInterpolation1D*[bins::NUMBER_OF_K_BANDS];
 
-    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-        interp_derivative_matrix[kn] = process::sq_private_table->getDerivativeMatrixInterp(kn, r_index);
+    // for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
+    //     interp_derivative_matrix[kn] = process::sq_private_table->getDerivativeMatrixInterp(kn, r_index);
 }
 
 bool OneQSOEstimate::_findRedshiftBin()
@@ -461,6 +461,8 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_
 {
     _allocateMatrices();
 
+    process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, interp_derivative_matrix);
+
     // Preload last nqj_eff matrices
     // 0 is the last matrix
     for (int j_kz = 0; j_kz < nqj_eff; ++j_kz)
@@ -503,6 +505,9 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_
     }
     
     _freeMatrices();
+    delete interp2d_signal_matrix;
+    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
+        delete interp_derivative_matrix[kn];
 }
 
 void OneQSOEstimate::_allocateMatrices()

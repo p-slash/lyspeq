@@ -47,14 +47,14 @@ class SQLookupTable
     void deallocateSignalAndDerivArrays();
     void deallocateVAndZArrays();
 
-    void readSQforR(int r_index);
-
 public:
     SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist);
     // SQLookupTable(const SQLookupTable &sq);
 
     ~SQLookupTable();
     
+    void readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q);
+
     void readTables();
     // runs with omp parallel
     void computeTables(int Nv, int Nz, double Lv, bool force_rewrite);
