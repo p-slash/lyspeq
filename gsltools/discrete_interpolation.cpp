@@ -16,7 +16,7 @@ DiscreteInterpolation1D::~DiscreteInterpolation1D()
 
 void DiscreteInterpolation1D::_limitBoundary(double &x)
 {
-    if (x > x2)         x = x2;
+    if (x >= x2)        x = x2 - 1e-6;
     else if (x < x1)    x = x1;
 }
 
@@ -54,10 +54,10 @@ long DiscreteInterpolation2D::_getIndex(long nx, long ny)
 
 void DiscreteInterpolation2D::_limitBoundary(double &x, double &y)
 {
-    if (x > x2)         x = x2;
+    if (x >= x2)        x = x2 - 1e-6;
     else if (x < x1)    x = x1;
 
-    if (y > y2)         y = y2;
+    if (y >= y2)        y = y2 - 1e-6;
     else if (y < y1)    y = y1;
 }
 
