@@ -139,11 +139,17 @@ int main(int argc, char *argv[])
         sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
         qps->writeFisherMatrix(buf);
 
-        r=1;
+        delete qps;
+        delete process::sq_private_table;
+        bins::cleanUpBins();
+        #if defined(ENABLE_MPI)
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
+        
+        return 1;
     }
     
     delete qps;
-
     delete process::sq_private_table;
 
     bins::cleanUpBins();
