@@ -21,6 +21,8 @@
 #include "core/mpi_merge_sort.cpp"
 #endif
 
+double *OneDQuadraticPowerEstimate::precomputed_fisher { NULL };
+
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, const char *dir)
 {
     Z_BIN_COUNTS = new int[bins::NUMBER_OF_Z_BINS+2]();
@@ -357,7 +359,11 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             MPI_Allreduce(MPI_IN_PLACE, dbt_estimate_sum_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS,
                 MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         #endif
-        
+
+        if (precomputed_fisher != NULL)
+            std::copy(precomputed_fisher, precomputed_fisher + bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS, 
+                fisher_matrix_sum);
+
         try
         {
             invertTotalFisherMatrix();
@@ -639,7 +645,14 @@ void OneDQuadraticPowerEstimate::iterationOutput(const char *fname_base, int it,
     mytime::printfTimeSpentDetails();
 }
 
+void OneDQuadraticPowerEstimate::readPrecomputedFisher(const char *fname)
+{
+    int N1, N2;
+    mxhelp::fscanfMatrix(fname, precomputed_fisher, N1, N2);
 
+    if (N1 != bins::TOTAL_KZ_BINS || N2 != bins::TOTAL_KZ_BINS)
+        throw std::runtime_error("Precomputed Fisher matrix does not have correct number of rows or columns.");
+}
 
 
 

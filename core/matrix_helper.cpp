@@ -130,6 +130,25 @@ namespace mxhelp
         fclose(toWrite);
     }
 
+    void fscanfMatrix(const char *fname, double *& A, int &nrows, int &ncols)
+    {
+        FILE *toRead;
+
+        toRead = fopen(fname, "r");
+
+        fscanf(toRead, "%d %d\n", &nrows, &ncols);
+        A = new double[nrows*ncols];
+
+        for (int i = 0; i < nrows; ++i)
+        {
+            for (int j = 0; j < ncols; ++j)
+                fscanf(toRead, "%le ", &A[i+nrows*j]);
+            fscanf(toRead, "\n");
+        }
+
+        fclose(toRead);
+    }
+
     /*
     void invertMatrixCholesky2(gsl_matrix *A)
     {
