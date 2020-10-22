@@ -360,6 +360,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
                 MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         #endif
 
+        // If fisher is precomputed, copy this into fisher_matrix_sum. 
+        // oneQSOiteration iteration will not compute fishers as well.
         if (precomputed_fisher != NULL)
             std::copy(precomputed_fisher, precomputed_fisher + bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS, 
                 fisher_matrix_sum);
