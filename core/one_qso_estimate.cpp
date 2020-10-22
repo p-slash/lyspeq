@@ -448,8 +448,8 @@ void OneQSOEstimate::computePSbeforeFvector()
         dbt_estimate_before_fisher_vector[1][i_kz + fisher_index_start] = temp_bk;
         dbt_estimate_before_fisher_vector[2][i_kz + fisher_index_start] = temp_tk;
         
-        // Do not compute fisher matrix
-        if (OneDQuadraticPowerEstimate::precomputed_fisher != NULL)
+        // Do not compute fisher matrix if it is precomputed
+        if (OneDQuadraticPowerEstimate::precomputed_fisher == NULL)
             _getFisherMatrix(Q_ikz_matrix, i_kz);
     }
 
