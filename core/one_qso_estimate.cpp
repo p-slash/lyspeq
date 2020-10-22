@@ -1,5 +1,6 @@
 #include "core/one_qso_estimate.hpp"
 #include "core/fiducial_cosmology.hpp"
+#include "core/quadratic_estimate.hpp"
 #include "core/matrix_helper.hpp"
 #include "core/global_numbers.hpp"
 
@@ -446,8 +447,10 @@ void OneQSOEstimate::computePSbeforeFvector()
         dbt_estimate_before_fisher_vector[0][i_kz + fisher_index_start] = temp_dk;
         dbt_estimate_before_fisher_vector[1][i_kz + fisher_index_start] = temp_bk;
         dbt_estimate_before_fisher_vector[2][i_kz + fisher_index_start] = temp_tk;
-
-        _getFisherMatrix(Q_ikz_matrix, i_kz);
+        
+        // Do not compute fisher matrix
+        if (OneDQuadraticPowerEstimate::precomputed_fisher != NULL)
+            _getFisherMatrix(Q_ikz_matrix, i_kz);
     }
 
     delete [] weighted_data_vector;

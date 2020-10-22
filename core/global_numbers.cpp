@@ -1,5 +1,6 @@
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
+#include "core/quadratic_estimate.hpp"
 #include "io/config_file.hpp"
 #include "io/logger.hpp"
 
@@ -290,7 +291,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
         sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
         save_spec_res=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
-    char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="";
+    char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="", FNAME_PREFISHER[300]="";
 
     // Set up config file to read variables.
     ConfigFile cFile(FNAME_CONFIG);
@@ -344,6 +345,8 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("FiducialRedshiftPower",       &fidpd13::FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
     cFile.addKey("FiducialRedshiftCurvature",   &fidpd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
     cFile.addKey("FiducialLorentzianLambda",    &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,DOUBLE);
+
+    cFile.addKey("PrecomputedFisher", FNAME_PREFISHER, STRING);
 
     cFile.addKey("NumberOfIterations", NUMBER_OF_ITERATIONS, INTEGER);
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
@@ -402,6 +405,8 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 
     if (FNAME_FID_POWER[0] != '\0')
         fidcosmo::setFiducialPowerFromFile(FNAME_FID_POWER);
+    if (FNAME_PREFISHER[0] != '\0')
+        OneDQuadraticPowerEstimate::readPrecomputedFisher(FNAME_PREFISHER);
 
     // Redshift and wavenumber bins are constructed
     bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, klast, Z_0);

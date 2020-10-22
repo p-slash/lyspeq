@@ -62,6 +62,8 @@ UseChunksMeanFlux 0
 # To not convert, set this to 1
 InputIsDeltaFlux 0
 
+# PrecomputedFisher fisher_file.txt
+
 # Specify continuum marginalization coefficients. Default is 100. Pass <=0 to turn off.
 ContinuumMargAmp  100.
 ContinuumMargDerv 100.
