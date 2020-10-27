@@ -405,11 +405,13 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 
     if (FNAME_FID_POWER[0] != '\0')
         fidcosmo::setFiducialPowerFromFile(FNAME_FID_POWER);
-    if (FNAME_PREFISHER[0] != '\0')
-        OneDQuadraticPowerEstimate::readPrecomputedFisher(FNAME_PREFISHER);
 
     // Redshift and wavenumber bins are constructed
     bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, klast, Z_0);
+
+    // Call after setting bins, because this function checks for consistency.
+    if (FNAME_PREFISHER[0] != '\0')
+        OneDQuadraticPowerEstimate::readPrecomputedFisher(FNAME_PREFISHER);
 }
 
 
