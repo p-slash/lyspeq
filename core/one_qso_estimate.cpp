@@ -18,23 +18,24 @@
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
     qso_sp_fname = fname_qso;
+    QSOFile *qFile;
 
     // Construct and read data arrays
-    if (specifics::INPUT_QSO_FILE == Binary)
-        QSOFile qFile(qso_sp_fname.c_str());
+    if (specifics::INPUT_QSO_FILE == specifics::Binary)
+        qFile = new QSOFile(qso_sp_fname.c_str());
     else
-        PiccaFile qFile(qso_sp_fname);
+        qFile = new PiccaFile(qso_sp_fname);
 
     double dummy_qso_z, dummy_s2n;
 
-    qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
+    qFile->readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
     
     lambda_array    = new double[DATA_SIZE];
     velocity_array  = new double[DATA_SIZE];
     flux_array      = new double[DATA_SIZE];
     noise_array     = new double[DATA_SIZE];
 
-    qFile.readData(lambda_array, flux_array, noise_array);
+    qFile->readData(lambda_array, flux_array, noise_array);
 
     // Find the resolution index for the look up table
     RES_INDEX = process::sq_private_table->findSpecResIndex(SPECT_RES_FWHM, DV_KMS);

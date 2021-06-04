@@ -375,7 +375,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     process::SAVE_EACH_SPEC_RESULT  = save_spec_res > 0;
     
     if (use_picca_file)
-        specifics::INPUT_QSO_FILE = Picca;
+        specifics::INPUT_QSO_FILE = specifics::Picca;
 
     // resolve conflict: Input delta flux overrides all
     // Then, chunk means.

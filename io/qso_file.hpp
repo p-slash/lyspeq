@@ -28,6 +28,8 @@ class QSOFile
         double upper_rest_lambda;
     } header;
 
+protected:
+    QSOFile() {};
 public:
     QSOFile(const char *fname);
     ~QSOFile();
