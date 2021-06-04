@@ -78,9 +78,11 @@ namespace mytime
 
 namespace specifics
 {
+    enum ifileformat {Binary, Picca};
     extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
     extern double CHISQ_CONVERGENCE_EPS;
     extern double CONTINUUM_MARGINALIZATION_AMP, CONTINUUM_MARGINALIZATION_DERV;
+    extern ifileformat INPUT_QSO_FILE;
 
     void printBuildSpecifics(FILE *toWrite=NULL);
     void printConfigSpecifics(FILE *toWrite=NULL);

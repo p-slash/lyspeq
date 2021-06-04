@@ -210,7 +210,8 @@ namespace specifics
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
     double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
-
+    ifileformat INPUT_QSO_FILE = Binary;
+    
     #if defined(TOPHAT_Z_BINNING_FN)
     #define BINNING_SHAPE "Top Hat"
     #elif defined(TRIANGLE_Z_BINNING_FN)
@@ -289,7 +290,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 {
     int N_KLIN_BIN, N_KLOG_BIN, 
         sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
-        save_spec_res=-1;
+        save_spec_res=-1, use_picca_file=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="", FNAME_PREFISHER[300]="";
 
@@ -313,6 +314,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 
     cFile.addKey("FileNameRList",  FNAME_RLIST, STRING);
     cFile.addKey("FileInputDir",   INPUT_DIR, STRING);
+    cFile.addKey("InputIsPicca",   &use_picca_file, INTEGER);
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
 
@@ -372,6 +374,9 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
     process::SAVE_EACH_SPEC_RESULT  = save_spec_res > 0;
     
+    if (use_picca_file)
+        specifics::INPUT_QSO_FILE = Picca;
+
     // resolve conflict: Input delta flux overrides all
     // Then, chunk means.
     if (conv::INPUT_IS_DELTA_FLUX && conv::FLUX_TO_DELTAF_BY_CHUNKS)
