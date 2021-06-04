@@ -6,6 +6,7 @@
 
 #include "io/io_helper_functions.hpp"
 #include "io/qso_file.hpp"
+#include "io/picca_file.hpp"
 #include "io/logger.hpp"
 
 #include <cmath>
@@ -19,7 +20,10 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     qso_sp_fname = fname_qso;
 
     // Construct and read data arrays
-    QSOFile qFile(qso_sp_fname.c_str());
+    if (specifics::INPUT_QSO_FILE == Binary)
+        QSOFile qFile(qso_sp_fname.c_str());
+    else
+        PiccaFile qFile(qso_sp_fname);
 
     double dummy_qso_z, dummy_s2n;
 

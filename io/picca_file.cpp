@@ -11,25 +11,26 @@
 #define LN10 2.30258509299
 #define ONE_SIGMA_2_FWHM 2.35482004503
 
-PiccaFile::PiccaFile(const char *fname)
+PiccaFile::PiccaFile(std::string fname_qso)
 {
-    int hdutype;
+    // Assume fname to be ..fits.gz[1]
+    // get hdunum from fname
+    file_name = fname_qso //fname_qso.substr(0, fname_qso.size-3);
 
-    sprintf(file_name, "%s", fname);
-
-    fits_open_file(&fits_file, fname, READONLY, &status);
+    fits_open_file(&fits_file, file_name.c_str(), READONLY, &status);
+    fits_get_hdu_num(fits_file, &curr_spec_index);
     fits_get_num_hdus(fits_file, &no_spectra, &status);
     no_spectra--;
 
-    curr_spec_index=0;
-    fits_movabs_hdu(fits_file, 1, &hdutype, &status);
+    // _move(fname_qso[fname_qso.size-2] - '0');
 }
 
-void PiccaFile::readParameters(int index, int &N, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms)
+void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms, int newhdu)
 {
-    _move(index);
+    _move(newhdu);
 
-    fits_read_key(fits_file, TINT, "NAXIS2", &N, NULL, &status);
+    fits_read_key(fits_file, TINT, "NAXIS1", &curr_M, NULL, &status);
+    fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
 
     fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
 
@@ -42,33 +43,33 @@ void PiccaFile::readParameters(int index, int &N, double &z, int &fwhm_resolutio
     fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
     dv_kms *= SPEED_OF_LIGHT / LN10;
 
-    curr_N = N;
+    N = curr_N;
 }
 
-void PiccaFile::readData(int index, int N, double *lambda, double *delta, double *noise)
+void PiccaFile::readData(double *lambda, double *delta, double *noise, int newhdu)
 {
     int nonull;
-    _move(index);
+    _move(newhdu);
 
-    fits_read_col(fits_file, TDOUBLE, 1, 1, 1, N, 0, lambda, &nonull, &status);
-    fits_read_col(fits_file, TDOUBLE, 2, 1, 1, N, 0, delta, &nonull, &status);
-    fits_read_col(fits_file, TDOUBLE, 3, 1, 1, N, 0, noise, &nonull, &status);
+    fits_read_col(fits_file, TDOUBLE, 1, 1, 1, curr_N, 0, lambda, &nonull, &status);
+    fits_read_col(fits_file, TDOUBLE, 2, 1, 1, curr_N, 0, delta, &nonull, &status);
+    fits_read_col(fits_file, TDOUBLE, 3, 1, 1, curr_N, 0, noise, &nonull, &status);
     
-    std::for_each(lambda, lambda+N, [](double &ld) { ld = pow(10, ld); });
-    std::for_each(noise, noise+N, [](double &ld) { ld = pow(ld, -0.5); });
+    std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
+    std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld, -0.5); });
 }
 
-void PiccaFile::readResolutionMatrix(int index, int N, double *Rmat, int &mdim)
+void PiccaFile::readResolutionMatrix(double *Rmat, int &mdim, int newhdu)
 {
-    int naxis;
-    long *naxes = new long[2];
+    // int naxis;
+    // long *naxes = new long[2];
     
-    _move(index);
+    _move(newhdu);
 
-    fits_read_tdim(fits_file, 6, N, &naxis, naxes, &status);
-    mdim = naxes[0];
+    // fits_read_tdim(fits_file, 6, N, &naxis, naxes, &status);
+    // mdim = naxes[0];
 
-    fits_read_col(fits_file, TDOUBLE, 6, 1, 1, N*mdim, 0, Rmat, &nonull, &status);
+    fits_read_col(fits_file, TDOUBLE, 6, 1, 1, curr_N*curr_M, 0, Rmat, &nonull, &status);
 }
 
 PiccaFile::~PiccaFile()
@@ -82,9 +83,9 @@ void PiccaFile::_move(int index)
     if (index >= no_spectra)
         std::runtime_error("Trying go beyond # HDU in fits file.");
 
-    if (curr_spec_index != index)
+    if (index > 0 && curr_spec_index != index)
     {
-        fits_movabs_hdu(fits_file, index+1, &hdutype, &status);
+        fits_movabs_hdu(fits_file, index, &hdutype, &status);
         curr_spec_index = index;
     }
 }
