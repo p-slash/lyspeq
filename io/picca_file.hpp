@@ -3,8 +3,9 @@
 
 #include <fitsio.h>
 #include <string>
+#include "io/qso_file.hpp"
 
-class PiccaFile
+class PiccaFile: public QSOFile
 {
     fitsfile *fits_file;
     std::string file_name;

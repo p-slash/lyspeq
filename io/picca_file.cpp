@@ -15,7 +15,7 @@ PiccaFile::PiccaFile(std::string fname_qso)
 {
     // Assume fname to be ..fits.gz[1]
     // get hdunum from fname
-    file_name = fname_qso //fname_qso.substr(0, fname_qso.size-3);
+    file_name = fname_qso; //fname_qso.substr(0, fname_qso.size-3);
 
     fits_open_file(&fits_file, file_name.c_str(), READONLY, &status);
     fits_get_hdu_num(fits_file, &curr_spec_index);
@@ -36,12 +36,12 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, double &
 
     double r_kms;
     fits_read_key(fits_file, TDOUBLE, "MEANRESO", &r_kms, NULL, &status);
-    fwhm_resolution = int(SPEED_OF_LIGHT/r_kms/ONE_SIGMA_2_FWHM/100 + 0.5)*100
+    fwhm_resolution = int(SPEED_OF_LIGHT/r_kms/ONE_SIGMA_2_FWHM/100 + 0.5)*100;
 
     fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
 
     fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
-    dv_kms *= SPEED_OF_LIGHT / LN10;
+    dv_kms = round(dv_kms*SPEED_OF_LIGHT/LN10/5)*5;
 
     N = curr_N;
 }
@@ -68,7 +68,7 @@ void PiccaFile::readResolutionMatrix(double *Rmat, int &mdim, int newhdu)
 
     // fits_read_tdim(fits_file, 6, N, &naxis, naxes, &status);
     // mdim = naxes[0];
-
+    int nonull;
     fits_read_col(fits_file, TDOUBLE, 6, 1, 1, curr_N*curr_M, 0, Rmat, &nonull, &status);
 }
 
