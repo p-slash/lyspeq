@@ -112,7 +112,7 @@ void SQLookupTable::computeTables(int Nv, int Nz, double Lv, bool force_rewrite)
         win_params.spectrograph_res = SPEED_OF_LIGHT / Rthis / ONE_SIGMA_2_FWHM;
         win_params.pixel_width = dvthis;
 
-        LOG::LOGGER.STD("Creating look up table for signal matrix. R = %d (%.2f km/s), dv=%.1f.\n",
+        LOG::LOGGER.STD("Creating look up table for signal matrix R=%d (%.2f km/s), dv=%.1f.\n",
             Rthis, win_params.spectrograph_res, dvthis);
 
         buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, Rthis, dvthis);
@@ -170,15 +170,15 @@ DERIVATIVE:
         win_params.spectrograph_res = SPEED_OF_LIGHT / Rthis / ONE_SIGMA_2_FWHM;
         win_params.pixel_width = dvthis;
 
-        LOG::LOGGER.STD("T:%d/%d - Creating look up tables for derivative signal matrices."
-            " R = %d (%.2f km/s), dv=%.1f.\n", Rthis, win_params.spectrograph_res, dvthis);
+        LOG::LOGGER.STD("Creating look up tables for derivative signal matrices."
+            " R=%d (%.2f km/s), dv=%.1f.\n", Rthis, win_params.spectrograph_res, dvthis);
 
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
         {
             double kvalue_1 = bins::KBAND_EDGES[kn];
             double kvalue_2 = bins::KBAND_EDGES[kn + 1];
 
-            LOG::LOGGER.STD("Q matrix for k = [%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
+            LOG::LOGGER.STD("Q matrix for k=[%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
 
             buf_fnames =  sqhelper::QTableFileNameConvention(DIR, Q_BASE, Rthis, dvthis, kvalue_1, kvalue_2);
             
