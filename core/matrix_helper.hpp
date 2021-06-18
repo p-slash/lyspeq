@@ -44,6 +44,17 @@ namespace mxhelp
     // LAPACKE functions
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
+
+    class Resolution
+    {
+    public:
+        int ndim, ndiags, size;
+        int *offsets;
+        double *matrix;
+
+        Resolution(int nm, int ndia);
+        ~Resolution();
+    };
 }
 
 #endif

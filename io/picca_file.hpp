@@ -4,6 +4,7 @@
 #include <fitsio.h>
 #include <string>
 #include "io/qso_file.hpp"
+#include "core/matrix_helper.hpp"
 
 class PiccaFile: public QSOFile
 {
@@ -12,21 +13,22 @@ class PiccaFile: public QSOFile
     // int hdunum;
     int no_spectra, status;
     int curr_spec_index;
-    int curr_N, curr_M;
+    int curr_N, curr_ndiags;
     
     void _move(int index);
 
 public:
+    // Assume fname to be ..fits.gz[1]
     PiccaFile(std::string fname_qso);
     ~PiccaFile();
     
     int getNumberSpectra() const {return no_spectra;};
 
     void readParameters(int &N, double &z, int &fwhm_resolution, 
-        double &sig2noi, double &dv_kms, int newhdu=-1);
+        double &sig2noi, double &dv_kms);
 
-    void readData(double *lambda, double *delta, double *noise, int newhdu=-1);
-    void readResolutionMatrix(double *Rmat, int &mdim, int newhdu=-1);
+    void readData(double *lambda, double *delta, double *noise);
+    mxhelp::Resolution readResolutionMatrix();
 };
 
 #endif
