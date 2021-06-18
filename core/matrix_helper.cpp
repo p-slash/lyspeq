@@ -149,6 +149,23 @@ namespace mxhelp
         fclose(toRead);
     }
 
+    // class Resolution
+    Resolution::Resolution(int nm, int ndia) : ndim(nm), ndiags(ndia)
+    {
+        size = ndim*ndiags;
+        matrix = new double[size];
+        
+        offsets = new int[ndiags];
+        for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
+            offsets[j] = i;
+    }
+
+    Resolution::~Resolution()
+    {
+        delete [] offsets;
+        delete [] matrix;
+    }
+
     /*
     void invertMatrixCholesky2(gsl_matrix *A)
     {

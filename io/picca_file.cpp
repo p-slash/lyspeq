@@ -25,11 +25,11 @@ PiccaFile::PiccaFile(std::string fname_qso)
     // _move(fname_qso[fname_qso.size-2] - '0');
 }
 
-void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms, int newhdu)
+void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms)
 {
-    _move(newhdu);
+    // _move(newhdu);
 
-    fits_read_key(fits_file, TINT, "NAXIS1", &curr_M, NULL, &status);
+    fits_read_key(fits_file, TINT, "NAXIS1", &curr_ndiags, NULL, &status);
     fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
 
     fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
@@ -46,10 +46,10 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, double &
     N = curr_N;
 }
 
-void PiccaFile::readData(double *lambda, double *delta, double *noise, int newhdu)
+void PiccaFile::readData(double *lambda, double *delta, double *noise)
 {
     int nonull;
-    _move(newhdu);
+    // _move(newhdu);
 
     fits_read_col(fits_file, TDOUBLE, 1, 1, 1, curr_N, 0, lambda, &nonull, &status);
     fits_read_col(fits_file, TDOUBLE, 2, 1, 1, curr_N, 0, delta, &nonull, &status);
@@ -59,17 +59,22 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise, int newhd
     std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld, -0.5); });
 }
 
-void PiccaFile::readResolutionMatrix(double *Rmat, int &mdim, int newhdu)
+mxhelp::Resolution PiccaFile::readResolutionMatrix()
 {
+    int nonull;
+    mxhelp::Resolution Rmat(curr_N, curr_ndiags);
+    
+    fits_read_col(fits_file, TDOUBLE, 6, 1, 1, curr_N*curr_ndiags, 0, Rmat.matrix, &nonull, &status);
+    
+    return Rmat;
+
     // int naxis;
     // long *naxes = new long[2];
     
-    _move(newhdu);
+    // _move(newhdu);
 
     // fits_read_tdim(fits_file, 6, N, &naxis, naxes, &status);
     // mdim = naxes[0];
-    int nonull;
-    fits_read_col(fits_file, TDOUBLE, 6, 1, 1, curr_N*curr_M, 0, Rmat, &nonull, &status);
 }
 
 PiccaFile::~PiccaFile()
