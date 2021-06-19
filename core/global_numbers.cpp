@@ -208,7 +208,7 @@ namespace mytime
 namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
-    bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
+    bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
     double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
     ifileformat INPUT_QSO_FILE = Binary;
     
@@ -290,7 +290,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 {
     int N_KLIN_BIN, N_KLOG_BIN, 
         sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
-        save_spec_res=-1, use_picca_file=-1;
+        save_spec_res=-1, use_picca_file=-1, use_reso_mat=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="", FNAME_PREFISHER[300]="";
 
@@ -315,6 +315,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("FileNameRList",  FNAME_RLIST, STRING);
     cFile.addKey("FileInputDir",   INPUT_DIR, STRING);
     cFile.addKey("InputIsPicca",   &use_picca_file, INTEGER);
+    cFile.addKey("UseResoMatrix",  &use_reso_mat, INTEGER);
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
 
@@ -369,6 +370,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     
     specifics::TURN_OFF_SFID        = sfid_off > 0;
     specifics::SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
+    specifics::USE_RESOLUTION_MATRIX= use_reso_mat > 0;
     conv::USE_LOG_V                 = !(uedsv > 0);
     conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
     conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
