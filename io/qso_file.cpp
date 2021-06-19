@@ -40,3 +40,8 @@ void QSOFile::readData(double *lambda, double *fluxfluctuations, double *noise)
     if (rl != header.data_size || rf != header.data_size || rn != header.data_size)
         std::runtime_error("fread error in data QSOFile!");
 }
+
+void QSOFile::readAllocResolutionMatrix(void *R)
+{
+    std::runtime_error("Cannot read resolution matrix from Binary file!");
+}

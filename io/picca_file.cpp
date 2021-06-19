@@ -59,14 +59,12 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld, -0.5); });
 }
 
-mxhelp::Resolution PiccaFile::readResolutionMatrix()
+void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
 {
     int nonull;
-    mxhelp::Resolution Rmat(curr_N, curr_ndiags);
+    Rmat = new mxhelp::Resolution(curr_N, curr_ndiags);
     
-    fits_read_col(fits_file, TDOUBLE, 6, 1, 1, curr_N*curr_ndiags, 0, Rmat.matrix, &nonull, &status);
-    
-    return Rmat;
+    fits_read_col(fits_file, TDOUBLE, 6, 1, 1, curr_N*curr_ndiags, 0, Rmat->matrix, &nonull, &status);
 
     // int naxis;
     // long *naxes = new long[2];
