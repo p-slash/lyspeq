@@ -50,10 +50,21 @@ namespace mxhelp
     public:
         int ndim, ndiags, size;
         int *offsets;
-        double *matrix;
+        double *matrix, *buffer_mat;
 
         Resolution(int nm, int ndia);
         ~Resolution();
+
+
+        // B initialized to zero
+        // SIDE = 'L' or 'l',   B = op( R ) . A,
+        // SIDE = 'R' or 'r',   B = A . op( R ).
+        // TRANSR = 'N' or 'n',  op( R ) = R.
+        // TRANSR = 'T' or 't',  op( R ) = R^T.
+        void multiply(char SIDER, char TRANSR, const double* A, double *B, int N);
+
+        // R . inplace . R^T
+        void sandwich(double *inplace, int N);
     };
 }
 
