@@ -22,8 +22,10 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     // Construct and read data arrays
     if (specifics::INPUT_QSO_FILE == specifics::Binary)
         qFile = new QSOFile(qso_sp_fname.c_str());
-    else
+    else if (specifics::INPUT_QSO_FILE == specifics::Picca)
         qFile = new PiccaFile(qso_sp_fname);
+    else
+        std::runtime_error("Something went wrong with input file type!.");
 
     double dummy_qso_z, dummy_s2n, dum_Rkms;
 
