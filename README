@@ -2,6 +2,8 @@
 
 # Changelog
 + Config file has 'PrecomputedFisher' option to read file and skip fisher matrix computation.
++ Config file has 'InputIsPicca' option to read picca fits files instead. Construct the file list using HDU numbers of each chunk, e.g. third spectrum, picca-delta-100.fits.gz[3].
++ Config file has 'UseResoMatrix' option to read resolution matrix from picca file.
 
 # v2
 Intermediate versions have been used to study DESI-lite mocks. Further modifications added configuration options, but most importantly optimizated the speed to run on high resolution quasars. This version 2.0 already gave preliminary results on full KODIAQ DR2 and XQ-100 sample that are in good agreement with previous measurements.
