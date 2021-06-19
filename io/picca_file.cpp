@@ -9,7 +9,6 @@
 
 
 #define LN10 2.30258509299
-#define ONE_SIGMA_2_FWHM 2.35482004503
 
 PiccaFile::PiccaFile(std::string fname_qso)
 {

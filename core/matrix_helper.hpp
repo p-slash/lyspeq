@@ -54,6 +54,7 @@ namespace mxhelp
 
         Resolution(int nm, int ndia);
         ~Resolution();
+        void constructGaussian(double *v, double R_kms, double a_kms);
 
 
         // B initialized to zero

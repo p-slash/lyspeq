@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <algorithm>
+#include <utility>
 
 #ifdef USE_MKL_CBLAS
 #include "mkl_lapacke.h"
@@ -13,6 +14,16 @@
 #include "lapacke.h"
 #endif
 
+double _window_fn_v(double x, double R, double a)
+{
+    #define SQRT2 1.41421356237
+    double gamma_p = (x + (a/2))/R/SQRT2,
+           gamma_m = (x - (a/2))/R/SQRT2;
+
+    return (erf(gamma_p)-erf(gamma_m))/2/a;
+
+    #undef SQRT2
+}
 
 namespace mxhelp
 {
@@ -153,6 +164,9 @@ namespace mxhelp
     // class Resolution
     Resolution::Resolution(int nm, int ndia) : ndim(nm), ndiags(ndia)
     {
+        if (ndiags%2 == 0)
+            std::runtime_error("Resolution ndiagonal cannot be even!");
+
         size = ndim*ndiags;
         matrix = new double[size];
         buffer_mat = NULL;
@@ -160,6 +174,23 @@ namespace mxhelp
         offsets = new int[ndiags];
         for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
             offsets[j] = i;
+    }
+
+    void Resolution::constructGaussian(double *v, double R_kms, double a_kms)
+    {
+        // e.g. n1=724, ntotdiag=11
+        // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
+        // when offsets[i]>0, remove initial offsets[i] elements from resomat.T[i]
+        // when offsets[i]<0, remove last |offsets[i]| elements from resomat.T[i]
+        for (int d = 0; d < ndiags; ++d)
+        {
+            int off = offsets[d], nelem = ndim - abs(off), od1 = 0;
+            if (off >= 0)   od1 = off;
+            double *dia_slice = matrix+(d*ndim+od1);
+
+            for (int i = 0; i < nelem; ++i)
+                *(dia_slice+i) = _window_fn_v(v[i+abs(off)]-v[i], R_kms, a_kms);
+        }
     }
 
     Resolution::~Resolution()
@@ -170,6 +201,114 @@ namespace mxhelp
         if (buffer_mat != NULL)
             delete [] buffer_mat;
     }
+
+    // void Resolution::multiply(char SIDER, char TRANSR, const double* A, double *B, int N)
+    // {
+    //     if (N != ndim)
+    //         std::runtime_error("Resolution multiply operation dimension do not match!");
+
+    //     std::for_each(B, B+N*N, [&](double &b) { b=0; });
+
+    //     int transpose;
+
+    //     if (TRANSR == 'N' || TRANSR == 'n')
+    //         transpose = 1;
+    //     else if (TRANSR == 'T' || TRANSR == 't')
+    //         transpose = -1;
+    //     else
+    //         std::runtime_error("Resolution multiply transpose wrong character!");
+
+    //     if (SIDER == 'L' || SIDER == 'l')
+    //     {
+    //         /* 
+    //         if offset > 0 (upper off-diagonals), 
+    //             remove initial offsets[i] elements from resolution matrix
+    //                 when transposed remove last |offsets[i]|
+    //             start from offset row in A to add row by row, 
+    //             add to 0th row of B, end by offset
+    //         if offset < 0 (lower off-diagonals), 
+    //             remove last |offsets[i]| elements from resolution matrix
+    //                 when transposed remove initial offsets[i]
+    //             start from 0th row in A, but end by |offset|, 
+    //             add to offset row in B
+    //         */
+    //         for (int d = 0; d < ndiags; ++d)
+    //         {
+    //             int off = transpose*offsets[d], 
+    //                 nmult = ndim - abs(off),
+    //                 Arow1, Brow1, od1;
+
+    //             if (off >= 0)
+    //             {
+    //                 Arow1 = off;
+    //                 Brow1 = 0;
+    //                 od1   = Arow1*(1+transpose)/2;
+    //             }
+    //             else
+    //             {
+    //                 Arow1 = 0;
+    //                 Brow1 = -off;
+    //                 od1   = -off*(1-transpose)/2;
+    //             }
+
+    //             const double *Aslice = A+Arow1*N,
+    //                          *dia_slice = matrix+(d*ndim+od1);
+    //             double       *Bslice = B+Brow1*N;
+
+    //             for (int nrow = 0; nrow < nmult; ++nrow)
+    //             {
+    //                 cblas_daxpy(ndim, dia_slice[nrow], Aslice, 1, Bslice, 1);
+    //                 Aslice+=N;
+    //                 Bslice+=N;
+    //             }
+    //         }
+    //     }
+    //     else if (SIDER == 'R' || SIDER == 'r')
+    //     {
+    //         /* 
+    //         if offset > 0 (upper off-diagonals), 
+    //             remove initial offsets[i] elements from resolution matrix
+    //                 when transposed remove last |offsets[i]|
+    //             start from 0th col in A, but end by |offset|, to add col by col, 
+    //             add to offset col of B
+    //         if offset < 0 (lower off-diagonals), 
+    //             remove last |offsets[i]| elements from resolution matrix
+    //                 when transposed remove initial offsets[i]
+    //             start from offset col in A 
+    //             add to 0th col in B, but end by |offset|
+    //         */
+    //         for (int d = 0; d < ndiags; ++d)
+    //         {
+    //             int off = transpose*offsets[d],
+    //                 nmult = ndim - abs(off),
+    //                 Acol1, Bcol1, od1;
+
+    //             if (off < 0)
+    //             {
+    //                 Acol1 = -off;
+    //                 Bcol1 = 0;
+    //                 od1   = -off*(1-transpose)/2;
+    //             }
+    //             else
+    //             {
+    //                 Acol1 = 0;
+    //                 Bcol1 = off;
+    //                 od1   = Bcol1*(1+transpose)/2;
+    //             }
+
+    //             const double *odiag = matrix + (d*ndim+od1);
+
+    //             for (int nrow = 0; nrow < ndim; ++nrow)
+    //             {
+    //                 const double  *Aslice = A + (Acol1+nrow*ndim);
+    //                 double        *Bslice = B + (Bcol1+nrow*ndim);
+                    
+    //                 for (int ncol=0; ncol < nmult; ++ncol)
+    //                     *(Bslice+ncol) += *(Aslice+ncol) * *(odiag+ncol);
+    //             }
+    //         }
+    //     }
+    // }
 
     void Resolution::multiply(char SIDER, char TRANSR, const double* A, double *B, int N)
     {
@@ -187,93 +326,76 @@ namespace mxhelp
         else
             std::runtime_error("Resolution multiply transpose wrong character!");
 
-        if (SIDER == 'L' || SIDER == 'l')
+        bool lside = (SIDER == 'L' || SIDER == 'l'),
+             rside = (SIDER == 'R' || SIDER == 'r');
+        
+        if (!lside && !rside)
+            std::runtime_error("Resolution multiply SIDER wrong character!");
+
+        /* Left Side:
+        if offset > 0 (upper off-diagonals), 
+            remove initial offsets[i] elements from resolution matrix
+                when transposed remove last |offsets[i]|
+            start from offset row in A to add row by row, 
+            add to 0th row of B, end by offset
+        if offset < 0 (lower off-diagonals), 
+            remove last |offsets[i]| elements from resolution matrix
+                when transposed remove initial offsets[i]
+            start from 0th row in A, but end by |offset|, 
+            add to offset row in B
+        =======================================================
+         * Right Side:
+        if offset > 0 (upper off-diagonals), 
+            remove initial offsets[i] elements from resolution matrix
+                when transposed remove last |offsets[i]|
+            start from 0th col in A, but end by |offset|, to add col by col, 
+            add to offset col of B
+        if offset < 0 (lower off-diagonals), 
+            remove last |offsets[i]| elements from resolution matrix
+                when transposed remove initial offsets[i]
+            start from offset col in A 
+            add to 0th col in B, but end by |offset|
+        */
+
+        for (int d = 0; d < ndiags; ++d)
         {
-            /* 
-            if offset > 0 (upper off-diagonals), 
-                remove initial offsets[i] elements from resolution matrix
-                    when transposed remove last |offsets[i]|
-                start from offset row in A to add row by row, 
-                add to 0th row of B, end by offset
-            if offset < 0 (lower off-diagonals), 
-                remove last |offsets[i]| elements from resolution matrix
-                    when transposed remove initial offsets[i]
-                start from 0th row in A, but end by |offset|, 
-                add to offset row in B
-            */
-            for (int d = 0; d < ndiags; ++d)
+            int off = transpose*offsets[d], 
+                nmult = ndim - abs(off),
+                A1 = abs(off), B1 = 0, od1 = 0;
+
+            if (off*transpose >= 0)  od1 = abs(off);
+
+            if (off < 0) std::swap(A1, B1);
+            // if (rside)   std::swap(A1, B1);
+            
+            const double * dia_slice = matrix+(d*ndim+od1);
+            
+            if (lside)
             {
-                int off = transpose*offsets[d], 
-                    nmult = ndim - abs(off),
-                    Arow1, Brow1, od1;
-
-                if (off >= 0)
-                {
-                    Arow1 = off;
-                    Brow1 = 0;
-                    od1   = Arow1*(1+transpose)/2;
-                }
-                else
-                {
-                    Arow1 = 0;
-                    Brow1 = -off;
-                    od1   = -off*(1-transpose)/2;
-                }
-
-                const double *Aslice = A+Arow1*N,
-                             *dia_slice = matrix+(d*ndim+od1);
-                double       *Bslice = B+Brow1*N;
+                const double *Aslice = A + A1*ndim;
+                double       *Bslice = B + B1*ndim;
 
                 for (int nrow = 0; nrow < nmult; ++nrow)
                 {
                     cblas_daxpy(ndim, dia_slice[nrow], Aslice, 1, Bslice, 1);
-                    Aslice+=N;
-                    Bslice+=N;
+                    
+                    Aslice += ndim;
+                    Bslice += ndim;
                 }
             }
-        }
-        else if (SIDER == 'R' || SIDER == 'r')
-        {
-            /* 
-            if offset > 0 (upper off-diagonals), 
-                remove initial offsets[i] elements from resolution matrix
-                    when transposed remove last |offsets[i]|
-                start from 0th col in A, but end by |offset|, to add col by col, 
-                add to offset col of B
-            if offset < 0 (lower off-diagonals), 
-                remove last |offsets[i]| elements from resolution matrix
-                    when transposed remove initial offsets[i]
-                start from offset col in A 
-                add to 0th col in B, but end by |offset|
-            */
-            for (int d = 0; d < ndiags; ++d)
+            else
             {
-                int off = transpose*offsets[d],
-                    nmult = ndim - abs(off),
-                    Acol1, Bcol1, od1;
-
-                if (off < 0)
-                {
-                    Acol1 = -off;
-                    Bcol1 = 0;
-                    od1   = -off*(1-transpose)/2;
-                }
-                else
-                {
-                    Acol1 = 0;
-                    Bcol1 = off;
-                    od1   = Bcol1*(1+transpose)/2;
-                }
-
-                const double *odiag = matrix + (d*ndim+od1);
-
+                std::swap(A1, B1);
+                const double  *Aslice = A + A1;
+                double        *Bslice = B + B1;
+                
                 for (int nrow = 0; nrow < ndim; ++nrow)
-                {
-                    const double  *Aslice = A + (Acol1+nrow*ndim);
-                    double        *Bslice = B + (Bcol1+nrow*ndim);
-                    
+                {   
                     for (int ncol=0; ncol < nmult; ++ncol)
-                        *(Bslice+ncol) += *(Aslice+ncol) * *(odiag+ncol);
+                        *(Bslice+ncol) += *(Aslice+ncol) * *(dia_slice+ncol);
+
+                    Aslice += ndim;
+                    Bslice += ndim;
                 }
             }
         }
