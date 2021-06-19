@@ -1,9 +1,12 @@
 #include "core/matrix_helper.hpp"
 #include <cmath>
 #include <cstdio>
+#include <algorithm>
 
 #define N 8
 #define NA 4
+#define NR 7
+#define Ndiag 5
 
 int main()
 {
@@ -69,6 +72,53 @@ int main()
     // Test LU invert
     mxhelp::LAPACKE_InvertMatrixLU(smy_matrix_A, NA);
     mxhelp::printfMatrix(smy_matrix_A, NA, NA);
+
+    // Test diamatrix multiplication
+    double matrix_R[] = {1, 4, 5, 0, 0, 0, 0,
+                         2, 8, 1, 2, 0, 0, 0,
+                         9, 4, 1, 7, 7, 0, 0,
+                         0, 1, 1, 3, 2, 7, 0,
+                         0, 0, 1, 7, 7, 4, 4,
+                         0, 0, 0, 2, 1, 4, 3,
+                         0, 0, 0, 0, 7, 4, 4},
+            dia_R[] = {-1, -1, 5, 2, 7, 7, 4,
+                       -1,  4, 1, 7, 2, 4, 3,
+                        1,  8, 1, 3, 7, 4, 4,
+                        2,  4, 1, 7, 1, 4, -1,
+                        9, 1, 1, 2, 7, -1, -1},
+            matrix_BR[] = {3, -4, 7, 7, -5, -2, -4,
+                         -2, -7, 4, -2, 0, -9, -7, 
+                         6, 6, 5, -6, -3, -9, -4, 
+                         3, 2, 4, -2, 8, -8, -4, 
+                         1, 2, -5, 7, -1, 6, 1, 
+                         3, -7, 0, 9, 1, -6, -2, 
+                         -3, 5, 9, -6, 4, 1, 8},
+            result_R[NR*NR];
+
+    // mxhelp::printfMatrix(matrix_R, NR, NR);
+
+    // printf("-----\n");
+    // mxhelp::printfMatrix(matrix_BR, NR, NR);
+
+    // printf("-----\n");
+
+    mxhelp::Resolution rmat(NR, Ndiag);
+    std::copy(&dia_R[0], &dia_R[0]+NR*Ndiag, rmat.matrix);
+    // mxhelp::printfMatrix(rmat.matrix, Ndiag, NR);
+    
+    // printf("-----\n");
+    printf("LN-----\n");
+    rmat.multiply('L', 'N', matrix_BR, result_R, NR);
+    mxhelp::printfMatrix(result_R, NR, NR);
+    printf("LT-----\n");
+    rmat.multiply('L', 'T', matrix_BR, result_R, NR);
+    mxhelp::printfMatrix(result_R, NR, NR);
+    printf("RN-----\n");
+    rmat.multiply('R', 'N', matrix_BR, result_R, NR);
+    mxhelp::printfMatrix(result_R, NR, NR);
+    printf("RT-----\n");
+    rmat.multiply('R', 'T', matrix_BR, result_R, NR);
+    mxhelp::printfMatrix(result_R, NR, NR);
 
     return 0;
 }
