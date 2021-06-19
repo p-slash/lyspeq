@@ -1,7 +1,6 @@
 #include "core/one_qso_estimate.hpp"
 #include "core/fiducial_cosmology.hpp"
 #include "core/quadratic_estimate.hpp"
-#include "core/matrix_helper.hpp"
 #include "core/global_numbers.hpp"
 
 #include "io/io_helper_functions.hpp"
@@ -36,11 +35,21 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     noise_array     = new double[DATA_SIZE];
 
     qFile->readData(lambda_array, flux_array, noise_array);
-
-    // Find the resolution index for the look up table
-    RES_INDEX = process::sq_private_table->findSpecResIndex(SPECT_RES_FWHM, DV_KMS);
     
-    if (RES_INDEX == -1)      throw std::runtime_error("SPECRES not found in tables!");
+    // If using resolution matrix, read resolution matrix from picca file
+    if (specifics::USE_RESOLUTION_MATRIX && specifics::INPUT_QSO_FILE == specifics::Picca)
+    {
+        qFile->readAllocResolutionMatrix(reso_matrix);
+        RES_INDEX = 0;
+    }    
+    else 
+    {
+        reso_matrix = NULL;
+        // Find the resolution index for the look up table
+        RES_INDEX = process::sq_private_table->findSpecResIndex(SPECT_RES_FWHM, DV_KMS);
+
+        if (RES_INDEX == -1)      throw std::runtime_error("SPECRES not found in tables!");
+    }
 
     interp2d_signal_matrix   = NULL;
     interp_derivative_matrix = new DiscreteInterpolation1D*[bins::NUMBER_OF_K_BANDS];
@@ -236,6 +245,9 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
         }
 
         mxhelp::copyUpperToLower(sm, DATA_SIZE);
+        // Multiply reso mat
+        if (reso_matrix != NULL)
+            reso_matrix->sandwich(sm, DATA_SIZE);
     }
     
     t = mytime::timer.getTime() - t;
@@ -285,6 +297,9 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
         t_interp = mytime::timer.getTime() - t;
 
         mxhelp::copyUpperToLower(qi, DATA_SIZE);
+        // Multiply reso mat
+        if (reso_matrix != NULL)
+            reso_matrix->sandwich(qi, DATA_SIZE);
     }
 
     t = mytime::timer.getTime() - t; 
