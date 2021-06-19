@@ -28,7 +28,7 @@ public:
         double &sig2noi, double &dv_kms);
 
     void readData(double *lambda, double *delta, double *noise);
-    mxhelp::Resolution readResolutionMatrix();
+    void readAllocResolutionMatrix(mxhelp::Resolution *& Rmat);
 };
 
 #endif
