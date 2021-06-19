@@ -375,8 +375,8 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
     conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
     process::SAVE_EACH_SPEC_RESULT  = save_spec_res > 0;
-    
-    if (use_picca_file)
+
+    if (use_picca_file>0)
         specifics::INPUT_QSO_FILE = specifics::Picca;
 
     // resolve conflict: Input delta flux overrides all
