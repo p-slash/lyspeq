@@ -25,10 +25,11 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     else
         qFile = new PiccaFile(qso_sp_fname);
 
-    double dummy_qso_z, dummy_s2n;
+    double dummy_qso_z, dummy_s2n, dum_Rkms;
 
     qFile->readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
-    
+    dum_Rkms = SPEED_OF_LIGHT/SPECT_RES_FWHM/ONE_SIGMA_2_FWHM;
+
     lambda_array    = new double[DATA_SIZE];
     velocity_array  = new double[DATA_SIZE];
     flux_array      = new double[DATA_SIZE];
@@ -37,10 +38,16 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     qFile->readData(lambda_array, flux_array, noise_array);
     
     // If using resolution matrix, read resolution matrix from picca file
-    if (specifics::USE_RESOLUTION_MATRIX && specifics::INPUT_QSO_FILE == specifics::Picca)
+    if (specifics::USE_RESOLUTION_MATRIX)
     {
-        qFile->readAllocResolutionMatrix(reso_matrix);
         RES_INDEX = 0;
+        if (specifics::INPUT_QSO_FILE == specifics::Picca)
+            qFile->readAllocResolutionMatrix(reso_matrix);
+        else
+        {
+            reso_matrix = new mxhelp::Resolution(DATA_SIZE, 11);
+            reso_matrix->constructGaussian(velocity_array, dum_Rkms, DV_KMS);
+        }
     }    
     else 
     {
@@ -193,6 +200,9 @@ OneQSOEstimate::~OneQSOEstimate()
 
     if (nqj_eff > 0)
         delete [] stored_qj;
+
+    if (reso_matrix != NULL)
+        delete reso_matrix;
 }
 
 double OneQSOEstimate::getComputeTimeEst()
