@@ -4,6 +4,7 @@
 + Config file has 'PrecomputedFisher' option to read file and skip fisher matrix computation.
 + Config file has 'InputIsPicca' option to read picca fits files instead. Construct the file list using HDU numbers of each chunk, e.g. third spectrum, picca-delta-100.fits.gz[3].
 + Config file has 'UseResoMatrix' option to read resolution matrix from picca file.
++ CFITSIO is a dependency.
 
 # v2
 Intermediate versions have been used to study DESI-lite mocks. Further modifications added configuration options, but most importantly optimizated the speed to run on high resolution quasars. This version 2.0 already gave preliminary results on full KODIAQ DR2 and XQ-100 sample that are in good agreement with previous measurements.
@@ -54,6 +55,7 @@ Prerequisites
 + [Python3](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
 + [MPI](https://www.open-mpi.org) is needed to enable parallel computing.
 + [CBLAS] and [LAPACKE].
++ [CFITSIO]
 
 Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl), [ATLAS](http://math-atlas.sourceforge.net) or [OpenBLAS](https://www.openblas.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. To link one of these libraries to gsl_cblas, remove `-lgslcblas` from `LDLIBS`. For ATLAS, add `-lcblas -latlas` to `LDLIBS` in your Makefile. To link OpenBLAS, add `-lopenblas`. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
 
