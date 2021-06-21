@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cmath>
+#include <algorithm>
 #include <stdexcept>
 
 // #include "io/io_helper_functions.hpp"
