@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <utility>
+#include <cmath>
 
 #ifdef USE_MKL_CBLAS
 #include "mkl_lapacke.h"
