@@ -170,6 +170,7 @@ namespace mxhelp
 
         size = ndim*ndiags;
         matrix = new double[size];
+        buffer_mat = nullptr;
 
         offsets = new int[ndiags];
         for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
