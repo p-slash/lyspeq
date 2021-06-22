@@ -16,6 +16,7 @@ namespace process
     extern double MEMORY_ALLOC;
     extern SQLookupTable *sq_private_table;
     extern bool SAVE_EACH_SPEC_RESULT;
+    extern bool SAVE_ALL_SQ_FILES;
 }
 
 namespace bins

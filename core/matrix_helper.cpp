@@ -21,7 +21,7 @@ double _window_fn_v(double x, double R, double a)
     double gamma_p = (x + (a/2))/R/SQRT2,
            gamma_m = (x - (a/2))/R/SQRT2;
 
-    return (erf(gamma_p)-erf(gamma_m))/2/a;
+    return (erf(gamma_p)-erf(gamma_m))/2;
 
     #undef SQRT2
 }

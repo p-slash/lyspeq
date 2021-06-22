@@ -66,7 +66,7 @@ void SQLookupTable::readTables()
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
     {
         DiscreteInterpolation1D **qr = &interp_derivative_matrices[getIndex4DerivativeInterpolation(0, r)];
-        readSQforR(r, interp2d_signal_matrices[r], qr);
+        readSQforR(r, interp2d_signal_matrices[r], qr, true);
     }
 
     deallocateSignalAndDerivArrays();
@@ -214,66 +214,92 @@ void SQLookupTable::computeTables(int Nv, int Nz, double Lv, bool force_rewrite)
     deallocateVAndZArrays();
 }
 
-void SQLookupTable::readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q)
+DiscreteInterpolation2D* SQLookupTable::_allocReadSFile(int r_index)
 {
+    DiscreteInterpolation2D* s;
+    std::string buf_fnames;
+    int dummy_R;
+    double temp_px_width, temp_ki, temp_kf;
+
+    int Rthis = R_DV_VALUES[r_index].first;
+    double dvthis = R_DV_VALUES[r_index].second;
+
+    // Read S table.
+    buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, Rthis, dvthis);
+    LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
+    
+    SQLookupTableFile s_table_file(buf_fnames, 'r');
+    
+    s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, dummy_R, 
+        temp_px_width, temp_ki, temp_kf);
+
+    // Allocate memory before reading further
+    if (sqhelper::derivative_array == NULL)
+        allocateSignalAndDerivArrays();
+
+    // Start reading data and set to intep pointer
+    s_table_file.readData(sqhelper::signal_array);
+    itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
+    itp_dz = sqhelper::getLinearSpacing(LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
+
+    s = new DiscreteInterpolation2D(itp_z1, itp_dz, itp_v1, itp_dv,
+        sqhelper::signal_array, N_Z_POINTS_OF_S, N_V_POINTS);
+
+    return s;
+}
+
+DiscreteInterpolation1D* SQLookupTable::_allocReadQFile(int kn, int r_index)
+{
+    DiscreteInterpolation1D* q;
+
     std::string buf_fnames;
     int dummy_R, dummy_Nz;
     double temp_px_width, temp_ki, temp_kf;
 
+    int Rthis = R_DV_VALUES[r_index].first;
+    double dvthis = R_DV_VALUES[r_index].second;
+    double kvalue_1, kvalue_2, dummy_lzq;
+    
+    kvalue_1 = bins::KBAND_EDGES[kn];
+    kvalue_2 = bins::KBAND_EDGES[kn + 1];
+
+    buf_fnames = sqhelper::QTableFileNameConvention(DIR, Q_BASE, Rthis, dvthis, kvalue_1, kvalue_2);
+
+    SQLookupTableFile q_table_file(buf_fnames, 'r');
+
+    q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, dummy_R, temp_px_width, 
+        temp_ki, temp_kf);
+
+    if (sqhelper::derivative_array == NULL)
+        allocateSignalAndDerivArrays();
+    
+    q_table_file.readData(sqhelper::derivative_array);
+
+    itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
+
+    q = new DiscreteInterpolation1D(itp_v1, itp_dv, sqhelper::derivative_array, N_V_POINTS);
+
+    return q;
+}
+
+void SQLookupTable::readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q, bool alloc)
+{
     // Skip this section if fiducial signal matrix is turned off.
     if (!specifics::TURN_OFF_SFID)
-    {
-        int Rthis = R_DV_VALUES[r_index].first;
-        double dvthis = R_DV_VALUES[r_index].second;
-
-        // Read S table.
-        buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, Rthis, dvthis);
-        LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
-        
-        SQLookupTableFile s_table_file(buf_fnames, 'r');
-        
-        s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, dummy_R, 
-            temp_px_width, temp_ki, temp_kf);
-
-        // Allocate memory before reading further
-        if (sqhelper::derivative_array == NULL)
-            allocateSignalAndDerivArrays();
-
-        // Start reading data and set to intep pointer
-        s_table_file.readData(sqhelper::signal_array);
-        itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
-        itp_dz = sqhelper::getLinearSpacing(LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
-
-        s = new DiscreteInterpolation2D(itp_z1, itp_dz, itp_v1, itp_dv,
-            sqhelper::signal_array, N_Z_POINTS_OF_S, N_V_POINTS);
+    {       
+        if (alloc || interp2d_signal_matrices == NULL)
+            s = _allocReadSFile(r_index);
+        else
+            s = getSignalMatrixInterp(r_index);
     }
 
     // Read Q tables. 
-    double kvalue_1, kvalue_2, dummy_lzq;
-
     for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-    {
-        int Rthis = R_DV_VALUES[r_index].first;
-        double dvthis = R_DV_VALUES[r_index].second;
-
-        kvalue_1 = bins::KBAND_EDGES[kn];
-        kvalue_2 = bins::KBAND_EDGES[kn + 1];
-
-        buf_fnames = sqhelper::QTableFileNameConvention(DIR, Q_BASE, Rthis, dvthis, kvalue_1, kvalue_2);
-
-        SQLookupTableFile q_table_file(buf_fnames, 'r');
-
-        q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, dummy_R, temp_px_width, 
-            temp_ki, temp_kf);
-
-        if (sqhelper::derivative_array == NULL)
-            allocateSignalAndDerivArrays();
-        
-        q_table_file.readData(sqhelper::derivative_array);
-
-        itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
-
-        q[kn] = new DiscreteInterpolation1D(itp_v1, itp_dv, sqhelper::derivative_array, N_V_POINTS);
+    {            
+        if (alloc || interp_derivative_matrices == NULL)
+            q[kn] = _allocReadQFile(kn, r_index);
+        else
+            q[kn] = getDerivativeMatrixInterp(kn, r_index);
     }
 }
 

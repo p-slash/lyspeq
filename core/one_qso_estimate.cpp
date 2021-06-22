@@ -493,6 +493,9 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_
 {
     _allocateMatrices();
 
+    // This function allocates new signal & deriv matrices if process::SAVE_ALL_SQ_FILES=false 
+    // i.e., no caching of SQ files
+    // If all tables are cached, then this function simply points to those in process:sq_private_table
     process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, interp_derivative_matrix);
 
     // Preload last nqj_eff matrices
@@ -537,10 +540,15 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_
     }
     
     _freeMatrices();
-    if (interp2d_signal_matrix!=NULL)
-        delete interp2d_signal_matrix;
-    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-        delete interp_derivative_matrix[kn];
+
+    // Do not delete if these are pointers to process::sq_private_table
+    if (!process::SAVE_ALL_SQ_FILES)
+    {
+        if (interp2d_signal_matrix!=NULL)
+            delete interp2d_signal_matrix;
+        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
+            delete interp_derivative_matrix[kn];
+    }
 }
 
 void OneQSOEstimate::_allocateMatrices()

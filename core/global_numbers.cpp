@@ -16,6 +16,7 @@ namespace process
     double MEMORY_ALLOC  = 0;
     SQLookupTable *sq_private_table;
     bool SAVE_EACH_SPEC_RESULT = false;
+    bool SAVE_ALL_SQ_FILES = false;
 }
 
 namespace bins
@@ -290,7 +291,8 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 {
     int N_KLIN_BIN, N_KLOG_BIN, 
         sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
-        save_spec_res=-1, use_picca_file=-1, use_reso_mat=-1;
+        save_spec_res=-1, use_picca_file=-1, use_reso_mat=-1,
+        cache_all_sq=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="", FNAME_PREFISHER[300]="";
 
@@ -316,6 +318,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("FileInputDir",   INPUT_DIR, STRING);
     cFile.addKey("InputIsPicca",   &use_picca_file, INTEGER);
     cFile.addKey("UseResoMatrix",  &use_reso_mat, INTEGER);
+
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
 
@@ -323,6 +326,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 
     cFile.addKey("SignalLookUpTableBase",       FILEBASE_S, STRING);
     cFile.addKey("DerivativeSLookUpTableBase",  FILEBASE_Q, STRING);
+    cFile.addKey("CacheAllSQTables", &cache_all_sq, INTEGER);
 
     // Integration grid parameters
     cFile.addKey("NumberVPoints",   Nv, INTEGER);
@@ -375,6 +379,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
     conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
     process::SAVE_EACH_SPEC_RESULT  = save_spec_res > 0;
+    process::SAVE_ALL_SQ_FILES      = cache_all_sq > 0;
 
     if (use_picca_file>0)
         specifics::INPUT_QSO_FILE = specifics::Picca;
