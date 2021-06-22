@@ -7,6 +7,8 @@
 #include "cblas.h"
 #endif
 
+#include <memory>
+
 namespace mxhelp
 {
     // Copy upper triangle of matrix A to its lower triangle
@@ -51,7 +53,8 @@ namespace mxhelp
     public:
         int ndim, ndiags, size;
         int *offsets;
-        double *matrix, *buffer_mat;
+        double *matrix;
+        std::unique_ptr<double[]> buffer_mat;
 
         Resolution(int nm, int ndia);
         ~Resolution();
@@ -67,6 +70,8 @@ namespace mxhelp
 
         // R . inplace . R^T
         void sandwich(double *inplace, int N);
+
+        double getMaxMemUsage();
     };
 }
 
