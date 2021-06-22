@@ -66,6 +66,9 @@ public:
 
     DiscreteInterpolation1D* getDerivativeMatrixInterp(int kn, int r_index) const;
     DiscreteInterpolation2D* getSignalMatrixInterp(int r_index) const;
+
+    double getOneSetMemUsage();
+    double getMaxMemUsage();
 };
 
 #endif

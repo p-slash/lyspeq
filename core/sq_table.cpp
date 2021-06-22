@@ -377,6 +377,24 @@ void SQLookupTable::deallocateVAndZArrays()
         delete [] sqhelper::LINEAR_Z_ARRAY;
 }
 
+double SQLookupTable::getOneSetMemUsage()
+{
+    double s = (double)sizeof(double) * N_V_POINTS * N_Z_POINTS_OF_S  / 1048576.,
+    q = (double)sizeof(double) * N_V_POINTS * bins::NUMBER_OF_K_BANDS / 1048576.;
+
+    if (specifics::TURN_OFF_SFID) s = 0;
+
+    return s+q;
+}
+
+double SQLookupTable::getMaxMemUsage()
+{
+    double rdvsize = (double)sizeof(double) * NUMBER_OF_R_VALUES * 1.5 / 1048576.;
+
+    return getOneSetMemUsage() * NUMBER_OF_R_VALUES + rdvsize;
+}
+
+
 // SQLookupTable::SQLookupTable(const SQLookupTable &sq)
 // {
 //     LOG::LOGGER.STD("Copying SQ table.\n");
