@@ -170,7 +170,6 @@ namespace mxhelp
 
         size = ndim*ndiags;
         matrix = new double[size];
-        buffer_mat = NULL;
 
         offsets = new int[ndiags];
         for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
@@ -204,9 +203,6 @@ namespace mxhelp
     {
         delete [] offsets;
         delete [] matrix;
-
-        if (buffer_mat != NULL)
-            delete [] buffer_mat;
     }
 
     void Resolution::multiply(char SIDER, char TRANSR, const double* A, double *B, int N)
@@ -306,11 +302,20 @@ namespace mxhelp
         if (N != ndim)
             std::runtime_error("Resolution sandwich operation dimension do not match!");
         
-        if (buffer_mat == NULL)
-            buffer_mat = new double[N*N];
+        if (buffer_mat.get() == nullptr)
+            buffer_mat = std::unique_ptr<double[]>(new double[ndim*ndim]);
         
-        multiply('L', 'N', inplace, buffer_mat, N);
-        multiply('R', 'T', buffer_mat, inplace, N);
+        multiply('L', 'N', inplace, buffer_mat.get(), N);
+        multiply('R', 'T', buffer_mat.get(), inplace, N);
+    }
+
+    double Resolution::getMaxMemUsage()
+    {
+        double bufsize = (double)sizeof(double) * ndim * ndim / 1048576.; // in MB
+        double diasize = (double)sizeof(double) * ndim * ndiags / 1048576.; // in MB
+        double offsize = (int)sizeof(int) * ndiags / 1048576.; // in MB
+
+        return bufsize + diasize + offsize;
     }
 
     /*

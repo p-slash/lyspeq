@@ -141,9 +141,13 @@ void OneQSOEstimate::_setStoredMatrices()
 {
     // Number of Qj matrices to preload.
     double size_m1 = (double)sizeof(double) * DATA_SIZE * DATA_SIZE / 1048576.; // in MB
-    
+    double remain_mem = process::MEMORY_ALLOC;
+
+    if (specifics::USE_RESOLUTION_MATRIX)
+        remain_mem -= reso_matrix->getMaxMemUsage();
+
     // Need at least 3 matrices as temp
-    nqj_eff      = process::MEMORY_ALLOC / size_m1 - 3;
+    nqj_eff      = remain_mem / size_m1 - 3;
     isSfidStored = false;
     
     if (nqj_eff <= 0)
