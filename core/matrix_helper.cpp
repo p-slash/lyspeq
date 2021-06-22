@@ -313,7 +313,7 @@ namespace mxhelp
     {
         double bufsize = (double)sizeof(double) * ndim * ndim / 1048576.; // in MB
         double diasize = (double)sizeof(double) * ndim * ndiags / 1048576.; // in MB
-        double offsize = (int)sizeof(int) * ndiags / 1048576.; // in MB
+        double offsize = (double)sizeof(int) * (ndiags+3) / 1048576.; // in MB
 
         return bufsize + diasize + offsize;
     }
