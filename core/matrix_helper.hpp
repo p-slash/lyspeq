@@ -47,6 +47,7 @@ namespace mxhelp
 
     class Resolution
     {
+        double* _getDiagonal(int d);
     public:
         int ndim, ndiags, size;
         int *offsets;
