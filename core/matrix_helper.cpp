@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <utility>
 #include <cmath>
+#include <memory>
 
 #ifdef USE_MKL_CBLAS
 #include "mkl_lapacke.h"
@@ -163,17 +164,13 @@ namespace mxhelp
     }
 
     // class Resolution
-    Resolution::Resolution(int nm, int ndia)
+    Resolution::Resolution(int nm, int ndia) : ndim(nm), ndiags(ndia)
     {
-        ndim   = nm;
-        ndiags = ndia;
-
         if (ndiags%2 == 0)
             std::runtime_error("Resolution ndiagonal cannot be even!");
 
         size = ndim*ndiags;
         matrix = new double[size];
-        buffer_mat = nullptr;
 
         offsets = new int[ndiags];
         for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
@@ -305,10 +302,9 @@ namespace mxhelp
 
         if (N != ndim)
             std::runtime_error("Resolution sandwich operation dimension do not match!");
-        
-        if (buffer_mat.get() == nullptr)
-            buffer_mat = std::unique_ptr<double[]>(new double[ndim*ndim]);
-        
+
+        static std::unique_ptr<double[]> buffer_mat(new double[ndim*ndim]);
+
         multiply('L', 'N', inplace, buffer_mat.get(), N);
         multiply('R', 'T', buffer_mat.get(), inplace, N);
     }
