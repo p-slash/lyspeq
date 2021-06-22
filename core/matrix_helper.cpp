@@ -163,13 +163,17 @@ namespace mxhelp
     }
 
     // class Resolution
-    Resolution::Resolution(int nm, int ndia) : ndim(nm), ndiags(ndia), buffer_mat(nullptr)
+    Resolution::Resolution(int nm, int ndia)
     {
+        ndim   = nm;
+        ndiags = ndia;
+
         if (ndiags%2 == 0)
             std::runtime_error("Resolution ndiagonal cannot be even!");
 
         size = ndim*ndiags;
         matrix = new double[size];
+        buffer_mat = nullptr;
 
         offsets = new int[ndiags];
         for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
