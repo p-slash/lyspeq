@@ -38,7 +38,12 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     noise_array     = new double[DATA_SIZE];
 
     qFile->readData(lambda_array, flux_array, noise_array);
-    
+
+    // Covert from wavelength to velocity units around median wavelength
+    conv::convertLambdaToVelocity(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
+    LOWER_REDSHIFT = lambda_array[0] / LYA_REST - 1;
+    UPPER_REDSHIFT = lambda_array[DATA_SIZE-1] / LYA_REST - 1;
+
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
     {
@@ -181,11 +186,6 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 {
     isCovInverted = false;
     _readFromFile(fname_qso);
-
-    // Covert from wavelength to velocity units around median wavelength
-    conv::convertLambdaToVelocity(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
-    LOWER_REDSHIFT = lambda_array[0] / LYA_REST - 1;
-    UPPER_REDSHIFT = lambda_array[DATA_SIZE-1] / LYA_REST - 1;
 
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
