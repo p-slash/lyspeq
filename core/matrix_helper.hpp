@@ -7,8 +7,6 @@
 #include "cblas.h"
 #endif
 
-#include <memory>
-
 namespace mxhelp
 {
     // Copy upper triangle of matrix A to its lower triangle
@@ -54,7 +52,6 @@ namespace mxhelp
         int ndim, ndiags, size;
         int *offsets;
         double *matrix;
-        std::unique_ptr<double[]> buffer_mat;
 
         Resolution(int nm, int ndia);
         ~Resolution();
