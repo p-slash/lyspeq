@@ -179,7 +179,7 @@ namespace mxhelp
     double* Resolution::_getDiagonal(int d)
     {
         int off = offsets[d], od1 = 0;
-        if (off >= 0)  od1 = abs(off);
+        if (off > 0)  od1 = abs(off);
 
         return matrix+(d*ndim+od1);
     }
