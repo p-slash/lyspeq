@@ -8,7 +8,7 @@
 #include "mpi.h" 
 #endif
 
-#include "core/global_numbers.hpp"
+#include "core/global.hpp"
 #include "core/fiducial_cosmology.hpp"
 #include "gsltools/fourier_integrator.hpp"
 #include "io/io_helper_functions.hpp"
@@ -66,7 +66,7 @@ void SQLookupTable::readTables()
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
     {
         DiscreteInterpolation1D **qr = &interp_derivative_matrices[getIndex4DerivativeInterpolation(0, r)];
-        readSQforR(r, interp2d_signal_matrices[r], qr);
+        readSQforR(r, interp2d_signal_matrices[r], qr, true);
     }
 
     deallocateSignalAndDerivArrays();
@@ -96,66 +96,6 @@ void SQLookupTable::computeTables(int Nv, int Nz, double Lv, bool force_rewrite)
     if (process::this_pe == process::total_pes-1)
         r_end_this = NUMBER_OF_R_VALUES;
 
-    // Integrate fiducial signal matrix
-    FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
-    
-    // Skip this section if fiducial signal matrix is turned off.
-    if (specifics::TURN_OFF_SFID) goto DERIVATIVE;
-
-    for (int r = r_start_this; r < r_end_this; ++r)
-    {
-        time_spent_table_sfid = mytime::timer.getTime();
-        int Rthis = R_DV_VALUES[r].first;
-        double dvthis = R_DV_VALUES[r].second;
-
-        // Convert integer FWHM to 1 sigma km/s
-        win_params.spectrograph_res = SPEED_OF_LIGHT / Rthis / ONE_SIGMA_2_FWHM;
-        win_params.pixel_width = dvthis;
-
-        LOG::LOGGER.STD("Creating look up table for signal matrix R=%d (%.2f km/s), dv=%.1f.\n",
-            Rthis, win_params.spectrograph_res, dvthis);
-
-        buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, Rthis, dvthis);
-        
-        if (!force_rewrite && ioh::file_exists(buf_fnames.c_str()))
-        {
-            LOG::LOGGER.STD("File %s already exists. Skip to next.\n", buf_fnames.c_str());
-            continue;
-        }
-
-        for (int nv = 0; nv < N_V_POINTS; ++nv)
-        {
-            win_params.delta_v_ij = sqhelper::LINEAR_V_ARRAY[nv];  // 0 + LENGTH_V * nv / (Nv - 1.);
-            s_integrator.setTableParameters(win_params.delta_v_ij, 
-                fidcosmo::FID_HIGHEST_K - fidcosmo::FID_LOWEST_K);
-
-            for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
-            {
-                int xy = nz + N_Z_POINTS_OF_S * nv;
-                win_params.z_ij = sqhelper::LINEAR_Z_ARRAY[nz];   // z_first + z_length * nz / (Nz - 1.);
-                
-                // 1E-15 gave roundoff error for smoothing with 20.8 km/s
-                // Correlation at dv=0 is between 0.01 and 1. 
-                // Giving room for 7 decades, absolute error can be 1e-9
-                sqhelper::signal_array[xy] = s_integrator.evaluate(fidcosmo::FID_LOWEST_K, 
-                    fidcosmo::FID_HIGHEST_K, -1, 1E-9);
-            }
-        }
-        
-        SQLookupTableFile signal_table(buf_fnames, 'w');
-
-        signal_table.setHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, Rthis, dvthis, 
-            0, bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
-
-        signal_table.writeData(sqhelper::signal_array);
-
-        time_spent_table_sfid = mytime::timer.getTime() - time_spent_table_sfid;
-
-        LOG::LOGGER.STD("Time spent on fiducial signal matrix table R=%d, dv=%.1f is %.2f mins.\n",
-            Rthis, dvthis, time_spent_table_sfid);
-    }
-
-DERIVATIVE:
     // Integrate derivative matrices
     // int subNz = Nz / NUMBER_OF_Z_BINS;
     FourierIntegrator q_integrator(GSL_INTEG_COSINE, q_matrix_integrand, &integration_parameters);
@@ -210,79 +150,166 @@ DERIVATIVE:
     }
     // Q matrices are written.
     // ---------------------
+
+    // Integrate fiducial signal matrix
+    FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
+    
+    // Skip this section if fiducial signal matrix is turned off.
+    if (specifics::TURN_OFF_SFID) return;
+
+    for (int r = r_start_this; r < r_end_this; ++r)
+    {
+        time_spent_table_sfid = mytime::timer.getTime();
+        int Rthis = R_DV_VALUES[r].first;
+        double dvthis = R_DV_VALUES[r].second;
+
+        // Convert integer FWHM to 1 sigma km/s
+        win_params.spectrograph_res = SPEED_OF_LIGHT / Rthis / ONE_SIGMA_2_FWHM;
+        win_params.pixel_width = dvthis;
+
+        LOG::LOGGER.STD("Creating look up table for signal matrix R=%d (%.2f km/s), dv=%.1f.\n",
+            Rthis, win_params.spectrograph_res, dvthis);
+
+        buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, Rthis, dvthis);
+        
+        if (!force_rewrite && ioh::file_exists(buf_fnames.c_str()))
+        {
+            LOG::LOGGER.STD("File %s already exists. Skip to next.\n", buf_fnames.c_str());
+            continue;
+        }
+
+        for (int nv = 0; nv < N_V_POINTS; ++nv)
+        {
+            win_params.delta_v_ij = sqhelper::LINEAR_V_ARRAY[nv];  // 0 + LENGTH_V * nv / (Nv - 1.);
+            s_integrator.setTableParameters(win_params.delta_v_ij, 
+                fidcosmo::FID_HIGHEST_K - fidcosmo::FID_LOWEST_K);
+
+            for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
+            {
+                int xy = nz + N_Z_POINTS_OF_S * nv;
+                win_params.z_ij = sqhelper::LINEAR_Z_ARRAY[nz];   // z_first + z_length * nz / (Nz - 1.);
+                
+                // 1E-15 gave roundoff error for smoothing with 20.8 km/s
+                // Correlation at dv=0 is between 0.01 and 1. 
+                // Giving room for 7 decades, absolute error can be 1e-9
+                sqhelper::signal_array[xy] = s_integrator.evaluate(fidcosmo::FID_LOWEST_K, 
+                    fidcosmo::FID_HIGHEST_K, -1, 1E-9);
+            }
+        }
+        
+        SQLookupTableFile signal_table(buf_fnames, 'w');
+
+        signal_table.setHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, Rthis, dvthis, 
+            0, bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
+
+        signal_table.writeData(sqhelper::signal_array);
+
+        time_spent_table_sfid = mytime::timer.getTime() - time_spent_table_sfid;
+
+        LOG::LOGGER.STD("Time spent on fiducial signal matrix table R=%d, dv=%.1f is %.2f mins.\n",
+            Rthis, dvthis, time_spent_table_sfid);
+    }
+
     deallocateSignalAndDerivArrays();
     deallocateVAndZArrays();
 }
 
-void SQLookupTable::readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q)
+DiscreteInterpolation2D* SQLookupTable::_allocReadSFile(int r_index, bool is_mu)
 {
+    DiscreteInterpolation2D* s;
+    std::string buf_fnames;
+    int dummy_R;
+    double temp_px_width, temp_ki, temp_kf;
+
+    int Rthis = R_DV_VALUES[r_index].first;
+    double dvthis = R_DV_VALUES[r_index].second;
+
+    // Read S table.
+    buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, Rthis, dvthis);
+    LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
+    
+    SQLookupTableFile s_table_file(buf_fnames, 'r');
+    
+    s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, dummy_R, 
+        temp_px_width, temp_ki, temp_kf);
+
+    // Allocate memory before reading further
+    if (sqhelper::derivative_array == NULL)
+        allocateSignalAndDerivArrays();
+
+    // Start reading data and set to intep pointer
+    s_table_file.readData(sqhelper::signal_array);
+    itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
+    itp_dz = sqhelper::getLinearSpacing(LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
+
+    s = new DiscreteInterpolation2D(itp_z1, itp_dz, itp_v1, itp_dv,
+        sqhelper::signal_array, N_Z_POINTS_OF_S, N_V_POINTS);
+
+    return s;
+}
+
+DiscreteInterpolation1D* SQLookupTable::_allocReadQFile(int kn, int r_index, bool is_mu)
+{
+    DiscreteInterpolation1D* q;
+
     std::string buf_fnames;
     int dummy_R, dummy_Nz;
     double temp_px_width, temp_ki, temp_kf;
 
+    int Rthis = R_DV_VALUES[r_index].first;
+    double dvthis = R_DV_VALUES[r_index].second;
+    double kvalue_1, kvalue_2, dummy_lzq;
+    
+    kvalue_1 = bins::KBAND_EDGES[kn];
+    kvalue_2 = bins::KBAND_EDGES[kn + 1];
+
+    buf_fnames = sqhelper::QTableFileNameConvention(DIR, Q_BASE, Rthis, dvthis, kvalue_1, kvalue_2);
+
+    SQLookupTableFile q_table_file(buf_fnames, 'r');
+
+    q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, dummy_R, temp_px_width, 
+        temp_ki, temp_kf);
+
+    if (sqhelper::derivative_array == NULL)
+        allocateSignalAndDerivArrays();
+    
+    q_table_file.readData(sqhelper::derivative_array);
+
+    itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
+
+    q = new DiscreteInterpolation1D(itp_v1, itp_dv, sqhelper::derivative_array, N_V_POINTS);
+
+    return q;
+}
+
+void SQLookupTable::readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q, 
+    bool alloc, bool is_mu)
+{
     // Skip this section if fiducial signal matrix is turned off.
     if (!specifics::TURN_OFF_SFID)
-    {
-        int Rthis = R_DV_VALUES[r_index].first;
-        double dvthis = R_DV_VALUES[r_index].second;
-
-        // Read S table.
-        buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, Rthis, dvthis);
-        LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
-        
-        SQLookupTableFile s_table_file(buf_fnames, 'r');
-        
-        s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, dummy_R, 
-            temp_px_width, temp_ki, temp_kf);
-
-        // Allocate memory before reading further
-        if (sqhelper::derivative_array == NULL)
-            allocateSignalAndDerivArrays();
-
-        // Start reading data and set to intep pointer
-        s_table_file.readData(sqhelper::signal_array);
-        itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
-        itp_dz = sqhelper::getLinearSpacing(LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
-
-        s = new DiscreteInterpolation2D(itp_z1, itp_dz, itp_v1, itp_dv,
-            sqhelper::signal_array, N_Z_POINTS_OF_S, N_V_POINTS);
+    {       
+        if (alloc || interp2d_signal_matrices == NULL)
+            s = _allocReadSFile(r_index, is_mu);
+        else
+            s = getSignalMatrixInterp(r_index, is_mu);
     }
 
     // Read Q tables. 
-    double kvalue_1, kvalue_2, dummy_lzq;
-
     for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-    {
-        int Rthis = R_DV_VALUES[r_index].first;
-        double dvthis = R_DV_VALUES[r_index].second;
-
-        kvalue_1 = bins::KBAND_EDGES[kn];
-        kvalue_2 = bins::KBAND_EDGES[kn + 1];
-
-        buf_fnames = sqhelper::QTableFileNameConvention(DIR, Q_BASE, Rthis, dvthis, kvalue_1, kvalue_2);
-
-        SQLookupTableFile q_table_file(buf_fnames, 'r');
-
-        q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, dummy_R, temp_px_width, 
-            temp_ki, temp_kf);
-
-        if (sqhelper::derivative_array == NULL)
-            allocateSignalAndDerivArrays();
-        
-        q_table_file.readData(sqhelper::derivative_array);
-
-        itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
-
-        q[kn] = new DiscreteInterpolation1D(itp_v1, itp_dv, sqhelper::derivative_array, N_V_POINTS);
+    {            
+        if (alloc || interp_derivative_matrices == NULL)
+            q[kn] = _allocReadQFile(kn, r_index, is_mu);
+        else
+            q[kn] = getDerivativeMatrixInterp(kn, r_index, is_mu);
     }
 }
 
-DiscreteInterpolation1D* SQLookupTable::getDerivativeMatrixInterp(int kn, int r_index) const
+DiscreteInterpolation1D* SQLookupTable::getDerivativeMatrixInterp(int kn, int r_index, bool is_mu) const
 {
     return interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)];
 }
 
-DiscreteInterpolation2D* SQLookupTable::getSignalMatrixInterp(int r_index) const
+DiscreteInterpolation2D* SQLookupTable::getSignalMatrixInterp(int r_index, bool is_mu) const
 {
     return interp2d_signal_matrices[r_index];
 }
@@ -350,6 +377,24 @@ void SQLookupTable::deallocateVAndZArrays()
     if (!specifics::TURN_OFF_SFID)
         delete [] sqhelper::LINEAR_Z_ARRAY;
 }
+
+double SQLookupTable::getOneSetMemUsage()
+{
+    double s = (double)sizeof(double) * N_V_POINTS * N_Z_POINTS_OF_S  / 1048576.,
+    q = (double)sizeof(double) * N_V_POINTS * bins::NUMBER_OF_K_BANDS / 1048576.;
+
+    if (specifics::TURN_OFF_SFID) s = 0;
+
+    return s+q;
+}
+
+double SQLookupTable::getMaxMemUsage()
+{
+    double rdvsize = (double)sizeof(double) * NUMBER_OF_R_VALUES * 1.5 / 1048576.;
+
+    return getOneSetMemUsage() * NUMBER_OF_R_VALUES + rdvsize;
+}
+
 
 // SQLookupTable::SQLookupTable(const SQLookupTable &sq)
 // {

@@ -1,4 +1,4 @@
-#include "core/global_numbers.hpp"
+#include "core/global.hpp"
 #include "core/fiducial_cosmology.hpp"
 #include "core/quadratic_estimate.hpp"
 #include "io/config_file.hpp"
@@ -23,6 +23,11 @@ namespace bins
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, DEGREE_OF_FREEDOM;
     double *KBAND_EDGES, *KBAND_CENTERS;
     double  Z_BIN_WIDTH, *ZBIN_CENTERS, z0_edge;
+
+    bool isMuBin(int i_kz)
+    {
+         return (specifics::EST_RESO_BIAS && (i_kz+1)%bins::NUMBER_OF_K_BANDS==0);
+    }
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0)
     {
@@ -52,7 +57,6 @@ namespace bins
         if (klast > ktemp)
             KBAND_EDGES[NUMBER_OF_K_BANDS] = klast;
 
-
         // Set up k bin centers
         for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
             KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
@@ -64,6 +68,10 @@ namespace bins
             ZBIN_CENTERS[zm] = z0 + Z_BIN_WIDTH * zm;
 
         z0_edge = ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.;
+
+        if (specifics::EST_RESO_BIAS)
+            NUMBER_OF_K_BANDS++;
+            TOTAL_KZ_BINS+=NUMBER_OF_Z_BINS;
     }
 
     void cleanUpBins()
@@ -208,7 +216,7 @@ namespace mytime
 namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
-    bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
+    bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, EST_RESO_BIAS;
     double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
 
     #if defined(TOPHAT_Z_BINNING_FN)
@@ -263,13 +271,15 @@ namespace specifics
             "# Input is delta flux: %s\n" \
             "# Divide by mean flux of the chunk: %s\n" \
             "# ContinuumMargAmp: %.2e\n" \
-            "# ContinuumMargDerv: %.2e\n",  \
+            "# ContinuumMargDerv: %.2e\n" \
+            "# Estimating resolution bias: %s\n",  \
             TURN_OFF_SFID ? "OFF" : "ON", \
             conv::USE_LOG_V ? "LOGARITHMIC" : "EdS", \
             conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO", \
             conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF", \
             CONTINUUM_MARGINALIZATION_AMP, \
-            CONTINUUM_MARGINALIZATION_DERV 
+            CONTINUUM_MARGINALIZATION_DERV, \
+            specifics::EST_RESO_BIAS ? "ON" : "OFF"
 
         if (toWrite == NULL)
             LOG::LOGGER.STD(CONFIG_TXT);
@@ -289,7 +299,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 {
     int N_KLIN_BIN, N_KLOG_BIN, 
         sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
-        save_spec_res=-1;
+        save_spec_res=-1, u_reso_bias=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="", FNAME_PREFISHER[300]="";
 
@@ -354,6 +364,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     // Continuum marginalization coefficients. Defaults are 100. Pass <=0 to turn off
     cFile.addKey("ContinuumMargAmp",  &specifics::CONTINUUM_MARGINALIZATION_AMP,  DOUBLE);
     cFile.addKey("ContinuumMargDerv", &specifics::CONTINUUM_MARGINALIZATION_DERV, DOUBLE);
+    cFile.addKey("ResolutionBiasEst", &u_reso_bias, INTEGER);
 
     // Read integer if testing outside of Lya region
     cFile.addKey("AllocatedMemoryMB", &process::MEMORY_ALLOC, DOUBLE);
@@ -367,6 +378,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     
     specifics::TURN_OFF_SFID        = sfid_off > 0;
     specifics::SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
+    specifics::EST_RESO_BIAS        = u_reso_bias > 0;
     conv::USE_LOG_V                 = !(uedsv > 0);
     conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
     conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;

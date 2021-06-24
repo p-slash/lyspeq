@@ -38,6 +38,7 @@ protected:
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
     double  *covariance_matrix, *inverse_covariance_matrix, *temp_matrix[2];
+    const double *cur_iter_thetas;
 
     double  **stored_qj, *stored_sfid;
     int       nqj_eff;
@@ -45,8 +46,8 @@ protected:
 
     bool isCovInverted;
 
-    DiscreteInterpolation2D  *interp2d_signal_matrix;
-    DiscreteInterpolation1D **interp_derivative_matrix;
+    DiscreteInterpolation2D  *interp2d_signal_matrix, *interp2d_smu_matrix;
+    DiscreteInterpolation1D **interp_derivative_matrix, **interp_qmu_matrices;
 
     // 3 TOTAL_KZ_BINS sized vectors
     double  *dbt_estimate_before_fisher_vector[3];
@@ -67,6 +68,7 @@ protected:
 
     void _setFiducialSignalMatrix(double *&sm, bool copy=true);
     void _setQiMatrix(double *&qi, int i_kz, bool copy=true);
+    void _setQmuMatrix(double *&qi);
     void _getWeightedMatrix(double *m);
     void _getFisherMatrix(const double *Q_ikz_matrix, int i_kz);
 
@@ -83,7 +85,7 @@ public:
 
     double getComputeTimeEst();
 
-    void setCovarianceMatrix(const double *ps_estimate);
+    void setCovarianceMatrix();
     void invertCovarianceMatrix();
 
     void computePSbeforeFvector();

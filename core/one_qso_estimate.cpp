@@ -2,7 +2,7 @@
 #include "core/fiducial_cosmology.hpp"
 #include "core/quadratic_estimate.hpp"
 #include "core/matrix_helper.hpp"
-#include "core/global_numbers.hpp"
+#include "core/global.hpp"
 
 #include "io/io_helper_functions.hpp"
 #include "io/qso_file.hpp"
@@ -143,9 +143,9 @@ void OneQSOEstimate::_setStoredMatrices()
     isSfidSet = false;
 }
 
-OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
+OneQSOEstimate::OneQSOEstimate(std::string fname_qso) : cur_iter_thetas(NULL), isCovInverted(false)
 {
-    isCovInverted = false;
+    // isCovInverted = false;
     _readFromFile(fname_qso);
 
     // Covert from wavelength to velocity units around median wavelength
@@ -238,6 +238,38 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
     mytime::time_spent_on_set_sfid += t;
 }
 
+void OneQSOEstimate::_setQmuMatrix(double *&qi)
+{
+    // Add fiducial signal first
+    // Then add derivative matrices
+    double v_ij, z_ij, temp, temp_q;
+    int kn, zm;
+    
+    for (int row = 0; row < DATA_SIZE; ++row)
+    {
+        for (int col = row; col < DATA_SIZE; ++col)
+        {
+            _getVandZ(v_ij, z_ij, row, col);
+
+            temp = interp2d_smu_matrix->evaluate(z_ij, v_ij);
+
+            for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
+            {
+                bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
+                temp += cur_iter_thetas[i_kz + fisher_index_start] * 
+                    bins::redshiftBinningFunction(z_ij, zm)*
+                    interp_qmu_matrices[kn]->evaluate(v_ij);
+            }
+
+            *(qi+col+DATA_SIZE*row) = temp;
+        }
+    }
+
+    mxhelp::copyUpperToLower(qi, DATA_SIZE);
+}
+
+// Qmu matrix changes every iteration, which does not matter, 
+// because stored matrices are destroyed between iters.
 void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
 {
     ++mytime::number_of_times_called_setq;
@@ -253,6 +285,10 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
                 stored_qj[N_Q_MATRICES-i_kz-1] + (DATA_SIZE*DATA_SIZE), qi);
         else
             qi = &stored_qj[N_Q_MATRICES-i_kz-1][0];
+    }
+    else if (bins::isMuBin(i_kz))
+    {
+        _setQmuMatrix(qi);
     }
     else
     {
@@ -289,7 +325,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     mytime::time_spent_on_q_copy += t - t_interp;
 }
 
-void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
+void OneQSOEstimate::setCovarianceMatrix()
 {
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
@@ -306,8 +342,8 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
         _setQiMatrix(temp_matrix[0], i_kz);
 
-        cblas_daxpy(DATA_SIZE*DATA_SIZE, ps_estimate[i_kz + fisher_index_start], temp_matrix[0], 1, 
-            covariance_matrix, 1);
+        cblas_daxpy(DATA_SIZE*DATA_SIZE, cur_iter_thetas[i_kz + fisher_index_start], 
+            temp_matrix[0], 1, covariance_matrix, 1);
     }
 
     // add noise matrix diagonally
@@ -459,6 +495,7 @@ void OneQSOEstimate::computePSbeforeFvector()
 void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_vector[3], 
     double *fisher_sum)
 {
+    cur_iter_thetas = ps_estimate;
     _allocateMatrices();
 
     process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, interp_derivative_matrix);
@@ -477,7 +514,7 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_
         isSfidSet = true;
     }
 
-    setCovarianceMatrix(ps_estimate);
+    setCovarianceMatrix();
 
     try
     {

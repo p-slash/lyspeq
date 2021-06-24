@@ -11,7 +11,7 @@
 #include <sstream>      // std::ostringstream
 
 #include "core/matrix_helper.hpp"
-#include "core/global_numbers.hpp"
+#include "core/global.hpp"
 #include "core/fiducial_cosmology.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
@@ -245,7 +245,7 @@ void OneDQuadraticPowerEstimate::_readScriptOutput(double *script_power, const c
     fclose(tmp_fit_file);
 }
 
-
+// Needs to ignore mu term
 // Note that fitting is done deviations plus fiducial power
 void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fitted_power)
 {
@@ -293,6 +293,7 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fitted_power)
     remove(tmp_fit_fname);
 }
 
+// Needs to ignore mu term
 void OneDQuadraticPowerEstimate::_smoothPowerSpectra(double *smoothed_power)
 {
     char tmp_ps_fname[320], tmp_smooth_fname[320];
@@ -469,6 +470,8 @@ void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
     LOG::LOGGER.IO("Fisher matrix saved as %s.\n", fname);
 }
 
+// Do not write mu term for scripts
+// bins::NUMBER_OF_K_BANDS increased by one to accamodate mu
 void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 {
     FILE *toWrite;
@@ -487,6 +490,8 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 
     for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
+       if (bins::isMuBin(i_kz))     continue;
+
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         z = bins::ZBIN_CENTERS[zm];
@@ -563,13 +568,26 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
         
         z  = bins::ZBIN_CENTERS[zm];
         
-        k1 = bins::KBAND_EDGES[kn];
-        k2 = bins::KBAND_EDGES[kn+1];
-        kc = bins::KBAND_CENTERS[kn];
+        if (bins::isMuBin(i_kz))  
+        {
+            k1 = 0;
+            k2 = 0;
+            kc = 0;
 
-        Pfid = powerSpectrumFiducial(kn, zm);
-        ThetaP = current_power_estimate_vector[i_kz];
-        ErrorP = sqrt(inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS)*i_kz]);
+            Pfid = 0;
+            ThetaP = current_power_estimate_vector[i_kz];
+            ErrorP = sqrt(inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS)*i_kz]);
+        }
+        else
+        {
+            k1 = bins::KBAND_EDGES[kn];
+            k2 = bins::KBAND_EDGES[kn+1];
+            kc = bins::KBAND_CENTERS[kn];
+
+            Pfid = powerSpectrumFiducial(kn, zm);
+            ThetaP = current_power_estimate_vector[i_kz];
+            ErrorP = sqrt(inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS)*i_kz]);
+        }
 
         dk = dbt_estimate_fisher_weighted_vector[0][i_kz];
         bk = dbt_estimate_fisher_weighted_vector[1][i_kz];

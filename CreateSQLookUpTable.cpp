@@ -10,7 +10,7 @@
 #include "mpi.h" 
 #endif
 
-#include "core/global_numbers.hpp"
+#include "core/global.hpp"
 #include "core/sq_table.hpp"
 #include "io/logger.hpp"
 

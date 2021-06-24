@@ -8,7 +8,7 @@
 #include "mpi.h" 
 #endif
 
-#include "core/global_numbers.hpp"
+#include "core/global.hpp"
 #include "core/quadratic_estimate.hpp"
 #include "io/logger.hpp"
 

@@ -27,6 +27,7 @@ namespace bins
     extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, DEGREE_OF_FREEDOM;
     extern double *KBAND_EDGES, *KBAND_CENTERS;
     extern double Z_BIN_WIDTH, *ZBIN_CENTERS;
+    extern bool isMuBin(int i_kz);
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0);
     void cleanUpBins();
@@ -78,7 +79,7 @@ namespace mytime
 
 namespace specifics
 {
-    extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
+    extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, EST_RESO_BIAS;
     extern double CHISQ_CONVERGENCE_EPS;
     extern double CONTINUUM_MARGINALIZATION_AMP, CONTINUUM_MARGINALIZATION_DERV;
 

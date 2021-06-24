@@ -36,8 +36,8 @@ class SQLookupTable
     
     std::string DIR, S_BASE, Q_BASE;
 
-    DiscreteInterpolation2D **interp2d_signal_matrices;
-    DiscreteInterpolation1D **interp_derivative_matrices;
+    DiscreteInterpolation2D **interp2d_signal_matrices, **interp2d_sigmu_matrices;
+    DiscreteInterpolation1D **interp_derivative_matrices, **interp_derivmu_matrices;
     double itp_v1, itp_dv, itp_z1, itp_dz; 
 
     int getIndex4DerivativeInterpolation(int kn, int r_index) const;
@@ -47,13 +47,17 @@ class SQLookupTable
     void deallocateSignalAndDerivArrays();
     void deallocateVAndZArrays();
 
+    DiscreteInterpolation1D* _allocReadQFile(int kn, int r_index, bool is_mu);
+    DiscreteInterpolation2D* _allocReadSFile(int r_index, bool is_mu);
+
 public:
     SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist);
     // SQLookupTable(const SQLookupTable &sq);
 
     ~SQLookupTable();
     
-    void readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q);
+    void readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q, 
+        bool alloc=false, bool is_mu=false);
 
     void readTables();
     // runs with omp parallel
@@ -61,8 +65,11 @@ public:
 
     int findSpecResIndex(int spec_res, double dv) const;
 
-    DiscreteInterpolation1D* getDerivativeMatrixInterp(int kn, int r_index) const;
-    DiscreteInterpolation2D* getSignalMatrixInterp(int r_index) const;
+    DiscreteInterpolation1D* getDerivativeMatrixInterp(int kn, int r_index, bool is_mu) const;
+    DiscreteInterpolation2D* getSignalMatrixInterp(int r_index, bool is_mu) const;
+
+    double getOneSetMemUsage();
+    double getMaxMemUsage();
 };
 
 #endif
