@@ -176,6 +176,7 @@ namespace mxhelp
         for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
             offsets[j] = i;
     }
+
     double* Resolution::_getDiagonal(int d)
     {
         int off = offsets[d], od1 = 0;
