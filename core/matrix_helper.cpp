@@ -179,7 +179,7 @@ namespace mxhelp
     double* Resolution::_getDiagonal(int d)
     {
         int off = offsets[d], od1 = 0;
-        if (off > 0)  od1 = abs(off);
+        if (off > 0)  od1 = off;
 
         return matrix+(d*ndim+od1);
     }
@@ -190,13 +190,31 @@ namespace mxhelp
         // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
         // when offsets[i]>0, remove initial offsets[i] elements from resomat.T[i]
         // when offsets[i]<0, remove last |offsets[i]| elements from resomat.T[i]
+        std::unique_ptr<double[]> rownorm(new double[ndim]());
+
         for (int d = 0; d < ndiags; ++d)
         {
-            int off = offsets[d], nelem = ndim - abs(off);
+            int off = offsets[d], nelem = ndim - abs(off),
+                row = (off < 0) ? -off : 0;
             double *dia_slice = _getDiagonal(d);
 
-            for (int i = 0; i < nelem; ++i)
-                *(dia_slice+i) = _window_fn_v(v[i+abs(off)]-v[i], R_kms, a_kms);
+            for (int i = 0; i < nelem; ++i, ++row)
+            {
+                int j = i+abs(off);
+                *(dia_slice+i) = _window_fn_v(v[j]-v[i], R_kms, a_kms);
+                rownorm[row] += *(dia_slice+i);
+            }
+        }
+
+        // Normalize row by row
+        for (int d = 0; d < ndiags; ++d)
+        {
+            int off = offsets[d], nelem = ndim - abs(off),
+                row = (off < 0) ? -off : 0;;
+            double *dia_slice = _getDiagonal(d);
+
+            for (int i = 0; i < nelem; ++i, ++row)
+                *(dia_slice+i) /= rownorm[row];
         }
     }
 
