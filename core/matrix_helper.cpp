@@ -200,28 +200,30 @@ namespace mxhelp
         return matrix+(d*ndim+od1);
     }
 
+    // Normalizing this row by row is not yielding somewhat wrong signal matrix
     void Resolution::constructGaussian(double *v, double R_kms, double a_kms)
     {
         // e.g. n1=724, ntotdiag=11
         // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
         // when offsets[i]>0, remove initial offsets[i] elements from resomat.T[i]
         // when offsets[i]<0, remove last |offsets[i]| elements from resomat.T[i]
-        std::unique_ptr<double[]> rownorm(new double[ndim]());
+        // std::unique_ptr<double[]> rownorm(new double[ndim]());
 
         for (int d = 0; d < ndiags; ++d)
         {
-            int off = offsets[d], nelem = ndim - abs(off),
-                row = (off < 0) ? -off : 0;
+            int off = offsets[d], nelem = ndim - abs(off);
+                // , row = (off < 0) ? -off : 0;
             double *dia_slice = _getDiagonal(d);
 
-            for (int i = 0; i < nelem; ++i, ++row)
+            for (int i = 0; i < nelem; ++i) //, ++row)
             {
                 int j = i+abs(off);
                 *(dia_slice+i) = _window_fn_v(v[j]-v[i], R_kms, a_kms);
-                rownorm[row] += *(dia_slice+i);
+                // rownorm[row] += *(dia_slice+i);
             }
         }
 
+        /*
         // Normalize row by row
         for (int d = 0; d < ndiags; ++d)
         {
@@ -232,6 +234,7 @@ namespace mxhelp
             for (int i = 0; i < nelem; ++i, ++row)
                 *(dia_slice+i) /= rownorm[row];
         }
+        */
     }
 
     void Resolution::fprintfMatrix(const char *fname)
