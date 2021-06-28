@@ -34,8 +34,7 @@ double _integral_erf(double x)
 
 double _integrated_window_fn_v(double x, double R, double a)
 {
-    xr = x/R/SQRT_2;
-    ar = a/R/SQRT_2;
+    double xr = x/R/SQRT_2, ar = a/R/SQRT_2;
 
     return (R/a/SQRT_2) * (_integral_erf(xr+ar) + _integral_erf(xr-ar) - 2*_integral_erf(xr));
 }
