@@ -185,7 +185,7 @@ namespace mxhelp
             std::runtime_error("Resolution ndiagonal cannot be even!");
 
         size = ndim*ndiags;
-        matrix = new double[size];
+        matrix = new double[size]();
 
         offsets = new int[ndiags];
         for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
@@ -248,7 +248,7 @@ namespace mxhelp
             {
                 int off = j-i, d=ndiags/2-off;
 
-                if (abs(d)>ndiags-1)
+                if (abs(off)>ndiags/2)
                     fprintf(toWrite, "0 ");
                 else
                     fprintf(toWrite, "%14le ", *(matrix+d*ndim+j));
