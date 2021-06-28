@@ -347,8 +347,18 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         initializeIteration();
 
         // Calculation for each spectrum
-        for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
+        for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); 
+            it != local_queue.end(); ++it)
+        {
             (*it)->oneQSOiteration(powerspectra_fits, dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
+
+            // When compiled with debugging feature
+            // save matrices to files, break
+            #ifdef DEBUG_MATRIX_OUT
+            (*it)->fprintfMatrices(fname_base);
+            throw "DEBUGGING QUIT.\n";
+            #endif
+        }
 
         // All reduce if MPI is enabled
         #if defined(ENABLE_MPI)
