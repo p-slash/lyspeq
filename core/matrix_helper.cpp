@@ -218,7 +218,7 @@ namespace mxhelp
             for (int i = 0; i < nelem; ++i) //, ++row)
             {
                 int j = i+abs(off);
-                *(dia_slice+i) = _window_fn_v(v[j]-v[i], R_kms, a_kms);
+                *(dia_slice+i) = _integrated_window_fn_v(v[j]-v[i], R_kms, a_kms);
                 // rownorm[row] += *(dia_slice+i);
             }
         }
