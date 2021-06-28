@@ -181,6 +181,10 @@ namespace mxhelp
     // class Resolution
     Resolution::Resolution(int nm, int ndia) : ndim(nm), ndiags(ndia)
     {
+        // e.g. ndim=724, ndiags=11
+        // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
+        // when offsets[i]>0, remove initial offsets[i] elements from resomat.T[i]
+        // when offsets[i]<0, remove last |offsets[i]| elements from resomat.T[i]
         if (ndiags%2 == 0)
             std::runtime_error("Resolution ndiagonal cannot be even!");
 
@@ -203,10 +207,6 @@ namespace mxhelp
     // Normalizing this row by row is not yielding somewhat wrong signal matrix
     void Resolution::constructGaussian(double *v, double R_kms, double a_kms)
     {
-        // e.g. n1=724, ntotdiag=11
-        // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
-        // when offsets[i]>0, remove initial offsets[i] elements from resomat.T[i]
-        // when offsets[i]<0, remove last |offsets[i]| elements from resomat.T[i]
         // std::unique_ptr<double[]> rownorm(new double[ndim]());
 
         for (int d = 0; d < ndiags; ++d)
@@ -218,7 +218,7 @@ namespace mxhelp
             for (int i = 0; i < nelem; ++i) //, ++row)
             {
                 int j = i+abs(off);
-                *(dia_slice+i) = _integrated_window_fn_v(v[j]-v[i], R_kms, a_kms);
+                *(dia_slice+i) = _window_fn_v(v[j]-v[i], R_kms, a_kms);
                 // rownorm[row] += *(dia_slice+i);
             }
         }
@@ -357,13 +357,8 @@ namespace mxhelp
 
     void Resolution::sandwich(double *inplace, int N)
     {
-        // e.g. n1=724, ntotdiag=11
-        // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
-        // when offsets[i]>0, remove initial offsets[i] elements from resomat.T[i]
-        // when offsets[i]<0, remove last |offsets[i]| elements from resomat.T[i]
-
         if (N != ndim)
-            std::runtime_error("Resolution sandwich operation dimension do not match!");
+            std::runtime_error("Resolution sandwich operation dimensions do not match!");
 
         static std::unique_ptr<double[]> buffer_mat(new double[ndim*ndim]);
 
