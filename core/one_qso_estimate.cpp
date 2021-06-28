@@ -55,8 +55,8 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
             reso_matrix = new mxhelp::Resolution(DATA_SIZE, 11);
             reso_matrix->constructGaussian(velocity_array, dum_Rkms, DV_KMS);
         }
-    }    
-    else 
+    }
+    else
     {
         reso_matrix = NULL;
         // Find the resolution index for the look up table
@@ -627,7 +627,22 @@ void OneQSOEstimate::_saveIndividualResult()
         LOG::LOGGER.ERR("ERROR %d saving individual results: %s\n", r, resfname.c_str());
 }
 
+void OneQSOEstimate::fprintfMatrices(const char *fname_base)
+{
+    char buf[1024];
 
+    if (isSfidStored)
+    {
+        sprintf(buf, "%s-signal.txt", fname_base);
+        mxhelp::fprintfMatrix(buf, stored_sfid, DATA_SIZE, DATA_SIZE);
+    }
+
+    if (reso_matrix != NULL)
+    {
+        sprintf(buf, "%s-resolution.txt", fname_base);
+        reso_matrix->fprintfMatrix(buf);
+    }
+}
 
 
 

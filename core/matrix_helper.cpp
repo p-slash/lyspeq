@@ -219,6 +219,31 @@ namespace mxhelp
         }
     }
 
+    void Resolution::fprintfMatrix(const char *fname)
+    {
+        FILE *toWrite;
+        
+        toWrite = fopen(fname, "w");
+
+        fprintf(toWrite, "%d %d\n", ndim, ndiags);
+        
+        for (int i = 0; i < ndim; ++i)
+        {
+            for (int j = 0; j < ndim; ++j)
+            {
+                int off = j-i, d=ndiags/2-off;
+
+                if (abs(d)>ndiags/2)
+                    fprintf(toWrite, "0 ");
+                else
+                    fprintf(toWrite, "%14le ", *(matrix+d*ndim+j));
+            }
+            fprintf(toWrite, "\n");
+        }
+
+        fclose(toWrite);
+    }
+
     Resolution::~Resolution()
     {
         delete [] offsets;
