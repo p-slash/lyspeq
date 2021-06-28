@@ -248,7 +248,7 @@ namespace mxhelp
             {
                 int off = j-i, d=ndiags/2-off;
 
-                if (abs(d)>ndiags/2)
+                if (abs(d)>ndiags-1)
                     fprintf(toWrite, "0 ");
                 else
                     fprintf(toWrite, "%14le ", *(matrix+d*ndim+j));
