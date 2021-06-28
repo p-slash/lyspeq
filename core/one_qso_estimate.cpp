@@ -168,11 +168,11 @@ void OneQSOEstimate::_setStoredMatrices()
         stored_qj = new double*[nqj_eff];
     }
 
-    if (nqj_eff < N_Q_MATRICES+1)
+    if (nqj_eff != N_Q_MATRICES)
         LOG::LOGGER.IO("===============\n""Not all matrices are stored: %s\n"
-            "#stored: %d vs #required:%d.\n""ND: %d, M1: %.1f MB"
+            "#stored: %d vs #required:%d.\n""ND: %d, M1: %.1f MB. "
             "Avail mem after R & SQ subtracted: %.1f MB\n""===============\n", 
-            qso_sp_fname.c_str(), nqj_eff, N_Q_MATRICES+1, DATA_SIZE, size_m1, 
+            qso_sp_fname.c_str(), nqj_eff, N_Q_MATRICES, DATA_SIZE, size_m1, 
             remain_mem);
 
     // LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
