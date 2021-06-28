@@ -16,16 +16,32 @@
 #include "lapacke.h"
 #endif
 
+#define SQRT_2 1.41421356237
+#define SQRT_PI 1.77245385091
+
 double _window_fn_v(double x, double R, double a)
 {
-    #define SQRT2 1.41421356237
-    double gamma_p = (x + (a/2))/R/SQRT2,
-           gamma_m = (x - (a/2))/R/SQRT2;
+    double gamma_p = (x + (a/2))/R/SQRT_2,
+           gamma_m = (x - (a/2))/R/SQRT_2;
 
     return (erf(gamma_p)-erf(gamma_m))/2;
-
-    #undef SQRT2
 }
+
+double _integral_erf(double x)
+{
+    return exp(-x*x)/SQRT_PI + x * erf(x);   
+}
+
+double _integrated_window_fn_v(double x, double R, double a)
+{
+    xr = x/R/SQRT_2;
+    ar = a/R/SQRT_2;
+
+    return (R/a/SQRT_2) * (_integral_erf(xr+ar) + _integral_erf(xr-ar) - 2*_integral_erf(xr));
+}
+
+#undef SQRT_PI
+#undef SQRT_2
 
 namespace mxhelp
 {
