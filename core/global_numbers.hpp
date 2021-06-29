@@ -6,7 +6,7 @@
 #include <chrono>
 
 // Debugging flags. Comment out to turn off
-#define DEBUG_MATRIX_OUT
+// #define DEBUG_MATRIX_OUT
 
 // Quadratic Estimate numbers
 #define CONVERGENCE_EPS 1E-4
