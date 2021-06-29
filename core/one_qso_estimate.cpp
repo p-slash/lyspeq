@@ -283,7 +283,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     ++mytime::number_of_times_called_setq;
     double t = mytime::timer.getTime(), t_interp;
     int kn, zm;
-    double v_ij, z_ij, temp;
+    double v_ij, z_ij;
 
     if (isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)))
     {
@@ -304,16 +304,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
             {
                 _getVandZ(v_ij, z_ij, row, col);
 
-                temp  = bins::redshiftBinningFunction(z_ij, zm);
-                temp *= interp_derivative_matrix[kn]->evaluate(v_ij);
-
-                // Every pixel pair should scale to the bin redshift
-                #ifdef REDSHIFT_GROWTH_POWER
-                temp *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], 
-                    bins::ZBIN_CENTERS[zm], &fidpd13::FIDUCIAL_PD13_PARAMS);
-                #endif
-
-                *(qi+col+DATA_SIZE*row) = temp;
+                *(qi+col+DATA_SIZE*row) = interp_derivative_matrix[kn]->evaluate(v_ij);
             }
         }
 
@@ -323,6 +314,22 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
         // Multiply reso mat
         if (reso_matrix != NULL)
             reso_matrix->sandwich(qi, DATA_SIZE);
+
+        double *ptr=qi;
+        for (int row = 0; row < DATA_SIZE; ++row)
+        {
+            for (int col = 0; col < DATA_SIZE; ++col, ++ptr)
+            {
+                _getVandZ(v_ij, z_ij, row, col);
+
+                *ptr *= bins::redshiftBinningFunction(z_ij, zm);
+                // Every pixel pair should scale to the bin redshift
+                #ifdef REDSHIFT_GROWTH_POWER
+                *ptr *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], 
+                    bins::ZBIN_CENTERS[zm], &fidpd13::FIDUCIAL_PD13_PARAMS);
+                #endif
+            }
+        }
     }
 
     t = mytime::timer.getTime() - t; 
