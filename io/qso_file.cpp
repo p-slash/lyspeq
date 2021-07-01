@@ -112,7 +112,7 @@ PiccaFile::PiccaFile(std::string fname_qso)
 
 void PiccaFile::_checkStatus()
 {
-    char error_msg[31]="FITS ERROR ";
+    char error_msg[50]="FITS ERROR ";
     fits_get_errstatus(status, &error_msg[12]);
     if (status)     std::runtime_error(std::string(error_msg));
 }
