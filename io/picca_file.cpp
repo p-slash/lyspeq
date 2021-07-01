@@ -27,20 +27,20 @@ PiccaFile::PiccaFile(std::string fname_qso)
 void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms)
 {
     // _move(newhdu);
-
+    char comment[100];
     // This is not ndiags in integer, but length in bytes that includes other columns
     // fits_read_key(fits_file, TINT, "NAXIS1", &curr_ndiags, NULL, &status);
-    fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
+    fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, comment, &status);
 
-    fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
+    fits_read_key(fits_file, TDOUBLE, "Z", &z, comment, &status);
 
     double r_kms;
-    fits_read_key(fits_file, TDOUBLE, "MEANRESO", &r_kms, NULL, &status);
+    fits_read_key(fits_file, TDOUBLE, "MEANRESO", &r_kms, comment, &status);
     fwhm_resolution = int(SPEED_OF_LIGHT/r_kms/ONE_SIGMA_2_FWHM/100 + 0.5)*100;
 
-    fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
+    fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, comment, &status);
 
-    fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
+    fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, comment, &status);
     dv_kms = round(dv_kms*SPEED_OF_LIGHT/LN10/5)*5;
 
     N = curr_N;
