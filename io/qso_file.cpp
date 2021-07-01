@@ -1,25 +1,79 @@
 #include "io/qso_file.hpp"
-#include "io/io_helper_functions.hpp"
+
+#include <cmath>
+#include <algorithm>
 #include <stdexcept>
 
-QSOFile::QSOFile(const char *fname)
-{
-    sprintf(file_name, "%s", fname);
+#include "io/io_helper_functions.hpp"
+#include "core/fiducial_cosmology.hpp"
 
-    qso_file = ioh::open_file(file_name, "rb");
+namespace qio
+{
+
+// ============================================================================
+// Umbrella QSO file
+// ============================================================================
+
+QSOFile::QSOFile(std::string fname_qso, ifileformat p_or_b)
+    : PB(p_or_b), pfile(NULL), bqfile(NULL)
+{
+    if (PB == Picca)
+        pfile = new PiccaFile(fname_qso);
+    else
+        bqfile = new BQFile(fname_qso);
 }
 
 QSOFile::~QSOFile()
 {
+    delete pfile;
+    delete bqfile;
+}
+
+void QSOFile::readParameters(int &data_number, double &z, int &fwhm_resolution, 
+    double &sig2noi, double &dv_kms)
+{
+    if (pfile != NULL)
+        pfile->readParameters(data_number, z, fwhm_resolution, sig2noi, dv_kms);
+    else
+        bqfile->readParameters(data_number, z, fwhm_resolution, sig2noi, dv_kms);
+}
+
+void QSOFile::readData(double *lambda, double *fluxfluctuations, double *noise)
+{
+    if (pfile != NULL)
+        pfile->readData(lambda, fluxfluctuations, noise);
+    else
+        bqfile->readData(lambda, fluxfluctuations, noise);
+}
+
+void QSOFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
+{
+    if (pfile != NULL)
+        pfile->readAllocResolutionMatrix(Rmat);
+    else
+        std::runtime_error("Cannot read resolution matrix from Binary file!");
+}
+
+// ============================================================================
+// Binary QSO file
+// ============================================================================
+BQFile::BQFile(std::string fname_qso)
+{
+    qso_file = ioh::open_file(fname_qso.c_str(), "rb");
+}
+
+BQFile::~BQFile()
+{
     fclose(qso_file);
 }
 
-void QSOFile::readParameters(int &data_number, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms)
+void BQFile::readParameters(int &data_number, double &z, int &fwhm_resolution, 
+    double &sig2noi, double &dv_kms)
 {
     rewind(qso_file);
 
     if (fread(&header, sizeof(qso_io_header), 1, qso_file) != 1)
-        std::runtime_error("fread error in header QSOFile!");
+        std::runtime_error("fread error in header BQFile!");
 
     data_number      = header.data_size;
     z                = header.redshift;
@@ -28,7 +82,7 @@ void QSOFile::readParameters(int &data_number, double &z, int &fwhm_resolution, 
     dv_kms           = header.pixel_width;
 }
 
-void QSOFile::readData(double *lambda, double *fluxfluctuations, double *noise)
+void BQFile::readData(double *lambda, double *fluxfluctuations, double *noise)
 {
     int rl, rf, rn;
     fseek(qso_file, sizeof(qso_io_header), SEEK_SET);
@@ -38,10 +92,109 @@ void QSOFile::readData(double *lambda, double *fluxfluctuations, double *noise)
     rn = fread(noise,              sizeof(double), header.data_size, qso_file);
 
     if (rl != header.data_size || rf != header.data_size || rn != header.data_size)
-        std::runtime_error("fread error in data QSOFile!");
+        std::runtime_error("fread error in data BQFile!");
 }
 
-void QSOFile::readAllocResolutionMatrix(void *R)
+// ============================================================================
+// Picca File
+// ============================================================================
+
+PiccaFile::PiccaFile(std::string fname_qso)
 {
-    std::runtime_error("Cannot read resolution matrix from Binary file!");
+    // Assume fname to be ..fits.gz[1]
+    fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
+    fits_get_hdu_num(fits_file, &curr_spec_index);
+    fits_get_num_hdus(fits_file, &no_spectra, &status);
+    no_spectra--;
+    // _move(fname_qso[fname_qso.size-2] - '0');
 }
+
+void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, 
+    double &sig2noi, double &dv_kms)
+{
+    // _move(newhdu);
+    char comment[100];
+    // This is not ndiags in integer, but length in bytes that includes other columns
+    // fits_read_key(fits_file, TINT, "NAXIS1", &curr_ndiags, NULL, &status);
+    fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, comment, &status);
+
+    fits_read_key(fits_file, TDOUBLE, "Z", &z, comment, &status);
+
+    double r_kms;
+    fits_read_key(fits_file, TDOUBLE, "MEANRESO", &r_kms, comment, &status);
+    fwhm_resolution = int(SPEED_OF_LIGHT/r_kms/ONE_SIGMA_2_FWHM/100 + 0.5)*100;
+
+    fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, comment, &status);
+
+    fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, comment, &status);
+
+    #define LN10 2.30258509299
+    dv_kms = round(dv_kms*SPEED_OF_LIGHT/LN10/5)*5;
+    #undef LN10
+
+    N = curr_N;
+    curr_ndiags = -1;
+}
+
+void PiccaFile::readData(double *lambda, double *delta, double *noise)
+{
+    int nonull, colnum;
+    // _move(newhdu);
+    fits_get_colnum(fits_file, CASEINSEN, (char*)"LOGLAM", &colnum, &status);
+    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
+        &status);
+
+    fits_get_colnum(fits_file, CASEINSEN, (char*)"DELTA", &colnum, &status);
+    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, delta, &nonull, 
+        &status);
+
+    fits_get_colnum(fits_file, CASEINSEN, (char*)"IVAR", &colnum, &status);
+    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, noise, &nonull, 
+        &status);
+    
+    std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
+    std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld, -0.5); });
+}
+
+void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
+{
+    int nonull, naxis, colnum;
+    long *naxes = new long[2];
+    fits_get_colnum(fits_file, CASEINSEN, (char*)"RESOMAT", &colnum, &status);
+    fits_read_tdim(fits_file, colnum, curr_N, &naxis, naxes, &status);
+    curr_ndiags = naxes[0];
+    Rmat = new mxhelp::Resolution(curr_N, curr_ndiags);
+    
+    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_ndiags, 0, 
+        Rmat->matrix, &nonull, &status);
+}
+
+PiccaFile::~PiccaFile()
+{
+    fits_close_file(fits_file, &status);
+}
+
+void PiccaFile::_move(int index)
+{
+    int hdutype;
+    if (index >= no_spectra)
+        std::runtime_error("Trying go beyond # HDU in fits file.");
+
+    if (index > 0 && curr_spec_index != index)
+    {
+        fits_movabs_hdu(fits_file, index, &hdutype, &status);
+        curr_spec_index = index;
+    }
+}
+
+}
+
+
+
+
+
+
+
+
+
+

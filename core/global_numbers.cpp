@@ -211,7 +211,7 @@ namespace specifics
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
     double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
-    ifileformat INPUT_QSO_FILE = Binary;
+    qio::ifileformat INPUT_QSO_FILE = qio::Binary;
     
     #if defined(TOPHAT_Z_BINNING_FN)
     #define BINNING_SHAPE "Top Hat"
@@ -382,7 +382,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     process::SAVE_ALL_SQ_FILES      = cache_all_sq > 0;
 
     if (use_picca_file>0)
-        specifics::INPUT_QSO_FILE = specifics::Picca;
+        specifics::INPUT_QSO_FILE = qio::Picca;
 
     // resolve conflict: Input delta flux overrides all
     // Then, chunk means.
