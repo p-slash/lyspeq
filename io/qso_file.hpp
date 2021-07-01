@@ -51,6 +51,8 @@ class PiccaFile
     int curr_spec_index;
     int curr_N, curr_ndiags;
     void _move(int index);
+    int _getColNo(char *tmplt);
+    void _checkStatus();
 
 public:
     // Assume fname to be ..fits.gz[1]
