@@ -63,12 +63,11 @@ int main(int argc, char *argv[])
     }
 
     const char *FNAME_CONFIG = argv[1];
-    int r = 0;
 
     gsl_set_error_handler_off();
 
     char FNAME_LIST[300], FNAME_RLIST[300], INPUT_DIR[300], FILEBASE_S[300], FILEBASE_Q[300],
-         OUTPUT_DIR[300], OUTPUT_FILEBASE[300], buf[700];
+         OUTPUT_DIR[300], OUTPUT_FILEBASE[300];
 
     int NUMBER_OF_ITERATIONS;
 
@@ -120,7 +119,7 @@ int main(int argc, char *argv[])
     }
 
     std::vector<std::string> filepaths;
-    int NUMBER_OF_QSOS = ioh::readList(FNAME_LIST, filepaths);
+    ioh::readList(FNAME_LIST, filepaths);
     // Add parent directory to file path
     for (std::vector<std::string>::iterator fq = filepaths.begin(); fq != filepaths.end(); ++fq)
     {
