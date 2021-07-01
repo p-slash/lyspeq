@@ -275,7 +275,7 @@ namespace mxhelp
 
         std::for_each(B, B+N*N, [&](double &b) { b=0; });
 
-        int transpose;
+        int transpose = 1;
 
         if (TRANSR == 'N' || TRANSR == 'n')
             transpose = 1;
