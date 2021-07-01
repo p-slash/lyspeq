@@ -21,11 +21,6 @@ PiccaFile::PiccaFile(std::string fname_qso)
     fits_get_hdu_num(fits_file, &curr_spec_index);
     fits_get_num_hdus(fits_file, &no_spectra, &status);
     no_spectra--;
-
-    fits_get_colnum(fits_file, CASESEN, (char*)"LOGLAM", &ic_llam, &status);
-    fits_get_colnum(fits_file, CASESEN, (char*)"DELTA", &ic_delta, &status);
-    fits_get_colnum(fits_file, CASESEN, (char*)"IVAR", &ic_ivar, &status);
-    fits_get_colnum(fits_file, CASESEN, (char*)"RESOMAT", &ic_reso, &status);
     // _move(fname_qso[fname_qso.size-2] - '0');
 }
 
@@ -54,12 +49,16 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, double &
 
 void PiccaFile::readData(double *lambda, double *delta, double *noise)
 {
-    int nonull;
+    int nonull, colnum;
     // _move(newhdu);
+    fits_get_colnum(fits_file, CASEINSEN, (char*)"LOGLAM", &colnum, &status);
+    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, &status);
 
-    fits_read_col(fits_file, TDOUBLE, ic_llam, 1, 1, curr_N, 0, lambda, &nonull, &status);
-    fits_read_col(fits_file, TDOUBLE, ic_delta, 1, 1, curr_N, 0, delta, &nonull, &status);
-    fits_read_col(fits_file, TDOUBLE, ic_ivar, 1, 1, curr_N, 0, noise, &nonull, &status);
+    fits_get_colnum(fits_file, CASEINSEN, (char*)"DELTA", &colnum, &status);
+    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, delta, &nonull, &status);
+
+    fits_get_colnum(fits_file, CASEINSEN, (char*)"IVAR", &colnum, &status);
+    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, noise, &nonull, &status);
     
     std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
     std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld, -0.5); });
@@ -67,13 +66,14 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
 
 void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
 {
-    int nonull, naxis;
+    int nonull, naxis, colnum;
     long *naxes = new long[2];
-    fits_read_tdim(fits_file, ic_reso, curr_N, &naxis, naxes, &status);
+    fits_get_colnum(fits_file, CASEINSEN, (char*)"RESOMAT", &colnum, &status);
+    fits_read_tdim(fits_file, colnum, curr_N, &naxis, naxes, &status);
     curr_ndiags = naxes[0];
     Rmat = new mxhelp::Resolution(curr_N, curr_ndiags);
     
-    fits_read_col(fits_file, TDOUBLE, ic_reso, 1, 1, curr_N*curr_ndiags, 0, Rmat->matrix, &nonull, &status);
+    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_ndiags, 0, Rmat->matrix, &nonull, &status);
 }
 
 PiccaFile::~PiccaFile()

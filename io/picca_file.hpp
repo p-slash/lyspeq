@@ -14,7 +14,6 @@ class PiccaFile: public QSOFile
     int no_spectra, status;
     int curr_spec_index;
     int curr_N, curr_ndiags;
-    int ic_llam, ic_delta, ic_ivar, ic_reso;
     void _move(int index);
 
 public:
