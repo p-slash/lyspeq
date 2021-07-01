@@ -14,6 +14,8 @@
 #include <cstdlib>
 #include <stdexcept>
 
+#define DATA_SIZE_2 DATA_SIZE*DATA_SIZE
+
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
     qso_sp_fname = fname_qso;
@@ -145,7 +147,7 @@ void OneQSOEstimate::_setNQandFisherIndex()
 void OneQSOEstimate::_setStoredMatrices()
 {
     // Number of Qj matrices to preload.
-    double size_m1 = (double)sizeof(double) * DATA_SIZE * DATA_SIZE / 1048576.; // in MB
+    double size_m1 = (double)sizeof(double) * DATA_SIZE_2 / 1048576.; // in MB
     double remain_mem = process::MEMORY_ALLOC;
 
     if (specifics::USE_RESOLUTION_MATRIX)
@@ -245,25 +247,24 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
     ++mytime::number_of_times_called_setsfid;
 
     double t = mytime::timer.getTime();
-    double v_ij, z_ij, temp;
+    double v_ij, z_ij;
 
     if (isSfidSet)
     {
-        if (copy)
-            std::copy(stored_sfid, stored_sfid + (DATA_SIZE*DATA_SIZE), sm);
-        else
-            sm = stored_sfid;
+        if (copy)   std::copy(stored_sfid, stored_sfid + DATA_SIZE_2, sm);
+        else        sm = stored_sfid;
     }
     else
     {
+        double *ptr = sm;
         for (int row = 0; row < DATA_SIZE; ++row)
         {
-            for (int col = row; col < DATA_SIZE; ++col)
+            ptr += row;
+            for (int col = row; col < DATA_SIZE; ++col, ++ptr)
             {
                 _getVandZ(v_ij, z_ij, row, col);
 
-                temp = interp2d_signal_matrix->evaluate(z_ij, v_ij);
-                *(sm+col+DATA_SIZE*row) = temp;
+                *ptr = interp2d_signal_matrix->evaluate(z_ij, v_ij);
             }
         }
 
@@ -287,24 +288,31 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
 
     if (isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)))
     {
+        double *ptr = stored_qj[N_Q_MATRICES-i_kz-1];
         t_interp = 0;
-        if (copy)
-            std::copy(stored_qj[N_Q_MATRICES-i_kz-1], 
-                stored_qj[N_Q_MATRICES-i_kz-1] + (DATA_SIZE*DATA_SIZE), qi);
-        else
-            qi = &stored_qj[N_Q_MATRICES-i_kz-1][0];
+
+        if (copy)   std::copy(ptr, ptr + DATA_SIZE_2, qi);
+        else        qi = ptr;
     }
     else
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
+        double *ptr = qi;
 
         for (int row = 0; row < DATA_SIZE; ++row)
         {
-            for (int col = row; col < DATA_SIZE; ++col)
+            ptr += row;
+            for (int col = row; col < DATA_SIZE; ++col, ++ptr)
             {
                 _getVandZ(v_ij, z_ij, row, col);
 
-                *(qi+col+DATA_SIZE*row) = interp_derivative_matrix[kn]->evaluate(v_ij);
+                *ptr  = interp_derivative_matrix[kn]->evaluate(v_ij);
+                *ptr *= bins::redshiftBinningFunction(z_ij, zm);
+                // Every pixel pair should scale to the bin redshift
+                #ifdef REDSHIFT_GROWTH_POWER
+                *ptr *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], 
+                    bins::ZBIN_CENTERS[zm], &fidpd13::FIDUCIAL_PD13_PARAMS);
+                #endif
             }
         }
 
@@ -314,22 +322,6 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
         // Multiply reso mat
         if (reso_matrix != NULL)
             reso_matrix->sandwich(qi, DATA_SIZE);
-
-        double *ptr=qi;
-        for (int row = 0; row < DATA_SIZE; ++row)
-        {
-            for (int col = 0; col < DATA_SIZE; ++col, ++ptr)
-            {
-                _getVandZ(v_ij, z_ij, row, col);
-
-                *ptr *= bins::redshiftBinningFunction(z_ij, zm);
-                // Every pixel pair should scale to the bin redshift
-                #ifdef REDSHIFT_GROWTH_POWER
-                *ptr *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], 
-                    bins::ZBIN_CENTERS[zm], &fidpd13::FIDUCIAL_PD13_PARAMS);
-                #endif
-            }
-        }
     }
 
     t = mytime::timer.getTime() - t; 
@@ -365,7 +357,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
     if (specifics::CONTINUUM_MARGINALIZATION_AMP > 0)
     {
-        std::for_each(covariance_matrix, covariance_matrix+DATA_SIZE*DATA_SIZE, 
+        std::for_each(covariance_matrix, covariance_matrix + DATA_SIZE_2, 
             [&](double &c) { c += specifics::CONTINUUM_MARGINALIZATION_AMP; });
     }
 
@@ -576,16 +568,16 @@ void OneQSOEstimate::_allocateMatrices()
 
     fisher_matrix = new double[bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS]();
 
-    covariance_matrix = new double[DATA_SIZE * DATA_SIZE];
+    covariance_matrix = new double[DATA_SIZE_2];
 
     for (int i = 0; i < 2; ++i)
-        temp_matrix[i] = new double[DATA_SIZE * DATA_SIZE];
+        temp_matrix[i] = new double[DATA_SIZE_2];
     
     for (int i = 0; i < nqj_eff; ++i)
-        stored_qj[i] = new double[DATA_SIZE * DATA_SIZE];
+        stored_qj[i] = new double[DATA_SIZE_2];
     
     if (isSfidStored)
-        stored_sfid = new double[DATA_SIZE * DATA_SIZE];
+        stored_sfid = new double[DATA_SIZE_2];
     
     isQjSet   = false;
     isSfidSet = false;
@@ -651,7 +643,7 @@ void OneQSOEstimate::fprintfMatrices(const char *fname_base)
     }
 }
 
-
+#undef DATA_SIZE_2
 
 
 

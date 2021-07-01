@@ -22,6 +22,10 @@ PiccaFile::PiccaFile(std::string fname_qso)
     fits_get_num_hdus(fits_file, &no_spectra, &status);
     no_spectra--;
 
+    fits_get_colnum(fits_file, CASESEN, (char*)"LOGLAM", &ic_llam, &status);
+    fits_get_colnum(fits_file, CASESEN, (char*)"DELTA", &ic_delta, &status);
+    fits_get_colnum(fits_file, CASESEN, (char*)"IVAR", &ic_ivar, &status);
+    fits_get_colnum(fits_file, CASESEN, (char*)"RESOMAT", &ic_reso, &status);
     // _move(fname_qso[fname_qso.size-2] - '0');
 }
 
@@ -29,7 +33,8 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, double &
 {
     // _move(newhdu);
 
-    fits_read_key(fits_file, TINT, "NAXIS1", &curr_ndiags, NULL, &status);
+    // This is not ndiags in integer, but length in bytes that includes other columns
+    // fits_read_key(fits_file, TINT, "NAXIS1", &curr_ndiags, NULL, &status);
     fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
 
     fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
@@ -44,6 +49,7 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, double &
     dv_kms = round(dv_kms*SPEED_OF_LIGHT/LN10/5)*5;
 
     N = curr_N;
+    curr_ndiags = -1;
 }
 
 void PiccaFile::readData(double *lambda, double *delta, double *noise)
@@ -51,9 +57,9 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     int nonull;
     // _move(newhdu);
 
-    fits_read_col(fits_file, TDOUBLE, 1, 1, 1, curr_N, 0, lambda, &nonull, &status);
-    fits_read_col(fits_file, TDOUBLE, 2, 1, 1, curr_N, 0, delta, &nonull, &status);
-    fits_read_col(fits_file, TDOUBLE, 3, 1, 1, curr_N, 0, noise, &nonull, &status);
+    fits_read_col(fits_file, TDOUBLE, ic_llam, 1, 1, curr_N, 0, lambda, &nonull, &status);
+    fits_read_col(fits_file, TDOUBLE, ic_delta, 1, 1, curr_N, 0, delta, &nonull, &status);
+    fits_read_col(fits_file, TDOUBLE, ic_ivar, 1, 1, curr_N, 0, noise, &nonull, &status);
     
     std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
     std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld, -0.5); });
@@ -61,18 +67,13 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
 
 void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
 {
-    int nonull;
+    int nonull, naxis;
+    long *naxes = new long[2];
+    fits_read_tdim(fits_file, ic_reso, curr_N, &naxis, naxes, &status);
+    curr_ndiags = naxes[0];
     Rmat = new mxhelp::Resolution(curr_N, curr_ndiags);
     
-    fits_read_col(fits_file, TDOUBLE, 6, 1, 1, curr_N*curr_ndiags, 0, Rmat->matrix, &nonull, &status);
-
-    // int naxis;
-    // long *naxes = new long[2];
-    
-    // _move(newhdu);
-
-    // fits_read_tdim(fits_file, 6, N, &naxis, naxes, &status);
-    // mdim = naxes[0];
+    fits_read_col(fits_file, TDOUBLE, ic_reso, 1, 1, curr_N*curr_ndiags, 0, Rmat->matrix, &nonull, &status);
 }
 
 PiccaFile::~PiccaFile()
