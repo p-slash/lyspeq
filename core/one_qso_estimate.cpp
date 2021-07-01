@@ -5,7 +5,6 @@
 
 #include "io/io_helper_functions.hpp"
 #include "io/qso_file.hpp"
-#include "io/picca_file.hpp"
 #include "io/logger.hpp"
 
 #include <cmath>
@@ -19,19 +18,11 @@
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
     qso_sp_fname = fname_qso;
-    QSOFile *qFile;
-
-    // Construct and read data arrays
-    if (specifics::INPUT_QSO_FILE == specifics::Binary)
-        qFile = new QSOFile(qso_sp_fname.c_str());
-    else if (specifics::INPUT_QSO_FILE == specifics::Picca)
-        qFile = new PiccaFile(qso_sp_fname);
-    else
-        std::runtime_error("Something went wrong with input file type!.");
+    qio::QSOFile qFile(qso_sp_fname, specifics::INPUT_QSO_FILE);
 
     double dummy_qso_z, dummy_s2n, dum_Rkms;
 
-    qFile->readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
+    qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
     dum_Rkms = SPEED_OF_LIGHT/SPECT_RES_FWHM/ONE_SIGMA_2_FWHM;
 
     lambda_array    = new double[DATA_SIZE];
@@ -39,7 +30,7 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     flux_array      = new double[DATA_SIZE];
     noise_array     = new double[DATA_SIZE];
 
-    qFile->readData(lambda_array, flux_array, noise_array);
+    qFile.readData(lambda_array, flux_array, noise_array);
 
     // Covert from wavelength to velocity units around median wavelength
     conv::convertLambdaToVelocity(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
@@ -50,8 +41,8 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     if (specifics::USE_RESOLUTION_MATRIX)
     {
         RES_INDEX = 0;
-        if (specifics::INPUT_QSO_FILE == specifics::Picca)
-            qFile->readAllocResolutionMatrix(reso_matrix);
+        if (specifics::INPUT_QSO_FILE == qio::Picca)
+            qFile.readAllocResolutionMatrix(reso_matrix);
         else
         {
             reso_matrix = new mxhelp::Resolution(DATA_SIZE, 11);

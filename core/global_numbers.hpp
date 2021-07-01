@@ -1,10 +1,11 @@
 #ifndef GLOBAL_NUMBERS_H
 #define GLOBAL_NUMBERS_H
 
-#include "core/sq_table.hpp"
 #include <cstdio>
 #include <chrono>
 
+#include "core/sq_table.hpp"
+#include "io/qso_file.hpp"
 // Debugging flags. Comment out to turn off
 // #define DEBUG_MATRIX_OUT
 
@@ -82,11 +83,10 @@ namespace mytime
 
 namespace specifics
 {
-    enum ifileformat {Binary, Picca};
     extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
     extern double CHISQ_CONVERGENCE_EPS;
     extern double CONTINUUM_MARGINALIZATION_AMP, CONTINUUM_MARGINALIZATION_DERV;
-    extern ifileformat INPUT_QSO_FILE;
+    extern qio::ifileformat INPUT_QSO_FILE;
 
     void printBuildSpecifics(FILE *toWrite=NULL);
     void printConfigSpecifics(FILE *toWrite=NULL);
