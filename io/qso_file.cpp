@@ -140,15 +140,18 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
 {
     int nonull, colnum;
     // _move(newhdu);
-    fits_get_colnum(fits_file, CASEINSEN, (char*)"LOGLAM", &colnum, &status);
+    char logtmp[]="LOGLAM";
+    fits_get_colnum(fits_file, CASEINSEN, logtmp, &colnum, &status);
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
         &status);
 
-    fits_get_colnum(fits_file, CASEINSEN, (char*)"DELTA", &colnum, &status);
+    char deltmp[]="DELTA";
+    fits_get_colnum(fits_file, CASEINSEN, deltmp, &colnum, &status);
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, delta, &nonull, 
         &status);
 
-    fits_get_colnum(fits_file, CASEINSEN, (char*)"IVAR", &colnum, &status);
+    char ivartmp[]="IVAR";
+    fits_get_colnum(fits_file, CASEINSEN, ivartmp, &colnum, &status);
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, noise, &nonull, 
         &status);
     
@@ -160,7 +163,8 @@ void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
 {
     int nonull, naxis, colnum;
     long *naxes = new long[2];
-    fits_get_colnum(fits_file, CASEINSEN, (char*)"RESOMAT", &colnum, &status);
+    char resotmp[]="RESOMAT";
+    fits_get_colnum(fits_file, CASEINSEN, resotmp, &colnum, &status);
     fits_read_tdim(fits_file, colnum, curr_N, &naxis, naxes, &status);
     curr_ndiags = naxes[0];
     Rmat = new mxhelp::Resolution(curr_N, curr_ndiags);
