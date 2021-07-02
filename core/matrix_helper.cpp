@@ -128,7 +128,8 @@ namespace mxhelp
         LAPACKErrorHandle("ERROR in LU invert.", info);
 
         delete [] ipiv;
-        // dpotrf(CblasUpper, N, A, N); // the Cholesky factorization of a symmetric positive-definite matrix
+        // dpotrf(CblasUpper, N, A, N); 
+        // the Cholesky factorization of a symmetric positive-definite matrix
     }
 
     void printfMatrix(const double *A, int nrows, int ncols)
@@ -368,9 +369,10 @@ namespace mxhelp
 
     double Resolution::getMaxMemUsage()
     {
-        double bufsize = (double)sizeof(double) * ndim * ndim / 1048576.; // in MB
-        double diasize = (double)sizeof(double) * ndim * ndiags / 1048576.; // in MB
-        double offsize = (double)sizeof(int) * (ndiags+3) / 1048576.; // in MB
+        // Convert to MB by division of 1048576
+        double bufsize = (double)sizeof(double) * ndim * ndim / 1048576.;
+        double diasize = (double)sizeof(double) * ndim * ndiags / 1048576.;
+        double offsize = (double)sizeof(int) * (ndiags+3) / 1048576.;
 
         return bufsize + diasize + offsize;
     }
