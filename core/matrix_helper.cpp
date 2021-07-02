@@ -186,7 +186,7 @@ namespace mxhelp
         // when offsets[i]>0, remove initial offsets[i] elements from resomat.T[i]
         // when offsets[i]<0, remove last |offsets[i]| elements from resomat.T[i]
         if (ndiags%2 == 0)
-            std::runtime_error("Resolution ndiagonal cannot be even!");
+            throw std::runtime_error("Resolution ndiagonal cannot be even!");
 
         size = ndim*ndiags;
         matrix = new double[size]();
@@ -271,7 +271,7 @@ namespace mxhelp
     void Resolution::multiply(char SIDER, char TRANSR, const double* A, double *B, int N)
     {
         if (N != ndim)
-            std::runtime_error("Resolution multiply operation dimension do not match!");
+            throw std::runtime_error("Resolution multiply operation dimension do not match!");
 
         std::for_each(B, B+N*N, [&](double &b) { b=0; });
 
@@ -282,13 +282,13 @@ namespace mxhelp
         else if (TRANSR == 'T' || TRANSR == 't')
             transpose = -1;
         else
-            std::runtime_error("Resolution multiply transpose wrong character!");
+            throw std::runtime_error("Resolution multiply transpose wrong character!");
 
         bool lside = (SIDER == 'L' || SIDER == 'l'),
              rside = (SIDER == 'R' || SIDER == 'r');
         
         if (!lside && !rside)
-            std::runtime_error("Resolution multiply SIDER wrong character!");
+            throw std::runtime_error("Resolution multiply SIDER wrong character!");
 
         /* Left Side:
         if offset > 0 (upper off-diagonals), 
@@ -358,7 +358,7 @@ namespace mxhelp
     void Resolution::sandwich(double *inplace, int N)
     {
         if (N != ndim)
-            std::runtime_error("Resolution sandwich operation dimensions do not match!");
+            throw std::runtime_error("Resolution sandwich operation dimensions do not match!");
 
         static std::unique_ptr<double[]> buffer_mat(new double[ndim*ndim]);
 
