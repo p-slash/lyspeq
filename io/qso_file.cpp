@@ -103,10 +103,16 @@ PiccaFile::PiccaFile(std::string fname_qso)
 {
     // Assume fname to be ..fits.gz[1]
     printf("Openning file:%s\n", fname_qso.c_str());
+    int hdunum = fname_qso[fname_qso.size-2]-'0';
+    printf("%d\n", hdunum);
     fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
     fits_get_hdu_num(fits_file, &curr_spec_index);
     fits_get_num_hdus(fits_file, &no_spectra, &status);
+
     printf("%d/%d\n", curr_spec_index, no_spectra);
+    if (hdunum != curr_spec_index)
+        std::runtime_error("FITS ERROR: Read HDU is not expected HDU!\n");
+    
     no_spectra--;
     _checkStatus();
     // _move(fname_qso[fname_qso.size-2] - '0');
