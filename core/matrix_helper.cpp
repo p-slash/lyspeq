@@ -203,7 +203,7 @@ namespace mxhelp
 
         for (int d = 0; d < ndiags; ++d)
             for (int i = 0; i < ndim; ++i)
-                *(buffer_mat + d + i*ndiags) = *(matrix + i + d*ndim);
+                *(buffer_mat + i+d*ndim) = *(matrix + i*ndiags+d);
 
         delete [] matrix;
         matrix = buffer_mat;
