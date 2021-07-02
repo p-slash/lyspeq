@@ -51,7 +51,7 @@ void QSOFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
     if (pfile != NULL)
         pfile->readAllocResolutionMatrix(Rmat);
     else
-        std::runtime_error("Cannot read resolution matrix from Binary file!");
+        throw std::runtime_error("Cannot read resolution matrix from Binary file!");
 }
 
 // ============================================================================
@@ -73,7 +73,7 @@ void BQFile::readParameters(int &data_number, double &z, int &fwhm_resolution,
     rewind(qso_file);
 
     if (fread(&header, sizeof(qso_io_header), 1, qso_file) != 1)
-        std::runtime_error("fread error in header BQFile!");
+        throw std::runtime_error("fread error in header BQFile!");
 
     data_number      = header.data_size;
     z                = header.redshift;
@@ -92,7 +92,7 @@ void BQFile::readData(double *lambda, double *fluxfluctuations, double *noise)
     rn = fread(noise,              sizeof(double), header.data_size, qso_file);
 
     if (rl != header.data_size || rf != header.data_size || rn != header.data_size)
-        std::runtime_error("fread error in data BQFile!");
+        throw std::runtime_error("fread error in data BQFile!");
 }
 
 // ============================================================================
@@ -111,8 +111,8 @@ PiccaFile::PiccaFile(std::string fname_qso)
 
     printf("%d/%d\n", curr_spec_index, no_spectra);
     if (hdunum != curr_spec_index)
-        std::runtime_error("FITS ERROR: Read HDU is not expected HDU!\n");
-    
+        throw std::runtime_error("FITS ERROR: Read HDU is not expected HDU!\n");
+
     no_spectra--;
     _checkStatus();
     // _move(fname_qso[fname_qso.size-2] - '0');
@@ -122,7 +122,7 @@ void PiccaFile::_checkStatus()
 {
     char error_msg[50]="FITS ERROR ";
     fits_get_errstatus(status, &error_msg[12]);
-    if (status)     std::runtime_error(std::string(error_msg));
+    if (status)     throw std::runtime_error(std::string(error_msg));
 }
 
 void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, 
@@ -212,7 +212,7 @@ void PiccaFile::_move(int index)
 {
     int hdutype;
     if (index >= no_spectra)
-        std::runtime_error("Trying go beyond # HDU in fits file.");
+        throw std::runtime_error("Trying go beyond # HDU in fits file.");
 
     if (index > 0 && curr_spec_index != index)
     {
