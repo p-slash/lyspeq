@@ -197,6 +197,18 @@ namespace mxhelp
             offsets[j] = i;
     }
 
+    void Resolution::orderTranspose()
+    {
+        double* buffer_mat = new double[ndim*ndiags];
+
+        for (int d = 0; d < ndiags; ++d)
+            for (int i = 0; i < ndim; ++i)
+                *(buffer_mat + d + i*ndiags) = *(matrix + i + d*ndim);
+
+        delete [] matrix;
+        matrix = buffer_mat;
+    }
+
     double* Resolution::_getDiagonal(int d)
     {
         int off = offsets[d], od1 = 0;

@@ -57,6 +57,7 @@ namespace mxhelp
         ~Resolution();
         void constructGaussian(double *v, double R_kms, double a_kms);
         void fprintfMatrix(const char *fname);
+        void orderTranspose();
 
         // B initialized to zero
         // SIDE = 'L' or 'l',   B = op( R ) . A,
