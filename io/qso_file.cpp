@@ -102,6 +102,7 @@ void BQFile::readData(double *lambda, double *fluxfluctuations, double *noise)
 PiccaFile::PiccaFile(std::string fname_qso)
 {
     // Assume fname to be ..fits.gz[1]
+    printf("Openning file:%s\n", fname_qso.c_str());
     fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
     fits_get_hdu_num(fits_file, &curr_spec_index);
     fits_get_num_hdus(fits_file, &no_spectra, &status);
