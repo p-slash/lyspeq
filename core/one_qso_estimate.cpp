@@ -230,7 +230,7 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
     qFile.readData(wave, dumbarr, dumbarr);
 
     double z1 = wave[0]/LYA_REST-1, z2=wave[DATA_SIZE-1]/LYA_REST-1,
-        zm = wave[DATA_SIZE]/LYA_REST-1;
+        zm = wave[DATA_SIZE/2]/LYA_REST-1;
     delete [] wave;
     delete [] dumbarr;
 
