@@ -212,13 +212,42 @@ OneQSOEstimate::~OneQSOEstimate()
         delete reso_matrix;
 }
 
-double OneQSOEstimate::getComputeTimeEst()
+double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 {
     #ifdef FISHER_OPTIMIZATION
     #define N_M_COMBO 3.
     #else
     #define N_M_COMBO (N_Q_MATRICES + 1.)
     #endif
+
+    int DATA_SIZE, dumb_int;
+    double dumb_double;
+
+    qio::QSOFile qFile(fname_qso, specifics::INPUT_QSO_FILE);
+    qFile.readParameters(DATA_SIZE, dumb_double, dumb_int, dumb_double, dumb_double);
+
+    double *wave = new double[DATA_SIZE], *dumbarr = new double[DATA_SIZE];
+    qFile.readData(wave, dumbarr, dumbarr);
+
+    double z1 = wave[0]/LYA_REST-1, z2=wave[DATA_SIZE-1]/LYA_REST-1,
+        zm = wave[DATA_SIZE]/LYA_REST-1;
+    delete [] wave;
+    delete [] dumbarr;
+
+    zbin         = bins::findRedshiftBin(zm);
+    int ZBIN_LOW = bins::findRedshiftBin(z1);
+    int ZBIN_UPP = bins::findRedshiftBin(z2);
+    int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
+
+    #if defined(TRIANGLE_Z_BINNING_FN)
+    // If we need to distribute low end to a lefter bin
+    if ((z1 < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
+        ++N_Q_MATRICES;
+    // If we need to distribute high end to righter bin
+    if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
+        ++N_Q_MATRICES;
+    #endif
+    N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 
     if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
         return 0;
@@ -263,7 +292,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
         mxhelp::copyUpperToLower(sm, DATA_SIZE);
         // Multiply reso mat
         if (reso_matrix != NULL)
-            reso_matrix->sandwich(sm, DATA_SIZE);
+            reso_matrix->sandwich(DATA_SIZE, sm);
     }
     
     t = mytime::timer.getTime() - t;
@@ -313,7 +342,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
         mxhelp::copyUpperToLower(qi, DATA_SIZE);
         // Multiply reso mat
         if (reso_matrix != NULL)
-            reso_matrix->sandwich(qi, DATA_SIZE);
+            reso_matrix->sandwich(DATA_SIZE, qi);
     }
 
     t = mytime::timer.getTime() - t; 

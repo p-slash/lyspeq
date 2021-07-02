@@ -79,10 +79,10 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     for (int findex = fstart_this; findex < fend_this; ++findex)
     {
-        OneQSOEstimate q_temp(filepaths[findex]);
-        double cpu_t_temp = q_temp.getComputeTimeEst();
+        int zbin;
+        double cpu_t_temp = OneQSOEstimate::getComputeTimeEst(filepaths[findex], zbin);
         
-        ++Z_BIN_COUNTS[q_temp.ZBIN + 1];
+        ++Z_BIN_COUNTS[zbin];
 
         if (cpu_t_temp != 0)
             cpu_fname_vector.push_back(std::make_pair(cpu_t_temp, findex));

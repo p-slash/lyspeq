@@ -44,7 +44,8 @@ namespace sqhelper
 }
 // ---------------------------------------
 
-SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist)
+SQLookupTable::SQLookupTable(const char *dir, const char *s_base, 
+    const char *q_base, const char *fname_rlist)
     : DIR(dir), S_BASE(s_base), Q_BASE(q_base), itp_v1(0)
 {
     itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
@@ -60,12 +61,13 @@ void SQLookupTable::readTables()
 {
     LOG::LOGGER.STD("Setting tables.\n");
 
-    interp2d_signal_matrices     = new DiscreteInterpolation2D*[NUMBER_OF_R_VALUES];
-    interp_derivative_matrices   = new DiscreteInterpolation1D*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
+    interp2d_signal_matrices   = new DiscreteInterpolation2D*[NUMBER_OF_R_VALUES];
+    interp_derivative_matrices = new DiscreteInterpolation1D*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
     {
-        DiscreteInterpolation1D **qr = &interp_derivative_matrices[getIndex4DerivativeInterpolation(0, r)];
+        int ind = getIndex4DerivativeInterpolation(0, r);
+        DiscreteInterpolation1D **qr = &interp_derivative_matrices[ind];
         readSQforR(r, interp2d_signal_matrices[r], qr, true);
     }
 
@@ -263,12 +265,13 @@ DiscreteInterpolation1D* SQLookupTable::_allocReadQFile(int kn, int r_index)
     kvalue_1 = bins::KBAND_EDGES[kn];
     kvalue_2 = bins::KBAND_EDGES[kn + 1];
 
-    buf_fnames = sqhelper::QTableFileNameConvention(DIR, Q_BASE, Rthis, dvthis, kvalue_1, kvalue_2);
+    buf_fnames = sqhelper::QTableFileNameConvention(DIR, Q_BASE, Rthis, dvthis, 
+        kvalue_1, kvalue_2);
 
     SQLookupTableFile q_table_file(buf_fnames, 'r');
 
-    q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, dummy_R, temp_px_width, 
-        temp_ki, temp_kf);
+    q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, dummy_R, 
+        temp_px_width, temp_ki, temp_kf);
 
     if (sqhelper::derivative_array == NULL)
         allocateSignalAndDerivArrays();
@@ -277,12 +280,14 @@ DiscreteInterpolation1D* SQLookupTable::_allocReadQFile(int kn, int r_index)
 
     itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
 
-    q = new DiscreteInterpolation1D(itp_v1, itp_dv, sqhelper::derivative_array, N_V_POINTS);
+    q = new DiscreteInterpolation1D(itp_v1, itp_dv, sqhelper::derivative_array, 
+        N_V_POINTS);
 
     return q;
 }
 
-void SQLookupTable::readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q, bool alloc)
+void SQLookupTable::readSQforR(int r_index, DiscreteInterpolation2D*& s, 
+    DiscreteInterpolation1D**& q, bool alloc)
 {
     // Skip this section if fiducial signal matrix is turned off.
     if (!specifics::TURN_OFF_SFID)
@@ -303,7 +308,8 @@ void SQLookupTable::readSQforR(int r_index, DiscreteInterpolation2D*& s, Discret
     }
 }
 
-DiscreteInterpolation1D* SQLookupTable::getDerivativeMatrixInterp(int kn, int r_index) const
+DiscreteInterpolation1D* SQLookupTable::getDerivativeMatrixInterp(int kn, 
+    int r_index) const
 {
     return interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)];
 }
@@ -355,10 +361,12 @@ void SQLookupTable::allocateSignalAndDerivArrays()
 
 void SQLookupTable::allocateVAndZArrays()
 {
-    sqhelper::LINEAR_V_ARRAY = sqhelper::allocLinearlySpacedArray(itp_v1, LENGTH_V, N_V_POINTS);
+    sqhelper::LINEAR_V_ARRAY = sqhelper::allocLinearlySpacedArray(itp_v1, 
+        LENGTH_V, N_V_POINTS);
     
     if (!specifics::TURN_OFF_SFID)
-        sqhelper::LINEAR_Z_ARRAY = sqhelper::allocLinearlySpacedArray(itp_z1, LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
+        sqhelper::LINEAR_Z_ARRAY = sqhelper::allocLinearlySpacedArray(itp_z1, 
+            LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
 }
 
 void SQLookupTable::deallocateSignalAndDerivArrays()
