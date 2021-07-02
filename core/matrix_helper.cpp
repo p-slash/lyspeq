@@ -180,7 +180,8 @@ namespace mxhelp
     }
 
     // class Resolution
-    Resolution::Resolution(int nm, int ndia) : ndim(nm), ndiags(ndia)
+    Resolution::Resolution(int nm, int ndia) : ndim(nm), ndiags(ndia),
+        sandwich_buffer(NULL)
     {
         // e.g. ndim=724, ndiags=11
         // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
@@ -199,14 +200,14 @@ namespace mxhelp
 
     void Resolution::orderTranspose()
     {
-        double* buffer_mat = new double[ndim*ndiags];
+        double* newmat = new double[size];
 
         for (int d = 0; d < ndiags; ++d)
             for (int i = 0; i < ndim; ++i)
-                *(buffer_mat + i+d*ndim) = *(matrix + i*ndiags+d);
+                *(newmat + i+d*ndim) = *(matrix + i*ndiags+d);
 
         delete [] matrix;
-        matrix = buffer_mat;
+        matrix = newmat;
     }
 
     double* Resolution::_getDiagonal(int d)
@@ -279,9 +280,12 @@ namespace mxhelp
     {
         delete [] offsets;
         delete [] matrix;
+        if (sandwich_buffer != NULL)
+            delete [] sandwich_buffer;
     }
 
-    void Resolution::multiply(char SIDER, char TRANSR, const double* A, double *B, int N)
+    void Resolution::multiply(int N, char SIDER, char TRANSR, const double* A, 
+        double *B)
     {
         if (N != ndim)
             throw std::runtime_error("Resolution multiply operation dimension do not match!");
@@ -360,7 +364,7 @@ namespace mxhelp
             for (i = 0; i < Ni; ++i)
             {
                 for (j = 0; j < Nj; ++j, ++Aslice, ++Bslice)
-                    *Bslice +=  *(dia_slice+*di) * *Aslice;
+                    *Bslice += *(dia_slice+*di) * *Aslice;
 
                 Bslice += (ndim-Nj);
                 Aslice += (ndim-Nj);
@@ -368,15 +372,16 @@ namespace mxhelp
         }
     }
 
-    void Resolution::sandwich(double *inplace, int N)
+    void Resolution::sandwich(int N, double *inplace)
     {
         if (N != ndim)
             throw std::runtime_error("Resolution sandwich operation dimensions do not match!");
 
-        static std::unique_ptr<double[]> buffer_mat(new double[ndim*ndim]);
+        if (sandwich_buffer != NULL)
+            sandwich_buffer = new double[ndim*ndim];
 
-        multiply('L', 'N', inplace, buffer_mat.get(), N);
-        multiply('R', 'T', buffer_mat.get(), inplace, N);
+        multiply(ndim, 'L', 'N', inplace, sandwich_buffer);
+        multiply(ndim, 'R', 'T', sandwich_buffer, inplace);
     }
 
     double Resolution::getMaxMemUsage()

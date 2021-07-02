@@ -83,7 +83,7 @@ public:
     // OneQSOEstimate(OneQSOEstimate &&rhs);
     // OneQSOEstimate& operator=(OneQSOEstimate&& rhs);
 
-    double getComputeTimeEst();
+    static double getComputeTimeEst(std::string fname_qso, int &zbin);
 
     void setCovarianceMatrix(const double *ps_estimate);
     void invertCovarianceMatrix();

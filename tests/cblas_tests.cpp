@@ -108,16 +108,16 @@ int main()
     
     // printf("-----\n");
     printf("LN-----\n");
-    rmat.multiply('L', 'N', matrix_BR, result_R, NR);
+    rmat.multiply(NR, 'L', 'N', matrix_BR, result_R);
     mxhelp::printfMatrix(result_R, NR, NR);
     printf("LT-----\n");
-    rmat.multiply('L', 'T', matrix_BR, result_R, NR);
+    rmat.multiply(NR, 'L', 'T', matrix_BR, result_R);
     mxhelp::printfMatrix(result_R, NR, NR);
     printf("RN-----\n");
-    rmat.multiply('R', 'N', matrix_BR, result_R, NR);
+    rmat.multiply(NR, 'R', 'N', matrix_BR, result_R);
     mxhelp::printfMatrix(result_R, NR, NR);
     printf("RT-----\n");
-    rmat.multiply('R', 'T', matrix_BR, result_R, NR);
+    rmat.multiply(NR, 'R', 'T', matrix_BR, result_R);
     mxhelp::printfMatrix(result_R, NR, NR);
 
     return 0;

@@ -48,6 +48,7 @@ namespace mxhelp
     class Resolution
     {
         double* _getDiagonal(int d);
+        double* sandwich_buffer;
     public:
         int ndim, ndiags, size;
         int *offsets;
@@ -64,10 +65,10 @@ namespace mxhelp
         // SIDE = 'R' or 'r',   B = A . op( R ).
         // TRANSR = 'N' or 'n',  op( R ) = R.
         // TRANSR = 'T' or 't',  op( R ) = R^T.
-        void multiply(char SIDER, char TRANSR, const double* A, double *B, int N);
+        void multiply(int N, char SIDER, char TRANSR, const double* A, double *B);
 
         // R . inplace . R^T
-        void sandwich(double *inplace, int N);
+        void sandwich(int N, double *inplace);
 
         double getMaxMemUsage();
     };
