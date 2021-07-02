@@ -84,7 +84,7 @@ namespace bins
         if (r >= NUMBER_OF_Z_BINS)
             r = NUMBER_OF_Z_BINS;
 
-        return r;        
+        return r;
     }
 
     // This is an extrapolating approach when limited to to only neighbouring bins
