@@ -99,7 +99,7 @@ void BQFile::readData(double *lambda, double *fluxfluctuations, double *noise)
 // Picca File
 // ============================================================================
 
-PiccaFile::PiccaFile(std::string fname_qso)
+PiccaFile::PiccaFile(std::string fname_qso) : status(0)
 {
     // Assume fname to be ..fits.gz[1]
     printf("Openning file:%s\n", fname_qso.c_str());
