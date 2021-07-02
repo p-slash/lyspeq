@@ -11,6 +11,7 @@
 
 // Quadratic Estimate numbers
 #define CONVERGENCE_EPS 1E-4
+#define FISHER_SIZE bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS
 
 // PE rank and total number of threads
 namespace process
