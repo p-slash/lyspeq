@@ -135,31 +135,32 @@ void OneQSOEstimate::_setNQandFisherIndex()
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 }
 
+// Find number of Qj matrices to preload.
 void OneQSOEstimate::_setStoredMatrices()
 {
-    // Number of Qj matrices to preload.
     double size_m1 = (double)sizeof(double) * DATA_SIZE_2 / 1048576.; // in MB
     double remain_mem = process::MEMORY_ALLOC;
 
+    // Resolution matrix needs another temp storage.
     if (specifics::USE_RESOLUTION_MATRIX)
         remain_mem -= reso_matrix->getMaxMemUsage();
 
-    // Need at least 3 matrices as temp
-    nqj_eff      = remain_mem / size_m1 - 3;
     isSfidStored = false;
-    
-    if (nqj_eff <= 0)
-        nqj_eff = 0;
-    else 
-    {
-        if (nqj_eff > N_Q_MATRICES)
-        {
-            nqj_eff      = N_Q_MATRICES;
-            isSfidStored = !specifics::TURN_OFF_SFID;
-        }
 
-        stored_qj = new double*[nqj_eff];
+    // Need at least 3 matrices as temp
+    if (remain_mem > (3+N_Q_MATRICES)*size_m1)
+    {
+        remain_mem -= (3+N_Q_MATRICES)*size_m1;
+        nqj_eff     = N_Q_MATRICES;
+
+        if (remain_mem > size_m1)
+            isSfidStored = !specifics::TURN_OFF_SFID;
     }
+    else
+        nqj_eff = remain_mem / size_m1 - 3;
+
+    if (nqj_eff < 0)  nqj_eff = 0;
+    else              stored_qj = new double*[nqj_eff];
 
     if (nqj_eff != N_Q_MATRICES)
         LOG::LOGGER.IO("===============\n""Not all matrices are stored: %s\n"
