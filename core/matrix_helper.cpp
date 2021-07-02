@@ -377,7 +377,7 @@ namespace mxhelp
         if (N != ndim)
             throw std::runtime_error("Resolution sandwich operation dimensions do not match!");
 
-        if (sandwich_buffer != NULL)
+        if (sandwich_buffer == NULL)
             sandwich_buffer = new double[ndim*ndim];
 
         multiply(ndim, 'L', 'N', inplace, sandwich_buffer);
