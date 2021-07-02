@@ -356,7 +356,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
             // save matrices to files, break
             #ifdef DEBUG_MATRIX_OUT
             (*it)->fprintfMatrices(fname_base);
-            throw "DEBUGGING QUIT.\n";
+            throw std::runtime_error("DEBUGGING QUIT.\n");
             #endif
         }
 
