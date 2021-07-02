@@ -128,7 +128,7 @@ void SQLookupTableFile::writeData(double *data)
         throw std::runtime_error( "fwrite error in header SQLookupTableFile!");
 
     fw = fwrite(data, sizeof(double), size, sq_file);
-    if (fw != 1)
+    if (fw != size)
         throw std::runtime_error( "fwrite error in data SQLookupTableFile!");
 }
 
