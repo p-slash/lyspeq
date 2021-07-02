@@ -103,7 +103,7 @@ PiccaFile::PiccaFile(std::string fname_qso)
 {
     // Assume fname to be ..fits.gz[1]
     printf("Openning file:%s\n", fname_qso.c_str());
-    int hdunum = fname_qso[fname_qso.size-2]-'0';
+    int hdunum = fname_qso[fname_qso.size()-2]-'0';
     printf("%d\n", hdunum);
     fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
     fits_get_hdu_num(fits_file, &curr_spec_index);
