@@ -185,9 +185,11 @@ void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
     
     curr_ndiags = naxes[0];
     Rmat = new mxhelp::Resolution(curr_N, curr_ndiags);
-    
+
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_ndiags, 0, 
         Rmat->matrix, &nonull, &status);
+
+    Rmat->orderTranspose();
 }
 
 PiccaFile::~PiccaFile()
