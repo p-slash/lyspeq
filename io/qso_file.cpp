@@ -102,16 +102,9 @@ void BQFile::readData(double *lambda, double *fluxfluctuations, double *noise)
 PiccaFile::PiccaFile(std::string fname_qso) : status(0)
 {
     // Assume fname to be ..fits.gz[1]
-    printf("Openning file:%s\n", fname_qso.c_str());
-    int hdunum = fname_qso[fname_qso.size()-2]-'0'+1;
-    printf("%d\n", hdunum);
     fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
     fits_get_hdu_num(fits_file, &curr_spec_index);
     fits_get_num_hdus(fits_file, &no_spectra, &status);
-
-    printf("%d/%d\n", curr_spec_index, no_spectra);
-    if (hdunum != curr_spec_index)
-        throw std::runtime_error("FITS ERROR: Read HDU is not expected HDU!\n");
 
     no_spectra--;
     _checkStatus();
@@ -128,25 +121,19 @@ void PiccaFile::_checkStatus()
 void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, 
     double &sig2noi, double &dv_kms)
 {
-    int id;
-    fits_get_hdu_num(fits_file, &id);
-    printf("%d vs %d\n", id, curr_spec_index);
-    fits_movabs_hdu(fits_file, curr_spec_index, &id, &status);
-    // _move(newhdu);
-    char comment[100];
     // This is not ndiags in integer, but length in bytes that includes other columns
     // fits_read_key(fits_file, TINT, "NAXIS1", &curr_ndiags, NULL, &status);
-    fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, comment, &status);
+    fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
 
-    fits_read_key(fits_file, TDOUBLE, "Z", &z, comment, &status);
+    fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
 
     double r_kms;
-    fits_read_key(fits_file, TDOUBLE, "MEANRESO", &r_kms, comment, &status);
+    fits_read_key(fits_file, TDOUBLE, "MEANRESO", &r_kms, NULL, &status);
     fwhm_resolution = int(SPEED_OF_LIGHT/r_kms/ONE_SIGMA_2_FWHM/100 + 0.5)*100;
 
-    fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, comment, &status);
+    fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
 
-    fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, comment, &status);
+    fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
 
     #define LN10 2.30258509299
     dv_kms = round(dv_kms*SPEED_OF_LIGHT/LN10/5)*5;
@@ -168,7 +155,6 @@ int PiccaFile::_getColNo(char *tmplt)
 void PiccaFile::readData(double *lambda, double *delta, double *noise)
 {
     int nonull, colnum;
-    fits_movabs_hdu(fits_file, curr_spec_index, &nonull, &status);
     // _move(newhdu);
     char logtmp[]="LOGLAM";
     colnum = _getColNo(logtmp);
@@ -196,6 +182,7 @@ void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
     char resotmp[]="RESOMAT";
     colnum = _getColNo(resotmp);
     fits_read_tdim(fits_file, colnum, curr_N, &naxis, naxes, &status);
+    
     curr_ndiags = naxes[0];
     Rmat = new mxhelp::Resolution(curr_N, curr_ndiags);
     
