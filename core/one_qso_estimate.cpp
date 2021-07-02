@@ -72,7 +72,8 @@ bool OneQSOEstimate::_findRedshiftBin()
     if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
     {
         // LOG::LOGGER.IO("This QSO is completely out!\n");
-        LOG::LOGGER.ERR("This QSO is completely out:\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+        LOG::LOGGER.ERR("This QSO is completely out:\n" "File: %s\n" 
+            "Redshift range: %.2f--%.2f\n",
             qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
 
         return false;
@@ -81,7 +82,8 @@ bool OneQSOEstimate::_findRedshiftBin()
     if (ZBIN_LOW < 0)
     {
         // LOG::LOGGER.IO("This QSO is out on the low end!\n");
-        LOG::LOGGER.ERR("This QSO is out on the low end:\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+        LOG::LOGGER.ERR("This QSO is out on the low end:\n" "File: %s\n" 
+            "Redshift range: %.2f--%.2f\n",
             qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
         
         ZBIN_LOW = 0;
@@ -90,7 +92,8 @@ bool OneQSOEstimate::_findRedshiftBin()
     if (ZBIN_UPP > (bins::NUMBER_OF_Z_BINS-1))
     {
         // LOG::LOGGER.IO("This QSO is out on the high end!\n");
-        LOG::LOGGER.ERR("This QSO is out on the high end:\n" "File: %s\n" "Redshift range: %.2f--%.2f\n",
+        LOG::LOGGER.ERR("This QSO is out on the high end:\n" "File: %s\n" 
+            "Redshift range: %.2f--%.2f\n",
             qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
 
         ZBIN_UPP = bins::NUMBER_OF_Z_BINS - 1;
@@ -331,8 +334,9 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
                 *ptr *= bins::redshiftBinningFunction(z_ij, zm);
                 // Every pixel pair should scale to the bin redshift
                 #ifdef REDSHIFT_GROWTH_POWER
-                *ptr *= fidcosmo::fiducialPowerGrowthFactor(z_ij, bins::KBAND_CENTERS[kn], 
-                    bins::ZBIN_CENTERS[zm], &fidpd13::FIDUCIAL_PD13_PARAMS);
+                *ptr *= fidcosmo::fiducialPowerGrowthFactor(z_ij, 
+                    bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 
+                    &fidpd13::FIDUCIAL_PD13_PARAMS);
                 #endif
             }
         }
@@ -369,8 +373,8 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
         _setQiMatrix(temp_matrix[0], i_kz);
 
-        cblas_daxpy(DATA_SIZE*DATA_SIZE, ps_estimate[i_kz + fisher_index_start], temp_matrix[0], 1, 
-            covariance_matrix, 1);
+        cblas_daxpy(DATA_SIZE*DATA_SIZE, ps_estimate[i_kz + fisher_index_start], 
+            temp_matrix[0], 1, covariance_matrix, 1);
     }
 
     // add noise matrix diagonally
@@ -390,7 +394,8 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
         std::transform(lambda_array, lambda_array+DATA_SIZE, temp_t_vector, 
             [](const double &l) { return log(l/LYA_REST); });
 
-        cblas_dger(CblasRowMajor, DATA_SIZE, DATA_SIZE, specifics::CONTINUUM_MARGINALIZATION_DERV, 
+        cblas_dger(CblasRowMajor, DATA_SIZE, DATA_SIZE, 
+            specifics::CONTINUUM_MARGINALIZATION_DERV, 
             temp_t_vector, 1, temp_t_vector, 1, covariance_matrix, DATA_SIZE);
 
         delete [] temp_t_vector;
@@ -421,16 +426,14 @@ void OneQSOEstimate::_getWeightedMatrix(double *m)
     double t = mytime::timer.getTime();
 
     //C-1 . Q
-    cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper,
-                 DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix, DATA_SIZE,
-                 m, DATA_SIZE,
-                 0, temp_matrix[1], DATA_SIZE);
+    cblas_dsymm(CblasRowMajor, CblasLeft, CblasUpper,
+        DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix, DATA_SIZE,
+        m, DATA_SIZE, 0, temp_matrix[1], DATA_SIZE);
 
     //C-1 . Q . C-1
-    cblas_dsymm( CblasRowMajor, CblasRight, CblasUpper,
-                 DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix, DATA_SIZE,
-                 temp_matrix[1], DATA_SIZE,
-                 0, m, DATA_SIZE);
+    cblas_dsymm(CblasRowMajor, CblasRight, CblasUpper,
+        DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix, DATA_SIZE,
+        temp_matrix[1], DATA_SIZE, 0, m, DATA_SIZE);
 
     t = mytime::timer.getTime() - t;
 
@@ -459,8 +462,10 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 
         temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, DATA_SIZE);
 
-        int ind_ij = (i_kz + fisher_index_start) + bins::TOTAL_KZ_BINS * (j_kz + fisher_index_start),
-            ind_ji = (j_kz + fisher_index_start) + bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start);
+        int ind_ij = (i_kz + fisher_index_start) 
+                + bins::TOTAL_KZ_BINS * (j_kz + fisher_index_start),
+            ind_ji = (j_kz + fisher_index_start) 
+                + bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start);
 
         *(fisher_matrix + ind_ij) = temp;
         *(fisher_matrix + ind_ji) = temp;
@@ -483,20 +488,23 @@ void OneQSOEstimate::computePSbeforeFvector()
     // #pragma omp parallel for
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
-        double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix = temp_matrix[1], temp_tk = 0;
+        double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix = temp_matrix[1], 
+            temp_tk = 0;
 
         // Set derivative matrix ikz
         _setQiMatrix(Q_ikz_matrix, i_kz);
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, Q_ikz_matrix, DATA_SIZE);
+        double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, 
+            Q_ikz_matrix, DATA_SIZE);
 
         // Get weighted derivative matrix ikz: C-1 Qi C-1
         _getWeightedMatrix(Q_ikz_matrix);
 
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, noise_array, DATA_SIZE);
+        double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, noise_array, 
+            DATA_SIZE);
 
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
@@ -519,15 +527,18 @@ void OneQSOEstimate::computePSbeforeFvector()
     delete [] weighted_data_vector;
 }
 
-void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_vector[3], 
-    double *fisher_sum)
+void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, 
+    double *dbt_sum_vector[3], double *fisher_sum)
 {
     _allocateMatrices();
 
-    // This function allocates new signal & deriv matrices if process::SAVE_ALL_SQ_FILES=false 
+    // This function allocates new signal & deriv matrices 
+    // if process::SAVE_ALL_SQ_FILES=false 
     // i.e., no caching of SQ files
-    // If all tables are cached, then this function simply points to those in process:sq_private_table
-    process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, interp_derivative_matrix);
+    // If all tables are cached, then this function simply points 
+    // to those in process:sq_private_table
+    process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, 
+        interp_derivative_matrix);
 
     // Preload last nqj_eff matrices
     // 0 is the last matrix
@@ -551,11 +562,11 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_
 
         computePSbeforeFvector();
 
-        mxhelp::vector_add(fisher_sum, fisher_matrix, bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS);
+        mxhelp::vector_add(fisher_sum, fisher_matrix, FISHER_SIZE);
         
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            mxhelp::vector_add(dbt_sum_vector[dbt_i], dbt_estimate_before_fisher_vector[dbt_i], 
-                bins::TOTAL_KZ_BINS);
+            mxhelp::vector_add(dbt_sum_vector[dbt_i], 
+                dbt_estimate_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS);
 
         // Write results to file with their qso filename as base
         if (process::SAVE_EACH_SPEC_RESULT)
@@ -563,11 +574,11 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, double *dbt_sum_
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("%d/%d - ERROR %s: Covariance matrix is not invertable. %s\n",
-                process::this_pe, process::total_pes, e.what(), qso_sp_fname.c_str());
+        LOG::LOGGER.ERR("ERROR %s: Covariance matrix is not invertable. %s\n",
+            e.what(), qso_sp_fname.c_str());
 
         LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
-                DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
+            DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
     }
     
     _freeMatrices();
@@ -587,7 +598,7 @@ void OneQSOEstimate::_allocateMatrices()
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
         dbt_estimate_before_fisher_vector[dbt_i] = new double[bins::TOTAL_KZ_BINS]();
 
-    fisher_matrix = new double[bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS]();
+    fisher_matrix = new double[FISHER_SIZE]();
 
     covariance_matrix = new double[DATA_SIZE_2];
 
@@ -628,10 +639,10 @@ void OneQSOEstimate::_freeMatrices()
 
 void OneQSOEstimate::_saveIndividualResult()
 {
-    mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], dbt_estimate_before_fisher_vector[1], 
-        bins::TOTAL_KZ_BINS);
-    mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], dbt_estimate_before_fisher_vector[2], 
-        bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], 
+        dbt_estimate_before_fisher_vector[1], bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], 
+        dbt_estimate_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
 
     std::string resfname = qso_sp_fname;
     resfname.replace(resfname.end()-4, resfname.end(), "_Fp.bin");
@@ -639,12 +650,14 @@ void OneQSOEstimate::_saveIndividualResult()
     FILE *toWrite = ioh::open_file(resfname.c_str(), "wb");
     
     int r = fwrite(&bins::TOTAL_KZ_BINS, sizeof(int), 1, toWrite);
-    r+=fwrite(fisher_matrix, sizeof(double), bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS, toWrite);
-    r+=fwrite(dbt_estimate_before_fisher_vector[0], sizeof(double), bins::TOTAL_KZ_BINS, toWrite);
+    r+=fwrite(fisher_matrix, sizeof(double), FISHER_SIZE, toWrite);
+    r+=fwrite(dbt_estimate_before_fisher_vector[0], sizeof(double), 
+        bins::TOTAL_KZ_BINS, toWrite);
     fclose(toWrite);
 
     if (r != bins::TOTAL_KZ_BINS*(bins::TOTAL_KZ_BINS+1)+1)
-        LOG::LOGGER.ERR("ERROR %d saving individual results: %s\n", r, resfname.c_str());
+        LOG::LOGGER.ERR("ERROR %d saving individual results: %s\n", r, 
+            resfname.c_str());
 }
 
 void OneQSOEstimate::fprintfMatrices(const char *fname_base)
