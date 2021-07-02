@@ -105,6 +105,7 @@ PiccaFile::PiccaFile(std::string fname_qso)
     fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
     fits_get_hdu_num(fits_file, &curr_spec_index);
     fits_get_num_hdus(fits_file, &no_spectra, &status);
+    printf("%d/%d\n", curr_spec_index, no_spectra);
     no_spectra--;
     _checkStatus();
     // _move(fname_qso[fname_qso.size-2] - '0');
@@ -120,6 +121,10 @@ void PiccaFile::_checkStatus()
 void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, 
     double &sig2noi, double &dv_kms)
 {
+    int id;
+    fits_get_hdu_num(fits_file, &id);
+    printf("%d vs %d\n", id, curr_spec_index);
+    fits_movabs_hdu(fits_file, curr_spec_index, &id, &status);
     // _move(newhdu);
     char comment[100];
     // This is not ndiags in integer, but length in bytes that includes other columns
@@ -156,6 +161,7 @@ int PiccaFile::_getColNo(char *tmplt)
 void PiccaFile::readData(double *lambda, double *delta, double *noise)
 {
     int nonull, colnum;
+    fits_movabs_hdu(fits_file, curr_spec_index, &nonull, &status);
     // _move(newhdu);
     char logtmp[]="LOGLAM";
     colnum = _getColNo(logtmp);
