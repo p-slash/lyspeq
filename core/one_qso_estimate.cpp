@@ -164,7 +164,7 @@ void OneQSOEstimate::_setStoredMatrices()
     if (nqj_eff != N_Q_MATRICES)
         LOG::LOGGER.IO("===============\n""Not all matrices are stored: %s\n"
             "#stored: %d vs #required:%d.\n""ND: %d, M1: %.1f MB. "
-            "Avail mem after R & SQ subtracted: %.1f MB\n""===============\n", 
+            "Avail mem after R & SQ subtracted: %.1lf MB\n""===============\n", 
             qso_sp_fname.c_str(), nqj_eff, N_Q_MATRICES, DATA_SIZE, size_m1, 
             remain_mem);
 
