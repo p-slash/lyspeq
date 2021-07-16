@@ -95,6 +95,7 @@ public:
     void oneQSOiteration(const double *ps_estimate, double *dbt_sum_vector[3], double *fisher_sum);
 
     void fprintfMatrices(const char *fname_base);
+    double getMinMemUsage();
 };
 
 #endif
