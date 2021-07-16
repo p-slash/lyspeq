@@ -56,6 +56,7 @@ namespace mxhelp
 
         Resolution(int nm, int ndia);
         ~Resolution();
+        void freeBuffer();
         void constructGaussian(double *v, double R_kms, double a_kms);
         void fprintfMatrix(const char *fname);
         void orderTranspose();
@@ -70,7 +71,8 @@ namespace mxhelp
         // R . inplace . R^T
         void sandwich(int N, double *inplace);
 
-        double getMaxMemUsage();
+        double getMinMemUsage();
+        double getBufMemUsage();
     };
 }
 

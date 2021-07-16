@@ -280,8 +280,16 @@ namespace mxhelp
     {
         delete [] offsets;
         delete [] matrix;
+        freeBuffer();
+    }
+
+    void Resolution::freeBuffer()
+    {
         if (sandwich_buffer != NULL)
+        {
             delete [] sandwich_buffer;
+            sandwich_buffer = NULL;
+        }
     }
 
     void Resolution::multiply(int N, char SIDER, char TRANSR, const double* A, 
@@ -384,16 +392,22 @@ namespace mxhelp
         multiply(ndim, 'R', 'T', sandwich_buffer, inplace);
     }
 
-    double Resolution::getMaxMemUsage()
+    double Resolution::getMinMemUsage()
     {
         // Convert to MB by division of 1048576
-        double bufsize = (double)sizeof(double) * ndim * ndim / 1048576.;
         double diasize = (double)sizeof(double) * ndim * ndiags / 1048576.;
         double offsize = (double)sizeof(int) * (ndiags+3) / 1048576.;
 
-        return bufsize + diasize + offsize;
+        return diasize + offsize;
     }
 
+    double Resolution::getBufMemUsage()
+    {
+        // Convert to MB by division of 1048576
+        double bufsize = (double)sizeof(double) * ndim * ndim / 1048576.;
+
+        return bufsize;
+    }
     /*
     void Resolution::multiply(char SIDER, char TRANSR, const double* A, double *B, int N)
     {

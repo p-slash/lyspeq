@@ -138,6 +138,16 @@ void OneQSOEstimate::_setNQandFisherIndex()
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 }
 
+double OneQSOEstimate::getMinMemUsage()
+{
+    double minmem = (double)sizeof(double) * DATA_SIZE * 4 / 1048576.; // in MB
+
+    if (specifics::USE_RESOLUTION_MATRIX)
+        minmem += reso_matrix->getMinMemUsage();
+
+    return minmem;
+}
+
 // Find number of Qj matrices to preload.
 void OneQSOEstimate::_setStoredMatrices()
 {
@@ -146,7 +156,7 @@ void OneQSOEstimate::_setStoredMatrices()
 
     // Resolution matrix needs another temp storage.
     if (specifics::USE_RESOLUTION_MATRIX)
-        remain_mem -= reso_matrix->getMaxMemUsage();
+        remain_mem -= reso_matrix->getBufMemUsage();
 
     isSfidStored = false;
 
@@ -632,6 +642,9 @@ void OneQSOEstimate::_freeMatrices()
 
     if (isSfidStored)
         delete [] stored_sfid;
+
+    if (specifics::USE_RESOLUTION_MATRIX)
+        reso_matrix->freeBuffer();
     
     isQjSet   = false;
     isSfidSet = false;

@@ -82,17 +82,17 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
         int zbin;
         double cpu_t_temp = OneQSOEstimate::getComputeTimeEst(filepaths[findex], 
             zbin);
-        
+
         ++Z_BIN_COUNTS[zbin+1];
 
         if (cpu_t_temp != 0)
             cpu_fname_vector.push_back(std::make_pair(cpu_t_temp, findex));
     }
-    
+
     // Print out time it took to read all files into vector
     t1 = mytime::timer.getTime();
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
-    
+
     // MPI Reduce ZBIN_COUNTS
     #if defined(ENABLE_MPI)
         MPI_Allreduce(MPI_IN_PLACE, Z_BIN_COUNTS, bins::NUMBER_OF_Z_BINS+2, 
@@ -109,7 +109,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     LOG::LOGGER.STD("Sorting with respect to estimated cpu time.\n");
     std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end()); // Ascending order
-    
+
     #if defined(ENABLE_MPI)
     mpisort::mergeSortedArrays(0, process::total_pes, process::this_pe, 
         cpu_fname_vector);
@@ -144,6 +144,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
         {
             // Construct and add queue
             OneQSOEstimate *q_temp = new OneQSOEstimate(filepaths[qe->second]);
+            process::MEMORY_ALLOC -= q_temp->getMinMemUsage();
             local_queue.push_back(q_temp);
         }
     }
