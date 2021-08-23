@@ -41,15 +41,15 @@ Intermediate versions have been used to study DESI-lite mocks. Further modificat
 + Implemented reading a mean flux file, which can be read by `MeanFluxFile` from the config file.
 
 ### Optimizations
-+ Each PE reads and sorts its own spectra, then merge sorted. This saves significant amount of time reading ~1m files.
++ Each PE reads and sorts its own spectra, then they all perform a merge sort. This saves significant amount of time reading ~1m files.
 + Using discrete interpolation instead of `gsl_interp` to eliminate time spent on binary search.
-+ Does not copy S and Q matrices when they are not changed which save time.
++ Does not copy S and Q matrices when they are not changed, which saves time.
 + Use `chrono` library to measure time.
-+ No more `gsl_vector` and `gsl_matrix`, but use LAPACKE instead.
++ No more `gsl_vector` and `gsl_matrix`, but uses LAPACKE instead.
 
 ### Other
 + Logger saves separately for each PE.
-+ Needs CBLAS & LAPACKE libraries to run, because not using `gsl_vector` and `gsl_matrix`.
++ Needs CBLAS & LAPACKE libraries to run (not using `gsl_vector` and `gsl_matrix`).
 + GSL flags are silenced in compilation.
 + Removed redshift evolution option.
 
@@ -58,10 +58,8 @@ Prerequisites
 + [GSL](https://www.gnu.org/software/gsl/) is needed for some integration and interpolation.
 + [Python3](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
 + [MPI](https://www.open-mpi.org) is needed to enable parallel computing.
-+ [CBLAS] and [LAPACKE].
-+ [CFITSIO]
-
-Even though [GSL](https://www.gnu.org/software/gsl/) has built in CBLAS functions, I recommended using an optimized library such as Intel's [MKL](https://software.intel.com/en-us/mkl), [ATLAS](http://math-atlas.sourceforge.net) or [OpenBLAS](https://www.openblas.net). The compiler flags will depend on the system specifics. Modify Makefile accordingly. To link one of these libraries to gsl_cblas, remove `-lgslcblas` from `LDLIBS`. For ATLAS, add `-lcblas -latlas` to `LDLIBS` in your Makefile. To link OpenBLAS, add `-lopenblas`. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
++ [CBLAS] and [LAPACKE]. I have been mostly using [MKL](https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.932925) and [OpenBLAS](http://www.openblas.net). [ATLAS](http://math-atlas.sourceforge.net) has been passing simple `make test`, but not fully validated. The compiler flags will depend on the system specifics. Modify Makefile accordingly. To link one of these libraries to `gsl_cblas`, remove `-lgslcblas` from `LDLIBS`. For ATLAS, add `-lcblas -latlas` to `LDLIBS` in your Makefile. To link OpenBLAS, add `-lopenblas`. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
++ [CFITSIO](https://heasarc.gsfc.nasa.gov/fitsio/) for reading picca files.
 
 Compile and Install
 =====
@@ -84,10 +82,12 @@ Overview of Programs
 
 Both programs take one common config file.
 
-+ **smbivspline.py** is an intermediate smoothing script. An intermediate fitting script is also provided by deprecated.
++ **smbivspline.py** is an intermediate smoothing script. An intermediate fitting script is also provided but deprecated.
 
 Config File
 =====
+See [example file](tests/input/test.config).
+
 Bin edges for k start with linear spacing: `K0 + LinearKBinWidth * n`, where `n=[0, NumberOfLinearBins]`. Then continues with log spacing: `K_Edges[NumberOfLinearBins] * 10^(Log10KBinWidth * n)`. Parameters for k binning are:
 
     K0 0.
@@ -104,7 +104,7 @@ Can add a last bin edge. This goes into effect when larger than the last bin as 
 
 Redshift bins are linearly spaced.
 
-    FirstRedshiftBinCenter    1.9
+    FirstRedshiftBinCenter    1.8
     RedshiftBinWidth          0.2
     NumberOfRedshiftBins      6
 
@@ -121,7 +121,7 @@ Fiducial Palanque fit function parameters when used.
     FiducialRedshiftCurvature    0
     FiducialLorentzianLambda     0
     
-Lookup tables are generated with the following parameters:
+Lookup tables are generated with the following parameters. The resulting velocity spacing will be VelocityLength/(NumberVPoints+1).
 
     NumberVPoints     200
     NumberZPoints     200
@@ -137,9 +137,9 @@ You can smooth lnk, lnP instead of k, P for better behaviour.
 
 The maximum number of iterations are
 
-    NumberOfIterations    10
+    NumberOfIterations    5
 
-Config file has one file list for qso spectra. This file should start with number of qsos, and then have their relative file paths. The location of the file list, and the directory where those files live:
+Config file has one file list for qso spectra. This file should start with number of qsos, and then have their relative file paths (see [example file](tests/input/flist.txt)). The location of the file list, and the directory where those files live:
 
     FileNameList      ./data/qso_dir/qso_list.txt
     FileInputDir      ./data/qso_dir/
@@ -149,7 +149,7 @@ The directory for output files and file name base:
     OutputDir         ./data/qso_results/
     OutputFileBase    lya
 
-List of spectograph resolutions and pixel spacings (R [int], dv [double]) is in `FileNameRList`. This file starts with number of lines.
+List of spectograph resolutions and pixel spacings (R [int], dv [double]) is in `FileNameRList`. This file starts with number of lines. See [example file](tests/input/slist.txt).
 
     FileNameRList     ./data/qso_dir/specres_list.txt
 
