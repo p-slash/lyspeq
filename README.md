@@ -1,8 +1,11 @@
-`lyspeq` is highly efficient, parallelized and customizable program for 1D flux power spectrum of the Lyman-alpha forest that implements quadratic maximum likelihood estimator.
+`lyspeq` is highly efficient, parallelized and customizable program for 1D flux power spectrum of the Lyman-alpha forest that implements quadratic maximum likelihood estimator. Please cite papers Karaçaylı et al. (2020) and Karaçaylı et al. (submitted to MNRAS).
+
++ Karaçaylı N. G., Font-Ribera A., Padmanabhan N., 2020, [MNRAS](https://doi.org/10.1093/mnras/staa2331), 497, 4742
++ Karaçaylı N. G., et al., 2021, MNRAS, submitted
 
 # Changelog
 + Config file has 'PrecomputedFisher' option to read file and skip fisher matrix computation.
-+ Config file has 'InputIsPicca' option to read picca fits files instead. Construct the file list using HDU numbers of each chunk, e.g. third spectrum, picca-delta-100.fits.gz[3].
++ Config file has 'InputIsPicca' option to read picca fits files instead. Construct the file list using HDU numbers of each chunk, e.g. third spectrum, picca-delta-100.fits.gz[3]. WARNING: This option cannot yet save individual results for bootstrapping.
 + Config file has 'UseResoMatrix' option to read resolution matrix from picca file.
 + CFITSIO is a dependency.
 + Config file has 'CacheAllSQTables' option to save all sq tables in memory rather than reading one qso at a time.
