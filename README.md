@@ -21,19 +21,19 @@ Intermediate versions have been used to study DESI-lite mocks. Further modificat
 + Specify allocated memory in MB to store additional derivative matrices and fiducial signal matrix if possible. This speeds up calculations.
 + Fiducial cosmology has default parameters:
     
-    A      =    6.621420e-02
-    n      =   -2.685349e+00
-    alpha  =   -2.232763e-01
-    B      =    3.591244e+00
-    beta   =   -1.768045e-01
-    lambda =    3.598261e+02
+        A      =    6.621420e-02
+        n      =   -2.685349e+00
+        alpha  =   -2.232763e-01
+        B      =    3.591244e+00
+        beta   =   -1.768045e-01
+        lambda =    3.598261e+02
 
 + When `FiducialPowerFile` set in config file, an interpolation function takes over. This file should be a binary file and have the following convention:
 
-    Nk Nz
-    z[1]...z[Nz]
-    k[1]...k[Nk]
-    P[nz=1, nk=1...Nk]...P[Nz, nk=1...Nk]
+        Nk Nz
+        z[1]...z[Nz]
+        k[1]...k[Nk]
+        P[nz=1, nk=1...Nk]...P[Nz, nk=1...Nk]
 
 + Intermediate python script applies a weighted smoothing. This smoothing script has --interp_log option, which can be enabled by setting `SmoothLnkLnP` to 1 in the config file.
 + "SaveEachSpectrumResult" in config file saves each spectrum's Fisher and power' estimates.
