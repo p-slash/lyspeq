@@ -4,11 +4,11 @@
 + Karaçaylı N. G., et al., 2021, MNRAS, submitted
 
 # Changelog
-+ Config file has 'PrecomputedFisher' option to read file and skip fisher matrix computation.
-+ Config file has 'InputIsPicca' option to read picca fits files instead. Construct the file list using HDU numbers of each chunk, e.g. third spectrum, picca-delta-100.fits.gz[3].
-+ Config file has 'UseResoMatrix' option to read resolution matrix from picca file.
++ Config file has `PrecomputedFisher` option to read file and skip fisher matrix computation.
++ Config file has `InputIsPicca` option to read picca fits files instead. Construct the file list using HDU numbers of each chunk, e.g. third spectrum, `picca-delta-100.fits.gz[3]`.
++ Config file has `UseResoMatrix` option to read resolution matrix from picca file.
 + CFITSIO is a dependency.
-+ Config file has 'CacheAllSQTables' option to save all sq tables in memory rather than reading one qso at a time.
++ Config file has `CacheAllSQTables` option to save all sq tables in memory rather than reading one qso at a time.
 
 # v2
 Intermediate versions have been used to study DESI-lite mocks. Further modifications added configuration options, but most importantly optimizated the speed to run on high resolution quasars. This version gave results on full KODIAQ DR2, SQUAD DR1 and XQ-100 samples that are in good agreement with previous measurements.
@@ -58,7 +58,7 @@ Prerequisites
 + [GSL](https://www.gnu.org/software/gsl/) is needed for some integration and interpolation.
 + [Python3](https://www.python.org), [Numpy](http://www.numpy.org) and [Scipy](http://www.numpy.org) are needed for fitting.
 + [MPI](https://www.open-mpi.org) is needed to enable parallel computing.
-+ [CBLAS] and [LAPACKE]. I have been mostly using [MKL](https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.932925) and [OpenBLAS](http://www.openblas.net). [ATLAS](http://math-atlas.sourceforge.net) has been passing simple `make test`, but not fully validated. The compiler flags will depend on the system specifics. Modify Makefile accordingly. To link one of these libraries to `gsl_cblas`, remove `-lgslcblas` from `LDLIBS`. For ATLAS, add `-lcblas -latlas` to `LDLIBS` in your Makefile. To link OpenBLAS, add `-lopenblas`. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
++ CBLAS and LAPACKE. I have been mostly using [MKL](https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.932925) and [OpenBLAS](http://www.openblas.net). [ATLAS](http://math-atlas.sourceforge.net) has been passing simple `make test`, but not fully validated. The compiler flags will depend on the system specifics. Modify Makefile accordingly. To link one of these libraries to `gsl_cblas`, remove `-lgslcblas` from `LDLIBS`. For ATLAS, add `-lcblas -latlas` to `LDLIBS` in your Makefile. To link OpenBLAS, add `-lopenblas`. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
 + [CFITSIO](https://heasarc.gsfc.nasa.gov/fitsio/) for reading picca files.
 
 Compile and Install
@@ -95,7 +95,7 @@ Bin edges for k start with linear spacing: `K0 + LinearKBinWidth * n`, where `n=
     NumberOfLinearBins    5
     NumberOfLog10Bins     13
 
-    LinearKBinWidth       2E-4
+    LinearKBinWidth       2e-4
     Log10KBinWidth        0.1
 
 Can add a last bin edge. This goes into effect when larger than the last bin as defined by parameters above.
@@ -207,6 +207,7 @@ When using this format, construct the file list using HDU numbers of each chunk.
 Then, `SaveEachSpectrumResult` saves results as `picca-delta-100-1_Fp.bin` for bootstrapping.
 
 **Following keys are read from the header:**
+
 + Number of pixels is `NAXIS2`.
 + Redshift of the quasar is `Z`.
 + `MEANRESO` is assumed to be the Gaussian R value in km/s. This is converted to integer FWHM resolving power by rounding up last two digits.
@@ -219,6 +220,7 @@ Then, `SaveEachSpectrumResult` saves results as `picca-delta-100-1_Fp.bin` for b
         dv_kms = round(DLL * SPEED_OF_LIGHT * ln(10) / 5) * 5;
 
 **Following data are read from the data tables:**
+
 + `LOGLAM` is log10(lambda). This is converted back to lambda.
 + Flux fluctuations are read from `DELTA`.
 + Inverse variance is read from `IVAR`. This is converted back to sigma.
