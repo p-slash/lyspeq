@@ -1,17 +1,17 @@
-`lyspeq` is highly efficient, parallelized and customizable program for 1D flux power spectrum of the Lyman-alpha forest that implements quadratic maximum likelihood estimator. Please cite papers Karaçaylı et al. (2020) and Karaçaylı et al. (submitted to MNRAS).
+`lyspeq` is highly efficient, parallelized and customizable program for 1D flux power spectrum of the Lyman-alpha forest that implements quadratic maximum likelihood estimator. Please cite papers Karaçaylı, Font-Ribera & Padmanabhan (2020) and Karaçaylı et al. (submitted to MNRAS).
 
 + Karaçaylı N. G., Font-Ribera A., Padmanabhan N., 2020, [MNRAS](https://doi.org/10.1093/mnras/staa2331), 497, 4742
 + Karaçaylı N. G., et al., 2021, MNRAS, submitted
 
 # Changelog
 + Config file has 'PrecomputedFisher' option to read file and skip fisher matrix computation.
-+ Config file has 'InputIsPicca' option to read picca fits files instead. Construct the file list using HDU numbers of each chunk, e.g. third spectrum, picca-delta-100.fits.gz[3]. WARNING: This option cannot yet save individual results for bootstrapping.
++ Config file has 'InputIsPicca' option to read picca fits files instead. Construct the file list using HDU numbers of each chunk, e.g. third spectrum, picca-delta-100.fits.gz[3].
 + Config file has 'UseResoMatrix' option to read resolution matrix from picca file.
 + CFITSIO is a dependency.
 + Config file has 'CacheAllSQTables' option to save all sq tables in memory rather than reading one qso at a time.
 
 # v2
-Intermediate versions have been used to study DESI-lite mocks. Further modifications added configuration options, but most importantly optimizated the speed to run on high resolution quasars. This version 2.0 already gave preliminary results on full KODIAQ DR2 and XQ-100 sample that are in good agreement with previous measurements.
+Intermediate versions have been used to study DESI-lite mocks. Further modifications added configuration options, but most importantly optimizated the speed to run on high resolution quasars. This version gave results on full KODIAQ DR2, SQUAD DR1 and XQ-100 samples that are in good agreement with previous measurements.
 
 ### Highlighted Features
 + Input data are assumed to be fluctuations and not flux. Added `ConvertFromFluxToDeltaf` to config file to switch behaviors.
@@ -193,4 +193,33 @@ If your files have flux fluctuations, set the following to 1. This overrides all
 
 Quasar Spectrum File
 ====
-Quasar spectrum file is in binary format. It starts with a header (see [QSOFile](io/qso_file.hpp)), then has wavelength, fluctuations and noise in double arrays. A Python script is added to help conversion between different formats (see [BinaryQSO](py/binary_qso.py)).
+## Binary format
+It starts with a header (see [QSOFile](io/qso_file.hpp)), then has wavelength, fluctuations and noise in double arrays. A Python script is added to help conversion between different formats (see [BinaryQSO](py/binary_qso.py)). When using this format, end files with `.dat` or `.bin` extensions. This secures compatibility for `SaveEachSpectrumResult` option.
+
+## Picca format
+When using this format, construct the file list using HDU numbers of each chunk. E.g., for the third spectrum, use picca-delta-100.fits.gz[3].
+
+    3
+    picca-delta-100.fits.gz[1]
+    picca-delta-100.fits.gz[2]
+    picca-delta-100.fits.gz[3]
+
+Then, `SaveEachSpectrumResult` saves results as `picca-delta-100-1_Fp.bin` for bootstrapping.
+
+**Following keys are read from the header:**
++ Number of pixels is `NAXIS2`.
++ Redshift of the quasar is `Z`.
++ `MEANRESO` is assumed to be the Gaussian R value in km/s. This is converted to integer FWHM resolving power by rounding up last two digits.
+
+        fwhm_resolution = int(SPEED_OF_LIGHT / MEANRESO / ONE_SIGMA_2_FWHM / 100 + 0.5) * 100;
+
++ `MEANSNR` is read, but not used.
++ Pixel spacing is read from `DLL` (difference of log10 lambda), then converted and rounded up to km/s units.
+
+        dv_kms = round(DLL * SPEED_OF_LIGHT * ln(10) / 5) * 5;
+
+**Following data are read from the data tables:**
++ `LOGLAM` is log10(lambda). This is converted back to lambda.
++ Flux fluctuations are read from `DELTA`.
++ Inverse variance is read from `IVAR`. This is converted back to sigma.
++ When the option is set, the resolution matrix is read from `RESOMAT`. This is reordered for C arrays.
