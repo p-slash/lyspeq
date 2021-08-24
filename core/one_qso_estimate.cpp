@@ -658,7 +658,25 @@ void OneQSOEstimate::_saveIndividualResult()
         dbt_estimate_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
 
     std::string resfname = qso_sp_fname;
-    resfname.replace(resfname.end()-4, resfname.end(), "_Fp.bin");
+
+    if (specifics::INPUT_QSO_FILE == qio::Picca) 
+    {
+        // fname.fits.gz[542] or fname.fits[542]
+        // need to get fname and ID
+        std::size_t i1 = resfname.rfind('[')+1, i2 = resfname.rfind(']');
+
+        std::string str_id = resfname.substr(i1, i2-i1);
+        resfname.replace(resfname.begin()+resfname.rfind(".fits"), 
+            resfname.end(), 1, '-');
+        resfname.append(str_id);
+    }
+    else
+    {
+        // Assume three letter extension: fname.dat or fname.bin
+        resfname.erase(resfname.end()-4, resfname.end());
+    }
+
+    resfname.append("_Fp.bin");
 
     FILE *toWrite = ioh::open_file(resfname.c_str(), "wb");
     
