@@ -197,7 +197,7 @@ Quasar Spectrum File
 It starts with a header (see [QSOFile](io/qso_file.hpp)), then has wavelength, fluctuations and noise in double arrays. A Python script is added to help conversion between different formats (see [BinaryQSO](py/binary_qso.py)). When using this format, end files with `.dat` or `.bin` extensions. This secures compatibility for `SaveEachSpectrumResult` option.
 
 ## Picca format
-When using this format, construct the file list using HDU numbers of each chunk. E.g., for the third spectrum, use picca-delta-100.fits.gz[3].
+When using this format, construct the file list using HDU numbers of each chunk. E.g., for the third spectrum, use picca-delta-100.fits.gz[3]. This is what filename list should look like:
 
     3
     picca-delta-100.fits.gz[1]
