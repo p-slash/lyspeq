@@ -47,13 +47,16 @@ class SQLookupTable
     void deallocateSignalAndDerivArrays();
     void deallocateVAndZArrays();
 
+    DiscreteInterpolation1D* _allocReadQFile(int kn, int r_index);
+    DiscreteInterpolation2D* _allocReadSFile(int r_index);
+
 public:
     SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist);
     // SQLookupTable(const SQLookupTable &sq);
 
     ~SQLookupTable();
     
-    void readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q);
+    void readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q, bool alloc=false);
 
     void readTables();
     // runs with omp parallel
@@ -63,6 +66,9 @@ public:
 
     DiscreteInterpolation1D* getDerivativeMatrixInterp(int kn, int r_index) const;
     DiscreteInterpolation2D* getSignalMatrixInterp(int r_index) const;
+
+    double getOneSetMemUsage();
+    double getMaxMemUsage();
 };
 
 #endif

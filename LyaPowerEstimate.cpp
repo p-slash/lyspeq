@@ -91,7 +91,16 @@ int main(int argc, char *argv[])
     {
         // Allocate and read look up tables
         process::sq_private_table = new SQLookupTable(INPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
-        // process::sq_private_table->readTables();
+
+        // Readjust allocated memory wrt save tables
+        if (process::SAVE_ALL_SQ_FILES || specifics::USE_RESOLUTION_MATRIX)
+        {
+            process::sq_private_table->readTables();
+            process::MEMORY_ALLOC -= process::sq_private_table->getMaxMemUsage();
+        }
+        else
+            process::MEMORY_ALLOC -= process::sq_private_table->getOneSetMemUsage();
+
     }
     catch (std::exception& e)
     {

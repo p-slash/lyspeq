@@ -1,5 +1,6 @@
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
+#include "core/quadratic_estimate.hpp"
 #include "io/config_file.hpp"
 #include "io/logger.hpp"
 
@@ -15,6 +16,7 @@ namespace process
     double MEMORY_ALLOC  = 0;
     SQLookupTable *sq_private_table;
     bool SAVE_EACH_SPEC_RESULT = false;
+    bool SAVE_ALL_SQ_FILES = false;
 }
 
 namespace bins
@@ -82,7 +84,7 @@ namespace bins
         if (r >= NUMBER_OF_Z_BINS)
             r = NUMBER_OF_Z_BINS;
 
-        return r;        
+        return r;
     }
 
     // This is an extrapolating approach when limited to to only neighbouring bins
@@ -207,9 +209,10 @@ namespace mytime
 namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
-    bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
+    bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
     double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
-
+    qio::ifileformat INPUT_QSO_FILE = qio::Binary;
+    
     #if defined(TOPHAT_Z_BINNING_FN)
     #define BINNING_SHAPE "Top Hat"
     #elif defined(TRIANGLE_Z_BINNING_FN)
@@ -288,9 +291,10 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 {
     int N_KLIN_BIN, N_KLOG_BIN, 
         sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
-        save_spec_res=-1;
+        save_spec_res=-1, use_picca_file=-1, use_reso_mat=-1,
+        cache_all_sq=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
-    char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="";
+    char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="", FNAME_PREFISHER[300]="";
 
     // Set up config file to read variables.
     ConfigFile cFile(FNAME_CONFIG);
@@ -312,6 +316,9 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 
     cFile.addKey("FileNameRList",  FNAME_RLIST, STRING);
     cFile.addKey("FileInputDir",   INPUT_DIR, STRING);
+    cFile.addKey("InputIsPicca",   &use_picca_file, INTEGER);
+    cFile.addKey("UseResoMatrix",  &use_reso_mat, INTEGER);
+
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
 
@@ -319,6 +326,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 
     cFile.addKey("SignalLookUpTableBase",       FILEBASE_S, STRING);
     cFile.addKey("DerivativeSLookUpTableBase",  FILEBASE_Q, STRING);
+    cFile.addKey("CacheAllSQTables", &cache_all_sq, INTEGER);
 
     // Integration grid parameters
     cFile.addKey("NumberVPoints",   Nv, INTEGER);
@@ -345,6 +353,8 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("FiducialRedshiftCurvature",   &fidpd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
     cFile.addKey("FiducialLorentzianLambda",    &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,DOUBLE);
 
+    cFile.addKey("PrecomputedFisher", FNAME_PREFISHER, STRING);
+
     cFile.addKey("NumberOfIterations", NUMBER_OF_ITERATIONS, INTEGER);
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
 
@@ -364,11 +374,16 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     
     specifics::TURN_OFF_SFID        = sfid_off > 0;
     specifics::SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
+    specifics::USE_RESOLUTION_MATRIX= use_reso_mat > 0;
     conv::USE_LOG_V                 = !(uedsv > 0);
     conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
     conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
     process::SAVE_EACH_SPEC_RESULT  = save_spec_res > 0;
-    
+    process::SAVE_ALL_SQ_FILES      = cache_all_sq > 0;
+
+    if (use_picca_file>0)
+        specifics::INPUT_QSO_FILE = qio::Picca;
+
     // resolve conflict: Input delta flux overrides all
     // Then, chunk means.
     if (conv::INPUT_IS_DELTA_FLUX && conv::FLUX_TO_DELTAF_BY_CHUNKS)
@@ -405,6 +420,10 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 
     // Redshift and wavenumber bins are constructed
     bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, klast, Z_0);
+
+    // Call after setting bins, because this function checks for consistency.
+    if (FNAME_PREFISHER[0] != '\0')
+        OneDQuadraticPowerEstimate::readPrecomputedFisher(FNAME_PREFISHER);
 }
 
 

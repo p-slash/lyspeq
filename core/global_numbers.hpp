@@ -1,12 +1,17 @@
 #ifndef GLOBAL_NUMBERS_H
 #define GLOBAL_NUMBERS_H
 
-#include "core/sq_table.hpp"
 #include <cstdio>
 #include <chrono>
 
+#include "core/sq_table.hpp"
+#include "io/qso_file.hpp"
+// Debugging flags. Comment out to turn off
+// #define DEBUG_MATRIX_OUT
+
 // Quadratic Estimate numbers
 #define CONVERGENCE_EPS 1E-4
+#define FISHER_SIZE bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS
 
 // PE rank and total number of threads
 namespace process
@@ -16,6 +21,7 @@ namespace process
     extern double MEMORY_ALLOC;
     extern SQLookupTable *sq_private_table;
     extern bool SAVE_EACH_SPEC_RESULT;
+    extern bool SAVE_ALL_SQ_FILES;
 }
 
 namespace bins
@@ -78,9 +84,10 @@ namespace mytime
 
 namespace specifics
 {
-    extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP;
+    extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
     extern double CHISQ_CONVERGENCE_EPS;
     extern double CONTINUUM_MARGINALIZATION_AMP, CONTINUUM_MARGINALIZATION_DERV;
+    extern qio::ifileformat INPUT_QSO_FILE;
 
     void printBuildSpecifics(FILE *toWrite=NULL);
     void printConfigSpecifics(FILE *toWrite=NULL);

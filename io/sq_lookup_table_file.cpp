@@ -125,11 +125,11 @@ void SQLookupTableFile::writeData(double *data)
 
     fw = fwrite(&header, sizeof(sq_io_header), 1, sq_file);
     if (fw != 1)
-        std::runtime_error( "fwrite error in header SQLookupTableFile!");
+        throw std::runtime_error( "fwrite error in header SQLookupTableFile!");
 
     fw = fwrite(data, sizeof(double), size, sq_file);
-    if (fw != 1)
-        std::runtime_error( "fwrite error in data SQLookupTableFile!");
+    if (fw != size)
+        throw std::runtime_error( "fwrite error in data SQLookupTableFile!");
 }
 
 void SQLookupTableFile::readData(double *data)
@@ -144,7 +144,7 @@ void SQLookupTableFile::readData(double *data)
         size = header.vpoints;
 
     if (fread(data, sizeof(double), size, sq_file) != size)
-        std::runtime_error("fread error in data SQLookupTableFile!");
+        throw std::runtime_error("fread error in data SQLookupTableFile!");
 }
 
 
