@@ -21,6 +21,8 @@
 #include "core/mpi_merge_sort.cpp"
 #endif
 
+double *OneDQuadraticPowerEstimate::precomputed_fisher { NULL };
+
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, const char *dir)
 {
     Z_BIN_COUNTS = new int[bins::NUMBER_OF_Z_BINS+2]();
@@ -34,8 +36,8 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, c
 
     previous_power_estimate_vector = new double[bins::TOTAL_KZ_BINS];
     current_power_estimate_vector  = new double[bins::TOTAL_KZ_BINS]();
-    fisher_matrix_sum              = new double[bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS];
-    inverse_fisher_matrix_sum      = new double[bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS];
+    fisher_matrix_sum              = new double[FISHER_SIZE];
+    inverse_fisher_matrix_sum      = new double[FISHER_SIZE];
 
     powerspectra_fits              = new double[bins::TOTAL_KZ_BINS]();
 
@@ -54,7 +56,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     NUMBER_OF_QSOS = ioh::readList(fname_list, filepaths);
     // Add parent directory to file path
-    for (std::vector<std::string>::iterator fq = filepaths.begin(); fq != filepaths.end(); ++fq)
+    for (auto fq = filepaths.begin(); fq != filepaths.end(); ++fq)
     {
         fq->insert(0, "/");
         fq->insert(0, dir);
@@ -77,23 +79,24 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     for (int findex = fstart_this; findex < fend_this; ++findex)
     {
-        OneQSOEstimate q_temp(filepaths[findex]);
-        double cpu_t_temp = q_temp.getComputeTimeEst();
-        
-        ++Z_BIN_COUNTS[q_temp.ZBIN + 1];
+        int zbin;
+        double cpu_t_temp = OneQSOEstimate::getComputeTimeEst(filepaths[findex], 
+            zbin);
+
+        ++Z_BIN_COUNTS[zbin+1];
 
         if (cpu_t_temp != 0)
             cpu_fname_vector.push_back(std::make_pair(cpu_t_temp, findex));
     }
-    
+
     // Print out time it took to read all files into vector
     t1 = mytime::timer.getTime();
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
-    
+
     // MPI Reduce ZBIN_COUNTS
     #if defined(ENABLE_MPI)
-        MPI_Allreduce(MPI_IN_PLACE, Z_BIN_COUNTS, bins::NUMBER_OF_Z_BINS+2, MPI_INT, 
-            MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(MPI_IN_PLACE, Z_BIN_COUNTS, bins::NUMBER_OF_Z_BINS+2, 
+            MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     #endif
 
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
@@ -106,10 +109,11 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     LOG::LOGGER.STD("Sorting with respect to estimated cpu time.\n");
     std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end()); // Ascending order
-    
+
     #if defined(ENABLE_MPI)
-        mpisort::mergeSortedArrays(0, process::total_pes, process::this_pe, cpu_fname_vector);
-        mpisort::bcastCpuFnameVec(cpu_fname_vector);
+    mpisort::mergeSortedArrays(0, process::total_pes, process::this_pe, 
+        cpu_fname_vector);
+    mpisort::bcastCpuFnameVec(cpu_fname_vector);
     #endif
 
     // Print out time it took to sort files wrt CPU time
@@ -140,14 +144,16 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
         {
             // Construct and add queue
             OneQSOEstimate *q_temp = new OneQSOEstimate(filepaths[qe->second]);
+            process::MEMORY_ALLOC -= q_temp->getMinMemUsage();
             local_queue.push_back(q_temp);
         }
     }
 
-    double ave_balance = std::accumulate(bucket_time.begin(), bucket_time.end(), 0.) / process::total_pes;
+    double ave_balance = std::accumulate(bucket_time.begin(), 
+        bucket_time.end(), 0.) / process::total_pes;
 
     LOG::LOGGER.STD("Off-Balance: ");
-    for (std::vector<double>::iterator it = bucket_time.begin(); it != bucket_time.end(); ++it)
+    for (auto it = bucket_time.begin(); it != bucket_time.end(); ++it)
         LOG::LOGGER.STD("%.1e ", (*it)/ave_balance-1);
     LOG::LOGGER.STD("\n");
 
@@ -158,7 +164,8 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 {
-    std::for_each(local_queue.begin(), local_queue.end(), std::default_delete<OneQSOEstimate>());
+    std::for_each(local_queue.begin(), local_queue.end(), 
+        std::default_delete<OneQSOEstimate>());
 
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
     {
@@ -180,8 +187,10 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
     
-    std::copy(fisher_matrix_sum, fisher_matrix_sum+bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS, inverse_fisher_matrix_sum);
-    mxhelp::LAPACKE_InvertMatrixLU(inverse_fisher_matrix_sum, bins::TOTAL_KZ_BINS);
+    std::copy(fisher_matrix_sum, fisher_matrix_sum+FISHER_SIZE, 
+        inverse_fisher_matrix_sum);
+    mxhelp::LAPACKE_InvertMatrixLU(inverse_fisher_matrix_sum, 
+        bins::TOTAL_KZ_BINS);
     
     isFisherInverted = true;
 
@@ -193,24 +202,31 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 {
     LOG::LOGGER.STD("Estimating power spectrum.\n");
 
-    std::copy(current_power_estimate_vector, current_power_estimate_vector + bins::TOTAL_KZ_BINS, 
+    std::copy(current_power_estimate_vector, 
+        current_power_estimate_vector + bins::TOTAL_KZ_BINS, 
         previous_power_estimate_vector);
 
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
     {
-        cblas_dsymv(CblasRowMajor, CblasUpper,
-                    bins::TOTAL_KZ_BINS, 0.5, inverse_fisher_matrix_sum, bins::TOTAL_KZ_BINS,
-                    dbt_estimate_sum_before_fisher_vector[dbt_i], 1,
-                    0, dbt_estimate_fisher_weighted_vector[dbt_i], 1);
+        cblas_dsymv(CblasRowMajor, CblasUpper,bins::TOTAL_KZ_BINS, 0.5, 
+            inverse_fisher_matrix_sum, bins::TOTAL_KZ_BINS,
+            dbt_estimate_sum_before_fisher_vector[dbt_i], 1,
+            0, dbt_estimate_fisher_weighted_vector[dbt_i], 1);
     }
 
-    std::copy(dbt_estimate_fisher_weighted_vector[0], dbt_estimate_fisher_weighted_vector[0] + bins::TOTAL_KZ_BINS, 
+    std::copy(dbt_estimate_fisher_weighted_vector[0], 
+        dbt_estimate_fisher_weighted_vector[0] + bins::TOTAL_KZ_BINS, 
         current_power_estimate_vector);
-    mxhelp::vector_sub(current_power_estimate_vector, dbt_estimate_fisher_weighted_vector[1], bins::TOTAL_KZ_BINS);
-    mxhelp::vector_sub(current_power_estimate_vector, dbt_estimate_fisher_weighted_vector[2], bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(current_power_estimate_vector, 
+        dbt_estimate_fisher_weighted_vector[1], 
+        bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(current_power_estimate_vector, 
+        dbt_estimate_fisher_weighted_vector[2], 
+        bins::TOTAL_KZ_BINS);
 }
 
-void OneDQuadraticPowerEstimate::_readScriptOutput(double *script_power, const char *fname, void *itsfits)
+void OneDQuadraticPowerEstimate::_readScriptOutput(double *script_power, 
+    const char *fname, void *itsfits)
 {
     int fr;
     FILE *tmp_fit_file = ioh::open_file(fname, "r");
@@ -258,7 +274,8 @@ void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fitted_power)
 
     std::ostringstream command("lorentzian_fit.py ", std::ostringstream::ate);
     command << tmp_ps_fname << " " << tmp_fit_fname << " "
-            << iteration_fits.A << " " << iteration_fits.n << " " << iteration_fits.n << " ";
+        << iteration_fits.A << " " << iteration_fits.n << " " 
+        << iteration_fits.n << " ";
 
     // Do not pass redshift parameters if there is only one redshift bin
     if (bins::NUMBER_OF_Z_BINS > 1)
@@ -331,7 +348,8 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra(double *smoothed_power)
     remove(tmp_smooth_fname);
 }
 
-void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *fname_base)
+void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, 
+    const char *fname_base)
 {
     double total_time = 0, total_time_1it = 0;
 
@@ -345,19 +363,36 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, const char *f
         initializeIteration();
 
         // Calculation for each spectrum
-        for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); it != local_queue.end(); ++it)
-            (*it)->oneQSOiteration(powerspectra_fits, dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
+        for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); 
+            it != local_queue.end(); ++it)
+        {
+            (*it)->oneQSOiteration(powerspectra_fits, 
+                dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
+
+            // When compiled with debugging feature
+            // save matrices to files, break
+            #ifdef DEBUG_MATRIX_OUT
+            (*it)->fprintfMatrices(fname_base);
+            throw std::runtime_error("DEBUGGING QUIT.\n");
+            #endif
+        }
 
         // All reduce if MPI is enabled
         #if defined(ENABLE_MPI)
-        MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, (bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS),
+        MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, (FISHER_SIZE),
             MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            MPI_Allreduce(MPI_IN_PLACE, dbt_estimate_sum_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS,
-                MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(MPI_IN_PLACE, dbt_estimate_sum_before_fisher_vector[dbt_i], 
+                bins::TOTAL_KZ_BINS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         #endif
-        
+
+        // If fisher is precomputed, copy this into fisher_matrix_sum. 
+        // oneQSOiteration iteration will not compute fishers as well.
+        if (precomputed_fisher != NULL)
+            std::copy(precomputed_fisher, precomputed_fisher + FISHER_SIZE, 
+                fisher_matrix_sum);
+
         try
         {
             invertTotalFisherMatrix();
@@ -425,7 +460,8 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         abs_mean, abs_max, CONVERGENCE_EPS);
     
     // Perform a chi-square test as well    
-    mxhelp::vector_sub(previous_power_estimate_vector, current_power_estimate_vector, bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(previous_power_estimate_vector, 
+        current_power_estimate_vector, bins::TOTAL_KZ_BINS);
 
     r = 0;
 
@@ -441,22 +477,24 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     r  = sqrt(r / bins::DEGREE_OF_FREEDOM);
 
-    rfull = sqrt(fabs(mxhelp::my_cblas_dsymvdot(previous_power_estimate_vector, fisher_matrix_sum, 
-        bins::TOTAL_KZ_BINS)) / bins::DEGREE_OF_FREEDOM);
+    rfull = sqrt(fabs(mxhelp::my_cblas_dsymvdot(previous_power_estimate_vector, 
+        fisher_matrix_sum, bins::TOTAL_KZ_BINS)) / bins::DEGREE_OF_FREEDOM);
     
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
     LOG::LOGGER.STD("Chi^2/dof convergence test:\nDiagonal: %.3f. Full Fisher: %.3f.\n"
                     "Iteration converges when either is less than %.2f.\n", 
                     r, rfull, specifics::CHISQ_CONVERGENCE_EPS);
 
-    bool_converged = r < specifics::CHISQ_CONVERGENCE_EPS || rfull < specifics::CHISQ_CONVERGENCE_EPS;
+    bool_converged = r < specifics::CHISQ_CONVERGENCE_EPS || 
+        rfull < specifics::CHISQ_CONVERGENCE_EPS;
 
     return bool_converged;
 }
 
 void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
 {
-    mxhelp::fprintfMatrix(fname, fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    mxhelp::fprintfMatrix(fname, fisher_matrix_sum, bins::TOTAL_KZ_BINS, 
+        bins::TOTAL_KZ_BINS);
 
     LOG::LOGGER.IO("Fisher matrix saved as %s.\n", fname);
 }
@@ -582,7 +620,7 @@ void OneDQuadraticPowerEstimate::initializeIteration()
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
         std::fill_n(dbt_estimate_sum_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS, 0);
 
-    std::fill_n(fisher_matrix_sum, bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS, 0);
+    std::fill_n(fisher_matrix_sum, FISHER_SIZE, 0);
 
     isFisherInverted = false;
 }
@@ -602,7 +640,8 @@ void OneDQuadraticPowerEstimate::printfSpectra()
         {
             i_kz = bins::getFisherMatrixIndex(kn, zm);
 
-            LOG::LOGGER.STD(" %10.2e |", current_power_estimate_vector[i_kz] + powerSpectrumFiducial(kn, zm));
+            LOG::LOGGER.STD(" %10.2e |", current_power_estimate_vector[i_kz] + 
+                powerSpectrumFiducial(kn, zm));
         }
         
         LOG::LOGGER.STD("\n");
@@ -618,7 +657,8 @@ double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
     return fidcosmo::fiducialPowerSpectrum(k, z, &fidpd13::FIDUCIAL_PD13_PARAMS);
 }
 
-void OneDQuadraticPowerEstimate::iterationOutput(const char *fname_base, int it, double t1, double tot)
+void OneDQuadraticPowerEstimate::iterationOutput(const char *fname_base, int it, 
+    double t1, double tot)
 {
     char buf[500];
     printfSpectra();
@@ -627,19 +667,29 @@ void OneDQuadraticPowerEstimate::iterationOutput(const char *fname_base, int it,
     writeDetailedSpectrumEstimates(buf);
 
     sprintf(buf, "%s_it%d_fisher_matrix.dat", fname_base, it+1);
-    mxhelp::fprintfMatrix(buf, fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    mxhelp::fprintfMatrix(buf, fisher_matrix_sum, bins::TOTAL_KZ_BINS, 
+        bins::TOTAL_KZ_BINS);
     sprintf(buf, "%s_it%d_inversefisher_matrix.dat", fname_base, it+1);
-    mxhelp::fprintfMatrix(buf, inverse_fisher_matrix_sum, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    mxhelp::fprintfMatrix(buf, inverse_fisher_matrix_sum, bins::TOTAL_KZ_BINS, 
+        bins::TOTAL_KZ_BINS);
     LOG::LOGGER.IO("Fisher matrix and inverse are saved as %s.\n", buf);
 
-    LOG::LOGGER.STD("This iteration took %.1f minutes. Elapsed time so far is %.1f minutes.\n", 
-        t1, tot);
+    LOG::LOGGER.STD("This iteration took %.1f minutes."
+        " Elapsed time so far is %.1f minutes.\n", t1, tot);
     LOG::LOGGER.TIME("| %2d | %9.3e | %9.3e | ", it, t1, tot);
 
     mytime::printfTimeSpentDetails();
 }
 
+void OneDQuadraticPowerEstimate::readPrecomputedFisher(const char *fname)
+{
+    int N1, N2;
+    mxhelp::fscanfMatrix(fname, precomputed_fisher, N1, N2);
 
+    if (N1 != bins::TOTAL_KZ_BINS || N2 != bins::TOTAL_KZ_BINS)
+        throw std::runtime_error("Precomputed Fisher matrix does not have" 
+            " correct number of rows or columns.");
+}
 
 
 

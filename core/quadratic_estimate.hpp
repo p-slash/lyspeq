@@ -56,6 +56,9 @@ class OneDQuadraticPowerEstimate
         std::vector< std::pair<double, int> > &cpu_fname_vector);
 
 public:
+    static double *precomputed_fisher;
+    static void readPrecomputedFisher(const char *fname);
+
     OneDQuadraticPowerEstimate(const char *fname_list, const char *dir);
 
     ~OneDQuadraticPowerEstimate();

@@ -194,7 +194,7 @@ case ${SYSTYPE} in
         MORECPPFLAGS+="-DUSE_MKL_CBLAS"
         CPPFLAGS="${CPPFLAGS_OMP} -m64 -I${MKLROOT}/include ${gsl_inc}"
         LDFLAGS="${gsl_lib} -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
-        LDLIBS="-lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl"
+        LDLIBS="-lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl -lcfitsio"
         ;;
     XE18_icpcMKL|x64-linux-icpc-mklxe18 )
         CXX="icpc"
@@ -202,35 +202,35 @@ case ${SYSTYPE} in
         MORECPPFLAGS+="-DUSE_MKL_CBLAS"
         CPPFLAGS="${CPPFLAGS_OMP} -I${MKLROOT}/include ${gsl_inc}"
         LDFLAGS="-L${MKLROOT}/lib/intel64 ${gsl_lib}"
-        LDLIBS="-lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl"
+        LDLIBS="-lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl -lcfitsio"
         ;;
     clang_openblas|x64-macos-clang-openblas )
         CXX="clang++"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${OPENBLAS_DIR}/include"
         LDFLAGS="${gsl_lib} -L${OPENBLAS_DIR}/lib"
-        LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
+        LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
         ;;
     x64-macos-gcc9-openblas )
         CXX="g++-9"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${OPENBLAS_DIR}/include"
         LDFLAGS="${gsl_lib} -L${OPENBLAS_DIR}/lib"
-        LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl"
+        LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
         ;;
     x64-ubuntu-gcc-atlas )
         CXX="g++"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
-        LDLIBS="-lgsl -lcblas -llapacke -latlas -lm -ldl"
+        LDLIBS="-lgsl -lcblas -llapacke -latlas -lm -ldl -lcfitsio"
         ;;
     x64-ubuntu-gcc-openblas )
         CXX="g++"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
         LDFLAGS="${gsl_lib}"
-        LDLIBS="-lgsl -llapacke -lopenblas -lm -ldl"
+        LDLIBS="-lgsl -llapacke -lopenblas -lm -ldl -lcfitsio"
         ;;
     * )
         echo "Unknown system type ${SYSTYPE}."

@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "core/matrix_helper.hpp"
 #include "gsltools/discrete_interpolation.hpp"
 
 // This object creates and computes C, S, Q, Q-slash matrices,
@@ -38,6 +39,7 @@ protected:
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
     double  *covariance_matrix, *inverse_covariance_matrix, *temp_matrix[2];
+    mxhelp::Resolution *reso_matrix;
 
     double  **stored_qj, *stored_sfid;
     int       nqj_eff;
@@ -81,7 +83,7 @@ public:
     // OneQSOEstimate(OneQSOEstimate &&rhs);
     // OneQSOEstimate& operator=(OneQSOEstimate&& rhs);
 
-    double getComputeTimeEst();
+    static double getComputeTimeEst(std::string fname_qso, int &zbin);
 
     void setCovarianceMatrix(const double *ps_estimate);
     void invertCovarianceMatrix();
@@ -91,6 +93,9 @@ public:
 
     // Pass fit values for the power spectrum for numerical stability
     void oneQSOiteration(const double *ps_estimate, double *dbt_sum_vector[3], double *fisher_sum);
+
+    void fprintfMatrices(const char *fname_base);
+    double getMinMemUsage();
 };
 
 #endif

@@ -39,10 +39,41 @@ namespace mxhelp
 
     void printfMatrix(const double *A, int N1, int N2);
     void fprintfMatrix(const char *fname, const double *A, int N1, int N2);
+    void fscanfMatrix(const char *fname, double *& A, int &N1, int &N2);
 
     // LAPACKE functions
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
+
+    class Resolution
+    {
+        double* _getDiagonal(int d);
+        double* sandwich_buffer;
+    public:
+        int ndim, ndiags, size;
+        int *offsets;
+        double *matrix;
+
+        Resolution(int nm, int ndia);
+        ~Resolution();
+        void freeBuffer();
+        void constructGaussian(double *v, double R_kms, double a_kms);
+        void fprintfMatrix(const char *fname);
+        void orderTranspose();
+
+        // B initialized to zero
+        // SIDE = 'L' or 'l',   B = op( R ) . A,
+        // SIDE = 'R' or 'r',   B = A . op( R ).
+        // TRANSR = 'N' or 'n',  op( R ) = R.
+        // TRANSR = 'T' or 't',  op( R ) = R^T.
+        void multiply(int N, char SIDER, char TRANSR, const double* A, double *B);
+
+        // R . inplace . R^T
+        void sandwich(int N, double *inplace);
+
+        double getMinMemUsage();
+        double getBufMemUsage();
+    };
 }
 
 #endif
