@@ -172,7 +172,7 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
         &status);
 
     std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
-    std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld, -0.5); });
+    std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld+1e-16, -0.5); });
 }
 
 void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
