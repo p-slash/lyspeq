@@ -34,7 +34,7 @@ protected:
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT, DV_KMS;
     
     // DATA_SIZE sized vectors
-    double *lambda_array, *velocity_array, *flux_array, *noise_array;
+    double *lambda_array, *highres_lambda, *flux_array, *noise_array;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
