@@ -261,13 +261,11 @@ namespace specifics
     {
         #define CONFIG_TXT "# Using following configuration parameters:\n" \
             "# Fiducial Signal Baseline: %s\n" \
-            "# Velocity Spacing: %s\n" \
             "# Input is delta flux: %s\n" \
             "# Divide by mean flux of the chunk: %s\n" \
             "# ContinuumMargAmp: %.2e\n" \
             "# ContinuumMargDerv: %.2e\n",  \
             TURN_OFF_SFID ? "OFF" : "ON", \
-            conv::USE_LOG_V ? "LOGARITHMIC" : "EdS", \
             conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO", \
             conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF", \
             CONTINUUM_MARGINALIZATION_AMP, \
@@ -290,7 +288,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     int *Nv, int *Nz, double *LENGTH_V)
 {
     int N_KLIN_BIN, N_KLOG_BIN, 
-        sfid_off=-1, uedsv=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
+        sfid_off=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
         save_spec_res=-1, use_picca_file=-1, use_reso_mat=-1,
         cache_all_sq=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
@@ -336,7 +334,6 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     // Fiducial cosmology
     cFile.addKey("TurnOffBaseline", &sfid_off,  INTEGER);    // Turns off the signal matrix
     cFile.addKey("SmoothLnkLnP",  &usmoothlogs, INTEGER);    // Smooth lnk, lnP
-    cFile.addKey("UseEDSVelocity",  &uedsv,     INTEGER);    // Default is using eds velocity
 
     // How to convert from flux to delta_flux if at all
     cFile.addKey("MeanFluxFile",        FNAME_MEAN_FLUX, STRING);  // File to interpolate for F-bar
@@ -375,7 +372,6 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     specifics::TURN_OFF_SFID        = sfid_off > 0;
     specifics::SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
     specifics::USE_RESOLUTION_MATRIX= use_reso_mat > 0;
-    conv::USE_LOG_V                 = !(uedsv > 0);
     conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
     conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
     process::SAVE_EACH_SPEC_RESULT  = save_spec_res > 0;

@@ -51,12 +51,8 @@ namespace conv
     
         median_z = median_lambda / LYA_REST - 1.;
 
-        if (USE_LOG_V)
-            std::transform(lambda, lambda+size, v_array, 
-                [&](const double &l) { return SPEED_OF_LIGHT * log(l/median_lambda); });
-        else
-            std::transform(lambda, lambda+size, v_array, 
-                [&](const double &l) { return 2*SPEED_OF_LIGHT * (1. - sqrt(median_lambda/l)); });
+        std::transform(lambda, lambda+size, v_array, 
+            [&](const double &l) { return SPEED_OF_LIGHT * log(l/median_lambda); });
     }
 
     void convertLambdaToRedshift(double *lambda, int size)
