@@ -180,415 +180,149 @@ namespace mxhelp
     }
 
     // class Resolution
-    Resolution::Resolution(int nm, int ndia) : ndim(nm), ndiags(ndia),
-        sandwich_buffer(NULL)
+    Resolution::Resolution(int n1, int nelem_prow, int osamp, double dlambda) : 
+        nrows(n1), nelem_per_row(nelem_prow), oversampling(osamp),
+        sandwich_buffer(NULL), temp_highres_mat(NULL)
     {
-        // e.g. ndim=724, ndiags=11
-        // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
-        // when offsets[i]>0, remove initial offsets[i] elements from resomat.T[i]
-        // when offsets[i]<0, remove last |offsets[i]| elements from resomat.T[i]
-        if (ndiags%2 == 0)
-            throw std::runtime_error("Resolution ndiagonal cannot be even!");
-
-        size = ndim*ndiags;
-        matrix = new double[size]();
-
-        offsets = new int[ndiags];
-        for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
-            offsets[j] = i;
-    }
-
-    void Resolution::orderTranspose()
-    {
-        double* newmat = new double[size];
-
-        for (int d = 0; d < ndiags; ++d)
-            for (int i = 0; i < ndim; ++i)
-                *(newmat + i+d*ndim) = *(matrix + i*ndiags+d);
-
-        delete [] matrix;
-        matrix = newmat;
-    }
-
-    double* Resolution::_getDiagonal(int d)
-    {
-        int off = offsets[d], od1 = 0;
-        if (off > 0)  od1 = off;
-
-        return matrix+(d*ndim+od1);
-    }
-
-    // Normalizing this row by row is not yielding somewhat wrong signal matrix
-    void Resolution::constructGaussian(double *v, double R_kms, double a_kms)
-    {
-        // std::unique_ptr<double[]> rownorm(new double[ndim]());
-
-        for (int d = 0; d < ndiags; ++d)
-        {
-            int off = offsets[d], nelem = ndim - abs(off);
-                // , row = (off < 0) ? -off : 0;
-            double *dia_slice = _getDiagonal(d);
-
-            for (int i = 0; i < nelem; ++i) //, ++row)
-            {
-                int j = i+abs(off);
-                *(dia_slice+i) = _window_fn_v(v[j]-v[i], R_kms, a_kms);
-                // rownorm[row] += *(dia_slice+i);
-            }
-        }
-
-        /*
-        // Normalize row by row
-        for (int d = 0; d < ndiags; ++d)
-        {
-            int off = offsets[d], nelem = ndim - abs(off),
-                row = (off < 0) ? -off : 0;;
-            double *dia_slice = _getDiagonal(d);
-
-            for (int i = 0; i < nelem; ++i, ++row)
-                *(dia_slice+i) /= rownorm[row];
-        }
-        */
-    }
-
-    void Resolution::fprintfMatrix(const char *fname)
-    {
-        FILE *toWrite;
+        nvals = nrows*nelem_per_row;
+        ncols = nrows*oversampling + nelem_per_row-1;
+        fine_dlambda = dlambda/oversampling;
+        values  = new double[nvals];
         
-        toWrite = fopen(fname, "w");
+        // nptrs = nrows+1;
+        // indices = new int[nvals];
+        // iptrs   = new int[nptrs];
 
-        fprintf(toWrite, "%d %d\n", ndim, ndiags);
-        
-        for (int i = 0; i < ndim; ++i)
-        {
-            for (int j = 0; j < ndim; ++j)
-            {
-                int off = j-i, d=ndiags/2-off;
-
-                if (abs(off)>ndiags/2)
-                    fprintf(toWrite, "0 ");
-                else
-                    fprintf(toWrite, "%14le ", *(matrix+d*ndim+j));
-            }
-            fprintf(toWrite, "\n");
-        }
-
-        fclose(toWrite);
+        // for (int i = 0; i < nvals; ++i)
+        //     indices[i] = int(i/nelem_per_row)*oversampling + (i%nelem_per_row);
+        // for (int i = 0; i < nptrs; ++i)
+        //     iptrs[i]   = i*nelem_per_row;
     }
 
     Resolution::~Resolution()
     {
-        delete [] offsets;
-        delete [] matrix;
-        freeBuffer();
+        // delete [] indices;
+        // delete [] iptrs;
+        delete [] values;
+        freeBuffers();
     }
 
-    void Resolution::freeBuffer()
+    double* Resolution::_getRow(int i)
+    {
+        return values+i*nelem_per_row;
+    }
+
+    // R . A = B
+    // A should be ncols x ncols symmetric matrix. 
+    // B should be nrows x ncols, will be initialized to zero
+    void Resolution::multiplyLeft(const double* A, double *B)
+    {
+        double *bsub = B, *rrow=values;
+        const double *Asub = A;
+
+        for (int i = 0; i < nrows; ++i)
+        {
+            // double *rrow = _getRow(i), *bsub = B + i*ncols;
+            // const double *Asub = A + i*ncols*oversampling;
+
+            cblas_dgemv(CblasRowMajor, CblasTrans,
+                nelem_per_row, ncols, fine_dlambda, Asub, ncols, 
+                rrow, 1, 0, bsub, 1);
+
+            bsub += ncols;
+            Asub += ncols*oversampling;
+            rrow += nelem_per_row;
+        }
+    }
+    // A . R^T = B
+    // A should be nrows x ncols matrix. 
+    // B should be nrows x nrows, will be initialized to zero
+    void Resolution::multiplyRight(const double* A, double *B)
+    {
+        double *bsub = B, *rrow=values;
+        const double *Asub = A;
+
+        for (int i = 0; i < nrows; ++i)
+        {
+            // double *rrow = _getRow(i), *bsub = B + i;
+            // const double *Asub = A + i*oversampling;
+
+            cblas_dgemv(CblasRowMajor, CblasNoTrans,
+                nrows, nelem_per_row, fine_dlambda, Asub, ncols, 
+                rrow, 1, 0, bsub, nrows);
+
+            ++bsub;
+            Asub += oversampling;
+            rrow += nelem_per_row;
+        }
+    }
+
+    void Resolution::sandwichHighRes(double *B)
+    {
+        if (sandwich_buffer == NULL)
+            sandwich_buffer = new double[nrows*ncols];
+
+        multiplyLeft(temp_highres_mat, sandwich_buffer);
+        multiplyRight(sandwich_buffer, B);
+    }
+
+    double* Resolution::allocWaveGrid(double w1)
+    {
+        double *oversamp_wave = new double[ncols];
+
+        for (int i = 0; i < ncols; ++i)
+            oversamp_wave[i] = w1 - (i + int(nelem_per_row/2))*fine_dlambda;
+
+        return oversamp_wave;
+    }
+
+    double Resolution::getMinMemUsage()
+    {
+        // Convert to MB by division of 1048576
+        return (double)sizeof(double) * nvals / 1048576.;
+    }
+
+    double Resolution::getBufMemUsage()
+    {
+        // Convert to MB by division of 1048576
+        double highressize  = (double)sizeof(double) * ncols * ncols / 1048576.,
+               sandwichsize = (double)sizeof(double) * nrows * ncols / 1048576.;
+
+        return highressize+sandwichsize;
+    }
+
+    void Resolution::allocateTempHighRes()
+    {
+        if (temp_highres_mat == NULL)
+            temp_highres_mat = new double[ncols*ncols];
+    }
+
+    void Resolution::freeBuffers()
     {
         if (sandwich_buffer != NULL)
         {
             delete [] sandwich_buffer;
             sandwich_buffer = NULL;
         }
-    }
-
-    void Resolution::multiply(int N, char SIDER, char TRANSR, const double* A, 
-        double *B)
-    {
-        if (N != ndim)
-            throw std::runtime_error("Resolution multiply operation dimension do not match!");
-
-        std::for_each(B, B+N*N, [&](double &b) { b=0; });
-
-        int transpose = 1;
-
-        if (TRANSR == 'N' || TRANSR == 'n')
-            transpose = 1;
-        else if (TRANSR == 'T' || TRANSR == 't')
-            transpose = -1;
-        else
-            throw std::runtime_error("Resolution multiply transpose wrong character!");
-
-        bool lside = (SIDER == 'L' || SIDER == 'l'),
-             rside = (SIDER == 'R' || SIDER == 'r');
-        
-        if (!lside && !rside)
-            throw std::runtime_error("Resolution multiply SIDER wrong character!");
-
-        /* Left Side:
-        if offset > 0 (upper off-diagonals), 
-            remove initial offsets[i] elements from resolution matrix
-                when transposed remove last |offsets[i]|
-            start from offset row in A to add row by row, 
-            add to 0th row of B, end by offset
-        if offset < 0 (lower off-diagonals), 
-            remove last |offsets[i]| elements from resolution matrix
-                when transposed remove initial offsets[i]
-            start from 0th row in A, but end by |offset|, 
-            add to offset row in B
-        =======================================================
-         * Right Side:
-        if offset > 0 (upper off-diagonals), 
-            remove initial offsets[i] elements from resolution matrix
-                when transposed remove last |offsets[i]|
-            start from 0th col in A, but end by |offset|, to add col by col, 
-            add to offset col of B
-        if offset < 0 (lower off-diagonals), 
-            remove last |offsets[i]| elements from resolution matrix
-                when transposed remove initial offsets[i]
-            start from offset col in A 
-            add to 0th col in B, but end by |offset|
-        */
-
-        for (int d = 0; d < ndiags; ++d)
+        if (temp_highres_mat != NULL)
         {
-            int off = transpose*offsets[d], 
-                nmult = ndim - abs(off),
-                A1 = abs(off), B1 = 0;
-
-            if (off < 0) std::swap(A1, B1);
-            // if (rside)   std::swap(A1, B1);
-            
-            // Here's a shorter code. See long version to unpack.
-            int i, j, Ni=nmult, Nj=ndim;
-            int* di = &i;
-            const double *Aslice, *dia_slice = _getDiagonal(d);
-            double       *Bslice;
-
-            if (lside)
-            {
-                Aslice = A + A1*ndim;
-                Bslice = B + B1*ndim;
-            }
-            else
-            {
-                std::swap(A1, B1);
-                std::swap(Ni, Nj);
-                Aslice = A + A1;
-                Bslice = B + B1;
-                di = &j;
-            }
-
-            for (i = 0; i < Ni; ++i)
-            {
-                for (j = 0; j < Nj; ++j, ++Aslice, ++Bslice)
-                    *Bslice += *(dia_slice+*di) * *Aslice;
-
-                Bslice += (ndim-Nj);
-                Aslice += (ndim-Nj);
-            }
+            delete [] temp_highres_mat;
+            temp_highres_mat = NULL;
         }
     }
-
-    void Resolution::sandwich(int N, double *inplace)
-    {
-        if (N != ndim)
-            throw std::runtime_error("Resolution sandwich operation dimensions do not match!");
-
-        if (sandwich_buffer == NULL)
-            sandwich_buffer = new double[ndim*ndim];
-
-        multiply(ndim, 'L', 'N', inplace, sandwich_buffer);
-        multiply(ndim, 'R', 'T', sandwich_buffer, inplace);
-    }
-
-    double Resolution::getMinMemUsage()
-    {
-        // Convert to MB by division of 1048576
-        double diasize = (double)sizeof(double) * ndim * ndiags / 1048576.;
-        double offsize = (double)sizeof(int) * (ndiags+3) / 1048576.;
-
-        return diasize + offsize;
-    }
-
-    double Resolution::getBufMemUsage()
-    {
-        // Convert to MB by division of 1048576
-        double bufsize = (double)sizeof(double) * ndim * ndim / 1048576.;
-
-        return bufsize;
-    }
-    /*
-    void Resolution::multiply(char SIDER, char TRANSR, const double* A, double *B, int N)
-    {
-        if (N != ndim)
-            std::runtime_error("Resolution multiply operation dimension do not match!");
-
-        std::for_each(B, B+N*N, [&](double &b) { b=0; });
-
-        int transpose;
-
-        if (TRANSR == 'N' || TRANSR == 'n')
-            transpose = 1;
-        else if (TRANSR == 'T' || TRANSR == 't')
-            transpose = -1;
-        else
-            std::runtime_error("Resolution multiply transpose wrong character!");
-
-        if (SIDER == 'L' || SIDER == 'l')
-        {
-
-            if offset > 0 (upper off-diagonals), 
-                remove initial offsets[i] elements from resolution matrix
-                    when transposed remove last |offsets[i]|
-                start from offset row in A to add row by row, 
-                add to 0th row of B, end by offset
-            if offset < 0 (lower off-diagonals), 
-                remove last |offsets[i]| elements from resolution matrix
-                    when transposed remove initial offsets[i]
-                start from 0th row in A, but end by |offset|, 
-                add to offset row in B
-            
-            for (int d = 0; d < ndiags; ++d)
-            {
-                int off = transpose*offsets[d], 
-                    nmult = ndim - abs(off),
-                    Arow1, Brow1, od1;
-
-                if (off >= 0)
-                {
-                    Arow1 = off;
-                    Brow1 = 0;
-                    od1   = Arow1*(1+transpose)/2;
-                }
-                else
-                {
-                    Arow1 = 0;
-                    Brow1 = -off;
-                    od1   = -off*(1-transpose)/2;
-                }
-
-                const double *Aslice = A+Arow1*N,
-                             *dia_slice = matrix+(d*ndim+od1);
-                double       *Bslice = B+Brow1*N;
-
-                for (int nrow = 0; nrow < nmult; ++nrow)
-                {
-                    cblas_daxpy(ndim, dia_slice[nrow], Aslice, 1, Bslice, 1);
-                    Aslice+=N;
-                    Bslice+=N;
-                }
-            }
-        }
-        else if (SIDER == 'R' || SIDER == 'r')
-        {
-
-            if offset > 0 (upper off-diagonals), 
-                remove initial offsets[i] elements from resolution matrix
-                    when transposed remove last |offsets[i]|
-                start from 0th col in A, but end by |offset|, to add col by col, 
-                add to offset col of B
-            if offset < 0 (lower off-diagonals), 
-                remove last |offsets[i]| elements from resolution matrix
-                    when transposed remove initial offsets[i]
-                start from offset col in A 
-                add to 0th col in B, but end by |offset|
-
-            for (int d = 0; d < ndiags; ++d)
-            {
-                int off = transpose*offsets[d],
-                    nmult = ndim - abs(off),
-                    Acol1, Bcol1, od1;
-
-                if (off < 0)
-                {
-                    Acol1 = -off;
-                    Bcol1 = 0;
-                    od1   = -off*(1-transpose)/2;
-                }
-                else
-                {
-                    Acol1 = 0;
-                    Bcol1 = off;
-                    od1   = Bcol1*(1+transpose)/2;
-                }
-
-                const double *odiag = matrix + (d*ndim+od1);
-
-                for (int nrow = 0; nrow < ndim; ++nrow)
-                {
-                    const double  *Aslice = A + (Acol1+nrow*ndim);
-                    double        *Bslice = B + (Bcol1+nrow*ndim);
-                    
-                    for (int ncol=0; ncol < nmult; ++ncol)
-                        *(Bslice+ncol) += *(Aslice+ncol) * *(odiag+ncol);
-                }
-            }
-        }
-    }
-    */
-
-    /*
-    void invertMatrixCholesky2(gsl_matrix *A)
-    {
-        int size = A->size1, status;
-
-        gsl_vector *S = gsl_vector_alloc(size);
-        gsl_linalg_cholesky_scale(A, S);
-
-        status = gsl_linalg_cholesky_decomp2(A, S);
-
-        if (status)
-        {
-            const char *err_msg = gsl_strerror(status);
-            // fprintf(stderr, "ERROR in Cholesky Decomp: %s\n", err_msg);
-            gsl_vector_free(S);
-            throw std::runtime_error(err_msg);
-        }
-
-        gsl_linalg_cholesky_invert(A);
-        gsl_linalg_cholesky_scale_apply(A, S);
-        gsl_vector_free(S);
-    }
-
-    void invertMatrixCholesky(gsl_matrix *A)
-    {
-        int status = gsl_linalg_cholesky_decomp(A); 
-
-        if (status)
-        {
-            const char *err_msg = gsl_strerror(status);
-            // fprintf(stderr, "ERROR in Cholesky Decomp: %s\n", err_msg);
-
-            throw std::runtime_error(err_msg);
-        }
-
-        status = gsl_linalg_cholesky_invert(A);
-
-        if (status)
-        {
-            const char *err_msg = gsl_strerror(status);
-            fprintf(stderr, "ERROR in Cholesky Invert: %s\n", err_msg);
-            throw std::runtime_error(err_msg);
-        }
-    }
-
-    void invertMatrixLU(gsl_matrix *A, gsl_matrix *Ainv)
-    {
-        int size = A->size1, signum, status;
-
-        gsl_permutation *p = gsl_permutation_alloc(size);
-
-        status = gsl_linalg_LU_decomp(A, p, &signum);
-
-        if (status)
-        {
-            const char *err_msg = gsl_strerror(status);
-            fprintf(stderr, "ERROR in LU Decomp: %s\n", err_msg);
-
-            throw std::runtime_error(err_msg);
-        }
-
-        status = gsl_linalg_LU_invert(A, p, Ainv);
-
-        gsl_permutation_free(p);
-        
-        if (status)
-        {
-            const char *err_msg = gsl_strerror(status);
-            fprintf(stderr, "ERROR in LU Invert: %s\n", err_msg);
-            throw std::runtime_error(err_msg);
-        }
-    }
-    */
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
