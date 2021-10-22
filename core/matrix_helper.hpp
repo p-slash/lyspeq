@@ -65,6 +65,8 @@ namespace mxhelp
         Resolution(int n1, int nelem_prow, int osamp, double dlambda);
         ~Resolution();
 
+        int getNCols() const { return ncols; };
+
         // R . A fine_dlambda = B
         // A should be ncols x ncols symmetric matrix. 
         // B should be nrows x ncols, will be initialized to zero
@@ -84,7 +86,7 @@ namespace mxhelp
         double getMinMemUsage();
         double getBufMemUsage();
 
-        // void fprintfMatrix(const char *fname);
+        void fprintfMatrix(const char *fname);
     };
 }
 

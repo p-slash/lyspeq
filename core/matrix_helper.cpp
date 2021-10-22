@@ -285,7 +285,7 @@ namespace mxhelp
     double Resolution::getBufMemUsage()
     {
         // Convert to MB by division of 1048576
-        double highressize  = (double)sizeof(double) * ncols * ncols / 1048576.,
+        double highressize  = (double)sizeof(double) * ncols * (ncols+1) / 1048576.,
                sandwichsize = (double)sizeof(double) * nrows * ncols / 1048576.;
 
         return highressize+sandwichsize;
@@ -295,6 +295,31 @@ namespace mxhelp
     {
         if (temp_highres_mat == NULL)
             temp_highres_mat = new double[ncols*ncols];
+    }
+
+    void Resolution::fprintfMatrix(const char *fname)
+    {
+        FILE *toWrite;
+    
+        toWrite = fopen(fname, "w");
+
+        fprintf(toWrite, "%d %d\n", nrows, nelem_per_row);
+        
+        for (int i = 0; i < nrows; ++i)
+        {
+            for (int j = 0; j < nrows; ++j)
+            {
+                int off = j-i*oversampling;
+
+                if (off>=0 && off < nelem_per_row)
+                    fprintf(toWrite, "%14le ", *(values+off+nelem_per_row*i));
+                else
+                    fprintf(toWrite, "0 ");
+            }
+            fprintf(toWrite, "\n");
+        }
+
+        fclose(toWrite);
     }
 
     void Resolution::freeBuffers()
