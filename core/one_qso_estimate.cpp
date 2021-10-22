@@ -20,20 +20,17 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     qso_sp_fname = fname_qso;
     qio::QSOFile qFile(qso_sp_fname, specifics::INPUT_QSO_FILE);
 
-    double dummy_qso_z, dummy_s2n, dum_Rkms;
+    double dummy_qso_z, dummy_s2n;
 
     qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
-    dum_Rkms = SPEED_OF_LIGHT/SPECT_RES_FWHM/ONE_SIGMA_2_FWHM;
+    // double dum_Rkms = SPEED_OF_LIGHT/SPECT_RES_FWHM/ONE_SIGMA_2_FWHM;
 
     lambda_array    = new double[DATA_SIZE];
-    velocity_array  = new double[DATA_SIZE];
     flux_array      = new double[DATA_SIZE];
     noise_array     = new double[DATA_SIZE];
 
     qFile.readData(lambda_array, flux_array, noise_array);
 
-    // Covert from wavelength to velocity units around median wavelength
-    conv::convertLambdaToVelocity(MEDIAN_REDSHIFT, velocity_array, lambda_array, DATA_SIZE);
     LOWER_REDSHIFT = lambda_array[0] / LYA_REST - 1;
     UPPER_REDSHIFT = lambda_array[DATA_SIZE-1] / LYA_REST - 1;
 
@@ -45,8 +42,9 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
             qFile.readAllocResolutionMatrix(reso_matrix);
         else
         {
-            reso_matrix = new mxhelp::Resolution(DATA_SIZE, 11);
-            reso_matrix->constructGaussian(velocity_array, dum_Rkms, DV_KMS);
+            throw std::runtime_error("Resolution matrix is supported in this file.");
+            // reso_matrix = new mxhelp::Resolution(DATA_SIZE, 11);
+            // reso_matrix->constructGaussian(velocity_array, dum_Rkms, DV_KMS);
         }
     }
     else
@@ -140,7 +138,7 @@ void OneQSOEstimate::_setNQandFisherIndex()
 
 double OneQSOEstimate::getMinMemUsage()
 {
-    double minmem = (double)sizeof(double) * DATA_SIZE * 4 / 1048576.; // in MB
+    double minmem = (double)sizeof(double) * DATA_SIZE * 3 / 1048576.; // in MB
 
     if (specifics::USE_RESOLUTION_MATRIX)
         minmem += reso_matrix->getMinMemUsage();
@@ -197,7 +195,7 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
     conv::convertFluxToDeltaF(lambda_array, flux_array, noise_array, DATA_SIZE);
-    
+
     // Keep noise as error squared (variance)
     std::for_each(noise_array, noise_array+DATA_SIZE, [](double &n) { n*=n; });
 
@@ -215,7 +213,7 @@ OneQSOEstimate::~OneQSOEstimate()
 {
     delete [] flux_array;
     delete [] lambda_array;
-    delete [] velocity_array;
+    delete [] highres_lambda;
     delete [] noise_array;
 
     if (nqj_eff > 0)
@@ -272,8 +270,8 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 
 void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
 {
-    v_ij = velocity_array[j] - velocity_array[i];
-    z_ij = sqrt(lambda_array[j] * lambda_array[i]) / LYA_REST - 1.;
+    v_ij = SPEED_OF_LIGHT * log(highres_lambda[j]/highres_lambda[i]);
+    z_ij = sqrt(highres_lambda[j] * highres_lambda[i]) / LYA_REST - 1.;
 }
 
 void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
@@ -290,11 +288,14 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
     }
     else
     {
-        double *ptr = sm;
-        for (int row = 0; row < DATA_SIZE; ++row)
+        int NNN = (reso_matrix == NULL) ? DATA_SIZE : reso_matrix->getNCols();
+        double *inter_mat = (reso_matrix == NULL) ? sm : reso_matrix->temp_highres_mat;
+        double *ptr = inter_mat;
+
+        for (int row = 0; row < NNN; ++row)
         {
             ptr += row;
-            for (int col = row; col < DATA_SIZE; ++col, ++ptr)
+            for (int col = row; col < NNN; ++col, ++ptr)
             {
                 _getVandZ(v_ij, z_ij, row, col);
 
@@ -302,10 +303,10 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
             }
         }
 
-        mxhelp::copyUpperToLower(sm, DATA_SIZE);
-        // Multiply reso mat
+        mxhelp::copyUpperToLower(inter_mat, NNN);
+
         if (reso_matrix != NULL)
-            reso_matrix->sandwich(DATA_SIZE, sm);
+            reso_matrix->sandwichHighRes(sm);
     }
     
     t = mytime::timer.getTime() - t;
@@ -331,12 +332,14 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     else
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
-        double *ptr = qi;
+        int NNN = (reso_matrix == NULL) ? DATA_SIZE : reso_matrix->getNCols();
+        double *inter_mat = (reso_matrix == NULL) ? qi : reso_matrix->temp_highres_mat;
+        double *ptr = inter_mat;
 
-        for (int row = 0; row < DATA_SIZE; ++row)
+        for (int row = 0; row < NNN; ++row)
         {
             ptr += row;
-            for (int col = row; col < DATA_SIZE; ++col, ++ptr)
+            for (int col = row; col < NNN; ++col, ++ptr)
             {
                 _getVandZ(v_ij, z_ij, row, col);
 
@@ -353,10 +356,10 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
 
         t_interp = mytime::timer.getTime() - t;
 
-        mxhelp::copyUpperToLower(qi, DATA_SIZE);
-        // Multiply reso mat
+        mxhelp::copyUpperToLower(inter_mat, NNN);
+
         if (reso_matrix != NULL)
-            reso_matrix->sandwich(DATA_SIZE, qi);
+            reso_matrix->sandwichHighRes(qi);
     }
 
     t = mytime::timer.getTime() - t; 
@@ -620,6 +623,15 @@ void OneQSOEstimate::_allocateMatrices()
     
     if (isSfidStored)
         stored_sfid = new double[DATA_SIZE_2];
+
+    // Create a temp highres lambda array
+    if (specifics::USE_RESOLUTION_MATRIX)
+    {
+        highres_lambda = reso_matrix->allocWaveGrid(lambda_array[0]);
+        reso_matrix->allocateTempHighRes();
+    }
+    else
+        highres_lambda = lambda_array;
     
     isQjSet   = false;
     isSfidSet = false;
@@ -644,7 +656,10 @@ void OneQSOEstimate::_freeMatrices()
         delete [] stored_sfid;
 
     if (specifics::USE_RESOLUTION_MATRIX)
-        reso_matrix->freeBuffer();
+    {
+        reso_matrix->freeBuffers();
+        delete [] highres_lambda;
+    }
     
     isQjSet   = false;
     isSfidSet = false;
