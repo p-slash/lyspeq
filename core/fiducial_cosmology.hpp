@@ -8,11 +8,11 @@
 
 namespace conv
 {
-    extern bool USE_LOG_V, FLUX_TO_DELTAF_BY_CHUNKS, INPUT_IS_DELTA_FLUX;
+    extern bool FLUX_TO_DELTAF_BY_CHUNKS, INPUT_IS_DELTA_FLUX;
 
     void setMeanFlux(const char *fname=0);
 
-    void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size);
+    // void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size);
     void convertLambdaToRedshift(double *lambda, int size);
 
     extern void (*convertFluxToDeltaF)(const double *lambda, double *flux, double *noise, int size);

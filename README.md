@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ Removed EdS approximation option. Always use logarithmic velocity conversion.
 + Config file has `PrecomputedFisher` option to read file and skip fisher matrix computation.
 + Config file has `InputIsPicca` option to read picca fits files instead. Construct the file list using HDU numbers of each chunk, e.g. third spectrum, `picca-delta-100.fits.gz[3]`.
 + Config file has `UseResoMatrix` option to read resolution matrix from picca file.
@@ -174,10 +175,6 @@ Specify continuum marginalization coefficients. Default is 100. Pass <=0 to turn
 Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with [py/lorentzian_fit.py](py/lorentzian_fit.py) script. For clusters, you are typically assigned a scratch space such as `scratch` or `project`.
 
     TemporaryFolder /tmp
-
-To convert with EdS velocity, set this to 1. Default 0 will use logarithmic spacing approximation.
-
-    UseEDSVelocity 0
     
 It is recommended that flux to fluctuations conversion done using an empirical or theoretical mean flux. Pass this binary filename (int size, double z[size], double flux[size])
 
