@@ -45,34 +45,46 @@ namespace mxhelp
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
 
+    // The resolution matrix is assumed to have consecutive row elements.
+    // Do not skip pixels when using resolution matrix
     class Resolution
     {
-        double* _getDiagonal(int d);
-        double* sandwich_buffer;
+        // int *indices, *iptrs;
+        int nrows, ncols, nvals;//, nptrs;
+        int nelem_per_row, oversampling;
+        double fine_dlambda, *sandwich_buffer;
+
+        double* _getRow(int i);
     public:
-        int ndim, ndiags, size;
-        int *offsets;
-        double *matrix;
+        double *values, *temp_highres_mat;
 
-        Resolution(int nm, int ndia);
+        // n1 : Number of rows.
+        // nelem_prow : Number of elements per row. Should be odd.
+        // osamp : Oversampling coefficient.
+        // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
+        Resolution(int n1, int nelem_prow, int osamp, double dlambda);
         ~Resolution();
-        void freeBuffer();
-        void constructGaussian(double *v, double R_kms, double a_kms);
-        void fprintfMatrix(const char *fname);
-        void orderTranspose();
 
-        // B initialized to zero
-        // SIDE = 'L' or 'l',   B = op( R ) . A,
-        // SIDE = 'R' or 'r',   B = A . op( R ).
-        // TRANSR = 'N' or 'n',  op( R ) = R.
-        // TRANSR = 'T' or 't',  op( R ) = R^T.
-        void multiply(int N, char SIDER, char TRANSR, const double* A, double *B);
+        // R . A fine_dlambda = B
+        // A should be ncols x ncols symmetric matrix. 
+        // B should be nrows x ncols, will be initialized to zero
+        void multiplyLeft(const double* A, double *B);
+        // A . R^T fine_dlambda = B
+        // A should be nrows x ncols matrix. 
+        // B should be nrows x nrows, will be initialized to zero
+        void multiplyRight(const double* A, double *B);
 
-        // R . inplace . R^T
-        void sandwich(int N, double *inplace);
+        // Manually create and set temp_highres_mat
+        void allocateTempHighRes();
+        double *allocWaveGrid(double w1);
+        // B = R . Temp . R^T fine_dlambda^2
+        void sandwichHighRes(double *B);
 
+        void freeBuffers();
         double getMinMemUsage();
         double getBufMemUsage();
+
+        // void fprintfMatrix(const char *fname);
     };
 }
 
