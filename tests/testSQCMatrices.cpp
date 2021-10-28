@@ -31,12 +31,12 @@ public:
         _setFiducialSignalMatrix(covariance_matrix);
         std::string fsave(out_dir);
         fsave+="/signal_matrix.txt";
-        mxhelp::fprintfMatrix(fsave.c_str(), covariance_matrix, DATA_SIZE, DATA_SIZE);
+        mxhelp::fprintfMatrix(fsave.c_str(), covariance_matrix, qFile->size, qFile->size);
 
         // Save Q0 matrix
         _setQiMatrix(temp_matrix[0], 0);
         fsave=out_dir+"/q0_matrix.txt";
-        mxhelp::fprintfMatrix(fsave.c_str(), temp_matrix[0], DATA_SIZE, DATA_SIZE);
+        mxhelp::fprintfMatrix(fsave.c_str(), temp_matrix[0], qFile->size, qFile->size);
 
         _freeMatrices();
         delete interp2d_signal_matrix;
