@@ -226,7 +226,7 @@ namespace mxhelp
             // const double *Asub = A + i*ncols*oversampling;
 
             cblas_dgemv(CblasRowMajor, CblasTrans,
-                nelem_per_row, ncols, fine_dlambda, Asub, ncols, 
+                nelem_per_row, ncols, 1., Asub, ncols, 
                 rrow, 1, 0, bsub, 1);
 
             bsub += ncols;
@@ -248,7 +248,7 @@ namespace mxhelp
             // const double *Asub = A + i*oversampling;
 
             cblas_dgemv(CblasRowMajor, CblasNoTrans,
-                nrows, nelem_per_row, fine_dlambda, Asub, ncols, 
+                nrows, nelem_per_row, 1., Asub, ncols, 
                 rrow, 1, 0, bsub, nrows);
 
             ++bsub;
