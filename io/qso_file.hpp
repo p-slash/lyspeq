@@ -38,7 +38,8 @@ public:
     BQFile(std::string fname_qso);
     ~BQFile();
 
-    void readParameters(int &data_number, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms);
+    void readParameters(int &data_number, double &z, int &fwhm_resolution, 
+        double &sig2noi, double &dv_kms);
 
     void readData(double *lambda, double *fluxfluctuations, double *noise);
 };
@@ -49,7 +50,7 @@ class PiccaFile
     // int hdunum;
     int no_spectra, status;
     int curr_spec_index;
-    int curr_N, curr_ndiags;
+    int curr_N, curr_elem_per_row, curr_oversamp;
     void _move(int index);
     int _getColNo(char *tmplt);
     void _checkStatus();
@@ -62,10 +63,10 @@ public:
     int getNumberSpectra() const {return no_spectra;};
 
     void readParameters(int &N, double &z, int &fwhm_resolution, 
-        double &sig2noi, double &dv_kms);
+        double &sig2noi, double &dv_kms, double &dlambda, int &oversamp);
 
     void readData(double *lambda, double *delta, double *noise);
-    void readAllocResolutionMatrix(mxhelp::Resolution *& Rmat);
+    void readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int osamp, double dlambda);
 };
 
 class QSOFile
@@ -76,13 +77,21 @@ class QSOFile
     BQFile *bqfile;
 
 public:
+    double size, z_qso, snr, dv_kms, dlambda;
+    int R_fwhm, oversamp;
+    double *wave, *delta, *noise;
+    mxhelp::Resolution *Rmat;
+
     QSOFile(std::string fname_qso, ifileformat p_or_b);
     ~QSOFile();
 
-    void readParameters(int &data_number, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms);
+    void readParameters();
+    //int &data_number, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms);
 
-    void readData(double *lambda, double *fluxfluctuations, double *noise);
-    void readAllocResolutionMatrix(mxhelp::Resolution *& Rmat);
+    void readData();
+    //double *lambda, double *fluxfluctuations, double *noise);
+    void readAllocResolutionMatrix();
+    //mxhelp::Resolution *& Rmat);
 };
 
 }

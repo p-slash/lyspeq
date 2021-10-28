@@ -14,42 +14,57 @@ namespace qio
 // Umbrella QSO file
 // ============================================================================
 
+// double size, z_qso, snr, dv_kms, dlambda;
+// int R_fwhm;
+// double *wave, *delta, *noise;
+// mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(std::string fname_qso, ifileformat p_or_b)
-    : PB(p_or_b), pfile(NULL), bqfile(NULL)
+    : PB(p_or_b), pfile(NULL), bqfile(NULL),
+    wave(NULL), delta(NULL), noise(NULL), Rmat(NULL)
 {
     if (PB == Picca)
         pfile = new PiccaFile(fname_qso);
     else
         bqfile = new BQFile(fname_qso);
+
+    dlambda=-1;
+    oversamp=1;
 }
 
 QSOFile::~QSOFile()
 {
     delete pfile;
     delete bqfile;
+    delete Rmat;
+    delete [] wave;
+    delete [] delta;
+    delete [] noise;
 }
 
-void QSOFile::readParameters(int &data_number, double &z, int &fwhm_resolution, 
-    double &sig2noi, double &dv_kms)
+void QSOFile::readParameters()
 {
     if (pfile != NULL)
-        pfile->readParameters(data_number, z, fwhm_resolution, sig2noi, dv_kms);
+        pfile->readParameters(&size, &z_qso, &R_fwhm, &snr, &dv_kms, &dlambda, &oversamp);
     else
-        bqfile->readParameters(data_number, z, fwhm_resolution, sig2noi, dv_kms);
+        bqfile->readParameters(&size, &z_qso, &R_fwhm, &snr, &dv_kms);
 }
 
-void QSOFile::readData(double *lambda, double *fluxfluctuations, double *noise)
+void QSOFile::readData()
 {
+    wave  = new double[size];
+    delta = new double[size];
+    noise = new double[size];
+
     if (pfile != NULL)
-        pfile->readData(lambda, fluxfluctuations, noise);
+        pfile->readData(wave, delta, noise);
     else
-        bqfile->readData(lambda, fluxfluctuations, noise);
+        bqfile->readData(wave, delta, noise);
 }
 
-void QSOFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
+void QSOFile::readAllocResolutionMatrix()
 {
     if (pfile != NULL)
-        pfile->readAllocResolutionMatrix(Rmat);
+        pfile->readAllocResolutionMatrix(Rmat, oversamp, dlambda);
     else
         throw std::runtime_error("Cannot read resolution matrix from Binary file!");
 }
@@ -119,7 +134,7 @@ void PiccaFile::_checkStatus()
 }
 
 void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, 
-    double &sig2noi, double &dv_kms)
+    double &sig2noi, double &dv_kms, double &dlambda, int &oversamp)
 {
     // This is not ndiags in integer, but length in bytes that includes other columns
     // fits_read_key(fits_file, TINT, "NAXIS1", &curr_ndiags, NULL, &status);
@@ -134,6 +149,8 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution,
     fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
 
     fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
+    fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
+    fits_read_key(fits_file, TDOUBLE, "OVERSAMP", &oversamp, NULL, &status);
 
     #define LN10 2.30258509299
     dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
@@ -175,7 +192,7 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld+1e-16, -0.5); });
 }
 
-void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
+void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int osamp, double dlambda)
 {
     int nonull, naxis, colnum;
     long *naxes = new long[2];
@@ -183,13 +200,14 @@ void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
     colnum = _getColNo(resotmp);
     fits_read_tdim(fits_file, colnum, curr_N, &naxis, naxes, &status);
     
-    curr_ndiags = naxes[0];
-    Rmat = new mxhelp::Resolution(curr_N, curr_ndiags);
+    curr_elem_per_row = naxes[0];
+    Rmat = new mxhelp::Resolution(curr_N, curr_elem_per_row, osamp, dlambda);
+    // (curr_N, curr_ndiags);
 
-    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_ndiags, 0, 
-        Rmat->matrix, &nonull, &status);
+    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_elem_per_row, 0, 
+        Rmat->values, &nonull, &status);
 
-    Rmat->orderTranspose();
+    // Rmat->orderTranspose();
 }
 
 PiccaFile::~PiccaFile()
