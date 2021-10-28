@@ -46,7 +46,8 @@ namespace mxhelp
     void LAPACKE_InvertMatrixLU(double *A, int N);
 
     // The resolution matrix is assumed to have consecutive row elements.
-    // Do not skip pixels when using resolution matrix
+    // Do not skip pixels when using resolution matrix.
+    // Assumes each row is properly normalized and scaled by the pixel size.
     class Resolution
     {
         // int *indices, *iptrs;
@@ -67,11 +68,11 @@ namespace mxhelp
 
         int getNCols() const { return ncols; };
 
-        // R . A fine_dlambda = B
+        // R . A = B
         // A should be ncols x ncols symmetric matrix. 
         // B should be nrows x ncols, will be initialized to zero
         void multiplyLeft(const double* A, double *B);
-        // A . R^T fine_dlambda = B
+        // A . R^T = B
         // A should be nrows x ncols matrix. 
         // B should be nrows x nrows, will be initialized to zero
         void multiplyRight(const double* A, double *B);
@@ -79,7 +80,7 @@ namespace mxhelp
         // Manually create and set temp_highres_mat
         void allocateTempHighRes();
         double *allocWaveGrid(double w1);
-        // B = R . Temp . R^T fine_dlambda^2
+        // B = R . Temp . R^T
         void sandwichHighRes(double *B);
 
         void freeBuffers();
