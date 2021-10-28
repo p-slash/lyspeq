@@ -44,9 +44,9 @@ QSOFile::~QSOFile()
 void QSOFile::readParameters()
 {
     if (pfile != NULL)
-        pfile->readParameters(&size, &z_qso, &R_fwhm, &snr, &dv_kms, &dlambda, &oversamp);
+        pfile->readParameters(size, z_qso, R_fwhm, snr, dv_kms, dlambda, oversamp);
     else
-        bqfile->readParameters(&size, &z_qso, &R_fwhm, &snr, &dv_kms);
+        bqfile->readParameters(size, z_qso, R_fwhm, snr, dv_kms);
 }
 
 void QSOFile::readData()
@@ -59,6 +59,23 @@ void QSOFile::readData()
         pfile->readData(wave, delta, noise);
     else
         bqfile->readData(wave, delta, noise);
+}
+
+void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
+{
+    if (wave == NULL)
+    {
+        wave = new double[size];
+        delta = new double[size];
+        if (pfile != NULL)
+            pfile->readData(wave, delta, delta);
+        else
+            bqfile->readData(wave, delta, delta);
+    }
+
+    zmin = wave[0] / LYA_REST - 1;
+    zmax = wave[size-1] / LYA_REST - 1;
+    zmed = wave[size/2] / LYA_REST - 1;
 }
 
 void QSOFile::readAllocResolutionMatrix()
@@ -157,7 +174,7 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution,
     #undef LN10
 
     N = curr_N;
-    curr_ndiags = -1;
+    curr_elem_per_row = -1;
 }
 
 int PiccaFile::_getColNo(char *tmplt)

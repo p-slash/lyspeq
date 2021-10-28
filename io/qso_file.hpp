@@ -77,8 +77,8 @@ class QSOFile
     BQFile *bqfile;
 
 public:
-    double size, z_qso, snr, dv_kms, dlambda;
-    int R_fwhm, oversamp;
+    double z_qso, snr, dv_kms, dlambda;
+    int size, R_fwhm, oversamp;
     double *wave, *delta, *noise;
     mxhelp::Resolution *Rmat;
 
@@ -89,6 +89,7 @@ public:
     //int &data_number, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms);
 
     void readData();
+    void readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed);
     //double *lambda, double *fluxfluctuations, double *noise);
     void readAllocResolutionMatrix();
     //mxhelp::Resolution *& Rmat);
