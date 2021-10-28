@@ -167,7 +167,7 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution,
 
     fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
     fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
-    fits_read_key(fits_file, TDOUBLE, "OVERSAMP", &oversamp, NULL, &status);
+    fits_read_key(fits_file, TINT, "OVERSAMP", &oversamp, NULL, &status);
 
     #define LN10 2.30258509299
     dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
