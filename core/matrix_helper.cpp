@@ -271,7 +271,7 @@ namespace mxhelp
         double *oversamp_wave = new double[ncols];
 
         for (int i = 0; i < ncols; ++i)
-            oversamp_wave[i] = w1 - (i + int(nelem_per_row/2))*fine_dlambda;
+            oversamp_wave[i] = w1 + (i - int(nelem_per_row/2))*fine_dlambda;
 
         return oversamp_wave;
     }
