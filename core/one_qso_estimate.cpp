@@ -4,7 +4,6 @@
 #include "core/global_numbers.hpp"
 
 #include "io/io_helper_functions.hpp"
-#include "io/qso_file.hpp"
 #include "io/logger.hpp"
 
 #include <cmath>
@@ -13,45 +12,30 @@
 #include <cstdlib>
 #include <stdexcept>
 
-#define DATA_SIZE_2 DATA_SIZE*DATA_SIZE
+#define DATA_SIZE_2 qFile->size*qFile->size
 
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
     qso_sp_fname = fname_qso;
-    qio::QSOFile qFile(qso_sp_fname, specifics::INPUT_QSO_FILE);
+    qFile = new qio::QSOFile(qso_sp_fname, specifics::INPUT_QSO_FILE);
 
-    double dummy_qso_z, dummy_s2n;
-
-    qFile.readParameters(DATA_SIZE, dummy_qso_z, SPECT_RES_FWHM, dummy_s2n, DV_KMS);
-    // double dum_Rkms = SPEED_OF_LIGHT/SPECT_RES_FWHM/ONE_SIGMA_2_FWHM;
-
-    lambda_array    = new double[DATA_SIZE];
-    flux_array      = new double[DATA_SIZE];
-    noise_array     = new double[DATA_SIZE];
-
-    qFile.readData(lambda_array, flux_array, noise_array);
-
-    LOWER_REDSHIFT = lambda_array[0] / LYA_REST - 1;
-    UPPER_REDSHIFT = lambda_array[DATA_SIZE-1] / LYA_REST - 1;
+    qFile->readParameters();
+    qFile->readData();
+    qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
 
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
     {
         RES_INDEX = 0;
         if (specifics::INPUT_QSO_FILE == qio::Picca)
-            qFile.readAllocResolutionMatrix(reso_matrix);
+            qFile->readAllocResolutionMatrix();
         else
-        {
             throw std::runtime_error("Resolution matrix is supported in this file.");
-            // reso_matrix = new mxhelp::Resolution(DATA_SIZE, 11);
-            // reso_matrix->constructGaussian(velocity_array, dum_Rkms, DV_KMS);
-        }
     }
     else
     {
-        reso_matrix = NULL;
         // Find the resolution index for the look up table
-        RES_INDEX = process::sq_private_table->findSpecResIndex(SPECT_RES_FWHM, DV_KMS);
+        RES_INDEX = process::sq_private_table->findSpecResIndex(qFile->R_fwhm, qFile->dv_kms);
 
         if (RES_INDEX == -1)      throw std::runtime_error("SPECRES not found in tables!");
     }
@@ -138,10 +122,10 @@ void OneQSOEstimate::_setNQandFisherIndex()
 
 double OneQSOEstimate::getMinMemUsage()
 {
-    double minmem = (double)sizeof(double) * DATA_SIZE * 3 / 1048576.; // in MB
+    double minmem = (double)sizeof(double) * qFile->size * 3 / 1048576.; // in MB
 
     if (specifics::USE_RESOLUTION_MATRIX)
-        minmem += reso_matrix->getMinMemUsage();
+        minmem += qFile->Rmat->getMinMemUsage();
 
     return minmem;
 }
@@ -154,7 +138,7 @@ void OneQSOEstimate::_setStoredMatrices()
 
     // Resolution matrix needs another temp storage.
     if (specifics::USE_RESOLUTION_MATRIX)
-        remain_mem -= reso_matrix->getBufMemUsage();
+        remain_mem -= qFile->Rmat->getBufMemUsage();
 
     isSfidStored = false;
 
@@ -177,7 +161,7 @@ void OneQSOEstimate::_setStoredMatrices()
         LOG::LOGGER.IO("===============\n""Not all matrices are stored: %s\n"
             "#stored: %d vs #required:%d.\n""ND: %d, M1: %.1f MB. "
             "Avail mem after R & SQ subtracted: %.1lf MB\n""===============\n", 
-            qso_sp_fname.c_str(), nqj_eff, N_Q_MATRICES, DATA_SIZE, size_m1, 
+            qso_sp_fname.c_str(), nqj_eff, N_Q_MATRICES, qFile->size, size_m1, 
             remain_mem);
 
     // LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
@@ -194,10 +178,10 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
-    conv::convertFluxToDeltaF(lambda_array, flux_array, noise_array, DATA_SIZE);
+    conv::convertFluxToDeltaF(qFile->wave, qFile->delta, qFile->noise, qFile->size);
 
     // Keep noise as error squared (variance)
-    std::for_each(noise_array, noise_array+DATA_SIZE, [](double &n) { n*=n; });
+    std::for_each(qFile->noise, qFile->noise+qFile->size, [](double &n) { n*=n; });
 
     nqj_eff = 0;
 
@@ -211,16 +195,10 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 
 OneQSOEstimate::~OneQSOEstimate()
 {
-    delete [] flux_array;
-    delete [] lambda_array;
-    delete [] highres_lambda;
-    delete [] noise_array;
+    delete qFile;
 
     if (nqj_eff > 0)
         delete [] stored_qj;
-
-    if (reso_matrix != NULL)
-        delete reso_matrix;
 }
 
 double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
@@ -231,19 +209,11 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
     #define N_M_COMBO (N_Q_MATRICES + 1.)
     #endif
 
-    int DATA_SIZE, dumb_int;
-    double dumb_double;
+    qio::QSOFile qtemp(fname_qso, specifics::INPUT_QSO_FILE);
+    qtemp.readParameters();
 
-    qio::QSOFile qFile(fname_qso, specifics::INPUT_QSO_FILE);
-    qFile.readParameters(DATA_SIZE, dumb_double, dumb_int, dumb_double, dumb_double);
-
-    double *wave = new double[DATA_SIZE], *dumbarr = new double[DATA_SIZE];
-    qFile.readData(wave, dumbarr, dumbarr);
-
-    double z1 = wave[0]/LYA_REST-1, z2=wave[DATA_SIZE-1]/LYA_REST-1,
-        zm = wave[DATA_SIZE/2]/LYA_REST-1;
-    delete [] wave;
-    delete [] dumbarr;
+    double z1, z2, zm; 
+    qtemp.readMinMaxMedRedshift(z1, z2, zm);
 
     zbin         = bins::findRedshiftBin(zm);
     int ZBIN_LOW = bins::findRedshiftBin(z1);
@@ -263,7 +233,7 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
     if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
         return 0;
     else
-        return std::pow(DATA_SIZE/100., 3) * N_Q_MATRICES * N_M_COMBO;
+        return std::pow(qtemp.size/100., 3) * N_Q_MATRICES * N_M_COMBO;
 
     #undef N_M_COMBO
 }
@@ -288,8 +258,8 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
     }
     else
     {
-        int NNN = (reso_matrix == NULL) ? DATA_SIZE : reso_matrix->getNCols();
-        double *inter_mat = (reso_matrix == NULL) ? sm : reso_matrix->temp_highres_mat;
+        int NNN = (qFile->Rmat == NULL) ? qFile->size : qFile->Rmat->getNCols();
+        double *inter_mat = (qFile->Rmat == NULL) ? sm : qFile->Rmat->temp_highres_mat;
         double *ptr = inter_mat;
 
         for (int row = 0; row < NNN; ++row)
@@ -305,8 +275,8 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
 
         mxhelp::copyUpperToLower(inter_mat, NNN);
 
-        if (reso_matrix != NULL)
-            reso_matrix->sandwichHighRes(sm);
+        if (qFile->Rmat != NULL)
+            qFile->Rmat->sandwichHighRes(sm);
     }
     
     t = mytime::timer.getTime() - t;
@@ -332,8 +302,8 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     else
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
-        int NNN = (reso_matrix == NULL) ? DATA_SIZE : reso_matrix->getNCols();
-        double *inter_mat = (reso_matrix == NULL) ? qi : reso_matrix->temp_highres_mat;
+        int NNN = (qFile->Rmat == NULL) ? qFile->size : qFile->Rmat->getNCols();
+        double *inter_mat = (qFile->Rmat == NULL) ? qi : qFile->Rmat->temp_highres_mat;
         double *ptr = inter_mat;
 
         for (int row = 0; row < NNN; ++row)
@@ -358,8 +328,8 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
 
         mxhelp::copyUpperToLower(inter_mat, NNN);
 
-        if (reso_matrix != NULL)
-            reso_matrix->sandwichHighRes(qi);
+        if (qFile->Rmat != NULL)
+            qFile->Rmat->sandwichHighRes(qi);
     }
 
     t = mytime::timer.getTime() - t; 
@@ -376,7 +346,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
         _setFiducialSignalMatrix(covariance_matrix);
     else
     {
-        for (int i = 0; i < DATA_SIZE*DATA_SIZE; ++i)
+        for (int i = 0; i < DATA_SIZE_2; ++i)
             *(covariance_matrix+i) = 0;
     }
 
@@ -386,12 +356,12 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
         _setQiMatrix(temp_matrix[0], i_kz);
 
-        cblas_daxpy(DATA_SIZE*DATA_SIZE, ps_estimate[i_kz + fisher_index_start], 
+        cblas_daxpy(DATA_SIZE_2, ps_estimate[i_kz + fisher_index_start], 
             temp_matrix[0], 1, covariance_matrix, 1);
     }
 
     // add noise matrix diagonally
-    cblas_daxpy(DATA_SIZE, 1., noise_array, 1, covariance_matrix, DATA_SIZE+1);
+    cblas_daxpy(qFile->size, 1., qFile->noise, 1, covariance_matrix, qFile->size+1);
 
     if (specifics::CONTINUUM_MARGINALIZATION_AMP > 0)
     {
@@ -401,15 +371,15 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
     if (specifics::CONTINUUM_MARGINALIZATION_DERV > 0)
     {
-        double *temp_t_vector = new double[DATA_SIZE];
+        double *temp_t_vector = new double[qFile->size];
         // double MEDIAN_LAMBDA = LYA_REST * (1 + MEDIAN_REDSHIFT);
 
-        std::transform(lambda_array, lambda_array+DATA_SIZE, temp_t_vector, 
+        std::transform(qFile->wave, qFile->wave+qFile->size, temp_t_vector, 
             [](const double &l) { return log(l/LYA_REST); });
 
-        cblas_dger(CblasRowMajor, DATA_SIZE, DATA_SIZE, 
+        cblas_dger(CblasRowMajor, qFile->size, qFile->size, 
             specifics::CONTINUUM_MARGINALIZATION_DERV, 
-            temp_t_vector, 1, temp_t_vector, 1, covariance_matrix, DATA_SIZE);
+            temp_t_vector, 1, temp_t_vector, 1, covariance_matrix, qFile->size);
 
         delete [] temp_t_vector;
     }
@@ -423,7 +393,7 @@ void OneQSOEstimate::invertCovarianceMatrix()
 {
     double t = mytime::timer.getTime();
 
-    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, DATA_SIZE);
+    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, qFile->size);
     
     inverse_covariance_matrix = covariance_matrix;
 
@@ -440,13 +410,13 @@ void OneQSOEstimate::_getWeightedMatrix(double *m)
 
     //C-1 . Q
     cblas_dsymm(CblasRowMajor, CblasLeft, CblasUpper,
-        DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix, DATA_SIZE,
-        m, DATA_SIZE, 0, temp_matrix[1], DATA_SIZE);
+        qFile->size, qFile->size, 1., inverse_covariance_matrix, qFile->size,
+        m, qFile->size, 0, temp_matrix[1], qFile->size);
 
     //C-1 . Q . C-1
     cblas_dsymm(CblasRowMajor, CblasRight, CblasUpper,
-        DATA_SIZE, DATA_SIZE, 1., inverse_covariance_matrix, DATA_SIZE,
-        temp_matrix[1], DATA_SIZE, 0, m, DATA_SIZE);
+        qFile->size, qFile->size, 1., inverse_covariance_matrix, qFile->size,
+        temp_matrix[1], qFile->size, 0, m, qFile->size);
 
     t = mytime::timer.getTime() - t;
 
@@ -473,7 +443,7 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
         Q_jkz_matrix = temp_matrix[1];
         _setQiMatrix(Q_jkz_matrix, j_kz, false);
 
-        temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, DATA_SIZE);
+        temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, qFile->size);
 
         int ind_ij = (i_kz + fisher_index_start) 
                 + bins::TOTAL_KZ_BINS * (j_kz + fisher_index_start),
@@ -491,11 +461,11 @@ void OneQSOEstimate::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 
 void OneQSOEstimate::computePSbeforeFvector()
 {
-    double *weighted_data_vector = new double[DATA_SIZE];
+    double *weighted_data_vector = new double[qFile->size];
 
     cblas_dsymv(CblasRowMajor, CblasUpper,
-                DATA_SIZE, 1., inverse_covariance_matrix, DATA_SIZE,
-                flux_array, 1,
+                qFile->size, 1., inverse_covariance_matrix, qFile->size,
+                qFile->delta, 1,
                 0, weighted_data_vector, 1);
 
     // #pragma omp parallel for
@@ -510,14 +480,14 @@ void OneQSOEstimate::computePSbeforeFvector()
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
         double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, 
-            Q_ikz_matrix, DATA_SIZE);
+            Q_ikz_matrix, qFile->size);
 
         // Get weighted derivative matrix ikz: C-1 Qi C-1
         _getWeightedMatrix(Q_ikz_matrix);
 
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, noise_array, 
-            DATA_SIZE);
+        double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise, 
+            qFile->size);
 
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
@@ -525,7 +495,7 @@ void OneQSOEstimate::computePSbeforeFvector()
             _setFiducialSignalMatrix(Sfid_matrix, false);
 
             // Tr(C-1 Qi C-1 Sfid)
-            temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, DATA_SIZE);
+            temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, qFile->size);
         }
         
         dbt_estimate_before_fisher_vector[0][i_kz + fisher_index_start] = temp_dk;
@@ -591,7 +561,7 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate,
             e.what(), qso_sp_fname.c_str());
 
         LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
-            DATA_SIZE, MEDIAN_REDSHIFT, DV_KMS, SPECT_RES_FWHM);
+            qFile->size, MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
     }
     
     _freeMatrices();
@@ -627,11 +597,11 @@ void OneQSOEstimate::_allocateMatrices()
     // Create a temp highres lambda array
     if (specifics::USE_RESOLUTION_MATRIX)
     {
-        highres_lambda = reso_matrix->allocWaveGrid(lambda_array[0]);
-        reso_matrix->allocateTempHighRes();
+        highres_lambda = qFile->Rmat->allocWaveGrid(qFile->wave[0]);
+        qFile->Rmat->allocateTempHighRes();
     }
     else
-        highres_lambda = lambda_array;
+        highres_lambda = qFile->wave;
     
     isQjSet   = false;
     isSfidSet = false;
@@ -657,7 +627,7 @@ void OneQSOEstimate::_freeMatrices()
 
     if (specifics::USE_RESOLUTION_MATRIX)
     {
-        reso_matrix->freeBuffers();
+        qFile->Rmat->freeBuffers();
         delete [] highres_lambda;
     }
     
@@ -713,13 +683,13 @@ void OneQSOEstimate::fprintfMatrices(const char *fname_base)
     if (isSfidStored)
     {
         sprintf(buf, "%s-signal.txt", fname_base);
-        mxhelp::fprintfMatrix(buf, stored_sfid, DATA_SIZE, DATA_SIZE);
+        mxhelp::fprintfMatrix(buf, stored_sfid, qFile->size, qFile->size);
     }
 
-    if (reso_matrix != NULL)
+    if (qFile->Rmat != NULL)
     {
         sprintf(buf, "%s-resolution.txt", fname_base);
-        reso_matrix->fprintfMatrix(buf);
+        qFile->Rmat->fprintfMatrix(buf);
     }
 }
 

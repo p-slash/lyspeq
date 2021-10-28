@@ -3,7 +3,7 @@
 
 #include <string>
 
-#include "core/matrix_helper.hpp"
+#include "io/qso_file.hpp"
 #include "gsltools/discrete_interpolation.hpp"
 
 // This object creates and computes C, S, Q, Q-slash matrices,
@@ -26,20 +26,18 @@ class OneQSOEstimate
 {
 protected:
     std::string qso_sp_fname;
-    
-    int SPECT_RES_FWHM, RES_INDEX;
+    qio::QSOFile *qFile;
 
-    int DATA_SIZE, N_Q_MATRICES, fisher_index_start, r_index;
+    int RES_INDEX;
+    int N_Q_MATRICES, fisher_index_start;
 
-    double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT, DV_KMS;
-    
+    double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // DATA_SIZE sized vectors
-    double *lambda_array, *highres_lambda, *flux_array, *noise_array;
+    double *highres_lambda;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
     double  *covariance_matrix, *inverse_covariance_matrix, *temp_matrix[2];
-    mxhelp::Resolution *reso_matrix;
 
     double  **stored_qj, *stored_sfid;
     int       nqj_eff;
