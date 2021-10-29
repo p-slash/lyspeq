@@ -63,10 +63,10 @@ public:
     int getNumberSpectra() const {return no_spectra;};
 
     void readParameters(int &N, double &z, int &fwhm_resolution, 
-        double &sig2noi, double &dv_kms, double &dlambda, int &oversamp);
+        double &sig2noi, double &dv_kms, double &dlambda, int &oversampling);
 
     void readData(double *lambda, double *delta, double *noise);
-    void readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int osamp, double dlambda);
+    void readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int oversampling, double dlambda);
 };
 
 class QSOFile
@@ -78,7 +78,7 @@ class QSOFile
 
 public:
     double z_qso, snr, dv_kms, dlambda;
-    int size, R_fwhm, oversamp;
+    int size, R_fwhm, oversampling;
     double *wave, *delta, *noise;
     mxhelp::Resolution *Rmat;
 
@@ -86,13 +86,10 @@ public:
     ~QSOFile();
 
     void readParameters();
-    //int &data_number, double &z, int &fwhm_resolution, double &sig2noi, double &dv_kms);
 
     void readData();
     void readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed);
-    //double *lambda, double *fluxfluctuations, double *noise);
     void readAllocResolutionMatrix();
-    //mxhelp::Resolution *& Rmat);
 };
 
 }

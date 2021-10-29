@@ -28,7 +28,7 @@ QSOFile::QSOFile(std::string fname_qso, ifileformat p_or_b)
         bqfile = new BQFile(fname_qso);
 
     dlambda=-1;
-    oversamp=1;
+    oversampling=1;
 }
 
 QSOFile::~QSOFile()
@@ -44,7 +44,7 @@ QSOFile::~QSOFile()
 void QSOFile::readParameters()
 {
     if (pfile != NULL)
-        pfile->readParameters(size, z_qso, R_fwhm, snr, dv_kms, dlambda, oversamp);
+        pfile->readParameters(size, z_qso, R_fwhm, snr, dv_kms, dlambda, oversampling);
     else
         bqfile->readParameters(size, z_qso, R_fwhm, snr, dv_kms);
 }
@@ -81,7 +81,7 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 void QSOFile::readAllocResolutionMatrix()
 {
     if (pfile != NULL)
-        pfile->readAllocResolutionMatrix(Rmat, oversamp, dlambda);
+        pfile->readAllocResolutionMatrix(Rmat, oversampling, dlambda);
     else
         throw std::runtime_error("Cannot read resolution matrix from Binary file!");
 }
@@ -151,7 +151,7 @@ void PiccaFile::_checkStatus()
 }
 
 void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, 
-    double &sig2noi, double &dv_kms, double &dlambda, int &oversamp)
+    double &sig2noi, double &dv_kms, double &dlambda, int &oversampling)
 {
     // This is not ndiags in integer, but length in bytes that includes other columns
     // fits_read_key(fits_file, TINT, "NAXIS1", &curr_ndiags, NULL, &status);
@@ -167,7 +167,7 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution,
 
     fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
     fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
-    fits_read_key(fits_file, TINT, "OVERSAMP", &oversamp, NULL, &status);
+    fits_read_key(fits_file, TINT, "OVERSAMP", &oversampling, NULL, &status);
 
     #define LN10 2.30258509299
     dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
@@ -209,7 +209,7 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld+1e-16, -0.5); });
 }
 
-void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int osamp, double dlambda)
+void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int oversampling, double dlambda)
 {
     int nonull, naxis, colnum;
     long *naxes = new long[2];
@@ -218,7 +218,7 @@ void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int osamp,
     fits_read_tdim(fits_file, colnum, curr_N, &naxis, naxes, &status);
     
     curr_elem_per_row = naxes[0];
-    Rmat = new mxhelp::Resolution(curr_N, curr_elem_per_row, osamp, dlambda);
+    Rmat = new mxhelp::Resolution(curr_N, curr_elem_per_row, oversampling, dlambda);
     // (curr_N, curr_ndiags);
 
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_elem_per_row, 0, 

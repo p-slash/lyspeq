@@ -345,10 +345,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     if (!specifics::TURN_OFF_SFID)
         _setFiducialSignalMatrix(covariance_matrix);
     else
-    {
-        for (int i = 0; i < DATA_SIZE_2; ++i)
-            *(covariance_matrix+i) = 0;
-    }
+        std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
