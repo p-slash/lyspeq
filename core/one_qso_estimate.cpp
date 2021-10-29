@@ -209,10 +209,13 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     _setNQandFisherIndex();
 
     _setStoredMatrices();
+    process::MEMORY_ALLOC -= getMinMemUsage();
 }
 
 OneQSOEstimate::~OneQSOEstimate()
 {
+    process::MEMORY_ALLOC += getMinMemUsage();
+
     delete [] flux_array;
     delete [] lambda_array;
     delete [] velocity_array;
