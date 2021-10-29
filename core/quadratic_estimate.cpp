@@ -136,17 +136,13 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     for (; qe != cpu_fname_vector.rend(); ++qe)
     {
         // find min time bucket
-        auto min_bt = std::min_element(bucket_time.begin(), bucket_time.end());
         // add max time consuming to that bucket
+        // Construct and add queue
+        auto min_bt = std::min_element(bucket_time.begin(), bucket_time.end());
         (*min_bt) += qe->first;
-
+        
         if (std::distance(bucket_time.begin(), min_bt) == process::this_pe)
-        {
-            // Construct and add queue
-            OneQSOEstimate *q_temp = new OneQSOEstimate(filepaths[qe->second]);
-            process::MEMORY_ALLOC -= q_temp->getMinMemUsage();
-            local_queue.push_back(q_temp);
-        }
+            local_queue.push_back(new OneQSOEstimate(filepaths[qe->second]));
     }
 
     double ave_balance = std::accumulate(bucket_time.begin(), 
