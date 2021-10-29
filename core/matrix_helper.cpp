@@ -234,6 +234,7 @@ namespace mxhelp
             rrow += nelem_per_row;
         }
     }
+
     // A . R^T = B
     // A should be nrows x ncols matrix. 
     // B should be nrows x nrows, will be initialized to zero
