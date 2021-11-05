@@ -96,10 +96,10 @@ int main(int argc, char *argv[])
         if (process::SAVE_ALL_SQ_FILES || specifics::USE_RESOLUTION_MATRIX)
         {
             process::sq_private_table->readTables();
-            process::MEMORY_ALLOC -= process::sq_private_table->getMaxMemUsage();
+            process::updateMemory(-process::sq_private_table->getMaxMemUsage());
         }
         else
-            process::MEMORY_ALLOC -= process::sq_private_table->getOneSetMemUsage();
+            process::updateMemory(-process::sq_private_table->getOneSetMemUsage());
 
     }
     catch (std::exception& e)
