@@ -65,7 +65,7 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 {
     if (wave == NULL)
     {
-        wave = new double[size];
+        wave  = new double[size];
         delta = new double[size];
         if (pfile != NULL)
             pfile->readData(wave, delta, delta);
@@ -212,18 +212,17 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
 void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int oversampling, double dlambda)
 {
     int nonull, naxis, colnum;
-    long *naxes = new long[2];
+    long naxes[2];
     char resotmp[]="RESOMAT";
     colnum = _getColNo(resotmp);
     fits_read_tdim(fits_file, colnum, curr_N, &naxis, naxes, &status);
     
     curr_elem_per_row = naxes[0];
+
     Rmat = new mxhelp::Resolution(curr_N, curr_elem_per_row, oversampling, dlambda);
-    // (curr_N, curr_ndiags);
 
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_elem_per_row, 0, 
         Rmat->values, &nonull, &status);
-
     // Rmat->orderTranspose();
 }
 
