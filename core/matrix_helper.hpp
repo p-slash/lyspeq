@@ -79,7 +79,7 @@ namespace mxhelp
 
         // Manually create and set temp_highres_mat
         void allocateTempHighRes();
-        double *allocWaveGrid(double w1);
+        double* allocWaveGrid(double w1);
         // B = R . Temp . R^T
         void sandwichHighRes(double *B);
 

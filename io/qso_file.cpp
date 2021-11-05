@@ -81,7 +81,7 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 void QSOFile::readAllocResolutionMatrix()
 {
     if (pfile != NULL)
-        pfile->readAllocResolutionMatrix(Rmat, oversampling, dlambda);
+        Rmat = pfile->readAllocResolutionMatrix(oversampling, dlambda);
     else
         throw std::runtime_error("Cannot read resolution matrix from Binary file!");
 }
@@ -209,10 +209,11 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld+1e-16, -0.5); });
 }
 
-void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int oversampling, double dlambda)
+mxhelp::Resolution* PiccaFile::readAllocResolutionMatrix(int oversampling, double dlambda)
 {
     int nonull, naxis, colnum;
     long naxes[2];
+    mxhelp::Resolution* Rmat;
     char resotmp[]="RESOMAT";
     colnum = _getColNo(resotmp);
     fits_read_tdim(fits_file, colnum, curr_N, &naxis, &naxes[0], &status);
@@ -226,6 +227,7 @@ void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int oversa
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_elem_per_row, 0, 
         Rmat->values, &nonull, &status);
     // Rmat->orderTranspose();
+    return Rmat;
 }
 
 PiccaFile::~PiccaFile()
