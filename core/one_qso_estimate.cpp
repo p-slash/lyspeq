@@ -191,12 +191,12 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     _setNQandFisherIndex();
 
     _setStoredMatrices();
-    process::MEMORY_ALLOC -= getMinMemUsage();
+    process::updateMemory(-getMinMemUsage());
 }
 
 OneQSOEstimate::~OneQSOEstimate()
 {
-    process::MEMORY_ALLOC += getMinMemUsage();
+    process::updateMemory(getMinMemUsage());
     delete qFile;
 
     if (nqj_eff > 0)

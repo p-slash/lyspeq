@@ -17,6 +17,13 @@ namespace process
     SQLookupTable *sq_private_table;
     bool SAVE_EACH_SPEC_RESULT = false;
     bool SAVE_ALL_SQ_FILES = false;
+
+    void updateMemory(double deltamem)
+    {
+        MEMORY_ALLOC += deltamem;
+        if (MEMORY_ALLOC < 10)
+            LOG::LOGGER.ERR("Remaining memory is less than 10 MB!");
+    }
 }
 
 namespace bins

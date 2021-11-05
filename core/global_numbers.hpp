@@ -22,6 +22,8 @@ namespace process
     extern SQLookupTable *sq_private_table;
     extern bool SAVE_EACH_SPEC_RESULT;
     extern bool SAVE_ALL_SQ_FILES;
+
+    void updateMemory(double deltamem);
 }
 
 namespace bins
