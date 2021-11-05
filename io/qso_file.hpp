@@ -66,7 +66,7 @@ public:
         double &sig2noi, double &dv_kms, double &dlambda, int &oversampling);
 
     void readData(double *lambda, double *delta, double *noise);
-    void readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int oversampling, double dlambda);
+    mxhelp::Resolution* readAllocResolutionMatrix(int oversampling, double dlambda);
 };
 
 class QSOFile
