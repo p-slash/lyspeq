@@ -17,7 +17,7 @@
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
     qso_sp_fname = fname_qso;
-    LOG::LOGGER.IO("Reading ", qso_sp_fname.c_str());
+    LOG::LOGGER.IO("Reading %s.\n", qso_sp_fname.c_str());
     qFile = new qio::QSOFile(qso_sp_fname, specifics::INPUT_QSO_FILE);
 
     qFile->readParameters();
@@ -193,6 +193,8 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 
     _setStoredMatrices();
     process::updateMemory(-getMinMemUsage());
+    LOG::LOGGER.IO("ND: %d, M1: %.1f MB. Avail mem: %.1lf MB\n"
+        "===============\n", qFile->size, getMinMemUsage(), process::MEMORY_ALLOC);
 }
 
 OneQSOEstimate::~OneQSOEstimate()
