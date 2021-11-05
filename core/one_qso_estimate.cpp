@@ -17,6 +17,7 @@
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
     qso_sp_fname = fname_qso;
+    LOG::LOGGER.IO("Reading ", qso_sp_fname.c_str());
     qFile = new qio::QSOFile(qso_sp_fname, specifics::INPUT_QSO_FILE);
 
     qFile->readParameters();
