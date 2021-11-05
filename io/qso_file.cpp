@@ -215,9 +215,11 @@ void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat, int oversa
     long naxes[2];
     char resotmp[]="RESOMAT";
     colnum = _getColNo(resotmp);
-    fits_read_tdim(fits_file, colnum, curr_N, &naxis, naxes, &status);
+    fits_read_tdim(fits_file, colnum, curr_N, &naxis, &naxes[0], &status);
     
     curr_elem_per_row = naxes[0];
+    if ((curr_elem_per_row < 1) || (curr_elem_per_row-1)%(2*oversampling) != 0)
+        throw std::runtime_error("Resolution matrix is not properly formatted.");
 
     Rmat = new mxhelp::Resolution(curr_N, curr_elem_per_row, oversampling, dlambda);
 
