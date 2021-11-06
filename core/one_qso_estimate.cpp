@@ -197,6 +197,31 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
         "===============\n", qFile->size, getMinMemUsage(), process::MEMORY_ALLOC);
 }
 
+OneQSOEstimate::OneQSOEstimate(OneQSOEstimate &&rhs)
+{
+    qso_sp_fname = std::move(rhs.qso_sp_fname);
+    RES_INDEX = rhs.RES_INDEX;
+    N_Q_MATRICES = rhs.N_Q_MATRICES;
+    fisher_index_start = rhs.fisher_index_start;
+    isCovInverted = rhs.isCovInverted;
+
+    // LOWER_REDSHIFT = rhs.LOWER_REDSHIFT; 
+    // UPPER_REDSHIFT = rhs.UPPER_REDSHIFT;
+    MEDIAN_REDSHIFT = rhs.MEDIAN_REDSHIFT;
+    // BIN_REDSHIFT = rhs.BIN_REDSHIFT;
+
+    stored_qj = rhs.stored_qj;
+    rhs.stored_qj = NULL;
+    qFile = rhs.qFile;
+    rhs.qFile = NULL;
+
+    nqj_eff = rhs.nqj_eff;
+    isSfidStored = rhs.isSfidStored;
+
+    interp_derivative_matrix = rhs.interp_derivative_matrix;
+    rhs.interp_derivative_matrix = NULL;
+}
+
 OneQSOEstimate::~OneQSOEstimate()
 {
     process::updateMemory(getMinMemUsage());
