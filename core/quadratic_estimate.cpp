@@ -362,13 +362,13 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
         for (std::vector<OneQSOEstimate>::iterator it = local_queue.begin(); 
             it != local_queue.end(); ++it)
         {
-            (*it).oneQSOiteration(powerspectra_fits, 
+            it->oneQSOiteration(powerspectra_fits, 
                 dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
 
             // When compiled with debugging feature
             // save matrices to files, break
             #ifdef DEBUG_MATRIX_OUT
-            (*it).fprintfMatrices(fname_base);
+            it->fprintfMatrices(fname_base);
             throw std::runtime_error("DEBUGGING QUIT.\n");
             #endif
         }
