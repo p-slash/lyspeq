@@ -131,7 +131,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     double load_balance_time = mytime::timer.getTime();
     
     std::vector<double> bucket_time(process::total_pes, 0);
-
+    local_queue.reserve(int(1.5*NUMBER_OF_QSOS/process::total_pes));
     std::vector<std::pair <double, int>>::reverse_iterator qe = cpu_fname_vector.rbegin();
     for (; qe != cpu_fname_vector.rend(); ++qe)
     {
@@ -142,7 +142,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
         (*min_bt) += qe->first;
         
         if (std::distance(bucket_time.begin(), min_bt) == process::this_pe)
-            local_queue.push_back(new OneQSOEstimate(filepaths[qe->second]));
+            local_queue.emplace_back(filepaths[qe->second]);
     }
 
     double ave_balance = std::accumulate(bucket_time.begin(), 
@@ -160,8 +160,8 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 {
-    std::for_each(local_queue.begin(), local_queue.end(), 
-        std::default_delete<OneQSOEstimate>());
+    // std::for_each(local_queue.begin(), local_queue.end(), 
+    //     std::default_delete<OneQSOEstimate>());
 
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
     {
@@ -359,16 +359,16 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
         initializeIteration();
 
         // Calculation for each spectrum
-        for (std::vector<OneQSOEstimate*>::iterator it = local_queue.begin(); 
+        for (std::vector<OneQSOEstimate>::iterator it = local_queue.begin(); 
             it != local_queue.end(); ++it)
         {
-            (*it)->oneQSOiteration(powerspectra_fits, 
+            (*it).oneQSOiteration(powerspectra_fits, 
                 dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
 
             // When compiled with debugging feature
             // save matrices to files, break
             #ifdef DEBUG_MATRIX_OUT
-            (*it)->fprintfMatrices(fname_base);
+            (*it).fprintfMatrices(fname_base);
             throw std::runtime_error("DEBUGGING QUIT.\n");
             #endif
         }

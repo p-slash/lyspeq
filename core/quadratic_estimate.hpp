@@ -24,7 +24,7 @@ class OneDQuadraticPowerEstimate
 {
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS;
 
-    std::vector<OneQSOEstimate*> local_queue;
+    std::vector<OneQSOEstimate> local_queue;
 
     // 3 TOTAL_KZ_BINS sized vectors
     double  *dbt_estimate_sum_before_fisher_vector[3],

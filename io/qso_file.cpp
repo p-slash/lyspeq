@@ -217,7 +217,8 @@ mxhelp::Resolution* PiccaFile::readAllocResolutionMatrix(int oversampling, doubl
     char resotmp[]="RESOMAT";
     colnum = _getColNo(resotmp);
     fits_read_tdim(fits_file, colnum, curr_N, &naxis, &naxes[0], &status);
-    
+    _checkStatus();
+
     curr_elem_per_row = naxes[0];
     if ((curr_elem_per_row < 1) || (curr_elem_per_row-1)%(2*oversampling) != 0)
         throw std::runtime_error("Resolution matrix is not properly formatted.");
@@ -226,6 +227,8 @@ mxhelp::Resolution* PiccaFile::readAllocResolutionMatrix(int oversampling, doubl
 
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_elem_per_row, 0, 
         Rmat->values, &nonull, &status);
+    _checkStatus();
+
     // Rmat->orderTranspose();
     return Rmat;
 }

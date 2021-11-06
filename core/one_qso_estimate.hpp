@@ -78,8 +78,8 @@ public:
     ~OneQSOEstimate();
     
     // Move constructor 
-    // OneQSOEstimate(OneQSOEstimate &&rhs);
-    // OneQSOEstimate& operator=(OneQSOEstimate&& rhs);
+    OneQSOEstimate(OneQSOEstimate &&rhs);
+    OneQSOEstimate& operator=(const OneQSOEstimate& rhs) = default;
 
     static double getComputeTimeEst(std::string fname_qso, int &zbin);
 
