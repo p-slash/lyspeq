@@ -17,7 +17,6 @@
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
     qso_sp_fname = fname_qso;
-    LOG::LOGGER.IO("Reading %s.\n", qso_sp_fname.c_str());
     qFile = new qio::QSOFile(qso_sp_fname, specifics::INPUT_QSO_FILE);
 
     qFile->readParameters();
@@ -193,8 +192,6 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 
     _setStoredMatrices();
     process::updateMemory(-getMinMemUsage());
-    LOG::LOGGER.IO("ND: %d, M1: %.1f MB. Avail mem: %.1lf MB\n"
-        "===============\n", qFile->size, getMinMemUsage(), process::MEMORY_ALLOC);
 }
 
 OneQSOEstimate::OneQSOEstimate(OneQSOEstimate &&rhs)
@@ -203,22 +200,21 @@ OneQSOEstimate::OneQSOEstimate(OneQSOEstimate &&rhs)
     RES_INDEX = rhs.RES_INDEX;
     N_Q_MATRICES = rhs.N_Q_MATRICES;
     fisher_index_start = rhs.fisher_index_start;
-    isCovInverted = rhs.isCovInverted;
 
     // LOWER_REDSHIFT = rhs.LOWER_REDSHIFT; 
     // UPPER_REDSHIFT = rhs.UPPER_REDSHIFT;
     MEDIAN_REDSHIFT = rhs.MEDIAN_REDSHIFT;
     // BIN_REDSHIFT = rhs.BIN_REDSHIFT;
 
-    stored_qj = rhs.stored_qj;
+    stored_qj = std::move(rhs.stored_qj);
     rhs.stored_qj = NULL;
-    qFile = rhs.qFile;
+    qFile = std::move(rhs.qFile);
     rhs.qFile = NULL;
 
     nqj_eff = rhs.nqj_eff;
     isSfidStored = rhs.isSfidStored;
 
-    interp_derivative_matrix = rhs.interp_derivative_matrix;
+    interp_derivative_matrix = std::move(rhs.interp_derivative_matrix);
     rhs.interp_derivative_matrix = NULL;
 }
 
@@ -233,12 +229,6 @@ OneQSOEstimate::~OneQSOEstimate()
 
 double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 {
-    #ifdef FISHER_OPTIMIZATION
-    #define N_M_COMBO 3.
-    #else
-    #define N_M_COMBO (N_Q_MATRICES + 1.)
-    #endif
-
     qio::QSOFile qtemp(fname_qso, specifics::INPUT_QSO_FILE);
     qtemp.readParameters();
 
@@ -249,6 +239,10 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
     int ZBIN_LOW = bins::findRedshiftBin(z1);
     int ZBIN_UPP = bins::findRedshiftBin(z2);
     int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
+    double res = std::pow(qtemp.size/100., 3);
+
+    if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
+        return 0;
 
     #if defined(TRIANGLE_Z_BINNING_FN)
     // If we need to distribute low end to a lefter bin
@@ -260,10 +254,13 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
     #endif
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 
-    if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
-        return 0;
-    else
-        return std::pow(qtemp.size/100., 3) * N_Q_MATRICES * N_M_COMBO;
+    #ifdef FISHER_OPTIMIZATION
+    #define N_M_COMBO 3.
+    #else
+    #define N_M_COMBO (N_Q_MATRICES + 1.)
+    #endif
+
+    return res * N_Q_MATRICES * N_M_COMBO;
 
     #undef N_M_COMBO
 }
