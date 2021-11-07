@@ -50,7 +50,7 @@ class PiccaFile
     // int hdunum;
     int no_spectra, status;
     int curr_spec_index;
-    int curr_N, curr_elem_per_row, curr_oversamp;
+    int curr_N, curr_elem_per_row;
     void _move(int index);
     int _getColNo(char *tmplt);
     void _checkStatus();
@@ -83,6 +83,7 @@ public:
     mxhelp::Resolution *Rmat;
 
     QSOFile(std::string fname_qso, ifileformat p_or_b);
+    void closeFile();
     ~QSOFile();
 
     void readParameters();
