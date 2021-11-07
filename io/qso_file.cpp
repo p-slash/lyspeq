@@ -31,10 +31,17 @@ QSOFile::QSOFile(std::string fname_qso, ifileformat p_or_b)
     oversampling=1;
 }
 
-QSOFile::~QSOFile()
+void QSOFile::closeFile()
 {
     delete pfile;
     delete bqfile;
+    pfile=NULL;
+    bqfile=NULL;
+}
+
+QSOFile::~QSOFile()
+{
+    closeFile();
     delete Rmat;
     delete [] wave;
     delete [] delta;
@@ -168,6 +175,7 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution,
     fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
     fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
     fits_read_key(fits_file, TINT, "OVERSAMP", &oversampling, NULL, &status);
+    _checkStatus();
 
     #define LN10 2.30258509299
     dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;

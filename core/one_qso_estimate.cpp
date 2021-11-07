@@ -40,6 +40,7 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
         if (RES_INDEX == -1)      throw std::runtime_error("SPECRES not found in tables!");
     }
 
+    qfile->closeFile();
     interp2d_signal_matrix   = NULL;
     interp_derivative_matrix = new DiscreteInterpolation1D*[bins::NUMBER_OF_K_BANDS];
 }
