@@ -27,17 +27,14 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     if (specifics::USE_RESOLUTION_MATRIX)
     {
         RES_INDEX = 0;
-        if (specifics::INPUT_QSO_FILE == qio::Picca)
-            qFile->readAllocResolutionMatrix();
-        else
-            throw std::runtime_error("Resolution matrix is supported in this file.");
+        qFile->readAllocResolutionMatrix();
     }
     else
     {
         // Find the resolution index for the look up table
         RES_INDEX = process::sq_private_table->findSpecResIndex(qFile->R_fwhm, qFile->dv_kms);
 
-        if (RES_INDEX == -1)      throw std::runtime_error("SPECRES not found in tables!");
+        if (RES_INDEX == -1)      throw std::out_of_range("SPECRES not found in tables!");
     }
 
     qFile->closeFile();
@@ -230,8 +227,21 @@ OneQSOEstimate::~OneQSOEstimate()
 
 double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 {
-    qio::QSOFile qtemp(fname_qso, specifics::INPUT_QSO_FILE);
-    qtemp.readParameters();
+    try
+    {
+        qio::QSOFile qtemp(fname_qso, specifics::INPUT_QSO_FILE);
+        qtemp.readParameters();
+    }
+    catch (std::exception& e)
+    {
+        zbin=-1;
+        if ((qtemp.oversampling==-1 && qtemp.dlambda<0) && specifics::USE_RESOLUTION_MATRIX)
+        {
+            LOG::LOGGER.ERR("%s. OVERSAMP and/or DLAMBDA not found. Skipping %s.\n", 
+                e.what(), fname_qso.c_str());
+            return 0;
+        }
+    }
 
     double z1, z2, zm; 
     qtemp.readMinMaxMedRedshift(z1, z2, zm);

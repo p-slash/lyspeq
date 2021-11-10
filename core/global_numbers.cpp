@@ -387,6 +387,10 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     if (use_picca_file>0)
         specifics::INPUT_QSO_FILE = qio::Picca;
 
+    if (specifics::INPUT_QSO_FILE != qio::Picca && specifics::USE_RESOLUTION_MATRIX)
+        throw std::invalid_argument("Resolution matrix is only supported with picca files."
+            " Add 'InputIsPicca 1' to config file if so.");
+
     // resolve conflict: Input delta flux overrides all
     // Then, chunk means.
     if (conv::INPUT_IS_DELTA_FLUX && conv::FLUX_TO_DELTAF_BY_CHUNKS)
