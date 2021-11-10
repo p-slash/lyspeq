@@ -28,7 +28,7 @@ QSOFile::QSOFile(std::string fname_qso, ifileformat p_or_b)
         bqfile = new BQFile(fname_qso);
 
     dlambda=-1;
-    oversampling=1;
+    oversampling=-1;
 }
 
 void QSOFile::closeFile()
@@ -153,16 +153,19 @@ PiccaFile::PiccaFile(std::string fname_qso) : status(0)
 void PiccaFile::_checkStatus()
 {
     char error_msg[50]="FITS ERROR ";
-    fits_get_errstatus(status, &error_msg[12]);
+    fits_get_errstatus(status, &error_msg[11]);
     if (status)     throw std::runtime_error(std::string(error_msg));
 }
 
 void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, 
     double &sig2noi, double &dv_kms, double &dlambda, int &oversampling)
 {
+    curr_elem_per_row = -1;
+
     // This is not ndiags in integer, but length in bytes that includes other columns
     // fits_read_key(fits_file, TINT, "NAXIS1", &curr_ndiags, NULL, &status);
     fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
+    N = curr_N;
 
     fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
 
@@ -173,16 +176,25 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution,
     fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
 
     fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
-    fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
-    fits_read_key(fits_file, TINT, "OVERSAMP", &oversampling, NULL, &status);
-    _checkStatus();
 
     #define LN10 2.30258509299
     dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
     #undef LN10
 
-    N = curr_N;
-    curr_elem_per_row = -1;
+    _checkStatus();
+
+    try
+    {
+        fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
+        fits_read_key(fits_file, TINT, "OVERSAMP", &oversampling, NULL, &status);
+        _checkStatus();
+    }
+    catch (std::exception& e)
+    {
+        oversampling=-1;
+        dlambda=-1;
+        throw e;
+    }
 }
 
 int PiccaFile::_getColNo(char *tmplt)

@@ -120,6 +120,9 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Sorting took %.2f m.\n", t2-t1);
 
+    if (cpu_fname_vector.empty())
+        throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
+
     _loadBalancing(filepaths, cpu_fname_vector);
 }
 
@@ -131,7 +134,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     double load_balance_time = mytime::timer.getTime();
     
     std::vector<double> bucket_time(process::total_pes, 0);
-    local_queue.reserve(int(1.5*NUMBER_OF_QSOS/process::total_pes));
+    local_queue.reserve(int(1.15*NUMBER_OF_QSOS/process::total_pes));
     std::vector<std::pair <double, int>>::reverse_iterator qe = cpu_fname_vector.rbegin();
     for (; qe != cpu_fname_vector.rend(); ++qe)
     {
@@ -140,7 +143,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
         // Construct and add queue
         auto min_bt = std::min_element(bucket_time.begin(), bucket_time.end());
         (*min_bt) += qe->first;
-        
+
         if (std::distance(bucket_time.begin(), min_bt) == process::this_pe)
             local_queue.emplace_back(filepaths[qe->second]);
     }
@@ -154,7 +157,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     LOG::LOGGER.STD("\n");
 
     load_balance_time = mytime::timer.getTime() - load_balance_time;
-    
+
     LOG::LOGGER.STD("Load balancing took %.2f sec.\n", load_balance_time*60.);
 }
 
@@ -369,7 +372,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
             // save matrices to files, break
             #ifdef DEBUG_MATRIX_OUT
             it->fprintfMatrices(fname_base);
-            throw std::runtime_error("DEBUGGING QUIT.\n");
+            throw std::runtime_error("DEBUGGING QUIT.");
             #endif
         }
 
@@ -683,7 +686,7 @@ void OneDQuadraticPowerEstimate::readPrecomputedFisher(const char *fname)
     mxhelp::fscanfMatrix(fname, precomputed_fisher, N1, N2);
 
     if (N1 != bins::TOTAL_KZ_BINS || N2 != bins::TOTAL_KZ_BINS)
-        throw std::runtime_error("Precomputed Fisher matrix does not have" 
+        throw std::invalid_argument("Precomputed Fisher matrix does not have" 
             " correct number of rows or columns.");
 }
 
