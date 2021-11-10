@@ -193,7 +193,6 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution,
     {
         oversampling=-1;
         dlambda=-1;
-        throw e;
     }
 }
 
@@ -224,6 +223,8 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     colnum = _getColNo(ivartmp);
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, noise, &nonull, 
         &status);
+
+    _checkStatus();
 
     std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
     std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld+1e-16, -0.5); });
