@@ -227,53 +227,57 @@ OneQSOEstimate::~OneQSOEstimate()
 
 double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 {
+    zbin=-1;
+
     try
     {
         qio::QSOFile qtemp(fname_qso, specifics::INPUT_QSO_FILE);
         qtemp.readParameters();
+
+        if ((qtemp.oversampling==-1 && qtemp.dlambda<0) && specifics::USE_RESOLUTION_MATRIX)
+        {
+            LOG::LOGGER.IO("OVERSAMP and/or DLAMBDA not found. Skipping %s.\n", 
+                fname_qso.c_str());
+            return 0;
+        }
+
+        double z1, z2, zm; 
+        qtemp.readMinMaxMedRedshift(z1, z2, zm);
+
+        zbin         = bins::findRedshiftBin(zm);
+        int ZBIN_LOW = bins::findRedshiftBin(z1), ZBIN_UPP = bins::findRedshiftBin(z2);
+
+        if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
+            return 0;
+
+        int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
+        double res = std::pow(qtemp.size/100., 3);
+
+        #if defined(TRIANGLE_Z_BINNING_FN)
+        // If we need to distribute low end to a lefter bin
+        if ((z1 < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
+            ++N_Q_MATRICES;
+        // If we need to distribute high end to righter bin
+        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
+            ++N_Q_MATRICES;
+        #endif
+        N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
+
+        #ifdef FISHER_OPTIMIZATION
+        #define N_M_COMBO 3.
+        #else
+        #define N_M_COMBO (N_Q_MATRICES + 1.)
+        #endif
+
+        return res * N_Q_MATRICES * N_M_COMBO;
+
+        #undef N_M_COMBO
     }
     catch (std::exception& e)
     {
-        zbin=-1;
-        if ((qtemp.oversampling==-1 && qtemp.dlambda<0) && specifics::USE_RESOLUTION_MATRIX)
-        {
-            LOG::LOGGER.ERR("%s. OVERSAMP and/or DLAMBDA not found. Skipping %s.\n", 
-                e.what(), fname_qso.c_str());
-            return 0;
-        }
-    }
-
-    double z1, z2, zm; 
-    qtemp.readMinMaxMedRedshift(z1, z2, zm);
-
-    zbin         = bins::findRedshiftBin(zm);
-    int ZBIN_LOW = bins::findRedshiftBin(z1);
-    int ZBIN_UPP = bins::findRedshiftBin(z2);
-    int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
-    double res = std::pow(qtemp.size/100., 3);
-
-    if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
+        LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
         return 0;
-
-    #if defined(TRIANGLE_Z_BINNING_FN)
-    // If we need to distribute low end to a lefter bin
-    if ((z1 < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
-        ++N_Q_MATRICES;
-    // If we need to distribute high end to righter bin
-    if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
-        ++N_Q_MATRICES;
-    #endif
-    N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
-
-    #ifdef FISHER_OPTIMIZATION
-    #define N_M_COMBO 3.
-    #else
-    #define N_M_COMBO (N_Q_MATRICES + 1.)
-    #endif
-
-    return res * N_Q_MATRICES * N_M_COMBO;
-
-    #undef N_M_COMBO
+    }
 }
 
 void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
