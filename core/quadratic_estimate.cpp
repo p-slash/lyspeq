@@ -15,6 +15,7 @@
 #include "core/fiducial_cosmology.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
+#include "io/qso_file.hpp"
 
 #if defined(ENABLE_MPI)
 #include "mpi.h" 
@@ -89,6 +90,9 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
             cpu_fname_vector.push_back(std::make_pair(cpu_t_temp, findex));
     }
 
+    if (specifics::INPUT_QSO_FILE == qio::Picca)
+        qio::PiccaFile::clearCache();
+
     // Print out time it took to read all files into vector
     t1 = mytime::timer.getTime();
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
@@ -121,6 +125,9 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     LOG::LOGGER.STD("Sorting took %.2f m.\n", t2-t1);
 
     _loadBalancing(filepaths, cpu_fname_vector);
+
+    if (specifics::INPUT_QSO_FILE == qio::Picca)
+        qio::PiccaFile::clearCache();
 }
 
 void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepaths,
