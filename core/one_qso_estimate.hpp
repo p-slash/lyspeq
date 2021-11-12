@@ -25,7 +25,6 @@
 class OneQSOEstimate
 {
 protected:
-    std::string qso_sp_fname;
     qio::QSOFile *qFile;
 
     int RES_INDEX;

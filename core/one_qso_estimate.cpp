@@ -16,8 +16,7 @@
 
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
-    qso_sp_fname = fname_qso;
-    qFile = new qio::QSOFile(qso_sp_fname, specifics::INPUT_QSO_FILE);
+    qFile = new qio::QSOFile(fname_qso, specifics::INPUT_QSO_FILE);
 
     qFile->readParameters();
     qFile->readData();
@@ -54,7 +53,7 @@ bool OneQSOEstimate::_findRedshiftBin()
         // LOG::LOGGER.IO("This QSO is completely out!\n");
         LOG::LOGGER.ERR("This QSO is completely out:\n" "File: %s\n" 
             "Redshift range: %.2f--%.2f\n",
-            qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
+            qFile->fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
 
         return false;
     }
@@ -64,7 +63,7 @@ bool OneQSOEstimate::_findRedshiftBin()
         // LOG::LOGGER.IO("This QSO is out on the low end!\n");
         LOG::LOGGER.ERR("This QSO is out on the low end:\n" "File: %s\n" 
             "Redshift range: %.2f--%.2f\n",
-            qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
+            qFile->fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
         
         ZBIN_LOW = 0;
     }
@@ -74,7 +73,7 @@ bool OneQSOEstimate::_findRedshiftBin()
         // LOG::LOGGER.IO("This QSO is out on the high end!\n");
         LOG::LOGGER.ERR("This QSO is out on the high end:\n" "File: %s\n" 
             "Redshift range: %.2f--%.2f\n",
-            qso_sp_fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
+            qFile->fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
 
         ZBIN_UPP = bins::NUMBER_OF_Z_BINS - 1;
     }
@@ -159,7 +158,7 @@ void OneQSOEstimate::_setStoredMatrices()
         LOG::LOGGER.IO("===============\n""Not all matrices are stored: %s\n"
             "#stored: %d vs #required:%d.\n""ND: %d, M1: %.1f MB. "
             "Avail mem after R & SQ subtracted: %.1lf MB\n""===============\n", 
-            qso_sp_fname.c_str(), nqj_eff, N_Q_MATRICES, qFile->size, size_m1, 
+            qFile->fname.c_str(), nqj_eff, N_Q_MATRICES, qFile->size, size_m1, 
             remain_mem);
 
     // LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
@@ -194,7 +193,6 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 
 OneQSOEstimate::OneQSOEstimate(OneQSOEstimate &&rhs)
 {
-    qso_sp_fname = std::move(rhs.qso_sp_fname);
     RES_INDEX = rhs.RES_INDEX;
     N_Q_MATRICES = rhs.N_Q_MATRICES;
     fisher_index_start = rhs.fisher_index_start;
@@ -597,7 +595,7 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate,
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("ERROR %s: Covariance matrix is not invertable. %s\n",
-            e.what(), qso_sp_fname.c_str());
+            e.what(), qFile->fname.c_str());
 
         LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
             qFile->size, MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
@@ -681,7 +679,7 @@ void OneQSOEstimate::_saveIndividualResult()
     mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], 
         dbt_estimate_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
 
-    std::string resfname = qso_sp_fname;
+    std::string resfname = qFile->fname;
 
     if (specifics::INPUT_QSO_FILE == qio::Picca) 
     {
