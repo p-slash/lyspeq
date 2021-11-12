@@ -19,13 +19,13 @@ namespace qio
 // double *wave, *delta, *noise;
 // mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(std::string fname_qso, ifileformat p_or_b)
-    : PB(p_or_b), pfile(NULL), bqfile(NULL),
+    : fname(fname_qso), PB(p_or_b), pfile(NULL), bqfile(NULL),
     wave(NULL), delta(NULL), noise(NULL), Rmat(NULL)
 {
     if (PB == Picca)
-        pfile = new PiccaFile(fname_qso);
+        pfile = new PiccaFile(fname);
     else
-        bqfile = new BQFile(fname_qso);
+        bqfile = new BQFile(fname);
 
     dlambda=-1;
     oversampling=-1;
@@ -149,7 +149,7 @@ void PiccaFile::clearCache()
     cache.clear();
 }
 
-#define MAX_NO_FILES 3
+#define MAX_NO_FILES 2
 
 // Assume fname to be ..fits.gz[1]
 PiccaFile::PiccaFile(std::string fname_qso) : status(0)

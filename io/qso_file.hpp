@@ -76,12 +76,12 @@ public:
 
 class QSOFile
 {
-    std::string file_name;
     ifileformat PB;
     PiccaFile *pfile;
     BQFile *bqfile;
 
 public:
+    std::string fname;
     double z_qso, snr, dv_kms, dlambda;
     int size, R_fwhm, oversampling;
     double *wave, *delta, *noise;
