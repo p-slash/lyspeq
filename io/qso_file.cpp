@@ -99,15 +99,50 @@ void BQFile::readData(double *lambda, double *fluxfluctuations, double *noise)
 // Picca File
 // ============================================================================
 
+std::map<std::string, fitsfile*> PiccaFile::cache;
+void PiccaFile::clearCache()
+{
+    int status=0;
+    std::map<std::string, fitsfile*>::iterator it;
+    for (it = cache.begin(); it != cache.end(); ++it)
+        fits_close_file(it->second, &status);
+
+    cache.clear();
+}
+
+#define MAX_NO_FILES 3
+
+// Assume fname to be ..fits.gz[1]
 PiccaFile::PiccaFile(std::string fname_qso) : status(0)
 {
-    // Assume fname to be ..fits.gz[1]
-    fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
-    fits_get_hdu_num(fits_file, &curr_spec_index);
-    fits_get_num_hdus(fits_file, &no_spectra, &status);
+    std::size_t i1 = fname_qso.rfind('[')+1, i2 = fname_qso.rfind(']');
+    std::string basefname = fname_qso.substr(0, i1-1);
 
-    no_spectra--;
+    int extnum = std::stoi(fname_qso.substr(i1, i2-i1)), hdutype;
+
+    std::map<std::string, fitsfile*>::iterator it = cache.find(basefname);
+    if (it != cache.end())
+    {
+        fits_file = it->second;
+        fits_movabs_hdu(fits_file, extnum, &hdutype, &status);
+    }
+    else
+    {
+        if (cache.size() == MAX_NO_FILES)
+        {
+            fits_close_file(cache.begin()->second, &status);
+            cache.erase(cache.begin());
+        }
+        fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
+        cache[basefname] = fits_file;
+    }
+
     _checkStatus();
+
+    // fits_get_hdu_num(fits_file, &curr_spec_index);
+    // fits_get_num_hdus(fits_file, &no_spectra, &status);
+
+    // no_spectra--;
     // _move(fname_qso[fname_qso.size-2] - '0');
 }
 
@@ -155,7 +190,7 @@ int PiccaFile::_getColNo(char *tmplt)
 void PiccaFile::readData(double *lambda, double *delta, double *noise)
 {
     int nonull, colnum;
-    // _move(newhdu);
+
     char logtmp[]="LOGLAM";
     colnum = _getColNo(logtmp);
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
@@ -194,21 +229,21 @@ void PiccaFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
 
 PiccaFile::~PiccaFile()
 {
-    fits_close_file(fits_file, &status);
+    // fits_close_file(fits_file, &status);
 }
 
-void PiccaFile::_move(int index)
-{
-    int hdutype;
-    if (index >= no_spectra)
-        throw std::runtime_error("Trying go beyond # HDU in fits file.");
+// void PiccaFile::_move(int index)
+// {
+//     int hdutype;
+//     if (index >= no_spectra)
+//         throw std::runtime_error("Trying go beyond # HDU in fits file.");
 
-    if (index > 0 && curr_spec_index != index)
-    {
-        fits_movabs_hdu(fits_file, index, &hdutype, &status);
-        curr_spec_index = index;
-    }
-}
+//     if (index > 0 && curr_spec_index != index)
+//     {
+//         fits_movabs_hdu(fits_file, index, &hdutype, &status);
+//         curr_spec_index = index;
+//     }
+// }
 
 }
 
