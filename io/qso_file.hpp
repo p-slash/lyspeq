@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <string>
+#include <map>
 #include <fitsio.h>
 #include "core/matrix_helper.hpp"
 
@@ -46,20 +47,24 @@ public:
 
 class PiccaFile
 {
+    static std::map<std::string, fitsfile*> cache;
+
     fitsfile *fits_file;
     // int hdunum;
     int no_spectra, status;
     int curr_spec_index;
+
     int curr_N, curr_elem_per_row;
-    void _move(int index);
     int _getColNo(char *tmplt);
     void _checkStatus();
 
 public:
+    static void clearCache();
+
     // Assume fname to be ..fits.gz[1]
     PiccaFile(std::string fname_qso);
     ~PiccaFile();
-    
+
     int getNumberSpectra() const {return no_spectra;};
 
     void readParameters(int &N, double &z, int &fwhm_resolution, 
