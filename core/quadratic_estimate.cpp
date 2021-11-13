@@ -10,6 +10,7 @@
 #include <string>
 #include <sstream>      // std::ostringstream
 
+#include "core/one_qso_estimate.hpp"
 #include "core/matrix_helper.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
@@ -128,9 +129,6 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
 
     _loadBalancing(filepaths, cpu_fname_vector);
-
-    if (specifics::INPUT_QSO_FILE == qio::Picca)
-        qio::PiccaFile::clearCache();
 }
 
 void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepaths,
@@ -141,7 +139,9 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     double load_balance_time = mytime::timer.getTime();
     
     std::vector<double> bucket_time(process::total_pes, 0);
-    local_queue.reserve(int(1.15*NUMBER_OF_QSOS/process::total_pes));
+
+    local_fpaths.reserve(int(1.1*filepaths.size()/process::total_pes));
+
     std::vector<std::pair <double, int>>::reverse_iterator qe = cpu_fname_vector.rbegin();
     for (; qe != cpu_fname_vector.rend(); ++qe)
     {
@@ -152,8 +152,12 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
         (*min_bt) += qe->first;
 
         if (std::distance(bucket_time.begin(), min_bt) == process::this_pe)
-            local_queue.emplace_back(filepaths[qe->second]);
+            local_fpaths.push_back(filepaths[qe->second]);
     }
+
+    // sort local_fpaths
+    if (specifics::INPUT_QSO_FILE == qio::Picca) 
+        std::sort(local_fpaths.begin(), local_fpaths.end(), qio::PiccaFile::compareFnames);
 
     double ave_balance = std::accumulate(bucket_time.begin(), 
         bucket_time.end(), 0.) / process::total_pes;
@@ -170,9 +174,6 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 {
-    // std::for_each(local_queue.begin(), local_queue.end(), 
-    //     std::default_delete<OneQSOEstimate>());
-
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
     {
         delete [] dbt_estimate_sum_before_fisher_vector[dbt_i];
@@ -357,7 +358,19 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra(double *smoothed_power)
 void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, 
     const char *fname_base)
 {
-    double total_time = 0, total_time_1it = 0;
+    double total_time = 0, total_time_1it = mytime::timer.getTime();;
+
+    // Construct local queue
+    std::vector<OneQSOEstimate> local_queue;
+    local_queue.reserve(local_fpaths.size());
+    for (auto it = local_fpaths.begin(); it != local_fpaths.end(); ++it)
+        local_queue.emplace_back(*it);
+
+    if (specifics::INPUT_QSO_FILE == qio::Picca)
+        qio::PiccaFile::clearCache();
+
+    total_time_1it  = mytime::timer.getTime() - total_time_1it;
+    LOG::LOGGER.STD("Local files are read in %.1f minutes.", total_time_1it);
 
     for (int i = 0; i < number_of_iterations; i++)
     {
