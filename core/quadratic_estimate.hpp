@@ -4,8 +4,6 @@
 #include <vector>
 #include <string>
 
-#include "core/one_qso_estimate.hpp"
-
 // This umbrella class manages the quadratic estimator by 
 //      storing the total Fisher matrix and its inverse,
 //      computing the power spectrum estimate,

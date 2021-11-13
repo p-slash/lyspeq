@@ -14,7 +14,7 @@ namespace qio
 // Umbrella QSO file
 // ============================================================================
 
-QSOFile::QSOFile(std::string fname_qso, ifileformat p_or_b)
+QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
     : PB(p_or_b), pfile(NULL), bqfile(NULL)
 {
     if (PB == Picca)
@@ -57,7 +57,7 @@ void QSOFile::readAllocResolutionMatrix(mxhelp::Resolution *& Rmat)
 // ============================================================================
 // Binary QSO file
 // ============================================================================
-BQFile::BQFile(std::string fname_qso)
+BQFile::BQFile(const std::string &fname_qso)
 {
     qso_file = ioh::open_file(fname_qso.c_str(), "rb");
 }
@@ -99,6 +99,17 @@ void BQFile::readData(double *lambda, double *fluxfluctuations, double *noise)
 // Picca File
 // ============================================================================
 
+std::string decomposeFname(const std::string &fname, int &hdunum)
+{
+    std::size_t i1 = fname.rfind('[')+1, i2 = fname.rfind(']');
+    std::string basefname = fname.substr(0, i1-1);
+
+    hdunum = std::stoi(fname.substr(i1, i2-i1))+1;
+
+    return basefname;
+}
+
+// Statics
 std::map<std::string, fitsfile*> PiccaFile::cache;
 void PiccaFile::clearCache()
 {
@@ -110,15 +121,24 @@ void PiccaFile::clearCache()
     cache.clear();
 }
 
-#define MAX_NO_FILES 2
-
-// Assume fname to be ..fits.gz[1]
-PiccaFile::PiccaFile(std::string fname_qso) : status(0)
+bool PiccaFile::compareFnames(const std::string &s1, const std::string &s2)
 {
-    std::size_t i1 = fname_qso.rfind('[')+1, i2 = fname_qso.rfind(']');
-    std::string basefname = fname_qso.substr(0, i1-1);
+    int hdu1, hdu2;
+    std::string b1 = decomposeFname(s1, hdu1), b2 = decomposeFname(s2, hdu2);
+    int comp = b1.compare(b2);
 
-    int hdunum = std::stoi(fname_qso.substr(i1, i2-i1))+1, hdutype;
+    if (comp != 0)
+        return comp;
+    return hdu1 < hdu2;
+}
+
+#define MAX_NO_FILES 2
+// Normals
+// Assume fname to be ..fits.gz[1]
+PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
+{
+    int hdunum, hdutype;
+    std::string basefname = decomposeFname(fname_qso, hdunum);
 
     std::map<std::string, fitsfile*>::iterator it = cache.find(basefname);
     if (it != cache.end())
