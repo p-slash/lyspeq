@@ -157,13 +157,13 @@ PiccaFile::PiccaFile(std::string fname_qso) : status(0)
     std::size_t i1 = fname_qso.rfind('[')+1, i2 = fname_qso.rfind(']');
     std::string basefname = fname_qso.substr(0, i1-1);
 
-    int extnum = std::stoi(fname_qso.substr(i1, i2-i1)), hdutype;
+    int hdunum = std::stoi(fname_qso.substr(i1, i2-i1))+1, hdutype;
 
     std::map<std::string, fitsfile*>::iterator it = cache.find(basefname);
     if (it != cache.end())
     {
         fits_file = it->second;
-        fits_movabs_hdu(fits_file, extnum, &hdutype, &status);
+        fits_movabs_hdu(fits_file, hdunum, &hdutype, &status);
     }
     else
     {
