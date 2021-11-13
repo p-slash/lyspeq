@@ -36,7 +36,7 @@ class BQFile
     } header;
 
 public:
-    BQFile(std::string fname_qso);
+    BQFile(const std::string &fname_qso);
     ~BQFile();
 
     void readParameters(int &data_number, double &z, int &fwhm_resolution, 
@@ -59,10 +59,11 @@ class PiccaFile
     void _checkStatus();
 
 public:
+    static bool compareFnames(const std::string &s1, const std::string &s2);
     static void clearCache();
 
     // Assume fname to be ..fits.gz[1]
-    PiccaFile(std::string fname_qso);
+    PiccaFile(const std::string &fname_qso);
     ~PiccaFile();
 
     int getNumberSpectra() const {return no_spectra;};
@@ -87,7 +88,7 @@ public:
     double *wave, *delta, *noise;
     mxhelp::Resolution *Rmat;
 
-    QSOFile(std::string fname_qso, ifileformat p_or_b);
+    QSOFile(const std::string &fname_qso, ifileformat p_or_b);
     void closeFile();
     ~QSOFile();
 
