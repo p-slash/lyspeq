@@ -10,6 +10,7 @@
 #include <string>
 #include <sstream>      // std::ostringstream
 
+#include "core/one_qso_estimate.hpp"
 #include "core/matrix_helper.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
@@ -125,9 +126,6 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     LOG::LOGGER.STD("Sorting took %.2f m.\n", t2-t1);
 
     _loadBalancing(filepaths, cpu_fname_vector);
-
-    if (specifics::INPUT_QSO_FILE == qio::Picca)
-        qio::PiccaFile::clearCache();
 }
 
 void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepaths,
@@ -153,6 +151,10 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
             local_fpaths.push_back(filepaths[qe->second]);
     }
 
+    // sort local_fpaths
+    if (specifics::INPUT_QSO_FILE == qio::Picca) 
+        std::sort(local_fpaths.begin(), local_fpaths.end(), qio::PiccaFile::compareFnames);
+
     double ave_balance = std::accumulate(bucket_time.begin(), 
         bucket_time.end(), 0.) / process::total_pes;
 
@@ -164,8 +166,6 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     load_balance_time = mytime::timer.getTime() - load_balance_time;
     
     LOG::LOGGER.STD("Load balancing took %.2f sec.\n", load_balance_time*60.);
-
-    // sort local_fpaths
 }
 
 OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
@@ -354,13 +354,19 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra(double *smoothed_power)
 void OneDQuadraticPowerEstimate::iterate(int number_of_iterations, 
     const char *fname_base)
 {
-    double total_time = 0, total_time_1it = 0;
+    double total_time = 0, total_time_1it = mytime::timer.getTime();;
+
     // Construct local queue
     std::vector<OneQSOEstimate> local_queue;
     local_queue.reserve(local_fpaths.size());
-    std::vector<std::string>::iterator it;
-    for (it = local_fpaths.begin(); it != local_fpaths.end(); ++it)
+    for (auto it = local_fpaths.begin(); it != local_fpaths.end(); ++it)
         local_queue.emplace_back(*it);
+
+    if (specifics::INPUT_QSO_FILE == qio::Picca)
+        qio::PiccaFile::clearCache();
+
+    total_time_1it  = mytime::timer.getTime() - total_time_1it;
+    LOG::LOGGER.STD("Local files are read in %.1f minutes.", total_time_1it);
 
     for (int i = 0; i < number_of_iterations; i++)
     {
