@@ -366,7 +366,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
         qio::PiccaFile::clearCache();
 
     total_time_1it  = mytime::timer.getTime() - total_time_1it;
-    LOG::LOGGER.STD("Local files are read in %.1f minutes.", total_time_1it);
+    LOG::LOGGER.STD("Local files are read in %.1f minutes.\n", total_time_1it);
 
     for (int i = 0; i < number_of_iterations; i++)
     {
