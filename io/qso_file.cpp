@@ -128,7 +128,7 @@ bool PiccaFile::compareFnames(const std::string &s1, const std::string &s2)
     int comp = b1.compare(b2);
 
     if (comp != 0)
-        return comp;
+        return comp > 0;
     return hdu1 < hdu2;
 }
 
