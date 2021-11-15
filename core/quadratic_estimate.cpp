@@ -139,6 +139,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     double load_balance_time = mytime::timer.getTime();
     
     std::vector<double> bucket_time(process::total_pes, 0);
+    local_fpaths.reserve(int(1.1*filepaths.size()/process::total_pes));
 
     local_fpaths.reserve(int(1.1*filepaths.size()/process::total_pes));
 
@@ -370,7 +371,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
         qio::PiccaFile::clearCache();
 
     total_time_1it  = mytime::timer.getTime() - total_time_1it;
-    LOG::LOGGER.STD("Local files are read in %.1f minutes.", total_time_1it);
+    LOG::LOGGER.STD("Local files are read in %.1f minutes.\n", total_time_1it);
 
     for (int i = 0; i < number_of_iterations; i++)
     {

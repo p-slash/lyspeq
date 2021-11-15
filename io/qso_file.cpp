@@ -172,6 +172,7 @@ bool PiccaFile::compareFnames(const std::string &s1, const std::string &s2)
 }
 
 #define MAX_NO_FILES 1
+
 // Normals
 // Assume fname to be ..fits.gz[1]
 PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
