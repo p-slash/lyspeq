@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ Lookuptables are now saved relative to output directory.
 + Config file has `PrecomputedFisher` option to read file and skip fisher matrix computation.
 + Config file has `InputIsPicca` option to read picca fits files instead. Construct the file list using HDU numbers of each chunk, e.g. third spectrum, `picca-delta-100.fits.gz[3]`.
 + Config file has `UseResoMatrix` option to read resolution matrix from picca file.
@@ -157,7 +158,7 @@ You can save individual results for each spectra by setting this to 1.
 
     SaveEachSpectrumResult 0
 
-These lookup tables are saved with the follwoing file name bases to `FileInputDir`:
+These lookup tables are saved with the follwoing file name bases to `OutputDir`:
 
     SignalLookUpTableBase          signal_lookup
     DerivativeSLookUpTableBase     derivative_lookup
