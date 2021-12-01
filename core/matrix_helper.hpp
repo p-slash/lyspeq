@@ -45,10 +45,37 @@ namespace mxhelp
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
 
-    // The resolution matrix is assumed to have consecutive row elements.
-    // Do not skip pixels when using resolution matrix.
-    // Assumes each row is properly normalized and scaled by the pixel size.
-    class Resolution
+    class DiaMatrix
+    {
+        double* _getDiagonal(int d);
+        double* sandwich_buffer;
+    public:
+        int ndim, ndiags, size;
+        int *offsets;
+        double *matrix;
+
+        DiaMatrix(int nm, int ndia);
+        ~DiaMatrix();
+        void freeBuffer();
+        void constructGaussian(double *v, double R_kms, double a_kms);
+        void fprintfMatrix(const char *fname);
+        void orderTranspose();
+
+        // B initialized to zero
+        // SIDE = 'L' or 'l',   B = op( R ) . A,
+        // SIDE = 'R' or 'r',   B = A . op( R ).
+        // TRANSR = 'N' or 'n',  op( R ) = R.
+        // TRANSR = 'T' or 't',  op( R ) = R^T.
+        void multiply(int N, char SIDER, char TRANSR, const double* A, double *B);
+
+        // R . inplace . R^T
+        void sandwich(int N, double *inplace);
+
+        double getMinMemUsage();
+        double getBufMemUsage();
+    };
+
+    class OversampledMatrix
     {
         // int *indices, *iptrs;
         int nrows, ncols, nvals;//, nptrs;
@@ -63,8 +90,8 @@ namespace mxhelp
         // nelem_prow : Number of elements per row. Should be odd.
         // osamp : Oversampling coefficient.
         // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
-        Resolution(int n1, int nelem_prow, int osamp, double dlambda);
-        ~Resolution();
+        OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda);
+        ~OversampledMatrix();
 
         int getNCols() const { return ncols; };
 
@@ -82,6 +109,40 @@ namespace mxhelp
         double* allocWaveGrid(double w1);
         // B = R . Temp . R^T
         void sandwichHighRes(double *B);
+
+        void freeBuffers();
+        double getMinMemUsage();
+        double getBufMemUsage();
+
+        void fprintfMatrix(const char *fname);
+    };
+
+    // The resolution matrix is assumed to have consecutive row elements.
+    // Do not skip pixels when using resolution matrix.
+    // Assumes each row is properly normalized and scaled by the pixel size.
+    class Resolution
+    {
+        int ncols;
+        DiaMatrix *dia_matrix;
+        OversampledMatrix *osamp_matrix;
+    public:
+        double *values, *temp_highres_mat;
+
+        Resolution(int nm, int ndia);
+        // n1 : Number of rows.
+        // nelem_prow : Number of elements per row. Should be odd.
+        // osamp : Oversampling coefficient.
+        // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
+        Resolution(int n1, int nelem_prow, int osamp, double dlambda);
+        ~Resolution();
+
+        int getNCols() const { return ncols; };
+
+        // Manually create and set temp_highres_mat
+        void allocateTempHighRes();
+        double* allocWaveGrid(double w1);
+        // B = R . Temp . R^T
+        void sandwich(double *B);
 
         void freeBuffers();
         double getMinMemUsage();
