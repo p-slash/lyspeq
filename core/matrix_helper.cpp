@@ -179,8 +179,238 @@ namespace mxhelp
         fclose(toRead);
     }
 
-    // class Resolution
-    Resolution::Resolution(int n1, int nelem_prow, int osamp, double dlambda) : 
+    // class DiaMatrix
+    DiaMatrix::DiaMatrix(int nm, int ndia) : ndim(nm), ndiags(ndia),
+        sandwich_buffer(NULL)
+    {
+        // e.g. ndim=724, ndiags=11
+        // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
+        // when offsets[i]>0, remove initial offsets[i] elements from resomat.T[i]
+        // when offsets[i]<0, remove last |offsets[i]| elements from resomat.T[i]
+        if (ndiags%2 == 0)
+            throw std::runtime_error("DiaMatrix ndiagonal cannot be even!");
+
+        size = ndim*ndiags;
+        matrix = new double[size]();
+
+        offsets = new int[ndiags];
+        for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
+            offsets[j] = i;
+    }
+
+    void DiaMatrix::orderTranspose()
+    {
+        double* newmat = new double[size];
+
+        for (int d = 0; d < ndiags; ++d)
+            for (int i = 0; i < ndim; ++i)
+                *(newmat + i+d*ndim) = *(matrix + i*ndiags+d);
+
+        delete [] matrix;
+        matrix = newmat;
+    }
+
+    double* DiaMatrix::_getDiagonal(int d)
+    {
+        int off = offsets[d], od1 = 0;
+        if (off > 0)  od1 = off;
+
+        return matrix+(d*ndim+od1);
+    }
+
+    // Normalizing this row by row is not yielding somewhat wrong signal matrix
+    void DiaMatrix::constructGaussian(double *v, double R_kms, double a_kms)
+    {
+        // std::unique_ptr<double[]> rownorm(new double[ndim]());
+
+        for (int d = 0; d < ndiags; ++d)
+        {
+            int off = offsets[d], nelem = ndim - abs(off);
+                // , row = (off < 0) ? -off : 0;
+            double *dia_slice = _getDiagonal(d);
+
+            for (int i = 0; i < nelem; ++i) //, ++row)
+            {
+                int j = i+abs(off);
+                *(dia_slice+i) = _window_fn_v(v[j]-v[i], R_kms, a_kms);
+                // rownorm[row] += *(dia_slice+i);
+            }
+        }
+
+        /*
+        // Normalize row by row
+        for (int d = 0; d < ndiags; ++d)
+        {
+            int off = offsets[d], nelem = ndim - abs(off),
+                row = (off < 0) ? -off : 0;;
+            double *dia_slice = _getDiagonal(d);
+
+            for (int i = 0; i < nelem; ++i, ++row)
+                *(dia_slice+i) /= rownorm[row];
+        }
+        */
+    }
+
+    void DiaMatrix::fprintfMatrix(const char *fname)
+    {
+        FILE *toWrite;
+        
+        toWrite = fopen(fname, "w");
+
+        fprintf(toWrite, "%d %d\n", ndim, ndiags);
+        
+        for (int i = 0; i < ndim; ++i)
+        {
+            for (int j = 0; j < ndim; ++j)
+            {
+                int off = j-i, d=ndiags/2-off;
+
+                if (abs(off)>ndiags/2)
+                    fprintf(toWrite, "0 ");
+                else
+                    fprintf(toWrite, "%14le ", *(matrix+d*ndim+j));
+            }
+            fprintf(toWrite, "\n");
+        }
+
+        fclose(toWrite);
+    }
+
+    DiaMatrix::~DiaMatrix()
+    {
+        delete [] offsets;
+        delete [] matrix;
+        freeBuffer();
+    }
+
+    void DiaMatrix::freeBuffer()
+    {
+        if (sandwich_buffer != NULL)
+        {
+            delete [] sandwich_buffer;
+            sandwich_buffer = NULL;
+        }
+    }
+
+    void DiaMatrix::multiply(int N, char SIDER, char TRANSR, const double* A, 
+        double *B)
+    {
+        if (N != ndim)
+            throw std::runtime_error("DiaMatrix multiply operation dimension do not match!");
+
+        std::for_each(B, B+N*N, [&](double &b) { b=0; });
+
+        int transpose = 1;
+
+        if (TRANSR == 'N' || TRANSR == 'n')
+            transpose = 1;
+        else if (TRANSR == 'T' || TRANSR == 't')
+            transpose = -1;
+        else
+            throw std::runtime_error("DiaMatrix multiply transpose wrong character!");
+
+        bool lside = (SIDER == 'L' || SIDER == 'l'),
+             rside = (SIDER == 'R' || SIDER == 'r');
+        
+        if (!lside && !rside)
+            throw std::runtime_error("DiaMatrix multiply SIDER wrong character!");
+
+        /* Left Side:
+        if offset > 0 (upper off-diagonals), 
+            remove initial offsets[i] elements from DiaMatrix matrix
+                when transposed remove last |offsets[i]|
+            start from offset row in A to add row by row, 
+            add to 0th row of B, end by offset
+        if offset < 0 (lower off-diagonals), 
+            remove last |offsets[i]| elements from DiaMatrix matrix
+                when transposed remove initial offsets[i]
+            start from 0th row in A, but end by |offset|, 
+            add to offset row in B
+        =======================================================
+         * Right Side:
+        if offset > 0 (upper off-diagonals), 
+            remove initial offsets[i] elements from DiaMatrix matrix
+                when transposed remove last |offsets[i]|
+            start from 0th col in A, but end by |offset|, to add col by col, 
+            add to offset col of B
+        if offset < 0 (lower off-diagonals), 
+            remove last |offsets[i]| elements from DiaMatrix matrix
+                when transposed remove initial offsets[i]
+            start from offset col in A 
+            add to 0th col in B, but end by |offset|
+        */
+
+        for (int d = 0; d < ndiags; ++d)
+        {
+            int off = transpose*offsets[d], 
+                nmult = ndim - abs(off),
+                A1 = abs(off), B1 = 0;
+
+            if (off < 0) std::swap(A1, B1);
+            // if (rside)   std::swap(A1, B1);
+            
+            // Here's a shorter code. See long version to unpack.
+            int i, j, Ni=nmult, Nj=ndim;
+            int* di = &i;
+            const double *Aslice, *dia_slice = _getDiagonal(d);
+            double       *Bslice;
+
+            if (lside)
+            {
+                Aslice = A + A1*ndim;
+                Bslice = B + B1*ndim;
+            }
+            else
+            {
+                std::swap(A1, B1);
+                std::swap(Ni, Nj);
+                Aslice = A + A1;
+                Bslice = B + B1;
+                di = &j;
+            }
+
+            for (i = 0; i < Ni; ++i)
+            {
+                for (j = 0; j < Nj; ++j, ++Aslice, ++Bslice)
+                    *Bslice += *(dia_slice+*di) * *Aslice;
+
+                Bslice += (ndim-Nj);
+                Aslice += (ndim-Nj);
+            }
+        }
+    }
+
+    void DiaMatrix::sandwich(int N, double *inplace)
+    {
+        if (N != ndim)
+            throw std::runtime_error("DiaMatrix sandwich operation dimensions do not match!");
+
+        if (sandwich_buffer == NULL)
+            sandwich_buffer = new double[ndim*ndim];
+
+        multiply(ndim, 'L', 'N', inplace, sandwich_buffer);
+        multiply(ndim, 'R', 'T', sandwich_buffer, inplace);
+    }
+
+    double DiaMatrix::getMinMemUsage()
+    {
+        // Convert to MB by division of 1048576
+        double diasize = (double)sizeof(double) * ndim * ndiags / 1048576.;
+        double offsize = (double)sizeof(int) * (ndiags+3) / 1048576.;
+
+        return diasize + offsize;
+    }
+
+    double DiaMatrix::getBufMemUsage()
+    {
+        // Convert to MB by division of 1048576
+        double bufsize = (double)sizeof(double) * ndim * ndim / 1048576.;
+
+        return bufsize;
+    }
+
+    // class OversampledMatrix
+    OversampledMatrix::OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda) : 
         nrows(n1), nelem_per_row(nelem_prow), oversampling(osamp),
         sandwich_buffer(NULL), temp_highres_mat(NULL)
     {
@@ -199,7 +429,7 @@ namespace mxhelp
         //     iptrs[i]   = i*nelem_per_row;
     }
 
-    Resolution::~Resolution()
+    OversampledMatrix::~OversampledMatrix()
     {
         // delete [] indices;
         // delete [] iptrs;
@@ -207,7 +437,7 @@ namespace mxhelp
         freeBuffers();
     }
 
-    double* Resolution::_getRow(int i)
+    double* OversampledMatrix::_getRow(int i)
     {
         return values+i*nelem_per_row;
     }
@@ -215,7 +445,7 @@ namespace mxhelp
     // R . A = B
     // A should be ncols x ncols symmetric matrix. 
     // B should be nrows x ncols, will be initialized to zero
-    void Resolution::multiplyLeft(const double* A, double *B)
+    void OversampledMatrix::multiplyLeft(const double* A, double *B)
     {
         double *bsub = B, *rrow=values;
         const double *Asub = A;
@@ -238,7 +468,7 @@ namespace mxhelp
     // A . R^T = B
     // A should be nrows x ncols matrix. 
     // B should be nrows x nrows, will be initialized to zero
-    void Resolution::multiplyRight(const double* A, double *B)
+    void OversampledMatrix::multiplyRight(const double* A, double *B)
     {
         double *bsub = B, *rrow=values;
         const double *Asub = A;
@@ -258,7 +488,7 @@ namespace mxhelp
         }
     }
 
-    void Resolution::sandwichHighRes(double *B)
+    void OversampledMatrix::sandwichHighRes(double *B)
     {
         if (sandwich_buffer == NULL)
             sandwich_buffer = new double[nrows*ncols];
@@ -267,7 +497,7 @@ namespace mxhelp
         multiplyRight(sandwich_buffer, B);
     }
 
-    double* Resolution::allocWaveGrid(double w1)
+    double* OversampledMatrix::allocWaveGrid(double w1)
     {
         double *oversamp_wave = new double[ncols];
 
@@ -277,13 +507,13 @@ namespace mxhelp
         return oversamp_wave;
     }
 
-    double Resolution::getMinMemUsage()
+    double OversampledMatrix::getMinMemUsage()
     {
         // Convert to MB by division of 1048576
         return (double)sizeof(double) * nvals / 1048576.;
     }
 
-    double Resolution::getBufMemUsage()
+    double OversampledMatrix::getBufMemUsage()
     {
         // Convert to MB by division of 1048576
         double highressize  = (double)sizeof(double) * ncols * (ncols+1) / 1048576.,
@@ -292,13 +522,13 @@ namespace mxhelp
         return highressize+sandwichsize;
     }
 
-    void Resolution::allocateTempHighRes()
+    void OversampledMatrix::allocateTempHighRes()
     {
         if (temp_highres_mat == NULL)
             temp_highres_mat = new double[ncols*ncols];
     }
 
-    void Resolution::fprintfMatrix(const char *fname)
+    void OversampledMatrix::fprintfMatrix(const char *fname)
     {
         FILE *toWrite;
     
@@ -323,7 +553,7 @@ namespace mxhelp
         fclose(toWrite);
     }
 
-    void Resolution::freeBuffers()
+    void OversampledMatrix::freeBuffers()
     {
         if (sandwich_buffer != NULL)
         {
@@ -335,6 +565,95 @@ namespace mxhelp
             delete [] temp_highres_mat;
             temp_highres_mat = NULL;
         }
+    }
+
+    // Main resolution object
+    Resolution::Resolution(int nm, int ndia)
+    {
+        dia_matrix   = new DiaMatrix(nm, ndia);
+        osamp_matrix = NULL;
+        values = dia_matrix->matrix;
+        ncols = nm;
+    }
+
+    Resolution::Resolution(int n1, int nelem_prow, int osamp, double dlambda)
+    {
+        osamp_matrix = new OversampledMatrix(n1, nelem_prow, osamp, dlambda);
+        dia_matrix   = NULL;
+        values = osamp_matrix->values;
+        temp_highres_mat = osamp_matrix->temp_highres_mat;
+        ncols = osamp_matrix->getNCols();
+    }
+
+    Resolution::~Resolution()
+    {
+        delete dia_matrix;
+        delete osamp_matrix;
+    }
+
+    void Resolution::orderTranspose()
+    {
+        if (dia_matrix != NULL)
+            dia_matrix->orderTranspose();
+    }
+
+    void Resolution::allocateTempHighRes()
+    {
+        if (temp_highres_mat == NULL)
+            temp_highres_mat = new double[ncols*ncols];
+    }
+
+    double* Resolution::allocWaveGrid(double w1)
+    {
+        if (osamp_matrix != NULL) return osamp_matrix->allocWaveGrid(w1);
+        else return NULL;
+    }
+
+    void Resolution::sandwich(double *B)
+    {
+        if (dia_matrix != NULL)
+            dia_matrix->sandwich(ncols, B);
+        else if (osamp_matrix != NULL)
+            osamp_matrix->sandwichHighRes(B);
+        else throw std::runtime_error("No matrix is allocated.");
+    }
+
+    void Resolution::freeBuffers()
+    {
+        if (dia_matrix != NULL)   dia_matrix->freeBuffer();
+        if (osamp_matrix != NULL) osamp_matrix->freeBuffers();
+        if (temp_highres_mat != NULL)
+        {
+            delete [] temp_highres_mat;
+            temp_highres_mat = NULL;
+        }
+    }
+
+    double Resolution::getMinMemUsage()
+    {
+        if (dia_matrix != NULL)
+            return dia_matrix->getMinMemUsage();
+        else if (osamp_matrix != NULL)
+            return osamp_matrix->getMinMemUsage();
+        else throw  std::runtime_error("No matrix is allocated.");
+    }
+
+    double Resolution::getBufMemUsage()
+    {
+        if (dia_matrix != NULL)
+            return dia_matrix->getBufMemUsage();
+        else if (osamp_matrix != NULL)
+            return osamp_matrix->getBufMemUsage();
+        else throw  std::runtime_error("No matrix is allocated.");
+    }
+
+    void Resolution::fprintfMatrix(const char *fname)
+    {
+        if (dia_matrix != NULL)
+            return dia_matrix->fprintfMatrix(fname);
+        else if (osamp_matrix != NULL)
+            return osamp_matrix->fprintfMatrix(fname);
+        else throw  std::runtime_error("No matrix is allocated.");
     }
 }
 

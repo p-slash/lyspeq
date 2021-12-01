@@ -297,16 +297,21 @@ mxhelp::Resolution* PiccaFile::readAllocResolutionMatrix(int oversampling, doubl
     _checkStatus();
 
     curr_elem_per_row = naxes[0];
+    if (oversampling < 2)
+        Rmat = new mxhelp::Resolution(curr_N, curr_elem_per_row);
+    else
+        Rmat = new mxhelp::Resolution(curr_N, curr_elem_per_row, oversampling, dlambda);
+
     if ((curr_elem_per_row < 1) || (curr_elem_per_row-1)%(2*oversampling) != 0)
         throw std::runtime_error("Resolution matrix is not properly formatted.");
-
-    Rmat = new mxhelp::Resolution(curr_N, curr_elem_per_row, oversampling, dlambda);
 
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_elem_per_row, 0, 
         Rmat->values, &nonull, &status);
     _checkStatus();
 
-    // Rmat->orderTranspose();
+    if (oversampling < 2)
+        Rmat->orderTranspose();
+
     return Rmat;
 }
 
