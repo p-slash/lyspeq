@@ -74,7 +74,7 @@ int main()
     #define Nrows 7
     #define Ncols 18
     #define Nelemprow 5
-    mxhelp::Resolution rmat(Nrows, Nelemprow, 2, 2);
+    mxhelp::OversampledMatrix rmat(Nrows, Nelemprow, 2, 2);
     double valss[] = {0.25, 0.29, 0.31, 0.29, 0.25, 0.25, 0.29, 0.31, 0.29, 0.25, 0.25, 
         0.29, 0.31, 0.29, 0.25, 0.25, 0.29, 0.31, 0.29, 0.25, 0.25, 0.29, 0.31, 0.29, 
         0.25, 0.25, 0.29, 0.31, 0.29, 0.25, 0.25, 0.29, 0.31, 0.29, 0.25};

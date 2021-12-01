@@ -137,6 +137,7 @@ namespace mxhelp
         ~Resolution();
 
         int getNCols() const { return ncols; };
+        void orderTranspose();
 
         // Manually create and set temp_highres_mat
         void allocateTempHighRes();

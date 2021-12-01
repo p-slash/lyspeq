@@ -232,12 +232,12 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
         qio::QSOFile qtemp(fname_qso, specifics::INPUT_QSO_FILE);
         qtemp.readParameters();
 
-        if ((qtemp.oversampling==-1 && qtemp.dlambda<0) && specifics::USE_RESOLUTION_MATRIX)
-        {
-            LOG::LOGGER.IO("OVERSAMP and/or DLAMBDA not found. Skipping %s.\n", 
-                fname_qso.c_str());
-            return 0;
-        }
+        // if ((qtemp.oversampling==-1 && qtemp.dlambda<0) && specifics::USE_RESOLUTION_MATRIX)
+        // {
+        //     LOG::LOGGER.IO("OVERSAMP and/or DLAMBDA not found. Skipping %s.\n", 
+        //         fname_qso.c_str());
+        //     return 0;
+        // }
 
         double z1, z2, zm; 
         qtemp.readMinMaxMedRedshift(z1, z2, zm);
@@ -316,7 +316,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
         mxhelp::copyUpperToLower(inter_mat, NNN);
 
         if (qFile->Rmat != NULL)
-            qFile->Rmat->sandwichHighRes(sm);
+            qFile->Rmat->sandwich(sm);
     }
     
     t = mytime::timer.getTime() - t;
@@ -369,7 +369,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
         mxhelp::copyUpperToLower(inter_mat, NNN);
 
         if (qFile->Rmat != NULL)
-            qFile->Rmat->sandwichHighRes(qi);
+            qFile->Rmat->sandwich(qi);
     }
 
     t = mytime::timer.getTime() - t; 
@@ -635,6 +635,8 @@ void OneQSOEstimate::_allocateMatrices()
     if (specifics::USE_RESOLUTION_MATRIX)
     {
         highres_lambda = qFile->Rmat->allocWaveGrid(qFile->wave[0]);
+        if (highres_lambda) highres_lambda = qFile->wave;
+
         qFile->Rmat->allocateTempHighRes();
     }
     else
