@@ -237,18 +237,18 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution,
     dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
     #undef LN10
 
+    fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
     _checkStatus();
 
     try
     {
-        fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
         fits_read_key(fits_file, TINT, "OVERSAMP", &oversampling, NULL, &status);
         _checkStatus();
     }
     catch (std::exception& e)
     {
         oversampling=-1;
-        dlambda=-1;
+        status=0;
     }
 }
 
@@ -297,7 +297,7 @@ mxhelp::Resolution* PiccaFile::readAllocResolutionMatrix(int oversampling, doubl
     _checkStatus();
 
     curr_elem_per_row = naxes[0];
-    if (oversampling < 2)
+    if (oversampling == -1) // matrix is in dia format
         Rmat = new mxhelp::Resolution(curr_N, curr_elem_per_row);
     else
         Rmat = new mxhelp::Resolution(curr_N, curr_elem_per_row, oversampling, dlambda);
@@ -309,7 +309,7 @@ mxhelp::Resolution* PiccaFile::readAllocResolutionMatrix(int oversampling, doubl
         Rmat->values, &nonull, &status);
     _checkStatus();
 
-    if (oversampling < 2)
+    if (oversampling == -1)
         Rmat->orderTranspose();
 
     return Rmat;

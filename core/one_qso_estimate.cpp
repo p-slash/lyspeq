@@ -299,7 +299,10 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
     else
     {
         int NNN = (qFile->Rmat == NULL) ? qFile->size : qFile->Rmat->getNCols();
-        double *inter_mat = (qFile->Rmat == NULL) ? sm : qFile->Rmat->temp_highres_mat;
+        double *inter_mat = sm;
+        if (qFile->Rmat != NULL && !qFile->Rmat->isDiaMatrix())
+            inter_mat = qFile->Rmat->temp_highres_mat;
+
         double *ptr = inter_mat;
 
         for (int row = 0; row < NNN; ++row)
@@ -343,7 +346,10 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
         int NNN = (qFile->Rmat == NULL) ? qFile->size : qFile->Rmat->getNCols();
-        double *inter_mat = (qFile->Rmat == NULL) ? qi : qFile->Rmat->temp_highres_mat;
+        double *inter_mat = qi;
+        if (qFile->Rmat != NULL && !qFile->Rmat->isDiaMatrix())
+            inter_mat = qFile->Rmat->temp_highres_mat;
+
         double *ptr = inter_mat;
 
         for (int row = 0; row < NNN; ++row)
@@ -632,16 +638,14 @@ void OneQSOEstimate::_allocateMatrices()
         stored_sfid = new double[DATA_SIZE_2];
 
     // Create a temp highres lambda array
-    if (specifics::USE_RESOLUTION_MATRIX)
+    if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
     {
         highres_lambda = qFile->Rmat->allocWaveGrid(qFile->wave[0]);
-        if (highres_lambda) highres_lambda = qFile->wave;
-
         qFile->Rmat->allocateTempHighRes();
     }
     else
         highres_lambda = qFile->wave;
-    
+
     isQjSet   = false;
     isSfidSet = false;
 }
@@ -667,7 +671,8 @@ void OneQSOEstimate::_freeMatrices()
     if (specifics::USE_RESOLUTION_MATRIX)
     {
         qFile->Rmat->freeBuffers();
-        delete [] highres_lambda;
+        if (!qFile->Rmat->isDiaMatrix())
+            delete [] highres_lambda;
     }
     
     isQjSet   = false;
