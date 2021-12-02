@@ -292,13 +292,10 @@ namespace mxhelp
         }
     }
 
-    void DiaMatrix::multiply(int N, char SIDER, char TRANSR, const double* A, 
+    void DiaMatrix::multiply(char SIDER, char TRANSR, const double* A, 
         double *B)
     {
-        if (N != ndim)
-            throw std::runtime_error("DiaMatrix multiply operation dimension do not match!");
-
-        std::for_each(B, B+N*N, [&](double &b) { b=0; });
+        std::for_each(B, B+ndim*ndim, [&](double &b) { b=0; });
 
         int transpose = 1;
 
@@ -380,16 +377,13 @@ namespace mxhelp
         }
     }
 
-    void DiaMatrix::sandwich(int N, double *inplace)
+    void DiaMatrix::sandwich(double *inplace)
     {
-        if (N != ndim)
-            throw std::runtime_error("DiaMatrix sandwich operation dimensions do not match!");
-
         if (sandwich_buffer == NULL)
             sandwich_buffer = new double[ndim*ndim];
 
-        multiply(ndim, 'L', 'N', inplace, sandwich_buffer);
-        multiply(ndim, 'R', 'T', sandwich_buffer, inplace);
+        multiply('L', 'N', inplace, sandwich_buffer);
+        multiply('R', 'T', sandwich_buffer, inplace);
     }
 
     double DiaMatrix::getMinMemUsage()
@@ -568,18 +562,17 @@ namespace mxhelp
     }
 
     // Main resolution object
-    Resolution::Resolution(int nm, int ndia)
+    Resolution::Resolution(int nm, int ndia) : ncols(nm), 
+        osamp_matrix(NULL), temp_highres_mat(NULL), is_dia_matrix(true)
     {
         dia_matrix   = new DiaMatrix(nm, ndia);
-        osamp_matrix = NULL;
         values = dia_matrix->matrix;
-        ncols = nm;
     }
 
-    Resolution::Resolution(int n1, int nelem_prow, int osamp, double dlambda)
+    Resolution::Resolution(int n1, int nelem_prow, int osamp, double dlambda) :
+        dia_matrix(NULL), is_dia_matrix(false)
     {
         osamp_matrix = new OversampledMatrix(n1, nelem_prow, osamp, dlambda);
-        dia_matrix   = NULL;
         values = osamp_matrix->values;
         temp_highres_mat = osamp_matrix->temp_highres_mat;
         ncols = osamp_matrix->getNCols();
@@ -587,73 +580,55 @@ namespace mxhelp
 
     Resolution::~Resolution()
     {
+        freeBuffers();
         delete dia_matrix;
         delete osamp_matrix;
     }
 
     void Resolution::orderTranspose()
     {
-        if (dia_matrix != NULL)
-            dia_matrix->orderTranspose();
+        if (is_dia_matrix) dia_matrix->orderTranspose();
     }
 
     void Resolution::allocateTempHighRes()
     {
-        if (temp_highres_mat == NULL)
-            temp_highres_mat = new double[ncols*ncols];
+        if (!is_dia_matrix) osamp_matrix->allocateTempHighRes();
     }
 
     double* Resolution::allocWaveGrid(double w1)
     {
-        if (osamp_matrix != NULL) return osamp_matrix->allocWaveGrid(w1);
-        else return NULL;
+        if (!is_dia_matrix)   return osamp_matrix->allocWaveGrid(w1);
+        else                  return NULL;
     }
 
     void Resolution::sandwich(double *B)
     {
-        if (dia_matrix != NULL)
-            dia_matrix->sandwich(ncols, B);
-        else if (osamp_matrix != NULL)
-            osamp_matrix->sandwichHighRes(B);
-        else throw std::runtime_error("No matrix is allocated.");
+        if (is_dia_matrix)  dia_matrix->sandwich(B);
+        else                osamp_matrix->sandwichHighRes(B);
     }
 
     void Resolution::freeBuffers()
     {
         if (dia_matrix != NULL)   dia_matrix->freeBuffer();
         if (osamp_matrix != NULL) osamp_matrix->freeBuffers();
-        if (temp_highres_mat != NULL)
-        {
-            delete [] temp_highres_mat;
-            temp_highres_mat = NULL;
-        }
     }
 
     double Resolution::getMinMemUsage()
     {
-        if (dia_matrix != NULL)
-            return dia_matrix->getMinMemUsage();
-        else if (osamp_matrix != NULL)
-            return osamp_matrix->getMinMemUsage();
-        else throw  std::runtime_error("No matrix is allocated.");
+        if (is_dia_matrix)  return dia_matrix->getMinMemUsage();
+        else                return osamp_matrix->getMinMemUsage();
     }
 
     double Resolution::getBufMemUsage()
     {
-        if (dia_matrix != NULL)
-            return dia_matrix->getBufMemUsage();
-        else if (osamp_matrix != NULL)
-            return osamp_matrix->getBufMemUsage();
-        else throw  std::runtime_error("No matrix is allocated.");
+        if (is_dia_matrix)  return dia_matrix->getBufMemUsage();
+        else                return osamp_matrix->getBufMemUsage();
     }
 
     void Resolution::fprintfMatrix(const char *fname)
     {
-        if (dia_matrix != NULL)
-            return dia_matrix->fprintfMatrix(fname);
-        else if (osamp_matrix != NULL)
-            return osamp_matrix->fprintfMatrix(fname);
-        else throw  std::runtime_error("No matrix is allocated.");
+        if (is_dia_matrix)  return dia_matrix->fprintfMatrix(fname);
+        else                return osamp_matrix->fprintfMatrix(fname);
     }
 }
 
