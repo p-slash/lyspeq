@@ -71,10 +71,11 @@ int main()
     mxhelp::LAPACKE_InvertMatrixLU(smy_matrix_A, NA);
     mxhelp::printfMatrix(smy_matrix_A, NA, NA);
 
+    // Oversampled matrix tests
     #define Nrows 7
     #define Ncols 18
     #define Nelemprow 5
-    mxhelp::OversampledMatrix rmat(Nrows, Nelemprow, 2, 2);
+    mxhelp::OversampledMatrix ovrmat(Nrows, Nelemprow, 2, 2);
     double valss[] = {0.25, 0.29, 0.31, 0.29, 0.25, 0.25, 0.29, 0.31, 0.29, 0.25, 0.25, 
         0.29, 0.31, 0.29, 0.25, 0.25, 0.29, 0.31, 0.29, 0.25, 0.25, 0.29, 0.31, 0.29, 
         0.25, 0.25, 0.29, 0.31, 0.29, 0.25, 0.25, 0.29, 0.31, 0.29, 0.25};
@@ -98,14 +99,48 @@ int main()
         0.36,0.29,0.69,0.53,0.13,0.64,0.07,0.66,0.99,0.83,0.51,0.07,0.36,0.64,0.26,0.76,0.96,
         0.73,0.43,0.63,0.22,0.71,0.86,0.32,0.93,1.0,0.27,0.37,0.83};
     double mtrxB1[Nrows*Ncols], mtrxB2[Nrows*Nrows];
-    std::copy(&valss[0], &valss[0]+Nrows*Nelemprow, rmat.values);
+    std::copy(&valss[0], &valss[0]+Nrows*Nelemprow, ovrmat.values);
 
     printf("Left multiplication-----\n");
-    rmat.multiplyLeft(matrxA, mtrxB1);
+    ovrmat.multiplyLeft(matrxA, mtrxB1);
     mxhelp::printfMatrix(mtrxB1, Nrows, Ncols);
     printf("Right multiplication-----\n");
-    rmat.multiplyRight(mtrxB1, mtrxB2);
+    ovrmat.multiplyRight(mtrxB1, mtrxB2);
     mxhelp::printfMatrix(mtrxB2, Nrows, Nrows);
+
+    // Dia matrix tests
+    #define NR 7
+    #define Ndiag 5
+    double  dia_R[] = {-1, -1, 5, 2, 7, 7, 4,
+                   -1,  4, 1, 7, 2, 4, 3,
+                    1,  8, 1, 3, 7, 4, 4,
+                    2,  4, 1, 7, 1, 4, -1,
+                    9, 1, 1, 2, 7, -1, -1},
+        matrix_BR[] = {3, -4, 7, 7, -5, -2, -4,
+                     -2, -7, 4, -2, 0, -9, -7, 
+                     6, 6, 5, -6, -3, -9, -4, 
+                     3, 2, 4, -2, 8, -8, -4, 
+                     1, 2, -5, 7, -1, 6, 1, 
+                     3, -7, 0, 9, 1, -6, -2, 
+                     -3, 5, 9, -6, 4, 1, 8},
+        result_R[NR*NR];
+
+    mxhelp::DiaMatrix diarmat(NR, Ndiag);
+    std::copy(&dia_R[0], &dia_R[0]+NR*Ndiag, diarmat.matrix);
+    
+    // printf("-----\n");
+    printf("LN-----\n");
+    diarmat.multiply('L', 'N', matrix_BR, result_R);
+    mxhelp::printfMatrix(result_R, NR, NR);
+    printf("LT-----\n");
+    diarmat.multiply('L', 'T', matrix_BR, result_R);
+    mxhelp::printfMatrix(result_R, NR, NR);
+    printf("RN-----\n");
+    diarmat.multiply('R', 'N', matrix_BR, result_R);
+    mxhelp::printfMatrix(result_R, NR, NR);
+    printf("RT-----\n");
+    diarmat.multiply('R', 'T', matrix_BR, result_R);
+    mxhelp::printfMatrix(result_R, NR, NR);
 
     return 0;
 }
