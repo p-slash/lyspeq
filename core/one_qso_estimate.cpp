@@ -298,9 +298,9 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
     }
     else
     {
-        int NNN = (qFile->Rmat == NULL) ? qFile->size : qFile->Rmat->getNCols();
+        int NNN = (specifics::USE_RESOLUTION_MATRIX) ? qFile->Rmat->getNCols() : qFile->size;
         double *inter_mat = sm;
-        if (qFile->Rmat != NULL && !qFile->Rmat->isDiaMatrix())
+        if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
             inter_mat = qFile->Rmat->temp_highres_mat;
 
         double *ptr = inter_mat;
@@ -318,7 +318,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
 
         mxhelp::copyUpperToLower(inter_mat, NNN);
 
-        if (qFile->Rmat != NULL)
+        if (specifics::USE_RESOLUTION_MATRIX)
             qFile->Rmat->sandwich(sm);
     }
     
@@ -345,9 +345,9 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     else
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
-        int NNN = (qFile->Rmat == NULL) ? qFile->size : qFile->Rmat->getNCols();
+        int NNN = (specifics::USE_RESOLUTION_MATRIX) ? qFile->Rmat->getNCols() : qFile->size;
         double *inter_mat = qi;
-        if (qFile->Rmat != NULL && !qFile->Rmat->isDiaMatrix())
+        if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
             inter_mat = qFile->Rmat->temp_highres_mat;
 
         double *ptr = inter_mat;
@@ -374,7 +374,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
 
         mxhelp::copyUpperToLower(inter_mat, NNN);
 
-        if (qFile->Rmat != NULL)
+        if (specifics::USE_RESOLUTION_MATRIX)
             qFile->Rmat->sandwich(qi);
     }
 
