@@ -570,11 +570,10 @@ namespace mxhelp
     }
 
     Resolution::Resolution(int n1, int nelem_prow, int osamp, double dlambda) :
-        dia_matrix(NULL), is_dia_matrix(false)
+        dia_matrix(NULL), is_dia_matrix(false), temp_highres_mat(NULL)
     {
         osamp_matrix = new OversampledMatrix(n1, nelem_prow, osamp, dlambda);
         values = osamp_matrix->values;
-        temp_highres_mat = osamp_matrix->temp_highres_mat;
         ncols = osamp_matrix->getNCols();
     }
 
@@ -593,6 +592,7 @@ namespace mxhelp
     void Resolution::allocateTempHighRes()
     {
         if (!is_dia_matrix) osamp_matrix->allocateTempHighRes();
+        temp_highres_mat = osamp_matrix->temp_highres_mat;
     }
 
     double* Resolution::allocWaveGrid(double w1)
