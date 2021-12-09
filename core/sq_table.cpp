@@ -228,7 +228,7 @@ DiscreteInterpolation2D* SQLookupTable::_allocReadSFile(int r_index)
 
     // Read S table.
     buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, Rthis, dvthis);
-    LOG::LOGGER.IO("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
+    LOG::LOGGER.STD("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
     
     SQLookupTableFile s_table_file(buf_fnames, 'r');
     
