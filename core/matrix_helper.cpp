@@ -23,6 +23,22 @@
 #define SQRT_2 1.41421356237
 #define SQRT_PI 1.77245385091
 
+double nonzero_min_element(double *first, double *last)
+{
+    if (first == last) return *first;
+ 
+    double smallest = fabs(*first);
+    while (++first != last)
+    {
+        double tmp = fabs(*first);
+
+        if (tmp < smallest && tmp > std::numeric_limits<double>::epsilon()) 
+            smallest = tmp;
+    }
+
+    return smallest;
+}
+
 double _window_fn_v(double x, double R, double a)
 {
     double gamma_p = (x + (a/2))/R/SQRT_2,
@@ -554,15 +570,8 @@ namespace mxhelp
         
         for (int i = 0; i < nrows; ++i)
         {
-            for (int j = 0; j < nrows; ++j)
-            {
-                int off = j-i*oversampling;
-
-                if (off>=0 && off < nelem_per_row)
-                    fprintf(toWrite, "%14le ", *(values+off+nelem_per_row*i));
-                else
-                    fprintf(toWrite, "0 ");
-            }
+            for (int j = 0; j < nelem_per_row; ++j)
+                fprintf(toWrite, "%3le ", *(_getRow(i)+j));
             fprintf(toWrite, "\n");
         }
 
@@ -624,7 +633,7 @@ namespace mxhelp
         for (int i = 0; i < dia_matrix->ndiags; ++i)
             win[i] = i-noff;
         for (int i = 0; i < nelem_per_row; ++i)
-            wout[i] = i/osamp-noff;
+            wout[i] = i*1./osamp-noff;
 
         gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, dia_matrix->ndiags);
         gsl_interp_accel *acc = gsl_interp_accel_alloc();
@@ -637,7 +646,7 @@ namespace mxhelp
 
             // interpolate log, shift before log
             double _shift = *std::min_element(row, row+dia_matrix->ndiags)
-                - std::numeric_limits<double>::epsilon();
+                - nonzero_min_element(row, row+dia_matrix->ndiags);
 
             std::for_each(row, row+dia_matrix->ndiags, 
                 [&](double &f) { f = log(f-_shift); }
