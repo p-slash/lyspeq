@@ -27,18 +27,19 @@ namespace LOG
     //     LOGGER.log(STD, "This goes into ./log.txt and stdout.\n");
     class Logger
     {
+        int this_pe;
         std::string std_fname, err_fname, io_fname, time_fname;
         FILE *stdfile, *errfile, *iofile, *timefile;
     public:
         Logger();
         ~Logger();
-        
+
         std::string getFileName(TYPE::LOG_TYPE lt) const;
 
         void open(const char *outdir, int np);
         void close();
         void reopen();
-        
+
         // void log(LOG_TYPE lt, const char *fmt, ...);
         void IO(const char *fmt, ...);
         void STD(const char *fmt, ...);
