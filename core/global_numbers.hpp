@@ -90,6 +90,7 @@ namespace specifics
     extern double CHISQ_CONVERGENCE_EPS;
     extern double CONTINUUM_MARGINALIZATION_AMP, CONTINUUM_MARGINALIZATION_DERV;
     extern qio::ifileformat INPUT_QSO_FILE;
+    extern int OVERSAMPLING_FACTOR;
 
     void printBuildSpecifics(FILE *toWrite=NULL);
     void printConfigSpecifics(FILE *toWrite=NULL);
