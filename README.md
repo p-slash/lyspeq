@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ New functionality & config file option `OversampleRmat`. Pass > 0 to oversample resolution in dia matrix form.
 + Removed EdS approximation option. Always use logarithmic velocity conversion.
 + Lookuptables are now saved relative to output directory.
 + Config file has `PrecomputedFisher` option to read file and skip fisher matrix computation.

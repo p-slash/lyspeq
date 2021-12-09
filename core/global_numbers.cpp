@@ -219,6 +219,7 @@ namespace specifics
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
     double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
+    int OVERSAMPLING_FACTOR = -1;
     
     #if defined(TOPHAT_Z_BINNING_FN)
     #define BINNING_SHAPE "Top Hat"
@@ -323,6 +324,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("FileInputDir",   INPUT_DIR, STRING);
     cFile.addKey("InputIsPicca",   &use_picca_file, INTEGER);
     cFile.addKey("UseResoMatrix",  &use_reso_mat, INTEGER);
+    cFile.addKey("OversampleRmat", &specifics::OVERSAMPLING_FACTOR, INTEGER);
 
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
