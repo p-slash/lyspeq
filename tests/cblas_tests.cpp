@@ -142,6 +142,31 @@ int main()
     diarmat.multiply('R', 'T', matrix_BR, result_R);
     mxhelp::printfMatrix(result_R, NR, NR);
 
+    // Unit test getRow of dia matrix
+    double testrow[Ndiag];
+    diarmat.getRow(0, testrow);
+    for (int i = 0; i < Ndiag; ++i)
+        printf("%.0f ", testrow[i]);
+    printf("\n");
+
+    diarmat.getRow(1, testrow);
+    for (int i = 0; i < Ndiag; ++i)
+        printf("%.0f ", testrow[i]);
+    printf("\n");
+
+    diarmat.getRow(3, testrow);
+    for (int i = 0; i < Ndiag; ++i)
+        printf("%.0f ", testrow[i]);
+    printf("\n");
+
+    diarmat.getRow(5, testrow);
+    for (int i = 0; i < Ndiag; ++i)
+        printf("%.0f ", testrow[i]);
+    printf("\n");
+    diarmat.getRow(6, testrow);
+    for (int i = 0; i < Ndiag; ++i)
+        printf("%.0f ", testrow[i]);
+    printf("\n");
     return 0;
 }
 

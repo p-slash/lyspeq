@@ -2,9 +2,13 @@
 
 #include <stdexcept>
 #include <algorithm>
+#include <limits>
 #include <utility>
 #include <cmath>
 #include <memory>
+// #include <cassert>
+
+#include <gsl/gsl_interp.h>
 
 #ifdef USE_MKL_CBLAS
 #include "mkl_lapacke.h"
@@ -281,6 +285,24 @@ namespace mxhelp
         delete [] offsets;
         delete [] matrix;
         freeBuffer();
+    }
+
+    void DiaMatrix::getRow(int i, double *row)
+    {
+        int *indices = new int[ndiags], noff = ndiags/2;
+        for (int j = ndiags-1; j >= 0; --j)
+            indices[ndiags-1-j] = j*ndim+offsets[j]+i;
+        if (i < noff)
+            for (int j = 0; j < noff-i; ++j)
+                indices[j]=indices[ndiags-1-j];
+        else if (i > ndim-noff-1)
+            for (int j = 0; j < i-ndim+noff+1; ++j)
+                indices[ndiags-1-j]=indices[j];
+
+        for (int j = 0; j < ndiags; ++j)
+            row[j] = matrix[indices[j]];
+
+        delete [] indices;
     }
 
     void DiaMatrix::freeBuffer()
@@ -587,6 +609,65 @@ namespace mxhelp
     void Resolution::orderTranspose()
     {
         if (is_dia_matrix) dia_matrix->orderTranspose();
+    }
+
+    void Resolution::oversample(int osamp, double dlambda)
+    {
+        if (!is_dia_matrix) return;
+
+        int noff = dia_matrix->ndiags/2, nelem_per_row = 2*noff*osamp + 1;
+        osamp_matrix = new OversampledMatrix(ncols, nelem_per_row, osamp, dlambda);
+
+        double *win = new double[dia_matrix->ndiags], *wout = new double[nelem_per_row], 
+               *row = new double[dia_matrix->ndiags], *newrow;
+
+        for (int i = 0; i < dia_matrix->ndiags; ++i)
+            win[i] = i-noff;
+        for (int i = 0; i < nelem_per_row; ++i)
+            wout[i] = i/osamp-noff;
+
+        gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, dia_matrix->ndiags);
+        gsl_interp_accel *acc = gsl_interp_accel_alloc();
+
+        // ncols == nrows for dia matrix
+        for (int i = 0; i < ncols; ++i)
+        {
+            dia_matrix->getRow(i, row);
+            newrow = osamp_matrix->values+i*nelem_per_row;
+
+            // interpolate log, shift before log
+            double _shift = *std::min_element(row, row+dia_matrix->ndiags)
+                - std::numeric_limits<double>::epsilon();
+
+            std::for_each(row, row+dia_matrix->ndiags, 
+                [&](double &f) { f = log(f-_shift); }
+            );
+
+            gsl_interp_init(interp_cubic, win, row, dia_matrix->ndiags);
+
+            std::transform(wout, wout+nelem_per_row, newrow, 
+                [&](const double &l) 
+                    { return gsl_interp_eval(interp_cubic, win, row, l, acc); }
+            );
+
+            std::for_each(newrow, newrow+nelem_per_row, 
+                [&](double &f) { f = (exp(f)+_shift)/osamp; }
+            );
+
+            gsl_interp_accel_reset(acc);
+        }
+
+        is_dia_matrix = false;
+        ncols = osamp_matrix->getNCols();
+
+        // Clean up
+        gsl_interp_free(interp_cubic);
+        gsl_interp_accel_free(acc);
+        delete [] win;
+        delete [] wout;
+        delete [] row;
+        delete dia_matrix;
+        dia_matrix = NULL;
     }
 
     void Resolution::allocateTempHighRes()

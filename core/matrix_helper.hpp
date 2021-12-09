@@ -56,6 +56,8 @@ namespace mxhelp
 
         DiaMatrix(int nm, int ndia);
         ~DiaMatrix();
+
+        void getRow(int i, double *row);
         void freeBuffer();
         void constructGaussian(double *v, double R_kms, double a_kms);
         void fprintfMatrix(const char *fname);
@@ -141,6 +143,7 @@ namespace mxhelp
         bool isDiaMatrix() const { return is_dia_matrix; };
 
         void orderTranspose();
+        void oversample(int osamp, double dlambda);
 
         // Manually create and set temp_highres_mat
         void allocateTempHighRes();
