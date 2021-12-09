@@ -52,7 +52,6 @@ bool OneQSOEstimate::_findRedshiftBin()
     // Chunk is completely out
     if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
     {
-        // LOG::LOGGER.IO("This QSO is completely out!\n");
         LOG::LOGGER.ERR("This QSO is completely out:\n" "File: %s\n" 
             "Redshift range: %.2f--%.2f\n",
             qFile->fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
@@ -62,7 +61,6 @@ bool OneQSOEstimate::_findRedshiftBin()
 
     if (ZBIN_LOW < 0)
     {
-        // LOG::LOGGER.IO("This QSO is out on the low end!\n");
         LOG::LOGGER.ERR("This QSO is out on the low end:\n" "File: %s\n" 
             "Redshift range: %.2f--%.2f\n",
             qFile->fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
@@ -72,7 +70,6 @@ bool OneQSOEstimate::_findRedshiftBin()
     
     if (ZBIN_UPP > (bins::NUMBER_OF_Z_BINS-1))
     {
-        // LOG::LOGGER.IO("This QSO is out on the high end!\n");
         LOG::LOGGER.ERR("This QSO is out on the high end:\n" "File: %s\n" 
             "Redshift range: %.2f--%.2f\n",
             qFile->fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
@@ -157,14 +154,11 @@ void OneQSOEstimate::_setStoredMatrices()
     else              stored_qj = new double*[nqj_eff];
 
     if (nqj_eff != N_Q_MATRICES)
-        LOG::LOGGER.IO("===============\n""Not all matrices are stored: %s\n"
+        LOG::LOGGER.ERR("===============\n""Not all matrices are stored: %s\n"
             "#stored: %d vs #required:%d.\n""ND: %d, M1: %.1f MB. "
             "Avail mem after R & SQ subtracted: %.1lf MB\n""===============\n", 
             qFile->fname.c_str(), nqj_eff, N_Q_MATRICES, qFile->size, size_m1, 
             remain_mem);
-
-    // LOG::LOGGER.IO("Number of stored Q matrices: %d\n", nqj_eff);
-    // if (isSfidStored)   LOG::LOGGER.IO("Fiducial signal matrix is stored.\n");
 
     isQjSet   = false;
     isSfidSet = false;
@@ -236,7 +230,7 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 
         // if ((qtemp.oversampling==-1 && qtemp.dlambda<0) && specifics::USE_RESOLUTION_MATRIX)
         // {
-        //     LOG::LOGGER.IO("OVERSAMP and/or DLAMBDA not found. Skipping %s.\n", 
+        //     LOG::LOGGER.ERR("OVERSAMP and/or DLAMBDA not found. Skipping %s.\n", 
         //         fname_qso.c_str());
         //     return 0;
         // }

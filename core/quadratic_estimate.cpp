@@ -516,7 +516,7 @@ void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
     mxhelp::fprintfMatrix(fname, fisher_matrix_sum, bins::TOTAL_KZ_BINS, 
         bins::TOTAL_KZ_BINS);
 
-    LOG::LOGGER.IO("Fisher matrix saved as %s.\n", fname);
+    LOG::LOGGER.STD("Fisher matrix saved as %s.\n", fname);
 }
 
 void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
@@ -549,7 +549,7 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 
     fclose(toWrite);
     
-    LOG::LOGGER.IO("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+    // LOG::LOGGER.IO("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
     LOG::LOGGER.STD("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
 }
 
@@ -631,7 +631,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 
     fclose(toWrite);
         
-    LOG::LOGGER.IO("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+    // LOG::LOGGER.IO("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
     LOG::LOGGER.STD("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
 }
 
@@ -692,7 +692,7 @@ void OneDQuadraticPowerEstimate::iterationOutput(const char *fname_base, int it,
     sprintf(buf, "%s_it%d_inversefisher_matrix.dat", fname_base, it+1);
     mxhelp::fprintfMatrix(buf, inverse_fisher_matrix_sum, bins::TOTAL_KZ_BINS, 
         bins::TOTAL_KZ_BINS);
-    LOG::LOGGER.IO("Fisher matrix and inverse are saved as %s.\n", buf);
+    LOG::LOGGER.STD("Fisher matrix and inverse are saved as %s.\n", buf);
 
     LOG::LOGGER.STD("This iteration took %.1f minutes."
         " Elapsed time so far is %.1f minutes.\n", t1, tot);

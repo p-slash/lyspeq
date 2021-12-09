@@ -12,7 +12,6 @@ namespace LOG
         {
             STD,
             ERR,
-            IO,
             TIME
         };
     }
@@ -24,12 +23,12 @@ namespace LOG
 
     // Example for Logger:
     //     LOGGER.open("./");
-    //     LOGGER.log(STD, "This goes into ./log.txt and stdout.\n");
+    //     LOGGER.STD("This goes into ./log.txt and stdout.\n");
     class Logger
     {
         int this_pe;
-        std::string std_fname, err_fname, io_fname, time_fname;
-        FILE *stdfile, *errfile, *iofile, *timefile;
+        std::string std_fname, err_fname, time_fname;
+        FILE *stdfile, *errfile, *timefile;
     public:
         Logger();
         ~Logger();
@@ -40,8 +39,6 @@ namespace LOG
         void close();
         void reopen();
 
-        // void log(LOG_TYPE lt, const char *fmt, ...);
-        void IO(const char *fmt, ...);
         void STD(const char *fmt, ...);
         void ERR(const char *fmt, ...);
         void TIME(const char *fmt, ...);
