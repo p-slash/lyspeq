@@ -51,27 +51,30 @@ Logger::~Logger()
 
 void Logger::open(const char *outdir, int np)
 {
+    this_pe = np;
     std::ostringstream oss_fname(outdir, std::ostringstream::ate);
 
-    oss_fname << "/log" << np << ".txt";
+    oss_fname.str(outdir);
+    oss_fname.clear();
+    oss_fname << "/error_log" << this_pe << ".txt";
+    err_fname = oss_fname.str();
+    errfile = ioh::open_file(err_fname.c_str(), "w");
+
+    if (this_pe != 0) return;
+
+    oss_fname << "/log" << this_pe << ".txt";
     std_fname = oss_fname.str();
     stdfile   = ioh::open_file(std_fname.c_str(), "w");
 
     oss_fname.str(outdir);
     oss_fname.clear();
-    oss_fname << "/error_log" << np << ".txt";
-    err_fname = oss_fname.str();
-    errfile = ioh::open_file(err_fname.c_str(), "w");
-
-    oss_fname.str(outdir);
-    oss_fname.clear();
-    oss_fname << "/io_log" << np << ".txt";
+    oss_fname << "/io_log" << this_pe << ".txt";
     io_fname = oss_fname.str();
     iofile   = ioh::open_file(io_fname.c_str(), "w");
 
     oss_fname.str(outdir);
     oss_fname.clear();
-    oss_fname << "/time_log" << np << ".txt";
+    oss_fname << "/time_log" << this_pe << ".txt";
     time_fname = oss_fname.str();
     timefile   = ioh::open_file(time_fname.c_str(), "w");
 }
@@ -86,8 +89,9 @@ void Logger::close()
 
 void Logger::reopen()
 {
-    stdfile   = ioh::open_file(std_fname.c_str(), "a");
     errfile   = ioh::open_file(err_fname.c_str(), "a");
+    if (this_pe != 0) return;
+    stdfile   = ioh::open_file(std_fname.c_str(), "a");
     iofile    = ioh::open_file(io_fname.c_str(),  "a");
     timefile  = ioh::open_file(time_fname.c_str(),  "a");
 }
