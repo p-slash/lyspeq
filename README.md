@@ -210,6 +210,7 @@ Then, `SaveEachSpectrumResult` saves results as `picca-delta-100-1_Fp.bin` for b
 **Following keys are read from the header:**
 
 + Number of pixels is `NAXIS2`.
++ ID is `TARGETID`.
 + Redshift of the quasar is `Z`.
 + `MEANRESO` is assumed to be the Gaussian R value in km/s. This is converted to integer FWHM resolving power by rounding up last two digits.
 
@@ -226,3 +227,7 @@ Then, `SaveEachSpectrumResult` saves results as `picca-delta-100-1_Fp.bin` for b
 + Flux fluctuations are read from `DELTA`.
 + Inverse variance is read from `IVAR`. This is converted back to sigma.
 + When the option is set, the resolution matrix is read from `RESOMAT`. This is reordered for C arrays.
+
+Bootstrap file output
+===
+When `SaveEachSpectrumResult 1` is passed in the config file, individual results from each spectrum will be saved into files `OutputDir`. A processor `pe` will create a `bootresults-{pe}.dat` file. This file is in binary format. It starts with an integer for `TOTAL_KZ_BINS` value (Nk * Nz). Each results is then given in the following order: `TargetID (int), FisherMatrix (N^2 double), Pk (N double)`. Note this `Pk` value is before multiplication by fisher inverse.
