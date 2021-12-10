@@ -120,9 +120,8 @@ void Logger::ERR(const char *fmt, ...)
 
 void Logger::TIME(const char *fmt, ...)
 {    
-    if (timefile == NULL)
-        throw std::runtime_error("timelog file is not open");
-    
+    if (this_pe != 0) return;
+
     va_list args;
     va_start(args, fmt);
 
