@@ -29,6 +29,7 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
 
     dlambda=-1;
     oversampling=-1;
+    id = 0;
 }
 
 void QSOFile::closeFile()
@@ -51,7 +52,7 @@ QSOFile::~QSOFile()
 void QSOFile::readParameters()
 {
     if (pfile != NULL)
-        pfile->readParameters(size, z_qso, R_fwhm, snr, dv_kms, dlambda, oversampling);
+        pfile->readParameters(id, size, z_qso, R_fwhm, snr, dv_kms, dlambda, oversampling);
     else
         bqfile->readParameters(size, z_qso, R_fwhm, snr, dv_kms);
 }
@@ -213,7 +214,7 @@ void PiccaFile::_checkStatus()
     if (status)     throw std::runtime_error(std::string(error_msg));
 }
 
-void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution, 
+void PiccaFile::readParameters(int &thid, int &N, double &z, int &fwhm_resolution, 
     double &sig2noi, double &dv_kms, double &dlambda, int &oversampling)
 {
     curr_elem_per_row = -1;
@@ -223,6 +224,7 @@ void PiccaFile::readParameters(int &N, double &z, int &fwhm_resolution,
     fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
     N = curr_N;
 
+    fits_read_key(fits_file, TINT, "TARGETID", &thid, NULL, &status);
     fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
 
     double r_kms;

@@ -29,6 +29,19 @@ namespace ioh
     // Reads for 2 column separated by space into vector of pairs
     // Returns number of elements
     int readListRdv(const char *fname, std::vector<std::pair<int, double>> &list_values);
+
+    // Saves results to outdir/bootresults-{this_pe}.dat
+    class BootstrapFile
+    {
+        FILE *bootfile;
+    public:
+        BootstrapFile(const char *outdir);
+        ~BootstrapFile();
+
+        void writeBoot(int thingid, double *pk, double *fisher);
+    };
+
+    extern BootstrapFile *boot_saver;
 }
 
 #endif

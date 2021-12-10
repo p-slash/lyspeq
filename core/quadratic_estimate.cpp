@@ -141,8 +141,6 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     std::vector<double> bucket_time(process::total_pes, 0);
     local_fpaths.reserve(int(1.1*filepaths.size()/process::total_pes));
 
-    local_fpaths.reserve(int(1.1*filepaths.size()/process::total_pes));
-
     std::vector<std::pair <double, int>>::reverse_iterator qe = cpu_fname_vector.rbegin();
     for (; qe != cpu_fname_vector.rend(); ++qe)
     {

@@ -68,7 +68,7 @@ public:
 
     int getNumberSpectra() const {return no_spectra;};
 
-    void readParameters(int &N, double &z, int &fwhm_resolution, 
+    void readParameters(int &thid, int &N, double &z, int &fwhm_resolution, 
         double &sig2noi, double &dv_kms, double &dlambda, int &oversampling);
 
     void readData(double *lambda, double *delta, double *noise);
@@ -84,7 +84,7 @@ class QSOFile
 public:
     std::string fname;
     double z_qso, snr, dv_kms, dlambda;
-    int size, R_fwhm, oversampling;
+    int id, size, R_fwhm, oversampling;
     double *wave, *delta, *noise;
     mxhelp::Resolution *Rmat;
 

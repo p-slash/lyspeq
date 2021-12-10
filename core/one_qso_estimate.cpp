@@ -682,38 +682,16 @@ void OneQSOEstimate::_saveIndividualResult()
     mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], 
         dbt_estimate_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
 
-    std::string resfname = qFile->fname;
-
-    if (specifics::INPUT_QSO_FILE == qio::Picca) 
+    try
     {
-        // fname.fits.gz[542] or fname.fits[542]
-        // need to get fname and ID
-        std::size_t i1 = resfname.rfind('[')+1, i2 = resfname.rfind(']');
-
-        std::string str_id = resfname.substr(i1, i2-i1);
-        resfname.replace(resfname.begin()+resfname.rfind(".fits"), 
-            resfname.end(), 1, '-');
-        resfname.append(str_id);
+        ioh::boot_saver->writeBoot(qFile->id, 
+            dbt_estimate_before_fisher_vector[0], fisher_matrix);
     }
-    else
+    catch (std::exception& e)
     {
-        // Assume three letter extension: fname.dat or fname.bin
-        resfname.erase(resfname.end()-4, resfname.end());
-    }
-
-    resfname.append("_Fp.bin");
-
-    FILE *toWrite = ioh::open_file(resfname.c_str(), "wb");
-    
-    int r = fwrite(&bins::TOTAL_KZ_BINS, sizeof(int), 1, toWrite);
-    r+=fwrite(fisher_matrix, sizeof(double), FISHER_SIZE, toWrite);
-    r+=fwrite(dbt_estimate_before_fisher_vector[0], sizeof(double), 
-        bins::TOTAL_KZ_BINS, toWrite);
-    fclose(toWrite);
-
-    if (r != bins::TOTAL_KZ_BINS*(bins::TOTAL_KZ_BINS+1)+1)
-        LOG::LOGGER.ERR("ERROR %d saving individual results: %s\n", r, 
-            resfname.c_str());
+        LOG::LOGGER.ERR("ERROR: Saving individual results: %s\n", 
+            qFile->fname.c_str());
+    }   
 }
 
 void OneQSOEstimate::fprintfMatrices(const char *fname_base)

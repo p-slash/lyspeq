@@ -1,4 +1,5 @@
 #include "io/io_helper_functions.hpp"
+#include "core/global_numbers.hpp"
 
 #include <iostream>
 #include <string>
@@ -6,6 +7,11 @@
 #include <algorithm>
 #include <new>
 #include <stdexcept>
+
+namespace ioh
+{
+    BootstrapFile *boot_saver = NULL;
+}
 
 bool ioh::file_exists(const char *fname)
 {
@@ -136,6 +142,51 @@ int ioh::readListRdv(const char *fname, std::vector<std::pair<int, double>> &lis
     return nr;
 }
 
+ioh::BootstrapFile::BootstrapFile(const char *outdir)
+{
+    std::ostringstream oss_fname(outdir, std::ostringstream::ate);
+    
+    oss_fname << "/bootresults-" << process::this_pe << ".dat";
+    bootfile = ioh::open_file(oss_fname.str().c_str(), "wb");
+
+    int r = fwrite(&bins::TOTAL_KZ_BINS, sizeof(int), 1, bootfile);
+    if (r != bins::TOTAL_KZ_BINS) 
+        throw std::runtime_error("Bootstrap file first Nk write.");
+}
+
+ioh::BootstrapFile::~BootstrapFile() { fclose(bootfile); }
+
+void ioh::BootstrapFile::writeBoot(int thingid, double *pk, double *fisher)
+{
+    int r = fwrite(&thingid, sizeof(int), 1, bootfile);
+    r+=fwrite(fisher, sizeof(double), FISHER_SIZE, bootfile);
+    r+=fwrite(pk, sizeof(double), bins::TOTAL_KZ_BINS, bootfile);
+
+    if (r != bins::TOTAL_KZ_BINS*(bins::TOTAL_KZ_BINS+1)+1)
+        throw std::runtime_error("Bootstrap write one results.");
+}
+
+// MPI_Datatype etype;
+
+// MPI_Aint pkindex, fisherindex;
+// MPI_Type_extent(MPI_INT, &pkindex);
+// MPI_Type_extent(MPI_DOUBLE, &fisherindex);
+// int blocklengths[] = {1, bins::TOTAL_KZ_BINS, FISHER_SIZE};
+// MPI_Datatype types[] = {MPI_INT, MPI_DOUBLE, MPI_DOUBLE};
+// MPI_Aint offsets[] = { 0, pkindex,  bins::TOTAL_KZ_BINS*fisherindex + pkindex};
+
+// MPI_Type_create_struct(3, blocklengths, offsets, types, &etype);
+// MPI_Type_commit(&etype);
+
+// MPI_File_open(MPI_COMM_WORLD, fname.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh);
+// // thing id (int), pk (double*N), Fisher (double*N*N) 
+// MPI_Offset offset = sizeof(int) + (bins::TOTAL_KZ_BINS+FISHER_SIZE)*sizeof(double);
+// int nprevious_sp = 0;
+// for (int peno = 0; peno < process::this_pe; ++peno)
+//     nprevious_sp += nospecs_perpe[peno];
+// offset *= nprevious_sp;
+
+// MPI_File_set_view(fh, disp, etype, etype, "native", MPI_INFO_NULL);
 
 
 
