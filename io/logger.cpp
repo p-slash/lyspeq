@@ -35,12 +35,10 @@ Logger::Logger()
 {
     std_fname  = "";
     err_fname  = "";
-    io_fname   = "";
     time_fname = "";
 
     stdfile  = stdout;
     errfile  = stderr;
-    iofile   = stdout;
     timefile = NULL;
 }
 

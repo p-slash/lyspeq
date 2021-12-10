@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ Each PE saves its own bootstrap results into one file.
 + Logging only on pe==0. Moved io to std and removed io log.
 + New functionality & config file option `OversampleRmat`. Pass > 0 to oversample resolution in dia matrix form.
 + Removed EdS approximation option. Always use logarithmic velocity conversion.
