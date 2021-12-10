@@ -150,7 +150,7 @@ ioh::BootstrapFile::BootstrapFile(const char *outdir)
     bootfile = ioh::open_file(oss_fname.str().c_str(), "wb");
 
     int r = fwrite(&bins::TOTAL_KZ_BINS, sizeof(int), 1, bootfile);
-    if (r != bins::TOTAL_KZ_BINS) 
+    if (r != 1) 
         throw std::runtime_error("Bootstrap file first Nk write.");
 }
 
