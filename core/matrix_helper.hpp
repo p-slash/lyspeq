@@ -13,6 +13,10 @@ namespace mxhelp
     // A is NxN
     void copyUpperToLower(double *A, int N);
 
+    // v always starts at 0, ends at N-1-abs(d)
+    // A is NxN
+    void getDiagonal(const double *A, int N, int d, double *v);
+
     void vector_add(double *target, const double *source, int size);
     void vector_sub(double *target, const double *source, int size);
 
