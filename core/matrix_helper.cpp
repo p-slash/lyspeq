@@ -71,6 +71,22 @@ namespace mxhelp
                 *(A+j+N*i) = *(A+i+N*j);
     }
 
+    // v always starts at 0, ends at N-1-abs(d)
+    void getDiagonal(const double *A, int N, int d, double *v)
+    {
+        int dd = (d>=0) ? 0 : -d, ii=0;
+        double *vi=v;
+        const double *Ai=A+(N+1)*dd+d;
+
+        while (ii<N-abs(d))
+        {
+            *vi=*Ai;
+            ++vi;
+            ++ii;
+            Ai+=N;
+        }
+    }
+
     void vector_add(double *target, const double *source, int size)
     {
         for (int i = 0; i < size; ++i)

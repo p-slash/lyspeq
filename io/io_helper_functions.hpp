@@ -31,6 +31,8 @@ namespace ioh
     int readListRdv(const char *fname, std::vector<std::pair<int, double>> &list_values);
 
     // Saves results to outdir/bootresults-{this_pe}.dat
+    // Fisher matrix is compressed, only saved upper 2Nk diagonals.
+    // This is the 3 diagonal when FISHER_OPTIMIZATION is on.
     class BootstrapFile
     {
         FILE *bootfile;
