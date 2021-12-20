@@ -144,11 +144,11 @@ int ioh::readListRdv(const char *fname, std::vector<std::pair<int, double>> &lis
 }
 
 #ifdef FISHER_OPTIMIZATION
-int ndiags  = 3;
-int cf_size = 3*bins::TOTAL_KZ_BINS-bins::NUMBER_OF_K_BANDS-1;
+int NDIAGS  = 3;
+int CF_SIZE = 3*bins::TOTAL_KZ_BINS-bins::NUMBER_OF_K_BANDS-1;
 #else
-int ndiags  = 2*bins::NUMBER_OF_K_BANDS;
-int cf_size = bins::TOTAL_KZ_BINS*ndiags - (ndiags*(ndiags-1))/2;
+int NDIAGS  = 2*bins::NUMBER_OF_K_BANDS;
+int CF_SIZE = bins::TOTAL_KZ_BINS*NDIAGS - (NDIAGS*(NDIAGS-1))/2;
 #endif
 
 double *comp_fisher;
@@ -160,12 +160,13 @@ ioh::BootstrapFile::BootstrapFile(const char *outdir)
     oss_fname << "/bootresults-" << process::this_pe << ".dat";
     bootfile = ioh::open_file(oss_fname.str().c_str(), "wb");
 
-    int r = fwrite(&bins::TOTAL_KZ_BINS, sizeof(int), 1, bootfile);
-    r += fwrite(&ndiags, sizeof(int), 1, bootfile);
-    if (r != 2) 
+    int r = fwrite(&bins::NUMBER_OF_K_BANDS, sizeof(int), 1, bootfile);
+    r += fwrite(&bins::NUMBER_OF_Z_BINS, sizeof(int), 1, bootfile);
+    r += fwrite(&NDIAGS, sizeof(int), 1, bootfile);
+    if (r != 3) 
         throw std::runtime_error("Bootstrap file first Nk write.");
 
-    comp_fisher = new double[cf_size];
+    comp_fisher = new double[CF_SIZE];
 }
 
 ioh::BootstrapFile::~BootstrapFile() { fclose(bootfile); delete [] comp_fisher; }
@@ -173,7 +174,7 @@ ioh::BootstrapFile::~BootstrapFile() { fclose(bootfile); delete [] comp_fisher; 
 void ioh::BootstrapFile::writeBoot(int thingid, double *pk, double *fisher)
 {
     double *v = comp_fisher;
-    for (int d = 0; d < ndiags; ++d)
+    for (int d = 0; d < NDIAGS; ++d)
     {
         #ifdef FISHER_OPTIMIZATION
         if (d == 2) d = bins::NUMBER_OF_K_BANDS;
@@ -183,10 +184,10 @@ void ioh::BootstrapFile::writeBoot(int thingid, double *pk, double *fisher)
     }
 
     int r = fwrite(&thingid, sizeof(int), 1, bootfile);
-    r+=fwrite(comp_fisher, sizeof(double), cf_size, bootfile);
+    r+=fwrite(comp_fisher, sizeof(double), CF_SIZE, bootfile);
     r+=fwrite(pk, sizeof(double), bins::TOTAL_KZ_BINS, bootfile);
 
-    if (r != 1+cf_size+bins::TOTAL_KZ_BINS)
+    if (r != 1+CF_SIZE+bins::TOTAL_KZ_BINS)
         throw std::runtime_error("Bootstrap write one results.");
 }
 

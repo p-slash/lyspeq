@@ -74,16 +74,16 @@ namespace mxhelp
     // v always starts at 0, ends at N-1-abs(d)
     void getDiagonal(const double *A, int N, int d, double *v)
     {
-        int dd = (d>=0) ? 0 : -d, ii=0;
+        int rowi = (d>=0) ? 0 : -d, counter=0;
         double *vi=v;
-        const double *Ai=A+(N+1)*dd+d;
+        const double *Ai=A+(N+1)*rowi+d;
 
-        while (ii<N-abs(d))
+        while (counter<N-abs(d))
         {
             *vi=*Ai;
             ++vi;
-            ++ii;
-            Ai+=N;
+            ++counter;
+            Ai+=(N+1);
         }
     }
 
