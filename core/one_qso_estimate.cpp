@@ -33,41 +33,62 @@ double gaussian_kernel[]={0.011447940157348487, 0.012171045543998216, 0.01290751
     0.01667748848074522, 0.01592371989543238, 0.015166056639295405, 0.014408377595710871, 
     0.0136543727032899, 0.012907516484479523, 0.012171045543998216, 0.011447940157348487};
 
-void _smoothNoise(double *n, double *out, int size)
+void _findMedianStatistics(double *arr, int size, double &median, double &mad)
+{
+    std::sort(arr, arr+size);
+    median = sqrt(arr[size/2]);
+
+    std::for_each(arr, arr+size, [&](double &f) { f = fabs(sqrt(f)-median); });
+    std::sort(arr, arr+size);
+    mad = 1.4826 * arr[size/2]; // The constant factor makes it unbiased
+}
+
+void _smoothNoise(const double *n2, double *out, int size, bool return_mean_noise=false)
 {
     // Isolate masked pixels as they have high noise
     std::vector<std::pair<int, double>> mask;
     double *padded_noise = new double[size+2*HWSIZE];
-    double mean_noise = 0;
+    double mean_noise = 0, median, mad;
+
+    std::copy_n(n2, size, out);
+    _findMedianStatistics(out, size, median, mad);
 
     for (int i = 0; i < size; ++i)
     {
-        if (n[i] > 1e4)
-            mask.push_back(std::make_pair(i, n[i]));
+        // n->0 should be smoothed
+        if (sqrt(n2[i])-median > 3.5*mad)
+            mask.push_back(std::make_pair(i, n2[i]));
         else
         {
-            mean_noise += n[i];
-            padded_noise[i+HWSIZE] = n[i];
+            mean_noise += n2[i];
+            padded_noise[i+HWSIZE] = n2[i];
         }
     }
 
     mean_noise /= (size-mask.size());
 
-    // Replace their values with mean noise
-    for (auto it = mask.begin(); it != mask.end(); ++it)
-        padded_noise[it->first+HWSIZE] = mean_noise;
-    // Pad array by the edge values
-    for (int i = 0; i < HWSIZE; ++i)
+    if (return_mean_noise)
     {
-        padded_noise[i] = padded_noise[HWSIZE];
-        padded_noise[i+HWSIZE+size] = padded_noise[HWSIZE+size-1];
+        std::fill_n(out, size, mean_noise);
     }
+    else
+    {
+        // Replace their values with mean noise
+        for (auto it = mask.begin(); it != mask.end(); ++it)
+            padded_noise[it->first+HWSIZE] = mean_noise;
+        // Pad array by the edge values
+        for (int i = 0; i < HWSIZE; ++i)
+        {
+            padded_noise[i] = padded_noise[HWSIZE];
+            padded_noise[i+HWSIZE+size] = padded_noise[HWSIZE+size-1];
+        }
 
-    // Convolve
-    std::fill_n(out, size, 0);
-    for (int i = 0; i < size; ++i)
-        for (int m = 0; m < KS; ++m)
-            out[i] += gaussian_kernel[m]*padded_noise[m+i];
+        // Convolve
+        std::fill_n(out, size, 0);
+        for (int i = 0; i < size; ++i)
+            for (int m = 0; m < KS; ++m)
+                out[i] += gaussian_kernel[m]*padded_noise[m+i];
+    }
 
     // Restore original noise for masked pixels
     for (auto it = mask.begin(); it != mask.end(); ++it)
@@ -444,7 +465,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     // add noise matrix diagonally
     // but smooth before adding
     double *smooth_noise = new double[qFile->size];
-    _smoothNoise(qFile->noise, smooth_noise, qFile->size);
+    _smoothNoise(qFile->noise, smooth_noise, qFile->size, true);
     cblas_daxpy(qFile->size, 1., smooth_noise, 1, covariance_matrix, qFile->size+1);
     delete [] smooth_noise;
 
