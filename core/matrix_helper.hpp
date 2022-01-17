@@ -79,14 +79,13 @@ namespace mxhelp
 
     class OversampledMatrix
     {
-        // int *indices, *iptrs;
-        int nrows, ncols, nvals;//, nptrs;
-        int nelem_per_row, oversampling;
-        double fine_dlambda, *sandwich_buffer;
+        double *sandwich_buffer;
 
         double* _getRow(int i);
     public:
-        double *values, *temp_highres_mat;
+        int nrows, ncols, nvals;
+        int nelem_per_row, oversampling;
+        double fine_dlambda, *values, *temp_highres_mat;
 
         // n1 : Number of rows.
         // nelem_prow : Number of elements per row. Should be odd.
@@ -141,6 +140,7 @@ namespace mxhelp
 
         int getNCols() const { return ncols; };
         bool isDiaMatrix() const { return is_dia_matrix; };
+        void cutBoundary(int i1, int i2);
 
         void orderTranspose();
         void oversample(int osamp, double dlambda);

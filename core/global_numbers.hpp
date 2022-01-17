@@ -34,7 +34,7 @@ namespace bins
     // TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS
     extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, DEGREE_OF_FREEDOM;
     extern double *KBAND_EDGES, *KBAND_CENTERS;
-    extern double Z_BIN_WIDTH, *ZBIN_CENTERS;
+    extern double Z_BIN_WIDTH, *ZBIN_CENTERS, Z_LOWER_EDGE, Z_UPPER_EDGE;
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0);
     void cleanUpBins();

@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ Pixels in each spectrum is cut below and above the redshift range. Short spectra (Npix < 20) are skipped.
 + Each PE saves its own bootstrap results into one file.
 + Logging only on pe==0. Moved io to std and removed io log.
 + New functionality & config file option `OversampleRmat`. Pass > 0 to oversample resolution in dia matrix form.

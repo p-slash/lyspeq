@@ -596,8 +596,8 @@ namespace mxhelp
     Resolution::Resolution(int nm, int ndia) : ncols(nm), 
         osamp_matrix(NULL), temp_highres_mat(NULL), is_dia_matrix(true)
     {
-        dia_matrix   = new DiaMatrix(nm, ndia);
-        values = dia_matrix->matrix;
+        dia_matrix = new DiaMatrix(nm, ndia);
+        values     = dia_matrix->matrix;
     }
 
     Resolution::Resolution(int n1, int nelem_prow, int osamp, double dlambda) :
@@ -605,7 +605,7 @@ namespace mxhelp
     {
         osamp_matrix = new OversampledMatrix(n1, nelem_prow, osamp, dlambda);
         values = osamp_matrix->values;
-        ncols = osamp_matrix->getNCols();
+        ncols  = osamp_matrix->getNCols();
     }
 
     Resolution::~Resolution()
@@ -613,6 +613,35 @@ namespace mxhelp
         freeBuffers();
         delete dia_matrix;
         delete osamp_matrix;
+    }
+
+    void Resolution::cutBoundary(int i1, int i2)
+    {
+        int newsize = i2-i1;
+
+        if (is_dia_matrix)
+        {
+            DiaMatrix *new_dia_matrix = new DiaMatrix(newsize, dia_matrix->ndiags);
+
+            for (int d = 0; d < dia_matrix->ndiags; ++d)
+                std::copy_n(dia_matrix->matrix+(ncols*d)+i1, newsize, 
+                    new_dia_matrix->matrix+newsize*d);
+
+            delete dia_matrix;
+            dia_matrix = new_dia_matrix;
+        }
+        else
+        {
+            OversampledMatrix *new_osamp_matrix = new OversampledMatrix(newsize, 
+                osamp_matrix->nelem_per_row, osamp_matrix->oversampling, 1);
+            new_osamp_matrix->fine_dlambda = osamp_matrix->fine_dlambda;
+
+            std::copy_n(osamp_matrix->values+(i1*osamp_matrix->nelem_per_row),
+                newsize*osamp_matrix->nelem_per_row, new_osamp_matrix->values);
+
+            delete osamp_matrix;
+            osamp_matrix = new_osamp_matrix;
+        }
     }
 
     void Resolution::orderTranspose()

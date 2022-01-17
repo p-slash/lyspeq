@@ -20,7 +20,7 @@ namespace qio
 // mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
     : fname(fname_qso), PB(p_or_b), pfile(NULL), bqfile(NULL),
-    wave(NULL), delta(NULL), noise(NULL), Rmat(NULL)
+    wave_head(NULL), delta_head(NULL), noise_head(NULL), Rmat(NULL)
 {
     if (PB == Picca)
         pfile = new PiccaFile(fname);
@@ -44,9 +44,9 @@ QSOFile::~QSOFile()
 {
     closeFile();
     delete Rmat;
-    delete [] wave;
-    delete [] delta;
-    delete [] noise;
+    delete [] wave_head;
+    delete [] delta_head;
+    delete [] noise_head;
 }
 
 void QSOFile::readParameters()
@@ -67,11 +67,41 @@ void QSOFile::readData()
         pfile->readData(wave, delta, noise);
     else
         bqfile->readData(wave, delta, noise);
+
+    wave_head  = wave;
+    delta_head = delta;
+    noise_head = noise;
+}
+
+int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
+{
+    double l1 = LYA_REST * (1+z_lower_edge), l2 = LYA_REST * (1+z_upper_edge);
+    int wi1, wi2;
+
+    wi1 = std::lower_bound(wave, wave+size, l1)-wave;
+    wi2 = std::upper_bound(wave, wave+size, l2)-wave;
+    int newsize = wi2-wi1;
+
+    if ((wi1 == size) || (wi2 == 0)) // empty
+        return 0;
+
+    if ((wi1 == 0) && (wi2 == size)) // no change
+        return size;
+
+    wave  += wi1;
+    delta += wi1;
+    noise += wi1;
+    size  = newsize;
+
+    if (Rmat != NULL)
+        Rmat->cutBoundary(wi1, wi2);
+
+    return size;
 }
 
 void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 {
-    if (wave == NULL)
+    if (wave_head == NULL)
     {
         wave  = new double[size];
         delta = new double[size];
@@ -79,6 +109,9 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
             pfile->readData(wave, delta, delta);
         else
             bqfile->readData(wave, delta, delta);
+
+        wave_head  = wave;
+        delta_head = delta;
     }
 
     zmin = wave[0] / LYA_REST - 1;

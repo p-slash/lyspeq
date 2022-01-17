@@ -7,12 +7,13 @@
 #include "io/logger.hpp"
 
 #include <cmath>
-#include <algorithm> // std::for_each & transform
+#include <algorithm> // std::for_each & transform & lower(upper)_bound
 #include <cstdio>
 #include <cstdlib>
 #include <stdexcept>
 
 #define DATA_SIZE_2 qFile->size*qFile->size
+#define MIN_PIXELS_IN_SPEC 20
 
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
@@ -20,7 +21,6 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
 
     qFile->readParameters();
     qFile->readData();
-    qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
 
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
@@ -43,46 +43,16 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     interp_derivative_matrix = new DiscreteInterpolation1D*[bins::NUMBER_OF_K_BANDS];
 }
 
-bool OneQSOEstimate::_findRedshiftBin()
+void OneQSOEstimate::_findRedshiftBin()
 {
     ZBIN     = bins::findRedshiftBin(MEDIAN_REDSHIFT);
     ZBIN_LOW = bins::findRedshiftBin(LOWER_REDSHIFT);
     ZBIN_UPP = bins::findRedshiftBin(UPPER_REDSHIFT);
 
-    // Chunk is completely out
-    if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
-    {
-        LOG::LOGGER.ERR("This QSO is completely out:\n" "File: %s\n" 
-            "Redshift range: %.2f--%.2f\n",
-            qFile->fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
-
-        return false;
-    }
-
-    if (ZBIN_LOW < 0)
-    {
-        LOG::LOGGER.ERR("This QSO is out on the low end:\n" "File: %s\n" 
-            "Redshift range: %.2f--%.2f\n",
-            qFile->fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
-        
-        ZBIN_LOW = 0;
-    }
-    
-    if (ZBIN_UPP > (bins::NUMBER_OF_Z_BINS-1))
-    {
-        LOG::LOGGER.ERR("This QSO is out on the high end:\n" "File: %s\n" 
-            "Redshift range: %.2f--%.2f\n",
-            qFile->fname.c_str(), LOWER_REDSHIFT, UPPER_REDSHIFT);
-
-        ZBIN_UPP = bins::NUMBER_OF_Z_BINS - 1;
-    }
-
     // Assign to a redshift bin according to median redshift of this chunk
     // This is just for bookkeeping purposes
     if ((ZBIN >= 0) && (ZBIN < bins::NUMBER_OF_Z_BINS))
         BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
-
-    return true;
 }
 
 // For a top hat redshift bin, only access 1 redshift bin for each pixel
@@ -114,16 +84,6 @@ void OneQSOEstimate::_setNQandFisherIndex()
     #endif
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
-}
-
-double OneQSOEstimate::getMinMemUsage()
-{
-    double minmem = (double)sizeof(double) * qFile->size * 3 / 1048576.; // in MB
-
-    if (specifics::USE_RESOLUTION_MATRIX)
-        minmem += qFile->Rmat->getMinMemUsage();
-
-    return minmem;
 }
 
 // Find number of Qj matrices to preload.
@@ -169,6 +129,15 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     isCovInverted = false;
     _readFromFile(fname_qso);
 
+    // Boundary cut
+    int newsize = qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
+
+    if (newsize < MIN_PIXELS_IN_SPEC)   return;
+
+    qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
+
+    _findRedshiftBin();
+
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
     conv::convertFluxToDeltaF(qFile->wave, qFile->delta, qFile->noise, qFile->size);
@@ -177,8 +146,6 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     std::for_each(qFile->noise, qFile->noise+qFile->size, [](double &n) { n*=n; });
 
     nqj_eff = 0;
-
-    if(!_findRedshiftBin()) return;
     
     // Set up number of matrices, index for Fisher matrix
     _setNQandFisherIndex();
@@ -219,6 +186,16 @@ OneQSOEstimate::~OneQSOEstimate()
         delete [] stored_qj;
 }
 
+double OneQSOEstimate::getMinMemUsage()
+{
+    double minmem = (double)sizeof(double) * qFile->size * 3 / 1048576.; // in MB
+
+    if (specifics::USE_RESOLUTION_MATRIX)
+        minmem += qFile->Rmat->getMinMemUsage();
+
+    return minmem;
+}
+
 double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 {
     zbin=-1;
@@ -226,14 +203,13 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
     try
     {
         qio::QSOFile qtemp(fname_qso, specifics::INPUT_QSO_FILE);
-        qtemp.readParameters();
 
-        // if ((qtemp.oversampling==-1 && qtemp.dlambda<0) && specifics::USE_RESOLUTION_MATRIX)
-        // {
-        //     LOG::LOGGER.ERR("OVERSAMP and/or DLAMBDA not found. Skipping %s.\n", 
-        //         fname_qso.c_str());
-        //     return 0;
-        // }
+        qtemp.readParameters();
+        qtemp.readData();
+        int newsize = qtemp.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
+
+        if (newsize < MIN_PIXELS_IN_SPEC)
+            return 0;
 
         double z1, z2, zm; 
         qtemp.readMinMaxMedRedshift(z1, z2, zm);
