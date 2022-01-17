@@ -64,6 +64,7 @@ void _smoothNoise(double *n, double *out, int size)
     }
 
     // Convolve
+    std::fill_n(out, size, 0);
     for (int i = 0; i < size; ++i)
         for (int m = 0; m < KS; ++m)
             out[i] += gaussian_kernel[m]*padded_noise[m+i];
