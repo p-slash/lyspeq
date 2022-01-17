@@ -81,6 +81,7 @@ class QSOFile
     PiccaFile *pfile;
     BQFile *bqfile;
 
+    double *wave_head, *delta_head, *noise_head;
 public:
     std::string fname;
     double z_qso, snr, dv_kms, dlambda;
@@ -95,6 +96,11 @@ public:
     void readParameters();
 
     void readData();
+
+    // This is just a pointer shift for w,d,e. Rmat is copied
+    // returns new size
+    int cutBoundary(double z_lower_edge, double z_upper_edge);
+
     void readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed);
     void readAllocResolutionMatrix();
 };

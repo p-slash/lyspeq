@@ -54,7 +54,7 @@ protected:
     double  *fisher_matrix;
     
     void _readFromFile(std::string fname_qso);
-    bool _findRedshiftBin();
+    void _findRedshiftBin();
     void _setNQandFisherIndex();
     void _setStoredMatrices();
 
