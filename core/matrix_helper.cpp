@@ -629,6 +629,8 @@ namespace mxhelp
 
             delete dia_matrix;
             dia_matrix = new_dia_matrix;
+            values = dia_matrix->matrix;
+            ncols  = newsize;
         }
         else
         {
@@ -641,6 +643,8 @@ namespace mxhelp
 
             delete osamp_matrix;
             osamp_matrix = new_osamp_matrix;
+            values = osamp_matrix->values;
+            ncols  = osamp_matrix->getNCols();
         }
     }
 
