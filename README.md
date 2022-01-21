@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ Implemented a 'Smoother' class in QuadraticEstimate. `SmoothNoiseWeights` option is added to config file. If 0, qmle uses the mean noise in covariance matrix as weights. For >0, a Gaussian kernel with sigma equals to this value is applied to the noise. For <0, smoothing is turned off.
 + Pixels in each spectrum is cut below and above the redshift range. Short spectra (Npix < 20) are skipped.
 + Each PE saves its own bootstrap results into one file.
 + Logging only on pe==0. Moved io to std and removed io log.
