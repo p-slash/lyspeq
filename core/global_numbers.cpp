@@ -299,7 +299,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     int N_KLIN_BIN, N_KLOG_BIN, 
         sfid_off=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
         save_spec_res=-1, use_picca_file=-1, use_reso_mat=-1,
-        cache_all_sq=-1;
+        cache_all_sq=-1, noise_smoothing_factor = -1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="", FNAME_PREFISHER[300]="";
 
@@ -326,6 +326,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("InputIsPicca",   &use_picca_file, INTEGER);
     cFile.addKey("UseResoMatrix",  &use_reso_mat, INTEGER);
     cFile.addKey("OversampleRmat", &specifics::OVERSAMPLING_FACTOR, INTEGER);
+    cFile.addKey("SmoothNoiseWeights", &noise_smoothing_factor, INTEGER);
 
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
@@ -434,6 +435,9 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     // Call after setting bins, because this function checks for consistency.
     if (FNAME_PREFISHER[0] != '\0')
         OneDQuadraticPowerEstimate::readPrecomputedFisher(FNAME_PREFISHER);
+
+    Smoother::setParameters(noise_smoothing_factor);
+    Smoother::setGaussianKernel();
 }
 
 
