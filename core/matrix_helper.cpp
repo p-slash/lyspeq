@@ -1,4 +1,5 @@
 #include "core/matrix_helper.hpp"
+#include "gsltools/real_field.hpp"
 
 #include <stdexcept>
 #include <algorithm>
@@ -14,9 +15,9 @@
 #include "mkl_lapacke.h"
 #else
 // These three lines somehow fix OpenBLAS compilation error on macos
-#include <complex.h>
-#define lapack_complex_float    float _Complex
-#define lapack_complex_double   double _Complex
+// #include <complex.h>
+// #define lapack_complex_float    float _Complex
+// #define lapack_complex_double   double _Complex
 #include "lapacke.h"
 #endif
 
@@ -663,6 +664,8 @@ namespace mxhelp
         double *win = new double[dia_matrix->ndiags], *wout = new double[nelem_per_row], 
                *row = new double[dia_matrix->ndiags], *newrow;
 
+        RealField deconvolver(nelem_per_row, 1, osamp_matrix->values);
+
         for (int i = 0; i < dia_matrix->ndiags; ++i)
             win[i] = i-noff;
         for (int i = 0; i < nelem_per_row; ++i)
@@ -697,6 +700,10 @@ namespace mxhelp
             );
 
             gsl_interp_accel_reset(acc);
+
+            // deconvolve sinc^-2 factor using fftw
+            deconvolver.changeData(newrow);
+            deconvolver.deconvolveSinc(osamp);
         }
 
         is_dia_matrix = false;

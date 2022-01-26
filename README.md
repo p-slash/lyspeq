@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ Deconvolution of sinc added while oversampling using `FFTW` package. This deconvolution is needed because resolution matrix is downsampled in 2D.
 + Implemented a 'Smoother' class in QuadraticEstimate. `SmoothNoiseWeights` option is added to config file. If 0, qmle uses the mean noise in covariance matrix as weights. For >0, a Gaussian kernel with sigma equals to this value is applied to the noise. For <0, smoothing is turned off.
 + Pixels in each spectrum is cut below and above the redshift range. Short spectra (Npix < 20) are skipped.
 + Each PE saves its own bootstrap results into one file.
@@ -67,6 +68,7 @@ Prerequisites
 + [MPI](https://www.open-mpi.org) is needed to enable parallel computing.
 + CBLAS and LAPACKE. I have been mostly using [MKL](https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html#gs.932925) and [OpenBLAS](http://www.openblas.net). [ATLAS](http://math-atlas.sourceforge.net) has been passing simple `make test`, but not fully validated. The compiler flags will depend on the system specifics. Modify Makefile accordingly. To link one of these libraries to `gsl_cblas`, remove `-lgslcblas` from `LDLIBS`. For ATLAS, add `-lcblas -latlas` to `LDLIBS` in your Makefile. To link OpenBLAS, add `-lopenblas`. Intel has [link line advisor](https://software.intel.com/en-us/articles/intel-mkl-link-line-advisor).
 + [CFITSIO](https://heasarc.gsfc.nasa.gov/fitsio/) for reading picca files.
++ [FFTW3] (http://fftw.org) for deconvolution of sinc in resolution matrix oversampling.
 
 Compile and Install
 =====
