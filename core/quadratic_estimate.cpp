@@ -749,14 +749,14 @@ void Smoother::setGaussianKernel()
     if (Smoother::isKernelSet || !Smoother::isSmoothingOn || Smoother::useMeanNoise)
         return;
 
-    double sum=0, *g = Smoother::gaussian_kernel;
+    double sum=0, *g = &Smoother::gaussian_kernel[0];
     for (int i = -HWSIZE; i < HWSIZE+1; ++i, ++g)
     {
         *g = exp(-pow(i*1./Smoother::sigmapix, 2)/2);
         sum += *g;
     }
 
-    std::for_each(Smoother::gaussian_kernel, Smoother::gaussian_kernel+KS, 
+    std::for_each(&Smoother::gaussian_kernel[0], &Smoother::gaussian_kernel[0]+KS, 
         [&](double &x) { x /= sum; });
 
     Smoother::isKernelSet = true;
