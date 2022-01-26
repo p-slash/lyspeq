@@ -664,7 +664,7 @@ namespace mxhelp
         double *win = new double[dia_matrix->ndiags], *wout = new double[nelem_per_row], 
                *row = new double[dia_matrix->ndiags], *newrow;
 
-        RealField deconvolver(nelem_per_row, 1, row);
+        RealField deconvolver(dia_matrix->ndiags, 1, row);
 
         for (int i = 0; i < dia_matrix->ndiags; ++i)
             win[i] = i-noff;
