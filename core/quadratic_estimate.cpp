@@ -753,12 +753,19 @@ void Smoother::setGaussianKernel()
     for (int i = -HWSIZE; i < HWSIZE+1; ++i, ++g)
     {
         *g = exp(-pow(i*1./Smoother::sigmapix, 2)/2);
+        printf("%.5lf ", *g);
         sum += *g;
     }
-
+    printf("\n");
     std::for_each(&Smoother::gaussian_kernel[0], &Smoother::gaussian_kernel[0]+KS, 
         [&](double &x) { x /= sum; });
 
+    printf("===================================\n");
+    for (int i = 0; i < KS; ++i)
+    {
+        printf("%.5lf ", Smoother::gaussian_kernel[i]);
+    }
+    printf("\n");
     Smoother::isKernelSet = true;
 }
 
