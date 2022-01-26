@@ -737,34 +737,34 @@ void Smoother::setParameters(int noisefactor)
     // < 0 uses raw noise
     // > 0 sets the sigma pixels
     if (noisefactor >= 0) 
-        isSmoothingOn = true;
+        Smoother::isSmoothingOn = true;
     if (noisefactor == 0)
-        useMeanNoise = true;
+        Smoother::useMeanNoise = true;
 
-    sigmapix = noisefactor;
+    Smoother::sigmapix = noisefactor;
 }
 
 void Smoother::setGaussianKernel()
 {
-    if (isKernelSet || !isSmoothingOn || useMeanNoise)
+    if (Smoother::isKernelSet || !Smoother::isSmoothingOn || Smoother::useMeanNoise)
         return;
 
-    double sum=0, *g = gaussian_kernel;
+    double sum=0, *g = Smoother::gaussian_kernel;
     for (int i = -HWSIZE; i < HWSIZE+1; ++i, ++g)
     {
-        *g = exp(-pow(i*1./sigmapix, 2)/2);
+        *g = exp(-pow(i*1./Smoother::sigmapix, 2)/2);
         sum += *g;
     }
 
-    std::for_each(gaussian_kernel, gaussian_kernel+KS, 
+    std::for_each(Smoother::gaussian_kernel, Smoother::gaussian_kernel+KS, 
         [&](double &x) { x /= sum; });
 
-    isKernelSet = true;
+    Smoother::isKernelSet = true;
 }
 
 void Smoother::smoothNoise(const double *n2, double *out, int size)
 {
-    if (!isSmoothingOn)
+    if (!Smoother::isSmoothingOn)
     {
         std::copy(&n2[0], &n2[0] + size, &out[0]); 
         return;
@@ -792,7 +792,7 @@ void Smoother::smoothNoise(const double *n2, double *out, int size)
 
     mean_noise /= (size-mask.size());
 
-    if (useMeanNoise)
+    if (Smoother::useMeanNoise)
     {
         std::fill_n(out, size, mean_noise);
     }
@@ -812,7 +812,7 @@ void Smoother::smoothNoise(const double *n2, double *out, int size)
         std::fill_n(out, size, 0);
         for (int i = 0; i < size; ++i)
             for (int m = 0; m < KS; ++m)
-                out[i] += gaussian_kernel[m]*padded_noise[m+i];
+                out[i] += Smoother::gaussian_kernel[m]*padded_noise[m+i];
     }
 
     // Restore original noise for masked pixels
