@@ -30,6 +30,13 @@ function user_overwrite_defined_variables()
 function print_build_types() {
     echo "Available build types are :"
     echo "-------------------------"
+    echo "* nersc"
+    echo "# MPI by default. MKL for cblas
+# Linux, GNU compiler, Intel(R) 64 arch
+# 32-bit integers interface
+# Dynamic linking, explicit MKL lib linking
+# Explicit FFTW and CFITSIO linking"
+    echo "-------------------------"
     echo "* GNU_XE18MKL or x64-linux-gnu-mklxe18"
     echo "# Parallel Studio XE 2018, MKL for cblas
 # Linux, GNU compiler, Intel(R) 64 arch
@@ -188,6 +195,14 @@ MORECPPFLAGS="${binz_fn} ${en_mpi} ${fisher_opt} ${z_growth}"
 OPENBLAS_DIR=/usr/local/opt/openblas
 
 case ${SYSTYPE} in
+    nersc )
+        CXX="mpic++"
+        set_omp_flags
+        MORECPPFLAGS+="-DUSE_MKL_CBLAS"
+        CPPFLAGS="${CPPFLAGS_OMP} -m64 -I${MKLROOT}/include ${gsl_inc} -I${CFITSIO_DIR}/include -I${FFTW_ROOT}/include"
+        LDFLAGS="-L${MKLROOT}/lib/intel64 ${gsl_lib} -L${CFITSIO_DIR}/lib -L${FFTW_ROOT}/lib -Wl,--no-as-needed"
+        LDLIBS="-lfftw3 -lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl -l:libcfitsio.a"
+        ;;
     GNU_XE18MKL|x64-linux-gnu-mklxe18 )
         CXX="g++"
         set_omp_flags
