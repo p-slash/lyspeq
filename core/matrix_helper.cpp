@@ -664,7 +664,7 @@ namespace mxhelp
         double *win = new double[dia_matrix->ndiags], *wout = new double[nelem_per_row], 
                *row = new double[dia_matrix->ndiags], *newrow;
 
-        RealField deconvolver(nelem_per_row, 1, osamp_matrix->values);
+        RealField deconvolver(nelem_per_row, 1, row);
 
         for (int i = 0; i < dia_matrix->ndiags; ++i)
             win[i] = i-noff;
@@ -678,6 +678,9 @@ namespace mxhelp
         for (int i = 0; i < ncols; ++i)
         {
             dia_matrix->getRow(i, row);
+            // deconvolve sinc^-2 factor using fftw
+            deconvolver.deconvolveSinc(1);
+
             newrow = osamp_matrix->values+i*nelem_per_row;
 
             // interpolate log, shift before log
@@ -700,10 +703,6 @@ namespace mxhelp
             );
 
             gsl_interp_accel_reset(acc);
-
-            // deconvolve sinc^-2 factor using fftw
-            deconvolver.changeData(newrow);
-            deconvolver.deconvolveSinc(osamp);
         }
 
         is_dia_matrix = false;
