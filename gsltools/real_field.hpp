@@ -2,7 +2,7 @@
 #define REALFIELD_H
 
 #include <complex>
-#include "fftw3.h"
+#include <fftw3.h>
 
 enum FFTW_CURRENT_SPACE
 {
