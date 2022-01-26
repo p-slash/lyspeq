@@ -53,7 +53,7 @@ LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 CreateSQLookUpTable: CreateSQLookUpTable.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-cblas_tests: cblas_tests.o matrix_helper.o
+cblas_tests: cblas_tests.o matrix_helper.o real_field.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testSQCMatrices: testSQCMatrices.o $(OBJECTS)
