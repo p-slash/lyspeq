@@ -660,38 +660,44 @@ namespace mxhelp
 
         int noff = dia_matrix->ndiags/2, nelem_per_row = 2*noff*osamp + 1;
         osamp_matrix = new OversampledMatrix(ncols, nelem_per_row, osamp, dlambda);
+        
+        #define HALF_PAD_NO 2
+        int input_size = dia_matrix->ndiags+2*HALF_PAD_NO;
+        double *win = new double[input_size], *wout = new double[nelem_per_row], 
+               *row = new double[input_size], *newrow;
 
-        double *win = new double[dia_matrix->ndiags], *wout = new double[nelem_per_row], 
-               *row = new double[dia_matrix->ndiags], *newrow;
+        RealField deconvolver(input_size, 1, row);
 
-        RealField deconvolver(dia_matrix->ndiags, 1, row);
-
-        for (int i = 0; i < dia_matrix->ndiags; ++i)
-            win[i] = i-noff;
+        for (int i = 0; i < input_size; ++i)
+            win[i] = i-noff-HALF_PAD_NO;
         for (int i = 0; i < nelem_per_row; ++i)
             wout[i] = i*1./osamp-noff;
 
-        gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, dia_matrix->ndiags);
+        gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, input_size);
         gsl_interp_accel *acc = gsl_interp_accel_alloc();
 
         // ncols == nrows for dia matrix
         for (int i = 0; i < ncols; ++i)
         {
-            dia_matrix->getRow(i, row);
+            dia_matrix->getRow(i, row+HALF_PAD_NO);
+            // Set padded regions to zero
+            for (int i = 0; i < HALF_PAD_NO; ++i)
+            { row[i] = 0;  row[i+dia_matrix->ndiags+HALF_PAD_NO] = 0; }
+
             // deconvolve sinc^-2 factor using fftw
             deconvolver.deconvolveSinc(1);
 
             newrow = osamp_matrix->values+i*nelem_per_row;
 
             // interpolate log, shift before log
-            double _shift = *std::min_element(row, row+dia_matrix->ndiags)
-                - nonzero_min_element(row, row+dia_matrix->ndiags);
+            double _shift = *std::min_element(row, row+input_size)
+                - nonzero_min_element(row, row+input_size);
 
-            std::for_each(row, row+dia_matrix->ndiags, 
+            std::for_each(row, row+input_size, 
                 [&](double &f) { f = log(f-_shift); }
             );
 
-            gsl_interp_init(interp_cubic, win, row, dia_matrix->ndiags);
+            gsl_interp_init(interp_cubic, win, row, input_size);
 
             std::transform(wout, wout+nelem_per_row, newrow, 
                 [&](const double &l) 
@@ -716,6 +722,7 @@ namespace mxhelp
         delete [] row;
         delete dia_matrix;
         dia_matrix = NULL;
+        #undef HALF_PAD_NO
     }
 
     void Resolution::allocateTempHighRes()
