@@ -164,7 +164,7 @@ void RealField::deconvolve(double (*f)(double, void*), void *params)
     }
 }
 
-void RealField::deconvolveSinc(double m, double downsampling)
+void RealField::deconvolveSinc(double m)//, double downsampling)
 {
     if (current_space == X_SPACE)   fftX2K();
 
@@ -173,10 +173,10 @@ void RealField::deconvolveSinc(double m, double downsampling)
     for (int i = 1; i < size_complex; i++)
     {
         x = PI * m * i / size_real;
-        y = x / (downsampling+1e-8);
+        // y = x / (downsampling+1e-8);
         x = sin(x)/x;
-        y = sin(y)/y;
-        field_k[i] *= y/x;
+        // y = downsampling>1 ? sin(y)/y : 1;
+        field_k[i] /= x;
     }
 
     fftK2X();
