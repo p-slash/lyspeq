@@ -175,7 +175,7 @@ void RealField::deconvolveSinc(double m, double downsampling)
         x = PI * m * i / size_real;
         y = x / (downsampling+1e-8);
         x = sin(x)/x;
-        y = sin(y)/y
+        y = sin(y)/y;
         field_k[i] *= y/x;
     }
 
