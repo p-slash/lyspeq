@@ -48,7 +48,7 @@ public:
     void getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins);
     void getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins, int *bincount);
     void deconvolve(double (*f)(double, void*), void *params);
-    void deconvolveSinc(double m);
+    void deconvolveSinc(double m, double downsampling=4);
 
     //void applyGaussSmoothing(double r);
 };
