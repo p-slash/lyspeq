@@ -27,6 +27,8 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
     {
         RES_INDEX = 0;
         qFile->readAllocResolutionMatrix();
+        qFile->Rmat->transpose();
+
         if (specifics::OVERSAMPLING_FACTOR > 0)
             qFile->Rmat->oversample(specifics::OVERSAMPLING_FACTOR, qFile->dlambda);
     }
