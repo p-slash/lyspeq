@@ -353,6 +353,9 @@ namespace mxhelp
         for (int i = 0; i < ndim; ++i)
         {
             _getRowIndices(i, indices);
+            for (int p = 0; p < ndiags; ++p)
+                row[p+HALF_PAD_NO] = matrix[indices[p]];
+
             // Set padded regions to zero
             for (int p = 0; p < HALF_PAD_NO; ++p)
             { row[p] = 0;  row[p+ndiags+HALF_PAD_NO] = 0; }
