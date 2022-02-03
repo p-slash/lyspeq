@@ -660,6 +660,11 @@ namespace mxhelp
         }
     }
 
+    void Resolution::transpose()
+    {
+        if (is_dia_matrix) dia_matrix->transpose();
+    }
+
     void Resolution::orderTranspose()
     {
         if (is_dia_matrix) dia_matrix->orderTranspose();
