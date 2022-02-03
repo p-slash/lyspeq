@@ -717,9 +717,9 @@ void OneDQuadraticPowerEstimate::readPrecomputedFisher(const char *fname)
 void _findMedianStatistics(double *arr, int size, double &median, double &mad)
 {
     std::sort(arr, arr+size);
-    median = sqrt(arr[size/2]);
+    median = arr[size/2];
 
-    std::for_each(arr, arr+size, [&](double &f) { f = fabs(sqrt(f)-median); });
+    std::for_each(arr, arr+size, [&](double &f) { f = fabs(f-median); });
     std::sort(arr, arr+size);
     mad = 1.4826 * arr[size/2]; // The constant factor makes it unbiased
 }
@@ -775,7 +775,8 @@ void Smoother::smoothNoise(const double *n2, double *out, int size)
     double *padded_noise = new double[size+2*HWSIZE];
     double mean_noise = 0, median, mad;
 
-    std::copy_n(n2, size, out);
+    // convert square of noise to noise
+    std::transform(n2, n2+size, out, [](double x2) { return sqrt(x2); });
     _findMedianStatistics(out, size, median, mad);
 
     for (int i = 0; i < size; ++i)
