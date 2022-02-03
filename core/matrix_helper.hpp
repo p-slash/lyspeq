@@ -49,6 +49,9 @@ namespace mxhelp
     {
         double* _getDiagonal(int d);
         double* sandwich_buffer;
+
+        void _getRowIndices(int i, int *indices);
+
     public:
         int ndim, ndiags, size;
         int *offsets;
@@ -60,6 +63,7 @@ namespace mxhelp
         void getRow(int i, double *row);
         // Swap diagonals
         void transpose();
+        void deconvolve(bool byCol);
 
         void freeBuffer();
         void constructGaussian(double *v, double R_kms, double a_kms);
