@@ -58,6 +58,9 @@ namespace mxhelp
         ~DiaMatrix();
 
         void getRow(int i, double *row);
+        // Swap diagonals
+        void transpose();
+
         void freeBuffer();
         void constructGaussian(double *v, double R_kms, double a_kms);
         void fprintfMatrix(const char *fname);

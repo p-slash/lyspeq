@@ -321,6 +321,18 @@ namespace mxhelp
         delete [] indices;
     }
 
+    void DiaMatrix::transpose()
+    {
+        int noff = ndiags/2, nsize;
+        for (int d = 0; d < noff; ++d)
+        {
+            double *v1 = _getDiagonal(d), *v2 = _getDiagonal(ndiags-1-d);
+            nsize = ndim - abs(offsets[d]);
+
+            std::swap_ranges(v1, v1+nsize, v2);
+        }
+    }
+
     void DiaMatrix::freeBuffer()
     {
         if (sandwich_buffer != NULL)
