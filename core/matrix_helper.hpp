@@ -145,6 +145,7 @@ namespace mxhelp
         bool isDiaMatrix() const { return is_dia_matrix; };
         void cutBoundary(int i1, int i2);
 
+        void transpose();
         void orderTranspose();
         void oversample(int osamp, double dlambda);
 
