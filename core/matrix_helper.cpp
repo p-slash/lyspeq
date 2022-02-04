@@ -342,7 +342,7 @@ namespace mxhelp
 
     void DiaMatrix::deconvolve(bool byCol)
     {
-        #define HALF_PAD_NO 2
+        #define HALF_PAD_NO 3
         int input_size = ndiags+2*HALF_PAD_NO, *indices = new int[ndiags];
         double *row = new double[input_size];
 
@@ -743,20 +743,24 @@ namespace mxhelp
             double _shift = *std::min_element(row, row+INPUT_SIZE)
                 - nonzero_min_element(row, row+INPUT_SIZE);
 
-            std::for_each(row, row+INPUT_SIZE, 
-                [&](double &f) { f = log(f-_shift); }
-            );
+            std::for_each(row, row+INPUT_SIZE, [&](double &f) { f = log(f-_shift); } );
 
             gsl_interp_init(interp_cubic, win, row, INPUT_SIZE);
 
             std::transform(wout, wout+nelem_per_row, newrow, 
                 [&](const double &l) 
-                    { return gsl_interp_eval(interp_cubic, win, row, l, acc); }
+                { return exp(gsl_interp_eval(interp_cubic, win, row, l, acc)) + _shift; }
             );
 
-            std::for_each(newrow, newrow+nelem_per_row, 
-                [&](double &f) { f = (exp(f)+_shift)/osamp; }
-            );
+            double sum = 0;
+            for (double* first = newrow; first != newrow+nelem_per_row; ++first)
+                sum += *first;
+            for (double* first = newrow; first != newrow+nelem_per_row; ++first)
+                *first /= sum;
+
+            // std::for_each(newrow, newrow+nelem_per_row, 
+            //     [&](double &f) { f = (exp(f)+_shift)/osamp; }
+            // );
 
             gsl_interp_accel_reset(acc);
         }
