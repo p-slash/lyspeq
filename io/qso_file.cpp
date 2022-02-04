@@ -247,7 +247,7 @@ void PiccaFile::_checkStatus()
     if (status)     throw std::runtime_error(std::string(error_msg));
 }
 
-void PiccaFile::readParameters(int &thid, int &N, double &z, int &fwhm_resolution, 
+void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resolution, 
     double &sig2noi, double &dv_kms, double &dlambda, int &oversampling)
 {
     curr_elem_per_row = -1;
@@ -257,7 +257,14 @@ void PiccaFile::readParameters(int &thid, int &N, double &z, int &fwhm_resolutio
     fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
     N = curr_N;
 
-    fits_read_key(fits_file, TINT, "TARGETID", &thid, NULL, &status);
+    fits_read_key(fits_file, TLONG, "TARGETID", &thid, NULL, &status);
+    if (status)
+    {
+        fits_clear_errmsg();
+        status = 0;
+        fits_read_key(fits_file, TLONG, "THING_ID", &thid, NULL, &status);
+    }
+
     fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
 
     double r_kms;
