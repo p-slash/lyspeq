@@ -100,6 +100,8 @@ std::string Logger::getFileName(TYPE::LOG_TYPE lt) const
 
 void Logger::STD(const char *fmt, ...)
 {
+    if (this_pe != 0) return;
+
     va_list args;
     va_start(args, fmt);
 
