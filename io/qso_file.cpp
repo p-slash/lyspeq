@@ -258,6 +258,9 @@ void PiccaFile::readParameters(int &thid, int &N, double &z, int &fwhm_resolutio
     N = curr_N;
 
     fits_read_key(fits_file, TINT, "TARGETID", &thid, NULL, &status);
+    if (status)
+    { status = 0; fits_read_key(fits_file, TINT, "THING_ID", &thid, NULL, &status); }
+
     fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
 
     double r_kms;
