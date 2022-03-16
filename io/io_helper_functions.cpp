@@ -194,7 +194,7 @@ ioh::BootstrapFile::~BootstrapFile()
     fclose(bootfile);
     #endif
 
-    delete [] comp_fisher;
+    delete [] data_buffer;
 }
 
 void ioh::BootstrapFile::writeBoot(const double *pk, const double *fisher)

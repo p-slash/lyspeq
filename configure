@@ -195,6 +195,7 @@ MORECPPFLAGS="${binz_fn} ${en_mpi} ${fisher_opt} ${z_growth}"
 OPENBLAS_DIR=/usr/local/opt/openblas
 OPENBLAS_DIR_APPLE=/opt/homebrew/opt/openblas
 CFITSIO_DIR_APPLE=/opt/homebrew/opt/cfitsio
+FFTW_DIR_APPLE=/opt/homebrew/opt/fftw
 
 case ${SYSTYPE} in
     nersc )
@@ -231,9 +232,9 @@ case ${SYSTYPE} in
     arm-macos-clang-openblas )
         CXX="clang++"
         set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${CFITSIO_DIR_APPLE}/include -I${OPENBLAS_DIR_APPLE}/include"
-        LDFLAGS="${gsl_lib} -L${CFITSIO_DIR_APPLE}/lib -L${OPENBLAS_DIR_APPLE}/lib"
-        LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${CFITSIO_DIR_APPLE}/include -I${OPENBLAS_DIR_APPLE}/include -I${FFTW_DIR_APPLE}/include"
+        LDFLAGS="${gsl_lib} -L${CFITSIO_DIR_APPLE}/lib -L${OPENBLAS_DIR_APPLE}/lib -L${FFTW_DIR_APPLE}/lib"
+        LDLIBS="-lfftw3 -lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
         ;;
     x64-macos-gcc9-openblas )
         CXX="g++-9"
