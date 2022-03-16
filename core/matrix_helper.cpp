@@ -1,4 +1,5 @@
 #include "core/matrix_helper.hpp"
+#include "gsltools/real_field.hpp"
 
 #include <stdexcept>
 #include <algorithm>
@@ -14,9 +15,9 @@
 #include "mkl_lapacke.h"
 #else
 // These three lines somehow fix OpenBLAS compilation error on macos
-#include <complex.h>
-#define lapack_complex_float    float _Complex
-#define lapack_complex_double   double _Complex
+// #include <complex.h>
+// #define lapack_complex_float    float _Complex
+// #define lapack_complex_double   double _Complex
 #include "lapacke.h"
 #endif
 
@@ -319,9 +320,9 @@ namespace mxhelp
         freeBuffer();
     }
 
-    void DiaMatrix::getRow(int i, double *row)
+    void DiaMatrix::_getRowIndices(int i, int *indices)
     {
-        int *indices = new int[ndiags], noff = ndiags/2;
+        int noff = ndiags/2;
         for (int j = ndiags-1; j >= 0; --j)
             indices[ndiags-1-j] = j*ndim+offsets[j]+i;
         if (i < noff)
@@ -330,11 +331,63 @@ namespace mxhelp
         else if (i > ndim-noff-1)
             for (int j = 0; j < i-ndim+noff+1; ++j)
                 indices[ndiags-1-j]=indices[j];
+    }
+
+    void DiaMatrix::getRow(int i, double *row)
+    {
+        int *indices = new int[ndiags];
+        _getRowIndices(i, indices);
 
         for (int j = 0; j < ndiags; ++j)
             row[j] = matrix[indices[j]];
 
         delete [] indices;
+    }
+
+    void DiaMatrix::transpose()
+    {
+        int noff = ndiags/2, nsize;
+        for (int d = 0; d < noff; ++d)
+        {
+            double *v1 = _getDiagonal(d), *v2 = _getDiagonal(ndiags-1-d);
+            nsize = ndim - abs(offsets[d]);
+
+            std::swap_ranges(v1, v1+nsize, v2);
+        }
+    }
+
+    void DiaMatrix::deconvolve(bool byCol)
+    {
+        #define HALF_PAD_NO 3
+        int input_size = ndiags+2*HALF_PAD_NO, *indices = new int[ndiags];
+        double *row = new double[input_size];
+
+        if (byCol)  transpose();
+
+        RealField deconvolver(input_size, 1, row);
+
+        for (int i = 0; i < ndim; ++i)
+        {
+            _getRowIndices(i, indices);
+            for (int p = 0; p < ndiags; ++p)
+                row[p+HALF_PAD_NO] = matrix[indices[p]];
+
+            // Set padded regions to zero
+            for (int p = 0; p < HALF_PAD_NO; ++p)
+            { row[p] = 0;  row[p+ndiags+HALF_PAD_NO] = 0; }
+
+            // deconvolve sinc^-2 factor using fftw
+            deconvolver.deconvolveSinc(1);
+
+            for (int p = 0; p < ndiags; ++p)
+                matrix[indices[p]] = row[p+HALF_PAD_NO];
+        }
+
+        if (byCol)  transpose();
+
+        delete [] indices;
+        delete [] row;
+        #undef HALF_PAD_NO
     }
 
     void DiaMatrix::freeBuffer()
@@ -612,8 +665,8 @@ namespace mxhelp
     Resolution::Resolution(int nm, int ndia) : ncols(nm), 
         osamp_matrix(NULL), temp_highres_mat(NULL), is_dia_matrix(true)
     {
-        dia_matrix   = new DiaMatrix(nm, ndia);
-        values = dia_matrix->matrix;
+        dia_matrix = new DiaMatrix(nm, ndia);
+        values     = dia_matrix->matrix;
     }
 
     Resolution::Resolution(int n1, int nelem_prow, int osamp, double dlambda) :
@@ -621,7 +674,7 @@ namespace mxhelp
     {
         osamp_matrix = new OversampledMatrix(n1, nelem_prow, osamp, dlambda);
         values = osamp_matrix->values;
-        ncols = osamp_matrix->getNCols();
+        ncols  = osamp_matrix->getNCols();
     }
 
     Resolution::~Resolution()
@@ -629,6 +682,44 @@ namespace mxhelp
         freeBuffers();
         delete dia_matrix;
         delete osamp_matrix;
+    }
+
+    void Resolution::cutBoundary(int i1, int i2)
+    {
+        int newsize = i2-i1;
+
+        if (is_dia_matrix)
+        {
+            DiaMatrix *new_dia_matrix = new DiaMatrix(newsize, dia_matrix->ndiags);
+
+            for (int d = 0; d < dia_matrix->ndiags; ++d)
+                std::copy_n(dia_matrix->matrix+(ncols*d)+i1, newsize, 
+                    new_dia_matrix->matrix+newsize*d);
+
+            delete dia_matrix;
+            dia_matrix = new_dia_matrix;
+            values = dia_matrix->matrix;
+            ncols  = newsize;
+        }
+        else
+        {
+            OversampledMatrix *new_osamp_matrix = new OversampledMatrix(newsize, 
+                osamp_matrix->nelem_per_row, osamp_matrix->oversampling, 1);
+            new_osamp_matrix->fine_dlambda = osamp_matrix->fine_dlambda;
+
+            std::copy_n(osamp_matrix->values+(i1*osamp_matrix->nelem_per_row),
+                newsize*osamp_matrix->nelem_per_row, new_osamp_matrix->values);
+
+            delete osamp_matrix;
+            osamp_matrix = new_osamp_matrix;
+            values = osamp_matrix->values;
+            ncols  = osamp_matrix->getNCols();
+        }
+    }
+
+    void Resolution::transpose()
+    {
+        if (is_dia_matrix) dia_matrix->transpose();
     }
 
     void Resolution::orderTranspose()
@@ -640,44 +731,52 @@ namespace mxhelp
     {
         if (!is_dia_matrix) return;
 
+        dia_matrix->deconvolve(true);
+
         int noff = dia_matrix->ndiags/2, nelem_per_row = 2*noff*osamp + 1;
         osamp_matrix = new OversampledMatrix(ncols, nelem_per_row, osamp, dlambda);
 
-        double *win = new double[dia_matrix->ndiags], *wout = new double[nelem_per_row], 
-               *row = new double[dia_matrix->ndiags], *newrow;
+        #define INPUT_SIZE dia_matrix->ndiags
+        double *win = new double[INPUT_SIZE], *wout = new double[nelem_per_row], 
+               *row = new double[INPUT_SIZE], *newrow;
 
-        for (int i = 0; i < dia_matrix->ndiags; ++i)
+        for (int i = 0; i < INPUT_SIZE; ++i)
             win[i] = i-noff;
         for (int i = 0; i < nelem_per_row; ++i)
             wout[i] = i*1./osamp-noff;
 
-        gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, dia_matrix->ndiags);
+        gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, INPUT_SIZE);
         gsl_interp_accel *acc = gsl_interp_accel_alloc();
 
         // ncols == nrows for dia matrix
         for (int i = 0; i < ncols; ++i)
         {
             dia_matrix->getRow(i, row);
+
             newrow = osamp_matrix->values+i*nelem_per_row;
 
             // interpolate log, shift before log
-            double _shift = *std::min_element(row, row+dia_matrix->ndiags)
-                - nonzero_min_element(row, row+dia_matrix->ndiags);
+            double _shift = *std::min_element(row, row+INPUT_SIZE)
+                - nonzero_min_element(row, row+INPUT_SIZE);
 
-            std::for_each(row, row+dia_matrix->ndiags, 
-                [&](double &f) { f = log(f-_shift); }
-            );
+            std::for_each(row, row+INPUT_SIZE, [&](double &f) { f = log(f-_shift); } );
 
-            gsl_interp_init(interp_cubic, win, row, dia_matrix->ndiags);
+            gsl_interp_init(interp_cubic, win, row, INPUT_SIZE);
 
             std::transform(wout, wout+nelem_per_row, newrow, 
                 [&](const double &l) 
-                    { return gsl_interp_eval(interp_cubic, win, row, l, acc); }
+                { return exp(gsl_interp_eval(interp_cubic, win, row, l, acc)) + _shift; }
             );
 
-            std::for_each(newrow, newrow+nelem_per_row, 
-                [&](double &f) { f = (exp(f)+_shift)/osamp; }
-            );
+            double sum = 0;
+            for (double* first = newrow; first != newrow+nelem_per_row; ++first)
+                sum += *first;
+            for (double* first = newrow; first != newrow+nelem_per_row; ++first)
+                *first /= sum;
+
+            // std::for_each(newrow, newrow+nelem_per_row, 
+            //     [&](double &f) { f = (exp(f)+_shift)/osamp; }
+            // );
 
             gsl_interp_accel_reset(acc);
         }
@@ -693,6 +792,7 @@ namespace mxhelp
         delete [] row;
         delete dia_matrix;
         dia_matrix = NULL;
+        #undef INPUT_SIZE
     }
 
     void Resolution::allocateTempHighRes()

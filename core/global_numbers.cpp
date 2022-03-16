@@ -30,7 +30,7 @@ namespace bins
 {
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, DEGREE_OF_FREEDOM;
     double *KBAND_EDGES, *KBAND_CENTERS;
-    double  Z_BIN_WIDTH, *ZBIN_CENTERS, z0_edge;
+    double  Z_BIN_WIDTH, *ZBIN_CENTERS, Z_LOWER_EDGE, Z_UPPER_EDGE;
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0)
     {
@@ -71,7 +71,8 @@ namespace bins
         for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
             ZBIN_CENTERS[zm] = z0 + Z_BIN_WIDTH * zm;
 
-        z0_edge = ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.;
+        Z_LOWER_EDGE = ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.;
+        Z_UPPER_EDGE = ZBIN_CENTERS[NUMBER_OF_Z_BINS-1] + Z_BIN_WIDTH/2.;
     }
 
     void cleanUpBins()
@@ -83,10 +84,10 @@ namespace bins
 
     int findRedshiftBin(double z)
     {
-        if (z < z0_edge)
+        if (z < Z_LOWER_EDGE)
             return -1;
         
-        int r = (z - z0_edge) / Z_BIN_WIDTH;
+        int r = (z - Z_LOWER_EDGE) / Z_BIN_WIDTH;
 
         if (r >= NUMBER_OF_Z_BINS)
             r = NUMBER_OF_Z_BINS;
@@ -298,7 +299,8 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     int N_KLIN_BIN, N_KLOG_BIN, 
         sfid_off=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
         save_pe_res=-1, use_picca_file=-1, use_reso_mat=-1,
-        cache_all_sq=-1;
+        cache_all_sq=-1, noise_smoothing_factor=-1;
+
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="", FNAME_PREFISHER[300]="";
 
@@ -325,6 +327,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("InputIsPicca",   &use_picca_file, INTEGER);
     cFile.addKey("UseResoMatrix",  &use_reso_mat, INTEGER);
     cFile.addKey("OversampleRmat", &specifics::OVERSAMPLING_FACTOR, INTEGER);
+    cFile.addKey("SmoothNoiseWeights", &noise_smoothing_factor, INTEGER);
 
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
@@ -433,6 +436,9 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     // Call after setting bins, because this function checks for consistency.
     if (FNAME_PREFISHER[0] != '\0')
         OneDQuadraticPowerEstimate::readPrecomputedFisher(FNAME_PREFISHER);
+
+    Smoother::setParameters(noise_smoothing_factor);
+    Smoother::setGaussianKernel();
 }
 
 

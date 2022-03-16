@@ -68,7 +68,7 @@ public:
 
     int getNumberSpectra() const {return no_spectra;};
 
-    void readParameters(int &thid, int &N, double &z, int &fwhm_resolution, 
+    void readParameters(long &thid, int &N, double &z, int &fwhm_resolution, 
         double &sig2noi, double &dv_kms, double &dlambda, int &oversampling);
 
     void readData(double *lambda, double *delta, double *noise);
@@ -81,10 +81,12 @@ class QSOFile
     PiccaFile *pfile;
     BQFile *bqfile;
 
+    double *wave_head, *delta_head, *noise_head;
 public:
     std::string fname;
     double z_qso, snr, dv_kms, dlambda;
-    int id, size, R_fwhm, oversampling;
+    long id;
+    int size, R_fwhm, oversampling;
     double *wave, *delta, *noise;
     mxhelp::Resolution *Rmat;
 
@@ -95,6 +97,11 @@ public:
     void readParameters();
 
     void readData();
+
+    // This is just a pointer shift for w,d,e. Rmat is copied
+    // returns new size
+    int cutBoundary(double z_lower_edge, double z_upper_edge);
+
     void readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed);
     void readAllocResolutionMatrix();
 };

@@ -53,6 +53,9 @@ namespace mxhelp
     {
         double* _getDiagonal(int d);
         double* sandwich_buffer;
+
+        void _getRowIndices(int i, int *indices);
+
     public:
         int ndim, ndiags, size;
         int *offsets;
@@ -62,6 +65,10 @@ namespace mxhelp
         ~DiaMatrix();
 
         void getRow(int i, double *row);
+        // Swap diagonals
+        void transpose();
+        void deconvolve(bool byCol);
+
         void freeBuffer();
         void constructGaussian(double *v, double R_kms, double a_kms);
         void fprintfMatrix(const char *fname);
@@ -83,14 +90,13 @@ namespace mxhelp
 
     class OversampledMatrix
     {
-        // int *indices, *iptrs;
-        int nrows, ncols, nvals;//, nptrs;
-        int nelem_per_row, oversampling;
-        double fine_dlambda, *sandwich_buffer;
+        double *sandwich_buffer;
 
         double* _getRow(int i);
     public:
-        double *values, *temp_highres_mat;
+        int nrows, ncols, nvals;
+        int nelem_per_row, oversampling;
+        double fine_dlambda, *values, *temp_highres_mat;
 
         // n1 : Number of rows.
         // nelem_prow : Number of elements per row. Should be odd.
@@ -145,7 +151,9 @@ namespace mxhelp
 
         int getNCols() const { return ncols; };
         bool isDiaMatrix() const { return is_dia_matrix; };
+        void cutBoundary(int i1, int i2);
 
+        void transpose();
         void orderTranspose();
         void oversample(int osamp, double dlambda);
 
