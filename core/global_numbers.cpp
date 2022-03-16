@@ -15,7 +15,7 @@ namespace process
     char TMP_FOLDER[300] = ".";
     double MEMORY_ALLOC  = 0;
     SQLookupTable *sq_private_table;
-    bool SAVE_EACH_SPEC_RESULT = false;
+    bool SAVE_EACH_PE_RESULT = false;
     bool SAVE_ALL_SQ_FILES = false;
 
     void updateMemory(double deltamem)
@@ -297,7 +297,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
 {
     int N_KLIN_BIN, N_KLOG_BIN, 
         sfid_off=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
-        save_spec_res=-1, use_picca_file=-1, use_reso_mat=-1,
+        save_pe_res=-1, use_picca_file=-1, use_reso_mat=-1,
         cache_all_sq=-1;
     double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
     char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="", FNAME_PREFISHER[300]="";
@@ -329,7 +329,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
 
-    cFile.addKey("SaveEachSpectrumResult", &save_spec_res, INTEGER);
+    cFile.addKey("SaveEachProcessResult", &save_pe_res, INTEGER);
 
     cFile.addKey("SignalLookUpTableBase",       FILEBASE_S, STRING);
     cFile.addKey("DerivativeSLookUpTableBase",  FILEBASE_Q, STRING);
@@ -383,7 +383,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     specifics::USE_RESOLUTION_MATRIX= use_reso_mat > 0;
     conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
     conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
-    process::SAVE_EACH_SPEC_RESULT  = save_spec_res > 0;
+    process::SAVE_EACH_PE_RESULT    = save_pe_res > 0;
     process::SAVE_ALL_SQ_FILES      = cache_all_sq > 0;
 
     if (use_picca_file>0)

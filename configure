@@ -186,6 +186,7 @@ done
 MORECPPFLAGS="${binz_fn} ${en_mpi} ${fisher_opt} ${z_growth}"
 
 OPENBLAS_DIR=/usr/local/opt/openblas
+OPENBLAS_DIR_APPLE=/opt/homebrew/opt/openblas
 
 case ${SYSTYPE} in
     GNU_XE18MKL|x64-linux-gnu-mklxe18 )
@@ -204,11 +205,18 @@ case ${SYSTYPE} in
         LDFLAGS="-L${MKLROOT}/lib/intel64 ${gsl_lib}"
         LDLIBS="-lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl -lcfitsio"
         ;;
-    clang_openblas|x64-macos-clang-openblas )
+    x64-macos-clang-openblas )
         CXX="clang++"
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${OPENBLAS_DIR}/include"
         LDFLAGS="${gsl_lib} -L${OPENBLAS_DIR}/lib"
+        LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
+        ;;
+    arm-macos-clang-openblas )
+        CXX="clang++"
+        set_omp_flags
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${OPENBLAS_DIR_APPLE}/include"
+        LDFLAGS="${gsl_lib} -L${OPENBLAS_DIR_APPLE}/lib"
         LDLIBS="-lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
         ;;
     x64-macos-gcc9-openblas )

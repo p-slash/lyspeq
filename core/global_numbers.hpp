@@ -20,7 +20,7 @@ namespace process
     extern char TMP_FOLDER[300];
     extern double MEMORY_ALLOC;
     extern SQLookupTable *sq_private_table;
-    extern bool SAVE_EACH_SPEC_RESULT;
+    extern bool SAVE_EACH_PE_RESULT;
     extern bool SAVE_ALL_SQ_FILES;
 
     void updateMemory(double deltamem);

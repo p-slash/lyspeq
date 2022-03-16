@@ -36,6 +36,7 @@ class OneDQuadraticPowerEstimate
     bool isFisherInverted;
 
     void _readQSOFiles(const char *fname_list, const char *dir);
+    void _savePEResult();
 
     // The next 2 functions call Python scripts.
     // Intermadiate files are saved in TMP_FOLDER (read as TemporaryFolder in config file)

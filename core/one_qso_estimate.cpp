@@ -590,9 +590,9 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate,
             mxhelp::vector_add(dbt_sum_vector[dbt_i], 
                 dbt_estimate_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS);
 
-        // Write results to file with their qso filename as base
-        if (process::SAVE_EACH_SPEC_RESULT)
-            _saveIndividualResult();
+        // // Write results to file with their qso filename as base
+        // if (process::SAVE_EACH_SPEC_RESULT)
+        //     _saveIndividualResult();
     }
     catch (std::exception& e)
     {
@@ -675,24 +675,24 @@ void OneQSOEstimate::_freeMatrices()
     isSfidSet = false;
 }
 
-void OneQSOEstimate::_saveIndividualResult()
-{
-    mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], 
-        dbt_estimate_before_fisher_vector[1], bins::TOTAL_KZ_BINS);
-    mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], 
-        dbt_estimate_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
+// void OneQSOEstimate::_saveIndividualResult()
+// {
+//     mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], 
+//         dbt_estimate_before_fisher_vector[1], bins::TOTAL_KZ_BINS);
+//     mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], 
+//         dbt_estimate_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
 
-    try
-    {
-        ioh::boot_saver->writeBoot(qFile->id, 
-            dbt_estimate_before_fisher_vector[0], fisher_matrix);
-    }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR("ERROR: Saving individual results: %s\n", 
-            qFile->fname.c_str());
-    }   
-}
+//     try
+//     {
+//         ioh::boot_saver->writeBoot(qFile->id, 
+//             dbt_estimate_before_fisher_vector[0], fisher_matrix);
+//     }
+//     catch (std::exception& e)
+//     {
+//         LOG::LOGGER.ERR("ERROR: Saving individual results: %s\n", 
+//             qFile->fname.c_str());
+//     }
+// }
 
 void OneQSOEstimate::fprintfMatrices(const char *fname_base)
 {
