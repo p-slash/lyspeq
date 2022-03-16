@@ -67,7 +67,7 @@ namespace mxhelp
         void getRow(int i, double *row);
         // Swap diagonals
         void transpose();
-        void deconvolve(bool byCol);
+        void deconvolve(double m); // bool byCol
 
         void freeBuffer();
         void constructGaussian(double *v, double R_kms, double a_kms);
@@ -155,6 +155,7 @@ namespace mxhelp
 
         void transpose();
         void orderTranspose();
+        void deconvolve(double m);
         void oversample(int osamp, double dlambda);
 
         // Manually create and set temp_highres_mat
