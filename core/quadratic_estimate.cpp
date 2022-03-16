@@ -393,12 +393,12 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
             #endif
         }
 
+        // Save bootstrap files only if MPI is enabled.
+        #if defined(ENABLE_MPI)
         // Save PE estimates to a file
         if (process::SAVE_EACH_PE_RESULT)
             _savePEResult();
 
-        // All reduce if MPI is enabled
-        #if defined(ENABLE_MPI)
         MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, (FISHER_SIZE),
             MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         
@@ -711,6 +711,7 @@ void OneDQuadraticPowerEstimate::readPrecomputedFisher(const char *fname)
             " correct number of rows or columns.");
 }
 
+#if defined(ENABLE_MPI)
 void OneDQuadraticPowerEstimate::_savePEResult()
 {
     double *tmppower = new double[bins::TOTAL_KZ_BINS];
@@ -730,6 +731,7 @@ void OneDQuadraticPowerEstimate::_savePEResult()
         LOG::LOGGER.ERR("ERROR: Saving PE results: %d\n", process::this_pe);
     }
 }
+#endif
 
 /* 
 -----------------------------------------------

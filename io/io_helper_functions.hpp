@@ -34,16 +34,13 @@ namespace ioh
     // Returns number of elements
     int readListRdv(const char *fname, std::vector<std::pair<int, double>> &list_values);
 
-    // Saves results to outdir/bootresults-{this_pe}.dat
+    #if defined(ENABLE_MPI)
+    // Saves results to outdir/bootresults.dat
     // Fisher matrix is compressed, only saved upper 2Nk diagonals.
     // This is the 3 diagonal when FISHER_OPTIMIZATION is on.
     class BootstrapFile
     {
-        #if defined(ENABLE_MPI)
         MPI_File bootfile;
-        #else
-        FILE *bootfile;
-        #endif
 
     public:
         BootstrapFile(const char *outdir);
@@ -53,6 +50,7 @@ namespace ioh
     };
 
     extern BootstrapFile *boot_saver;
+    #endif
 }
 
 #endif

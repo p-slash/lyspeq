@@ -63,10 +63,10 @@ int main(int argc, char *argv[])
     try
     {
         LOG::LOGGER.open(OUTPUT_DIR, process::this_pe);
-        if (process::SAVE_EACH_PE_RESULT)
-            ioh::boot_saver = new ioh::BootstrapFile(OUTPUT_DIR);
 
         #if defined(ENABLE_MPI)
+        if (process::SAVE_EACH_PE_RESULT)
+            ioh::boot_saver = new ioh::BootstrapFile(OUTPUT_DIR);
         MPI_Barrier(MPI_COMM_WORLD);
         #endif
 
@@ -109,9 +109,9 @@ int main(int argc, char *argv[])
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
         bins::cleanUpBins();
-        delete ioh::boot_saver;
 
         #if defined(ENABLE_MPI)
+        delete ioh::boot_saver;
         MPI_Abort(MPI_COMM_WORLD, 1);
         #endif
 
@@ -128,9 +128,9 @@ int main(int argc, char *argv[])
         bins::cleanUpBins();
 
         delete process::sq_private_table;
-        delete ioh::boot_saver;
 
         #if defined(ENABLE_MPI)
+        delete ioh::boot_saver;
         MPI_Abort(MPI_COMM_WORLD, 1);
         #endif
         
@@ -155,9 +155,9 @@ int main(int argc, char *argv[])
 
         delete qps;
         delete process::sq_private_table;
-        delete ioh::boot_saver;
         bins::cleanUpBins();
         #if defined(ENABLE_MPI)
+        delete ioh::boot_saver;
         MPI_Abort(MPI_COMM_WORLD, 1);
         #endif
         
@@ -166,11 +166,11 @@ int main(int argc, char *argv[])
     
     delete qps;
     delete process::sq_private_table;
-    delete ioh::boot_saver;
 
     bins::cleanUpBins();
 
     #if defined(ENABLE_MPI)
+    delete ioh::boot_saver;
     MPI_Finalize();
     #endif
 
