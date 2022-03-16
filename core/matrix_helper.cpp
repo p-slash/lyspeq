@@ -356,13 +356,13 @@ namespace mxhelp
         }
     }
 
-    void DiaMatrix::deconvolve(bool byCol)
+    void DiaMatrix::deconvolve(double m) //bool byCol
     {
-        #define HALF_PAD_NO 3
+        #define HALF_PAD_NO 5
         int input_size = ndiags+2*HALF_PAD_NO, *indices = new int[ndiags];
         double *row = new double[input_size];
 
-        if (byCol)  transpose();
+        // if (byCol)  transpose();
 
         RealField deconvolver(input_size, 1, row);
 
@@ -377,13 +377,13 @@ namespace mxhelp
             { row[p] = 0;  row[p+ndiags+HALF_PAD_NO] = 0; }
 
             // deconvolve sinc^-2 factor using fftw
-            deconvolver.deconvolveSinc(1);
+            deconvolver.deconvolveSinc(m);
 
             for (int p = 0; p < ndiags; ++p)
                 matrix[indices[p]] = row[p+HALF_PAD_NO];
         }
 
-        if (byCol)  transpose();
+        // if (byCol)  transpose();
 
         delete [] indices;
         delete [] row;
@@ -731,8 +731,6 @@ namespace mxhelp
     {
         if (!is_dia_matrix) return;
 
-        dia_matrix->deconvolve(true);
-
         int noff = dia_matrix->ndiags/2, nelem_per_row = 2*noff*osamp + 1;
         osamp_matrix = new OversampledMatrix(ncols, nelem_per_row, osamp, dlambda);
 
@@ -793,6 +791,11 @@ namespace mxhelp
         delete dia_matrix;
         dia_matrix = NULL;
         #undef INPUT_SIZE
+    }
+
+    void Resolution::deconvolve(double m)
+    {
+        if (is_dia_matrix) dia_matrix->deconvolve(m);
     }
 
     void Resolution::allocateTempHighRes()

@@ -4,9 +4,10 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ `ResoMatDeconvolutionM (double)` option is added to config file. It deconvolves the resolution matrix with this value if >0. Should be around 1.
 + `SaveEachSpectrumResult` is changed to `SaveEachProcessResult`. This would constrain bootstrap estimation to subsamples determined by the number of processors, but save a lot space and coding.
 + Deconvolution of sinc added while oversampling using `FFTW` package. This deconvolution is needed because resolution matrix is downsampled in 2D.
-+ Implemented a 'Smoother' class in QuadraticEstimate. `SmoothNoiseWeights` option is added to config file. If 0, qmle uses the mean noise in covariance matrix as weights. For >0, a Gaussian kernel with sigma equals to this value is applied to the noise. For <0, smoothing is turned off.
++ Implemented a 'Smoother' class in QuadraticEstimate. `SmoothNoiseWeights (int)` option is added to config file. If 0, qmle uses the mean noise in covariance matrix as weights. For >0, a Gaussian kernel with sigma equals to this value is applied to the noise. For <0, smoothing is turned off.
 + Pixels in each spectrum is cut below and above the redshift range. Short spectra (Npix < 20) are skipped.
 + Each PE saves its own bootstrap results into one file.
 + Logging only on pe==0. Moved io to std and removed io log.
