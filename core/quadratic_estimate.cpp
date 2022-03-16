@@ -714,12 +714,12 @@ void OneDQuadraticPowerEstimate::readPrecomputedFisher(const char *fname)
 void OneDQuadraticPowerEstimate::_savePEResult()
 {
     double *tmppower = new double[bins::TOTAL_KZ_BINS];
-    std::copy(dbt_estimate_before_fisher_vector[0], 
-        dbt_estimate_before_fisher_vector[0]+bins::TOTAL_KZ_BINS, 
+    std::copy(dbt_estimate_sum_before_fisher_vector[0], 
+        dbt_estimate_sum_before_fisher_vector[0]+bins::TOTAL_KZ_BINS, 
         tmppower);
 
-    mxhelp::vector_sub(tmppower, dbt_estimate_before_fisher_vector[1], bins::TOTAL_KZ_BINS);
-    mxhelp::vector_sub(tmppower, dbt_estimate_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(tmppower, dbt_estimate_sum_before_fisher_vector[1], bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(tmppower, dbt_estimate_sum_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
 
     try
     {

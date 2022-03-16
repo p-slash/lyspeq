@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
     try
     {
         LOG::LOGGER.open(OUTPUT_DIR, process::this_pe);
-        if (process::SAVE_EACH_SPEC_RESULT)
+        if (process::SAVE_EACH_PE_RESULT)
             ioh::boot_saver = new ioh::BootstrapFile(OUTPUT_DIR);
 
         #if defined(ENABLE_MPI)
