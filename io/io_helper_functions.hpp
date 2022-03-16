@@ -7,6 +7,10 @@
 #include <complex>
 #include <vector>
 
+#if defined(ENABLE_MPI)
+#include "mpi.h" 
+#endif
+
 namespace ioh
 {
     bool file_exists(const char *fname);
@@ -35,12 +39,17 @@ namespace ioh
     // This is the 3 diagonal when FISHER_OPTIMIZATION is on.
     class BootstrapFile
     {
+        #if defined(ENABLE_MPI)
+        MPI_File bootfile;
+        #else
         FILE *bootfile;
+        #endif
+
     public:
         BootstrapFile(const char *outdir);
         ~BootstrapFile();
 
-        void writeBoot(int thingid, double *pk, double *fisher);
+        void writeBoot(const double *pk, const double *fisher);
     };
 
     extern BootstrapFile *boot_saver;

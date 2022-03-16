@@ -374,15 +374,13 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
     for (int i = 0; i < number_of_iterations; i++)
     {
         LOG::LOGGER.STD("Iteration number %d of %d.\n", i+1, number_of_iterations);
-        
         total_time_1it = mytime::timer.getTime();
     
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
         // Calculation for each spectrum
-        for (std::vector<OneQSOEstimate>::iterator it = local_queue.begin(); 
-            it != local_queue.end(); ++it)
+        for (auto it = local_queue.begin(); it != local_queue.end(); ++it)
         {
             it->oneQSOiteration(powerspectra_fits, 
                 dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
@@ -394,6 +392,10 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
             throw std::runtime_error("DEBUGGING QUIT.");
             #endif
         }
+
+        // Save PE estimates to a file
+        if (process::SAVE_EACH_PE_RESULT)
+            _savePEResult();
 
         // All reduce if MPI is enabled
         #if defined(ENABLE_MPI)
@@ -709,7 +711,25 @@ void OneDQuadraticPowerEstimate::readPrecomputedFisher(const char *fname)
             " correct number of rows or columns.");
 }
 
+void OneDQuadraticPowerEstimate::_savePEResult()
+{
+    double *tmppower = new double[bins::TOTAL_KZ_BINS];
+    std::copy(dbt_estimate_before_fisher_vector[0], 
+        dbt_estimate_before_fisher_vector[0]+bins::TOTAL_KZ_BINS, 
+        tmppower);
 
+    mxhelp::vector_sub(tmppower, dbt_estimate_before_fisher_vector[1], bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(tmppower, dbt_estimate_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
+
+    try
+    {
+        ioh::boot_saver->writeBoot(tmppower, fisher_matrix_sum);
+    }
+    catch (std::exception& e)
+    {
+        LOG::LOGGER.ERR("ERROR: Saving PE results: %d\n", process::this_pe);
+    }
+}
 
 
 
