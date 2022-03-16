@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ `SaveEachSpectrumResult` is changed to `SaveEachProcessResult`. This would constrain bootstrap estimation to subsamples determined by the number of processors, but save a lot space and coding.
 + Deconvolution of sinc added while oversampling using `FFTW` package. This deconvolution is needed because resolution matrix is downsampled in 2D.
 + Implemented a 'Smoother' class in QuadraticEstimate. `SmoothNoiseWeights` option is added to config file. If 0, qmle uses the mean noise in covariance matrix as weights. For >0, a Gaussian kernel with sigma equals to this value is applied to the noise. For <0, smoothing is turned off.
 + Pixels in each spectrum is cut below and above the redshift range. Short spectra (Npix < 20) are skipped.
@@ -162,9 +163,9 @@ List of spectograph resolutions and pixel spacings (R [int], dv [double]) is in 
 
     FileNameRList     ./data/qso_dir/specres_list.txt
 
-You can save individual results for each spectra by setting this to 1.
+You can save individual results for each process by setting this to 1.
 
-    SaveEachSpectrumResult 0
+    SaveEachProcessResult 0
 
 These lookup tables are saved with the follwoing file name bases to `OutputDir`:
 
@@ -199,7 +200,7 @@ If your files have flux fluctuations, set the following to 1. This overrides all
 Quasar Spectrum File
 ====
 ## Binary format
-It starts with a header (see [QSOFile](io/qso_file.hpp)), then has wavelength, fluctuations and noise in double arrays. A Python script is added to help conversion between different formats (see [BinaryQSO](py/binary_qso.py)). When using this format, end files with `.dat` or `.bin` extensions. This secures compatibility for `SaveEachSpectrumResult` option.
+It starts with a header (see [QSOFile](io/qso_file.hpp)), then has wavelength, fluctuations and noise in double arrays. A Python script is added to help conversion between different formats (see [BinaryQSO](py/binary_qso.py)). When using this format, end files with `.dat` or `.bin` extensions.
 
 ## Picca format
 When using this format, construct the file list using HDU numbers of each chunk. E.g., for the third spectrum, use picca-delta-100.fits.gz[3]. This is what filename list should look like:
@@ -208,8 +209,6 @@ When using this format, construct the file list using HDU numbers of each chunk.
     picca-delta-100.fits.gz[1]
     picca-delta-100.fits.gz[2]
     picca-delta-100.fits.gz[3]
-
-Then, `SaveEachSpectrumResult` saves results as `picca-delta-100-1_Fp.bin` for bootstrapping.
 
 **Following keys are read from the header:**
 
@@ -234,4 +233,14 @@ Then, `SaveEachSpectrumResult` saves results as `picca-delta-100-1_Fp.bin` for b
 
 Bootstrap file output
 ===
-When `SaveEachSpectrumResult 1` is passed in the config file, individual results from each spectrum will be saved into files `OutputDir`. A processor `pe` will create a `bootresults-{pe}.dat` file. This file is in binary format. It starts with two integers for `Nk, Nz` and another integer for `ndiags`. Each results is then given in the following order: `TargetID (int), CompressedFisherMatrix (cf_size double), Pk (N double)`. Only the upper diagonals (starting with the main) of the Fisher matrix is saved in order to save space. Note this `Pk` value is before multiplication by fisher inverse. Normally, `cf_size = TOTAL_KZ_BINS*ndiags - (ndiags*(ndiags-1))/2` and `ndiags=2*NUMBER_OF_K_BANDS`. When compiled with `FISHER_OPTIMIZATION` option, `ndiags=3` and `cf_size = 3*TOTAL_KZ_BINS-NUMBER_OF_K_BANDS-1`.
+When `SaveEachProcessResult 1` is passed in the config file, individual results from each process will be saved into files `OutputDir`. All results will be saved to `bootresults.dat`. This file is in binary format. It starts with two integers for `Nk, Nz` and another integer for `ndiags`. Each result is then a double array of size `cf_size+N` in which `Pk` is the first `N=Nk*Nz` element, and `CompressedFisherMatrix` is in the remaining part. Only the upper diagonals (starting with the main) of the Fisher matrix is saved in order to save space. Note this `Pk` value is before multiplication by fisher inverse. Normally, `cf_size = TOTAL_KZ_BINS*ndiags - (ndiags*(ndiags-1))/2` and `ndiags=2*NUMBER_OF_K_BANDS`. When compiled with `FISHER_OPTIMIZATION` option, `ndiags=3` and `cf_size = 3*TOTAL_KZ_BINS-NUMBER_OF_K_BANDS-1`.
+
+
+
+
+
+
+
+
+
+

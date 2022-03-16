@@ -159,9 +159,9 @@ ioh::BootstrapFile::BootstrapFile(const char *outdir)
 {
     int r=0;
     std::ostringstream oss_fname(outdir, std::ostringstream::ate);
+    oss_fname << "/bootresults.dat";
 
     #if defined(ENABLE_MPI)
-    oss_fname << "/bootresults.dat";
     r += MPI_File_open(MPI_COMM_WORLD, oss_fname.str().c_str(), 
         MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &bootfile);
 
@@ -172,7 +172,6 @@ ioh::BootstrapFile::BootstrapFile(const char *outdir)
         r += MPI_File_write(bootfile, &NDIAGS, 1, MPI_INT, MPI_STATUS_IGNORE);
     }
     #else
-    oss_fname << "/bootresults-" << process::this_pe << ".dat";
     bootfile = ioh::open_file(oss_fname.str().c_str(), "wb");
 
     r += fwrite(&bins::NUMBER_OF_K_BANDS, sizeof(int), 1, bootfile)-1;
