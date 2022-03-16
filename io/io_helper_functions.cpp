@@ -9,11 +9,6 @@
 #include <new>
 #include <stdexcept>
 
-namespace ioh
-{
-    BootstrapFile *boot_saver = NULL;
-}
-
 bool ioh::file_exists(const char *fname)
 {
     FILE *toCheck;
@@ -143,6 +138,18 @@ int ioh::readListRdv(const char *fname, std::vector<std::pair<int, double>> &lis
     return nr;
 }
 
+/* 
+-----------------------------------------------
+------------- BootstrapFile Class -------------
+----------------------------------------------- 
+*/
+
+#if defined(ENABLE_MPI)
+namespace ioh
+{
+    BootstrapFile *boot_saver = NULL;
+}
+
 #ifdef FISHER_OPTIMIZATION
 int NDIAGS  = 3;
 int CF_SIZE = 3*bins::TOTAL_KZ_BINS-bins::NUMBER_OF_K_BANDS-1;
@@ -161,7 +168,6 @@ ioh::BootstrapFile::BootstrapFile(const char *outdir)
     std::ostringstream oss_fname(outdir, std::ostringstream::ate);
     oss_fname << "/bootresults.dat";
 
-    #if defined(ENABLE_MPI)
     r += MPI_File_open(MPI_COMM_WORLD, oss_fname.str().c_str(), 
         MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &bootfile);
 
@@ -171,13 +177,13 @@ ioh::BootstrapFile::BootstrapFile(const char *outdir)
         r += MPI_File_write(bootfile, &bins::NUMBER_OF_Z_BINS, 1, MPI_INT, MPI_STATUS_IGNORE);
         r += MPI_File_write(bootfile, &NDIAGS, 1, MPI_INT, MPI_STATUS_IGNORE);
     }
-    #else
-    bootfile = ioh::open_file(oss_fname.str().c_str(), "wb");
+    // #else
+    // bootfile = ioh::open_file(oss_fname.str().c_str(), "wb");
 
-    r += fwrite(&bins::NUMBER_OF_K_BANDS, sizeof(int), 1, bootfile)-1;
-    r += fwrite(&bins::NUMBER_OF_Z_BINS, sizeof(int), 1, bootfile)-1;
-    r += fwrite(&NDIAGS, sizeof(int), 1, bootfile)-1;
-    #endif
+    // r += fwrite(&bins::NUMBER_OF_K_BANDS, sizeof(int), 1, bootfile)-1;
+    // r += fwrite(&bins::NUMBER_OF_Z_BINS, sizeof(int), 1, bootfile)-1;
+    // r += fwrite(&NDIAGS, sizeof(int), 1, bootfile)-1;
+    // #endif
 
     if (r != 0) 
         throw std::runtime_error("Bootstrap file first Nk write.");
@@ -185,16 +191,7 @@ ioh::BootstrapFile::BootstrapFile(const char *outdir)
     data_buffer = new double[ELEMS_COUNT];
 }
 
-ioh::BootstrapFile::~BootstrapFile() 
-{
-    #if defined(ENABLE_MPI)
-    MPI_File_close(&bootfile);
-    #else
-    fclose(bootfile);
-    #endif
-
-    delete [] data_buffer;
-}
+ioh::BootstrapFile::~BootstrapFile() { MPI_File_close(&bootfile); delete [] data_buffer; }
 
 void ioh::BootstrapFile::writeBoot(const double *pk, const double *fisher)
 {
@@ -212,18 +209,15 @@ void ioh::BootstrapFile::writeBoot(const double *pk, const double *fisher)
         v += bins::TOTAL_KZ_BINS-d;
     }
 
-    #if defined(ENABLE_MPI)
     // Offset is the header first three integer plus shift by PE
     MPI_Offset offset = 3*sizeof(int) + process::this_pe*ELEMS_COUNT*sizeof(double);
     r += MPI_File_write_at_all(bootfile, offset, data_buffer,
         ELEMS_COUNT, MPI_DOUBLE, MPI_STATUS_IGNORE)
-    #else
-    r += fwrite(data_buffer, sizeof(double), ELEMS_COUNT, bootfile)-ELEMS_COUNT;
-    #endif
-
+    // r += fwrite(data_buffer, sizeof(double), ELEMS_COUNT, bootfile)-ELEMS_COUNT;
     if (r != 0)
         throw std::runtime_error("Bootstrap write one results.");
 }
+#endif
 
 // void ioh::BootstrapFile::writeBoot(int thingid, double *pk, double *fisher)
 // {

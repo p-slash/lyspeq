@@ -398,12 +398,17 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
         throw std::invalid_argument("Resolution matrix is only supported with picca files."
             " Add 'InputIsPicca 1' to config file if so.");
 
+    #if !defined(ENABLE_MPI)
+    if (process::SAVE_EACH_PE_RESULT)
+        throw std::invalid_argument("Bootstrap saving only supported when compiled with MPI.");
+    #endif
+
     // resolve conflict: Input delta flux overrides all
     // Then, chunk means.
     if (conv::INPUT_IS_DELTA_FLUX && conv::FLUX_TO_DELTAF_BY_CHUNKS)
     {
-        LOG::LOGGER.ERR("Both input delta flux and conversion using chunk's mean flux is turned on. "
-            "Assuming input is flux fluctuations delta_f.\n");
+        LOG::LOGGER.ERR("Both input delta flux and conversion using chunk's mean "
+            "flux is turned on. Assuming input is flux fluctuations delta_f.\n");
         conv::FLUX_TO_DELTAF_BY_CHUNKS = false;
     }
 
