@@ -91,7 +91,7 @@ class Smoother
 
     static int sigmapix;
     static double gaussian_kernel[KS];
-    static bool isKernelSet, useMeanNoise, isSmoothingOn;
+    static bool isKernelSet, useMedianNoise, isSmoothingOn;
 
 public:
     static void setParameters(int noisefactor);
