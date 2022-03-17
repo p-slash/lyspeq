@@ -753,7 +753,7 @@ void _findMedianStatistics(double *arr, int size, double &median, double &mad)
 
 int Smoother::sigmapix;
 double Smoother::gaussian_kernel[KS];
-bool Smoother::isKernelSet = false, Smoother::useMeanNoise = false, Smoother::isSmoothingOn = false;
+bool Smoother::isKernelSet = false, Smoother::useMedianNoise = false, Smoother::isSmoothingOn = false;
 
 void Smoother::setParameters(int noisefactor)
 {
@@ -763,14 +763,14 @@ void Smoother::setParameters(int noisefactor)
     if (noisefactor >= 0) 
         Smoother::isSmoothingOn = true;
     if (noisefactor == 0)
-        Smoother::useMeanNoise = true;
+        Smoother::useMedianNoise = true;
 
     Smoother::sigmapix = noisefactor;
 }
 
 void Smoother::setGaussianKernel()
 {
-    if (Smoother::isKernelSet || !Smoother::isSmoothingOn || Smoother::useMeanNoise)
+    if (Smoother::isKernelSet || !Smoother::isSmoothingOn || Smoother::useMedianNoise)
         return;
 
     double sum=0, *g = &Smoother::gaussian_kernel[0];
@@ -794,55 +794,54 @@ void Smoother::smoothNoise(const double *n2, double *out, int size)
         return;
     }
 
-    // Isolate masked pixels as they have high noise
-    std::vector<std::pair<int, double>> mask;
-    double *padded_noise = new double[size+2*HWSIZE];
-    double mean_noise = 0, median, mad;
+    double median, mad;
 
     // convert square of noise to noise
     std::transform(n2, n2+size, out, [](double x2) { return sqrt(x2); });
     _findMedianStatistics(out, size, median, mad);
 
+    if (Smoother::useMedianNoise)
+    {
+        std::fill_n(out, size, median*median);
+        return;
+    }
+
+    // Isolate masked pixels as they have high noise
+    std::vector<int> mask_idx;
+    double *padded_noise = new double[size+2*HWSIZE];
+
     for (int i = 0; i < size; ++i)
     {
+        double n = sqrt(n2[i]);
         // n->0 should be smoothed
-        if (sqrt(n2[i])-median > 3.5*mad)
-            mask.push_back(std::make_pair(i, n2[i]));
+        if ((n-median) > 3.5*mad)
+            mask_idx.push_back(i);
         else
-        {
-            mean_noise += n2[i];
-            padded_noise[i+HWSIZE] = n2[i];
-        }
+            padded_noise[i+HWSIZE] = n;
     }
 
-    mean_noise /= (size-mask.size());
-
-    if (Smoother::useMeanNoise)
+    // Replace their values with median noise
+    for (auto it = mask_idx.begin(); it != mask_idx.end(); ++it)
+        padded_noise[*it+HWSIZE] = median;
+    // Pad array by the edge values
+    for (int i = 0; i < HWSIZE; ++i)
     {
-        std::fill_n(out, size, mean_noise);
+        padded_noise[i] = padded_noise[HWSIZE];
+        padded_noise[i+HWSIZE+size] = padded_noise[HWSIZE+size-1];
     }
-    else
-    {
-        // Replace their values with mean noise
-        for (auto it = mask.begin(); it != mask.end(); ++it)
-            padded_noise[it->first+HWSIZE] = mean_noise;
-        // Pad array by the edge values
-        for (int i = 0; i < HWSIZE; ++i)
-        {
-            padded_noise[i] = padded_noise[HWSIZE];
-            padded_noise[i+HWSIZE+size] = padded_noise[HWSIZE+size-1];
-        }
 
-        // Convolve
-        std::fill_n(out, size, 0);
-        for (int i = 0; i < size; ++i)
-            for (int m = 0; m < KS; ++m)
-                out[i] += Smoother::gaussian_kernel[m]*padded_noise[m+i];
+    // Convolve
+    std::fill_n(out, size, 0);
+    for (int i = 0; i < size; ++i)
+    {
+        for (int m = 0; m < KS; ++m)
+            out[i] += Smoother::gaussian_kernel[m]*padded_noise[m+i];
+        out[i] *= out[i];
     }
 
     // Restore original noise for masked pixels
-    for (auto it = mask.begin(); it != mask.end(); ++it)
-        out[it->first] = it->second;
+    for (auto it = mask_idx.begin(); it != mask_idx.end(); ++it)
+        out[*it] = n2[*it];
 
     delete [] padded_noise;
 }
