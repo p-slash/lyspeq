@@ -385,27 +385,6 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     Smoother::smoothNoise(qFile->noise, smooth_noise, qFile->size);
     cblas_daxpy(qFile->size, 1., smooth_noise, 1, covariance_matrix, qFile->size+1);
     delete [] smooth_noise;
-
-    if (specifics::CONTINUUM_MARGINALIZATION_AMP > 0)
-    {
-        std::for_each(covariance_matrix, covariance_matrix + DATA_SIZE_2, 
-            [&](double &c) { c += specifics::CONTINUUM_MARGINALIZATION_AMP; });
-    }
-
-    if (specifics::CONTINUUM_MARGINALIZATION_DERV > 0)
-    {
-        double *temp_t_vector = new double[qFile->size];
-        // double MEDIAN_LAMBDA = LYA_REST * (1 + MEDIAN_REDSHIFT);
-
-        std::transform(qFile->wave, qFile->wave+qFile->size, temp_t_vector, 
-            [](const double &l) { return log(l/LYA_REST); });
-
-        cblas_dger(CblasRowMajor, qFile->size, qFile->size, 
-            specifics::CONTINUUM_MARGINALIZATION_DERV, 
-            temp_t_vector, 1, temp_t_vector, 1, covariance_matrix, qFile->size);
-
-        delete [] temp_t_vector;
-    }
     
     isCovInverted = false;
 }
@@ -425,6 +404,33 @@ void OneQSOEstimate::invertCovarianceMatrix()
     t = mytime::timer.getTime() - t;
 
     mytime::time_spent_on_c_inv += t;
+
+    // Add marginalization vectors
+    for (int cmorder = 0; cmorder <= specifics::CONTINUUM_MARGINALIZATION_ORDER; ++cmorder)
+    {
+        
+    }
+    if (specifics::CONTINUUM_MARGINALIZATION_ORDER > 0)
+    {
+        std::for_each(covariance_matrix, covariance_matrix + DATA_SIZE_2, 
+            [&](double &c) { c += specifics::CONTINUUM_MARGINALIZATION_AMP; });
+    }
+
+    if (specifics::CONTINUUM_MARGINALIZATION_DERV > 0)
+    {
+        double *temp_t_vector = new double[qFile->size];
+        // double MEDIAN_LAMBDA = LYA_REST * (1 + MEDIAN_REDSHIFT);
+
+        std::transform(qFile->wave, qFile->wave+qFile->size, temp_t_vector, 
+            [](const double &l) { return log(l/LYA_REST); });
+
+        cblas_dger(CblasRowMajor, qFile->size, qFile->size, 
+            specifics::CONTINUUM_MARGINALIZATION_DERV, 
+            temp_t_vector, 1, temp_t_vector, 1, covariance_matrix, qFile->size);
+
+        delete [] temp_t_vector;
+    }
+
 }
 
 void OneQSOEstimate::_getWeightedMatrix(double *m)
