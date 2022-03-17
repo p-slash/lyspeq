@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ Continuum marginalization is now implemented with Sherman-Morrison identity. New option `ContinuumMargOrder` decides the maximum order of `ln lambda`. E.g., `ContinuumMargOrder 1` will marginalize out constant and slope. Old options `ContinuumMargAmp` and `ContinuumMargDerv` are removed.
 + `ResoMatDeconvolutionM (double)` option is added to config file. It deconvolves the resolution matrix with this value if >0. Should be around 1.
 + `SaveEachSpectrumResult` is changed to `SaveEachProcessResult`. This would constrain bootstrap estimation to subsamples determined by the number of processors, but save a lot space and coding.
 + Deconvolution of sinc added while oversampling using `FFTW` package. This deconvolution is needed because resolution matrix is downsampled in 2D.
@@ -177,10 +178,9 @@ Specify allocated memory in MB to store additional derivative matrices and fiduc
 
     AllocatedMemoryMB 5.
 
-Specify continuum marginalization coefficients. Default is 100. Pass <=0 to turn off.
+Specify the maximum order of `ln lambda` polynomial to marginalize out. E.g., 1 will marginalize out constant and slope. Default is 1. Pass <0 to turn off.
 
-    ContinuumMargAmp  100.
-    ContinuumMargDerv 100.
+    ContinuumMargOrder  1
     
 Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with [py/lorentzian_fit.py](py/lorentzian_fit.py) script. For clusters, you are typically assigned a scratch space such as `scratch` or `project`.
 

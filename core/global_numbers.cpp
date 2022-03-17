@@ -218,7 +218,7 @@ namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
-    double CONT_MARG_ORDER = -1;
+    int CONT_MARG_ORDER = 1;
     double RESOMAT_DECONVOLUTION_M = 0;
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
     int OVERSAMPLING_FACTOR = -1;
@@ -273,7 +273,7 @@ namespace specifics
             "# Fiducial Signal Baseline: %s\n" \
             "# Input is delta flux: %s\n" \
             "# Divide by mean flux of the chunk: %s\n" \
-            "# ContinuumMargOrder: %d\n" \
+            "# ContinuumMargOrder: %d\n", \
             TURN_OFF_SFID ? "OFF" : "ON", \
             conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO", \
             conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF", \
