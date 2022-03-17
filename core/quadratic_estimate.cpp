@@ -834,8 +834,7 @@ void Smoother::smoothNoise(const double *n2, double *out, int size)
     std::fill_n(out, size, 0);
     for (int i = 0; i < size; ++i)
     {
-        for (int m = 0; m < KS; ++m)
-            out[i] += Smoother::gaussian_kernel[m]*padded_noise[m+i];
+        out[i] = cblas_ddot(KS, Smoother::gaussian_kernel, 1, padded_noise+i, 1);
         out[i] *= out[i];
     }
 

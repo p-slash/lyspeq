@@ -116,7 +116,7 @@ namespace mxhelp
     // Uses CBLAS dot product.
     double trace_dsymm(const double *A, const double *B, int N)
     {
-        return cblas_ddot(N*N, A, 1, B, 1);  
+        return cblas_ddot(N*N, A, 1, B, 1);
     }
 
     double trace_ddiagmv(const double *A, const double *B, int N)
