@@ -202,6 +202,7 @@ FFTW_DIR_APPLE=/opt/homebrew/opt/fftw
 case ${SYSTYPE} in
     nersc )
         CXX="CC"
+        CXXu="CC"
         exec="srun -n 1 "
         set_omp_flags
         MORECPPFLAGS+="-DUSE_MKL_CBLAS"
