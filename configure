@@ -16,6 +16,7 @@ function save_makefile() {
     echo "OPT=${OPT}" >> Makefile
     echo "bindir=${bindir}" >> Makefile
     echo "srcdir=${srcdir}" >> Makefile
+    echo "exec=${exec}" >> Makefile
     cat ${srcdir}/Makefile.in >> Makefile
     echo "Makefile set. Run make to compile."
 }
@@ -120,6 +121,7 @@ binz_fn=-DTRIANGLE_Z_BINNING_FN
 fisher_opt=
 z_growth=
 debug=
+exec=./
 
 SYSTYPE=""
 prefix="/usr/local"
@@ -199,7 +201,8 @@ FFTW_DIR_APPLE=/opt/homebrew/opt/fftw
 
 case ${SYSTYPE} in
     nersc )
-        CXX="mpic++"
+        CXX="CC"
+        exec="srun -n 1 "
         set_omp_flags
         MORECPPFLAGS+="-DUSE_MKL_CBLAS"
         CPPFLAGS="${CPPFLAGS_OMP} -m64 -I${MKLROOT}/include ${gsl_inc} -I${CFITSIO_DIR}/include -I${FFTW_ROOT}/include"

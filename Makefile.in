@@ -38,13 +38,13 @@ test: all
 	@diff $(srcdir)/tests/output/output_cblas.txt $(srcdir)/tests/truth/expected_cblas_output.txt
 
 	@echo "Producing S & Q lookup tables..."
-	@./CreateSQLookUpTable $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/CreateSQLookUpTable.log
+	@${exec}CreateSQLookUpTable $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/CreateSQLookUpTable.log
 
 	@echo "Producing interpolated S & Q matrices..."
-	@./testSQCMatrices $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/testSQCMatrices.log
+	@${exec}testSQCMatrices $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/testSQCMatrices.log
 
 	@echo "Running QMLE..."
-	@./LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log
+	@${exec}LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log
 
 	@python3 tests/compareTestResults.py $(srcdir)
 	
