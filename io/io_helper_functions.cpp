@@ -212,7 +212,7 @@ void ioh::BootstrapFile::writeBoot(const double *pk, const double *fisher)
     // Offset is the header first three integer plus shift by PE
     MPI_Offset offset = 3*sizeof(int) + process::this_pe*ELEMS_COUNT*sizeof(double);
     r += MPI_File_write_at_all(bootfile, offset, data_buffer,
-        ELEMS_COUNT, MPI_DOUBLE, MPI_STATUS_IGNORE)
+        ELEMS_COUNT, MPI_DOUBLE, MPI_STATUS_IGNORE);
     // r += fwrite(data_buffer, sizeof(double), ELEMS_COUNT, bootfile)-ELEMS_COUNT;
     if (r != 0)
         throw std::runtime_error("Bootstrap write one results.");
