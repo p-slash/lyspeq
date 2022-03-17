@@ -389,28 +389,22 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     isCovInverted = false;
 }
 
-// Calculate the inverse into temp_matrix[0]
-// Then swap the pointer with covariance matrix
-void OneQSOEstimate::invertCovarianceMatrix()
+void OneQSOEstimate::_addMarginalizations()
 {
-    double t = mytime::timer.getTime();
-
-    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, qFile->size);
+    // Add marginalizations
+    double *temp_v = new double[qFile->size], *temp_y = new double[qFile->size];
+    // Zeroth order
+    std::fill_n(temp_v, qFile->size, 1);
     
-    inverse_covariance_matrix = covariance_matrix;
-
-    isCovInverted = true;
-
-    t = mytime::timer.getTime() - t;
-
-    mytime::time_spent_on_c_inv += t;
-
-    // Add marginalization vectors
-    for (int cmorder = 0; cmorder <= specifics::CONTINUUM_MARGINALIZATION_ORDER; ++cmorder)
+    
+    for (int cmorder = 1; cmorder <= specifics::CONT_MARG_ORDER; ++cmorder)
     {
-        
+        std::transform(qFile->wave, qFile->wave+qFile->size, temp_t_vector, 
+            [](const double &l) { return log(l/LYA_REST); });
     }
-    if (specifics::CONTINUUM_MARGINALIZATION_ORDER > 0)
+
+
+    if (specifics::CONT_MARG_ORDER > 0)
     {
         std::for_each(covariance_matrix, covariance_matrix + DATA_SIZE_2, 
             [&](double &c) { c += specifics::CONTINUUM_MARGINALIZATION_AMP; });
@@ -430,6 +424,22 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
         delete [] temp_t_vector;
     }
+}
+// Calculate the inverse into temp_matrix[0]
+// Then swap the pointer with covariance matrix
+void OneQSOEstimate::invertCovarianceMatrix()
+{
+    double t = mytime::timer.getTime();
+
+    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, qFile->size);
+    
+    inverse_covariance_matrix = covariance_matrix;
+
+    isCovInverted = true;
+
+    t = mytime::timer.getTime() - t;
+
+    mytime::time_spent_on_c_inv += t;
 
 }
 
