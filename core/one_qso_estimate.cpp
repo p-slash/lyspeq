@@ -285,8 +285,8 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
         for (int row = 0; row < NNN; ++row, ++li)
         {
             ptr += row;
-            lj = li;
-            for (int col = row; col < NNN; ++col, ++ptr, ++lj)
+
+            for (lj = li; lj != highres_lambda+NNN; ++lj, ++ptr)
             {
                 _getVandZ(v_ij, z_ij, li, lj);
 
@@ -334,8 +334,8 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
         for (int row = 0; row < NNN; ++row, ++li)
         {
             ptr += row;
-            lj = li;
-            for (int col = row; col < NNN; ++col, ++ptr, ++lj)
+
+            for (lj = li; lj != highres_lambda+NNN; ++lj, ++ptr)
             {
                 _getVandZ(v_ij, z_ij, li, lj);
 
