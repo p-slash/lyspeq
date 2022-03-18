@@ -66,6 +66,7 @@ protected:
 
     void _setFiducialSignalMatrix(double *&sm, bool copy=true);
     void _setQiMatrix(double *&qi, int i_kz, bool copy=true);
+    void _addMarginalizations();
     void _getWeightedMatrix(double *m);
     void _getFisherMatrix(const double *Q_ikz_matrix, int i_kz);
 
