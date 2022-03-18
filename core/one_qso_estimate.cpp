@@ -375,8 +375,6 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
-        // SKIP_LAST_K_BIN_WHEN_ENABLED(i_kz)
-
         _setQiMatrix(temp_matrix[0], i_kz);
 
         cblas_daxpy(DATA_SIZE_2, ps_estimate[i_kz + fisher_index_start], 
@@ -389,29 +387,40 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
     Smoother::smoothNoise(qFile->noise, smooth_noise, qFile->size);
     cblas_daxpy(qFile->size, 1., smooth_noise, 1, covariance_matrix, qFile->size+1);
     delete [] smooth_noise;
-
-    if (specifics::CONTINUUM_MARGINALIZATION_AMP > 0)
-    {
-        std::for_each(covariance_matrix, covariance_matrix + DATA_SIZE_2, 
-            [&](double &c) { c += specifics::CONTINUUM_MARGINALIZATION_AMP; });
-    }
-
-    if (specifics::CONTINUUM_MARGINALIZATION_DERV > 0)
-    {
-        double *temp_t_vector = new double[qFile->size];
-        // double MEDIAN_LAMBDA = LYA_REST * (1 + MEDIAN_REDSHIFT);
-
-        std::transform(qFile->wave, qFile->wave+qFile->size, temp_t_vector, 
-            [](const double &l) { return log(l/LYA_REST); });
-
-        cblas_dger(CblasRowMajor, qFile->size, qFile->size, 
-            specifics::CONTINUUM_MARGINALIZATION_DERV, 
-            temp_t_vector, 1, temp_t_vector, 1, covariance_matrix, qFile->size);
-
-        delete [] temp_t_vector;
-    }
     
     isCovInverted = false;
+}
+
+void OneQSOEstimate::_addMarginalizations()
+{
+    double *temp_v = new double[qFile->size], *temp_y = new double[qFile->size];
+    double norm;
+
+    // Zeroth order
+    std::fill_n(temp_v, qFile->size, 1);
+    cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
+        qFile->size, temp_v, 1, 0, temp_y, 1);
+    norm = cblas_ddot(qFile->size, temp_v, 1, temp_y, 1);
+
+    cblas_dger(CblasRowMajor, qFile->size, qFile->size, -1./norm, temp_y, 1, 
+        temp_y, 1, inverse_covariance_matrix, qFile->size);
+
+    // Higher orders
+    for (int cmo = 1; cmo <= specifics::CONT_MARG_ORDER; ++cmo)
+    {
+        std::transform(qFile->wave, qFile->wave+qFile->size, temp_v, [cmo](const double &l) 
+            { return pow(log(l/LYA_REST), cmo); });
+
+        cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
+            qFile->size, temp_v, 1, 0, temp_y, 1);
+        norm = cblas_ddot(qFile->size, temp_v, 1, temp_y, 1);
+
+        cblas_dger(CblasRowMajor, qFile->size, qFile->size, -1./norm, temp_y, 1, 
+            temp_y, 1, inverse_covariance_matrix, qFile->size);
+    }
+
+    delete [] temp_v;
+    delete [] temp_y;
 }
 
 // Calculate the inverse into temp_matrix[0]
@@ -426,9 +435,13 @@ void OneQSOEstimate::invertCovarianceMatrix()
 
     isCovInverted = true;
 
+    if (specifics::CONT_MARG_ORDER>= 0)
+        _addMarginalizations();
+
     t = mytime::timer.getTime() - t;
 
     mytime::time_spent_on_c_inv += t;
+
 }
 
 void OneQSOEstimate::_getWeightedMatrix(double *m)

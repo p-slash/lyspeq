@@ -218,7 +218,7 @@ namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
-    double CONTINUUM_MARGINALIZATION_AMP = 100, CONTINUUM_MARGINALIZATION_DERV = 100;
+    int CONT_MARG_ORDER = 1;
     double RESOMAT_DECONVOLUTION_M = 0;
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
     int OVERSAMPLING_FACTOR = -1;
@@ -273,13 +273,11 @@ namespace specifics
             "# Fiducial Signal Baseline: %s\n" \
             "# Input is delta flux: %s\n" \
             "# Divide by mean flux of the chunk: %s\n" \
-            "# ContinuumMargAmp: %.2e\n" \
-            "# ContinuumMargDerv: %.2e\n",  \
+            "# ContinuumMargOrder: %d\n", \
             TURN_OFF_SFID ? "OFF" : "ON", \
             conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO", \
             conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF", \
-            CONTINUUM_MARGINALIZATION_AMP, \
-            CONTINUUM_MARGINALIZATION_DERV 
+            CONT_MARG_ORDER
 
         if (toWrite == NULL)
             LOG::LOGGER.STD(CONFIG_TXT);
@@ -369,9 +367,8 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("NumberOfIterations", NUMBER_OF_ITERATIONS, INTEGER);
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
 
-    // Continuum marginalization coefficients. Defaults are 100. Pass <=0 to turn off
-    cFile.addKey("ContinuumMargAmp",  &specifics::CONTINUUM_MARGINALIZATION_AMP,  DOUBLE);
-    cFile.addKey("ContinuumMargDerv", &specifics::CONTINUUM_MARGINALIZATION_DERV, DOUBLE);
+    // Continuum marginalization order. Pass <=0 to turn off
+    cFile.addKey("ContinuumMargOrder",  &specifics::CONT_MARG_ORDER,  INTEGER);
 
     // Read integer if testing outside of Lya region
     cFile.addKey("AllocatedMemoryMB", &process::MEMORY_ALLOC, DOUBLE);
