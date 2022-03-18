@@ -254,10 +254,11 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
     }
 }
 
-void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, int i, int j)
+void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, 
+    const double *li, const double *lj)
 {
-    v_ij = SPEED_OF_LIGHT * log(highres_lambda[j]/highres_lambda[i]);
-    z_ij = sqrt(highres_lambda[j] * highres_lambda[i]) / LYA_REST - 1.;
+    v_ij = SPEED_OF_LIGHT * log(*lj / *li);
+    z_ij = sqrt(*li * *lj) / LYA_REST - 1.;
 }
 
 void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
@@ -265,7 +266,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
     ++mytime::number_of_times_called_setsfid;
 
     double t = mytime::timer.getTime();
-    double v_ij, z_ij;
+    double v_ij, z_ij, *li=highres_lambda, *lj;
 
     if (isSfidSet)
     {
@@ -281,12 +282,13 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
 
         double *ptr = inter_mat;
 
-        for (int row = 0; row < NNN; ++row)
+        for (int row = 0; row < NNN; ++row, ++li)
         {
             ptr += row;
-            for (int col = row; col < NNN; ++col, ++ptr)
+            lj = li;
+            for (int col = row; col < NNN; ++col, ++ptr, ++lj)
             {
-                _getVandZ(v_ij, z_ij, row, col);
+                _getVandZ(v_ij, z_ij, li, lj);
 
                 *ptr = interp2d_signal_matrix->evaluate(z_ij, v_ij);
             }
@@ -308,7 +310,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     ++mytime::number_of_times_called_setq;
     double t = mytime::timer.getTime(), t_interp;
     int kn, zm;
-    double v_ij, z_ij;
+    double v_ij, z_ij, *li=highres_lambda, *lj;
 
     if (isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)))
     {
@@ -327,15 +329,17 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
             inter_mat = qFile->Rmat->temp_highres_mat;
 
         double *ptr = inter_mat;
+        DiscreteInterpolation1D *interp_deriv_kn=interp_derivative_matrix[kn];
 
-        for (int row = 0; row < NNN; ++row)
+        for (int row = 0; row < NNN; ++row, ++li)
         {
             ptr += row;
-            for (int col = row; col < NNN; ++col, ++ptr)
+            lj = li;
+            for (int col = row; col < NNN; ++col, ++ptr, ++lj)
             {
-                _getVandZ(v_ij, z_ij, row, col);
+                _getVandZ(v_ij, z_ij, li, lj);
 
-                *ptr  = interp_derivative_matrix[kn]->evaluate(v_ij);
+                *ptr  = interp_deriv_kn->evaluate(v_ij);
                 *ptr *= bins::redshiftBinningFunction(z_ij, zm);
                 // Every pixel pair should scale to the bin redshift
                 #ifdef REDSHIFT_GROWTH_POWER
@@ -486,10 +490,8 @@ void OneQSOEstimate::computePSbeforeFvector()
 {
     double *weighted_data_vector = new double[qFile->size];
 
-    cblas_dsymv(CblasRowMajor, CblasUpper,
-                qFile->size, 1., inverse_covariance_matrix, qFile->size,
-                qFile->delta, 1,
-                0, weighted_data_vector, 1);
+    cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
+        qFile->size, qFile->delta, 1, 0, weighted_data_vector, 1);
 
     // #pragma omp parallel for
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
