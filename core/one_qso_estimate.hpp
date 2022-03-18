@@ -62,8 +62,6 @@ protected:
     void _freeMatrices();
     // void _saveIndividualResult();
 
-    inline void _getVandZ(double &v_ij, double &z_ij, const double *li, const double *lj);
-
     void _setFiducialSignalMatrix(double *&sm, bool copy=true);
     void _setQiMatrix(double *&qi, int i_kz, bool copy=true);
     void _addMarginalizations();

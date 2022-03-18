@@ -15,6 +15,13 @@
 #define DATA_SIZE_2 qFile->size*qFile->size
 #define MIN_PIXELS_IN_SPEC 20
 
+inline 
+void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
+{
+    v_ij = SPEED_OF_LIGHT * log(lj / li);
+    z_ij = sqrt(li * lj) / LYA_REST - 1.;
+}
+
 void OneQSOEstimate::_readFromFile(std::string fname_qso)
 {
     qFile = new qio::QSOFile(fname_qso, specifics::INPUT_QSO_FILE);
@@ -254,13 +261,6 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
     }
 }
 
-void OneQSOEstimate::_getVandZ(double &v_ij, double &z_ij, 
-    const double *li, const double *lj)
-{
-    v_ij = SPEED_OF_LIGHT * log(*lj / *li);
-    z_ij = sqrt(*li * *lj) / LYA_REST - 1.;
-}
-
 void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
 {
     ++mytime::number_of_times_called_setsfid;
@@ -288,7 +288,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
 
             for (lj = li; lj != highres_lambda+NNN; ++lj, ++ptr)
             {
-                _getVandZ(v_ij, z_ij, li, lj);
+                _getVandZ(*li, *lj, v_ij, z_ij);
 
                 *ptr = interp2d_signal_matrix->evaluate(z_ij, v_ij);
             }
@@ -337,7 +337,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
 
             for (lj = li; lj != highres_lambda+NNN; ++lj, ++ptr)
             {
-                _getVandZ(v_ij, z_ij, li, lj);
+                _getVandZ(*li, *lj, v_ij, z_ij);
 
                 *ptr  = interp_deriv_kn->evaluate(v_ij);
                 *ptr *= bins::redshiftBinningFunction(z_ij, zm);
