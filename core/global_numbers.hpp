@@ -44,12 +44,18 @@ namespace bins
 
     // Given the redshift z, returns binning weight. 1 for top-hats, interpolation for triangular
     // zm: Bin number to consider
-    // zc: Central bin number for triangular bins. Binning weights depend on being to the left 
-    // or to the right of this number.
     double redshiftBinningFunction(double z, int zm);
 
-    int getFisherMatrixIndex(int kn, int zm);
-    void getFisherMatrixBinNoFromIndex(int ikz, int &kn, int &zm);
+    inline
+    int getFisherMatrixIndex(int kn, int zm)
+    { return kn + NUMBER_OF_K_BANDS * zm; }
+
+    inline
+    void getFisherMatrixBinNoFromIndex(int ikz, int &kn, int &zm)
+    {
+        kn = (ikz) % NUMBER_OF_K_BANDS;
+        zm = (ikz) / NUMBER_OF_K_BANDS;
+    }
 }
 
 namespace mytime
