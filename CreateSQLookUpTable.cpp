@@ -90,8 +90,8 @@ int main(int argc, char *argv[])
     try
     {
         process::sq_private_table = new SQLookupTable(OUTPUT_DIR, OUTPUT_FILEBASE_S, 
-            OUTPUT_FILEBASE_Q, FNAME_RLIST);
-        process::sq_private_table->computeTables(Nv, Nz, LENGTH_V, force_rewrite);
+            OUTPUT_FILEBASE_Q, FNAME_RLIST, Nv, Nz, LENGTH_V);
+        process::sq_private_table->computeTables(force_rewrite);
     }
     catch (std::exception& e)
     {   
