@@ -79,7 +79,7 @@ The gcc & MKL version can be installed by `./configure x64-linux-gnu-mklxe18 && 
 
 MPI can be enabled by passing `--enable-mpi`. 
 
-Run `make test` to make sure everything works ok.
+Run `make test` to make sure everything works ok. Note this does not work with Fisher optimization.
 
 I added some built-in system types. For example, MacBook build is `./configure x64-macos-clang-openblas --enable-mpi`, which will enable OpenMPI and use OpenBLAS for matrix operations. Another important one is Intel compiler with MKL. If you have Parallel Studio XE 2018 installed: `./configure --build=x64-linux-icpc-mklxe18 --enable-mpi`. To see all build types: `./configure --print-builds`.
 

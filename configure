@@ -210,7 +210,7 @@ case ${SYSTYPE} in
         exec="srun -n 1 "
         set_omp_flags
         CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${CFITSIO_DIR}/include -I${FFTW_ROOT}/include"
-        LDFLAGS="${gsl_lib} -L${CFITSIO_DIR}/lib -L${FFTW_ROOT}/lib -Wl,--no-as-needed"
+        LDFLAGS="${gsl_lib} -L${CFITSIO_DIR}/lib -L${FFTW_ROOT}/lib"
         LDLIBS="-lfftw3 -lgsl ${LDLIBS_OMP} -lpthread -lm -ldl -lcfitsio"
         ;;
     nersc-mkl )
