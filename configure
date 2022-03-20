@@ -31,11 +31,15 @@ function user_overwrite_defined_variables()
 function print_build_types() {
     echo "Available build types are :"
     echo "-------------------------"
-    echo "* nersc"
+    echo "* nersc-mkl"
     echo "# MPI by default. MKL for cblas
-# Linux, GNU compiler, Intel(R) 64 arch
+# Linux, Cray compiler-Haswell
+# Explicit FFTW and CFITSIO linking"
+    echo "-------------------------"
+    echo "* nersc"
+    echo "# MPI by default. LibSci for cblas
+# Linux, Cray compiler-Haswell
 # 32-bit integers interface
-# Dynamic linking, explicit MKL lib linking
 # Explicit FFTW and CFITSIO linking"
     echo "-------------------------"
     echo "* GNU_XE18MKL or x64-linux-gnu-mklxe18"
@@ -201,6 +205,15 @@ FFTW_DIR_APPLE=/opt/homebrew/opt/fftw
 
 case ${SYSTYPE} in
     nersc )
+        CXX="CC"
+        CXXu="CC"
+        exec="srun -n 1 "
+        set_omp_flags
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${CFITSIO_DIR}/include -I${FFTW_ROOT}/include"
+        LDFLAGS="${gsl_lib} -L${CFITSIO_DIR}/lib -L${FFTW_ROOT}/lib -Wl,--no-as-needed"
+        LDLIBS="-lfftw3 -lgsl ${LDLIBS_OMP} -lpthread -lm -ldl -lcfitsio"
+        ;;
+    nersc-mkl )
         CXX="CC"
         CXXu="CC"
         exec="srun -n 1 "
