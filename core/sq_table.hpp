@@ -51,16 +51,18 @@ class SQLookupTable
     DiscreteInterpolation2D* _allocReadSFile(int r_index);
 
 public:
-    SQLookupTable(const char *dir, const char *s_base, const char *q_base, const char *fname_rlist);
+    SQLookupTable(const char *dir, const char *s_base, const char *q_base, 
+        const char *fname_rlist, int Nv=0, int Nz=0, double Lv=0);
     // SQLookupTable(const SQLookupTable &sq);
 
     ~SQLookupTable();
     
-    void readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q, bool alloc=false);
+    void readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q, 
+        bool alloc=false);
 
     void readTables();
     // runs with omp parallel
-    void computeTables(int Nv, int Nz, double Lv, bool force_rewrite);
+    void computeTables(bool force_rewrite);
 
     int findSpecResIndex(int spec_res, double dv) const;
 

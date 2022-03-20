@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
          OUTPUT_FILEBASE[300],
          buf[700];
 
-    int NUMBER_OF_ITERATIONS;
+    int NUMBER_OF_ITERATIONS, Nv, Nz;
     
     OneDQuadraticPowerEstimate *qps = NULL;
 
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
     {
         // Read variables from config file and set up bins.
         ioh::readConfigFile( FNAME_CONFIG, FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR,
-            OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, &NUMBER_OF_ITERATIONS, NULL, NULL, NULL);
+            OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, &NUMBER_OF_ITERATIONS, &Nv, &Nz, NULL);
     }
     catch (std::exception& e)
     {
@@ -93,7 +93,8 @@ int main(int argc, char *argv[])
     try
     {
         // Allocate and read look up tables
-        process::sq_private_table = new SQLookupTable(OUTPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
+        process::sq_private_table = new SQLookupTable(OUTPUT_DIR, FILEBASE_S, FILEBASE_Q, 
+            FNAME_RLIST, Nv, Nz);
 
         // Readjust allocated memory wrt save tables
         if (process::SAVE_ALL_SQ_FILES || specifics::USE_RESOLUTION_MATRIX)

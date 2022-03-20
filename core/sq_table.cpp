@@ -44,9 +44,10 @@ namespace sqhelper
 }
 // ---------------------------------------
 
-SQLookupTable::SQLookupTable(const char *dir, const char *s_base, 
-    const char *q_base, const char *fname_rlist)
-    : DIR(dir), S_BASE(s_base), Q_BASE(q_base), itp_v1(0)
+SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_base, 
+    const char *fname_rlist, int Nv, int Nz, double Lv)
+: DIR(dir), S_BASE(s_base), Q_BASE(q_base), itp_v1(0), N_V_POINTS(Nv), 
+N_Z_POINTS_OF_S(Nz), LENGTH_V(Lv)
 {
     itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
@@ -62,7 +63,8 @@ void SQLookupTable::readTables()
     LOG::LOGGER.STD("Setting tables.\n");
 
     interp2d_signal_matrices   = new DiscreteInterpolation2D*[NUMBER_OF_R_VALUES];
-    interp_derivative_matrices = new DiscreteInterpolation1D*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
+    interp_derivative_matrices = 
+        new DiscreteInterpolation1D*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
 
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
     {
@@ -74,19 +76,18 @@ void SQLookupTable::readTables()
     deallocateSignalAndDerivArrays();
 }
 
-void SQLookupTable::computeTables(int Nv, int Nz, double Lv, bool force_rewrite)
+void SQLookupTable::computeTables(bool force_rewrite)
 {
-    N_V_POINTS      = Nv;
-    N_Z_POINTS_OF_S = Nz;
-    LENGTH_V        = Lv;
-    LENGTH_Z_OF_S   = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
+    LENGTH_Z_OF_S = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
            
     std::string buf_fnames;
     double time_spent_table_sfid, time_spent_table_q;
 
-    struct spectrograph_windowfn_params win_params             = {0, 0, 0, 0};
-    struct sq_integrand_params          integration_parameters = {&fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
-    
+    struct spectrograph_windowfn_params 
+        win_params = {0, 0, 0, 0};
+    struct sq_integrand_params
+        integration_parameters = {&fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
+
     allocateSignalAndDerivArrays();
     allocateVAndZArrays();
 
@@ -100,7 +101,8 @@ void SQLookupTable::computeTables(int Nv, int Nz, double Lv, bool force_rewrite)
 
     // Integrate derivative matrices
     // int subNz = Nz / NUMBER_OF_Z_BINS;
-    FourierIntegrator q_integrator(GSL_INTEG_COSINE, q_matrix_integrand, &integration_parameters);
+    FourierIntegrator q_integrator(GSL_INTEG_COSINE, 
+        q_matrix_integrand, &integration_parameters);
 
     for (int r = r_start_this; r < r_end_this; ++r)
     {
@@ -122,11 +124,13 @@ void SQLookupTable::computeTables(int Nv, int Nz, double Lv, bool force_rewrite)
 
             LOG::LOGGER.STD("Q matrix for k=[%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
 
-            buf_fnames =  sqhelper::QTableFileNameConvention(DIR, Q_BASE, Rthis, dvthis, kvalue_1, kvalue_2);
+            buf_fnames = sqhelper::QTableFileNameConvention(DIR, Q_BASE, Rthis, 
+                dvthis, kvalue_1, kvalue_2);
             
             if (!force_rewrite && ioh::file_exists(buf_fnames.c_str()))
             {
-                LOG::LOGGER.STD("File %s already exists. Skip to next.\n", buf_fnames.c_str());
+                LOG::LOGGER.STD("File %s already exists. Skip to next.\n", 
+                    buf_fnames.c_str());
                 continue;
             }
 
@@ -154,7 +158,8 @@ void SQLookupTable::computeTables(int Nv, int Nz, double Lv, bool force_rewrite)
     // ---------------------
 
     // Integrate fiducial signal matrix
-    FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
+    FourierIntegrator s_integrator(GSL_INTEG_COSINE, signal_matrix_integrand, 
+        &integration_parameters);
     
     // Skip this section if fiducial signal matrix is turned off.
     if (specifics::TURN_OFF_SFID) return;
