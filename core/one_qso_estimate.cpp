@@ -1,7 +1,7 @@
 #include "core/one_qso_estimate.hpp"
-#include "core/fiducial_cosmology.hpp"
 #include "core/quadratic_estimate.hpp"
 #include "core/global_numbers.hpp"
+#include "core/fiducial_cosmology.hpp"
 
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
@@ -15,7 +15,7 @@
 #define DATA_SIZE_2 qFile->size*qFile->size
 #define MIN_PIXELS_IN_SPEC 20
 
-inline 
+inline
 void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
 {
     v_ij = SPEED_OF_LIGHT * log(lj / li);
@@ -73,12 +73,12 @@ void OneQSOEstimate::_setNQandFisherIndex()
     #if defined(TOPHAT_Z_BINNING_FN)
     N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
     fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
-    
+
     #elif defined(TRIANGLE_Z_BINNING_FN)
     // Assuming low and end points stay within their respective bins
     N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
     fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
-    
+
     // If we need to distribute low end to a lefter bin
     if ((LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
     {
@@ -195,6 +195,7 @@ OneQSOEstimate::~OneQSOEstimate()
 
     if (nqj_eff > 0)
         delete [] stored_qj;
+    delete [] interp_derivative_matrix;
 }
 
 double OneQSOEstimate::getMinMemUsage()
@@ -266,7 +267,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
     ++mytime::number_of_times_called_setsfid;
 
     double t = mytime::timer.getTime();
-    double v_ij, z_ij, *li=highres_lambda, *lj;
+    double v_ij, z_ij;
 
     if (isSfidSet)
     {
@@ -280,13 +281,13 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
         if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
             inter_mat = qFile->Rmat->temp_highres_mat;
 
-        double *ptr = inter_mat;
+        double *ptr = inter_mat, *li=highres_lambda;
 
         for (int row = 0; row < NNN; ++row, ++li)
         {
             ptr += row;
 
-            for (lj = li; lj != highres_lambda+NNN; ++lj, ++ptr)
+            for (double *lj=li; lj != (highres_lambda+NNN); ++lj, ++ptr)
             {
                 _getVandZ(*li, *lj, v_ij, z_ij);
 
@@ -310,7 +311,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     ++mytime::number_of_times_called_setq;
     double t = mytime::timer.getTime(), t_interp;
     int kn, zm;
-    double v_ij, z_ij, *li=highres_lambda, *lj;
+    double v_ij, z_ij;
 
     if (isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)))
     {
@@ -323,19 +324,20 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     else
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
+
         int NNN = (specifics::USE_RESOLUTION_MATRIX) ? qFile->Rmat->getNCols() : qFile->size;
         double *inter_mat = qi;
         if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
             inter_mat = qFile->Rmat->temp_highres_mat;
 
-        double *ptr = inter_mat;
+        double *ptr = inter_mat, *li=highres_lambda;
         DiscreteInterpolation1D *interp_deriv_kn=interp_derivative_matrix[kn];
 
         for (int row = 0; row < NNN; ++row, ++li)
         {
             ptr += row;
 
-            for (lj = li; lj != highres_lambda+NNN; ++lj, ++ptr)
+            for (double *lj=li; lj != (highres_lambda+NNN); ++lj, ++ptr)
             {
                 _getVandZ(*li, *lj, v_ij, z_ij);
 
@@ -430,12 +432,12 @@ void OneQSOEstimate::invertCovarianceMatrix()
     double t = mytime::timer.getTime();
 
     mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, qFile->size);
-    
+
     inverse_covariance_matrix = covariance_matrix;
 
     isCovInverted = true;
 
-    if (specifics::CONT_MARG_ORDER>= 0)
+    if (specifics::CONT_MARG_ORDER >= 0)
         _addMarginalizations();
 
     t = mytime::timer.getTime() - t;

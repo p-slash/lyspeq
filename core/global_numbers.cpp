@@ -6,7 +6,6 @@
 
 #include <cstdio>
 #include <cmath>
-
 #include <chrono>    /* clock_t, clock, CLOCKS_PER_SEC */
 
 namespace process
@@ -22,7 +21,7 @@ namespace process
     {
         MEMORY_ALLOC += deltamem;
         if (MEMORY_ALLOC < 10)
-            LOG::LOGGER.ERR("Remaining memory is less than 10 MB!");
+            LOG::LOGGER.ERR("Remaining memory is less than 10 MB!\n");
     }
 }
 
@@ -130,30 +129,22 @@ namespace bins
         }
     }
 
-    // This binning function is zero outside next bins center
-    // Effectively removes any pixels that does not belong to any redshift bin.
-    double zBinTriangular(double z, int zm)
-    {
-        double zm_center = ZBIN_CENTERS[zm];
-        double zlow = zm_center - Z_BIN_WIDTH, zupp = zm_center + Z_BIN_WIDTH;
-        
-        if ((zlow < z) && (z <= zm_center))
-        {
-            if (zm == 0)
-                return 1;
-            return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
-        }   
-        
-        if ((zm_center < z) && (z < zupp))
-        {
-            if (zm == (NUMBER_OF_Z_BINS-1))
-                return 1;
-            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
-        }
-        
-        return 0;
-    }
+    // inline
+    // double zBinTriangular(double z, int zm)
+    // {
+    //     double x=z-ZBIN_CENTERS[zm], r = 1-fabs(x)/Z_BIN_WIDTH;
+    //     if (r<0) return 0;
+    //     if (zm==0 && x<0) return 1;
+    //     if (zm==(NUMBER_OF_Z_BINS-1) && x>0) return 1;
+    //     return r;
+    // }
 
+
+    // Given the redshift z, returns binning weight. 1 for top-hats, interpolation for triangular
+    // zm: Bin number to consider
+    // zc: Central bin number for triangular bins. Binning weights depend on being to the left 
+    // or to the right of this number.
+    // extern inline 
     double redshiftBinningFunction(double z, int zm)
     {
         #if defined(TOPHAT_Z_BINNING_FN)
@@ -161,20 +152,39 @@ namespace bins
         else                          return 0;
 
         #elif defined(TRIANGLE_Z_BINNING_FN)
-        return zBinTriangular(z, zm);
+        double x=z-ZBIN_CENTERS[zm], r = 1-fabs(x)/Z_BIN_WIDTH;
+        if (r<0) return 0;
+        if (zm==0 && x<0) return 1;
+        if (zm==(NUMBER_OF_Z_BINS-1) && x>0) return 1;
+        return r;
         #endif
     }
-    
-    int  getFisherMatrixIndex(int kn, int zm)
-    { 
-        return kn + NUMBER_OF_K_BANDS * zm; 
-    }
 
-    void getFisherMatrixBinNoFromIndex(int ikz, int &kn, int &zm)
-    {
-        kn = (ikz) % NUMBER_OF_K_BANDS; 
-        zm = (ikz) / NUMBER_OF_K_BANDS; 
-    }
+    // int getFisherMatrixIndex(int kn, int zm)
+    // { return kn + NUMBER_OF_K_BANDS * zm; }
+
+    // This binning function is zero outside next bins center
+    // Effectively removes any pixels that does not belong to any redshift bin.
+
+    // inline double zBinTriangular(double z, int zm)
+    // double zlow = zm_center - Z_BIN_WIDTH, zupp = zm_center + Z_BIN_WIDTH;
+        
+        // if ((zlow < z) && (z <= zm_center))
+        // {
+        //     if (zm == 0)
+        //         return 1;
+        //     return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
+        // }   
+        
+        // if ((zm_center < z) && (z < zupp))
+        // {
+        //     if (zm == (NUMBER_OF_Z_BINS-1))
+        //         return 1;
+        //     return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+        // }
+        
+        // return 0;
+
 }
 
 namespace mytime
