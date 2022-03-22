@@ -40,6 +40,7 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
 
         if (specifics::OVERSAMPLING_FACTOR > 0)
             qFile->Rmat->oversample(specifics::OVERSAMPLING_FACTOR, qFile->dlambda);
+        _matrix_n = qFile->Rmat->getNCols();
     }
     else
     {
@@ -47,6 +48,7 @@ void OneQSOEstimate::_readFromFile(std::string fname_qso)
         RES_INDEX = process::sq_private_table->findSpecResIndex(qFile->R_fwhm, qFile->dv_kms);
 
         if (RES_INDEX == -1)      throw std::out_of_range("SPECRES not found in tables!");
+        _matrix_n = qFile->size;
     }
 
     qFile->closeFile();
@@ -276,18 +278,14 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
     }
     else
     {
-        int NNN = (specifics::USE_RESOLUTION_MATRIX) ? qFile->Rmat->getNCols() : qFile->size;
-        double *inter_mat = sm;
-        if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
-            inter_mat = qFile->Rmat->temp_highres_mat;
-
+        double *inter_mat = (_matrix_n == qFile->size) ? sm : qFile->Rmat->temp_highres_mat;
         double *ptr = inter_mat, *li=highres_lambda;
 
-        for (int row = 0; row < NNN; ++row, ++li)
+        for (int row = 0; row < _matrix_n; ++row, ++li)
         {
             ptr += row;
 
-            for (double *lj=li; lj != (highres_lambda+NNN); ++lj, ++ptr)
+            for (double *lj=li; lj != (highres_lambda+_matrix_n); ++lj, ++ptr)
             {
                 _getVandZ(*li, *lj, v_ij, z_ij);
 
@@ -295,7 +293,7 @@ void OneQSOEstimate::_setFiducialSignalMatrix(double *&sm, bool copy)
             }
         }
 
-        mxhelp::copyUpperToLower(inter_mat, NNN);
+        mxhelp::copyUpperToLower(inter_mat, _matrix_n);
 
         if (specifics::USE_RESOLUTION_MATRIX)
             qFile->Rmat->sandwich(sm);
@@ -325,19 +323,15 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
-        int NNN = (specifics::USE_RESOLUTION_MATRIX) ? qFile->Rmat->getNCols() : qFile->size;
-        double *inter_mat = qi;
-        if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
-            inter_mat = qFile->Rmat->temp_highres_mat;
-
+        double *inter_mat = (_matrix_n == qFile->size) ? qi : qFile->Rmat->temp_highres_mat;
         double *ptr = inter_mat, *li=highres_lambda;
         DiscreteInterpolation1D *interp_deriv_kn=interp_derivative_matrix[kn];
 
-        for (int row = 0; row < NNN; ++row, ++li)
+        for (int row = 0; row < _matrix_n; ++row, ++li)
         {
             ptr += row;
 
-            for (double *lj=li; lj != (highres_lambda+NNN); ++lj, ++ptr)
+            for (double *lj=li; lj != (highres_lambda+_matrix_n); ++lj, ++ptr)
             {
                 _getVandZ(*li, *lj, v_ij, z_ij);
 
@@ -354,7 +348,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
 
         t_interp = mytime::timer.getTime() - t;
 
-        mxhelp::copyUpperToLower(inter_mat, NNN);
+        mxhelp::copyUpperToLower(inter_mat, _matrix_n);
 
         if (specifics::USE_RESOLUTION_MATRIX)
             qFile->Rmat->sandwich(qi);
