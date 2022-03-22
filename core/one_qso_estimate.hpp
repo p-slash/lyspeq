@@ -27,6 +27,8 @@ class OneQSOEstimate
 protected:
     qio::QSOFile *qFile;
 
+    int _matrix_n;
+
     int RES_INDEX;
     int N_Q_MATRICES, fisher_index_start;
 
