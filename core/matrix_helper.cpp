@@ -24,6 +24,8 @@
 #define SQRT_2 1.41421356237
 #define SQRT_PI 1.77245385091
 
+// cblas_dcopy(N, sour, isour, tar, itar);
+
 double nonzero_min_element(double *first, double *last)
 {
     if (first == last) return *first;
@@ -68,8 +70,7 @@ namespace mxhelp
     void copyUpperToLower(double *A, int N)
     {
         for (int i = 1; i < N; ++i)
-            for (int j = 0; j < i; ++j)
-                *(A+j+N*i) = *(A+i+N*j);
+            cblas_dcopy(i, A+i, N, A+N*i, 1);
     }
 
     // v always starts at 0, ends at N-1-abs(d)
@@ -88,25 +89,12 @@ namespace mxhelp
         }
     }
 
-    void vector_add(double *target, const double *source, int size)
-    {
-        for (int i = 0; i < size; ++i)
-            *(target+i) += *(source+i);
-    }
-
-    void vector_sub(double *target, const double *source, int size)
-    {
-        for (int i = 0; i < size; ++i)
-            *(target+i) -= *(source+i);
-    }
-
     double trace_dgemm(const double *A, const double *B, int N)
     {
         double result = 0.;
 
         for (int i = 0; i < N; ++i)
-            for (int j = 0; j < N; ++j)
-                result += (*(A+j+N*i)) * (*(B+i+N*j));
+            result += cblas_ddot(N, A+N*i, 1, B+i, N);
 
         return result;
     }
@@ -240,8 +228,7 @@ namespace mxhelp
         double* newmat = new double[size];
 
         for (int d = 0; d < ndiags; ++d)
-            for (int i = 0; i < ndim; ++i)
-                *(newmat + i+d*ndim) = *(matrix + i*ndiags+d);
+            cblas_dcopy(ndim, matrix+d, ndiags, newmat+d*ndim, 1);
 
         delete [] matrix;
         matrix = newmat;
