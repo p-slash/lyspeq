@@ -16,6 +16,27 @@
 #define MIN_PIXELS_IN_SPEC 20
 
 inline
+void _getZBinLimits(double *li, int zm, int remsize, double *&lptr1, double *&lptr2)
+{
+    #if defined(TOPHAT_Z_BINNING_FN)
+    #define ZSTART (bins::ZBIN_CENTERS[zm]-bins::Z_BIN_WIDTH/2)
+    #define ZEND (bins::ZBIN_CENTERS[zm]+bins::Z_BIN_WIDTH/2)
+    #elif defined(TRIANGLE_Z_BINNING_FN)
+    #define ZSTART (bins::ZBIN_CENTERS[zm]-bins::Z_BIN_WIDTH)
+    #define ZEND (bins::ZBIN_CENTERS[zm]+bins::Z_BIN_WIDTH)
+    #endif
+
+    double lstart = (1 + ZSTART) * LYA_REST, lend = (1 + ZEND) * LYA_REST;
+    lstart *= lstart / (*li);
+    lend   *= lend / (*li);
+    lptr1 = std::lower_bound(li, li+remsize, lstart);
+    lptr2 = std::upper_bound(li, li+remsize, lend);
+
+    #undef ZSTART
+    #undef ZEND
+}
+
+inline
 void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
 {
     v_ij = SPEED_OF_LIGHT * log(lj / li);
@@ -322,16 +343,23 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     else
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
+        bins::setRedshiftBinningFunction(zm);
 
         double *inter_mat = (_matrix_n == qFile->size) ? qi : qFile->Rmat->temp_highres_mat;
-        double *ptr = inter_mat, *li=highres_lambda;
+        double *ptr = inter_mat, *li=highres_lambda, *lj, *lstart, *lend;
         DiscreteInterpolation1D *interp_deriv_kn=interp_derivative_matrix[kn];
 
         for (int row = 0; row < _matrix_n; ++row, ++li)
         {
             ptr += row;
 
-            for (double *lj=li; lj != (highres_lambda+_matrix_n); ++lj, ++ptr)
+            _getZBinLimits(li, zm, _matrix_n-row, lstart, lend);
+            // printf("i: %d \t %ld - %ld \n", row, lstart-highres_lambda, lend-highres_lambda);
+
+            for (lj = li; lj != lstart; ++lj, ++ptr)
+                *ptr = 0;
+
+            for (; lj != lend; ++lj, ++ptr)
             {
                 _getVandZ(*li, *lj, v_ij, z_ij);
 
@@ -344,6 +372,9 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
                     &fidpd13::FIDUCIAL_PD13_PARAMS);
                 #endif
             }
+
+            for (; lj != highres_lambda+_matrix_n; ++lj, ++ptr)
+                *ptr = 0;
         }
 
         t_interp = mytime::timer.getTime() - t;
@@ -707,7 +738,6 @@ void OneQSOEstimate::fprintfMatrices(const char *fname_base)
 }
 
 #undef DATA_SIZE_2
-
 
 
 
