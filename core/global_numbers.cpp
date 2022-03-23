@@ -30,6 +30,7 @@ namespace bins
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, DEGREE_OF_FREEDOM;
     double *KBAND_EDGES, *KBAND_CENTERS;
     double  Z_BIN_WIDTH, *ZBIN_CENTERS, Z_LOWER_EDGE, Z_UPPER_EDGE;
+    double (*redshiftBinningFunction)(double z, int zm);
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0)
     {
@@ -129,61 +130,84 @@ namespace bins
         }
     }
 
-    // inline
-    // double zBinTriangular(double z, int zm)
-    // {
-    //     double x=z-ZBIN_CENTERS[zm], r = 1-fabs(x)/Z_BIN_WIDTH;
-    //     if (r<0) return 0;
-    //     if (zm==0 && x<0) return 1;
-    //     if (zm==(NUMBER_OF_Z_BINS-1) && x>0) return 1;
-    //     return r;
-    // }
+    // binning functio for zm=0
+    inline
+    double zBinTriangular1(double z, int zm)
+    {
+        int zmm __attribute__((unused)) = zm;
+        double x=z-ZBIN_CENTERS[0], r = 1-fabs(x)/Z_BIN_WIDTH;
+        if (r<0) return 0;
+        if (x<0) return 1;
 
+        return r;
+    }
+
+    // binning function for last zm
+    inline
+    double zBinTriangular2(double z, int zm)
+    {
+        int zmm __attribute__((unused)) = zm;
+        double x=z-ZBIN_CENTERS[NUMBER_OF_Z_BINS-1], r = 1-fabs(x)/Z_BIN_WIDTH;
+        if (r<0) return 0;
+        if (x>0) return 1;
+
+        return r;
+    }
+
+    // binning functio for non-boundary zm
+    inline
+    double zBinTriangular(double z, int zm)
+    {
+        double x=z-ZBIN_CENTERS[zm], r = 1-fabs(x)/Z_BIN_WIDTH;
+        if (r<0) return 0;
+
+        return r;
+    }
+
+    // Assumes z always in bin, because it's cut in OneQSO.
+    inline
+    double zBinTopHat(double z, int zm)
+    {
+        int zz __attribute__((unused))  = z;
+        int zmm __attribute__((unused)) = zm;
+        return 1;
+    }
+
+    void setRedshiftBinningFunction(int zm)
+    {
+        #if defined(TOPHAT_Z_BINNING_FN)
+        redshiftBinningFunction = &zBinTopHat;
+
+        #elif defined(TRIANGLE_Z_BINNING_FN)
+        if (zm == 0)
+            redshiftBinningFunction = &zBinTriangular1;
+        else if (zm == NUMBER_OF_Z_BINS-1)
+            redshiftBinningFunction = &zBinTriangular2;
+        else
+            redshiftBinningFunction = &zBinTriangular;
+        #endif
+    }
 
     // Given the redshift z, returns binning weight. 1 for top-hats, interpolation for triangular
     // zm: Bin number to consider
     // zc: Central bin number for triangular bins. Binning weights depend on being to the left 
     // or to the right of this number.
     // extern inline 
-    double redshiftBinningFunction(double z, int zm)
-    {
-        #if defined(TOPHAT_Z_BINNING_FN)
-        if (zm == findRedshiftBin(z)) return 1;
-        else                          return 0;
 
-        #elif defined(TRIANGLE_Z_BINNING_FN)
-        double x=z-ZBIN_CENTERS[zm], r = 1-fabs(x)/Z_BIN_WIDTH;
-        if (r<0) return 0;
-        if (zm==0 && x<0) return 1;
-        if (zm==(NUMBER_OF_Z_BINS-1) && x>0) return 1;
-        return r;
-        #endif
-    }
+    // double redshiftBinningFunction(double z, int zm)
+    // {
+    //     #if defined(TOPHAT_Z_BINNING_FN)
+    //     if (zm == findRedshiftBin(z)) return 1;
+    //     else                          return 0;
 
-    // int getFisherMatrixIndex(int kn, int zm)
-    // { return kn + NUMBER_OF_K_BANDS * zm; }
-
-    // This binning function is zero outside next bins center
-    // Effectively removes any pixels that does not belong to any redshift bin.
-
-    // inline double zBinTriangular(double z, int zm)
-    // double zlow = zm_center - Z_BIN_WIDTH, zupp = zm_center + Z_BIN_WIDTH;
-        
-        // if ((zlow < z) && (z <= zm_center))
-        // {
-        //     if (zm == 0)
-        //         return 1;
-        //     return (z - zm_center + Z_BIN_WIDTH) / Z_BIN_WIDTH;
-        // }   
-        
-        // if ((zm_center < z) && (z < zupp))
-        // {
-        //     if (zm == (NUMBER_OF_Z_BINS-1))
-        //         return 1;
-        //     return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
-        // }
-        
-        // return 0;
+    //     #elif defined(TRIANGLE_Z_BINNING_FN)
+    //     double x=z-ZBIN_CENTERS[zm], r = 1-fabs(x)/Z_BIN_WIDTH;
+    //     if (r<0) return 0;
+    //     if (zm==0 && x<0) return 1;
+    //     if (zm==(NUMBER_OF_Z_BINS-1) && x>0) return 1;
+    //     return r;
+    //     #endif
+    // }
 
 }
 
