@@ -15,8 +15,9 @@
 #define DATA_SIZE_2 qFile->size*qFile->size
 #define MIN_PIXELS_IN_SPEC 20
 
+double _L2MAX, _L2MIN;
 inline
-void _getZBinLimits(double *li, int zm, int remsize, double *&lptr1, double *&lptr2)
+void _setL2Limits(int zm)
 {
     #if defined(TOPHAT_Z_BINNING_FN)
     #define ZSTART (bins::ZBIN_CENTERS[zm]-bins::Z_BIN_WIDTH/2)
@@ -25,16 +26,20 @@ void _getZBinLimits(double *li, int zm, int remsize, double *&lptr1, double *&lp
     #define ZSTART (bins::ZBIN_CENTERS[zm]-bins::Z_BIN_WIDTH)
     #define ZEND (bins::ZBIN_CENTERS[zm]+bins::Z_BIN_WIDTH)
     #endif
-
-    double lstart = (1 + ZSTART) * LYA_REST, lend = (1 + ZEND) * LYA_REST;
-    lstart *= lstart / (*li);
-    lend   *= lend / (*li);
-    lptr1 = std::lower_bound(li, li+remsize, lstart);
-    lptr2 = std::upper_bound(li, li+remsize, lend);
-
+    _L2MAX  = (1 + ZEND) * LYA_REST;
+    _L2MAX *=_L2MAX;
+    _L2MIN  = (1 + ZSTART) * LYA_REST;
+    _L2MIN *=_L2MIN;
     #undef ZSTART
     #undef ZEND
 }
+
+// inline
+// void _getZBinLimits(double *li, int remsize, double *&lptr1, double *&lptr2)
+// {
+//     lptr1 = std::lower_bound(li, li+remsize, _L2MIN/(*li));
+//     lptr2 = std::upper_bound(li, li+remsize, _L2MAX/(*li));
+// }
 
 inline
 void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
@@ -344,16 +349,19 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
         bins::setRedshiftBinningFunction(zm);
+        _setL2Limits(zm);
 
         double *inter_mat = (_matrix_n == qFile->size) ? qi : qFile->Rmat->temp_highres_mat;
-        double *ptr = inter_mat, *li=highres_lambda, *lj, *lstart, *lend;
+        double *ptr = inter_mat, *li=highres_lambda, *lj, *lstart, *lend, 
+            *highres_l_end = highres_lambda+_matrix_n;
         DiscreteInterpolation1D *interp_deriv_kn=interp_derivative_matrix[kn];
 
         for (int row = 0; row < _matrix_n; ++row, ++li)
         {
             ptr += row;
+            lstart = std::lower_bound(li, highres_l_end, _L2MIN/(*li));
+            lend   = std::upper_bound(li, highres_l_end, _L2MAX/(*li));
 
-            _getZBinLimits(li, zm, _matrix_n-row, lstart, lend);
             // printf("i: %d \t %ld - %ld \n", row, lstart-highres_lambda, lend-highres_lambda);
 
             for (lj = li; lj != lstart; ++lj, ++ptr)
@@ -373,7 +381,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
                 #endif
             }
 
-            for (; lj != highres_lambda+_matrix_n; ++lj, ++ptr)
+            for (; lj != highres_l_end; ++lj, ++ptr)
                 *ptr = 0;
         }
 
