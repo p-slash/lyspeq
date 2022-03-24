@@ -420,7 +420,7 @@ void OneQSOEstimate::setCovarianceMatrix(const double *ps_estimate)
 
 void OneQSOEstimate::_addMarginalizations()
 {
-    double *temp_v = new double[qFile->size], *temp_y = new double[qFile->size];
+    double *temp_v = temp_matrix[0], *temp_y = temp_matrix[1];
     double norm;
 
     // Zeroth order
@@ -445,9 +445,6 @@ void OneQSOEstimate::_addMarginalizations()
         cblas_dger(CblasRowMajor, qFile->size, qFile->size, -1./norm, temp_y, 1, 
             temp_y, 1, inverse_covariance_matrix, qFile->size);
     }
-
-    delete [] temp_v;
-    delete [] temp_y;
 }
 
 // Calculate the inverse into temp_matrix[0]
