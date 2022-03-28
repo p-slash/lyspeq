@@ -117,7 +117,8 @@ namespace mxhelp
         // A . R^T = B
         // A should be nrows x ncols matrix. 
         // B should be nrows x nrows, will be initialized to zero
-        void multiplyRight(const double* A, double *B);
+        void multiplyRight(const double* A, double *B, 
+            const CBLAS_TRANSPOSE TransB=CblasNoTrans);
 
         // Manually create and set temp_highres_mat
         void allocateTempHighRes();

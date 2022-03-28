@@ -556,10 +556,24 @@ namespace mxhelp
     // A . R^T = B
     // A should be nrows x ncols matrix. 
     // B should be nrows x nrows, will be initialized to zero
-    void OversampledMatrix::multiplyRight(const double* A, double *B)
+    void OversampledMatrix::multiplyRight(const double* A, double *B,
+        const CBLAS_TRANSPOSE TransB)
     {
         double *bsub = B, *rrow=values;
         const double *Asub = A;
+        int incb_cblas, incb_loop, decb=0;
+
+        if (TransB == CblasNoTrans)
+        {
+            incb_cblas = nrows;
+            incb_loop  = 1;
+        }
+        else
+        {
+            incb_cblas = 1;
+            incb_loop  = nrows;
+            decb=1;
+        }
 
         for (int i = 0; i < nrows; ++i)
         {
@@ -567,13 +581,16 @@ namespace mxhelp
             // const double *Asub = A + i*oversampling;
 
             cblas_dgemv(CblasRowMajor, CblasNoTrans,
-                nrows, nelem_per_row, 1., Asub, ncols, 
-                rrow, 1, 0, bsub, nrows);
+                nrows-decb*i, nelem_per_row, 1., Asub, ncols, 
+                rrow, 1, 0, bsub, incb_cblas);
 
-            ++bsub;
-            Asub += oversampling;
+            bsub += incb_loop+decb;
+            Asub += oversampling+decb*ncols;
             rrow += nelem_per_row;
         }
+
+        if (TransB == CblasTrans)
+            copyUpperToLower(B, nrows);
     }
 
     void OversampledMatrix::sandwichHighRes(double *B)
@@ -582,7 +599,7 @@ namespace mxhelp
             sandwich_buffer = new double[nrows*ncols];
 
         multiplyLeft(temp_highres_mat, sandwich_buffer);
-        multiplyRight(sandwich_buffer, B);
+        multiplyRight(sandwich_buffer, B, CblasTrans);
     }
 
     double* OversampledMatrix::allocWaveGrid(double w1)

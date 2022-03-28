@@ -20,7 +20,7 @@ sq_lookup_table_file.cpp logger.cpp real_field.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o testSQCMatrices.o \
-test-fftconvolve.o myfitsread.o
+test-fftconvolve.o myfitsread.o timeSetQMatrix.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
@@ -47,7 +47,10 @@ test: all
 	@${exec}LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log
 
 	@python3 tests/compareTestResults.py $(srcdir)
-	
+
+time: timeSetQMatrix
+	@${exec}timeSetQMatrix $(srcdir)/tests/input/timer.config 5000
+
 LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
@@ -58,6 +61,9 @@ cblas_tests: cblas_tests.o matrix_helper.o real_field.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testSQCMatrices: testSQCMatrices.o $(OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+timeSetQMatrix: timeSetQMatrix.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testPointRef: testPointRef.o

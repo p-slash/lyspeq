@@ -360,7 +360,7 @@ void OneQSOEstimate::_setQiMatrix(double *&qi, int i_kz, bool copy)
         {
             ptr += row;
             lstart = std::lower_bound(li, highres_l_end, _L2MIN/(*li));
-            lend   = std::upper_bound(li, highres_l_end, _L2MAX/(*li));
+            lend   = std::upper_bound(lstart, highres_l_end, _L2MAX/(*li));
 
             // printf("i: %d \t %ld - %ld \n", row, lstart-highres_lambda, lend-highres_lambda);
 
