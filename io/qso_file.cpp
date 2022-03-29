@@ -279,19 +279,22 @@ void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resoluti
 
     fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
 
+    // Soft read DLL, if not present set to -1 to be fixed later while reading data
     fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
-
     if (status)
     {
         fits_clear_errmsg();
         status = 0;
         dv_kms = -1;
     }
+    else
+    {
+        #define LN10 2.30258509299
+        dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
+        #undef LN10
+    }
 
-    #define LN10 2.30258509299
-    dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
-    #undef LN10
-
+    // Soft read DLAMBDA, if not present set to -1 to be fixed later while reading data
     fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
     if (status)
     {
