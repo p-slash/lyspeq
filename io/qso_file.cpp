@@ -71,7 +71,12 @@ void QSOFile::readData()
     wave_head  = wave;
     delta_head = delta;
     noise_head = noise;
+
     // Update dv and dlambda
+    if (dlambda < 0)
+        dlambda = wave[1]-wave[0];
+    if (dv_kms < 0)
+        dv_kms = round(dlambda/wave[size/2]*SPEED_OF_LIGHT/5)*5;
 }
 
 int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
