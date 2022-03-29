@@ -41,22 +41,14 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     if (newsize < MIN_PIXELS_IN_SPEC)   return;
 
     // decide nchunk with lambda points array[nchunks+1]
-
+======
     // create chunk objects
     chunks.reserve(nchunks);
     for (int nc = 0; nc < nchunks; ++nc)
         chunks.emplace_back(qFile, lamchunk[nc], lamchunk[nc+1]);
 }
 
-OneQSOEstimate::OneQSOEstimate(OneQSOEstimate &&rhs)
-{
-    
-}
-
-OneQSOEstimate::~OneQSOEstimate()
-{
-    
-}
+OneQSOEstimate::~OneQSOEstimate() {}
 
 double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 {
@@ -73,7 +65,13 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
         if (newsize < MIN_PIXELS_IN_SPEC)
             return 0;
 
+        double z1, z2, zm;
+        qtemp.readMinMaxMedRedshift(z1, z2, zm);
+        zbin = bins::findRedshiftBin(zm);
+
         // decide chunks
+        ======
+        // add compute time from chunks
         res = 0;
         for (int nc = 0; nc < nchunks; ++nc)
             res += Chunk::getComputeTimeEst(&qFile, lamchunk[nc], lamchunk[nc+1]);
@@ -88,7 +86,14 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, 
     double *dbt_sum_vector[3], double *fisher_sum)
 {
-
-    
+    for (auto it = chunks.begin(); it != chunks.end(); ++it)
+        it->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
 }
+
+
+
+
+
+
+
 
