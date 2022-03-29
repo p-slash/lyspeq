@@ -13,7 +13,6 @@
 #include <stdexcept>
 
 #define DATA_SIZE_2 qFile->size*qFile->size
-#define MIN_PIXELS_IN_SPEC 20
 
 double _L2MAX, _L2MIN;
 inline
@@ -226,9 +225,6 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, double l1, double l
     try
     {
         qio::QSOFile qtemp(&qmaster, l1, l2);
-
-        if (newsize < MIN_PIXELS_IN_SPEC)
-            return 0;
 
         double z1, z2, zm; 
         qtemp.readMinMaxMedRedshift(z1, z2, zm);

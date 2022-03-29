@@ -31,6 +31,34 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
     oversampling=-1;
     id = 0;
 }
+QSOFile::QSOFile(const qio::QSOFile &qmaster, double l1, double l2)
+: PB(qmaster.PB), z_qso(qmaster.z_qso), snr(qmaster.snr), 
+dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda), id(qmaster.id),
+R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling),
+pfile(NULL), bqfile(NULL)
+{
+    int wi1, wi2;
+
+    wi1 = std::lower_bound(qmaster.wave, qmaster.wave+qmaster.size, l1)
+        - qmaster.wave;
+    wi2 = std::upper_bound(qmaster.wave, qmaster.wave+qmaster.size, l2)
+        - qmaster.wave;
+    size = wi2-wi1;
+
+    wave  = new double[size];
+    delta = new double[size];
+    noise = new double[size];
+    wave_head  = wave;
+    delta_head = delta;
+    noise_head = noise;
+
+    std::copy(qmaster.wave+wi1, qmaster.wave+wi2, wave);
+    std::copy(qmaster.delta+wi1, qmaster.delta+wi2, delta);
+    std::copy(qmaster.noise+wi1, qmaster.noise+wi2, noise);
+
+    if (qmaster.Rmat != NULL)
+        Rmat = new Resolution(qmaster.Rmat, wi1, wi2);
+}
 
 void QSOFile::closeFile()
 {
