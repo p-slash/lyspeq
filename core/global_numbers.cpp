@@ -252,7 +252,7 @@ namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
-    int CONT_MARG_ORDER = 1;
+    int CONT_MARG_ORDER = 1, NUMBER_OF_CHUNKS = 1;
     double RESOMAT_DECONVOLUTION_M = 0;
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
     int OVERSAMPLING_FACTOR = -1;
@@ -307,11 +307,12 @@ namespace specifics
             "# Fiducial Signal Baseline: %s\n" \
             "# Input is delta flux: %s\n" \
             "# Divide by mean flux of the chunk: %s\n" \
-            "# ContinuumMargOrder: %d\n", \
+            "# ContinuumMargOrder: %d\n" \
+            "# Number of chunks: %d\n", \
             TURN_OFF_SFID ? "OFF" : "ON", \
             conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO", \
             conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF", \
-            CONT_MARG_ORDER
+            CONT_MARG_ORDER, NUMBER_OF_CHUNKS
 
         if (toWrite == NULL)
             LOG::LOGGER.STD(CONFIG_TXT);
@@ -362,6 +363,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("ResoMatDeconvolutionM", &specifics::RESOMAT_DECONVOLUTION_M, DOUBLE);
     cFile.addKey("OversampleRmat", &specifics::OVERSAMPLING_FACTOR, INTEGER);
     cFile.addKey("SmoothNoiseWeights", &noise_smoothing_factor, INTEGER);
+    cFile.addKey("DynamicChunkNumber", &specifics::NUMBER_OF_CHUNKS, INTEGER);
 
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
