@@ -71,6 +71,7 @@ void QSOFile::readData()
     wave_head  = wave;
     delta_head = delta;
     noise_head = noise;
+    // Update dv and dlambda
 }
 
 int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
@@ -275,12 +276,24 @@ void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resoluti
 
     fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
 
+    if (status)
+    {
+        fits_clear_errmsg();
+        status = 0;
+        dv_kms = -1;
+    }
+
     #define LN10 2.30258509299
     dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
     #undef LN10
 
     fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
-    _checkStatus();
+    if (status)
+    {
+        fits_clear_errmsg();
+        status = 0;
+        dlambda = -1;
+    }
 
     try
     {
@@ -308,9 +321,24 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     int nonull, colnum;
 
     char logtmp[]="LOGLAM";
-    colnum = _getColNo(logtmp);
-    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
-        &status);
+    // Soft call if LOGLAM column exists
+    fits_get_colnum(fits_file, CASEINSEN, logtmp, &colnum, &status);
+    // If not, look for LAMBDA column
+    if (status)
+    {
+        fits_clear_errmsg();
+        status = 0;
+        char lambtmp[]="LAMBDA";
+        colnum = _getColNo(lambtmp);
+        fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
+            &status);
+    }
+    else
+    {
+        fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
+            &status);
+        std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
+    }
 
     char deltmp[]="DELTA";
     colnum = _getColNo(deltmp);
@@ -324,7 +352,6 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
 
     _checkStatus();
 
-    std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
     std::for_each(noise, noise+curr_N, [](double &ld) { ld = pow(ld+1e-16, -0.5); });
 }
 
