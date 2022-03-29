@@ -100,8 +100,8 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     // MPI Reduce ZBIN_COUNTS
     #if defined(ENABLE_MPI)
-        MPI_Allreduce(MPI_IN_PLACE, Z_BIN_COUNTS, bins::NUMBER_OF_Z_BINS+2, 
-            MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, Z_BIN_COUNTS, bins::NUMBER_OF_Z_BINS+2, 
+        MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     #endif
 
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];

@@ -95,7 +95,7 @@ namespace specifics
 {
     extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
     extern double CHISQ_CONVERGENCE_EPS;
-    extern int CONT_MARG_ORDER;
+    extern int CONT_MARG_ORDER, NUMBER_OF_CHUNKS;
     extern double RESOMAT_DECONVOLUTION_M;
     extern qio::ifileformat INPUT_QSO_FILE;
 
