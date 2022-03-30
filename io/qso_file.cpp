@@ -52,6 +52,8 @@ pfile(NULL), bqfile(NULL)
 
     if (qmaster.Rmat != NULL)
         Rmat = new mxhelp::Resolution(qmaster.Rmat, i1, i2);
+    else
+        Rmat = NULL;
 }
 
 void QSOFile::closeFile()
