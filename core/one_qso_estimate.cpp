@@ -1,15 +1,9 @@
 #include "core/one_qso_estimate.hpp"
 #include "core/global_numbers.hpp"
-#include "core/fiducial_cosmology.hpp"
 
-#include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
-#include <cmath>
-#include <algorithm> // std::for_each & transform & lower(upper)_bound
-#include <cstdio>
-#include <cstdlib>
 #include <stdexcept>
 
 #define MIN_PIXELS_IN_SPEC 20
@@ -33,27 +27,27 @@ int _decideNChunks(int size, std::vector<int> &indices)
 
 OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 {
-    qio::QSOFile *qFile = new qio::QSOFile(fname_qso, specifics::INPUT_QSO_FILE);
+    qio::QSOFile qFile(fname_qso, specifics::INPUT_QSO_FILE);
 
-    qFile->readParameters();
-    qFile->readData();
+    qFile.readParameters();
+    qFile.readData();
 
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
     {
-        qFile->readAllocResolutionMatrix();
+        qFile.readAllocResolutionMatrix();
 
         if (specifics::RESOMAT_DECONVOLUTION_M>0)
-            qFile->Rmat->deconvolve(specifics::RESOMAT_DECONVOLUTION_M);
+            qFile.Rmat->deconvolve(specifics::RESOMAT_DECONVOLUTION_M);
 
         if (specifics::OVERSAMPLING_FACTOR > 0)
-            qFile->Rmat->oversample(specifics::OVERSAMPLING_FACTOR, qFile->dlambda);
+            qFile.Rmat->oversample(specifics::OVERSAMPLING_FACTOR, qFile.dlambda);
     }
 
-    qFile->closeFile();
+    qFile.closeFile();
 
     // Boundary cut
-    int newsize = qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
+    int newsize = qFile.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
     if (newsize < MIN_PIXELS_IN_SPEC)   return;
 
