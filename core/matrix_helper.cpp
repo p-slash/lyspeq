@@ -680,6 +680,7 @@ namespace mxhelp
                     newsize, values+newsize*d);
 
             ncols = newsize;
+            osamp_matrix = NULL;
         }
         else
         {
@@ -692,7 +693,8 @@ namespace mxhelp
             std::copy_n(rmaster->values+(i1*nelemprow),
                 newsize*nelemprow, values);
 
-            ncols  = osamp_matrix->getNCols();
+            ncols = osamp_matrix->getNCols();
+            dia_matrix = NULL;
         }
     }
 

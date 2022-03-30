@@ -14,8 +14,8 @@ int _decideNChunks(int size, std::vector<int> &indices)
     int nchunks;
     if (specifics::NUMBER_OF_CHUNKS<2)
         nchunks = 1;
-
-    nchunks = specifics::NUMBER_OF_CHUNKS*size/MAX_PIXELS_IN_FOREST+1;
+    else
+        nchunks = specifics::NUMBER_OF_CHUNKS*size/MAX_PIXELS_IN_FOREST+1;
 
     indices.reserve(nchunks+1);
     for (int i = 0; i < nchunks; ++i)
