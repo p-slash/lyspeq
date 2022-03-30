@@ -25,8 +25,8 @@ int _decideNChunks(int size, std::vector<int> &indices)
 
     indices.reserve(nchunks+1);
     for (int i = 0; i < nchunks; ++i)
-        indices.push_back(newsize*i/nchunks);
-    indices.push_back(newsize);
+        indices.push_back(size*i/nchunks);
+    indices.push_back(size);
 
     return nchunks;
 }
@@ -92,9 +92,10 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
         int nchunks = _decideNChunks(newsize, indices);
 
         // add compute time from chunks
-        res = 0;
+        double res = 0;
         for (int nc = 0; nc < nchunks; ++nc)
-            res += Chunk::getComputeTimeEst(&qFile, indices[nc], indices[nc+1]);
+            res += Chunk::getComputeTimeEst(qtemp, indices[nc], indices[nc+1]);
+        return res;
     }
     catch (std::exception& e)
     {

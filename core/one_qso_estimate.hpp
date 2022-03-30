@@ -2,6 +2,7 @@
 #define ONE_QSO_ESTIMATE_H
 
 #include <string>
+#include <vector>
 #include "core/chunk_estimate.hpp"
 
 class OneQSOEstimate

@@ -150,7 +150,7 @@ namespace mxhelp
         // osamp : Oversampling coefficient.
         // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
         Resolution(int n1, int nelem_prow, int osamp, double dlambda);
-        Resolution(const Resolution &rmaster, int i1, int i2);
+        Resolution(const Resolution *rmaster, int i1, int i2);
         ~Resolution();
 
         int getNCols() const { return ncols; };
