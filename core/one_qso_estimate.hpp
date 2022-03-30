@@ -5,11 +5,13 @@
 #include <vector>
 #include "core/chunk_estimate.hpp"
 
-// This is the umbrella class for multiple chunks
-// Quadratic estimator is applied to each chunk individually
-// In terms of CPU time, all chunks are moved together.
-// Number of chunks decided dynamically:
-// nchunks = specifics::NUMBER_OF_CHUNKS * size / MAX_PIXELS_IN_FOREST+1;
+/*
+This is the umbrella class for multiple chunks
+Quadratic estimator is applied to each chunk individually
+In terms of CPU time, all chunks are moved together.
+Number of chunks decided dynamically:
+nchunks = specifics::NUMBER_OF_CHUNKS * size / MAX_PIXELS_IN_FOREST+1;
+*/
 class OneQSOEstimate
 {
 protected:
@@ -18,12 +20,11 @@ protected:
 
 public:
     OneQSOEstimate(std::string fname_qso);
-
     ~OneQSOEstimate();
 
     // Move constructor 
-    OneQSOEstimate(OneQSOEstimate &&rhs) : 
-    chunks(std::move(rhs.chunks)), indices(std::move(rhs.indices)) {};
+    OneQSOEstimate(OneQSOEstimate &&rhs)
+     : chunks(std::move(rhs.chunks)), indices(std::move(rhs.indices)) {};
     OneQSOEstimate& operator=(const OneQSOEstimate& rhs) = default;
 
     static double getComputeTimeEst(std::string fname_qso, int &zbin);

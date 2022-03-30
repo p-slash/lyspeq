@@ -4,21 +4,26 @@
 #include "io/qso_file.hpp"
 #include "gsltools/discrete_interpolation.hpp"
 
-// This object creates and computes C, S, Q, Q-slash matrices,
-// as well as a power spectrum estimate and a fisher matrix for individual quasar spectrum chunk.
-// Matrices are not stored indefinitely. They are allocated when needed and deleted when done.
+/*
+This object creates and computes C, S, Q, Q-slash matrices,
+as well as a power spectrum estimate and a fisher matrix for individual 
+quasar spectrum chunk. Matrices are not stored indefinitely. 
+They are allocated when needed and deleted when done.
 
-// Construct it with file path to qso spectrum. The binary file structes is given in io/qso_file.hpp
+Construct it with file path to qso spectrum. The binary file structes is given 
+in io/qso_file.hpp
 
-// This object is called in OneQSOEstimate in one_qso_estimate.hpp
-// It copies the subset of the spectrum from a QSOFile.
-// Quasar spectrum file consists of a header followed by lambda, flux and noise. 
-// Wavelength is then converted into v spacing around the median lambda.
+This object is called in OneQSOEstimate in one_qso_estimate.hpp
+It copies the subset of the spectrum from a QSOFile.
+Quasar spectrum file consists of a header followed by lambda, flux and noise. 
+Wavelength is then converted into v spacing around the median lambda.
 
-// The most efficient memory usage is 3 temp matrices
-// Saves more derivative matrices according to MEMORY_ALLOC (read as AllocatedMemoryMB in config file)
-// Fiducial signal matrix if there is still more space after all derivative matrices.
-// This scheme speeds up the algorithm.
+The most efficient memory usage is 3 temp matrices
+Saves more derivative matrices according to MEMORY_ALLOC 
+(read as AllocatedMemoryMB in config file)
+Fiducial signal matrix if there is still more space after all derivative 
+matrices. This scheme speeds up the algorithm.
+*/
 
 class Chunk
 {
@@ -90,7 +95,8 @@ public:
     void computeFisherMatrix();
 
     // Pass fit values for the power spectrum for numerical stability
-    void oneQSOiteration(const double *ps_estimate, double *dbt_sum_vector[3], double *fisher_sum);
+    void oneQSOiteration(const double *ps_estimate, double *dbt_sum_vector[3], 
+        double *fisher_sum);
 
     void fprintfMatrices(const char *fname_base);
     double getMinMemUsage();

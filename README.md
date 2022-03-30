@@ -4,7 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
-+ `DynamicChunkNumber` to dynamically chunk spectrum into multiple segments. This is achieved by moving quadratic estimator to a new class `Chunk` and using `OneQSOEstimate` as a wrapper for multiple chunks instead.
++ `DynamicChunkNumber` to dynamically chunk spectrum into multiple segments. This is achieved by moving quadratic estimator to a new class `Chunk` and using `OneQSOEstimate` as a wrapper for multiple chunks instead. `MAX_PIXELS_IN_FOREST 1000` due to typical performance limitation. If a given spectrum has more pixels than this, resultin `nchunks` will be greater than `DynamicChunkNumber`.
 + Continuum marginalization is now implemented with Sherman-Morrison identity. New option `ContinuumMargOrder` decides the maximum order of `ln lambda`. E.g., `ContinuumMargOrder 1` will marginalize out constant and slope. Old options `ContinuumMargAmp` and `ContinuumMargDerv` are removed.
 + `ResoMatDeconvolutionM (double)` option is added to config file. It deconvolves the resolution matrix with this value if >0. Should be around 1.
 + `SaveEachSpectrumResult` is changed to `SaveEachProcessResult`. This would constrain bootstrap estimation to subsamples determined by the number of processors, but save a lot space and coding.
