@@ -47,9 +47,9 @@ void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
     z_ij = sqrt(li * lj) / LYA_REST - 1.;
 }
 
-void Chunk::_copyQSOFile(const qio::QSOFile *qmaster, int i1, int i2)
+void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 {
-    qFile = new qio::QSOFile(*qmaster, i1, i2);
+    qFile = new qio::QSOFile(qmaster, i1, i2);
 
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
@@ -152,7 +152,7 @@ void Chunk::_setStoredMatrices()
     isSfidSet = false;
 }
 
-Chunk::Chunk(const qio::QSOFile *qmaster, int i1, int i2)
+Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 {
     isCovInverted = false;
     _copyQSOFile(qmaster, i1, i2);

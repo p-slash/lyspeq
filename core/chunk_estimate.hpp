@@ -1,19 +1,17 @@
 #ifndef CHUNK_ESTIMATE_H
 #define CHUNK_ESTIMATE_H
 
-#include <string>
-
 #include "io/qso_file.hpp"
 #include "gsltools/discrete_interpolation.hpp"
 
 // This object creates and computes C, S, Q, Q-slash matrices,
-// as well as a power spectrum estimate and a fisher matrix for individual quasar spectrum.
+// as well as a power spectrum estimate and a fisher matrix for individual quasar spectrum chunk.
 // Matrices are not stored indefinitely. They are allocated when needed and deleted when done.
 
 // Construct it with file path to qso spectrum. The binary file structes is given in io/qso_file.hpp
 
-// This object is called in OneDQuadraticPowerEstimate in quadratic_estimate.hpp
-// It takes the filename for a quasar spectrum in constructor.
+// This object is called in OneQSOEstimate in one_qso_estimate.hpp
+// It copies the subset of the spectrum from a QSOFile.
 // Quasar spectrum file consists of a header followed by lambda, flux and noise. 
 // Wavelength is then converted into v spacing around the median lambda.
 
@@ -55,7 +53,7 @@ protected:
     // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
     double  *fisher_matrix;
 
-    void _copyQSOFile(const qio::QSOFile *qmaster, int i1, int i2);
+    void _copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     void _findRedshiftBin();
     void _setNQandFisherIndex();
     void _setStoredMatrices();
@@ -75,7 +73,7 @@ protected:
 public:
     int ZBIN, ZBIN_LOW, ZBIN_UPP;
 
-    Chunk(const qio::QSOFile *qmaster, int i1, int i2);
+    Chunk(const qio::QSOFile &qmaster, int i1, int i2);
 
     ~Chunk();
 
