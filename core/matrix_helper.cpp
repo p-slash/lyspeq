@@ -686,8 +686,8 @@ namespace mxhelp
         {
             int nelemprow = rmaster->osamp_matrix->nelem_per_row;
             osamp_matrix = new OversampledMatrix(newsize, 
-                nelemprow, rmaster->osamp_matrix->oversampling, 1);
-            osamp_matrix->fine_dlambda = rmaster->osamp_matrix->fine_dlambda;
+                nelemprow, rmaster->osamp_matrix->oversampling, 
+                rmaster->osamp_matrix->fine_dlambda);
             values = osamp_matrix->values;
 
             std::copy_n(rmaster->values+(i1*nelemprow),
@@ -725,8 +725,8 @@ namespace mxhelp
         else
         {
             OversampledMatrix *new_osamp_matrix = new OversampledMatrix(newsize, 
-                osamp_matrix->nelem_per_row, osamp_matrix->oversampling, 1);
-            new_osamp_matrix->fine_dlambda = osamp_matrix->fine_dlambda;
+                osamp_matrix->nelem_per_row, osamp_matrix->oversampling, 
+                osamp_matrix->fine_dlambda);
 
             std::copy_n(osamp_matrix->values+(i1*osamp_matrix->nelem_per_row),
                 newsize*osamp_matrix->nelem_per_row, new_osamp_matrix->values);
