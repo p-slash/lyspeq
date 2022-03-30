@@ -91,7 +91,7 @@ public:
     mxhelp::Resolution *Rmat;
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);
-    QSOFile(const qio::QSOFile &qmaster, double l1, double l2);
+    QSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     void closeFile();
     ~QSOFile();
 
