@@ -13,6 +13,23 @@
 #include <stdexcept>
 
 #define MIN_PIXELS_IN_SPEC 20
+#define MAX_PIXELS_IN_FOREST 900
+
+int _decideNChunks(int size, std::vector<int> &indices)
+{
+    int nchunks;
+    if (specifics::NUMBER_OF_CHUNKS<2)
+        nchunks = 1;
+
+    nchunks = specifics::NUMBER_OF_CHUNKS*size/MAX_PIXELS_IN_FOREST+1;
+
+    indices.reserve(nchunks+1);
+    for (int i = 0; i < nchunks; ++i)
+        indices.push_back(newsize*i/nchunks);
+    indices.push_back(newsize);
+
+    return nchunks;
+}
 
 OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
 {
@@ -41,11 +58,12 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     if (newsize < MIN_PIXELS_IN_SPEC)   return;
 
     // decide nchunk with lambda points array[nchunks+1]
-======
+    int nchunks = _decideNChunks(newsize, indices);
+
     // create chunk objects
     chunks.reserve(nchunks);
     for (int nc = 0; nc < nchunks; ++nc)
-        chunks.emplace_back(qFile, lamchunk[nc], lamchunk[nc+1]);
+        chunks.emplace_back(qFile, indices[nc], indices[nc+1]);
 }
 
 OneQSOEstimate::~OneQSOEstimate() {}
@@ -70,11 +88,13 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
         zbin = bins::findRedshiftBin(zm);
 
         // decide chunks
-        ======
+        std::vector<int> indices;
+        int nchunks = _decideNChunks(newsize, indices);
+
         // add compute time from chunks
         res = 0;
         for (int nc = 0; nc < nchunks; ++nc)
-            res += Chunk::getComputeTimeEst(&qFile, lamchunk[nc], lamchunk[nc+1]);
+            res += Chunk::getComputeTimeEst(&qFile, indices[nc], indices[nc+1]);
     }
     catch (std::exception& e)
     {

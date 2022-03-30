@@ -8,6 +8,7 @@ class OneQSOEstimate
 {
 protected:
     std::vector<Chunk> chunks;
+    std::vector<int> indices;
 
 public:
     OneQSOEstimate(std::string fname_qso);
@@ -15,7 +16,8 @@ public:
     ~OneQSOEstimate();
 
     // Move constructor 
-    OneQSOEstimate(OneQSOEstimate &&rhs) : chunks(std::move(rhs.chunks)) {};
+    OneQSOEstimate(OneQSOEstimate &&rhs) : 
+    chunks(std::move(rhs.chunks)), indices(std::move(rhs.indices)) {};
     OneQSOEstimate& operator=(const OneQSOEstimate& rhs) = default;
 
     static double getComputeTimeEst(std::string fname_qso, int &zbin);
