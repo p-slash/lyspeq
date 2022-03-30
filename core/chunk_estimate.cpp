@@ -675,7 +675,7 @@ void Chunk::_freeMatrices()
         if (!qFile->Rmat->isDiaMatrix())
             delete [] highres_lambda;
     }
-    
+
     isQjSet   = false;
     isSfidSet = false;
 }
