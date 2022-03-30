@@ -31,6 +31,7 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
     oversampling=-1;
     id = 0;
 }
+
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 : PB(qmaster.PB), z_qso(qmaster.z_qso), snr(qmaster.snr), fname(qmaster.fname),
 dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda), id(qmaster.id),
