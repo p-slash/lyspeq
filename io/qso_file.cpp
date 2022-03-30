@@ -32,7 +32,7 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
     id = 0;
 }
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
-: PB(qmaster.PB), z_qso(qmaster.z_qso), snr(qmaster.snr), 
+: PB(qmaster.PB), z_qso(qmaster.z_qso), snr(qmaster.snr), fname(qmaster.fname),
 dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda), id(qmaster.id),
 R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling),
 pfile(NULL), bqfile(NULL)
@@ -51,7 +51,7 @@ pfile(NULL), bqfile(NULL)
     std::copy(qmaster.noise+i1, qmaster.noise+i2, noise);
 
     if (qmaster.Rmat != NULL)
-        Rmat = new Resolution(qmaster.Rmat, i1, i2);
+        Rmat = new mxhelp::Resolution(qmaster.Rmat, i1, i2);
 }
 
 void QSOFile::closeFile()

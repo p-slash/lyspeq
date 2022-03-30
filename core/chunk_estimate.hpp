@@ -55,7 +55,7 @@ protected:
     // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
     double  *fisher_matrix;
 
-    void _copyQSOFile(const qio::QSOFile *qmaster, double l1, double l2);
+    void _copyQSOFile(const qio::QSOFile *qmaster, int i1, int i2);
     void _findRedshiftBin();
     void _setNQandFisherIndex();
     void _setStoredMatrices();
@@ -70,10 +70,12 @@ protected:
     void _getWeightedMatrix(double *m);
     void _getFisherMatrix(const double *Q_ikz_matrix, int i_kz);
 
+    friend class TestOneQSOEstimate;
+
 public:
     int ZBIN, ZBIN_LOW, ZBIN_UPP;
 
-    Chunk(const qio::QSOFile *qmaster, double l1, double l2);
+    Chunk(const qio::QSOFile *qmaster, int i1, int i2);
 
     ~Chunk();
 
@@ -81,7 +83,7 @@ public:
     Chunk(Chunk &&rhs);
     Chunk& operator=(const Chunk& rhs) = default;
 
-    static double getComputeTimeEst(const qio::QSOFile &qmaster, double l1, double l2);
+    static double getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2);
 
     void setCovarianceMatrix(const double *ps_estimate);
     void invertCovarianceMatrix();

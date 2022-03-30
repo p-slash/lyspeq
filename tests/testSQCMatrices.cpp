@@ -24,24 +24,27 @@ public:
 
     void saveMatrices(std::string out_dir)
     {
-        _allocateMatrices();
-        process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, interp_derivative_matrix);
+        chunks[0]._allocateMatrices();
+        process::sq_private_table->readSQforR(chunks[0].RES_INDEX, 
+            chunks[0].interp2d_signal_matrix, chunks[0].interp_derivative_matrix);
 
         // Save fiducial signal matrix
-        _setFiducialSignalMatrix(covariance_matrix);
+        chunks[0]._setFiducialSignalMatrix(chunks[0].covariance_matrix);
         std::string fsave(out_dir);
         fsave+="/signal_matrix.txt";
-        mxhelp::fprintfMatrix(fsave.c_str(), covariance_matrix, qFile->size, qFile->size);
+        mxhelp::fprintfMatrix(fsave.c_str(), chunks[0].covariance_matrix, 
+            chunks[0].qFile->size, chunks[0].qFile->size);
 
         // Save Q0 matrix
-        _setQiMatrix(temp_matrix[0], 0);
+        chunks[0]._setQiMatrix(chunks[0].temp_matrix[0], 0);
         fsave=out_dir+"/q0_matrix.txt";
-        mxhelp::fprintfMatrix(fsave.c_str(), temp_matrix[0], qFile->size, qFile->size);
+        mxhelp::fprintfMatrix(fsave.c_str(), chunks[0].temp_matrix[0], 
+            chunks[0].qFile->size, chunks[0].qFile->size);
 
-        _freeMatrices();
-        delete interp2d_signal_matrix;
+        chunks[0]._freeMatrices();
+        delete chunks[0].interp2d_signal_matrix;
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-            delete interp_derivative_matrix[kn];
+            delete chunks[0].interp_derivative_matrix[kn];
     }
 };
 

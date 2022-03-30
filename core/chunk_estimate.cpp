@@ -47,9 +47,9 @@ void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
     z_ij = sqrt(li * lj) / LYA_REST - 1.;
 }
 
-void _copyQSOFile(const qio::QSOFile *qmaster, double l1, double l2)
+void Chunk::_copyQSOFile(const qio::QSOFile *qmaster, int i1, int i2)
 {
-    qFile = new qio::QSOFile(qmaster, l1, l2);
+    qFile = new qio::QSOFile(*qmaster, i1, i2);
 
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
@@ -152,10 +152,10 @@ void Chunk::_setStoredMatrices()
     isSfidSet = false;
 }
 
-Chunk::Chunk(const qio::QSOFile *qmaster, double l1, double l2)
+Chunk::Chunk(const qio::QSOFile *qmaster, int i1, int i2)
 {
     isCovInverted = false;
-    _copyQSOFile(qmaster, l1, l2)
+    _copyQSOFile(qmaster, i1, i2);
 
     qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
 
@@ -220,16 +220,15 @@ double Chunk::getMinMemUsage()
     return minmem;
 }
 
-double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, double l1, double l2)
+double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 {
     try
     {
-        qio::QSOFile qtemp(&qmaster, l1, l2);
+        qio::QSOFile qtemp(qmaster, i1, i2);
 
         double z1, z2, zm; 
         qtemp.readMinMaxMedRedshift(z1, z2, zm);
 
-        zbin         = bins::findRedshiftBin(zm);
         int ZBIN_LOW = bins::findRedshiftBin(z1), ZBIN_UPP = bins::findRedshiftBin(z2);
 
         if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
@@ -260,7 +259,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, double l1, double l
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
+        LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), qmaster.fname.c_str());
         return 0;
     }
 }
