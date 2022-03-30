@@ -7,7 +7,7 @@
 #include <stdexcept>
 
 #define MIN_PIXELS_IN_SPEC 20
-#define MAX_PIXELS_IN_FOREST 900
+#define MAX_PIXELS_IN_FOREST 1000
 
 int _decideNChunks(int size, std::vector<int> &indices)
 {
