@@ -806,6 +806,7 @@ namespace mxhelp
 
         is_dia_matrix = false;
         ncols = osamp_matrix->getNCols();
+        values = osamp_matrix->values;
 
         // Clean up
         gsl_interp_free(interp_cubic);
