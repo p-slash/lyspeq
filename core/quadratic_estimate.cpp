@@ -154,20 +154,30 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
             local_fpaths.push_back(filepaths[qe->second]);
     }
 
-    // sort local_fpaths
+    // sort local_fpaths for caching picca files
     if (specifics::INPUT_QSO_FILE == qio::Picca) 
         std::sort(local_fpaths.begin(), local_fpaths.end(), qio::PiccaFile::compareFnames);
 
+    // Obtain some statistics
+    // convert to off-balance
     double ave_balance = std::accumulate(bucket_time.begin(), 
         bucket_time.end(), 0.) / process::total_pes;
+    std::for_each(bucket_time.begin(), bucket_time.end(), 
+        [&](double &t) { t = t/ave_balance-1; });
 
-    LOG::LOGGER.STD("Off-Balance: ");
-    for (auto it = bucket_time.begin(); it != bucket_time.end(); ++it)
-        LOG::LOGGER.STD("%.1e ", (*it)/ave_balance-1);
-    LOG::LOGGER.STD("\n");
+    // find min and max offset
+    auto minmax_off = std::minmax_element(bucket_time.begin(), bucket_time.end());
+    double max_diff_offset = *minmax_off.second - *minmax_off.first;
+
+    // convert to absolute values and find find median
+    std::for_each(bucket_time.begin(), bucket_time.end(), 
+        [&](double &t) { t = fabs(t); });
+    std::sort(bucket_time.begin(), bucket_time.end());
+    double med_offset = bucket_time[bucket_time.size()/2];
 
     load_balance_time = mytime::timer.getTime() - load_balance_time;
-
+    LOG::LOGGER.STD("Absolute median offset: %.1e\n", med_offset);
+    LOG::LOGGER.STD("High-Low offset difference: %.1e\n", max_diff_offset);
     LOG::LOGGER.STD("Load balancing took %.2f sec.\n", load_balance_time*60.);
 }
 
