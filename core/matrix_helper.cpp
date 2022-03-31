@@ -99,19 +99,6 @@ namespace mxhelp
         return result;
     }
 
-    // Assume A and B square symmetric matrices.
-    // No stride or whatsoever. Continous allocation
-    // Uses CBLAS dot product.
-    double trace_dsymm(const double *A, const double *B, int N)
-    {
-        return cblas_ddot(N*N, A, 1, B, 1);
-    }
-
-    double trace_ddiagmv(const double *A, const double *B, int N)
-    {
-        return cblas_ddot(N, A, N+1, B, 1);  
-    }
-
     double my_cblas_dsymvdot(const double *v, const double *S, int N)
     {
         double *temp_vector = new double[N], r;
