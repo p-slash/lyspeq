@@ -179,6 +179,10 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 
 Chunk::Chunk(Chunk &&rhs)
 {
+    qFile = std::move(rhs.qFile);
+    rhs.qFile = NULL;
+
+    _matrix_n = std::move(rhs._matrix_n);
     RES_INDEX = rhs.RES_INDEX;
     N_Q_MATRICES = rhs.N_Q_MATRICES;
     fisher_index_start = rhs.fisher_index_start;
@@ -190,8 +194,7 @@ Chunk::Chunk(Chunk &&rhs)
 
     stored_qj = std::move(rhs.stored_qj);
     rhs.stored_qj = NULL;
-    qFile = std::move(rhs.qFile);
-    rhs.qFile = NULL;
+    isCovInverted = std::move(rhs.isCovInverted);
 
     nqj_eff = rhs.nqj_eff;
     isSfidStored = rhs.isSfidStored;

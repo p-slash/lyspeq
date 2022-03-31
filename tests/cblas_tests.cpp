@@ -108,6 +108,12 @@ int main()
     ovrmat.multiplyRight(mtrxB1, mtrxB2);
     mxhelp::printfMatrix(mtrxB2, Nrows, Nrows);
 
+    // mxhelp::Resolution overmat2(Nrows, Nelemprow, 2, 2);
+    // std::copy(&valss[0], &valss[0]+Nrows*Nelemprow, overmat2.values);
+    // mxhelp::Resolution overmatSub(&overmat2, 1, 3);
+    // overmat2.fprintfMatrix("testOrg.txt");
+    // overmatSub.fprintfMatrix("testCopy.txt");
+
     // Dia matrix tests
     #define NR 7
     #define Ndiag 5
