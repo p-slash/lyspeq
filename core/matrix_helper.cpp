@@ -745,7 +745,11 @@ namespace mxhelp
 
     void Resolution::orderTranspose()
     {
-        if (is_dia_matrix) dia_matrix->orderTranspose();
+        if (is_dia_matrix)
+        {
+            dia_matrix->orderTranspose();
+            values = dia_matrix->matrix;
+        }
     }
 
     void Resolution::oversample(int osamp, double dlambda)

@@ -63,7 +63,7 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         // Find the resolution index for the look up table
         RES_INDEX = process::sq_private_table->findSpecResIndex(qFile->R_fwhm, qFile->dv_kms);
 
-        if (RES_INDEX == -1)      throw std::out_of_range("SPECRES not found in tables!");
+        if (RES_INDEX == -1) throw std::out_of_range("SPECRES not found in tables!");
         _matrix_n = qFile->size;
     }
 
@@ -447,7 +447,6 @@ void Chunk::invertCovarianceMatrix()
     t = mytime::timer.getTime() - t;
 
     mytime::time_spent_on_c_inv += t;
-
 }
 
 void Chunk::_getWeightedMatrix(double *m)
