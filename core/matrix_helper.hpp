@@ -31,14 +31,18 @@ namespace mxhelp
     // Assumes A and B square matrices NxN, and at least one to be symmetric.
     // No stride or whatsoever. Continous allocation
     // Uses CBLAS dot product.
-    double trace_dsymm(const double *A, const double *B, int N);
+    inline
+    double trace_dsymm(const double *A, const double *B, int N)
+    {return cblas_ddot(N*N, A, 1, B, 1);}
 
     // Trace of A.B
     // Assumes A square matrix, B is diagonal. 
     // Only pass diagonal terms of B
     // If A is NxN, then B is N
     // Uses CBLAS dot product.
-    double trace_ddiagmv(const double *A, const double *B, int N);
+    inline
+    double trace_ddiagmv(const double *A, const double *B, int N)
+    {return cblas_ddot(N, A, N+1, B, 1);}
 
     // vT . S . v
     // Assumes S is square symmetric matrix NxN
