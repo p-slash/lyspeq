@@ -27,6 +27,7 @@ namespace LOG
     class Logger
     {
         int this_pe;
+        bool errfileOpened;
         std::string std_fname, err_fname, time_fname;
         FILE *stdfile, *errfile, *timefile;
     public:
