@@ -33,13 +33,11 @@ using namespace LOG;
 
 Logger::Logger()
 {
-    std_fname  = "";
-    err_fname  = "";
-    time_fname = "";
-
     stdfile  = stdout;
     errfile  = stderr;
     timefile = NULL;
+
+    errfileOpened = false;
 }
 
 Logger::~Logger()
@@ -54,7 +52,8 @@ void Logger::open(const char *outdir, int np)
     
     oss_fname << "/error_log" << this_pe << ".txt";
     err_fname = oss_fname.str();
-    errfile = ioh::open_file(err_fname.c_str(), "w");
+    // only open if error message exists
+    // errfile = ioh::open_file(err_fname.c_str(), "w");
 
     if (this_pe != 0) return;
 
@@ -80,7 +79,9 @@ void Logger::close()
 
 void Logger::reopen()
 {
-    errfile   = ioh::open_file(err_fname.c_str(), "a");
+    if (errfileOpened)
+        errfile = ioh::open_file(err_fname.c_str(), "a");
+
     if (this_pe != 0) return;
     stdfile   = ioh::open_file(std_fname.c_str(), "a");
     timefile  = ioh::open_file(time_fname.c_str(),  "a");
@@ -112,6 +113,12 @@ void Logger::STD(const char *fmt, ...)
 
 void Logger::ERR(const char *fmt, ...)
 {
+    if (!errfileOpened && !err_fname.empty())
+    {
+        errfile = ioh::open_file(err_fname.c_str(), "w");
+        errfileOpened = true;
+    }
+
     va_list args;
     va_start(args, fmt);
 
