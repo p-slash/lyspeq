@@ -410,7 +410,7 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("AllocatedMemoryMB", &process::MEMORY_ALLOC, DOUBLE);
     cFile.addKey("TemporaryFolder", &process::TMP_FOLDER, STRING);
 
-    cFile.readAll();
+    cFile.readAll((process::this_pe!=0));
 
     // char tmp_ps_fname[320];
     // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);

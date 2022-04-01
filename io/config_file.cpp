@@ -23,7 +23,7 @@ void ConfigFile::addKey(const std::string key, void *variable, VariableType vt)
     no_params++;
 }
 
-void ConfigFile::readAll()
+void ConfigFile::readAll(bool silence_warnings)
 {
     FILE *config_file = ioh::open_file(file_name, "r");
     
@@ -44,7 +44,8 @@ void ConfigFile::readAll()
         
         if (kumap_itr == key_umap.end())
         {
-            printf("WARNING: %s NOT FOUND!\n", buffer_key);
+            if (!silence_warnings)
+                printf("WARNING: %s NOT FOUND!\n", buffer_key);
         }
         else
         {
