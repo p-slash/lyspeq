@@ -30,24 +30,18 @@ class Chunk
 protected:
     qio::QSOFile *qFile;
 
-    int _matrix_n;
-
-    int RES_INDEX;
-    int N_Q_MATRICES, fisher_index_start;
+    int _matrix_n, RES_INDEX, N_Q_MATRICES, fisher_index_start, nqj_eff;
 
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
-    // DATA_SIZE sized vectors
+    // DATA_SIZE sized vectors. 
+    // Will have finer spacing when rmat is oversampled
     double *highres_lambda;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
-    double  *covariance_matrix, *inverse_covariance_matrix, *temp_matrix[2];
-
-    double  **stored_qj, *stored_sfid;
-    int       nqj_eff;
-    bool      isQjSet, isSfidSet, isSfidStored;
-
-    bool isCovInverted;
+    double  *covariance_matrix, *inverse_covariance_matrix, 
+        *temp_matrix[2], **stored_qj, *stored_sfid;
+    bool isQjSet, isSfidSet, isSfidStored, isCovInverted;
 
     DiscreteInterpolation2D  *interp2d_signal_matrix;
     DiscreteInterpolation1D **interp_derivative_matrix;
