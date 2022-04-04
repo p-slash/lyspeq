@@ -387,10 +387,11 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
-        _setQiMatrix(temp_matrix[0], i_kz);
+        double *Q_ikz_matrix = temp_matrix[0];
+        _setQiMatrix(Q_ikz_matrix, i_kz, false);
 
         cblas_daxpy(DATA_SIZE_2, ps_estimate[i_kz + fisher_index_start], 
-            temp_matrix[0], 1, covariance_matrix, 1);
+            Q_ikz_matrix, 1, covariance_matrix, 1);
     }
 
     // add noise matrix diagonally
