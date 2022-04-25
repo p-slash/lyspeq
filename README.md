@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ Continuum marginalization now has lambda polynomial templates. New keywords in config are `ContinuumLambdaMargOrder` for lambda polynomials, `ContinuumLogLambdaMargOrder` for log lambda polynomials.
 + `DynamicChunkNumber` to dynamically chunk spectrum into multiple segments. This is achieved by moving quadratic estimator to a new class `Chunk` and using `OneQSOEstimate` as a wrapper for multiple chunks instead. `MAX_PIXELS_IN_FOREST 1000` due to typical performance limitations. If a given spectrum has more pixels than this, resulting `nchunks` will be greater than `DynamicChunkNumber`.
 + Continuum marginalization is now implemented with Sherman-Morrison identity. New option `ContinuumMargOrder` decides the maximum order of `ln lambda`. E.g., `ContinuumMargOrder 1` will marginalize out constant and slope. Old options `ContinuumMargAmp` and `ContinuumMargDerv` are removed.
 + `ResoMatDeconvolutionM (double)` option is added to config file. It deconvolves the resolution matrix with this value if >0. Should be around 1.
@@ -179,9 +180,10 @@ Specify allocated memory in MB to store additional derivative matrices and fiduc
 
     AllocatedMemoryMB 5.
 
-Specify the maximum order of `ln lambda` polynomial to marginalize out. E.g., 1 will marginalize out constant and slope. Default is 1. Pass <0 to turn off.
+Specify the maximum order of `ln lambda` and `lambda` polynomial to marginalize out. E.g., 1 will marginalize out constant and slope. Default is 1. Pass <0 to turn off.
 
-    ContinuumMargOrder  1
+    ContinuumLogLambdaMargOrder  1
+    ContinuumLambdaMargOrder     1
     
 Specify temporary folder. Smooth power spectrum fitting creates temp files to communicate with [py/lorentzian_fit.py](py/lorentzian_fit.py) script. For clusters, you are typically assigned a scratch space such as `scratch` or `project`.
 

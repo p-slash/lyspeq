@@ -252,7 +252,7 @@ namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
-    int CONT_MARG_ORDER = 1, NUMBER_OF_CHUNKS = 1;
+    int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER =1, NUMBER_OF_CHUNKS = 1;
     double RESOMAT_DECONVOLUTION_M = 0;
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
     int OVERSAMPLING_FACTOR = -1;
@@ -307,12 +307,14 @@ namespace specifics
             "# Fiducial Signal Baseline: %s\n" \
             "# Input is delta flux: %s\n" \
             "# Divide by mean flux of the chunk: %s\n" \
-            "# ContinuumMargOrder: %d\n" \
+            "# ContinuumLogLamMargOrder: %d\n" \
+            "# ContinuumLamMargOrder: %d\n" \
             "# Number of chunks: %d\n", \
             TURN_OFF_SFID ? "OFF" : "ON", \
             conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO", \
             conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF", \
-            CONT_MARG_ORDER, NUMBER_OF_CHUNKS
+            CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, \
+            NUMBER_OF_CHUNKS
 
         if (toWrite == NULL)
             LOG::LOGGER.STD(CONFIG_TXT);
@@ -404,7 +406,8 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
     cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
 
     // Continuum marginalization order. Pass <=0 to turn off
-    cFile.addKey("ContinuumMargOrder",  &specifics::CONT_MARG_ORDER,  INTEGER);
+    cFile.addKey("ContinuumLogLambdaMargOrder", &specifics::CONT_LOGLAM_MARG_ORDER, INTEGER);
+    cFile.addKey("ContinuumLambdaMargOrder", &specifics::CONT_LAM_MARG_ORDER, INTEGER);
 
     // Read integer if testing outside of Lya region
     cFile.addKey("AllocatedMemoryMB", &process::MEMORY_ALLOC, DOUBLE);
