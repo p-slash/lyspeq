@@ -419,10 +419,25 @@ void Chunk::_addMarginalizations()
         temp_y, 1, inverse_covariance_matrix, qFile->size);
 
     // Higher orders
-    for (int cmo = 1; cmo <= specifics::CONT_MARG_ORDER; ++cmo)
+    // Log lambda polynomials
+    for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
         std::transform(qFile->wave, qFile->wave+qFile->size, temp_v, [cmo](const double &l) 
             { return pow(log(l/LYA_REST), cmo); });
+
+        cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
+            qFile->size, temp_v, 1, 0, temp_y, 1);
+        norm = cblas_ddot(qFile->size, temp_v, 1, temp_y, 1);
+
+        cblas_dger(CblasRowMajor, qFile->size, qFile->size, -1./norm, temp_y, 1, 
+            temp_y, 1, inverse_covariance_matrix, qFile->size);
+    }
+
+    // Lambda polynomials
+    for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
+    {
+        std::transform(qFile->wave, qFile->wave+qFile->size, temp_v, [cmo](const double &l) 
+            { return pow(l/LYA_REST, cmo); });
 
         cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
             qFile->size, temp_v, 1, 0, temp_y, 1);
@@ -445,7 +460,7 @@ void Chunk::invertCovarianceMatrix()
 
     isCovInverted = true;
 
-    if (specifics::CONT_MARG_ORDER >= 0)
+    if (specifics::CONT_LOGLAM_MARG_ORDER >= 0 || specifics::CONT_LAM_MARG_ORDER >= 0)
         _addMarginalizations();
 
     t = mytime::timer.getTime() - t;
