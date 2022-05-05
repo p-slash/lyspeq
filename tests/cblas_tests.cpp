@@ -184,6 +184,19 @@ int main()
     // rmat.oversample(3, 1.0);
     // diarmat.fprintfMatrix("tests/output/diamat.txt");
     // rmat.fprintfMatrix("tests/output/osampmat.txt");
+
+    // SVD tests
+    double SVD_A[] = {
+        8.79, 6.11,  -9.15,  9.57, -3.49,  9.84,
+        9.93, 6.91,  -7.93,  1.64,  4.02,  0.15,
+        9.83, 5.04,  4.86,  8.83,   9.8,   -8.99,
+        5.45, -0.27, 4.85,  0.74,  10.00,  -6.02,
+        3.16, 7.98,  3.01,  5.8,   4.27, -5.31
+    };
+    double svals[6];
+    // ncols = 6, nrows =  5
+    mxhelp::LAPACKE_svd(SVD_A, svals, 6, 5);
+    mxhelp::printfMatrix(SVD_A, 5, 6);
     return 0;
 }
 

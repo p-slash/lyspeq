@@ -428,25 +428,36 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 void Chunk::_addMarginalizations()
 {
     double *temp_v = temp_matrix[0], *temp_y = temp_matrix[1];
+    int nvecs = 1;
 
     // Zeroth order
     std::fill_n(temp_v, qFile->size, 1./sqrt(qFile->size));
-    _remShermanMorrison(temp_v, qFile->size, temp_y, inverse_covariance_matrix);
-
-    // Higher orders
+    temp_v += qFile->size;
     // Log lambda polynomials
-    for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
-    {
+    for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; 
+            ++cmo, ++nvecs, temp_v += qFile->size)
         _getUnitVectorLogLam(qFile->wave, qFile->size, cmo, temp_v);
+    // Lambda polynomials
+    for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; 
+            ++cmo, ++nvecs, temp_v += qFile->size)
+        _getUnitVectorLam(qFile->wave, qFile->size, cmo, temp_v);
+
+    // Roll back to initial position
+    temp_v = temp_matrix[0];
+    double *svals = new double[nvecs];
+    // SVD to get orthogonal marg vectors
+    mxhelp::LAPACKE_svd(temp_v, svals, qFile->size, nvecs);
+
+    // Remove each 
+    for (int i = 0; i < nvecs; ++i, temp_v += qFile->size)
+    {
+        // skip if this vector is degenerate
+        if (svals[i]<1e-6)  continue;
+
         _remShermanMorrison(temp_v, qFile->size, temp_y, inverse_covariance_matrix);
     }
 
-    // Lambda polynomials
-    for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
-    {
-        _getUnitVectorLam(qFile->wave, qFile->size, cmo, temp_v);
-        _remShermanMorrison(temp_v, qFile->size, temp_y, inverse_covariance_matrix);
-    }
+    delete [] svals;
 }
 
 // Calculate the inverse into temp_matrix[0]
