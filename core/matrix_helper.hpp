@@ -56,6 +56,11 @@ namespace mxhelp
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
 
+    // Return orthogonal vector in rows of A.
+    // A is assumed to have n vectors in its rows.
+    // vector size is m, which is npixels in spectrum
+    void LAPACKE_svd(double *A, double *svals, int m, int n);
+
     class DiaMatrix
     {
         double* _getDiagonal(int d);

@@ -144,6 +144,16 @@ namespace mxhelp
         // the Cholesky factorization of a symmetric positive-definite matrix
     }
 
+    void LAPACKE_svd(double *A, double *svals, int m, int n)
+    {
+        double *superb = new double[n-1];
+        lapack_int M = m, N = n, info;
+        info = LAPACKE_dgesvd(LAPACK_COL_MAJOR, 'O', 'N', M, N, A, M, svals, 
+            NULL, M, NULL, N, superb);
+        LAPACKErrorHandle("ERROR in SVD.", info);
+        delete [] superb;
+    }
+
     void printfMatrix(const double *A, int nrows, int ncols)
     {
         for (int i = 0; i < nrows; ++i)
