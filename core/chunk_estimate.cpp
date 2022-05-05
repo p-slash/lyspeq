@@ -425,6 +425,64 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
     cblas_dger(CblasRowMajor, size, size, -1./norm, y, 1, y, 1, cinv, size);
 }
 
+<<<<<<< HEAD
+=======
+// void OneQSOEstimate::_addMarginalizations()
+// {
+//     double *Vmat = temp_matrix[0], *Ymat = temp_matrix[1], *v1=Vmat;
+//     int ldb = specifics::CONT_MARG_ORDER+1;
+//     double *norm = new double[ldb*ldb];
+
+//     // Zeroth order
+//     std::fill_n(Vmat, qFile->size, 1);
+
+//     // First order
+//     if (specifics::CONT_MARG_ORDER>0)
+//     {
+//         v1 += qFile->size;
+//         std::transform(qFile->wave, qFile->wave+qFile->size, v1, 
+//             [](const double &l) { return log(l/LYA_REST); });
+//     }
+
+//     // Higher orders
+//     for (int cmo = 2; cmo <= specifics::CONT_MARG_ORDER; ++cmo)
+//     {
+//         double *vi = Vmat+(cmo-1)*qFile->size, *vj = vi+qFile->size;
+//         for (int i = 0; i < qFile->size; ++i)
+//             vj[i] = vi[i] * v1[i];
+
+//     }
+
+//     cblas_dsymm(CblasRowMajor, CblasLeft, CblasUpper,
+//         qFile->size, ldb, 1., inverse_covariance_matrix, qFile->size,
+//         Vmat, ldb, 0, Ymat, ldb);
+//     cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans, ldb, ldb, qFile->size, 
+//         1, Vmat, ldb, Ymat, ldb, 0, norm, ldb);
+//     mxhelp::LAPACKE_InvertMatrixLU(norm, ldb);
+
+
+//     cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
+//         qFile->size, temp_v, 1, 0, temp_y, 1);
+//     norm = cblas_ddot(qFile->size, temp_v, 1, temp_y, 1);
+
+//     cblas_dger(CblasRowMajor, qFile->size, qFile->size, -1./norm, temp_y, 1, 
+//         temp_y, 1, inverse_covariance_matrix, qFile->size);
+
+//     // Higher orders
+//     for (int cmo = 1; cmo <= specifics::CONT_MARG_ORDER; ++cmo)
+//     {
+//         std::transform(qFile->wave, qFile->wave+qFile->size, temp_v, [cmo](const double &l) 
+//             { return pow(log(l/LYA_REST), cmo); });
+
+//         cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
+//             qFile->size, temp_v, 1, 0, temp_y, 1);
+//         norm = cblas_ddot(qFile->size, temp_v, 1, temp_y, 1);
+
+//         cblas_dger(CblasRowMajor, qFile->size, qFile->size, -1./norm, temp_y, 1, 
+//             temp_y, 1, inverse_covariance_matrix, qFile->size);
+//     }
+    
+>>>>>>> 738024d (merge)
 void Chunk::_addMarginalizations()
 {
     double *temp_v = temp_matrix[0], *temp_y = temp_matrix[1];
