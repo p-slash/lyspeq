@@ -425,8 +425,6 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
     cblas_dger(CblasRowMajor, size, size, -1./norm, y, 1, y, 1, cinv, size);
 }
 
-<<<<<<< HEAD
-=======
 // void OneQSOEstimate::_addMarginalizations()
 // {
 //     double *Vmat = temp_matrix[0], *Ymat = temp_matrix[1], *v1=Vmat;
@@ -481,8 +479,7 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 //         cblas_dger(CblasRowMajor, qFile->size, qFile->size, -1./norm, temp_y, 1, 
 //             temp_y, 1, inverse_covariance_matrix, qFile->size);
 //     }
-    
->>>>>>> 738024d (merge)
+
 void Chunk::_addMarginalizations()
 {
     double *temp_v = temp_matrix[0], *temp_y = temp_matrix[1];
