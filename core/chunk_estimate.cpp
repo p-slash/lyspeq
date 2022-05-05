@@ -404,47 +404,48 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     isCovInverted = false;
 }
 
+void _getUnitVectorLogLam(const double *w, int size, int cmo, double *out)
+{
+    std::transform(w, w+size, out, [cmo](const double &l) { return pow(log(l/LYA_REST), cmo); });
+    double norm = sqrt(cblas_dnrm2(size, out, 1));
+    cblas_dscal(size, 1/norm, out, 1);
+}
+
+void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
+{
+    std::transform(w, w+size, out, [cmo](const double &l) { return pow(l/LYA_REST, cmo); });
+    double norm = sqrt(cblas_dnrm2(size, out, 1));
+    cblas_dscal(size, 1./norm, out, 1);
+}
+
+void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
+{
+    cblas_dsymv(CblasRowMajor, CblasUpper, size, 1., cinv, size, v, 1, 0, y, 1);
+    double norm = cblas_ddot(size, v, 1, y, 1);
+    cblas_dger(CblasRowMajor, size, size, -1./norm, y, 1, y, 1, cinv, size);
+}
+
 void Chunk::_addMarginalizations()
 {
     double *temp_v = temp_matrix[0], *temp_y = temp_matrix[1];
-    double norm;
 
     // Zeroth order
-    std::fill_n(temp_v, qFile->size, 1);
-    cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
-        qFile->size, temp_v, 1, 0, temp_y, 1);
-    norm = cblas_ddot(qFile->size, temp_v, 1, temp_y, 1);
-
-    cblas_dger(CblasRowMajor, qFile->size, qFile->size, -1./norm, temp_y, 1, 
-        temp_y, 1, inverse_covariance_matrix, qFile->size);
+    std::fill_n(temp_v, qFile->size, 1./sqrt(qFile->size));
+    _remShermanMorrison(temp_v, qFile->size, temp_y, inverse_covariance_matrix);
 
     // Higher orders
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
-        std::transform(qFile->wave, qFile->wave+qFile->size, temp_v, [cmo](const double &l) 
-            { return pow(log(l/LYA_REST), cmo); });
-
-        cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
-            qFile->size, temp_v, 1, 0, temp_y, 1);
-        norm = cblas_ddot(qFile->size, temp_v, 1, temp_y, 1);
-
-        cblas_dger(CblasRowMajor, qFile->size, qFile->size, -1./norm, temp_y, 1, 
-            temp_y, 1, inverse_covariance_matrix, qFile->size);
+        _getUnitVectorLogLam(qFile->wave, qFile->size, cmo, temp_v);
+        _remShermanMorrison(temp_v, qFile->size, temp_y, inverse_covariance_matrix);
     }
 
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
-        std::transform(qFile->wave, qFile->wave+qFile->size, temp_v, [cmo](const double &l) 
-            { return pow(l/LYA_REST, cmo); });
-
-        cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
-            qFile->size, temp_v, 1, 0, temp_y, 1);
-        norm = cblas_ddot(qFile->size, temp_v, 1, temp_y, 1);
-
-        cblas_dger(CblasRowMajor, qFile->size, qFile->size, -1./norm, temp_y, 1, 
-            temp_y, 1, inverse_covariance_matrix, qFile->size);
+        _getUnitVectorLam(qFile->wave, qFile->size, cmo, temp_v);
+        _remShermanMorrison(temp_v, qFile->size, temp_y, inverse_covariance_matrix);
     }
 }
 
