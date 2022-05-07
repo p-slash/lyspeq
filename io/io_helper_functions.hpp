@@ -45,7 +45,7 @@ namespace ioh
         // First bins::TOTAL_KZ_BINS elements are the power spectrum
         double *data_buffer;
     public:
-        BootstrapFile(const char *outdir);
+        BootstrapFile(const char *outdir, const char *base);
         ~BootstrapFile();
 
         void writeBoot(const double *pk, const double *fisher);

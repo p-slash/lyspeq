@@ -150,11 +150,11 @@ namespace ioh
     BootstrapFile *boot_saver = NULL;
 }
 
-ioh::BootstrapFile::BootstrapFile(const char *outdir)
+ioh::BootstrapFile::BootstrapFile(const char *outdir, const char *base)
 {
     int r=0;
     std::ostringstream oss_fname(outdir, std::ostringstream::ate);
-    oss_fname << "/bootresults.dat";
+    oss_fname << "/"<<base<<"-bootresults.dat";
 
     r += MPI_File_open(MPI_COMM_WORLD, oss_fname.str().c_str(), 
         MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &bootfile);
