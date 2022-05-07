@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 
         #if defined(ENABLE_MPI)
         if (process::SAVE_EACH_PE_RESULT)
-            ioh::boot_saver = new ioh::BootstrapFile(OUTPUT_DIR);
+            ioh::boot_saver = new ioh::BootstrapFile(OUTPUT_DIR, OUTPUT_FILEBASE);
         MPI_Barrier(MPI_COMM_WORLD);
         #endif
 
