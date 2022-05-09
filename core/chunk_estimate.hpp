@@ -31,6 +31,7 @@ protected:
     qio::QSOFile *qFile;
 
     int _matrix_n, RES_INDEX, N_Q_MATRICES, fisher_index_start, nqj_eff;
+    int _kncut;
 
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // DATA_SIZE sized vectors. 
@@ -56,6 +57,7 @@ protected:
     void _findRedshiftBin();
     void _setNQandFisherIndex();
     void _setStoredMatrices();
+    bool _isAboveNyquist(int i_kz);
 
     void _allocateMatrices();
     void _freeMatrices();
