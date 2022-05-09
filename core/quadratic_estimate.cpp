@@ -205,9 +205,35 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     
     std::copy(fisher_matrix_sum, fisher_matrix_sum+FISHER_SIZE, 
         inverse_fisher_matrix_sum);
+
+    // find empty diagonals
+    // assert all elements on that row and col are zero
+    // replace with 1, then invert, then replace with zero
+    std::vector<int> empty_indx;
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
+    {
+        double *ptr = inverse_fisher_matrix_sum+(bins::TOTAL_KZ_BINS+1)*i_kz, 
+            *f1, *f2;
+        if (*ptr == 0)
+        {
+            empty_indx.push_back(i_kz);
+            f1 = inverse_fisher_matrix_sum+bins::TOTAL_KZ_BINS*i_kz;
+            f2 = f1+bins::TOTAL_KZ_BINS;
+            if ( !std::all_of(f1, f2, [](double x){ return x==0;}) )
+                throw std::runtime_error("Not all elements in a row are zero!");
+            *ptr = 1;
+        }
+    }
+    
     mxhelp::LAPACKE_InvertMatrixLU(inverse_fisher_matrix_sum, 
         bins::TOTAL_KZ_BINS);
     
+    for (auto it = empty_indx.begin(); it != empty_indx.end(); ++it)
+    {
+        double *ptr = inverse_fisher_matrix_sum+(bins::TOTAL_KZ_BINS+1)*(*it);
+        *ptr = 0;
+    }
+
     isFisherInverted = true;
 
     t = mytime::timer.getTime() - t;

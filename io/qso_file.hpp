@@ -95,8 +95,8 @@ public:
     void closeFile();
     ~QSOFile();
 
+    void recalcDvDLam();
     void readParameters();
-
     void readData();
 
     // This is just a pointer shift for w,d,e. Rmat is copied

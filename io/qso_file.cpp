@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <numeric> // std::adjacent_difference
 #include <stdexcept>
 
 #include "io/io_helper_functions.hpp"
@@ -9,6 +10,32 @@
 
 namespace qio
 {
+double _calcdv(double w2, double w1) { return log(w2/w1)*SPEED_OF_LIGHT; }
+double _getMediandv(double *wave, int size)
+{
+    double *temp_arr = new double[size];
+
+    std::adjacent_difference(wave, wave+size, temp_arr, _calcdv);
+    std::sort(temp_arr+1, temp_arr+size);
+
+    double median = temp_arr[1+(size-1)/2];
+    delete [] temp_arr;
+
+    return  round(median/5)*5;
+}
+
+double _getMediandlambda(double *wave, int size)
+{
+    double *temp_arr = new double[size];
+
+    std::adjacent_difference(wave, wave+size, temp_arr);
+    std::sort(temp_arr+1, temp_arr+size);
+
+    double median = temp_arr[1+(size-1)/2];
+    delete [] temp_arr;
+
+    return median;
+}
 
 // ============================================================================
 // Umbrella QSO file
@@ -34,9 +61,10 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
 
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 : PB(qmaster.PB), z_qso(qmaster.z_qso), snr(qmaster.snr), fname(qmaster.fname),
-dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda), id(qmaster.id),
+ id(qmaster.id),
 R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling),
 pfile(NULL), bqfile(NULL)
+// dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda),
 {
     size = i2-i1;
 
@@ -55,6 +83,8 @@ pfile(NULL), bqfile(NULL)
         Rmat = new mxhelp::Resolution(qmaster.Rmat, i1, i2);
     else
         Rmat = NULL;
+
+    recalcDvDLam();
 }
 
 void QSOFile::closeFile()
@@ -99,9 +129,9 @@ void QSOFile::readData()
 
     // Update dv and dlambda
     if (dlambda < 0)
-        dlambda = wave[1]-wave[0];
+        dlambda = _getMediandlambda(wave, size);
     if (dv_kms < 0)
-        dv_kms = round(dlambda/wave[size/2]*SPEED_OF_LIGHT/5)*5;
+        dv_kms  = _getMediandv(wave, size);
 }
 
 int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
@@ -126,6 +156,8 @@ int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
     if (Rmat != NULL)
         Rmat->cutBoundary(wi1, wi2);
+
+    recalcDvDLam();
 
     return size;
 }
@@ -156,6 +188,12 @@ void QSOFile::readAllocResolutionMatrix()
         Rmat = pfile->readAllocResolutionMatrix(oversampling, dlambda);
     else
         throw std::runtime_error("Cannot read resolution matrix from Binary file!");
+}
+
+void QSOFile::recalcDvDLam()
+{
+    dlambda = _getMediandlambda(wave, size);
+    dv_kms  = _getMediandv(wave, size);
 }
 
 // ============================================================================
