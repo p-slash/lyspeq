@@ -193,6 +193,7 @@ Chunk::Chunk(Chunk &&rhs)
     rhs.qFile = NULL;
 
     _matrix_n = std::move(rhs._matrix_n);
+    _kncut    = std::move(rhs._kncut);
     RES_INDEX = rhs.RES_INDEX;
     N_Q_MATRICES = rhs.N_Q_MATRICES;
     fisher_index_start = rhs.fisher_index_start;
@@ -529,7 +530,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
         if ((diff_ji != 0) && (diff_ji != 1) && (diff_ji != bins::NUMBER_OF_K_BANDS))
             continue;
         #endif
-        
+
         Q_jkz_matrix = temp_matrix[1];
         _setQiMatrix(Q_jkz_matrix, j_kz, false);
 
@@ -615,9 +616,10 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 
     // Preload last nqj_eff matrices
     // 0 is the last matrix
+    // i_kz = N_Q_MATRICES - j_kz - 1
     for (int j_kz = 0; j_kz < nqj_eff; ++j_kz)
     {
-        if (_isAboveNyquist(j_kz)) continue;
+        if (_isAboveNyquist(N_Q_MATRICES - j_kz - 1)) continue;
 
         _setQiMatrix(stored_qj[j_kz], N_Q_MATRICES - j_kz - 1);
     }
