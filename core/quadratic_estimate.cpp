@@ -23,6 +23,9 @@
 #include "core/mpi_merge_sort.cpp"
 #endif
 
+// This variable is set in inverse fisher matrix
+int _NewDegreesOfFreedom = 0;
+
 double *OneDQuadraticPowerEstimate::precomputed_fisher { NULL };
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, const char *dir)
@@ -224,7 +227,9 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
             *ptr = 1;
         }
     }
-    
+
+    _NewDegreesOfFreedom = bins::DEGREE_OF_FREEDOM - empty_indx.size();
+
     mxhelp::LAPACKE_InvertMatrixLU(inverse_fisher_matrix_sum, 
         bins::TOTAL_KZ_BINS);
     
@@ -504,16 +509,18 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         p1 = fabs(current_power_estimate_vector[i_kz]);
         p2 = fabs(previous_power_estimate_vector[i_kz]);
         
+        if (p1 == 0 && p2 == 0) continue;
+
         diff = fabs(p1 - p2);
         pMax = std::max(p1, p2);
         r    = diff / pMax;
 
         if (r > CONVERGENCE_EPS)    bool_converged = false;
 
-        abs_mean += r / bins::DEGREE_OF_FREEDOM;
+        abs_mean += r / _NewDegreesOfFreedom;
         abs_max   = std::max(r, abs_max);
     }
-    
+
     LOG::LOGGER.STD("Mean relative change is %.1e.\n"
         "Maximum relative change is %.1e.\n"
         "Old test: Iteration converges when this is less than %.1e\n", 
@@ -530,15 +537,15 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         double  t = previous_power_estimate_vector[i_kz],
                 e = inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS) * i_kz];
 
-        if (e < 0)  continue;
+        if (e <= 0)  continue;
 
         r += (t*t) / e;
     }
 
-    r  = sqrt(r / bins::DEGREE_OF_FREEDOM);
+    r  = sqrt(r / _NewDegreesOfFreedom);
 
     rfull = sqrt(fabs(mxhelp::my_cblas_dsymvdot(previous_power_estimate_vector, 
-        fisher_matrix_sum, bins::TOTAL_KZ_BINS)) / bins::DEGREE_OF_FREEDOM);
+        fisher_matrix_sum, bins::TOTAL_KZ_BINS)) / _NewDegreesOfFreedom);
     
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
     LOG::LOGGER.STD("Chi^2/dof convergence test:\nDiagonal: %.3f. Full Fisher: %.3f.\n"
