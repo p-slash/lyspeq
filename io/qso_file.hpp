@@ -52,7 +52,6 @@ class PiccaFile
     fitsfile *fits_file;
     // int hdunum;
     int no_spectra, status;
-    int curr_spec_index;
 
     int curr_N, curr_elem_per_row;
     int _getColNo(char *tmplt);
