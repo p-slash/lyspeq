@@ -46,8 +46,8 @@ namespace sqhelper
 
 SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_base, 
     const char *fname_rlist, int Nv, int Nz, double Lv)
-: DIR(dir), S_BASE(s_base), Q_BASE(q_base), itp_v1(0), N_V_POINTS(Nv), 
-N_Z_POINTS_OF_S(Nz), LENGTH_V(Lv)
+: N_V_POINTS(Nv), N_Z_POINTS_OF_S(Nz), LENGTH_V(Lv),
+  DIR(dir), S_BASE(s_base), Q_BASE(q_base), itp_v1(0)
 {
     itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
