@@ -657,7 +657,7 @@ namespace mxhelp
     }
 
     Resolution::Resolution(int n1, int nelem_prow, int osamp, double dlambda) :
-        dia_matrix(NULL), is_dia_matrix(false), temp_highres_mat(NULL)
+        is_dia_matrix(false), dia_matrix(NULL), temp_highres_mat(NULL)
     {
         osamp_matrix = new OversampledMatrix(n1, nelem_prow, osamp, dlambda);
         values = osamp_matrix->values;
