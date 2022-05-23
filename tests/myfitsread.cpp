@@ -3,6 +3,12 @@
 
 int main(int argc, char *argv[])
 {
+    if (argc<2)
+    {
+        fprintf(stderr, "Missing fits file!\n");
+        return -1;
+    }
+
     fitsfile *fits_file;
     char *fname = argv[1];
     int status = 0, N;
