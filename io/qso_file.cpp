@@ -46,7 +46,7 @@ double _getMediandlambda(double *wave, int size)
 // double *wave, *delta, *noise;
 // mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
-    : fname(fname_qso), PB(p_or_b), pfile(NULL), bqfile(NULL),
+    : PB(p_or_b), fname(fname_qso), pfile(NULL), bqfile(NULL),
     wave_head(NULL), delta_head(NULL), noise_head(NULL), Rmat(NULL)
 {
     if (PB == Picca)
@@ -60,10 +60,9 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
 }
 
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
-: PB(qmaster.PB), z_qso(qmaster.z_qso), snr(qmaster.snr), fname(qmaster.fname),
- id(qmaster.id),
+: PB(qmaster.PB), pfile(NULL), bqfile(NULL), fname(qmaster.fname), 
+z_qso(qmaster.z_qso), snr(qmaster.snr), id(qmaster.id),
 R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling),
-pfile(NULL), bqfile(NULL)
 // dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda),
 {
     size = i2-i1;
