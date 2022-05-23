@@ -47,7 +47,8 @@ void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
     z_ij = sqrt(li * lj) / LYA_REST - 1.;
 }
 
-Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
+Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2) :
+stored_qj(NULL), stored_sfid(NULL)
 {
     isCovInverted = false;
     _copyQSOFile(qmaster, i1, i2);
@@ -203,15 +204,24 @@ Chunk::Chunk(Chunk &&rhs)
     MEDIAN_REDSHIFT = rhs.MEDIAN_REDSHIFT;
     // BIN_REDSHIFT = rhs.BIN_REDSHIFT;
 
-    stored_qj = std::move(rhs.stored_qj);
-    rhs.stored_qj = NULL;
-    isCovInverted = std::move(rhs.isCovInverted);
-
     nqj_eff = rhs.nqj_eff;
+    stored_qj = new double*[nqj_eff];
+
+    for (int i = 0; i < nqj_eff; ++i)
+    {
+        stored_qj[i] = std::move(rhs.stored_qj[i]);
+        rhs.stored_qj[i] = NULL;
+    }
+    delete [] rhs.stored_qj;
+    rhs.stored_qj = NULL;
+
+    isCovInverted = std::move(rhs.isCovInverted);
     isSfidStored = rhs.isSfidStored;
 
     interp_derivative_matrix = std::move(rhs.interp_derivative_matrix);
+    interp2d_signal_matrix   = std::move(rhs.interp2d_signal_matrix);
     rhs.interp_derivative_matrix = NULL;
+    rhs.interp2d_signal_matrix   = NULL;
 }
 
 Chunk::~Chunk()
