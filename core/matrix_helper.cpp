@@ -11,6 +11,9 @@
 
 #include <gsl/gsl_interp.h>
 
+#define lapack_complex_float std::complex<float>
+#define lapack_complex_double std::complex<double>
+
 #ifdef USE_MKL_CBLAS
 #include "mkl_lapacke.h"
 #else
@@ -202,8 +205,8 @@ namespace mxhelp
     }
 
     // class DiaMatrix
-    DiaMatrix::DiaMatrix(int nm, int ndia) : ndim(nm), ndiags(ndia),
-        sandwich_buffer(NULL)
+    DiaMatrix::DiaMatrix(int nm, int ndia) : sandwich_buffer(NULL), 
+        ndim(nm), ndiags(ndia)
     {
         // e.g. ndim=724, ndiags=11
         // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
@@ -496,11 +499,11 @@ namespace mxhelp
 
     // class OversampledMatrix
     OversampledMatrix::OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda) : 
-        nrows(n1), nelem_per_row(nelem_prow), oversampling(osamp),
-        sandwich_buffer(NULL), temp_highres_mat(NULL)
+        sandwich_buffer(NULL), nrows(n1), nelem_per_row(nelem_prow), oversampling(osamp),
+        temp_highres_mat(NULL)
     {
-        nvals = nrows*nelem_per_row;
         ncols = nrows*oversampling + nelem_per_row-1;
+        nvals = nrows*nelem_per_row;
         fine_dlambda = dlambda/oversampling;
         values  = new double[nvals];
         
@@ -646,8 +649,8 @@ namespace mxhelp
     }
 
     // Main resolution object
-    Resolution::Resolution(int nm, int ndia) : ncols(nm), 
-        osamp_matrix(NULL), temp_highres_mat(NULL), is_dia_matrix(true)
+    Resolution::Resolution(int nm, int ndia) : is_dia_matrix(true), ncols(nm), 
+        osamp_matrix(NULL), temp_highres_mat(NULL)
     {
         dia_matrix = new DiaMatrix(nm, ndia);
         values     = dia_matrix->matrix;
@@ -779,7 +782,7 @@ namespace mxhelp
             double _shift = *std::min_element(row, row+INPUT_SIZE)
                 - nonzero_min_element(row, row+INPUT_SIZE);
 
-            std::for_each(row, row+INPUT_SIZE, [&](double &f) { f = log(f-_shift); } );
+            std::for_each(row, row+INPUT_SIZE, [_shift](double &f) { f = log(f-_shift); } );
 
             gsl_interp_init(interp_cubic, win, row, INPUT_SIZE);
 

@@ -219,9 +219,9 @@ Chunk::Chunk(Chunk &&rhs)
     isSfidStored = rhs.isSfidStored;
 
     interp_derivative_matrix = std::move(rhs.interp_derivative_matrix);
-    interp2d_signal_matrix   = std::move(rhs.interp2d_signal_matrix);
+    // interp2d_signal_matrix   = std::move(rhs.interp2d_signal_matrix);
     rhs.interp_derivative_matrix = NULL;
-    rhs.interp2d_signal_matrix   = NULL;
+    // rhs.interp2d_signal_matrix   = NULL;
 }
 
 Chunk::~Chunk()
@@ -696,7 +696,7 @@ void Chunk::_allocateMatrices()
     
     for (int i = 0; i < nqj_eff; ++i)
         stored_qj[i] = new double[DATA_SIZE_2];
-    
+
     if (isSfidStored)
         stored_sfid = new double[DATA_SIZE_2];
 
@@ -724,7 +724,7 @@ void Chunk::_freeMatrices()
 
     for (int i = 0; i < 2; ++i)
         delete [] temp_matrix[i];
-    
+
     for (int i = 0; i < nqj_eff; ++i)
         delete [] stored_qj[i];
 

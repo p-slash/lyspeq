@@ -140,7 +140,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     LOG::LOGGER.STD("Load balancing for %d tasks available.\n", process::total_pes);
     
     double load_balance_time = mytime::timer.getTime();
-    
+
     std::vector<double> bucket_time(process::total_pes, 0);
     local_fpaths.reserve(int(1.1*filepaths.size()/process::total_pes));
 
