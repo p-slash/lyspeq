@@ -465,6 +465,11 @@ void Chunk::_addMarginalizations()
             ++cmo, ++nvecs, temp_v += qFile->size)
         _getUnitVectorLam(qFile->wave, qFile->size, cmo, temp_v);
 
+    #ifdef DEBUG
+    printf("nvecs %d\n", nvecs);
+    fflush(stdout);
+    #endif
+
     // Roll back to initial position
     temp_v = temp_matrix[0];
     double *svals = new double[nvecs];
@@ -615,6 +620,7 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     double *dbt_sum_vector[3], double *fisher_sum)
 {
     #ifdef DEBUG
+    printf("File %s\n", qFile->fname.c_str());
     printf("Allocating matrices\n");
     fflush(stdout);
     #endif
