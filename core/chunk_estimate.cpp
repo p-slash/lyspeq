@@ -614,6 +614,11 @@ void Chunk::computePSbeforeFvector()
 void Chunk::oneQSOiteration(const double *ps_estimate, 
     double *dbt_sum_vector[3], double *fisher_sum)
 {
+    #ifdef DEBUG
+    printf("Allocating matrices\n");
+    fflush(stdout);
+    #endif
+
     _allocateMatrices();
 
     // This function allocates new signal & deriv matrices 
@@ -627,13 +632,17 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     // Preload last nqj_eff matrices
     // 0 is the last matrix
     // i_kz = N_Q_MATRICES - j_kz - 1
+    #ifdef DEBUG
+    printf("Setting qi matrices\n");
+    fflush(stdout);
+    #endif
     for (int j_kz = 0; j_kz < nqj_eff; ++j_kz)
     {
         if (_isAboveNyquist(N_Q_MATRICES - j_kz - 1)) continue;
 
         _setQiMatrix(stored_qj[j_kz], N_Q_MATRICES - j_kz - 1);
     }
-    
+
     if (nqj_eff > 0)    isQjSet = true;
 
     // Preload fiducial signal matrix if memory allows
@@ -643,10 +652,18 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
         isSfidSet = true;
     }
 
+    #ifdef DEBUG
+    printf("Setting cov matrix\n");
+    fflush(stdout);
+    #endif
     setCovarianceMatrix(ps_estimate);
 
     try
     {
+        #ifdef DEBUG
+        printf("Inverting cov matrix\n");
+        fflush(stdout);
+        #endif
         invertCovarianceMatrix();
 
         computePSbeforeFvector();

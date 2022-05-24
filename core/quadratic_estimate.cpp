@@ -421,6 +421,9 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
         initializeIteration();
 
         // Calculation for each spectrum
+        #ifdef DEBUG
+        printf("Running on local queue size %d\n", local_queue.size());
+        #endif
         for (auto it = local_queue.begin(); it != local_queue.end(); ++it)
         {
             it->oneQSOiteration(powerspectra_fits, 
