@@ -422,7 +422,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
 
         // Calculation for each spectrum
         #ifdef DEBUG
-        printf("Running on local queue size %d\n", local_queue.size());
+        printf("Running on local queue size %zu\n", local_queue.size());
         #endif
         for (auto it = local_queue.begin(); it != local_queue.end(); ++it)
         {
