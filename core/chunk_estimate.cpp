@@ -191,7 +191,7 @@ bool Chunk::_isAboveNyquist(int i_kz)
 Chunk::Chunk(Chunk &&rhs)
 {
     #ifdef DEBUG
-    LOG::LOGGER.ERR("moving %s\n", qmaster.fname.c_str());
+    LOG::LOGGER.ERR("moving %s\n", qFile->fname.c_str());
     #endif
     qFile = std::move(rhs.qFile);
     rhs.qFile = NULL;
