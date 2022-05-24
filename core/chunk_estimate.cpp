@@ -623,6 +623,7 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 {
     #ifdef DEBUG
     LOG::LOGGER.ERR("File %s\n", qFile->fname.c_str());
+    LOG::LOGGER.ERR("TargetID %ld\n", qFile->id);
     LOG::LOGGER.ERR("Allocating matrices\n");
     #endif
 
