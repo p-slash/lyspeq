@@ -422,12 +422,15 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
 
         // Calculation for each spectrum
         #ifdef DEBUG
-        printf("Running on local queue size %zu\n", local_queue.size());
+        LOG::LOGGER.ERR("Running on local queue size %zu\n", local_queue.size());
         #endif
         for (auto it = local_queue.begin(); it != local_queue.end(); ++it)
         {
             it->oneQSOiteration(powerspectra_fits, 
                 dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
+            #ifdef DEBUG
+            LOG::LOGGER.ERR("Next spectrum\n");
+            #endif
 
             // When compiled with debugging feature
             // save matrices to files, break

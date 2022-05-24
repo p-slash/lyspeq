@@ -466,8 +466,7 @@ void Chunk::_addMarginalizations()
         _getUnitVectorLam(qFile->wave, qFile->size, cmo, temp_v);
 
     #ifdef DEBUG
-    printf("nvecs %d\n", nvecs);
-    fflush(stdout);
+    LOG::LOGGER.ERR("nvecs %d\n", nvecs);
     #endif
 
     // Roll back to initial position
@@ -620,9 +619,8 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     double *dbt_sum_vector[3], double *fisher_sum)
 {
     #ifdef DEBUG
-    printf("File %s\n", qFile->fname.c_str());
-    printf("Allocating matrices\n");
-    fflush(stdout);
+    LOG::LOGGER.ERR("File %s\n", qFile->fname.c_str());
+    LOG::LOGGER.ERR("Allocating matrices\n");
     #endif
 
     _allocateMatrices();
@@ -639,9 +637,9 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     // 0 is the last matrix
     // i_kz = N_Q_MATRICES - j_kz - 1
     #ifdef DEBUG
-    printf("Setting qi matrices\n");
-    fflush(stdout);
+    LOG::LOGGER.ERR("Setting qi matrices\n");
     #endif
+
     for (int j_kz = 0; j_kz < nqj_eff; ++j_kz)
     {
         if (_isAboveNyquist(N_Q_MATRICES - j_kz - 1)) continue;
@@ -659,17 +657,16 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     }
 
     #ifdef DEBUG
-    printf("Setting cov matrix\n");
-    fflush(stdout);
+    LOG::LOGGER.ERR("Setting cov matrix\n");
     #endif
     setCovarianceMatrix(ps_estimate);
 
     try
     {
         #ifdef DEBUG
-        printf("Inverting cov matrix\n");
-        fflush(stdout);
+        LOG::LOGGER.ERR("Inverting cov matrix\n");
         #endif
+
         invertCovarianceMatrix();
 
         computePSbeforeFvector();
@@ -692,7 +689,10 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
         LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
             qFile->size, MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
     }
-    
+
+    #ifdef DEBUG
+    LOG::LOGGER.ERR("Freeing matrices\n");
+    #endif
     _freeMatrices();
 
     // Do not delete if these are pointers to process::sq_private_table
