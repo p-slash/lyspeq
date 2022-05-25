@@ -429,7 +429,8 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
             it->oneQSOiteration(powerspectra_fits, 
                 dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
             #ifdef DEBUG
-            LOG::LOGGER.ERR("Next spectrum\n");
+            LOG::LOGGER.ERR("One done.\n");
+            break;
             #endif
 
             // When compiled with debugging feature
@@ -439,6 +440,12 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
             throw std::runtime_error("DEBUGGING QUIT.");
             #endif
         }
+
+        #ifdef DEBUG
+        MPI_Barrier(MPI_COMM_WORLD);
+        LOG::LOGGER.ERR("All done.\n");
+        throw std::runtime_error("DEBUGGING QUIT.");
+        #endif
 
         // Save bootstrap files only if MPI is enabled.
         #if defined(ENABLE_MPI)
