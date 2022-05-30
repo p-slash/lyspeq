@@ -328,20 +328,18 @@ void Chunk::_setFiducialSignalMatrix(double *&sm, bool copy)
     mytime::time_spent_on_set_sfid += t;
 }
 
-void Chunk::_setQiMatrix(double *&qi, int i_kz, bool copy)
+void Chunk::_setQiMatrix(double *qi, int i_kz)
 {
     ++mytime::number_of_times_called_setq;
     double t = mytime::timer.getTime(), t_interp;
     int kn, zm;
     double v_ij, z_ij;
 
-    if (isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)))
+    if (_isQikzStores(i_kz))
     {
-        double *ptr = stored_qj[N_Q_MATRICES-i_kz-1];
         t_interp = 0;
-
-        if (copy)   std::copy(ptr, ptr + DATA_SIZE_2, qi);
-        else        qi = ptr;
+        double *ptr = _getStoredQikz(i_kz);
+        std::copy(ptr, ptr + DATA_SIZE_2, qi);
     }
     else
     {
@@ -406,12 +404,18 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     else
         std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
 
+    double *Q_ikz_matrix;
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
         if (_isAboveNyquist(i_kz)) continue;
 
-        double *Q_ikz_matrix = temp_matrix[0];
-        _setQiMatrix(Q_ikz_matrix, i_kz, false);
+        if (_isQikzStores(i_kz))
+            Q_ikz_matrix = _getStoredQikz(i_kz);
+        else
+        {
+            Q_ikz_matrix = temp_matrix[0];
+            _setQiMatrix(Q_ikz_matrix, i_kz);
+        }
 
         cblas_daxpy(DATA_SIZE_2, ps_estimate[i_kz + fisher_index_start], 
             Q_ikz_matrix, 1, covariance_matrix, 1);
@@ -541,8 +545,13 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
             continue;
         #endif
 
-        Q_jkz_matrix = temp_matrix[1];
-        _setQiMatrix(Q_jkz_matrix, j_kz, false);
+        if (_isQikzStores(j_kz))
+            Q_jkz_matrix = _getStoredQikz(j_kz);
+        else
+        {
+            Q_jkz_matrix = temp_matrix[1];
+            _setQiMatrix(Q_jkz_matrix, j_kz);
+        }
 
         temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, qFile->size);
 

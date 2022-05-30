@@ -58,13 +58,17 @@ protected:
     void _setNQandFisherIndex();
     void _setStoredMatrices();
     bool _isAboveNyquist(int i_kz);
+    bool _isQikzStores(int i_kz)
+    { return isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)); };
+    double* _getStoredQikz(int i_kz) const
+    { return stored_qj[N_Q_MATRICES-i_kz-1]; };
 
     void _allocateMatrices();
     void _freeMatrices();
     // void _saveIndividualResult();
 
     void _setFiducialSignalMatrix(double *&sm, bool copy=true);
-    void _setQiMatrix(double *&qi, int i_kz, bool copy=true);
+    void _setQiMatrix(double *qi, int i_kz);
     void _addMarginalizations();
     void _getWeightedMatrix(double *m);
     void _getFisherMatrix(const double *Q_ikz_matrix, int i_kz);
