@@ -612,8 +612,11 @@ namespace mxhelp
 
     void OversampledMatrix::allocateTempHighRes()
     {
+        long highsize = ncols;
+        highsize *= ncols;
+
         if (temp_highres_mat == NULL)
-            temp_highres_mat = new double[ncols*ncols];
+            temp_highres_mat = new double[highsize];
     }
 
     void OversampledMatrix::fprintfMatrix(const char *fname)
