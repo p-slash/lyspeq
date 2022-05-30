@@ -764,19 +764,37 @@ void Chunk::_freeMatrices()
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
         delete [] dbt_estimate_before_fisher_vector[dbt_i];
 
+    #ifdef DEBUG
+    LOG::LOGGER.ERR("Free fisher\n");
+    #endif
     delete [] fisher_matrix;
 
+    #ifdef DEBUG
+    LOG::LOGGER.ERR("Free cov\n");
+    #endif
     delete [] covariance_matrix;
 
+    #ifdef DEBUG
+    LOG::LOGGER.ERR("Free temps\n");
+    #endif
     for (int i = 0; i < 2; ++i)
         delete [] temp_matrix[i];
 
+    #ifdef DEBUG
+    LOG::LOGGER.ERR("Free storedqj\n");
+    #endif
     for (int i = 0; i < nqj_eff; ++i)
         delete [] stored_qj[i];
 
+    #ifdef DEBUG
+    LOG::LOGGER.ERR("Free stored sfid\n");
+    #endif
     if (isSfidStored)
         delete [] stored_sfid;
 
+    #ifdef DEBUG
+    LOG::LOGGER.ERR("Free resomat related\n");
+    #endif
     if (specifics::USE_RESOLUTION_MATRIX)
     {
         qFile->Rmat->freeBuffers();
