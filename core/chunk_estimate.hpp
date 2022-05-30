@@ -80,7 +80,7 @@ public:
 
     // Move constructor 
     Chunk(Chunk &&rhs);
-    Chunk& operator=(const Chunk& rhs) = default;
+    Chunk& operator=(const Chunk& rhs); // = default;
 
     static double getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2);
 
