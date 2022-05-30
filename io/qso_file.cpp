@@ -304,6 +304,11 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
     _setColumnNames();
     _checkStatus();
 
+    for (auto i = header_keys.begin(); i != header_keys.end(); ++i)
+        printf("%s\n", i->c_str());
+    for (auto i = colnames.begin(); i != colnames.end(); ++i)
+        printf("%s\n", i->c_str());
+
     // fits_get_hdu_num(fits_file, &curr_spec_index);
     // fits_get_num_hdus(fits_file, &no_spectra, &status);
 
@@ -352,7 +357,7 @@ void PiccaFile::_setColumnNames()
 bool PiccaFile::_isHeaderKey(const std::string &key)
 {
     return std::any_of(header_keys.begin(), header_keys.end(), 
-        [key](const std::string& elem) { return elem == key; });
+        [key](const std::string &elem) { return elem == key; });
 }
 
 bool PiccaFile::_isColumnName(const std::string &key)
