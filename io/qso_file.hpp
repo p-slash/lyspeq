@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <string>
+#include <vector>
 #include <map>
 #include <fitsio.h>
 #include "core/matrix_helper.hpp"
@@ -52,10 +53,17 @@ class PiccaFile
     fitsfile *fits_file;
     // int hdunum;
     int no_spectra, status;
-
     int curr_N, curr_elem_per_row;
+
+    std::vector<std::string> header_keys, colnames;
+
     int _getColNo(char *tmplt);
     void _checkStatus();
+
+    void _setHeaderKeys();
+    void _setColumnNames();
+    bool _isHeaderKey(const std::string &key);
+    bool _isColumnName(const std::string &key);
 
 public:
     static bool compareFnames(const std::string &s1, const std::string &s2);
