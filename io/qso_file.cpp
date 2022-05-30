@@ -300,6 +300,8 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
         cache[basefname] = fits_file;
     }
 
+    _setHeaderKeys();
+    _setColumnNames();
     _checkStatus();
 
     // fits_get_hdu_num(fits_file, &curr_spec_index);
@@ -316,6 +318,49 @@ void PiccaFile::_checkStatus()
     if (status)     throw std::runtime_error(std::string(error_msg));
 }
 
+void PiccaFile::_setHeaderKeys()
+{
+    int nkeys;
+    char card[FLEN_CARD];
+
+    fits_get_hdrspace(fits_file, &nkeys, NULL, &status);
+    header_keys.reserve(nkeys);
+
+    for (int i = 1; i <= nkeys; ++i)
+    {
+        fits_read_record(fits_file, i, card, &status);
+        header_keys.push_back(std::string(card));
+    }
+}
+
+void PiccaFile::_setColumnNames()
+{
+    int ncols;
+    char keyname[FLEN_KEYWORD], colname[FLEN_VALUE];
+    fits_get_num_cols(fits_file, &ncols, &status);
+    colnames.reserve(ncols);
+
+    for (int i = 1; i <= ncols; i++)
+    {
+        fits_make_keyn("TTYPE", i, keyname, &status); /* make keyword */
+        fits_read_key(fits_file, TSTRING, keyname, colname, NULL, &status);
+
+        colnames.push_back(std::string(colname));
+    }
+}
+
+bool PiccaFile::_isHeaderKey(const std::string &key)
+{
+    return std::any_of(header_keys.begin(), header_keys.end(), 
+        [key](const std::string& elem) { return elem == key; });
+}
+
+bool PiccaFile::_isColumnName(const std::string &key)
+{
+    return std::any_of(colnames.begin(), colnames.end(), 
+        [key](const std::string& elem) { return elem == key; });
+}
+
 void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resolution, 
     double &sig2noi, double &dv_kms, double &dlambda, int &oversampling)
 {
@@ -326,13 +371,13 @@ void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resoluti
     fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
     N = curr_N;
 
-    fits_read_key(fits_file, TLONG, "TARGETID", &thid, NULL, &status);
-    if (status)
-    {
-        fits_clear_errmsg();
-        status = 0;
+    if (_isHeaderKey("TARGETID"))
+        fits_read_key(fits_file, TLONG, "TARGETID", &thid, NULL, &status);
+    else if (_isHeaderKey("THING_ID"))
         fits_read_key(fits_file, TLONG, "THING_ID", &thid, NULL, &status);
-    }
+    else
+        throw std::runtime_error("Header must have TARGETID  or THING_ID!\n");
+
 
     fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
 
@@ -342,40 +387,27 @@ void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resoluti
 
     fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
 
+    #define LN10 2.30258509299
     // Soft read DLL, if not present set to -1 to be fixed later while reading data
-    fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
-    if (status)
+    if (_isHeaderKey("DLL"))
     {
-        fits_clear_errmsg();
-        status = 0;
-        dv_kms = -1;
+        fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
+        dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
     }
     else
-    {
-        #define LN10 2.30258509299
-        dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
-        #undef LN10
-    }
+        dv_kms = -1;
+    #undef LN10
 
     // Soft read DLAMBDA, if not present set to -1 to be fixed later while reading data
-    fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
-    if (status)
-    {
-        fits_clear_errmsg();
-        status = 0;
+    if (_isHeaderKey("DLAMBDA"))
+        fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
+    else
         dlambda = -1;
-    }
 
-    try
-    {
+    if (_isHeaderKey("OVERSAMP"))
         fits_read_key(fits_file, TINT, "OVERSAMP", &oversampling, NULL, &status);
-        _checkStatus();
-    }
-    catch (std::exception& e)
-    {
-        oversampling=-1;
-        status=0;
-    }
+    else
+        oversampling = -1;
 }
 
 int PiccaFile::_getColNo(char *tmplt)
@@ -391,31 +423,39 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
 {
     int nonull, colnum;
 
-    char logtmp[]="LOGLAM";
+    // Read wavelength
+    char logtmp[]="LOGLAM", lambtmp[]="LAMBDA";
     // Soft call if LOGLAM column exists
-    fits_get_colnum(fits_file, CASEINSEN, logtmp, &colnum, &status);
-    // If not, look for LAMBDA column
-    if (status)
+    if (_isColumnName(logtmp))
     {
-        fits_clear_errmsg();
-        status = 0;
-        char lambtmp[]="LAMBDA";
+        colnum = _getColNo(logtmp);
+        fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
+            &status);
+        std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
+    }
+    // If not, look for LAMBDA column
+    else if (_isColumnName(lambtmp))
+    {
         colnum = _getColNo(lambtmp);
         fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
             &status);
     }
     else
-    {
-        fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
-            &status);
-        std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
-    }
+        throw std::runtime_error("Wavelength must be in LOGLAM or LAMBDA!\n");
 
-    char deltmp[]="DELTA";
-    colnum = _getColNo(deltmp);
+    // Read deltas
+    char deltmp[]="DELTA", deltmpblind[]="DELTA_BLIND";
+    if (_isColumnName(deltmp))
+        colnum = _getColNo(deltmp);
+    else if (_isColumnName(deltmpblind))
+        colnum = _getColNo(deltmpblind);
+    else
+        throw std::runtime_error("Deltas must be in DELTA or DELTA_BLIND!\n");
+
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, delta, &nonull, 
         &status);
 
+    // Read inverse variance
     char ivartmp[]="IVAR";
     colnum = _getColNo(ivartmp);
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, noise, &nonull, 
