@@ -11,7 +11,7 @@
 namespace qio
 {
 double _calcdv(double w2, double w1) { return log(w2/w1)*SPEED_OF_LIGHT; }
-double _getMediandv(double *wave, int size)
+double _getMediandv(const double *wave, int size)
 {
     double *temp_arr = new double[size];
 
@@ -24,7 +24,7 @@ double _getMediandv(double *wave, int size)
     return  round(median/5)*5;
 }
 
-double _getMediandlambda(double *wave, int size)
+double _getMediandlambda(const double *wave, int size)
 {
     double *temp_arr = new double[size];
 
@@ -157,7 +157,7 @@ int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
     if (Rmat != NULL)
         Rmat->cutBoundary(wi1, wi2);
 
-    recalcDvDLam();
+    // recalcDvDLam();
 
     return size;
 }
