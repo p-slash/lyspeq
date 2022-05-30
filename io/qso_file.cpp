@@ -304,11 +304,6 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
     _setColumnNames();
     _checkStatus();
 
-    for (auto i = header_keys.begin(); i != header_keys.end(); ++i)
-        printf("%s\n", i->c_str());
-    for (auto i = colnames.begin(); i != colnames.end(); ++i)
-        printf("%s\n", i->c_str());
-
     // fits_get_hdu_num(fits_file, &curr_spec_index);
     // fits_get_num_hdus(fits_file, &no_spectra, &status);
 
@@ -326,14 +321,14 @@ void PiccaFile::_checkStatus()
 void PiccaFile::_setHeaderKeys()
 {
     int nkeys;
-    char card[FLEN_CARD];
+    char keyname[FLEN_KEYWORD], value[FLEN_VALUE];
 
     fits_get_hdrspace(fits_file, &nkeys, NULL, &status);
     header_keys.reserve(nkeys);
 
     for (int i = 1; i <= nkeys; ++i)
     {
-        fits_read_record(fits_file, i, card, &status);
+        fits_read_keyn(fits_file, i, keyname, value, NULL, &status);
         header_keys.push_back(std::string(card));
     }
 }
