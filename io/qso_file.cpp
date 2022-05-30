@@ -358,7 +358,7 @@ bool PiccaFile::_isHeaderKey(const std::string &key)
 bool PiccaFile::_isColumnName(const std::string &key)
 {
     return std::any_of(colnames.begin(), colnames.end(), 
-        [key](const std::string& elem) { return elem == key; });
+        [key](const std::string &elem) { return elem == key; });
 }
 
 void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resolution, 
