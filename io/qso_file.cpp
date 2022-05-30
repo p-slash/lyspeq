@@ -321,15 +321,15 @@ void PiccaFile::_checkStatus()
 void PiccaFile::_setHeaderKeys()
 {
     int nkeys;
-    char card[FLEN_CARD];
+    char keyname[FLEN_KEYWORD], value[FLEN_VALUE];
 
     fits_get_hdrspace(fits_file, &nkeys, NULL, &status);
     header_keys.reserve(nkeys);
 
     for (int i = 1; i <= nkeys; ++i)
     {
-        fits_read_record(fits_file, i, card, &status);
-        header_keys.push_back(std::string(card));
+        fits_read_keyn(fits_file, i, keyname, value, NULL, &status);
+        header_keys.push_back(std::string(keyname));
     }
 }
 
