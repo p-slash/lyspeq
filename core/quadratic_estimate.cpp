@@ -416,7 +416,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
     {
         LOG::LOGGER.STD("Iteration number %d of %d.\n", i+1, number_of_iterations);
         total_time_1it = mytime::timer.getTime();
-    
+
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
