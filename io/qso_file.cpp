@@ -329,7 +329,7 @@ void PiccaFile::_setHeaderKeys()
     for (int i = 1; i <= nkeys; ++i)
     {
         fits_read_keyn(fits_file, i, keyname, value, NULL, &status);
-        header_keys.push_back(std::string(card));
+        header_keys.push_back(std::string(keyname));
     }
 }
 
