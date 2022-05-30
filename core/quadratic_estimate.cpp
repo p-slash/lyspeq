@@ -430,7 +430,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
                 dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
             #ifdef DEBUG
             LOG::LOGGER.ERR("One done.\n");
-            break;
+            // break;
             #endif
 
             // When compiled with debugging feature
