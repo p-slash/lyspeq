@@ -39,7 +39,7 @@ double nonzero_min_element(double *first, double *last)
         double tmp = fabs(*first);
 
         if (smallest < std::numeric_limits<double>::epsilon())
-            smallest = tmp
+            smallest = tmp;
         else if (tmp < smallest && tmp > std::numeric_limits<double>::epsilon()) 
             smallest = tmp;
     }
