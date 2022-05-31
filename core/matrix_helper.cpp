@@ -132,11 +132,11 @@ namespace mxhelp
     {
         lapack_int LIN = N, *ipiv, info;
         ipiv = new lapack_int[N];
-       
+
         // Factorize A
         // the LU factorization of a general m-by-n matrix.
         info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, ipiv);
-        
+
         LAPACKErrorHandle("ERROR in LU decomposition.", info);
 
         info = LAPACKE_dgetri(LAPACK_ROW_MAJOR, LIN, A, LIN, ipiv);
@@ -174,7 +174,7 @@ namespace mxhelp
         toWrite = fopen(fname, "w");
 
         fprintf(toWrite, "%d %d\n", nrows, ncols);
-        
+
         for (int i = 0; i < nrows; ++i)
         {
             for (int j = 0; j < ncols; ++j)
@@ -389,7 +389,7 @@ namespace mxhelp
     void DiaMatrix::multiply(char SIDER, char TRANSR, const double* A, 
         double *B)
     {
-        std::for_each(B, B+ndim*ndim, [&](double &b) { b=0; });
+        std::for_each(B, B+ndim*ndim, [](double &b) { b=0; });
 
         int transpose = 1;
 
@@ -441,8 +441,7 @@ namespace mxhelp
             // if (rside)   std::swap(A1, B1);
             
             // Here's a shorter code. See long version to unpack.
-            int i, j, Ni=nmult, Nj=ndim;
-            int* di = &i;
+
             const double *Aslice, *dia_slice = _getDiagonal(d);
             double       *Bslice;
 
@@ -450,23 +449,29 @@ namespace mxhelp
             {
                 Aslice = A + A1*ndim;
                 Bslice = B + B1*ndim;
+
+                for (int i = 0; i < nmult; ++i)
+                {
+                    cblas_daxpy(ndim, *(dia_slice+i), Aslice, 1, Bslice, 1);
+                    Bslice += ndim;
+                    Aslice += ndim;
+                }
             }
             else
             {
                 std::swap(A1, B1);
-                std::swap(Ni, Nj);
+
                 Aslice = A + A1;
                 Bslice = B + B1;
-                di = &j;
-            }
 
-            for (i = 0; i < Ni; ++i)
-            {
-                for (j = 0; j < Nj; ++j, ++Aslice, ++Bslice)
-                    *Bslice += *(dia_slice+*di) * *Aslice;
+                for (int i = 0; i < ndim; ++i)
+                {
+                    for (int j = 0; j < nmult; ++j, ++Aslice, ++Bslice)
+                        *Bslice += *(dia_slice+j) * *Aslice;
 
-                Bslice += (ndim-Nj);
-                Aslice += (ndim-Nj);
+                    Bslice += (ndim-nmult);
+                    Aslice += (ndim-nmult);
+                }
             }
         }
     }
