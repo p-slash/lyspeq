@@ -105,6 +105,7 @@ public:
     void recalcDvDLam();
     void readParameters();
     void readData();
+    void reinsertMaskedPoints();
 
     // This is just a pointer shift for w,d,e. Rmat is copied
     // returns new size

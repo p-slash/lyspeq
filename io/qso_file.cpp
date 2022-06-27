@@ -190,6 +190,11 @@ void QSOFile::readAllocResolutionMatrix()
         throw std::runtime_error("Cannot read resolution matrix from Binary file!");
 }
 
+void QSOFile::reinsertMaskedPoints()
+{
+    
+}
+
 void QSOFile::recalcDvDLam()
 {
     dlambda = _getMediandlambda(wave, size);
