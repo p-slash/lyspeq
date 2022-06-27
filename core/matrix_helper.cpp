@@ -767,6 +767,7 @@ namespace mxhelp
         if (!is_dia_matrix) return;
 
         int noff = dia_matrix->ndiags/2, nelem_per_row = 2*noff*osamp + 1;
+        double rescalor = (double) dia_matrix->ndiags / (double) nelem_per_row;
         osamp_matrix = new OversampledMatrix(ncols, nelem_per_row, osamp, dlambda);
 
         #define INPUT_SIZE dia_matrix->ndiags
@@ -801,15 +802,15 @@ namespace mxhelp
                 { return exp(gsl_interp_eval(interp_cubic, win, row, l, acc)) + _shift; }
             );
 
-            double sum = 0;
-            for (double* first = newrow; first != newrow+nelem_per_row; ++first)
-                sum += *first;
-            for (double* first = newrow; first != newrow+nelem_per_row; ++first)
-                *first /= sum;
+            // double sum = 0;
+            // for (double* first = newrow; first != newrow+nelem_per_row; ++first)
+            //     sum += *first;
+            // for (double* first = newrow; first != newrow+nelem_per_row; ++first)
+            //     *first /= sum;
 
-            // std::for_each(newrow, newrow+nelem_per_row, 
-            //     [&](double &f) { f = (exp(f)+_shift)/osamp; }
-            // );
+            std::for_each(newrow, newrow+nelem_per_row, 
+                [rescalor, _shift](double &f) { f = (exp(f)+_shift)*rescalor; }
+            );
 
             gsl_interp_accel_reset(acc);
         }
