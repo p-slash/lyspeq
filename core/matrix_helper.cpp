@@ -28,7 +28,7 @@
 #define SQRT_PI 1.77245385091
 
 // cblas_dcopy(N, sour, isour, tar, itar);
-
+#define EPSILON_D std::numeric_limits<double>::epsilon()
 double nonzero_min_element(double *first, double *last)
 {
     if (first == last) return *first;
@@ -38,14 +38,15 @@ double nonzero_min_element(double *first, double *last)
     {
         double tmp = fabs(*first);
 
-        if (smallest < std::numeric_limits<double>::epsilon())
+        if (smallest < EPSILON_D)
             smallest = tmp;
-        else if (tmp < smallest && tmp > std::numeric_limits<double>::epsilon()) 
+        else if (tmp < smallest && tmp > EPSILON_D) 
             smallest = tmp;
     }
 
     return smallest;
 }
+#undef EPSILON_D
 
 double _window_fn_v(double x, double R, double a)
 {
