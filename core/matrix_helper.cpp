@@ -11,6 +11,9 @@
 
 #include <gsl/gsl_interp.h>
 
+#define lapack_complex_float std::complex<float>
+#define lapack_complex_double std::complex<double>
+
 #ifdef USE_MKL_CBLAS
 #include "mkl_lapacke.h"
 #else
@@ -25,7 +28,7 @@
 #define SQRT_PI 1.77245385091
 
 // cblas_dcopy(N, sour, isour, tar, itar);
-
+#define EPSILON_D std::numeric_limits<double>::epsilon()
 double nonzero_min_element(double *first, double *last)
 {
     if (first == last) return *first;
@@ -35,12 +38,15 @@ double nonzero_min_element(double *first, double *last)
     {
         double tmp = fabs(*first);
 
-        if (tmp < smallest && tmp > std::numeric_limits<double>::epsilon()) 
+        if (smallest < EPSILON_D)
+            smallest = tmp;
+        else if (tmp < smallest && tmp > EPSILON_D) 
             smallest = tmp;
     }
 
     return smallest;
 }
+#undef EPSILON_D
 
 double _window_fn_v(double x, double R, double a)
 {
@@ -129,11 +135,11 @@ namespace mxhelp
     {
         lapack_int LIN = N, *ipiv, info;
         ipiv = new lapack_int[N];
-       
+
         // Factorize A
         // the LU factorization of a general m-by-n matrix.
         info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, ipiv);
-        
+
         LAPACKErrorHandle("ERROR in LU decomposition.", info);
 
         info = LAPACKE_dgetri(LAPACK_ROW_MAJOR, LIN, A, LIN, ipiv);
@@ -171,7 +177,7 @@ namespace mxhelp
         toWrite = fopen(fname, "w");
 
         fprintf(toWrite, "%d %d\n", nrows, ncols);
-        
+
         for (int i = 0; i < nrows; ++i)
         {
             for (int j = 0; j < ncols; ++j)
@@ -202,8 +208,8 @@ namespace mxhelp
     }
 
     // class DiaMatrix
-    DiaMatrix::DiaMatrix(int nm, int ndia) : ndim(nm), ndiags(ndia),
-        sandwich_buffer(NULL)
+    DiaMatrix::DiaMatrix(int nm, int ndia) : sandwich_buffer(NULL), 
+        ndim(nm), ndiags(ndia)
     {
         // e.g. ndim=724, ndiags=11
         // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
@@ -386,7 +392,7 @@ namespace mxhelp
     void DiaMatrix::multiply(char SIDER, char TRANSR, const double* A, 
         double *B)
     {
-        std::for_each(B, B+ndim*ndim, [&](double &b) { b=0; });
+        std::for_each(B, B+ndim*ndim, [](double &b) { b=0; });
 
         int transpose = 1;
 
@@ -438,8 +444,7 @@ namespace mxhelp
             // if (rside)   std::swap(A1, B1);
             
             // Here's a shorter code. See long version to unpack.
-            int i, j, Ni=nmult, Nj=ndim;
-            int* di = &i;
+
             const double *Aslice, *dia_slice = _getDiagonal(d);
             double       *Bslice;
 
@@ -447,23 +452,29 @@ namespace mxhelp
             {
                 Aslice = A + A1*ndim;
                 Bslice = B + B1*ndim;
+
+                for (int i = 0; i < nmult; ++i)
+                {
+                    cblas_daxpy(ndim, *(dia_slice+i), Aslice, 1, Bslice, 1);
+                    Bslice += ndim;
+                    Aslice += ndim;
+                }
             }
             else
             {
                 std::swap(A1, B1);
-                std::swap(Ni, Nj);
+
                 Aslice = A + A1;
                 Bslice = B + B1;
-                di = &j;
-            }
 
-            for (i = 0; i < Ni; ++i)
-            {
-                for (j = 0; j < Nj; ++j, ++Aslice, ++Bslice)
-                    *Bslice += *(dia_slice+*di) * *Aslice;
+                for (int i = 0; i < ndim; ++i)
+                {
+                    for (int j = 0; j < nmult; ++j, ++Aslice, ++Bslice)
+                        *Bslice += *(dia_slice+j) * *Aslice;
 
-                Bslice += (ndim-Nj);
-                Aslice += (ndim-Nj);
+                    Bslice += (ndim-nmult);
+                    Aslice += (ndim-nmult);
+                }
             }
         }
     }
@@ -496,11 +507,11 @@ namespace mxhelp
 
     // class OversampledMatrix
     OversampledMatrix::OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda) : 
-        nrows(n1), nelem_per_row(nelem_prow), oversampling(osamp),
-        sandwich_buffer(NULL), temp_highres_mat(NULL)
+        sandwich_buffer(NULL), nrows(n1), nelem_per_row(nelem_prow), oversampling(osamp),
+        temp_highres_mat(NULL)
     {
-        nvals = nrows*nelem_per_row;
         ncols = nrows*oversampling + nelem_per_row-1;
+        nvals = nrows*nelem_per_row;
         fine_dlambda = dlambda/oversampling;
         values  = new double[nvals];
         
@@ -609,8 +620,11 @@ namespace mxhelp
 
     void OversampledMatrix::allocateTempHighRes()
     {
+        long highsize = ncols;
+        highsize *= ncols;
+
         if (temp_highres_mat == NULL)
-            temp_highres_mat = new double[ncols*ncols];
+            temp_highres_mat = new double[highsize];
     }
 
     void OversampledMatrix::fprintfMatrix(const char *fname)
@@ -646,15 +660,15 @@ namespace mxhelp
     }
 
     // Main resolution object
-    Resolution::Resolution(int nm, int ndia) : ncols(nm), 
-        osamp_matrix(NULL), temp_highres_mat(NULL), is_dia_matrix(true)
+    Resolution::Resolution(int nm, int ndia) : is_dia_matrix(true), ncols(nm), 
+        osamp_matrix(NULL), temp_highres_mat(NULL)
     {
         dia_matrix = new DiaMatrix(nm, ndia);
         values     = dia_matrix->matrix;
     }
 
     Resolution::Resolution(int n1, int nelem_prow, int osamp, double dlambda) :
-        dia_matrix(NULL), is_dia_matrix(false), temp_highres_mat(NULL)
+        is_dia_matrix(false), dia_matrix(NULL), temp_highres_mat(NULL)
     {
         osamp_matrix = new OversampledMatrix(n1, nelem_prow, osamp, dlambda);
         values = osamp_matrix->values;
@@ -754,6 +768,7 @@ namespace mxhelp
         if (!is_dia_matrix) return;
 
         int noff = dia_matrix->ndiags/2, nelem_per_row = 2*noff*osamp + 1;
+        double rescalor = (double) dia_matrix->ndiags / (double) nelem_per_row;
         osamp_matrix = new OversampledMatrix(ncols, nelem_per_row, osamp, dlambda);
 
         #define INPUT_SIZE dia_matrix->ndiags
@@ -779,7 +794,7 @@ namespace mxhelp
             double _shift = *std::min_element(row, row+INPUT_SIZE)
                 - nonzero_min_element(row, row+INPUT_SIZE);
 
-            std::for_each(row, row+INPUT_SIZE, [&](double &f) { f = log(f-_shift); } );
+            std::for_each(row, row+INPUT_SIZE, [_shift](double &f) { f = log(f-_shift); } );
 
             gsl_interp_init(interp_cubic, win, row, INPUT_SIZE);
 
@@ -788,15 +803,15 @@ namespace mxhelp
                 { return exp(gsl_interp_eval(interp_cubic, win, row, l, acc)) + _shift; }
             );
 
-            double sum = 0;
-            for (double* first = newrow; first != newrow+nelem_per_row; ++first)
-                sum += *first;
-            for (double* first = newrow; first != newrow+nelem_per_row; ++first)
-                *first /= sum;
+            // double sum = 0;
+            // for (double* first = newrow; first != newrow+nelem_per_row; ++first)
+            //     sum += *first;
+            // for (double* first = newrow; first != newrow+nelem_per_row; ++first)
+            //     *first /= sum;
 
-            // std::for_each(newrow, newrow+nelem_per_row, 
-            //     [&](double &f) { f = (exp(f)+_shift)/osamp; }
-            // );
+            std::for_each(newrow, newrow+nelem_per_row, 
+                [rescalor, _shift](double &f) { f = (exp(f)+_shift)*rescalor; }
+            );
 
             gsl_interp_accel_reset(acc);
         }

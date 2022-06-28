@@ -168,7 +168,7 @@ void RealField::deconvolveSinc(double m)//, double downsampling)
 {
     if (current_space == X_SPACE)   fftX2K();
 
-    double x, y;
+    double x;
 
     for (int i = 1; i < size_complex; i++)
     {
