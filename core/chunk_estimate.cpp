@@ -346,7 +346,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     int kn, zm;
     double v_ij, z_ij;
 
-    if (_isQikzStores(i_kz))
+    if (_isQikzStored(i_kz))
     {
         t_interp = 0;
         double *ptr = _getStoredQikz(i_kz);
@@ -420,7 +420,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     {
         if (_isAboveNyquist(i_kz)) continue;
 
-        if (_isQikzStores(i_kz))
+        if (_isQikzStored(i_kz))
             Q_ikz_matrix = _getStoredQikz(i_kz);
         else
         {
@@ -560,7 +560,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
             continue;
         #endif
 
-        if (_isQikzStores(j_kz))
+        if (_isQikzStored(j_kz))
             Q_jkz_matrix = _getStoredQikz(j_kz);
         else
         {
