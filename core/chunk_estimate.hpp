@@ -58,7 +58,7 @@ protected:
     void _setNQandFisherIndex();
     void _setStoredMatrices();
     bool _isAboveNyquist(int i_kz);
-    bool _isQikzStores(int i_kz)
+    bool _isQikzStored(int i_kz)
     { return isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)); };
     double* _getStoredQikz(int i_kz) const
     { return stored_qj[N_Q_MATRICES-i_kz-1]; };
