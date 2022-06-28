@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <numeric> // std::adjacent_difference
 #include <stdexcept>
 
 #include "io/io_helper_functions.hpp"
@@ -9,6 +10,32 @@
 
 namespace qio
 {
+double _calcdv(double w2, double w1) { return log(w2/w1)*SPEED_OF_LIGHT; }
+double _getMediandv(const double *wave, int size)
+{
+    double *temp_arr = new double[size];
+
+    std::adjacent_difference(wave, wave+size, temp_arr, _calcdv);
+    std::sort(temp_arr+1, temp_arr+size);
+
+    double median = temp_arr[1+(size-1)/2];
+    delete [] temp_arr;
+
+    return  round(median/5)*5;
+}
+
+double _getMediandlambda(const double *wave, int size)
+{
+    double *temp_arr = new double[size];
+
+    std::adjacent_difference(wave, wave+size, temp_arr);
+    std::sort(temp_arr+1, temp_arr+size);
+
+    double median = temp_arr[1+(size-1)/2];
+    delete [] temp_arr;
+
+    return median;
+}
 
 // ============================================================================
 // Umbrella QSO file
@@ -19,8 +46,9 @@ namespace qio
 // double *wave, *delta, *noise;
 // mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
-    : fname(fname_qso), PB(p_or_b), pfile(NULL), bqfile(NULL),
-    wave_head(NULL), delta_head(NULL), noise_head(NULL), Rmat(NULL)
+: PB(p_or_b), pfile(NULL), bqfile(NULL),
+wave_head(NULL), delta_head(NULL), noise_head(NULL), 
+fname(fname_qso), Rmat(NULL)
 {
     if (PB == Picca)
         pfile = new PiccaFile(fname);
@@ -33,10 +61,10 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
 }
 
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
-: PB(qmaster.PB), z_qso(qmaster.z_qso), snr(qmaster.snr), fname(qmaster.fname),
-dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda), id(qmaster.id),
-R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling),
-pfile(NULL), bqfile(NULL)
+: PB(qmaster.PB), pfile(NULL), bqfile(NULL), fname(qmaster.fname), 
+z_qso(qmaster.z_qso), snr(qmaster.snr), id(qmaster.id),
+R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
+// dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda),
 {
     size = i2-i1;
 
@@ -55,6 +83,8 @@ pfile(NULL), bqfile(NULL)
         Rmat = new mxhelp::Resolution(qmaster.Rmat, i1, i2);
     else
         Rmat = NULL;
+
+    recalcDvDLam();
 }
 
 void QSOFile::closeFile()
@@ -99,9 +129,9 @@ void QSOFile::readData()
 
     // Update dv and dlambda
     if (dlambda < 0)
-        dlambda = wave[1]-wave[0];
+        dlambda = _getMediandlambda(wave, size);
     if (dv_kms < 0)
-        dv_kms = round(dlambda/wave[size/2]*SPEED_OF_LIGHT/5)*5;
+        dv_kms  = _getMediandv(wave, size);
 }
 
 int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
@@ -126,6 +156,8 @@ int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
     if (Rmat != NULL)
         Rmat->cutBoundary(wi1, wi2);
+
+    // recalcDvDLam();
 
     return size;
 }
@@ -156,6 +188,12 @@ void QSOFile::readAllocResolutionMatrix()
         Rmat = pfile->readAllocResolutionMatrix(oversampling, dlambda);
     else
         throw std::runtime_error("Cannot read resolution matrix from Binary file!");
+}
+
+void QSOFile::recalcDvDLam()
+{
+    dlambda = _getMediandlambda(wave, size);
+    dv_kms  = _getMediandv(wave, size);
 }
 
 // ============================================================================
@@ -262,6 +300,8 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
         cache[basefname] = fits_file;
     }
 
+    _setHeaderKeys();
+    _setColumnNames();
     _checkStatus();
 
     // fits_get_hdu_num(fits_file, &curr_spec_index);
@@ -278,6 +318,49 @@ void PiccaFile::_checkStatus()
     if (status)     throw std::runtime_error(std::string(error_msg));
 }
 
+void PiccaFile::_setHeaderKeys()
+{
+    int nkeys;
+    char keyname[FLEN_KEYWORD], value[FLEN_VALUE];
+
+    fits_get_hdrspace(fits_file, &nkeys, NULL, &status);
+    header_keys.reserve(nkeys);
+
+    for (int i = 1; i <= nkeys; ++i)
+    {
+        fits_read_keyn(fits_file, i, keyname, value, NULL, &status);
+        header_keys.push_back(std::string(keyname));
+    }
+}
+
+void PiccaFile::_setColumnNames()
+{
+    int ncols;
+    char keyname[FLEN_KEYWORD], colname[FLEN_VALUE];
+    fits_get_num_cols(fits_file, &ncols, &status);
+    colnames.reserve(ncols);
+
+    for (int i = 1; i <= ncols; i++)
+    {
+        fits_make_keyn("TTYPE", i, keyname, &status); /* make keyword */
+        fits_read_key(fits_file, TSTRING, keyname, colname, NULL, &status);
+
+        colnames.push_back(std::string(colname));
+    }
+}
+
+bool PiccaFile::_isHeaderKey(const std::string &key)
+{
+    return std::any_of(header_keys.begin(), header_keys.end(), 
+        [key](const std::string &elem) { return elem == key; });
+}
+
+bool PiccaFile::_isColumnName(const std::string &key)
+{
+    return std::any_of(colnames.begin(), colnames.end(), 
+        [key](const std::string &elem) { return elem == key; });
+}
+
 void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resolution, 
     double &sig2noi, double &dv_kms, double &dlambda, int &oversampling)
 {
@@ -288,13 +371,13 @@ void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resoluti
     fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
     N = curr_N;
 
-    fits_read_key(fits_file, TLONG, "TARGETID", &thid, NULL, &status);
-    if (status)
-    {
-        fits_clear_errmsg();
-        status = 0;
+    if (_isHeaderKey("TARGETID"))
+        fits_read_key(fits_file, TLONG, "TARGETID", &thid, NULL, &status);
+    else if (_isHeaderKey("THING_ID"))
         fits_read_key(fits_file, TLONG, "THING_ID", &thid, NULL, &status);
-    }
+    else
+        throw std::runtime_error("Header must have TARGETID  or THING_ID!\n");
+
 
     fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
 
@@ -304,40 +387,27 @@ void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resoluti
 
     fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
 
+    #define LN10 2.30258509299
     // Soft read DLL, if not present set to -1 to be fixed later while reading data
-    fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
-    if (status)
+    if (_isHeaderKey("DLL"))
     {
-        fits_clear_errmsg();
-        status = 0;
-        dv_kms = -1;
+        fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
+        dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
     }
     else
-    {
-        #define LN10 2.30258509299
-        dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
-        #undef LN10
-    }
+        dv_kms = -1;
+    #undef LN10
 
     // Soft read DLAMBDA, if not present set to -1 to be fixed later while reading data
-    fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
-    if (status)
-    {
-        fits_clear_errmsg();
-        status = 0;
+    if (_isHeaderKey("DLAMBDA"))
+        fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
+    else
         dlambda = -1;
-    }
 
-    try
-    {
+    if (_isHeaderKey("OVERSAMP"))
         fits_read_key(fits_file, TINT, "OVERSAMP", &oversampling, NULL, &status);
-        _checkStatus();
-    }
-    catch (std::exception& e)
-    {
-        oversampling=-1;
-        status=0;
-    }
+    else
+        oversampling = -1;
 }
 
 int PiccaFile::_getColNo(char *tmplt)
@@ -353,31 +423,39 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
 {
     int nonull, colnum;
 
-    char logtmp[]="LOGLAM";
+    // Read wavelength
+    char logtmp[]="LOGLAM", lambtmp[]="LAMBDA";
     // Soft call if LOGLAM column exists
-    fits_get_colnum(fits_file, CASEINSEN, logtmp, &colnum, &status);
-    // If not, look for LAMBDA column
-    if (status)
+    if (_isColumnName(logtmp))
     {
-        fits_clear_errmsg();
-        status = 0;
-        char lambtmp[]="LAMBDA";
+        colnum = _getColNo(logtmp);
+        fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
+            &status);
+        std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
+    }
+    // If not, look for LAMBDA column
+    else if (_isColumnName(lambtmp))
+    {
         colnum = _getColNo(lambtmp);
         fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
             &status);
     }
     else
-    {
-        fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
-            &status);
-        std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
-    }
+        throw std::runtime_error("Wavelength must be in LOGLAM or LAMBDA!\n");
 
-    char deltmp[]="DELTA";
-    colnum = _getColNo(deltmp);
+    // Read deltas
+    char deltmp[]="DELTA", deltmpblind[]="DELTA_BLIND";
+    if (_isColumnName(deltmp))
+        colnum = _getColNo(deltmp);
+    else if (_isColumnName(deltmpblind))
+        colnum = _getColNo(deltmpblind);
+    else
+        throw std::runtime_error("Deltas must be in DELTA or DELTA_BLIND!\n");
+
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, delta, &nonull, 
         &status);
 
+    // Read inverse variance
     char ivartmp[]="IVAR";
     colnum = _getColNo(ivartmp);
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, noise, &nonull, 

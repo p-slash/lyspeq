@@ -31,6 +31,7 @@ protected:
     qio::QSOFile *qFile;
 
     int _matrix_n, RES_INDEX, N_Q_MATRICES, fisher_index_start, nqj_eff;
+    int _kncut;
 
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // DATA_SIZE sized vectors. 
@@ -56,13 +57,18 @@ protected:
     void _findRedshiftBin();
     void _setNQandFisherIndex();
     void _setStoredMatrices();
+    bool _isAboveNyquist(int i_kz);
+    bool _isQikzStored(int i_kz)
+    { return isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)); };
+    double* _getStoredQikz(int i_kz) const
+    { return stored_qj[N_Q_MATRICES-i_kz-1]; };
 
     void _allocateMatrices();
     void _freeMatrices();
     // void _saveIndividualResult();
 
     void _setFiducialSignalMatrix(double *&sm, bool copy=true);
-    void _setQiMatrix(double *&qi, int i_kz, bool copy=true);
+    void _setQiMatrix(double *qi, int i_kz);
     void _addMarginalizations();
     void _getWeightedMatrix(double *m);
     void _getFisherMatrix(const double *Q_ikz_matrix, int i_kz);
@@ -78,7 +84,7 @@ public:
 
     // Move constructor 
     Chunk(Chunk &&rhs);
-    Chunk& operator=(const Chunk& rhs) = default;
+    Chunk& operator=(const Chunk& rhs); // = default;
 
     static double getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2);
 

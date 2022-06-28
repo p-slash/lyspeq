@@ -23,6 +23,9 @@
 #include "core/mpi_merge_sort.cpp"
 #endif
 
+// This variable is set in inverse fisher matrix
+int _NewDegreesOfFreedom = 0;
+
 double *OneDQuadraticPowerEstimate::precomputed_fisher { NULL };
 
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const char *fname_list, const char *dir)
@@ -137,7 +140,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     LOG::LOGGER.STD("Load balancing for %d tasks available.\n", process::total_pes);
     
     double load_balance_time = mytime::timer.getTime();
-    
+
     std::vector<double> bucket_time(process::total_pes, 0);
     local_fpaths.reserve(int(1.1*filepaths.size()/process::total_pes));
 
@@ -205,9 +208,37 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     
     std::copy(fisher_matrix_sum, fisher_matrix_sum+FISHER_SIZE, 
         inverse_fisher_matrix_sum);
+
+    // find empty diagonals
+    // assert all elements on that row and col are zero
+    // replace with 1, then invert, then replace with zero
+    std::vector<int> empty_indx;
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
+    {
+        double *ptr = inverse_fisher_matrix_sum+(bins::TOTAL_KZ_BINS+1)*i_kz, 
+            *f1, *f2;
+        if (*ptr == 0)
+        {
+            empty_indx.push_back(i_kz);
+            f1 = inverse_fisher_matrix_sum+bins::TOTAL_KZ_BINS*i_kz;
+            f2 = f1+bins::TOTAL_KZ_BINS;
+            if ( !std::all_of(f1, f2, [](double x){ return x==0;}) )
+                throw std::runtime_error("Not all elements in a row are zero!");
+            *ptr = 1;
+        }
+    }
+
+    _NewDegreesOfFreedom = bins::DEGREE_OF_FREEDOM - empty_indx.size();
+
     mxhelp::LAPACKE_InvertMatrixLU(inverse_fisher_matrix_sum, 
         bins::TOTAL_KZ_BINS);
     
+    for (auto it = empty_indx.begin(); it != empty_indx.end(); ++it)
+    {
+        double *ptr = inverse_fisher_matrix_sum+(bins::TOTAL_KZ_BINS+1)*(*it);
+        *ptr = 0;
+    }
+
     isFisherInverted = true;
 
     t = mytime::timer.getTime() - t;
@@ -385,15 +416,22 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
     {
         LOG::LOGGER.STD("Iteration number %d of %d.\n", i+1, number_of_iterations);
         total_time_1it = mytime::timer.getTime();
-    
+
         // Set total Fisher matrix and omn before F to zero for all k, z bins
         initializeIteration();
 
         // Calculation for each spectrum
+        #ifdef DEBUG
+        LOG::LOGGER.ERR("Running on local queue size %zu\n", local_queue.size());
+        #endif
         for (auto it = local_queue.begin(); it != local_queue.end(); ++it)
         {
             it->oneQSOiteration(powerspectra_fits, 
                 dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
+            #ifdef DEBUG
+            LOG::LOGGER.ERR("One done.\n");
+            // break;
+            #endif
 
             // When compiled with debugging feature
             // save matrices to files, break
@@ -402,6 +440,12 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
             throw std::runtime_error("DEBUGGING QUIT.");
             #endif
         }
+
+        #ifdef DEBUG
+        MPI_Barrier(MPI_COMM_WORLD);
+        LOG::LOGGER.ERR("All done.\n");
+        throw std::runtime_error("DEBUGGING QUIT.");
+        #endif
 
         // Save bootstrap files only if MPI is enabled.
         #if defined(ENABLE_MPI)
@@ -478,16 +522,18 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         p1 = fabs(current_power_estimate_vector[i_kz]);
         p2 = fabs(previous_power_estimate_vector[i_kz]);
         
+        if (p1 == 0 && p2 == 0) continue;
+
         diff = fabs(p1 - p2);
         pMax = std::max(p1, p2);
         r    = diff / pMax;
 
         if (r > CONVERGENCE_EPS)    bool_converged = false;
 
-        abs_mean += r / bins::DEGREE_OF_FREEDOM;
+        abs_mean += r / _NewDegreesOfFreedom;
         abs_max   = std::max(r, abs_max);
     }
-    
+
     LOG::LOGGER.STD("Mean relative change is %.1e.\n"
         "Maximum relative change is %.1e.\n"
         "Old test: Iteration converges when this is less than %.1e\n", 
@@ -504,15 +550,15 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         double  t = previous_power_estimate_vector[i_kz],
                 e = inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS) * i_kz];
 
-        if (e < 0)  continue;
+        if (e <= 0)  continue;
 
         r += (t*t) / e;
     }
 
-    r  = sqrt(r / bins::DEGREE_OF_FREEDOM);
+    r  = sqrt(r / _NewDegreesOfFreedom);
 
     rfull = sqrt(fabs(mxhelp::my_cblas_dsymvdot(previous_power_estimate_vector, 
-        fisher_matrix_sum, bins::TOTAL_KZ_BINS)) / bins::DEGREE_OF_FREEDOM);
+        fisher_matrix_sum, bins::TOTAL_KZ_BINS)) / _NewDegreesOfFreedom);
     
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
     LOG::LOGGER.STD("Chi^2/dof convergence test:\nDiagonal: %.3f. Full Fisher: %.3f.\n"
