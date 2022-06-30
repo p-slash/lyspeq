@@ -24,7 +24,7 @@ test-fftconvolve.o myfitsread.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
-CPPFLAGS+=-I$(srcdir) -std=gnu++11 -DHAVE_INLINE $(MORECPPFLAGS)
+CPPFLAGS+=-I$(srcdir) -std=c++17 -DHAVE_INLINE $(MORECPPFLAGS)
 CPPFLAGS+=-MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
