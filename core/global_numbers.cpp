@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cmath>
 #include <chrono>    /* clock_t, clock, CLOCKS_PER_SEC */
+#include <stdexcept> // std::invalid_argument
 
 namespace process
 {
