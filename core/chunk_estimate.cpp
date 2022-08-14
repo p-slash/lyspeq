@@ -227,13 +227,13 @@ Chunk::Chunk(Chunk &&rhs)
     // rhs.interp2d_signal_matrix   = NULL;
 }
 
-Chunk& Chunk::operator=(const Chunk& rhs)
-{
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("Copying %s\n", qFile->fname.c_str());
-    #endif
-    throw std::runtime_error("Copying is not implemented!\n");
-}
+// Chunk& Chunk::operator=(const Chunk& rhs)
+// {
+//     #ifdef DEBUG
+//     LOG::LOGGER.ERR("Copying %s\n", qFile->fname.c_str());
+//     #endif
+//     throw std::runtime_error("Copying is not implemented!\n");
+// }
 
 Chunk::~Chunk()
 {
