@@ -253,10 +253,25 @@ namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
-    int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER =1, NUMBER_OF_CHUNKS = 1;
+    int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
+        CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1;
     double RESOMAT_DECONVOLUTION_M = 0;
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
     int OVERSAMPLING_FACTOR = -1;
+
+    void calcNvecs()
+    {
+        if (CONT_LOGLAM_MARG_ORDER >= 0 || CONT_LAM_MARG_ORDER >= 0)
+        {
+            CONT_NVECS = 1;
+            if (CONT_LOGLAM_MARG_ORDER > 0)
+                CONT_NVECS += CONT_LOGLAM_MARG_ORDER;
+            if (CONT_LAM_MARG_ORDER > 0)
+                CONT_NVECS += CONT_LAM_MARG_ORDER;
+        }
+        else
+            CONT_NVECS = 0;
+    }
     
     #if defined(TOPHAT_Z_BINNING_FN)
     #define BINNING_SHAPE "Top Hat"
@@ -470,6 +485,8 @@ void ioh::readConfigFile(const char *FNAME_CONFIG,
         conv::INPUT_IS_DELTA_FLUX = true;
 
     if (temp_chisq > 0) specifics::CHISQ_CONVERGENCE_EPS = temp_chisq;
+
+    specifics::calcNvecs();
 
     if (FNAME_FID_POWER[0] != '\0')
         fidcosmo::setFiducialPowerFromFile(FNAME_FID_POWER);
