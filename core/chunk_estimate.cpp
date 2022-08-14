@@ -438,7 +438,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     Smoother::smoothNoise(qFile->noise, smooth_noise, qFile->size);
     cblas_daxpy(qFile->size, 1., smooth_noise, 1, covariance_matrix, qFile->size+1);
     delete [] smooth_noise;
-    
+
     isCovInverted = false;
 }
 
@@ -466,32 +466,35 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 void Chunk::_addMarginalizations()
 {
     double *temp_v = temp_matrix[0], *temp_y = temp_matrix[1];
-    int nvecs = 1;
 
     // Zeroth order
     std::fill_n(temp_v, qFile->size, 1./sqrt(qFile->size));
     temp_v += qFile->size;
     // Log lambda polynomials
-    for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; 
-            ++cmo, ++nvecs, temp_v += qFile->size)
+    for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
+    {
         _getUnitVectorLogLam(qFile->wave, qFile->size, cmo, temp_v);
+        temp_v += qFile->size;
+    }
     // Lambda polynomials
-    for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; 
-            ++cmo, ++nvecs, temp_v += qFile->size)
+    for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
+    {
         _getUnitVectorLam(qFile->wave, qFile->size, cmo, temp_v);
+        temp_v += qFile->size;
+    }
 
     #ifdef DEBUG
-    LOG::LOGGER.ERR("nvecs %d\n", nvecs);
+    LOG::LOGGER.ERR("nvecs %d\n", specifics::CONT_NVECS);
     #endif
 
     // Roll back to initial position
     temp_v = temp_matrix[0];
-    double *svals = new double[nvecs];
+    double *svals = new double[specifics::CONT_NVECS];
     // SVD to get orthogonal marg vectors
-    mxhelp::LAPACKE_svd(temp_v, svals, qFile->size, nvecs);
+    mxhelp::LAPACKE_svd(temp_v, svals, qFile->size, specifics::CONT_NVECS);
 
     // Remove each 
-    for (int i = 0; i < nvecs; ++i, temp_v += qFile->size)
+    for (int i = 0; i < specifics::CONT_NVECS; ++i, temp_v += qFile->size)
     {
         // skip if this vector is degenerate
         if (svals[i]<1e-6)  continue;
@@ -514,7 +517,7 @@ void Chunk::invertCovarianceMatrix()
 
     isCovInverted = true;
 
-    if (specifics::CONT_LOGLAM_MARG_ORDER >= 0 || specifics::CONT_LAM_MARG_ORDER >= 0)
+    if (specifics::CONT_NVECS > 0)
         _addMarginalizations();
 
     t = mytime::timer.getTime() - t;
