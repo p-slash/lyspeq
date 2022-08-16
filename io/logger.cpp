@@ -94,6 +94,7 @@ std::string Logger::getFileName(TYPE::LOG_TYPE lt) const
         case TYPE::STD:   return std_fname;
         case TYPE::ERR:   return err_fname;
         case TYPE::TIME:  return time_fname;
+        case TYPE::DEB:   return err_fname;
     }
 
     return NULL;
@@ -139,6 +140,15 @@ void Logger::TIME(const char *fmt, ...)
     va_end(args);
 }
 
+void Logger::DEB(const char *fmt, ...)
+{    
+    #ifdef DEBUG
+    va_list args;
+    va_start(args, fmt);
+    ERR(fmt, args);
+    va_end(args);
+    #endif
+}
 
 
 

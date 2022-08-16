@@ -190,9 +190,8 @@ bool Chunk::_isAboveNyquist(int i_kz)
 
 Chunk::Chunk(Chunk &&rhs)
 {
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("moving %s\n", qFile->fname.c_str());
-    #endif
+    LOG::LOGGER.DEB("moving %s\n", qFile->fname.c_str());
+
     qFile = std::move(rhs.qFile);
     rhs.qFile = NULL;
 
@@ -483,9 +482,7 @@ void Chunk::_addMarginalizations()
         temp_v += qFile->size;
     }
 
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("nvecs %d\n", specifics::CONT_NVECS);
-    #endif
+    LOG::LOGGER.DEB("nvecs %d\n", specifics::CONT_NVECS);
 
     // Roll back to initial position
     temp_v = temp_matrix[0];
@@ -590,11 +587,11 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 void Chunk::computePSbeforeFvector()
 {
     double *weighted_data_vector = new double[qFile->size];
-
+    LOG::LOGGER.DEB("PSb4F -> weighted data");
     cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
         qFile->size, qFile->delta, 1, 0, weighted_data_vector, 1);
 
-    // #pragma omp parallel for
+    LOG::LOGGER.DEB("PSb4F -> loop 1");
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
         if (_isAboveNyquist(i_kz)) continue;
@@ -602,17 +599,21 @@ void Chunk::computePSbeforeFvector()
         double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix = temp_matrix[1], 
             temp_tk = 0;
 
+        LOG::LOGGER.DEB("PSb4F -> set qi");
         // Set derivative matrix ikz
         _setQiMatrix(Q_ikz_matrix, i_kz);
 
+        LOG::LOGGER.DEB("PSb4F -> dk");
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
         double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, 
             Q_ikz_matrix, qFile->size);
 
+        LOG::LOGGER.DEB("PSb4F -> weighted Q");
         // Get weighted derivative matrix ikz: C-1 Qi C-1
         _getWeightedMatrix(Q_ikz_matrix);
 
+        LOG::LOGGER.DEB("PSb4F -> nk");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
         double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise, 
             qFile->size);
@@ -622,6 +623,7 @@ void Chunk::computePSbeforeFvector()
         {
             _setFiducialSignalMatrix(Sfid_matrix, false);
 
+            LOG::LOGGER.DEB("PSb4F -> tk");
             // Tr(C-1 Qi C-1 Sfid)
             temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, qFile->size);
         }
@@ -629,7 +631,7 @@ void Chunk::computePSbeforeFvector()
         dbt_estimate_before_fisher_vector[0][i_kz + fisher_index_start] = temp_dk;
         dbt_estimate_before_fisher_vector[1][i_kz + fisher_index_start] = temp_bk;
         dbt_estimate_before_fisher_vector[2][i_kz + fisher_index_start] = temp_tk;
-        
+
         // Do not compute fisher matrix if it is precomputed
         if (OneDQuadraticPowerEstimate::precomputed_fisher == NULL)
             _getFisherMatrix(Q_ikz_matrix, i_kz);
@@ -641,13 +643,11 @@ void Chunk::computePSbeforeFvector()
 void Chunk::oneQSOiteration(const double *ps_estimate, 
     double *dbt_sum_vector[3], double *fisher_sum)
 {
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("File %s\n", qFile->fname.c_str());
-    LOG::LOGGER.ERR("TargetID %ld\n", qFile->id);
-    LOG::LOGGER.ERR("Size %d\n", qFile->size);
-    LOG::LOGGER.ERR("ncols: %d\n", _matrix_n);
-    LOG::LOGGER.ERR("Allocating matrices\n");
-    #endif
+    LOG::LOGGER.DEB("File %s\n", qFile->fname.c_str());
+    LOG::LOGGER.DEB("TargetID %ld\n", qFile->id);
+    LOG::LOGGER.DEB("Size %d\n", qFile->size);
+    LOG::LOGGER.DEB("ncols: %d\n", _matrix_n);
+    LOG::LOGGER.DEB("Allocating matrices\n");
 
     _allocateMatrices();
 
@@ -662,9 +662,7 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     // Preload last nqj_eff matrices
     // 0 is the last matrix
     // i_kz = N_Q_MATRICES - j_kz - 1
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("Setting qi matrices\n");
-    #endif
+    LOG::LOGGER.DEB("Setting qi matrices\n");
 
     for (int j_kz = 0; j_kz < nqj_eff; ++j_kz)
     {
@@ -682,23 +680,20 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
         isSfidSet = true;
     }
 
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("Setting cov matrix\n");
-    #endif
+    LOG::LOGGER.DEB("Setting cov matrix\n");
+
     setCovarianceMatrix(ps_estimate);
 
     try
     {
-        #ifdef DEBUG
-        LOG::LOGGER.ERR("Inverting cov matrix\n");
-        #endif
-
+        LOG::LOGGER.DEB("Inverting cov matrix\n");
         invertCovarianceMatrix();
 
+        LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
 
         mxhelp::vector_add(fisher_sum, fisher_matrix, FISHER_SIZE);
-        
+
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
             mxhelp::vector_add(dbt_sum_vector[dbt_i], 
                 dbt_estimate_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS);
@@ -716,9 +711,7 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
             qFile->size, MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
     }
 
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("Freeing matrices\n");
-    #endif
+    LOG::LOGGER.DEB("Freeing matrices\n");
     _freeMatrices();
 
     // Do not delete if these are pointers to process::sq_private_table
@@ -767,37 +760,25 @@ void Chunk::_freeMatrices()
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
         delete [] dbt_estimate_before_fisher_vector[dbt_i];
 
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("Free fisher\n");
-    #endif
+    LOG::LOGGER.DEB("Free fisher\n");
     delete [] fisher_matrix;
 
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("Free cov\n");
-    #endif
+    LOG::LOGGER.DEB("Free cov\n");
     delete [] covariance_matrix;
 
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("Free temps\n");
-    #endif
+    LOG::LOGGER.DEB("Free temps\n");
     for (int i = 0; i < 2; ++i)
         delete [] temp_matrix[i];
 
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("Free storedqj\n");
-    #endif
+    LOG::LOGGER.DEB("Free storedqj\n");
     for (int i = 0; i < nqj_eff; ++i)
         delete [] stored_qj[i];
 
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("Free stored sfid\n");
-    #endif
+    LOG::LOGGER.DEB("Free stored sfid\n");
     if (isSfidStored)
         delete [] stored_sfid;
 
-    #ifdef DEBUG
-    LOG::LOGGER.ERR("Free resomat related\n");
-    #endif
+    LOG::LOGGER.DEB("Free resomat related\n");
     if (specifics::USE_RESOLUTION_MATRIX)
     {
         qFile->Rmat->freeBuffers();

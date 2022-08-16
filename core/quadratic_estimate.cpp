@@ -423,17 +423,13 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
         initializeIteration();
 
         // Calculation for each spectrum
-        #ifdef DEBUG
-        LOG::LOGGER.ERR("Running on local queue size %zu\n", local_queue.size());
-        #endif
+        LOG::LOGGER.DEB("Running on local queue size %zu\n", local_queue.size());
         for (auto it = local_queue.begin(); it != local_queue.end(); ++it)
         {
             it->oneQSOiteration(powerspectra_fits, 
                 dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
-            #ifdef DEBUG
-            LOG::LOGGER.ERR("One done.\n");
-            // break;
-            #endif
+
+            LOG::LOGGER.DEB("One done.\n");
 
             // When compiled with debugging feature
             // save matrices to files, break
@@ -444,8 +440,10 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
         }
 
         #ifdef DEBUG
+        #if defined(ENABLE_MPI)
         MPI_Barrier(MPI_COMM_WORLD);
-        LOG::LOGGER.ERR("All done.\n");
+        #endif
+        LOG::LOGGER.DEB("All done.\n");
         throw std::runtime_error("DEBUGGING QUIT.");
         #endif
 
@@ -457,7 +455,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
 
         MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, (FISHER_SIZE),
             MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        
+
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
             MPI_Allreduce(MPI_IN_PLACE, dbt_estimate_sum_before_fisher_vector[dbt_i], 
                 bins::TOTAL_KZ_BINS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
