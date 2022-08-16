@@ -12,6 +12,7 @@ namespace LOG
         {
             STD,
             ERR,
+            DEB,
             TIME
         };
     }
@@ -43,6 +44,7 @@ namespace LOG
         void STD(const char *fmt, ...);
         void ERR(const char *fmt, ...);
         void TIME(const char *fmt, ...);
+        void DEB(const char *fmt, ...);
     };
 
     extern Logger LOGGER;
