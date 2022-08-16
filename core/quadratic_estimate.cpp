@@ -198,6 +198,8 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 
     delete [] fisher_matrix_sum;
     delete [] inverse_fisher_matrix_sum;
+
+    delete [] Z_BIN_COUNTS;
 }
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
@@ -790,6 +792,7 @@ void OneDQuadraticPowerEstimate::_savePEResult()
     {
         LOG::LOGGER.ERR("ERROR: Saving PE results: %d\n", process::this_pe);
     }
+    delete [] tmppower;
 }
 #endif
 
