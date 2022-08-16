@@ -44,6 +44,9 @@ double nonzero_min_element(double *first, double *last)
             smallest = tmp;
     }
 
+    if (smallest < EPSILON_D)
+        smallest = EPSILON_D;
+
     return smallest;
 }
 #undef EPSILON_D
