@@ -161,16 +161,17 @@ int main(int argc, char *argv[])
         delete ioh::boot_saver;
         MPI_Abort(MPI_COMM_WORLD, 1);
         #endif
-        
+
         return 1;
     }
-    
+
     delete qps;
     delete process::sq_private_table;
 
     bins::cleanUpBins();
 
     #if defined(ENABLE_MPI)
+    MPI_Barrier(MPI_COMM_WORLD);
     delete ioh::boot_saver;
     MPI_Finalize();
     #endif
