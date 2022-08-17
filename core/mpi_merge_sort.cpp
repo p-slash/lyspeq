@@ -2,16 +2,17 @@
 
 namespace mpisort
 {
+    // Ref: https://stackoverflow.com/questions/33618937/trouble-understanding-mpi-type-create-struct
     MPI_Datatype getPairType()
     {
         // Create MPI pair type
-        std::pair<double, int> tmp;
+        std::pair<double, int> tmp = std::make_pair(10.1, 101);
 
         int blocklengths[] = {1, 1};
         MPI_Aint disp[3];
-        MPI_Get_address(&tmp, disp);
-        MPI_Get_address(&tmp.first, disp+1);
-        MPI_Get_address(&tmp.second, disp+2);
+        MPI_Get_address(&tmp, &disp[0]);
+        MPI_Get_address(&tmp.first, &disp[1]);
+        MPI_Get_address(&tmp.second, &disp[2]);
 
         MPI_Aint offsets[2] = { MPI_Aint_diff(disp[1], disp[0]), MPI_Aint_diff(disp[2], disp[0]) };
 
@@ -23,6 +24,7 @@ namespace mpisort
         MPI_Type_get_extent(tmp_type, &lb, &extent);
         MPI_Type_create_resized(tmp_type, lb, extent, &my_mpi_pair_type);
         MPI_Type_commit(&my_mpi_pair_type);
+        MPI_Type_free(&tmp_type);
 
         return my_mpi_pair_type;
     }
@@ -92,6 +94,8 @@ namespace mpisort
             MPI_Send(local_cpu_ind_vec.data(), transmission_count, MY_MPI_PAIR, parent_pe, 
                 MPI_VEC_TAG, MPI_COMM_WORLD);
         }
+
+        MPI_Type_free(&MY_MPI_PAIR);
     }
 }
 
