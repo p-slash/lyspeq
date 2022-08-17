@@ -501,7 +501,7 @@ void Chunk::_addMarginalizations()
     // Remove each 
     for (int i = 0; i < specifics::CONT_NVECS; ++i, temp_v += qFile->size)
     {
-        LOG::LOGGER.DEB("i: %d, s: %.2e\n,", i, svals[i]);
+        LOG::LOGGER.DEB("i: %d, s: %.2e\n", i, svals[i]);
         // skip if this vector is degenerate
         if (svals[i]<1e-6)  continue;
 
