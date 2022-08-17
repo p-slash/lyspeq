@@ -41,6 +41,7 @@ namespace mpisort
         cpu_index_vec.resize(size);
 
         MPI_Bcast(cpu_index_vec.data(), size, MY_MPI_PAIR, root_pe, MPI_COMM_WORLD);
+        MPI_Type_free(&MY_MPI_PAIR);
     }
 
     void mergeSortedArrays(int height, int Npe, int id, 
