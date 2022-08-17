@@ -430,13 +430,6 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
                 dbt_estimate_sum_before_fisher_vector, fisher_matrix_sum);
 
             LOG::LOGGER.DEB("One done.\n");
-
-            // When compiled with debugging feature
-            // save matrices to files, break
-            #ifdef DEBUG_MATRIX_OUT
-            it->fprintfMatrices(fname_base);
-            throw std::runtime_error("DEBUGGING QUIT.");
-            #endif
         }
 
         #ifdef DEBUG

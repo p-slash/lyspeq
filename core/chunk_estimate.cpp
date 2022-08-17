@@ -439,6 +439,13 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     delete [] smooth_noise;
 
     isCovInverted = false;
+
+    // When compiled with debugging feature
+    // save matrices to files, break
+    // #ifdef DEBUG_MATRIX_OUT
+    // it->fprintfMatrices(fname_base);
+    // throw std::runtime_error("DEBUGGING QUIT.");
+    // #endif
 }
 
 void _getUnitVectorLogLam(const double *w, int size, int cmo, double *out)
