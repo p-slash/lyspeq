@@ -608,21 +608,21 @@ void Chunk::computePSbeforeFvector()
         double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix = temp_matrix[1], 
             temp_tk = 0;
 
-        LOG::LOGGER.DEB("      -> set qi");
+        LOG::LOGGER.DEB("   -> set qi");
         // Set derivative matrix ikz
         _setQiMatrix(Q_ikz_matrix, i_kz);
 
-        LOG::LOGGER.DEB("      -> dk");
+        LOG::LOGGER.DEB("   -> dk");
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
         double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, 
             Q_ikz_matrix, qFile->size);
 
-        LOG::LOGGER.DEB("      -> weighted Q");
+        LOG::LOGGER.DEB("   -> weighted Q");
         // Get weighted derivative matrix ikz: C-1 Qi C-1
         _getWeightedMatrix(Q_ikz_matrix);
 
-        LOG::LOGGER.DEB("      -> nk");
+        LOG::LOGGER.DEB("   -> nk");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
         double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise, 
             qFile->size);
@@ -632,7 +632,7 @@ void Chunk::computePSbeforeFvector()
         {
             _setFiducialSignalMatrix(Sfid_matrix, false);
 
-            LOG::LOGGER.DEB("      -> tk");
+            LOG::LOGGER.DEB("   -> tk");
             // Tr(C-1 Qi C-1 Sfid)
             temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, qFile->size);
         }
@@ -644,6 +644,8 @@ void Chunk::computePSbeforeFvector()
         // Do not compute fisher matrix if it is precomputed
         if (OneDQuadraticPowerEstimate::precomputed_fisher == NULL)
             _getFisherMatrix(Q_ikz_matrix, i_kz);
+
+        LOG::LOGGER.DEB("\n");
     }
 
     delete [] weighted_data_vector;
