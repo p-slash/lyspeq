@@ -143,9 +143,17 @@ void Logger::TIME(const char *fmt, ...)
 void Logger::DEB(const char *fmt, ...)
 {    
     #ifdef DEBUG
+    if (!errfileOpened && !err_fname.empty())
+    {
+        errfile = ioh::open_file(err_fname.c_str(), "w");
+        errfileOpened = true;
+    }
+
     va_list args;
     va_start(args, fmt);
-    ERR(fmt, args);
+
+    write_log(errfile, stderr, fmt, args);
+
     va_end(args);
     #endif
 }
