@@ -793,7 +793,7 @@ void _findMedianStatistics(double *arr, int size, double &median, double &mad)
     std::sort(arr, arr+size);
     median = arr[size/2];
 
-    std::for_each(arr, arr+size, [&](double &f) { f = fabs(f-median); });
+    std::for_each(arr, arr+size, [median](double &f) { f = fabs(f-median); });
     std::sort(arr, arr+size);
     mad = 1.4826 * arr[size/2]; // The constant factor makes it unbiased
 }

@@ -155,6 +155,8 @@ void Logger::DEB(const char *fmt, ...)
     write_log(errfile, stderr, fmt, args);
 
     va_end(args);
+    #else
+    const char *l __attribute__((unused)) = fmt;
     #endif
 }
 

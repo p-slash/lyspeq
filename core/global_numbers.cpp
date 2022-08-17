@@ -169,7 +169,7 @@ namespace bins
     inline
     double zBinTopHat(double z, int zm)
     {
-        int zz __attribute__((unused))  = z;
+        double zz __attribute__((unused))  = z;
         int zmm __attribute__((unused)) = zm;
         return 1;
     }
