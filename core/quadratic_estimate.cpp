@@ -432,13 +432,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
             LOG::LOGGER.DEB("One done.\n");
         }
 
-        #ifdef DEBUG
-        #if defined(ENABLE_MPI)
-        MPI_Barrier(MPI_COMM_WORLD);
-        #endif
         LOG::LOGGER.DEB("All done.\n");
-        throw std::runtime_error("DEBUGGING QUIT.");
-        #endif
 
         // Save bootstrap files only if MPI is enabled.
         #if defined(ENABLE_MPI)
@@ -446,6 +440,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
         if (process::SAVE_EACH_PE_RESULT)
             _savePEResult();
 
+        LOG::LOGGER.DEB("MPI All reduce.\n");
         MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, (FISHER_SIZE),
             MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
@@ -462,6 +457,7 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
 
         try
         {
+            LOG::LOGGER.DEB("Invert total Fisher.\n");
             invertTotalFisherMatrix();
         }
         catch (std::exception& e)
