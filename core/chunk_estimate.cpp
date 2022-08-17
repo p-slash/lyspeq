@@ -496,10 +496,12 @@ void Chunk::_addMarginalizations()
     double *svals = new double[specifics::CONT_NVECS];
     // SVD to get orthogonal marg vectors
     mxhelp::LAPACKE_svd(temp_v, svals, qFile->size, specifics::CONT_NVECS);
+    LOG::LOGGER.DEB("SVD'ed\n");
 
     // Remove each 
     for (int i = 0; i < specifics::CONT_NVECS; ++i, temp_v += qFile->size)
     {
+        LOG::LOGGER.DEB("i: %d, s: %.2e\n,", i, svals[i]);
         // skip if this vector is degenerate
         if (svals[i]<1e-6)  continue;
 
