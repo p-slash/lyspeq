@@ -469,13 +469,17 @@ void OneDQuadraticPowerEstimate::iterate(int number_of_iterations,
                 iterationOutput(fname_base, i, total_time_1it, total_time);
             throw e;
         }
-        
+
         computePowerSpectrumEstimates();
         total_time_1it = mytime::timer.getTime() - total_time_1it;
         total_time    += total_time_1it;
-        
+
         if (process::this_pe == 0)
             iterationOutput(fname_base, i, total_time_1it, total_time);
+
+        #if defined(ENABLE_MPI)
+        MPI_Barrier(MPI_COMM_WORLD);
+        #endif
 
         if (hasConverged())
         {
