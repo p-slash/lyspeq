@@ -68,7 +68,7 @@ stored_qj(NULL), stored_sfid(NULL)
     std::for_each(qFile->noise, qFile->noise+qFile->size, [](double &n) { n*=n; });
 
     nqj_eff = 0;
-    
+
     // Set up number of matrices, index for Fisher matrix
     _setNQandFisherIndex();
 
@@ -298,7 +298,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
     }
 }
 
-void Chunk::_setFiducialSignalMatrix(double *&sm, bool copy)
+void Chunk::_setFiducialSignalMatrix(double *sm)
 {
     ++mytime::number_of_times_called_setsfid;
 
@@ -307,8 +307,7 @@ void Chunk::_setFiducialSignalMatrix(double *&sm, bool copy)
 
     if (isSfidSet)
     {
-        if (copy)   std::copy(stored_sfid, stored_sfid + DATA_SIZE_2, sm);
-        else        sm = stored_sfid;
+        std::copy(stored_sfid, stored_sfid + DATA_SIZE_2, sm);
     }
     else
     {
@@ -552,10 +551,7 @@ void Chunk::_getWeightedMatrix(double *m)
 
 void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 {
-    double temp;
-    double *Q_jkz_matrix = temp_matrix[1];
-
-    double t = mytime::timer.getTime();
+    double temp, *Q_jkz_matrix, t = mytime::timer.getTime();
     
     // Now compute Fisher Matrix
     for (int j_kz = i_kz; j_kz < N_Q_MATRICES; ++j_kz)
@@ -596,6 +592,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 void Chunk::computePSbeforeFvector()
 {
     double *weighted_data_vector = new double[qFile->size];
+    double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix, temp_tk = 0;
+
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
     cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
         qFile->size, qFile->delta, 1, 0, weighted_data_vector, 1);
@@ -604,9 +602,6 @@ void Chunk::computePSbeforeFvector()
     {
         LOG::LOGGER.DEB("PSb4F -> loop %d\n", i_kz);
         if (_isAboveNyquist(i_kz)) continue;
-
-        double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix = temp_matrix[1], 
-            temp_tk = 0;
 
         LOG::LOGGER.DEB("   -> set qi");
         // Set derivative matrix ikz
@@ -630,7 +625,13 @@ void Chunk::computePSbeforeFvector()
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
         {
-            _setFiducialSignalMatrix(Sfid_matrix, false);
+            if (isSfidSet)
+                Sfid_matrix = stored_sfid;
+            else
+            {
+                Sfid_matrix = temp_matrix[1];
+                _setFiducialSignalMatrix(Sfid_matrix);
+            }
 
             LOG::LOGGER.DEB("   -> tk");
             // Tr(C-1 Qi C-1 Sfid)

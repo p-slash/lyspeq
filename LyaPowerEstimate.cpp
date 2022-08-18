@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
          buf[700];
 
     int NUMBER_OF_ITERATIONS, Nv, Nz;
-    
+
     OneDQuadraticPowerEstimate *qps = NULL;
 
     // Let all PEs to read config at the same time.
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
         delete ioh::boot_saver;
         MPI_Abort(MPI_COMM_WORLD, 1);
         #endif
-        
+
         return 1;
     } 
 

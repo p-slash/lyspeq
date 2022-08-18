@@ -82,10 +82,10 @@ namespace mpisort
 
             MPI_Recv(local_cpu_ind_vec.data()+local_size, transmission_count, MY_MPI_PAIR, child_pe, 
                 MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            
+
             std::inplace_merge(local_cpu_ind_vec.begin(), local_cpu_ind_vec.begin()+local_size, 
                 local_cpu_ind_vec.end());
-           
+
             // Recursive call 
             mergeSortedArrays(height+1, next_Npe, id, local_cpu_ind_vec);
         }
