@@ -29,7 +29,7 @@
 
 // cblas_dcopy(N, sour, isour, tar, itar);
 #define EPSILON_D std::numeric_limits<double>::epsilon()
-double nonzero_min_element(double *first, double *last)
+double nonzero_min_element(const double *first, const double *last)
 {
     if (first == last) return *first;
  

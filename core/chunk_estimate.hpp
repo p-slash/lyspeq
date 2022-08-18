@@ -67,7 +67,7 @@ protected:
     void _freeMatrices();
     // void _saveIndividualResult();
 
-    void _setFiducialSignalMatrix(double *&sm, bool copy=true);
+    void _setFiducialSignalMatrix(double *sm);
     void _setQiMatrix(double *qi, int i_kz);
     void _addMarginalizations();
     void _getWeightedMatrix(double *m);
