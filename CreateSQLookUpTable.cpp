@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     {
         fprintf(stderr, "Missing config file!\n");
         #if defined(ENABLE_MPI)
-        MPI_Finalize(MPI_COMM_WORLD, 1);
+        MPI_Finalize();
         #endif
         return -1;
     }
