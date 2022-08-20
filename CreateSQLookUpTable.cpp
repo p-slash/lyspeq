@@ -39,10 +39,10 @@ int main(int argc, char *argv[])
     if (argc == 3)
         force_rewrite = !(strcmp(argv[2], "--unforce") == 0);
 
-    char FNAME_RLIST[300],
-         OUTPUT_DIR[300],
-         OUTPUT_FILEBASE_S[300],
-         OUTPUT_FILEBASE_Q[300];
+    char FNAME_RLIST[500],
+         OUTPUT_DIR[500],
+         OUTPUT_FILEBASE_S[500],
+         OUTPUT_FILEBASE_Q[500];
 
     int Nv, Nz;
 
@@ -104,6 +104,8 @@ int main(int argc, char *argv[])
         
         return 1;
     }
+
+    delete process::sq_private_table;
 
     bins::cleanUpBins();       
 

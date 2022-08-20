@@ -132,6 +132,8 @@ int main(int argc, char *argv[])
 
     TestOneQSOEstimate toqso(filepaths[0]);
     toqso.saveMatrices(std::string(OUTPUT_DIR));
+
+    delete process::sq_private_table;
     return 0;
 }
 
