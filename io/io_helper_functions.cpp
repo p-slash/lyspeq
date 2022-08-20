@@ -171,14 +171,14 @@ ioh::BootstrapFile::BootstrapFile(const char *outdir, const char *base, int nk, 
     if (pe == 0)
     {
         r += MPI_File_write(bootfile, &nkbins, 1, MPI_INT, MPI_STATUS_IGNORE);
-        r += MPI_File_write(bootfile, &bins::NUMBER_OF_Z_BINS, 1, MPI_INT, MPI_STATUS_IGNORE);
+        r += MPI_File_write(bootfile, &nzbins, 1, MPI_INT, MPI_STATUS_IGNORE);
         r += MPI_File_write(bootfile, &ndiags, 1, MPI_INT, MPI_STATUS_IGNORE);
     }
     // #else
     // bootfile = ioh::open_file(oss_fname.str().c_str(), "wb");
 
     // r += fwrite(&nkbins, sizeof(int), 1, bootfile)-1;
-    // r += fwrite(&bins::NUMBER_OF_Z_BINS, sizeof(int), 1, bootfile)-1;
+    // r += fwrite(&nzbins, sizeof(int), 1, bootfile)-1;
     // r += fwrite(&ndiags, sizeof(int), 1, bootfile)-1;
     // #endif
 
