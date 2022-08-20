@@ -15,11 +15,12 @@ nchunks = specifics::NUMBER_OF_CHUNKS * size / MAX_PIXELS_IN_FOREST+1;
 class OneQSOEstimate
 {
 protected:
+    std::string fname_qso;
     std::vector<Chunk> chunks;
     std::vector<int> indices;
 
 public:
-    OneQSOEstimate(std::string fname_qso);
+    OneQSOEstimate(const std::string &f_qso);
     ~OneQSOEstimate();
 
     // Move constructor 

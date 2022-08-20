@@ -23,8 +23,9 @@ int _decideNChunks(int size, std::vector<int> &indices)
     return nchunks;
 }
 
-OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
+OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
 {
+    fname_qso = f_qso;
     qio::QSOFile qFile(fname_qso, specifics::INPUT_QSO_FILE);
 
     qFile.readParameters();
@@ -100,7 +101,16 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate,
     double *dbt_sum_vector[3], double *fisher_sum)
 {
     for (auto it = chunks.begin(); it != chunks.end(); ++it)
-        it->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
+    {
+        try
+        {
+            it->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
+        }
+        catch (std::exception& e)
+        {
+            LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
+        }
+    }
 }
 
 
