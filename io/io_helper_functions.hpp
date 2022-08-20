@@ -41,11 +41,12 @@ namespace ioh
     class BootstrapFile
     {
         MPI_File bootfile;
-        int ndiags, cf_size, elems_count;
+        int nkbins, nzbins, nkzbins, pe,
+            ndiags, cf_size, elems_count;
         // First bins::TOTAL_KZ_BINS elements are the power spectrum
         double *data_buffer;
     public:
-        BootstrapFile(const char *outdir, const char *base);
+        BootstrapFile(const char *outdir, const char *base, int nk, int nz, int thispe);
         ~BootstrapFile();
 
         void writeBoot(const double *pk, const double *fisher);

@@ -9,6 +9,7 @@
 #endif
 
 #include "core/global_numbers.hpp"
+#include "core/sq_table.hpp"
 #include "core/quadratic_estimate.hpp"
 #include "io/logger.hpp"
 #include "io/io_helper_functions.hpp"
@@ -69,7 +70,8 @@ int main(int argc, char *argv[])
 
         #if defined(ENABLE_MPI)
         if (process::SAVE_EACH_PE_RESULT)
-            ioh::boot_saver = new ioh::BootstrapFile(OUTPUT_DIR, OUTPUT_FILEBASE);
+            ioh::boot_saver = new ioh::BootstrapFile(OUTPUT_DIR, OUTPUT_FILEBASE,
+                bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS, bins::TOTAL_KZ_BINS);
         MPI_Barrier(MPI_COMM_WORLD);
         #endif
 

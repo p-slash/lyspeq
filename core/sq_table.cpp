@@ -425,6 +425,8 @@ double SQLookupTable::getMaxMemUsage()
     return getOneSetMemUsage() * NUMBER_OF_R_VALUES + rdvsize;
 }
 
+SQLookupTable *process::sq_private_table = NULL;
+
 
 // SQLookupTable::SQLookupTable(const SQLookupTable &sq)
 // {

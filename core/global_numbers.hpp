@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <chrono>
 
-#include "core/sq_table.hpp"
 #include "io/qso_file.hpp"
 // Debugging flags. Comment out to turn off
 // #define DEBUG_MATRIX_OUT
@@ -19,7 +18,6 @@ namespace process
     extern int this_pe, total_pes;
     extern char TMP_FOLDER[300];
     extern double MEMORY_ALLOC;
-    extern SQLookupTable *sq_private_table;
     extern bool SAVE_EACH_PE_RESULT;
     extern bool SAVE_ALL_SQ_FILES;
 

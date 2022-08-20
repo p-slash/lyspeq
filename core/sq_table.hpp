@@ -73,4 +73,9 @@ public:
     double getMaxMemUsage();
 };
 
+namespace process
+{
+    extern SQLookupTable *sq_private_table;
+}
+
 #endif
