@@ -5,7 +5,6 @@
 #include <stdexcept>
 
 #include "io/io_helper_functions.hpp"
-// #include "core/global_numbers.hpp"
 
 namespace LOG
 {

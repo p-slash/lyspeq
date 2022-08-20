@@ -6,7 +6,7 @@
 #include <vector>
 #include <map>
 #include <fitsio.h>
-#include "core/matrix_helper.hpp"
+#include "mathtools/matrix_helper.hpp"
 
 namespace qio
 {

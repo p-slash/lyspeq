@@ -1,6 +1,5 @@
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
-#include "core/quadratic_estimate.hpp"
 #include "io/config_file.hpp"
 #include "io/logger.hpp"
 
@@ -22,6 +21,29 @@ namespace process
         MEMORY_ALLOC += deltamem;
         if (MEMORY_ALLOC < 10)
             LOG::LOGGER.ERR("Remaining memory is less than 10 MB!\n");
+    }
+
+    void readProcess(const char *FNAME_CONFIG)
+    {
+        int save_pe_res=-1, cache_all_sq=-1;
+
+        // Set up config file to read variables.
+        ConfigFile cFile(FNAME_CONFIG);
+        cFile.addKey("CacheAllSQTables", &cache_all_sq, INTEGER);
+        cFile.addKey("AllocatedMemoryMB", &process::MEMORY_ALLOC, DOUBLE);
+        cFile.addKey("TemporaryFolder", &process::TMP_FOLDER, STRING);
+        cFile.readAll(true);
+
+        // char tmp_ps_fname[320];
+        // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
+        // TODO: Test access here
+        process::SAVE_EACH_PE_RESULT    = save_pe_res > 0;
+        process::SAVE_ALL_SQ_FILES      = cache_all_sq > 0;
+
+        #if !defined(ENABLE_MPI)
+        if (process::SAVE_EACH_PE_RESULT)
+            throw std::invalid_argument("Bootstrap saving only supported when compiled with MPI.");
+        #endif
     }
 }
 
@@ -80,6 +102,30 @@ namespace bins
         delete [] KBAND_EDGES;
         delete [] KBAND_CENTERS;
         delete [] ZBIN_CENTERS;
+    }
+
+    void readBins(const char *FNAME_CONFIG)
+    {
+        int N_KLIN_BIN, N_KLOG_BIN;
+        double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, klast=-1;
+
+        ConfigFile cFile(FNAME_CONFIG);
+
+        // Bin parameters
+        cFile.addKey("K0", &K_0, DOUBLE);
+        cFile.addKey("LinearKBinWidth",  &LIN_K_SPACING, DOUBLE);
+        cFile.addKey("Log10KBinWidth",   &LOG_K_SPACING, DOUBLE);
+        cFile.addKey("NumberOfLinearBins",   &N_KLIN_BIN, INTEGER);
+        cFile.addKey("NumberOfLog10Bins",    &N_KLOG_BIN, INTEGER);
+        cFile.addKey("LastKEdge",    &klast, DOUBLE);
+
+        cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
+        cFile.addKey("RedshiftBinWidth", &bins::Z_BIN_WIDTH, DOUBLE);
+        cFile.addKey("NumberOfRedshiftBins", &bins::NUMBER_OF_Z_BINS, INTEGER);
+
+        // Redshift and wavenumber bins are constructed
+        bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, klast, Z_0);
+        cFile.readAll(true);
     }
 
     int findRedshiftBin(double z)
@@ -258,6 +304,52 @@ namespace specifics
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
     int OVERSAMPLING_FACTOR = -1;
 
+    void readSpecifics(const char *FNAME_CONFIG)
+    {
+        int sfid_off=-1, usmoothlogs=-1, use_picca_file=-1, use_reso_mat=-1;
+        double  temp_chisq = -1;
+
+        // Set up config file to read variables.
+        ConfigFile cFile(FNAME_CONFIG);
+
+        cFile.addKey("InputIsPicca",   &use_picca_file, INTEGER);
+        cFile.addKey("UseResoMatrix",  &use_reso_mat, INTEGER);
+        cFile.addKey("ResoMatDeconvolutionM", &specifics::RESOMAT_DECONVOLUTION_M, DOUBLE);
+        cFile.addKey("OversampleRmat", &specifics::OVERSAMPLING_FACTOR, INTEGER);
+        cFile.addKey("DynamicChunkNumber", &specifics::NUMBER_OF_CHUNKS, INTEGER);
+
+        // Fiducial cosmology
+        cFile.addKey("TurnOffBaseline", &sfid_off,  INTEGER);    // Turns off the signal matrix
+        cFile.addKey("SmoothLnkLnP",  &usmoothlogs, INTEGER);    // Smooth lnk, lnP
+
+        cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
+
+        // Continuum marginalization order. Pass <=0 to turn off
+        cFile.addKey("ContinuumLogLambdaMargOrder", &specifics::CONT_LOGLAM_MARG_ORDER, INTEGER);
+        cFile.addKey("ContinuumLambdaMargOrder", &specifics::CONT_LAM_MARG_ORDER, INTEGER);
+
+        cFile.readAll(true);
+
+        // char tmp_ps_fname[320];
+        // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
+        // TODO: Test access here
+        
+        specifics::TURN_OFF_SFID        = sfid_off > 0;
+        specifics::SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
+        specifics::USE_RESOLUTION_MATRIX= use_reso_mat > 0;
+
+        if (use_picca_file>0)
+            specifics::INPUT_QSO_FILE = qio::Picca;
+
+        if (specifics::INPUT_QSO_FILE != qio::Picca && specifics::USE_RESOLUTION_MATRIX)
+            throw std::invalid_argument("Resolution matrix is only supported with picca files."
+                " Add 'InputIsPicca 1' to config file if so.");
+
+        if (temp_chisq > 0) specifics::CHISQ_CONVERGENCE_EPS = temp_chisq;
+
+        specifics::calcNvecs();
+    }
+
     void calcNvecs()
     {
         if (CONT_LOGLAM_MARG_ORDER >= 0 || CONT_LAM_MARG_ORDER >= 0)
@@ -343,162 +435,43 @@ namespace specifics
 // Pass NULL for not needed variables!
 void ioh::readConfigFile(const char *FNAME_CONFIG,
     char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
-    char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
+    char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q, char *FNAME_PREFISHER,
     int *NUMBER_OF_ITERATIONS,
+    int *NOISE_SMOOTHING_FACTOR,
     int *Nv, int *Nz, double *LENGTH_V)
 {
-    int N_KLIN_BIN, N_KLOG_BIN, 
-        sfid_off=-1, uchunkmean=-1, udeltaf=-1, usmoothlogs=-1,
-        save_pe_res=-1, use_picca_file=-1, use_reso_mat=-1,
-        cache_all_sq=-1, noise_smoothing_factor=-1;
-
-    double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, temp_chisq = -1, klast=-1;
-    char    FNAME_FID_POWER[300]="", FNAME_MEAN_FLUX[300]="", FNAME_PREFISHER[300]="";
+    char FNAME_FID_POWER[300]="", FNAME_PREFISHER[300]="";
 
     // Set up config file to read variables.
     ConfigFile cFile(FNAME_CONFIG);
-
-    // Bin parameters
-    cFile.addKey("K0", &K_0, DOUBLE);
-    cFile.addKey("LinearKBinWidth",  &LIN_K_SPACING, DOUBLE);
-    cFile.addKey("Log10KBinWidth",   &LOG_K_SPACING, DOUBLE);
-    cFile.addKey("NumberOfLinearBins",   &N_KLIN_BIN, INTEGER);
-    cFile.addKey("NumberOfLog10Bins",    &N_KLOG_BIN, INTEGER);
-    cFile.addKey("LastKEdge",    &klast, DOUBLE);
-
-    cFile.addKey("FirstRedshiftBinCenter", &Z_0, DOUBLE);
-    cFile.addKey("RedshiftBinWidth", &bins::Z_BIN_WIDTH, DOUBLE);
-    cFile.addKey("NumberOfRedshiftBins", &bins::NUMBER_OF_Z_BINS, INTEGER);
     
     // // File names and paths
     cFile.addKey("FileNameList", FNAME_LIST, STRING);
 
     cFile.addKey("FileNameRList",  FNAME_RLIST, STRING);
     cFile.addKey("FileInputDir",   INPUT_DIR, STRING);
-    cFile.addKey("InputIsPicca",   &use_picca_file, INTEGER);
-    cFile.addKey("UseResoMatrix",  &use_reso_mat, INTEGER);
-    cFile.addKey("ResoMatDeconvolutionM", &specifics::RESOMAT_DECONVOLUTION_M, DOUBLE);
-    cFile.addKey("OversampleRmat", &specifics::OVERSAMPLING_FACTOR, INTEGER);
-    cFile.addKey("SmoothNoiseWeights", &noise_smoothing_factor, INTEGER);
-    cFile.addKey("DynamicChunkNumber", &specifics::NUMBER_OF_CHUNKS, INTEGER);
+    cFile.addKey("SmoothNoiseWeights", &NOISE_SMOOTHING_FACTOR, INTEGER);
 
     cFile.addKey("OutputDir",      OUTPUT_DIR, STRING); 
     cFile.addKey("OutputFileBase", OUTPUT_FILEBASE, STRING);
 
-    cFile.addKey("SaveEachProcessResult", &save_pe_res, INTEGER);
-
     cFile.addKey("SignalLookUpTableBase",       FILEBASE_S, STRING);
     cFile.addKey("DerivativeSLookUpTableBase",  FILEBASE_Q, STRING);
-    cFile.addKey("CacheAllSQTables", &cache_all_sq, INTEGER);
 
     // Integration grid parameters
     cFile.addKey("NumberVPoints",   Nv, INTEGER);
     cFile.addKey("NumberZPoints",   Nz, INTEGER);
     cFile.addKey("VelocityLength",  LENGTH_V,    DOUBLE);
 
-    // Fiducial cosmology
-    cFile.addKey("TurnOffBaseline", &sfid_off,  INTEGER);    // Turns off the signal matrix
-    cFile.addKey("SmoothLnkLnP",  &usmoothlogs, INTEGER);    // Smooth lnk, lnP
-
-    // How to convert from flux to delta_flux if at all
-    cFile.addKey("MeanFluxFile",        FNAME_MEAN_FLUX, STRING);  // File to interpolate for F-bar
-    cFile.addKey("UseChunksMeanFlux",   &uchunkmean,     INTEGER); // If 1, uses mean of each chunk as F-bar
-    cFile.addKey("InputIsDeltaFlux",    &udeltaf,        INTEGER); // If 1, input is delta_f
-
-    // Baseline Power Spectrum
-    cFile.addKey("FiducialPowerFile",           FNAME_FID_POWER,                      STRING);
-    // Fiducial Palanque fit function parameters
-    cFile.addKey("FiducialAmplitude",           &fidpd13::FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
-    cFile.addKey("FiducialSlope",               &fidpd13::FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
-    cFile.addKey("FiducialCurvature",           &fidpd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
-    cFile.addKey("FiducialRedshiftPower",       &fidpd13::FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
-    cFile.addKey("FiducialRedshiftCurvature",   &fidpd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
-    cFile.addKey("FiducialLorentzianLambda",    &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,DOUBLE);
-
     cFile.addKey("PrecomputedFisher", FNAME_PREFISHER, STRING);
 
     cFile.addKey("NumberOfIterations", NUMBER_OF_ITERATIONS, INTEGER);
-    cFile.addKey("ChiSqConvergence", &temp_chisq, DOUBLE);
 
-    // Continuum marginalization order. Pass <=0 to turn off
-    cFile.addKey("ContinuumLogLambdaMargOrder", &specifics::CONT_LOGLAM_MARG_ORDER, INTEGER);
-    cFile.addKey("ContinuumLambdaMargOrder", &specifics::CONT_LAM_MARG_ORDER, INTEGER);
-
-    // Read integer if testing outside of Lya region
-    cFile.addKey("AllocatedMemoryMB", &process::MEMORY_ALLOC, DOUBLE);
-    cFile.addKey("TemporaryFolder", &process::TMP_FOLDER, STRING);
-
-    cFile.readAll((process::this_pe!=0));
-
-    // char tmp_ps_fname[320];
-    // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
-    // TODO: Test access here
-    
-    specifics::TURN_OFF_SFID        = sfid_off > 0;
-    specifics::SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
-    specifics::USE_RESOLUTION_MATRIX= use_reso_mat > 0;
-    conv::FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
-    conv::INPUT_IS_DELTA_FLUX       = udeltaf > 0;
-    process::SAVE_EACH_PE_RESULT    = save_pe_res > 0;
-    process::SAVE_ALL_SQ_FILES      = cache_all_sq > 0;
-
-    if (use_picca_file>0)
-        specifics::INPUT_QSO_FILE = qio::Picca;
-
-    if (specifics::INPUT_QSO_FILE != qio::Picca && specifics::USE_RESOLUTION_MATRIX)
-        throw std::invalid_argument("Resolution matrix is only supported with picca files."
-            " Add 'InputIsPicca 1' to config file if so.");
-
-    #if !defined(ENABLE_MPI)
-    if (process::SAVE_EACH_PE_RESULT)
-        throw std::invalid_argument("Bootstrap saving only supported when compiled with MPI.");
-    #endif
-
-    // resolve conflict: Input delta flux overrides all
-    // Then, chunk means.
-    if (conv::INPUT_IS_DELTA_FLUX && conv::FLUX_TO_DELTAF_BY_CHUNKS)
-    {
-        LOG::LOGGER.ERR("Both input delta flux and conversion using chunk's mean "
-            "flux is turned on. Assuming input is flux fluctuations delta_f.\n");
-        conv::FLUX_TO_DELTAF_BY_CHUNKS = false;
-    }
-
-    conv::setMeanFlux();
-
-    if (FNAME_MEAN_FLUX[0] != '\0')
-    {
-        if (conv::FLUX_TO_DELTAF_BY_CHUNKS)
-        {
-            LOG::LOGGER.ERR("Both mean flux file and using chunk's mean flux is turned on. "
-            "Using chunk's mean flux.\n");
-        }
-        else if (conv::INPUT_IS_DELTA_FLUX)
-        {
-            LOG::LOGGER.ERR("Both input delta flux and conversion using mean flux file is turned on. "
-            "Assuming input is flux fluctuations delta_f.\n");
-        }
-        else
-            conv::setMeanFlux(FNAME_MEAN_FLUX);
-    }
-    else if (!(conv::INPUT_IS_DELTA_FLUX || conv::FLUX_TO_DELTAF_BY_CHUNKS))
-        conv::INPUT_IS_DELTA_FLUX = true;
-
-    if (temp_chisq > 0) specifics::CHISQ_CONVERGENCE_EPS = temp_chisq;
-
-    specifics::calcNvecs();
-
-    if (FNAME_FID_POWER[0] != '\0')
-        fidcosmo::setFiducialPowerFromFile(FNAME_FID_POWER);
-
-    // Redshift and wavenumber bins are constructed
-    bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, klast, Z_0);
+    cFile.readAll(true);
 
     // Call after setting bins, because this function checks for consistency.
     if (FNAME_PREFISHER[0] != '\0')
         OneDQuadraticPowerEstimate::readPrecomputedFisher(FNAME_PREFISHER);
-
-    Smoother::setParameters(noise_smoothing_factor);
-    Smoother::setGaussianKernel();
 }
 
 

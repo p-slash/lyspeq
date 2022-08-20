@@ -17,6 +17,8 @@ namespace conv
 
     extern void (*convertFluxToDeltaF)(const double *lambda, double *flux, double *noise, int size);
     // void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size);
+
+    void readConversion(const char *FNAME_CONFIG);
 }
 
 namespace fidcosmo
@@ -27,6 +29,8 @@ namespace fidcosmo
     // Currently growth factor is always given Palanqu Delabrouille fit.
     extern double (*fiducialPowerGrowthFactor)(double z_ij, double k_kn, double z_zm, void *params);
     extern double FID_LOWEST_K, FID_HIGHEST_K;
+
+    void readFiducialCosmo(const char *FNAME_CONFIG);
 
     // Assume binary file starts with 
     // two integers, 

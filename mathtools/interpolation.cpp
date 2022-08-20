@@ -1,4 +1,4 @@
-#include "gsltools/interpolation.hpp"
+#include "mathtools/interpolation.hpp"
 
 #include <cstdio>
 
