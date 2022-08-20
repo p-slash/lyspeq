@@ -137,7 +137,7 @@ namespace mxhelp
     void LAPACKE_InvertMatrixLU(double *A, int N)
     {
         lapack_int LIN = N, *ipiv, info;
-        ipiv = new lapack_int[N];
+        ipiv = new lapack_int[N]();
 
         // Factorize A
         // the LU factorization of a general m-by-n matrix.
