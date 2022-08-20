@@ -1,5 +1,5 @@
-#include "core/matrix_helper.hpp"
-#include "gsltools/real_field.hpp"
+#include "mathtools/matrix_helper.hpp"
+#include "mathtools/real_field.hpp"
 
 #include <stdexcept>
 #include <algorithm>

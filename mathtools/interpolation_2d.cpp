@@ -1,4 +1,4 @@
-#include "gsltools/interpolation_2d.hpp"
+#include "mathtools/interpolation_2d.hpp"
 
 #include <gsl/gsl_interp2d.h>
 #include <gsl/gsl_errno.h>

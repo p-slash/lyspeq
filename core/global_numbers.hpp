@@ -22,6 +22,8 @@ namespace process
     extern bool SAVE_ALL_SQ_FILES;
 
     void updateMemory(double deltamem);
+
+    void readProcess(const char *FNAME_CONFIG);
 }
 
 namespace bins
@@ -33,6 +35,8 @@ namespace bins
     extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, DEGREE_OF_FREEDOM;
     extern double *KBAND_EDGES, *KBAND_CENTERS;
     extern double Z_BIN_WIDTH, *ZBIN_CENTERS, Z_LOWER_EDGE, Z_UPPER_EDGE;
+
+    void readBins(const char *FNAME_CONFIG);
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0);
     void cleanUpBins();
@@ -100,6 +104,8 @@ namespace specifics
 
     extern int OVERSAMPLING_FACTOR;
 
+    void readSpecifics(const char *FNAME_CONFIG);
+
     void printBuildSpecifics(FILE *toWrite=NULL);
     void printConfigSpecifics(FILE *toWrite=NULL);
 }
@@ -110,6 +116,7 @@ namespace ioh
         char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
         char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
         int *NUMBER_OF_ITERATIONS,
+        int *NOISE_SMOOTHING_FACTOR,
         int *Nv, int *Nz, double *LENGTH_V);
 }
 

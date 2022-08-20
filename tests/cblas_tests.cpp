@@ -1,4 +1,4 @@
-#include "core/matrix_helper.hpp"
+#include "mathtools/matrix_helper.hpp"
 #include <cmath>
 #include <cstdio>
 #include <algorithm>

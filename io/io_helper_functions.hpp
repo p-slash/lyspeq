@@ -7,10 +7,6 @@
 #include <complex>
 #include <vector>
 
-#if defined(ENABLE_MPI)
-#include "mpi.h" 
-#endif
-
 namespace ioh
 {
     bool file_exists(const char *fname);
@@ -33,27 +29,6 @@ namespace ioh
     // Reads for 2 column separated by space into vector of pairs
     // Returns number of elements
     int readListRdv(const char *fname, std::vector<std::pair<int, double>> &list_values);
-
-    #if defined(ENABLE_MPI)
-    // Saves results to outdir/bootresults.dat
-    // Fisher matrix is compressed, only saved upper 2Nk diagonals.
-    // This is the 3 diagonal when FISHER_OPTIMIZATION is on.
-    class BootstrapFile
-    {
-        MPI_File bootfile;
-        int nkbins, nzbins, nkzbins, pe,
-            ndiags, cf_size, elems_count;
-        // First bins::TOTAL_KZ_BINS elements are the power spectrum
-        double *data_buffer;
-    public:
-        BootstrapFile(const char *outdir, const char *base, int nk, int nz, int thispe);
-        ~BootstrapFile();
-
-        void writeBoot(const double *pk, const double *fisher);
-    };
-
-    extern BootstrapFile *boot_saver;
-    #endif
 }
 
 #endif

@@ -11,6 +11,7 @@
 #include "core/global_numbers.hpp"
 #include "core/sq_table.hpp"
 #include "core/quadratic_estimate.hpp"
+#include "mathtools/smoother.hpp"
 #include "io/logger.hpp"
 #include "io/io_helper_functions.hpp"
 
@@ -47,7 +48,7 @@ int main(int argc, char *argv[])
          OUTPUT_FILEBASE[300],
          buf[700];
 
-    int NUMBER_OF_ITERATIONS, Nv, Nz;
+    int NUMBER_OF_ITERATIONS, Nv, Nz, noise_smoothing_factor;
 
     OneDQuadraticPowerEstimate *qps = NULL;
 
@@ -56,13 +57,17 @@ int main(int argc, char *argv[])
     {
         // Read variables from config file and set up bins.
         ioh::readConfigFile( FNAME_CONFIG, FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR,
-            OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, &NUMBER_OF_ITERATIONS, &Nv, &Nz, NULL);
+            OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, &NUMBER_OF_ITERATIONS, 
+            &noise_smoothing_factor, &Nv, &Nz, NULL);
     }
     catch (std::exception& e)
     {
         fprintf(stderr, "Error while reading config file: %s\n", e.what());
         return 1;
     }
+
+    Smoother::setParameters(noise_smoothing_factor);
+    Smoother::setGaussianKernel();
 
     try
     {

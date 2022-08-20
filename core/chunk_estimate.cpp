@@ -4,6 +4,7 @@
 #include "core/fiducial_cosmology.hpp"
 #include "core/sq_table.hpp"
 
+#include "mathtools/smoother.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
 

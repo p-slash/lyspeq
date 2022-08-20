@@ -8,15 +8,62 @@
 #include <set>
 #include <stdexcept>
 
-#include "gsltools/interpolation.hpp"
-#include "gsltools/interpolation_2d.hpp"
+#include "mathtools/interpolation.hpp"
+#include "mathtools/interpolation_2d.hpp"
 #include "io/io_helper_functions.hpp"
+#include "io/config_file.hpp"
+#include "io/logger.hpp"
 
 // Conversion functions
 namespace conv
 {
     bool USE_LOG_V = false, FLUX_TO_DELTAF_BY_CHUNKS = false, INPUT_IS_DELTA_FLUX = false;
     Interpolation *interp_mean_flux = NULL;
+
+    void readConversion(const char *FNAME_CONFIG)
+    {
+        int uchunkmean=-1, udeltaf=-1;
+        char FNAME_MEAN_FLUX[300]="";
+
+        // Set up config file to read variables.
+        ConfigFile cFile(FNAME_CONFIG);
+        cFile.addKey("MeanFluxFile",        FNAME_MEAN_FLUX, STRING);  // File to interpolate for F-bar
+        cFile.addKey("UseChunksMeanFlux",   &uchunkmean,     INTEGER); // If 1, uses mean of each chunk as F-bar
+        cFile.addKey("InputIsDeltaFlux",    &udeltaf,        INTEGER); // If 1, input is delta_f
+        cFile.readAll(true);
+        
+        FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
+        INPUT_IS_DELTA_FLUX       = udeltaf > 0;
+
+        // resolve conflict: Input delta flux overrides all
+        // Then, chunk means.
+        if (INPUT_IS_DELTA_FLUX && FLUX_TO_DELTAF_BY_CHUNKS)
+        {
+            LOG::LOGGER.ERR("Both input delta flux and conversion using chunk's mean "
+                "flux is turned on. Assuming input is flux fluctuations delta_f.\n");
+            FLUX_TO_DELTAF_BY_CHUNKS = false;
+        }
+
+        setMeanFlux();
+
+        if (FNAME_MEAN_FLUX[0] != '\0')
+        {
+            if (FLUX_TO_DELTAF_BY_CHUNKS)
+            {
+                LOG::LOGGER.ERR("Both mean flux file and using chunk's mean flux is turned on. "
+                "Using chunk's mean flux.\n");
+            }
+            else if (INPUT_IS_DELTA_FLUX)
+            {
+                LOG::LOGGER.ERR("Both input delta flux and conversion using mean flux file is turned on. "
+                "Assuming input is flux fluctuations delta_f.\n");
+            }
+            else
+                setMeanFlux(FNAME_MEAN_FLUX);
+        }
+        else if (!(INPUT_IS_DELTA_FLUX || FLUX_TO_DELTAF_BY_CHUNKS))
+            INPUT_IS_DELTA_FLUX = true;
+    }
 
     void noConversion(const double *lambda, double *flux, double *noise, int size)
     {
@@ -112,6 +159,29 @@ namespace fidcosmo
     
     double FID_LOWEST_K = 0, FID_HIGHEST_K = 10.;
     Interpolation2D *interp2d_fiducial_power = NULL;
+
+    void readFiducialCosmo(const char *FNAME_CONFIG)
+    {
+        char FNAME_FID_POWER[500]="";
+
+        // Set up config file to read variables.
+        ConfigFile cFile(FNAME_CONFIG);
+
+        // Baseline Power Spectrum
+        cFile.addKey("FiducialPowerFile",           FNAME_FID_POWER, STRING);
+        // Fiducial Palanque fit function parameters
+        cFile.addKey("FiducialAmplitude",           &pd13::FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
+        cFile.addKey("FiducialSlope",               &pd13::FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
+        cFile.addKey("FiducialCurvature",           &pd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
+        cFile.addKey("FiducialRedshiftPower",       &pd13::FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
+        cFile.addKey("FiducialRedshiftCurvature",   &pd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
+        cFile.addKey("FiducialLorentzianLambda",    &pd13::FIDUCIAL_PD13_PARAMS.lambda,DOUBLE);
+
+        cFile.readAll(true);
+
+        if (FNAME_FID_POWER[0] != '\0')
+            setFiducialPowerFromFile(FNAME_FID_POWER);
+    }
 
     inline double interpolationFiducialPower(double k, double z, void *params)
     {

@@ -10,7 +10,7 @@
 
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
-#include "gsltools/fourier_integrator.hpp"
+#include "mathtools/fourier_integrator.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/sq_lookup_table_file.hpp"
 #include "io/logger.hpp"

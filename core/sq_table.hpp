@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 
-#include "gsltools/discrete_interpolation.hpp"
+#include "mathtools/discrete_interpolation.hpp"
 
 // This table read, stores and interpolates pre-evaluated S and Q matrices for different 
 // spectral resolution (R) values. Here R is assumend to be an integer where c / R is in km/s.

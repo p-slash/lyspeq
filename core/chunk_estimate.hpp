@@ -2,7 +2,7 @@
 #define CHUNK_ESTIMATE_H
 
 #include "io/qso_file.hpp"
-#include "gsltools/discrete_interpolation.hpp"
+#include "mathtools/discrete_interpolation.hpp"
 
 /*
 This object creates and computes C, S, Q, Q-slash matrices,
