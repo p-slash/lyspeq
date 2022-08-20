@@ -12,6 +12,18 @@
 #include <cstdlib>
 #include <stdexcept>
 
+void _check_isnan(double *mat, int size, std::string msg)
+{
+    #ifdef CHECK_NAN
+    if (std::any_of(mat, mat+size, [](double x) {return std::isnan(x);}))
+        throw std::runtime_error(msg);
+    #else
+        double *tmat __attribute__((unused)) = mat;
+        int tsize __attribute__((unused)) = size;
+        std::string tmsg __attribute__((unused)) = msg;
+    #endif
+}
+
 #define DATA_SIZE_2 qFile->size*qFile->size
 
 double _L2MAX, _L2MIN;
@@ -695,14 +707,20 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     LOG::LOGGER.DEB("Setting cov matrix\n");
 
     setCovarianceMatrix(ps_estimate);
+    _check_isnan(covariance_matrix, DATA_SIZE_2, "NaN: covariance");
 
     try
     {
         LOG::LOGGER.DEB("Inverting cov matrix\n");
         invertCovarianceMatrix();
+        _check_isnan(inverse_covariance_matrix, DATA_SIZE_2,
+            "NaN: inverse cov");
 
         LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
+
+        _check_isnan(fisher_matrix, FISHER_SIZE,
+            "NaN: chunk fisher");
 
         mxhelp::vector_add(fisher_sum, fisher_matrix, FISHER_SIZE);
 

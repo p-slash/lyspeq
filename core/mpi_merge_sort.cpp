@@ -1,4 +1,5 @@
 #define MPI_VEC_TAG 2
+#define MPI_SIZE_TAG 33
 
 namespace mpisort
 {
@@ -75,8 +76,10 @@ namespace mpisort
             }
 
             // First recieve the size of the transmission
-            MPI_Probe(child_pe, MPI_VEC_TAG, MPI_COMM_WORLD, &status);
-            MPI_Get_count(&status, MY_MPI_PAIR, &transmission_count);
+            MPI_Recv(&transmission_count, 1, MPI_INT, child_pe, MPI_SIZE_TAG,
+                MPI_COMM_WORLD, &status);
+            // MPI_Probe(child_pe, MPI_VEC_TAG, MPI_COMM_WORLD, &status);
+            // MPI_Get_count(&status, MY_MPI_PAIR, &transmission_count);
 
             local_cpu_ind_vec.resize(local_size+transmission_count);
 
@@ -91,6 +94,8 @@ namespace mpisort
         }
         else
         {
+            MPI_Send(&transmission_count, 1, MPI_INT, parent_pe, MPI_SIZE_TAG,
+                MPI_COMM_WORLD);
             // If this is the child, just send data to the parent
             MPI_Send(local_cpu_ind_vec.data(), transmission_count, MY_MPI_PAIR, parent_pe, 
                 MPI_VEC_TAG, MPI_COMM_WORLD);
@@ -100,4 +105,5 @@ namespace mpisort
     }
 }
 
+#undef MPI_SIZE_TAG
 #undef MPI_VEC_TAG
