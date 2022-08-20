@@ -105,11 +105,13 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    LOG::LOGGER.INFO("Deleting...");
     delete process::sq_private_table;
 
     bins::cleanUpBins();       
 
     #if defined(ENABLE_MPI)
+    LOG::LOGGER.INFO("MPI Finalize...");
     MPI_Finalize();
     #endif
 
