@@ -548,11 +548,13 @@ void Chunk::_getWeightedMatrix(double *m)
     double t = mytime::timer.getTime();
 
     //C-1 . Q
+    std::fill_n(temp_matrix[1], DATA_SIZE_2, 0);
     cblas_dsymm(CblasRowMajor, CblasLeft, CblasUpper,
         qFile->size, qFile->size, 1., inverse_covariance_matrix, qFile->size,
         m, qFile->size, 0, temp_matrix[1], qFile->size);
 
     //C-1 . Q . C-1
+    std::fill_n(m, DATA_SIZE_2, 0);
     cblas_dsymm(CblasRowMajor, CblasRight, CblasUpper,
         qFile->size, qFile->size, 1., inverse_covariance_matrix, qFile->size,
         temp_matrix[1], qFile->size, 0, m, qFile->size);
