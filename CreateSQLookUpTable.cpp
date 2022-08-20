@@ -30,6 +30,9 @@ int main(int argc, char *argv[])
     if (argc<2)
     {
         fprintf(stderr, "Missing config file!\n");
+        #if defined(ENABLE_MPI)
+        MPI_Finalize(MPI_COMM_WORLD, 1);
+        #endif
         return -1;
     }
 
@@ -107,6 +110,7 @@ int main(int argc, char *argv[])
 
     LOG::LOGGER.STD("Deleting...\n");
     delete process::sq_private_table;
+    process::sq_private_table = NULL;
 
     bins::cleanUpBins();       
 

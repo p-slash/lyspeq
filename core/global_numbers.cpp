@@ -14,7 +14,7 @@ namespace process
     int this_pe=0, total_pes=1;
     char TMP_FOLDER[300] = ".";
     double MEMORY_ALLOC  = 0;
-    SQLookupTable *sq_private_table;
+    SQLookupTable *sq_private_table = NULL;
     bool SAVE_EACH_PE_RESULT = false;
     bool SAVE_ALL_SQ_FILES = false;
 
