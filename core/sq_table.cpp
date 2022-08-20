@@ -343,15 +343,23 @@ SQLookupTable::~SQLookupTable()
     if (interp2d_signal_matrices != NULL)
     {
         for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
+        {
             delete interp2d_signal_matrices[r];
+            interp2d_signal_matrices[r] = NULL;
+        }
         delete [] interp2d_signal_matrices;
+        interp2d_signal_matrices = NULL;
     }
     
     if (interp_derivative_matrices != NULL)
     {
         for (int kr = 0; kr < NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS; ++kr)
+        {
             delete interp_derivative_matrices[kr];
+            interp_derivative_matrices[kr] = NULL;
+        }
         delete [] interp_derivative_matrices;
+        interp_derivative_matrices = NULL;
     } 
 }
 
@@ -377,17 +385,21 @@ void SQLookupTable::allocateVAndZArrays()
 void SQLookupTable::deallocateSignalAndDerivArrays()
 {
     delete [] sqhelper::derivative_array;
+    sqhelper::derivative_array = NULL;
 
     if (!specifics::TURN_OFF_SFID)
         delete [] sqhelper::signal_array;
+    sqhelper::signal_array = NULL;
 }
 
 void SQLookupTable::deallocateVAndZArrays()
 {
-    delete [] sqhelper::LINEAR_V_ARRAY;    
+    delete [] sqhelper::LINEAR_V_ARRAY;
+    sqhelper::LINEAR_V_ARRAY = NULL;    
     
     if (!specifics::TURN_OFF_SFID)
         delete [] sqhelper::LINEAR_Z_ARRAY;
+    sqhelper::LINEAR_Z_ARRAY = NULL;
 }
 
 double SQLookupTable::getOneSetMemUsage()
