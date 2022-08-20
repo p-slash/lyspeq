@@ -463,7 +463,7 @@ void _getUnitVectorLogLam(const double *w, int size, int cmo, double *out)
 {
     std::transform(w, w+size, out, [cmo](const double &l) { return pow(log(l/LYA_REST), cmo); });
     double norm = sqrt(cblas_dnrm2(size, out, 1));
-    cblas_dscal(size, 1/norm, out, 1);
+    cblas_dscal(size, 1./norm, out, 1);
 }
 
 void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
@@ -475,6 +475,7 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
+    std::fill_n(y, size, 0);
     cblas_dsymv(CblasRowMajor, CblasUpper, size, 1., cinv, size, v, 1, 0, y, 1);
     double norm = cblas_ddot(size, v, 1, y, 1);
     cblas_dger(CblasRowMajor, size, size, -1./norm, y, 1, y, 1, cinv, size);
@@ -603,7 +604,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 
 void Chunk::computePSbeforeFvector()
 {
-    double *weighted_data_vector = new double[qFile->size];
+    double *weighted_data_vector = new double[qFile->size]();
     double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix, temp_tk = 0;
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
