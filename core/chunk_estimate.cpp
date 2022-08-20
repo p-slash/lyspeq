@@ -548,13 +548,13 @@ void Chunk::_getWeightedMatrix(double *m)
     double t = mytime::timer.getTime();
 
     //C-1 . Q
-    std::fill_n(temp_matrix[1], DATA_SIZE_2, 0);
+    // std::fill_n(temp_matrix[1], DATA_SIZE_2, 0);
     cblas_dsymm(CblasRowMajor, CblasLeft, CblasUpper,
         qFile->size, qFile->size, 1., inverse_covariance_matrix, qFile->size,
         m, qFile->size, 0, temp_matrix[1], qFile->size);
 
     //C-1 . Q . C-1
-    std::fill_n(m, DATA_SIZE_2, 0);
+    // std::fill_n(m, DATA_SIZE_2, 0);
     cblas_dsymm(CblasRowMajor, CblasRight, CblasUpper,
         qFile->size, qFile->size, 1., inverse_covariance_matrix, qFile->size,
         temp_matrix[1], qFile->size, 0, m, qFile->size);
@@ -606,7 +606,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 
 void Chunk::computePSbeforeFvector()
 {
-    double *weighted_data_vector = new double[qFile->size]();
+    double *weighted_data_vector = new double[qFile->size];
     double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix, temp_tk = 0;
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
@@ -618,21 +618,21 @@ void Chunk::computePSbeforeFvector()
         LOG::LOGGER.DEB("PSb4F -> loop %d\n", i_kz);
         if (_isAboveNyquist(i_kz)) continue;
 
-        LOG::LOGGER.DEB("   -> set qi");
+        LOG::LOGGER.DEB("   -> set qi   ");
         // Set derivative matrix ikz
         _setQiMatrix(Q_ikz_matrix, i_kz);
 
-        LOG::LOGGER.DEB("   -> dk");
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
         double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, 
             Q_ikz_matrix, qFile->size);
+         LOG::LOGGER.DEB("-> dk (%.1e)   ", temp_dk);
 
-        LOG::LOGGER.DEB("   -> weighted Q");
+        LOG::LOGGER.DEB("-> weighted Q   ");
         // Get weighted derivative matrix ikz: C-1 Qi C-1
         _getWeightedMatrix(Q_ikz_matrix);
 
-        LOG::LOGGER.DEB("   -> nk");
+        LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
         double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise, 
             qFile->size);
@@ -648,7 +648,7 @@ void Chunk::computePSbeforeFvector()
                 _setFiducialSignalMatrix(Sfid_matrix);
             }
 
-            LOG::LOGGER.DEB("   -> tk");
+            LOG::LOGGER.DEB("-> tk   ");
             // Tr(C-1 Qi C-1 Sfid)
             temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, qFile->size);
         }
@@ -674,6 +674,7 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     LOG::LOGGER.DEB("TargetID %ld\n", qFile->id);
     LOG::LOGGER.DEB("Size %d\n", qFile->size);
     LOG::LOGGER.DEB("ncols: %d\n", _matrix_n);
+    LOG::LOGGER.DEB("fisher_index_start: %d\n", fisher_index_start);
     LOG::LOGGER.DEB("Allocating matrices\n");
 
     _allocateMatrices();
