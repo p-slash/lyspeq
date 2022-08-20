@@ -77,7 +77,7 @@ void SQLookupTableFile::readHeader()
         rewind(sq_file);
         if (fread(&header, sizeof(sq_io_header), 1, sq_file) != 1)
             throw std::runtime_error("fread error in header SQLookupTableFile!");
-        
+
         isHeaderSet = true;
     }
 }
@@ -92,7 +92,7 @@ void SQLookupTableFile::readHeader( int &nv, int &nz, double &len_v, double &len
         printf("WARNING: Reading header while writing SQLookupTableFile does nothing!\n");
         return;
     }
-    
+
     readHeader();
 
     nv = header.vpoints;
@@ -108,16 +108,16 @@ void SQLookupTableFile::readHeader( int &nv, int &nz, double &len_v, double &len
     kf = header.final_k;
 }
 
-void SQLookupTableFile::writeData(double *data)
+void SQLookupTableFile::writeData(const double *data)
 {
     if (!isHeaderSet)
     {
         printf("WARNING: Set header first before writing SQLookupTableFile!\n");
         return;
     }
-    
+
     int size = header.vpoints * header.zpoints;
-    
+
     if (size == 0)
         size = header.vpoints;
 
@@ -135,11 +135,11 @@ void SQLookupTableFile::writeData(double *data)
 void SQLookupTableFile::readData(double *data)
 {
     readHeader();
-    
+
     fseek(sq_file, sizeof(sq_io_header), SEEK_SET);
-    
+
     size_t size = header.vpoints * header.zpoints;
-    
+
     if (size == 0)
         size = header.vpoints;
 

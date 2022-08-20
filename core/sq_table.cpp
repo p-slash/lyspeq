@@ -49,6 +49,11 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
 : N_V_POINTS(Nv), N_Z_POINTS_OF_S(Nz), LENGTH_V(Lv),
   DIR(dir), S_BASE(s_base), Q_BASE(q_base), itp_v1(0)
 {
+    sqhelper::derivative_array = NULL;
+    sqhelper::signal_array = NULL;
+    sqhelper::LINEAR_Z_ARRAY = NULL;
+    sqhelper::LINEAR_V_ARRAY = NULL;
+
     itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
     NUMBER_OF_R_VALUES = ioh::readListRdv(fname_rlist, R_DV_VALUES);
@@ -217,6 +222,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
             Rthis, dvthis, time_spent_table_sfid);
     }
 
+    LOG::LOGGER.STD("Deallocating arrays...\n");
     deallocateSignalAndDerivArrays();
     deallocateVAndZArrays();
 }
@@ -396,7 +402,7 @@ void SQLookupTable::deallocateVAndZArrays()
 {
     delete [] sqhelper::LINEAR_V_ARRAY;
     sqhelper::LINEAR_V_ARRAY = NULL;    
-    
+
     if (!specifics::TURN_OFF_SFID)
         delete [] sqhelper::LINEAR_Z_ARRAY;
     sqhelper::LINEAR_Z_ARRAY = NULL;

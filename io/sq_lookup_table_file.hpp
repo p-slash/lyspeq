@@ -53,7 +53,7 @@ public:
                     double &ki, double &kf);
 
     void readData(double *data);
-    void writeData(double *data);
+    void writeData(const double *data);
     
 };
 
