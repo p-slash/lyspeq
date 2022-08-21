@@ -1,5 +1,4 @@
 #include "core/chunk_estimate.hpp"
-#include "core/quadratic_estimate.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
 #include "core/sq_table.hpp"

@@ -21,6 +21,9 @@ sq_lookup_table_file.cpp logger.cpp real_field.cpp chunk_estimate.cpp smoother.c
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o testSQCMatrices.o \
 test-fftconvolve.o myfitsread.o
+global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
+sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
+discrete_interpolation.o interpolation.o interpolation_2d.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
@@ -51,7 +54,7 @@ test: all
 LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-CreateSQLookUpTable: CreateSQLookUpTable.o $(OBJECTS)
+CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 cblas_tests: cblas_tests.o matrix_helper.o real_field.o
