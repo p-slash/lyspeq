@@ -1,12 +1,10 @@
 #include "io/qso_file.hpp"
+#include "io/io_helper_functions.hpp"
 
 #include <cmath>
 #include <algorithm>
 #include <numeric> // std::adjacent_difference
 #include <stdexcept>
-
-#include "io/io_helper_functions.hpp"
-#include "core/fiducial_cosmology.hpp"
 
 namespace qio
 {

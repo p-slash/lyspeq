@@ -5,14 +5,22 @@
 #include <chrono>
 #include <string>
 
-#include "io/qso_file.hpp"
 #include "io/config_file.hpp"
 // Debugging flags. Comment out to turn off
 // #define DEBUG_MATRIX_OUT
 
+#define SPEED_OF_LIGHT 299792.458
+#define LYA_REST 1215.67
+#define PI 3.14159265359
+#define ONE_SIGMA_2_FWHM 2.35482004503
+
 // Quadratic Estimate numbers
 #define CONVERGENCE_EPS 1E-4
-#define FISHER_SIZE bins::TOTAL_KZ_BINS*bins::TOTAL_KZ_BINS
+
+namespace qio
+{
+    enum ifileformat {Binary, Picca};
+}
 
 // PE rank and total number of threads
 namespace process
@@ -35,7 +43,8 @@ namespace bins
     // One last bin is created when LAST_K_EDGE is set in config to absorb high k power such as alias effect.
     // This last bin is calculated into covariance matrix, smooth power spectrum fitting or convergence test.
     // TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS
-    extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, DEGREE_OF_FREEDOM;
+    extern int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS,
+        FISHER_SIZE, TOTAL_KZ_BINS, DEGREE_OF_FREEDOM;
     extern double *KBAND_EDGES, *KBAND_CENTERS;
     extern double Z_BIN_WIDTH, *ZBIN_CENTERS, Z_LOWER_EDGE, Z_UPPER_EDGE;
 

@@ -1,4 +1,9 @@
 #include "core/fiducial_cosmology.hpp"
+#include "core/global_numbers.hpp"
+#include "mathtools/interpolation.hpp"
+#include "mathtools/interpolation_2d.hpp"
+#include "io/io_helper_functions.hpp"
+#include "io/logger.hpp"
 
 #include <cmath>
 #include <numeric> // std::accumulate
@@ -7,11 +12,6 @@
 #include <vector>
 #include <set>
 #include <stdexcept>
-
-#include "mathtools/interpolation.hpp"
-#include "mathtools/interpolation_2d.hpp"
-#include "io/io_helper_functions.hpp"
-#include "io/logger.hpp"
 
 // Conversion functions
 namespace conv
