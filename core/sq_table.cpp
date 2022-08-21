@@ -44,11 +44,16 @@ namespace sqhelper
 }
 // ---------------------------------------
 
-SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_base, 
-    const char *fname_rlist, int Nv, int Nz, double Lv)
-: N_V_POINTS(Nv), N_Z_POINTS_OF_S(Nz), LENGTH_V(Lv),
-  DIR(dir), S_BASE(s_base), Q_BASE(q_base), itp_v1(0)
+SQLookupTable::SQLookupTable(const ConfigFile &config)
 {
+    N_V_POINTS = config.getInteger("NumberVPoints");
+    N_Z_POINTS_OF_S = config.getInteger("NumberZPoints");
+    LENGTH_V = config.getDouble("VelocityLength");
+    DIR = config.get("OutputDir", ".");
+    S_BASE = config.get("SignalLookUpTableBase", "signal");
+    Q_BASE = config.get("DerivativeSLookUpTableBase", "deriv");
+    itp_v1 = 0;
+
     sqhelper::derivative_array = NULL;
     sqhelper::signal_array = NULL;
     sqhelper::LINEAR_Z_ARRAY = NULL;
@@ -56,11 +61,13 @@ SQLookupTable::SQLookupTable(const char *dir, const char *s_base, const char *q_
 
     itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
-    NUMBER_OF_R_VALUES = ioh::readListRdv(fname_rlist, R_DV_VALUES);
+    NUMBER_OF_R_VALUES = ioh::readListRdv(config.get("FileNameRList").c_str(),
+        R_DV_VALUES);
 
     LOG::LOGGER.STD("Number of R-dv pairs: %d\n", NUMBER_OF_R_VALUES);
     interp2d_signal_matrices = NULL;
     interp_derivative_matrices = NULL;
+
 }
 
 void SQLookupTable::readTables()

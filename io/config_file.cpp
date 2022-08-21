@@ -5,27 +5,27 @@
 #include <cstdlib>
 #include <cstdio>
 
-ConfigFile::ConfigFile(const char *fname)
+ConfigFile::ConfigFile(const std::string &fname)
 {
-    strcpy(file_name, fname);
+    file_name = fname;
     
     no_params = 0;
 }
 
-void ConfigFile::addKey(const std::string key, void *variable, VariableType vt)
-{
-    if (variable == NULL)   return;
+// void ConfigFile::addKey(const std::string key, void *variable, VariableType vt)
+// {
+//     if (variable == NULL)   return;
     
-    vpair new_pair = {variable, vt};
+//     vpair new_pair = {variable, vt};
 
-    key_umap[key] = new_pair;
+//     key_umap[key] = new_pair;
 
-    no_params++;
-}
+//     no_params++;
+// }
 
-void ConfigFile::readAll(bool silence_warnings)
+void ConfigFile::readAll()
 {
-    FILE *config_file = ioh::open_file(file_name, "r");
+    FILE *config_file = ioh::open_file(file_name.c_str(), "r");
     
     char line[1024], buffer_key[200], buffer_value[500];
 
@@ -40,33 +40,41 @@ void ConfigFile::readAll(bool silence_warnings)
         if (sscanf(line, "%s %s", buffer_key, buffer_value) < 2)
             continue;
 
-        kumap_itr = key_umap.find(buffer_key);
-        
-        if (kumap_itr == key_umap.end())
-        {
-            if (!silence_warnings)
-                printf("WARNING: %s NOT FOUND!\n", buffer_key);
-        }
-        else
-        {
-            vpair *tmp_vp = &(*kumap_itr).second;
-
-            switch (tmp_vp->vt)
-            {
-                case INTEGER:
-                    *((int *) tmp_vp->address) = atoi(buffer_value);
-                    break;
-
-                case DOUBLE:
-                    *((double *) tmp_vp->address) = atof(buffer_value);
-                    break;
-
-                case STRING:
-                    strcpy((char *) tmp_vp->address, buffer_value);
-                    break;
-            }
-        }
+        key_umap[std::string(buffer_key)] = std::string(buffer_value);
     }
     
     fclose(config_file);
 }
+
+std::string ConfigFile::get(const std::string &key, const std::string &fallback) const
+{
+    auto kumap_itr = key_umap.find(key);
+
+    if (kumap_itr != key_umap.end())
+        return kumap_itr->second;
+    else
+        return fallback;
+}
+
+double ConfigFile::getDouble(const std::string &key, double fallback) const
+{
+    auto kumap_itr = key_umap.find(key);
+
+    if (kumap_itr != key_umap.end())
+        return std::stod(kumap_itr->second);
+    else
+        return fallback;
+}
+
+int ConfigFile::getInteger(const std::string &key, int fallback) const
+{
+    auto kumap_itr = key_umap.find(key);
+
+    if (kumap_itr != key_umap.end())
+        return std::stoi(kumap_itr->second);
+    else
+        return fallback;
+}
+
+
+

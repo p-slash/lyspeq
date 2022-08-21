@@ -6,11 +6,14 @@
 #define PI 3.14159265359
 #define ONE_SIGMA_2_FWHM 2.35482004503
 
+#include <string>
+#include "io/config_file.hpp"
+
 namespace conv
 {
     extern bool FLUX_TO_DELTAF_BY_CHUNKS, INPUT_IS_DELTA_FLUX;
 
-    void setMeanFlux(const char *fname=0);
+    void setMeanFlux(const std::string &fname="");
 
     // void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size);
     void convertLambdaToRedshift(double *lambda, int size);
@@ -18,7 +21,7 @@ namespace conv
     extern void (*convertFluxToDeltaF)(const double *lambda, double *flux, double *noise, int size);
     // void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size);
 
-    void readConversion(const char *FNAME_CONFIG);
+    void readConversion(const ConfigFile &config);
 }
 
 namespace fidcosmo
@@ -30,7 +33,7 @@ namespace fidcosmo
     extern double (*fiducialPowerGrowthFactor)(double z_ij, double k_kn, double z_zm, void *params);
     extern double FID_LOWEST_K, FID_HIGHEST_K;
 
-    void readFiducialCosmo(const char *FNAME_CONFIG);
+    void readFiducialCosmo(const ConfigFile &config);
 
     // Assume binary file starts with 
     // two integers, 
@@ -38,7 +41,7 @@ namespace fidcosmo
     // k values as doubles,
     // finally power values as doubles.
     // Power is ordered for each redshift bin
-    void setFiducialPowerFromFile(const char *fname);
+    void setFiducialPowerFromFile(const std::string &fname);
 
     namespace pd13
     {

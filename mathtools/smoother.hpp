@@ -3,6 +3,9 @@
 
 class Smoother
 {
+    // SmoothNoiseWeights = 0 is mean noise
+    // < 0 uses raw noise
+    // > 0 sets the sigma pixels
     #define HWSIZE 25
     #define KS 2*HWSIZE+1
 

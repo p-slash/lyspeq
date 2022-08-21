@@ -660,7 +660,7 @@ void Chunk::computePSbeforeFvector()
         dbt_estimate_before_fisher_vector[2][i_kz + fisher_index_start] = temp_tk;
 
         // Do not compute fisher matrix if it is precomputed
-        if (OneDQuadraticPowerEstimate::precomputed_fisher == NULL)
+        if (!specifics::PRECOMPUTED_FISHER)
             _getFisherMatrix(Q_ikz_matrix, i_kz);
 
         LOG::LOGGER.DEB("\n");

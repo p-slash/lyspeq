@@ -3,6 +3,7 @@
 #ifndef BOOTSTRAP_FILE_H
 #define BOOTSTRAP_FILE_H
 
+#include <string>
 #include "mpi.h" 
 
 namespace ioh
@@ -19,13 +20,14 @@ class BootstrapFile
     // First bins::TOTAL_KZ_BINS elements are the power spectrum
     double *data_buffer;
 public:
-    BootstrapFile(const char *outdir, const char *base, int nk, int nz, int thispe);
+    BootstrapFile(const std::string &base, int nk, int nz, int thispe);
     ~BootstrapFile();
 
     void writeBoot(const double *pk, const double *fisher);
 };
 
 extern BootstrapFile *boot_saver;
+
 }
 #endif
 

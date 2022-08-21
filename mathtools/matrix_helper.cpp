@@ -191,14 +191,14 @@ namespace mxhelp
         fclose(toWrite);
     }
 
-    void fscanfMatrix(const char *fname, double *& A, int &nrows, int &ncols)
+    double* fscanfMatrix(const char *fname,int &nrows, int &ncols)
     {
         FILE *toRead;
 
         toRead = fopen(fname, "r");
 
         fscanf(toRead, "%d %d\n", &nrows, &ncols);
-        A = new double[nrows*ncols];
+        double *A = new double[nrows*ncols];
 
         for (int i = 0; i < nrows; ++i)
         {
@@ -208,6 +208,8 @@ namespace mxhelp
         }
 
         fclose(toRead);
+
+        return A;
     }
 
     // class DiaMatrix

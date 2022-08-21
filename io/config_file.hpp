@@ -4,36 +4,23 @@
 #include <unordered_map>
 #include <string>
 
-enum VariableType
-{
-    INTEGER,
-    DOUBLE,
-    STRING
-};
-
-typedef struct
-{
-    void *address;
-    VariableType vt;
-} vpair;
-
 class ConfigFile
 {
-    char file_name[300];
+    std::string file_name;
 
-    std::unordered_map<std::string, vpair> key_umap;
-    std::unordered_map<std::string, vpair>::iterator kumap_itr;
+    std::unordered_map<std::string, std::string> key_umap;
 
     int no_params;
     
 public:
-    ConfigFile(const char *fname);
+    ConfigFile(const std::string &fname);
     ~ConfigFile() {};
 
-    void addKey(const std::string key, void *variable, VariableType vt);
+    std::string get(const std::string &key, const std::string &fallback="") const;
+    double getDouble(const std::string &key, double fallback=0) const;
+    int getInteger(const std::string &key, int fallback=0) const;
 
-    // If key is not found in file, variable is untouched.
-    void readAll(bool silence_warnings=false);
+    void readAll();
 };
 
 #endif

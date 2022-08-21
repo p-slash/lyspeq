@@ -44,7 +44,7 @@ Logger::~Logger()
     close();
 }
 
-void Logger::open(const char *outdir, int np)
+void Logger::open(const std::string &outdir, int np)
 {
     this_pe = np;
     std::ostringstream oss_fname(outdir, std::ostringstream::ate);

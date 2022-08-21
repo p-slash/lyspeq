@@ -3,8 +3,10 @@
 
 #include <cstdio>
 #include <chrono>
+#include <string>
 
 #include "io/qso_file.hpp"
+#include "io/config_file.hpp"
 // Debugging flags. Comment out to turn off
 // #define DEBUG_MATRIX_OUT
 
@@ -16,14 +18,15 @@
 namespace process
 {
     extern int this_pe, total_pes;
-    extern char TMP_FOLDER[300];
+    extern std::string TMP_FOLDER;
+    extern std::string FNAME_BASE;
     extern double MEMORY_ALLOC;
     extern bool SAVE_EACH_PE_RESULT;
     extern bool SAVE_ALL_SQ_FILES;
 
     void updateMemory(double deltamem);
 
-    void readProcess(const char *FNAME_CONFIG);
+    void readProcess(const ConfigFile &config);
 }
 
 namespace bins
@@ -36,7 +39,7 @@ namespace bins
     extern double *KBAND_EDGES, *KBAND_CENTERS;
     extern double Z_BIN_WIDTH, *ZBIN_CENTERS, Z_LOWER_EDGE, Z_UPPER_EDGE;
 
-    void readBins(const char *FNAME_CONFIG);
+    void readBins(const ConfigFile &config);
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0);
     void cleanUpBins();
@@ -95,7 +98,8 @@ namespace mytime
 
 namespace specifics
 {
-    extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX;
+    extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
+        PRECOMPUTED_FISHER;
     extern double CHISQ_CONVERGENCE_EPS;
     extern int CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
         NUMBER_OF_CHUNKS;
@@ -104,20 +108,10 @@ namespace specifics
 
     extern int OVERSAMPLING_FACTOR;
 
-    void readSpecifics(const char *FNAME_CONFIG);
+    void readSpecifics(const ConfigFile &config);
 
     void printBuildSpecifics(FILE *toWrite=NULL);
     void printConfigSpecifics(FILE *toWrite=NULL);
-}
-
-namespace ioh
-{
-    void readConfigFile(const char *FNAME_CONFIG, 
-        char *FNAME_LIST, char *FNAME_RLIST, char *INPUT_DIR, char *OUTPUT_DIR,
-        char *OUTPUT_FILEBASE, char *FILEBASE_S, char *FILEBASE_Q,
-        int *NUMBER_OF_ITERATIONS,
-        int *NOISE_SMOOTHING_FACTOR,
-        int *Nv, int *Nz, double *LENGTH_V);
 }
 
 #endif

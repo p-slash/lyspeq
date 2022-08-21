@@ -2,6 +2,7 @@
 #define IO_HELPER_FUNCTIONS_H
 
 #include <cstdio>
+#include <string>
 #include <fstream>
 
 #include <complex>
@@ -11,7 +12,7 @@ namespace ioh
 {
     bool file_exists(const char *fname);
 
-    void create_tmp_file(char *fname, const char *TMP_FOLDER);
+    void create_tmp_file(char *fname, const std::string &TMP_FOLDER);
 
     template <class T>
     T* copyArrayAlloc(const T* source, int size);
@@ -19,8 +20,10 @@ namespace ioh
     FILE * open_file(const char *fname, const char *read_write);
     // Open binary file if binary='b'
     // T can be ifstream, ofstream or fstream.
+    // template <class T>
+    // T open_fstream(const char *fname, char binary='0');
     template <class T>
-    T open_fstream(const char *fname, char binary='0');
+    T open_fstream(const std::string &fname, char binary='0');
 
     // Returns number of elements
     template <class T>
