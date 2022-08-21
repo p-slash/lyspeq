@@ -20,9 +20,6 @@
 // Internal Functions and Variables
 namespace sqhelper
 {
-    // Temporary arrays. They are not stored after construction!
-    double *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY, *signal_array, *derivative_array=NULL;
-
     double getLinearSpacing(double length, int N)
     {
         double r = (N==1) ? 0 : (length / (N - 1.));
@@ -54,10 +51,10 @@ SQLookupTable::SQLookupTable(const ConfigFile &config)
     Q_BASE = config.get("DerivativeSLookUpTableBase", "deriv");
     itp_v1 = 0;
 
-    sqhelper::derivative_array = NULL;
-    sqhelper::signal_array = NULL;
-    sqhelper::LINEAR_Z_ARRAY = NULL;
-    sqhelper::LINEAR_V_ARRAY = NULL;
+    derivative_array = NULL;
+    signal_array = NULL;
+    LINEAR_Z_ARRAY = NULL;
+    LINEAR_V_ARRAY = NULL;
 
     itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
@@ -148,9 +145,9 @@ void SQLookupTable::computeTables(bool force_rewrite)
 
             for (int nv = 0; nv < N_V_POINTS; ++nv)
             {
-                win_params.delta_v_ij = sqhelper::LINEAR_V_ARRAY[nv];
+                win_params.delta_v_ij = LINEAR_V_ARRAY[nv];
 
-                sqhelper::derivative_array[nv] = q_integrator.evaluate(kvalue_1, kvalue_2, 
+                derivative_array[nv] = q_integrator.evaluate(kvalue_1, kvalue_2, 
                     win_params.delta_v_ij, 0);
             }
 
@@ -159,7 +156,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
             derivative_signal_table.setHeader(N_V_POINTS, 0, LENGTH_V, bins::Z_BIN_WIDTH, 
                 Rthis, dvthis, kvalue_1, kvalue_2);
             
-            derivative_signal_table.writeData(sqhelper::derivative_array);
+            derivative_signal_table.writeData(derivative_array);
         }
         
         time_spent_table_q = mytime::timer.getTime() - time_spent_table_q;
@@ -199,19 +196,19 @@ void SQLookupTable::computeTables(bool force_rewrite)
 
         for (int nv = 0; nv < N_V_POINTS; ++nv)
         {
-            win_params.delta_v_ij = sqhelper::LINEAR_V_ARRAY[nv];  // 0 + LENGTH_V * nv / (Nv - 1.);
+            win_params.delta_v_ij = LINEAR_V_ARRAY[nv];  // 0 + LENGTH_V * nv / (Nv - 1.);
             s_integrator.setTableParameters(win_params.delta_v_ij, 
                 fidcosmo::FID_HIGHEST_K - fidcosmo::FID_LOWEST_K);
 
             for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
             {
                 int xy = nz + N_Z_POINTS_OF_S * nv;
-                win_params.z_ij = sqhelper::LINEAR_Z_ARRAY[nz];   // z_first + z_length * nz / (Nz - 1.);
+                win_params.z_ij = LINEAR_Z_ARRAY[nz];   // z_first + z_length * nz / (Nz - 1.);
                 
                 // 1E-15 gave roundoff error for smoothing with 20.8 km/s
                 // Correlation at dv=0 is between 0.01 and 1. 
                 // Giving room for 7 decades, absolute error can be 1e-9
-                sqhelper::signal_array[xy] = s_integrator.evaluate(fidcosmo::FID_LOWEST_K, 
+                signal_array[xy] = s_integrator.evaluate(fidcosmo::FID_LOWEST_K, 
                     fidcosmo::FID_HIGHEST_K, -1, 1E-9);
             }
         }
@@ -221,7 +218,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
         signal_table.setHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, Rthis, dvthis, 
             0, bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
 
-        signal_table.writeData(sqhelper::signal_array);
+        signal_table.writeData(signal_array);
 
         time_spent_table_sfid = mytime::timer.getTime() - time_spent_table_sfid;
 
@@ -254,16 +251,16 @@ DiscreteInterpolation2D* SQLookupTable::_allocReadSFile(int r_index)
         temp_px_width, temp_ki, temp_kf);
 
     // Allocate memory before reading further
-    if (sqhelper::derivative_array == NULL)
+    if (derivative_array == NULL)
         allocateSignalAndDerivArrays();
 
     // Start reading data and set to intep pointer
-    s_table_file.readData(sqhelper::signal_array);
+    s_table_file.readData(signal_array);
     itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
     itp_dz = sqhelper::getLinearSpacing(LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
 
     s = new DiscreteInterpolation2D(itp_z1, itp_dz, itp_v1, itp_dv,
-        sqhelper::signal_array, N_Z_POINTS_OF_S, N_V_POINTS);
+        signal_array, N_Z_POINTS_OF_S, N_V_POINTS);
 
     return s;
 }
@@ -291,14 +288,14 @@ DiscreteInterpolation1D* SQLookupTable::_allocReadQFile(int kn, int r_index)
     q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, dummy_R, 
         temp_px_width, temp_ki, temp_kf);
 
-    if (sqhelper::derivative_array == NULL)
+    if (derivative_array == NULL)
         allocateSignalAndDerivArrays();
     
-    q_table_file.readData(sqhelper::derivative_array);
+    q_table_file.readData(derivative_array);
 
     itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
 
-    q = new DiscreteInterpolation1D(itp_v1, itp_dv, sqhelper::derivative_array, 
+    q = new DiscreteInterpolation1D(itp_v1, itp_dv, derivative_array, 
         N_V_POINTS);
 
     return q;
@@ -378,41 +375,41 @@ SQLookupTable::~SQLookupTable()
 
 void SQLookupTable::allocateSignalAndDerivArrays()
 {
-    sqhelper::derivative_array = new double[N_V_POINTS]; 
+    derivative_array = new double[N_V_POINTS]; 
 
     // Allocate N_Z_POINTS_OF_S dependent arrays
     if (!specifics::TURN_OFF_SFID)
-        sqhelper::signal_array = new double[N_V_POINTS * N_Z_POINTS_OF_S];   
+        signal_array = new double[N_V_POINTS * N_Z_POINTS_OF_S];   
 }
 
 void SQLookupTable::allocateVAndZArrays()
 {
-    sqhelper::LINEAR_V_ARRAY = sqhelper::allocLinearlySpacedArray(itp_v1, 
+    LINEAR_V_ARRAY = sqhelper::allocLinearlySpacedArray(itp_v1, 
         LENGTH_V, N_V_POINTS);
     
     if (!specifics::TURN_OFF_SFID)
-        sqhelper::LINEAR_Z_ARRAY = sqhelper::allocLinearlySpacedArray(itp_z1, 
+        LINEAR_Z_ARRAY = sqhelper::allocLinearlySpacedArray(itp_z1, 
             LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
 }
 
 void SQLookupTable::deallocateSignalAndDerivArrays()
 {
-    delete [] sqhelper::derivative_array;
-    sqhelper::derivative_array = NULL;
+    delete [] derivative_array;
+    derivative_array = NULL;
 
     if (!specifics::TURN_OFF_SFID)
-        delete [] sqhelper::signal_array;
-    sqhelper::signal_array = NULL;
+        delete [] signal_array;
+    signal_array = NULL;
 }
 
 void SQLookupTable::deallocateVAndZArrays()
 {
-    delete [] sqhelper::LINEAR_V_ARRAY;
-    sqhelper::LINEAR_V_ARRAY = NULL;    
+    delete [] LINEAR_V_ARRAY;
+    LINEAR_V_ARRAY = NULL;    
 
     if (!specifics::TURN_OFF_SFID)
-        delete [] sqhelper::LINEAR_Z_ARRAY;
-    sqhelper::LINEAR_Z_ARRAY = NULL;
+        delete [] LINEAR_Z_ARRAY;
+    LINEAR_Z_ARRAY = NULL;
 }
 
 double SQLookupTable::getOneSetMemUsage()

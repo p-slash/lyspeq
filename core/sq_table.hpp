@@ -37,6 +37,10 @@ class SQLookupTable
     
     std::string DIR, S_BASE, Q_BASE;
 
+    // Temporary arrays. They are not stored after construction!
+    double  *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY,
+            *signal_array, *derivative_array;
+
     DiscreteInterpolation2D **interp2d_signal_matrices;
     DiscreteInterpolation1D **interp_derivative_matrices;
     double itp_v1, itp_dv, itp_z1, itp_dz; 

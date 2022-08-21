@@ -13,7 +13,9 @@
 #include "core/global_numbers.hpp"
 #include "core/sq_table.hpp"
 #include "core/one_qso_estimate.hpp"
+
 #include "mathtools/matrix_helper.hpp"
+
 #include "io/logger.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/config_file.hpp"
