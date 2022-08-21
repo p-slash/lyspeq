@@ -23,7 +23,7 @@
 class TestOneQSOEstimate: public OneQSOEstimate
 {
 public:
-    TestOneQSOEstimate(std::string fname_qso) : OneQSOEstimate(fname_qso) {};
+    TestOneQSOEstimate(const std::string &fname_qso) : OneQSOEstimate(fname_qso) {};
     ~TestOneQSOEstimate() {};
 
     void saveMatrices(std::string out_dir)

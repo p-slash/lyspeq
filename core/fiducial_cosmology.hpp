@@ -1,11 +1,6 @@
 #ifndef FIDUCIAL_COSMOLOGY_H
 #define FIDUCIAL_COSMOLOGY_H
 
-#define SPEED_OF_LIGHT 299792.458
-#define LYA_REST 1215.67
-#define PI 3.14159265359
-#define ONE_SIGMA_2_FWHM 2.35482004503
-
 #include <string>
 #include "io/config_file.hpp"
 

@@ -725,10 +725,10 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
         LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
 
-        _check_isnan(fisher_matrix, FISHER_SIZE,
+        _check_isnan(fisher_matrix, bins::FISHER_SIZE,
             "NaN: chunk fisher");
 
-        mxhelp::vector_add(fisher_sum, fisher_matrix, FISHER_SIZE);
+        mxhelp::vector_add(fisher_sum, fisher_matrix, bins::FISHER_SIZE);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
             mxhelp::vector_add(dbt_sum_vector[dbt_i], 
@@ -765,7 +765,7 @@ void Chunk::_allocateMatrices()
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
         dbt_estimate_before_fisher_vector[dbt_i] = new double[bins::TOTAL_KZ_BINS]();
 
-    fisher_matrix = new double[FISHER_SIZE]();
+    fisher_matrix = new double[bins::FISHER_SIZE]();
 
     covariance_matrix = new double[DATA_SIZE_2];
 

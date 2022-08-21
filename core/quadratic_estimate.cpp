@@ -42,8 +42,8 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const ConfigFile &config)
 
     previous_power_estimate_vector = new double[bins::TOTAL_KZ_BINS];
     current_power_estimate_vector  = new double[bins::TOTAL_KZ_BINS]();
-    fisher_matrix_sum              = new double[FISHER_SIZE];
-    inverse_fisher_matrix_sum      = new double[FISHER_SIZE];
+    fisher_matrix_sum              = new double[bins::FISHER_SIZE];
+    inverse_fisher_matrix_sum      = new double[bins::FISHER_SIZE];
 
     powerspectra_fits              = new double[bins::TOTAL_KZ_BINS]();
 
@@ -213,7 +213,7 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
     
-    std::copy(fisher_matrix_sum, fisher_matrix_sum+FISHER_SIZE, 
+    std::copy(fisher_matrix_sum, fisher_matrix_sum+bins::FISHER_SIZE, 
         inverse_fisher_matrix_sum);
 
     // find empty diagonals
@@ -445,7 +445,7 @@ void OneDQuadraticPowerEstimate::iterate()
             _savePEResult();
 
         LOG::LOGGER.DEB("MPI All reduce.\n");
-        MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, (FISHER_SIZE),
+        MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, bins::FISHER_SIZE,
             MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
@@ -456,7 +456,7 @@ void OneDQuadraticPowerEstimate::iterate()
         // If fisher is precomputed, copy this into fisher_matrix_sum. 
         // oneQSOiteration iteration will not compute fishers as well.
         if (precomputed_fisher != NULL)
-            std::copy(precomputed_fisher, precomputed_fisher + FISHER_SIZE, 
+            std::copy(precomputed_fisher, precomputed_fisher + bins::FISHER_SIZE, 
                 fisher_matrix_sum);
 
         try
@@ -697,7 +697,7 @@ void OneDQuadraticPowerEstimate::initializeIteration()
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
         std::fill_n(dbt_estimate_sum_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS, 0);
 
-    std::fill_n(fisher_matrix_sum, FISHER_SIZE, 0);
+    std::fill_n(fisher_matrix_sum, bins::FISHER_SIZE, 0);
 
     isFisherInverted = false;
 }

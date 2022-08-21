@@ -5,13 +5,14 @@
 #include <string>
 #include <vector>
 #include <map>
+
 #include <fitsio.h>
+
+#include "core/global_numbers.hpp"
 #include "mathtools/matrix_helper.hpp"
 
 namespace qio
 {
-enum ifileformat {Binary, Picca};
-
 class BQFile
 {
     FILE *qso_file;

@@ -43,10 +43,11 @@ namespace process
 
 namespace bins
 {
-    int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, DEGREE_OF_FREEDOM;
+    int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
+        FISHER_SIZE, DEGREE_OF_FREEDOM;
     double *KBAND_EDGES, *KBAND_CENTERS;
     double  Z_BIN_WIDTH, *ZBIN_CENTERS, Z_LOWER_EDGE, Z_UPPER_EDGE;
-    double (*redshiftBinningFunction)(double z, int zm);
+    double (*redshiftBinningFunction)(double z, int zm) = &zBinTopHat;
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0)
     {
@@ -61,6 +62,7 @@ namespace bins
         DEGREE_OF_FREEDOM = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
 
         TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
+        FISHER_SIZE = TOTAL_KZ_BINS * TOTAL_KZ_BINS;
 
         KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
         KBAND_CENTERS = new double[NUMBER_OF_K_BANDS];
