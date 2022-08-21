@@ -47,7 +47,6 @@ namespace bins
         FISHER_SIZE, DEGREE_OF_FREEDOM;
     double *KBAND_EDGES, *KBAND_CENTERS;
     double  Z_BIN_WIDTH, *ZBIN_CENTERS, Z_LOWER_EDGE, Z_UPPER_EDGE;
-    double (*redshiftBinningFunction)(double z, int zm) = &zBinTopHat;
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0)
     {
@@ -210,6 +209,8 @@ namespace bins
         int zmm __attribute__((unused)) = zm;
         return 1;
     }
+
+    double (*redshiftBinningFunction)(double z, int zm) = &zBinTopHat;
 
     void setRedshiftBinningFunction(int zm)
     {
