@@ -17,13 +17,13 @@
 #include "mathtools/matrix_helper.hpp"
 
 #include "io/io_helper_functions.hpp"
-#include "io/bootstrap_file.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
 #if defined(ENABLE_MPI)
 #include "mpi.h" 
 #include "core/mpi_merge_sort.cpp"
+#include "io/bootstrap_file.hpp"
 #endif
 
 // This variable is set in inverse fisher matrix
