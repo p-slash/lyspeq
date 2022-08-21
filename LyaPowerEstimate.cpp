@@ -11,6 +11,8 @@
 #include "core/global_numbers.hpp"
 #include "core/sq_table.hpp"
 #include "core/quadratic_estimate.hpp"
+#include "core/fiducial_cosmology.hpp"
+
 #include "mathtools/smoother.hpp"
 
 #include "io/logger.hpp"
@@ -53,6 +55,7 @@ int main(int argc, char *argv[])
         process::readProcess(config);
         bins::readBins(config);
         specifics::readSpecifics(config);
+        fidcosmo::readFiducialCosmo(config);
     }
     catch (std::exception& e)
     {

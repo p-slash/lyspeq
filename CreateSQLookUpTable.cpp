@@ -12,6 +12,9 @@
 
 #include "core/global_numbers.hpp"
 #include "core/sq_table.hpp"
+#include "core/fiducial_cosmology.hpp"
+
+#include "io/config_file.hpp"
 #include "io/logger.hpp"
 
 #define ONE_SIGMA_2_FWHM 2.35482004503
@@ -51,6 +54,7 @@ int main(int argc, char *argv[])
         process::readProcess(config);
         bins::readBins(config);
         specifics::readSpecifics(config);
+        fidcosmo::readFiducialCosmo(config);
     }
     catch (std::exception& e)
     {
@@ -61,7 +65,7 @@ int main(int argc, char *argv[])
     try
     {
         LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
-        
+
         #if defined(ENABLE_MPI)
         MPI_Barrier(MPI_COMM_WORLD);
         #endif
