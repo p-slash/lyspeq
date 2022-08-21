@@ -1,5 +1,13 @@
+#include "mathtools/smoother.hpp"
 #include <cmath>
 #include <algorithm> // std::for_each
+#include <vector>
+
+#ifdef USE_MKL_CBLAS
+#include "mkl_cblas.h"
+#else
+#include "cblas.h"
+#endif
 
 void _findMedianStatistics(double *arr, int size, double &median, double &mad)
 {

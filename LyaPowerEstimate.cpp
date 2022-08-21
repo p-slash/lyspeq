@@ -12,8 +12,11 @@
 #include "core/sq_table.hpp"
 #include "core/quadratic_estimate.hpp"
 #include "mathtools/smoother.hpp"
+
 #include "io/logger.hpp"
 #include "io/io_helper_functions.hpp"
+#include "io/config_file.hpp"
+#include "io/bootstrap_file.hpp"
 
 int main(int argc, char *argv[])
 {
@@ -40,25 +43,16 @@ int main(int argc, char *argv[])
 
     gsl_set_error_handler_off();
 
-    char FNAME_LIST[300],
-         FNAME_RLIST[300],
-         INPUT_DIR[300],
-         FILEBASE_S[300], FILEBASE_Q[300],
-         OUTPUT_DIR[300],
-         OUTPUT_FILEBASE[300],
-         buf[700];
-
-    int NUMBER_OF_ITERATIONS, Nv, Nz, noise_smoothing_factor;
-
+    ConfigFile config = ConfigFile(FNAME_CONFIG);
     OneDQuadraticPowerEstimate *qps = NULL;
 
     // Let all PEs to read config at the same time.
     try
-    {
-        // Read variables from config file and set up bins.
-        ioh::readConfigFile( FNAME_CONFIG, FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR,
-            OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, &NUMBER_OF_ITERATIONS, 
-            &noise_smoothing_factor, &Nv, &Nz, NULL);
+    { 
+        config.readAll();
+        process::readProcess(config);
+        bins::readBins(config);
+        specifics::readSpecifics(config);
     }
     catch (std::exception& e)
     {
@@ -66,16 +60,13 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    Smoother::setParameters(noise_smoothing_factor);
-    Smoother::setGaussianKernel();
-
     try
     {
-        LOG::LOGGER.open(OUTPUT_DIR, process::this_pe);
+        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
 
         #if defined(ENABLE_MPI)
         if (process::SAVE_EACH_PE_RESULT)
-            ioh::boot_saver = new ioh::BootstrapFile(OUTPUT_DIR, OUTPUT_FILEBASE,
+            ioh::boot_saver = new ioh::BootstrapFile(process::FNAME_BASE,
                 bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS, bins::TOTAL_KZ_BINS);
         MPI_Barrier(MPI_COMM_WORLD);
         #endif
@@ -103,8 +94,7 @@ int main(int argc, char *argv[])
     try
     {
         // Allocate and read look up tables
-        process::sq_private_table = new SQLookupTable(OUTPUT_DIR, FILEBASE_S, FILEBASE_Q, 
-            FNAME_RLIST, Nv, Nz);
+        process::sq_private_table = new SQLookupTable(config);
 
         // Readjust allocated memory wrt save tables
         if (process::SAVE_ALL_SQ_FILES || specifics::USE_RESOLUTION_MATRIX)
@@ -114,7 +104,6 @@ int main(int argc, char *argv[])
         }
         else
             process::updateMemory(-process::sq_private_table->getOneSetMemUsage());
-
     }
     catch (std::exception& e)
     {
@@ -128,10 +117,13 @@ int main(int argc, char *argv[])
 
         return 1;
     }
-    
+
+    Smoother::setParameters(config.getInteger("SmoothNoiseWeights", -1));
+    Smoother::setGaussianKernel();
+
     try
     {
-        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR);
+        qps = new OneDQuadraticPowerEstimate(config);
     }
     catch (std::exception& e)
     {
@@ -150,18 +142,18 @@ int main(int argc, char *argv[])
 
     try
     {
-        sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
-        qps->iterate(NUMBER_OF_ITERATIONS, buf);
+        qps->iterate();
     }
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while Iteration: %s\n", e.what());
         qps->printfSpectra();
 
-        sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate_detailed.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
+        char buf[512];
+        sprintf(buf, "%s_error_dump_quadratic_power_estimate_detailed.dat", process::FNAME_BASE.c_str());
         qps->writeDetailedSpectrumEstimates(buf);
         
-        sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
+        sprintf(buf, "%s_error_dump_fisher_matrix.dat", process::FNAME_BASE.c_str());
         qps->writeFisherMatrix(buf);
 
         delete qps;

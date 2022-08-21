@@ -22,10 +22,10 @@ bool ioh::file_exists(const char *fname)
     return true;
 }
 
-void ioh::create_tmp_file(char *fname, const char *TMP_FOLDER)
+void ioh::create_tmp_file(char *fname, const std::string &TMP_FOLDER)
 {
     int s;
-    sprintf(fname, "%s/tmplyspeqfileXXXXXX", TMP_FOLDER);
+    sprintf(fname, "%s/tmplyspeqfileXXXXXX", TMP_FOLDER.c_str());
 
     s = mkstemp(fname);
 
@@ -61,8 +61,31 @@ FILE * ioh::open_file(const char *fname, const char *read_write)
     return file_to_read_write;
 }
 
+// template <class T>
+// T ioh::open_fstream(const char *fname, char binary)
+// {
+//     T file_fs;
+//     if (binary=='b')
+//         file_fs.open(fname, std::ios::binary);
+//     else
+//         file_fs.open(fname);
+
+//     if (!file_fs)
+//     {
+//         std::string err_buf = "Cannot open file " + fname;
+//         std::cerr << err_buf << std::endl;
+//         throw std::runtime_error(err_buf);
+//     }
+
+//     return file_fs;
+// }
+
+// template std::ifstream ioh::open_fstream<std::ifstream>(const char*, char);
+// template std::ofstream ioh::open_fstream<std::ofstream>(const char*, char);
+// template std::fstream  ioh::open_fstream<std::fstream>(const char*, char);
+
 template <class T>
-T ioh::open_fstream(const char *fname, char binary)
+T ioh::open_fstream(const std::string &fname, char binary)
 {
     T file_fs;
     if (binary=='b')
@@ -72,19 +95,17 @@ T ioh::open_fstream(const char *fname, char binary)
 
     if (!file_fs)
     {
-        char err_buf[500];
-        sprintf(err_buf, "Cannot open file %s.", fname);
-        
-        fprintf(stderr, "ERROR FSTREAM: %s\n", fname);
+        std::string err_buf = "Cannot open file " + fname;
+        std::cerr << err_buf << std::endl;
         throw std::runtime_error(err_buf);
     }
 
     return file_fs;
 }
 
-template std::ifstream ioh::open_fstream<std::ifstream>(const char*, char);
-template std::ofstream ioh::open_fstream<std::ofstream>(const char*, char);
-template std::fstream  ioh::open_fstream<std::fstream>(const char*, char);
+template std::ifstream ioh::open_fstream<std::ifstream>(const std::string&, char);
+template std::ofstream ioh::open_fstream<std::ofstream>(const std::string&, char);
+template std::fstream  ioh::open_fstream<std::fstream>(const std::string&, char);
 
 template <class T>
 int ioh::readList(const char *fname, std::vector<T> &list_values)

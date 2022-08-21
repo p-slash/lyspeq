@@ -5,6 +5,7 @@
 #include <string>
 
 #include "mathtools/discrete_interpolation.hpp"
+#include "io/config_file.hpp"
 
 // This table read, stores and interpolates pre-evaluated S and Q matrices for different 
 // spectral resolution (R) values. Here R is assumend to be an integer where c / R is in km/s.
@@ -51,9 +52,7 @@ class SQLookupTable
     DiscreteInterpolation2D* _allocReadSFile(int r_index);
 
 public:
-    SQLookupTable(const char *dir, const char *s_base, const char *q_base, 
-        const char *fname_rlist, int Nv=0, int Nz=0, double Lv=0);
-    // SQLookupTable(const SQLookupTable &sq);
+    SQLookupTable(const ConfigFile &config);
 
     ~SQLookupTable();
     

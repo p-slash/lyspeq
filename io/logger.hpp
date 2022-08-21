@@ -37,7 +37,7 @@ namespace LOG
 
         std::string getFileName(TYPE::LOG_TYPE lt) const;
 
-        void open(const char *outdir, int np);
+        void open(const std::string &outdir, int np);
         void close();
         void reopen();
 

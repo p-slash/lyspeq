@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 
+#include "io/config_file.hpp"
+
 // This umbrella class manages the quadratic estimator by 
 //      storing the total Fisher matrix and its inverse,
 //      computing the power spectrum estimate,
@@ -20,7 +22,8 @@
 
 class OneDQuadraticPowerEstimate
 {
-    int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS;
+    int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS,
+        NUMBER_OF_ITERATIONS;
 
     std::vector<std::string> local_fpaths;
 
@@ -29,6 +32,9 @@ class OneDQuadraticPowerEstimate
             *dbt_estimate_fisher_weighted_vector[3], 
             *previous_power_estimate_vector, *current_power_estimate_vector,
             *powerspectra_fits;
+
+    double *precomputed_fisher;
+    void _readPrecomputedFisher(const std::string &fname);
 
     // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
     double *fisher_matrix_sum, *inverse_fisher_matrix_sum;
@@ -55,10 +61,7 @@ class OneDQuadraticPowerEstimate
         std::vector< std::pair<double, int> > &cpu_fname_vector);
 
 public:
-    static double *precomputed_fisher;
-    static void readPrecomputedFisher(const char *fname);
-
-    OneDQuadraticPowerEstimate(const char *fname_list, const char *dir);
+    OneDQuadraticPowerEstimate(const ConfigFile &config);
 
     ~OneDQuadraticPowerEstimate();
     
@@ -69,7 +72,7 @@ public:
     void computePowerSpectrumEstimates();
 
     // Passing fit values for the power spectrum for numerical stability
-    void iterate(int number_of_iterations, const char *fname_base);
+    void iterate();
 
     // Deviation between actual estimates (not fit values)
     bool hasConverged();
@@ -81,7 +84,7 @@ public:
     // You can find that value in logs--printfSpectra prints all
     void writeSpectrumEstimates(const char *fname);
     void writeDetailedSpectrumEstimates(const char *fname);
-    void iterationOutput(const char *fnamebase, int it, double t1, double tot);
+    void iterationOutput(int it, double t1, double tot);
 };
 
 #endif

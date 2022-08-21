@@ -42,20 +42,15 @@ int main(int argc, char *argv[])
     if (argc == 3)
         force_rewrite = !(strcmp(argv[2], "--unforce") == 0);
 
-    char FNAME_RLIST[500],
-         OUTPUT_DIR[500],
-         OUTPUT_FILEBASE_S[500],
-         OUTPUT_FILEBASE_Q[500];
-
-    int Nv, Nz;
-
-    double LENGTH_V;
+    ConfigFile config = ConfigFile(FNAME_CONFIG);
 
     try
     {
         // Read variables from config file and set up bins.
-        ioh::readConfigFile( FNAME_CONFIG, NULL, FNAME_RLIST, NULL, OUTPUT_DIR, NULL, 
-            OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, NULL, &Nv, &Nz, &LENGTH_V);
+        config.readAll();
+        process::readProcess(config);
+        bins::readBins(config);
+        specifics::readSpecifics(config);
     }
     catch (std::exception& e)
     {
@@ -65,7 +60,7 @@ int main(int argc, char *argv[])
 
     try
     {
-        LOG::LOGGER.open(OUTPUT_DIR, process::this_pe);
+        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
         
         #if defined(ENABLE_MPI)
         MPI_Barrier(MPI_COMM_WORLD);
@@ -92,8 +87,7 @@ int main(int argc, char *argv[])
 
     try
     {
-        process::sq_private_table = new SQLookupTable(OUTPUT_DIR, OUTPUT_FILEBASE_S, 
-            OUTPUT_FILEBASE_Q, FNAME_RLIST, Nv, Nz, LENGTH_V);
+        process::sq_private_table = new SQLookupTable(config);
         process::sq_private_table->computeTables(force_rewrite);
     }
     catch (std::exception& e)

@@ -11,7 +11,6 @@
 #include "mathtools/interpolation.hpp"
 #include "mathtools/interpolation_2d.hpp"
 #include "io/io_helper_functions.hpp"
-#include "io/config_file.hpp"
 #include "io/logger.hpp"
 
 // Conversion functions
@@ -20,20 +19,18 @@ namespace conv
     bool USE_LOG_V = false, FLUX_TO_DELTAF_BY_CHUNKS = false, INPUT_IS_DELTA_FLUX = false;
     Interpolation *interp_mean_flux = NULL;
 
-    void readConversion(const char *FNAME_CONFIG)
+    void readConversion(const ConfigFile &config)
     {
-        int uchunkmean=-1, udeltaf=-1;
-        char FNAME_MEAN_FLUX[300]="";
+        // If 1, uses mean of each chunk as F-bar
+        int uchunkmean = config.getInteger("UseChunksMeanFlux", -1);
+        // If 1, input is delta_f
+        int udeltaf = config.getInteger("InputIsDeltaFlux", 1);
 
-        // Set up config file to read variables.
-        ConfigFile cFile(FNAME_CONFIG);
-        cFile.addKey("MeanFluxFile",        FNAME_MEAN_FLUX, STRING);  // File to interpolate for F-bar
-        cFile.addKey("UseChunksMeanFlux",   &uchunkmean,     INTEGER); // If 1, uses mean of each chunk as F-bar
-        cFile.addKey("InputIsDeltaFlux",    &udeltaf,        INTEGER); // If 1, input is delta_f
-        cFile.readAll(true);
-        
         FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
         INPUT_IS_DELTA_FLUX       = udeltaf > 0;
+
+        // File to interpolate for F-bar
+        std::string FNAME_MEAN_FLUX = config.get("MeanFluxFile");
 
         // resolve conflict: Input delta flux overrides all
         // Then, chunk means.
@@ -46,7 +43,7 @@ namespace conv
 
         setMeanFlux();
 
-        if (FNAME_MEAN_FLUX[0] != '\0')
+        if (!FNAME_MEAN_FLUX.empty())
         {
             if (FLUX_TO_DELTAF_BY_CHUNKS)
             {
@@ -109,9 +106,9 @@ namespace conv
 
     void (*convertFluxToDeltaF)(const double*, double*, double*, int) = &noConversion;
 
-    void setMeanFlux(const char *fname)
+    void setMeanFlux(const std::string &fname)
     {
-        if (fname == 0)
+        if (fname.empty())
         {
             if (FLUX_TO_DELTAF_BY_CHUNKS)
                 convertFluxToDeltaF = &chunkMeanConversion;
@@ -160,26 +157,19 @@ namespace fidcosmo
     double FID_LOWEST_K = 0, FID_HIGHEST_K = 10.;
     Interpolation2D *interp2d_fiducial_power = NULL;
 
-    void readFiducialCosmo(const char *FNAME_CONFIG)
+    void readFiducialCosmo(const ConfigFile &config)
     {
-        char FNAME_FID_POWER[500]="";
-
-        // Set up config file to read variables.
-        ConfigFile cFile(FNAME_CONFIG);
-
         // Baseline Power Spectrum
-        cFile.addKey("FiducialPowerFile",           FNAME_FID_POWER, STRING);
+        std::string FNAME_FID_POWER = config.get("FiducialPowerFile");
         // Fiducial Palanque fit function parameters
-        cFile.addKey("FiducialAmplitude",           &pd13::FIDUCIAL_PD13_PARAMS.A,     DOUBLE);
-        cFile.addKey("FiducialSlope",               &pd13::FIDUCIAL_PD13_PARAMS.n,     DOUBLE);
-        cFile.addKey("FiducialCurvature",           &pd13::FIDUCIAL_PD13_PARAMS.alpha, DOUBLE);
-        cFile.addKey("FiducialRedshiftPower",       &pd13::FIDUCIAL_PD13_PARAMS.B,     DOUBLE);
-        cFile.addKey("FiducialRedshiftCurvature",   &pd13::FIDUCIAL_PD13_PARAMS.beta,  DOUBLE);
-        cFile.addKey("FiducialLorentzianLambda",    &pd13::FIDUCIAL_PD13_PARAMS.lambda,DOUBLE);
+        pd13::FIDUCIAL_PD13_PARAMS.A      = config.getDouble("FiducialAmplitude");
+        pd13::FIDUCIAL_PD13_PARAMS.n      = config.getDouble("FiducialSlope");
+        pd13::FIDUCIAL_PD13_PARAMS.alpha  = config.getDouble("FiducialCurvature");
+        pd13::FIDUCIAL_PD13_PARAMS.B      = config.getDouble("FiducialRedshiftPower");
+        pd13::FIDUCIAL_PD13_PARAMS.beta   = config.getDouble("FiducialRedshiftCurvature");
+        pd13::FIDUCIAL_PD13_PARAMS.lambda = config.getDouble("FiducialLorentzianLambda");
 
-        cFile.readAll(true);
-
-        if (FNAME_FID_POWER[0] != '\0')
+        if (!FNAME_FID_POWER.empty())
             setFiducialPowerFromFile(FNAME_FID_POWER);
     }
 
@@ -193,7 +183,7 @@ namespace fidcosmo
     // Assume binary file starts with two integers, then redshift values as double, k values as double,
     // finally power values.
     // Power is ordered for each redshift bin
-    void setFiducialPowerFromFile(const char * fname)
+    void setFiducialPowerFromFile(const std::string &fname)
     {
         int n_k_points, n_z_points, size;
         double *fiducial_power_from_file, *k_values, *z_values;

@@ -50,7 +50,7 @@ namespace mxhelp
 
     void printfMatrix(const double *A, int N1, int N2);
     void fprintfMatrix(const char *fname, const double *A, int N1, int N2);
-    void fscanfMatrix(const char *fname, double *& A, int &N1, int &N2);
+    double* fscanfMatrix(const char *fname, int &N1, int &N2);
 
     // LAPACKE functions
     // In-place invert by first LU factorization

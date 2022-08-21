@@ -16,6 +16,7 @@
 #include "mathtools/matrix_helper.hpp"
 #include "io/logger.hpp"
 #include "io/io_helper_functions.hpp"
+#include "io/config_file.hpp"
 
 class TestOneQSOEstimate: public OneQSOEstimate
 {
@@ -77,16 +78,15 @@ int main(int argc, char *argv[])
 
     gsl_set_error_handler_off();
 
-    char FNAME_LIST[300], FNAME_RLIST[300], INPUT_DIR[300], FILEBASE_S[300], FILEBASE_Q[300],
-         OUTPUT_DIR[300], OUTPUT_FILEBASE[300];
-
-    int NUMBER_OF_ITERATIONS;
+    ConfigFile config = ConfigFile(FNAME_CONFIG);
 
     try
     {
         // Read variables from config file and set up bins.
-        ioh::readConfigFile( FNAME_CONFIG, FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR,
-            OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, &NUMBER_OF_ITERATIONS, NULL, NULL, NULL);
+        config.readAll();
+        process::readProcess(config);
+        bins::readBins(config);
+        specifics::readSpecifics(config);
     }
     catch (std::exception& e)
     {
@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
 
     try
     {
-        LOG::LOGGER.open(OUTPUT_DIR, process::this_pe);
+        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
     }
     catch (std::exception& e)
     {   
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
     try
     {
         // Allocate and read look up tables
-        process::sq_private_table = new SQLookupTable(OUTPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
+        process::sq_private_table = new SQLookupTable(config);
         if (process::SAVE_ALL_SQ_FILES)
             process::sq_private_table->readTables();
     }
@@ -130,7 +130,8 @@ int main(int argc, char *argv[])
     }
 
     std::vector<std::string> filepaths;
-    ioh::readList(FNAME_LIST, filepaths);
+    std::string INPUT_DIR = config.get("FileInputDir");
+    ioh::readList(config.get("FileNameList").c_str(), filepaths);
     // Add parent directory to file path
     for (std::vector<std::string>::iterator fq = filepaths.begin(); fq != filepaths.end(); ++fq)
     {
@@ -139,7 +140,7 @@ int main(int argc, char *argv[])
     }
 
     TestOneQSOEstimate toqso(filepaths[0]);
-    toqso.saveMatrices(std::string(OUTPUT_DIR));
+    toqso.saveMatrices(config.get("OutputDir"));
 
     delete process::sq_private_table;
     return 0;

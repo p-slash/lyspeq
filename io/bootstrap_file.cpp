@@ -3,7 +3,6 @@
 #include "io/bootstrap_file.hpp"
 #include "mathtools/matrix_helper.hpp"
 
-#include <iostream>
 #include <string>
 #include <algorithm>
 #include <stdexcept>
@@ -13,14 +12,13 @@ namespace ioh
     BootstrapFile *boot_saver = NULL;
 }
 
-ioh::BootstrapFile::BootstrapFile(const char *outdir, const char *base, int nk, int nz, int thispe)
+ioh::BootstrapFile::BootstrapFile(const std::string &base, int nk, int nz, int thispe)
 : nkbins(nz), nzbins(nz), nkzbins(nk*nz), pe(thispe)
 {
     int r=0;
-    std::ostringstream oss_fname(outdir, std::ostringstream::ate);
-    oss_fname << "/"<<base<<"-bootresults.dat";
+    std::string out_fname = base + "-bootresults.dat";
 
-    r += MPI_File_open(MPI_COMM_WORLD, oss_fname.str().c_str(), 
+    r += MPI_File_open(MPI_COMM_WORLD, out_fname.c_str(), 
         MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &bootfile);
 
     #ifdef FISHER_OPTIMIZATION
