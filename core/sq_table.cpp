@@ -41,6 +41,18 @@ namespace sqhelper
 }
 // ---------------------------------------
 
+/* This function reads following keys from config file:
+NumberVPoints: int
+NumberZPoints: int
+VelocityLength: double
+OutputDir: string
+    Saves into directory. Default is current dir.
+SignalLookUpTableBase: string
+    Default is signal.
+DerivativeSLookUpTableBase: string
+    Default is deriv.
+FileNameRList: string
+*/
 SQLookupTable::SQLookupTable(const ConfigFile &config)
 {
     N_V_POINTS = config.getInteger("NumberVPoints");
@@ -58,8 +70,11 @@ SQLookupTable::SQLookupTable(const ConfigFile &config)
 
     itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
-    NUMBER_OF_R_VALUES = ioh::readListRdv(config.get("FileNameRList").c_str(),
-        R_DV_VALUES);
+    std::string frlist = config.get("FileNameRList");
+    if (frlist.empty())
+        throw std::invalid_argument("Must pass FileNameRList.");
+
+    NUMBER_OF_R_VALUES = ioh::readListRdv(frlist.c_str(), R_DV_VALUES);
 
     LOG::LOGGER.STD("Number of R-dv pairs: %d\n", NUMBER_OF_R_VALUES);
     interp2d_signal_matrices = NULL;

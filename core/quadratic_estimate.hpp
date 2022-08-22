@@ -61,6 +61,17 @@ class OneDQuadraticPowerEstimate
         std::vector< std::pair<double, int> > &cpu_fname_vector);
 
 public:
+    /* This function reads following keys from config file:
+    NumberOfIterations: int
+        Number of iterations. Default 1.
+    PrecomputedFisher: string
+        File to precomputed Fisher matrix. If present, Fisher matrix is not
+            calculated for spectra. Off by default.
+    FileNameList: string
+        File to spectra to list. Filenames are wrt FileInputDir.
+    FileInputDir: string
+        Directory where files reside.
+    */
     OneDQuadraticPowerEstimate(const ConfigFile &config);
 
     ~OneDQuadraticPowerEstimate();
