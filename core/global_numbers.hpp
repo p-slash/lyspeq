@@ -32,6 +32,11 @@ namespace process
     extern bool SAVE_EACH_PE_RESULT;
     extern bool SAVE_ALL_SQ_FILES;
 
+    const config_map process_default_parameters ({
+        {"OutputDir", "."}, {"OutputFileBase", "qmle"}, 
+        {"TemporaryFolder", "."}, {"SaveEachProcessResult", "-1"},
+        {"CacheAllSQTables", "1"} , {"AllocatedMemoryMB", "1500."}});
+
     void updateMemory(double deltamem);
 
     /* This function reads following keys from config file:
@@ -47,8 +52,11 @@ namespace process
     CacheAllSQTables: int
         Pass > 0 to cache all SQ tables into memory. Otherwise, read
         each file when needed. On by default.
+    AllocatedMemoryMB: double
+        Allocated memory in MB, so that QMLE can save matrices into
+        memory. Default 1500.
     */
-    void readProcess(const ConfigFile &config);
+    void readProcess(ConfigFile &config);
 }
 
 namespace bins
@@ -62,6 +70,7 @@ namespace bins
     extern double *KBAND_EDGES, *KBAND_CENTERS;
     extern double Z_BIN_WIDTH, *ZBIN_CENTERS, Z_LOWER_EDGE, Z_UPPER_EDGE;
 
+    const config_map bins_default_parameters ({{"K0", "0"}, {"LastKEdge", "-1"}});
     /* This function reads following keys from config file:
     K0: double
         First edge for the k bins. 0 by default.
@@ -81,7 +90,7 @@ namespace bins
     RedshiftBinWidth: double
     NumberOfRedshiftBins: double
     */
-    void readBins(const ConfigFile &config);
+    void readBins(ConfigFile &config);
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0);
     void cleanUpBins();
@@ -141,7 +150,7 @@ namespace mytime
 namespace specifics
 {
     extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
-        PRECOMPUTED_FISHER;
+        USE_PRECOMPUTED_FISHER;
     extern double CHISQ_CONVERGENCE_EPS;
     extern int CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
         NUMBER_OF_CHUNKS;
@@ -149,6 +158,14 @@ namespace specifics
     extern qio::ifileformat INPUT_QSO_FILE;
 
     extern int OVERSAMPLING_FACTOR;
+
+    const config_map specifics_default_parameters ({
+        {"InputIsPicca", "-1"}, {"UseResoMatrix", "-1"},
+        {"ResoMatDeconvolutionM", "-1"}, {"OversampleRmat", "-1"},
+        {"DynamicChunkNumber", "1"}, {"TurnOffBaseline", "-1"},
+        {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "-1"},
+        {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
+        {"PrecomputedFisher", ""} });
 
     /* This function reads following keys from config file:
     InputIsPicca: int
@@ -175,12 +192,12 @@ namespace specifics
     ContinuumLogLambdaMargOrder: int
         Polynomial order for log lambda cont marginalization. Default 1.
     ContinuumLambdaMargOrder: int
-        Polynomial order for lambda cont marginalization. Default 0.
+        Polynomial order for lambda cont marginalization. Default -1.
     PrecomputedFisher: string
         File to precomputed Fisher matrix. If present, Fisher matrix is not
         calculated for spectra. Off by default.
     */
-    void readSpecifics(const ConfigFile &config);
+    void readSpecifics(ConfigFile &config);
 
     void printBuildSpecifics(FILE *toWrite=NULL);
     void printConfigSpecifics(FILE *toWrite=NULL);

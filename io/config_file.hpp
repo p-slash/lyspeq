@@ -4,23 +4,26 @@
 #include <unordered_map>
 #include <string>
 
+typedef std::unordered_map<std::string, std::string> config_map;
+
 class ConfigFile
 {
-    std::string file_name;
+    config_map key_umap;
 
-    std::unordered_map<std::string, std::string> key_umap;
-
-    int no_params;
-    
 public:
-    ConfigFile(const std::string &fname);
+    ConfigFile(const config_map &default_config={}): key_umap (default_config) {};
     ~ConfigFile() {};
 
     std::string get(const std::string &key, const std::string &fallback="") const;
     double getDouble(const std::string &key, double fallback=0) const;
     int getInteger(const std::string &key, int fallback=0) const;
+    // bool getBool(const std::string &key, bool fallback=false) const;
 
-    void readAll();
+    // add map in source only if it does not exist in target.
+    void addDefaults(const config_map &default_config);
+    void readFile(const std::string &fname);
+
+    void writeConfig(FILE *toWrite=NULL);
 };
 
 #endif

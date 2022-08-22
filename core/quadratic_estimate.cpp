@@ -59,7 +59,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const ConfigFile &config)
     powerspectra_fits              = new double[bins::TOTAL_KZ_BINS]();
 
     isFisherInverted = false;
-    if (specifics::PRECOMPUTED_FISHER)
+    if (specifics::USE_PRECOMPUTED_FISHER)
         _readPrecomputedFisher(config.get("PrecomputedFisher").c_str());
     else
         precomputed_fisher = NULL;

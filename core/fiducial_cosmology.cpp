@@ -108,7 +108,9 @@ namespace conv
         median_z = median_lambda / LYA_REST - 1.;
 
         std::transform(lambda, lambda+size, v_array, 
-            [&](const double &l) { return SPEED_OF_LIGHT * log(l/median_lambda); });
+            [median_lambda](const double &l) { 
+                return SPEED_OF_LIGHT * log(l/median_lambda); 
+            });
     }
 
     void convertLambdaToRedshift(double *lambda, int size)
@@ -151,6 +153,12 @@ namespace conv
         delete [] f_values;
 
         convertFluxToDeltaF = &fullConversion;
+    }
+
+    void clearCache()
+    {
+        delete interp_mean_flux;
+        interp_mean_flux = NULL;
     }
 }
 
@@ -195,6 +203,12 @@ namespace fidcosmo
             setFiducialPowerFromFile(FNAME_FID_POWER);
         else if (pd13::FIDUCIAL_PD13_PARAMS.A <= 0)
             throw std::invalid_argument("FiducialAmplitude must be > 0.");
+    }
+
+    void clearCache()
+    {
+        delete interp2d_fiducial_power;
+        interp2d_fiducial_power = NULL;
     }
 
     inline double interpolationFiducialPower(double k, double z, void *params)
