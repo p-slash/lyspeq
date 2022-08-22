@@ -23,16 +23,31 @@ namespace process
             LOG::LOGGER.ERR("Remaining memory is less than 10 MB!\n");
     }
 
+    /* This function reads following keys from config file:
+    OutputDir: string
+        Output directory. Current dir by default.
+    OutputFileBase: string
+        Base string for output files. "qmle" by default.
+    TemporaryFolder: string
+        Folder to save temporary smooting files. Current dir by default.
+    SaveEachProcessResult: int
+        Pass > 0 to enable mpi saving each result from pe. Turned off
+        by default.
+    CacheAllSQTables: int
+        Pass > 0 to cache all SQ tables into memory. Otherwise, read
+        each file when needed. On by default.
+    */
     void readProcess(const ConfigFile &config)
     {
         int save_pe_res = config.getInteger("SaveEachProcessResult", -1), 
-            cache_all_sq = config.getInteger("CacheAllSQTables", -1);
+            cache_all_sq = config.getInteger("CacheAllSQTables", 1);
         MEMORY_ALLOC = config.getDouble("AllocatedMemoryMB");
 
         SAVE_EACH_PE_RESULT    = save_pe_res > 0;
         SAVE_ALL_SQ_FILES      = cache_all_sq > 0;
-        FNAME_BASE = config.get("OutputDir", ".") + '/' + config.get("OutputFileBase");
-        TMP_FOLDER = config.get("TemporaryFolder");
+        FNAME_BASE = config.get("OutputDir", ".") + '/'
+            + config.get("OutputFileBase", "qmle");
+        TMP_FOLDER = config.get("TemporaryFolder", ".");
 
         #if !defined(ENABLE_MPI)
         if (SAVE_EACH_PE_RESULT)
@@ -99,6 +114,25 @@ namespace bins
         delete [] ZBIN_CENTERS;
     }
 
+    /* This function reads following keys from config file:
+    K0: double
+        First edge for the k bins. 0 by default.
+    LinearKBinWidth: double
+        Linear k bin spacing. Need to be present 
+        and > 0 if NumberOfLinearBins > 0.
+    Log10KBinWidth: double
+        Logarithmic k bins spacing. Need to be present 
+        and > 0 if NumberOfLinearBins > 0.
+    NumberOfLinearBins: int
+        Number of linear bins.
+    NumberOfLog10Bins: int
+        Number of log bins.
+    LastKEdge: double
+        The last k edge will be this by adding a k bin if the value is valid.
+    FirstRedshiftBinCenter: double
+    RedshiftBinWidth: double
+    NumberOfRedshiftBins: double
+    */
     void readBins(const ConfigFile &config)
     {
         int N_KLIN_BIN, N_KLOG_BIN;
@@ -115,8 +149,30 @@ namespace bins
         Z_BIN_WIDTH = config.getDouble("RedshiftBinWidth");
         NUMBER_OF_Z_BINS = config.getInteger("NumberOfRedshiftBins");
 
+        if (N_KLIN_BIN > 0 && !(LIN_K_SPACING > 0))
+            throw std::invalid_argument("NumberOfLinearBins > 0, so "
+                "LinearKBinWidth must be > 0.");
+
+        if (N_KLOG_BIN > 0 && !(LOG_K_SPACING > 0))
+            throw std::invalid_argument("NumberOfLog10Bins > 0, so "
+                "Log10KBinWidth must be > 0.");
+
+        if (N_KLIN_BIN <= 0 && N_KLOG_BIN <= 0)
+            throw std::invalid_argument("At least NumberOfLinearBins or "
+                "NumberOfLog10Bins must be present.");
+
+        if (Z_0 <= 0)
+            throw std::invalid_argument("FirstRedshiftBinCenter must be > 0.");
+
+        if (Z_BIN_WIDTH <= 0)
+            throw std::invalid_argument("RedshiftBinWidth must be > 0.");
+
+        if (NUMBER_OF_Z_BINS <= 0)
+            throw std::invalid_argument("NumberOfRedshiftBins must be > 0.");
+
         // Redshift and wavenumber bins are constructed
-        bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN, LOG_K_SPACING, klast, Z_0);
+        bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN,
+            LOG_K_SPACING, klast, Z_0);
     }
 
     int findRedshiftBin(double z)
@@ -312,6 +368,36 @@ namespace specifics
             CONT_NVECS = 0;
     }
 
+    /* This function reads following keys from config file:
+    InputIsPicca: int
+        If > 0, input file format is from picca. Off by default.
+    UseResoMatrix: int
+        If > 0, reads and uses the resolution matrix picca files.
+        Off by default.
+    ResoMatDeconvolutionM: double
+        Deconvolve the resolution matrix by this factor in terms of pixel.
+        For example, 1.0 deconvolves one top hat. Off by default and when
+        <= 0.
+    OversampleRmat: int
+        Oversample the resolution matrix by this factor per row. Off when <= 0
+        and by default.
+    DynamicChunkNumber: int
+        Dynamiccaly chunk spectra into this number when > 1. Off by default.
+    TurnOffBaseline: int
+        Turns off the fiducial signal matrix if > 0. Fid is on by default.
+    SmoothLnkLnP: int
+        Smooth the ln k and ln P values when iterating. On by default
+        and when > 0.
+    ChiSqConvergence: int
+        Criteria for chi square convergance. Valid when > 0. Default is 1e-4
+    ContinuumLogLambdaMargOrder: int
+        Polynomial order for log lambda cont marginalization. Default 1.
+    ContinuumLambdaMargOrder: int
+        Polynomial order for lambda cont marginalization. Default 0.
+    PrecomputedFisher: string
+        File to precomputed Fisher matrix. If present, Fisher matrix is not
+        calculated for spectra. Off by default.
+    */
     void readSpecifics(const ConfigFile &config)
     {
         int sfid_off, usmoothlogs, use_picca_file, use_reso_mat;
@@ -323,13 +409,17 @@ namespace specifics
         OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat", -1);
         NUMBER_OF_CHUNKS = config.getInteger("DynamicChunkNumber", 1);
 
-        sfid_off = config.getInteger("TurnOffBaseline", -1);    // Turns off the signal matrix
-        usmoothlogs = config.getInteger("SmoothLnkLnP", -1);    // Smooth lnk, lnP
-        temp_chisq = config.getDouble("ChiSqConvergence", -1.);
+        // Turns off the signal matrix
+        sfid_off = config.getInteger("TurnOffBaseline", -1);
+        // Smooth lnk, lnP
+        usmoothlogs = config.getInteger("SmoothLnkLnP", 1);
+        temp_chisq = config.getDouble("ChiSqConvergence", CONVERGENCE_EPS);
 
         // Continuum marginalization order. Pass <=0 to turn off
-        CONT_LOGLAM_MARG_ORDER = config.getInteger("ContinuumLogLambdaMargOrder", 1);
-        CONT_LAM_MARG_ORDER = config.getInteger("ContinuumLambdaMargOrder", 1);
+        CONT_LOGLAM_MARG_ORDER = config.getInteger(
+            "ContinuumLogLambdaMargOrder", 1);
+        CONT_LAM_MARG_ORDER = config.getInteger(
+            "ContinuumLambdaMargOrder", 0);
 
         // char tmp_ps_fname[320];
         // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
@@ -344,7 +434,8 @@ namespace specifics
             INPUT_QSO_FILE = qio::Picca;
 
         if (INPUT_QSO_FILE != qio::Picca && USE_RESOLUTION_MATRIX)
-            throw std::invalid_argument("Resolution matrix is only supported with picca files."
+            throw std::invalid_argument(
+                "Resolution matrix is only supported with picca files."
                 " Add 'InputIsPicca 1' to config file if so.");
 
         if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;

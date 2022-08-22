@@ -19,6 +19,15 @@ namespace conv
     bool USE_LOG_V = false, FLUX_TO_DELTAF_BY_CHUNKS = false, INPUT_IS_DELTA_FLUX = false;
     Interpolation *interp_mean_flux = NULL;
 
+    /* This function reads following keys from config file:
+    UseChunksMeanFlux: int
+        Forces the mean flux of each chunk to be zero when > 0. Off by default.
+    InputIsDeltaFlux: int
+        Assumes input is delta when > 0. True by default.
+    MeanFluxFile: string
+        Reads the mean flux from a file and get deltas using this mean flux.
+        Off by default.
+    */
     void readConversion(const ConfigFile &config)
     {
         // If 1, uses mean of each chunk as F-bar
@@ -36,8 +45,9 @@ namespace conv
         // Then, chunk means.
         if (INPUT_IS_DELTA_FLUX && FLUX_TO_DELTAF_BY_CHUNKS)
         {
-            LOG::LOGGER.ERR("Both input delta flux and conversion using chunk's mean "
-                "flux is turned on. Assuming input is flux fluctuations delta_f.\n");
+            LOG::LOGGER.ERR("Both input delta flux and conversion"
+                " using chunk's mean flux is turned on. "
+                "Assuming input is flux fluctuations delta_f.\n");
             FLUX_TO_DELTAF_BY_CHUNKS = false;
         }
 
@@ -47,13 +57,15 @@ namespace conv
         {
             if (FLUX_TO_DELTAF_BY_CHUNKS)
             {
-                LOG::LOGGER.ERR("Both mean flux file and using chunk's mean flux is turned on. "
-                "Using chunk's mean flux.\n");
+                LOG::LOGGER.ERR("Both mean flux file and using"
+                    " chunk's mean flux is turned on. "
+                    "Using chunk's mean flux.\n");
             }
             else if (INPUT_IS_DELTA_FLUX)
             {
-                LOG::LOGGER.ERR("Both input delta flux and conversion using mean flux file is turned on. "
-                "Assuming input is flux fluctuations delta_f.\n");
+                LOG::LOGGER.ERR("Both input delta flux and conversion using "
+                    "mean flux file is turned on. "
+                    "Assuming input is flux fluctuations delta_f.\n");
             }
             else
                 setMeanFlux(FNAME_MEAN_FLUX);
@@ -157,6 +169,16 @@ namespace fidcosmo
     double FID_LOWEST_K = 0, FID_HIGHEST_K = 10.;
     Interpolation2D *interp2d_fiducial_power = NULL;
 
+    /* This function reads following keys from config file:
+    FiducialPowerFile: string
+        File for the fiducial power spectrum. Off by default.
+    FiducialAmplitude: double
+    FiducialSlope: double
+    FiducialCurvature: double
+    FiducialRedshiftPower: double
+    FiducialRedshiftCurvature: double
+    FiducialLorentzianLambda: double
+    */
     void readFiducialCosmo(const ConfigFile &config)
     {
         // Baseline Power Spectrum
@@ -171,6 +193,8 @@ namespace fidcosmo
 
         if (!FNAME_FID_POWER.empty())
             setFiducialPowerFromFile(FNAME_FID_POWER);
+        else if (pd13::FIDUCIAL_PD13_PARAMS.A <= 0)
+            throw std::invalid_argument("FiducialAmplitude must be > 0.");
     }
 
     inline double interpolationFiducialPower(double k, double z, void *params)

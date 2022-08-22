@@ -29,6 +29,17 @@
 // This variable is set in inverse fisher matrix
 int _NewDegreesOfFreedom = 0;
 
+/* This function reads following keys from config file:
+NumberOfIterations: int
+    Number of iterations. Default 1.
+PrecomputedFisher: string
+    File to precomputed Fisher matrix. If present, Fisher matrix is not
+        calculated for spectra. Off by default.
+FileNameList: string
+    File to spectra to list. Filenames are wrt FileInputDir.
+FileInputDir: string
+    Directory where files reside.
+*/
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const ConfigFile &config)
 {
     Z_BIN_COUNTS = new int[bins::NUMBER_OF_Z_BINS+2]();
@@ -53,7 +64,14 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const ConfigFile &config)
     else
         precomputed_fisher = NULL;
 
-    _readQSOFiles(config.get("FileNameList").c_str(), config.get("FileInputDir").c_str());
+    std::string flist  = config.get("FileNameList"),
+                findir = config.get("FileInputDir");
+
+    if (flist.empty())
+        throw std::invalid_argument("Must pass FileNameList.");
+    if (findir.empty())
+        throw std::invalid_argument("Must pass FileInputDir.");
+    _readQSOFiles(flist.c_str(), findir.c_str());
 }
 
 void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const char *dir)

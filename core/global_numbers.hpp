@@ -34,6 +34,20 @@ namespace process
 
     void updateMemory(double deltamem);
 
+    /* This function reads following keys from config file:
+    OutputDir: string
+        Output directory. Current dir by default.
+    OutputFileBase: string
+        Base string for output files. "qmle" by default.
+    TemporaryFolder: string
+        Folder to save temporary smooting files. Current dir by default.
+    SaveEachProcessResult: int
+        Pass > 0 to enable mpi saving each result from pe. Turned off
+        by default.
+    CacheAllSQTables: int
+        Pass > 0 to cache all SQ tables into memory. Otherwise, read
+        each file when needed. On by default.
+    */
     void readProcess(const ConfigFile &config);
 }
 
@@ -48,6 +62,25 @@ namespace bins
     extern double *KBAND_EDGES, *KBAND_CENTERS;
     extern double Z_BIN_WIDTH, *ZBIN_CENTERS, Z_LOWER_EDGE, Z_UPPER_EDGE;
 
+    /* This function reads following keys from config file:
+    K0: double
+        First edge for the k bins. 0 by default.
+    LinearKBinWidth: double
+        Linear k bin spacing. Need to be present 
+        and > 0 if NumberOfLinearBins > 0.
+    Log10KBinWidth: double
+        Logarithmic k bins spacing. Need to be present 
+        and > 0 if NumberOfLinearBins > 0.
+    NumberOfLinearBins: int
+        Number of linear bins.
+    NumberOfLog10Bins: int
+        Number of log bins.
+    LastKEdge: double
+        The last k edge will be this by adding a k bin if the value is valid.
+    FirstRedshiftBinCenter: double
+    RedshiftBinWidth: double
+    NumberOfRedshiftBins: double
+    */
     void readBins(const ConfigFile &config);
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0);
@@ -117,6 +150,36 @@ namespace specifics
 
     extern int OVERSAMPLING_FACTOR;
 
+    /* This function reads following keys from config file:
+    InputIsPicca: int
+        If > 0, input file format is from picca. Off by default.
+    UseResoMatrix: int
+        If > 0, reads and uses the resolution matrix picca files.
+        Off by default.
+    ResoMatDeconvolutionM: double
+        Deconvolve the resolution matrix by this factor in terms of pixel.
+        For example, 1.0 deconvolves one top hat. Off by default and when
+        <= 0.
+    OversampleRmat: int
+        Oversample the resolution matrix by this factor per row. Off when <= 0
+        and by default.
+    DynamicChunkNumber: int
+        Dynamiccaly chunk spectra into this number when > 1. Off by default.
+    TurnOffBaseline: int
+        Turns off the fiducial signal matrix if > 0. Fid is on by default.
+    SmoothLnkLnP: int
+        Smooth the ln k and ln P values when iterating. On by default
+        and when > 0.
+    ChiSqConvergence: int
+        Criteria for chi square convergance. Valid when > 0. Default is 1e-4
+    ContinuumLogLambdaMargOrder: int
+        Polynomial order for log lambda cont marginalization. Default 1.
+    ContinuumLambdaMargOrder: int
+        Polynomial order for lambda cont marginalization. Default 0.
+    PrecomputedFisher: string
+        File to precomputed Fisher matrix. If present, Fisher matrix is not
+        calculated for spectra. Off by default.
+    */
     void readSpecifics(const ConfigFile &config);
 
     void printBuildSpecifics(FILE *toWrite=NULL);
