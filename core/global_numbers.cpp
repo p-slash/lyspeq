@@ -42,6 +42,7 @@ namespace process
     */
     void readProcess(ConfigFile &config)
     {
+        LOG::LOGGER.STD("###############################################\n");
         LOG::LOGGER.STD("Reading process parameters from config.\n");
 
         config.addDefaults(process_default_parameters);
@@ -70,7 +71,7 @@ namespace process
             booltostr(SAVE_ALL_SQ_FILES));
         LOG::LOGGER.STD("AllocatedMemoryMB is set to %.1e MB.\n",
             MEMORY_ALLOC);
-        LOG::LOGGER.STD("TemporaryFolder is set to %s.\n",
+        LOG::LOGGER.STD("TemporaryFolder is set to %s.\n\n",
             TMP_FOLDER.c_str());
         #undef booltostr
     }
@@ -155,6 +156,7 @@ namespace bins
     */
     void readBins(ConfigFile &config)
     {
+        LOG::LOGGER.STD("###############################################\n");
         LOG::LOGGER.STD("Reading binning parameters from config.\n");
 
         config.addDefaults(bins_default_parameters);
@@ -207,7 +209,7 @@ namespace bins
 
         LOG::LOGGER.STD("FirstRedshiftBinCenter %.3e\n", Z_0);
         LOG::LOGGER.STD("RedshiftBinWidth %.3e\n", Z_BIN_WIDTH);
-        LOG::LOGGER.STD("NumberOfRedshiftBins %d\n", NUMBER_OF_Z_BINS);
+        LOG::LOGGER.STD("NumberOfRedshiftBins %d\n\n", NUMBER_OF_Z_BINS);
     }
 
     int findRedshiftBin(double z)
@@ -435,6 +437,7 @@ namespace specifics
     */
     void readSpecifics(ConfigFile &config)
     {
+        LOG::LOGGER.STD("###############################################\n");
         LOG::LOGGER.STD("Reading specifics from config.\n");
         config.addDefaults(specifics_default_parameters);
         int sfid_off, usmoothlogs, use_picca_file, use_reso_mat;
@@ -461,7 +464,7 @@ namespace specifics
         // char tmp_ps_fname[320];
         // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
         // TODO: Test access here
-        
+
         TURN_OFF_SFID        = sfid_off > 0;
         SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
         USE_RESOLUTION_MATRIX= use_reso_mat > 0;
@@ -501,7 +504,7 @@ namespace specifics
             booltostr(USE_PRECOMPUTED_FISHER), precomp_fisher_str.c_str());
         LOG::LOGGER.STD("ContinuumLogLambdaMargOrder is set to %d.\n",
             CONT_LOGLAM_MARG_ORDER);
-        LOG::LOGGER.STD("ContinuumLambdaMargOrder is set to %d.\n",
+        LOG::LOGGER.STD("ContinuumLambdaMargOrder is set to %d.\n\n",
             CONT_LAM_MARG_ORDER);
         #undef booltostr
     }
@@ -522,13 +525,13 @@ namespace specifics
     #else
     #define FISHER_TXT "OFF"
     #endif
-    
+
     #if defined(REDSHIFT_GROWTH_POWER)
     #define RGP_TEXT "ON"
     #else
     #define RGP_TEXT "OFF"
     #endif
-    
+
     const char BUILD_SPECIFICS[] =  
         "# This version is build by the following options:\n"
         "# Fisher optimization: " FISHER_TXT "\n"
@@ -548,29 +551,6 @@ namespace specifics
             LOG::LOGGER.STD(BUILD_SPECIFICS);
         else
             fprintf(toWrite, specifics::BUILD_SPECIFICS);
-    }
-
-    void printConfigSpecifics(FILE *toWrite)
-    {
-        // "# Input is delta flux: %s\n" 
-        // "# Divide by mean flux of the chunk: %s\n"
-        // conv::INPUT_IS_DELTA_FLUX ? "YES" : "NO",
-        // conv::FLUX_TO_DELTAF_BY_CHUNKS ? "ON" : "OFF", 
-        #define CONFIG_TXT "# Using following configuration parameters:\n" \
-            "# Fiducial Signal Baseline: %s\n" \
-            "# ContinuumLogLamMargOrder: %d\n" \
-            "# ContinuumLamMargOrder: %d\n" \
-            "# Number of chunks: %d\n", \
-            TURN_OFF_SFID ? "OFF" : "ON", \
-            CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, \
-            NUMBER_OF_CHUNKS
-
-        if (toWrite == NULL)
-            LOG::LOGGER.STD(CONFIG_TXT);
-        else
-            fprintf(toWrite, CONFIG_TXT);
-
-        #undef CONFIG_TXT
     }
 }
 

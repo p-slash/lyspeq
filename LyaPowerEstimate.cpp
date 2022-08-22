@@ -25,6 +25,12 @@ void clearAllCache()
     bins::cleanUpBins();
     conv::clearCache();
     fidcosmo::clearCache();
+    delete process::sq_private_table;
+
+    #if defined(ENABLE_MPI)
+    delete ioh::boot_saver;
+    MPI_Abort(MPI_COMM_WORLD, 1);
+    #endif
 }
 
 int main(int argc, char *argv[])
@@ -60,6 +66,8 @@ int main(int argc, char *argv[])
     {
         config.readFile(FNAME_CONFIG);
         LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
+        specifics::printBuildSpecifics();
+        mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
     {
@@ -74,9 +82,6 @@ int main(int argc, char *argv[])
         specifics::readSpecifics(config);
         conv::readConversion(config);
         fidcosmo::readFiducialCosmo(config);
-
-        specifics::printBuildSpecifics();
-        mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
     {
@@ -99,7 +104,7 @@ int main(int argc, char *argv[])
         LOG::LOGGER.ERR("Error while openning BootstrapFile: %s\n",
             e.what());
         clearAllCache();
-        MPI_Abort(MPI_COMM_WORLD, 1);
+
         return 1;
     }
     #endif
@@ -123,11 +128,6 @@ int main(int argc, char *argv[])
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
         clearAllCache();
 
-        #if defined(ENABLE_MPI)
-        delete ioh::boot_saver;
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-
         return 1;
     }
 
@@ -141,14 +141,7 @@ int main(int argc, char *argv[])
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while Quadratic Estimator contructed: %s\n", e.what());
-        bins::cleanUpBins();
-
-        delete process::sq_private_table;
-
-        #if defined(ENABLE_MPI)
-        delete ioh::boot_saver;
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
+        clearAllCache();
 
         return 1;
     } 
@@ -170,24 +163,15 @@ int main(int argc, char *argv[])
         qps->writeFisherMatrix(buf);
 
         delete qps;
-        delete process::sq_private_table;
         clearAllCache();
-        #if defined(ENABLE_MPI)
-        delete ioh::boot_saver;
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
 
         return 1;
     }
 
     delete qps;
-    delete process::sq_private_table;
-
     clearAllCache();
 
     #if defined(ENABLE_MPI)
-    MPI_Barrier(MPI_COMM_WORLD);
-    delete ioh::boot_saver;
     MPI_Finalize();
     #endif
 

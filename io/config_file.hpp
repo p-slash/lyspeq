@@ -23,7 +23,7 @@ public:
     void addDefaults(const config_map &default_config);
     void readFile(const std::string &fname);
 
-    void writeConfig(FILE *toWrite=NULL);
+    void writeConfig(FILE *toWrite, std::string prefix="# ") const;
 };
 
 #endif

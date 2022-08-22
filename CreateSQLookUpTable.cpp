@@ -17,7 +17,17 @@
 #include "io/config_file.hpp"
 #include "io/logger.hpp"
 
-#define ONE_SIGMA_2_FWHM 2.35482004503
+void clearAllCache()
+{
+    bins::cleanUpBins();
+    conv::clearCache();
+    fidcosmo::clearCache();
+    delete process::sq_private_table;
+
+    #if defined(ENABLE_MPI)
+    MPI_Abort(MPI_COMM_WORLD, 1);
+    #endif
+}
 
 int main(int argc, char *argv[])
 {
@@ -46,15 +56,12 @@ int main(int argc, char *argv[])
         force_rewrite = !(strcmp(argv[2], "--unforce") == 0);
 
     ConfigFile config = ConfigFile();
-
     try
     {
-        // Read variables from config file and set up bins.
         config.readFile(FNAME_CONFIG);
-        process::readProcess(config);
-        bins::readBins(config);
-        specifics::readSpecifics(config);
-        fidcosmo::readFiducialCosmo(config);
+        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
+        specifics::printBuildSpecifics();
+        mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
     {
@@ -64,26 +71,16 @@ int main(int argc, char *argv[])
 
     try
     {
-        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
-
-        #if defined(ENABLE_MPI)
-        MPI_Barrier(MPI_COMM_WORLD);
-        #endif
-
-        if (specifics::TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
-        
-        specifics::printBuildSpecifics();
-        specifics::printConfigSpecifics();
+        process::readProcess(config);
+        bins::readBins(config);
+        specifics::readSpecifics(config);
+        fidcosmo::readFiducialCosmo(config);
     }
     catch (std::exception& e)
-    {   
-        fprintf(stderr, "Error while logging contructed: %s\n", e.what());
-        bins::cleanUpBins();
-
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-
+    {
+        LOG::LOGGER.ERR("Error while parsing config file: %s\n",
+            e.what());
+        clearAllCache();
         return 1;
     }
 
@@ -97,23 +94,14 @@ int main(int argc, char *argv[])
     catch (std::exception& e)
     {   
         LOG::LOGGER.ERR("Error constructing SQ Table: %s\n", e.what());
-        bins::cleanUpBins();
-
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
+        clearAllCache();
         
         return 1;
     }
 
-    LOG::LOGGER.STD("Deleting...\n");
-    delete process::sq_private_table;
-    process::sq_private_table = NULL;
-
-    bins::cleanUpBins();       
+    clearAllCache();       
 
     #if defined(ENABLE_MPI)
-    LOG::LOGGER.STD("MPI Finalize...\n");
     MPI_Finalize();
     #endif
 

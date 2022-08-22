@@ -16,6 +16,9 @@ namespace conv
     extern void (*convertFluxToDeltaF)(const double *lambda, double *flux, double *noise, int size);
     // void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size);
 
+    const config_map conversion_default_parameters ({
+        {"UseChunksMeanFlux", "-1"}, {"InputIsDeltaFlux", "1"}, 
+        {"MeanFluxFile", ""}});
     /* This function reads following keys from config file:
     UseChunksMeanFlux: int
         Forces the mean flux of each chunk to be zero when > 0. Off by default.
@@ -25,7 +28,7 @@ namespace conv
         Reads the mean flux from a file and get deltas using this mean flux.
         Off by default.
     */
-    void readConversion(const ConfigFile &config);
+    void readConversion(ConfigFile &config);
     void clearCache();
 }
 
