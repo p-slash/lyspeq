@@ -20,6 +20,13 @@
 #include "io/config_file.hpp"
 #include "io/bootstrap_file.hpp"
 
+void clearAllCache()
+{
+    bins::cleanUpBins();
+    conv::clearCache();
+    fidcosmo::clearCache();
+}
+
 int main(int argc, char *argv[])
 {
     #if defined(ENABLE_MPI)
@@ -45,17 +52,14 @@ int main(int argc, char *argv[])
 
     gsl_set_error_handler_off();
 
-    ConfigFile config = ConfigFile(FNAME_CONFIG);
+    ConfigFile config = ConfigFile();
     OneDQuadraticPowerEstimate *qps = NULL;
 
     // Let all PEs to read config at the same time.
     try
-    { 
-        config.readAll();
-        process::readProcess(config);
-        bins::readBins(config);
-        specifics::readSpecifics(config);
-        fidcosmo::readFiducialCosmo(config);
+    {
+        config.readFile(FNAME_CONFIG);
+        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
     }
     catch (std::exception& e)
     {
@@ -65,34 +69,40 @@ int main(int argc, char *argv[])
 
     try
     {
-        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
+        process::readProcess(config);
+        bins::readBins(config);
+        specifics::readSpecifics(config);
+        conv::readConversion(config);
+        fidcosmo::readFiducialCosmo(config);
 
-        #if defined(ENABLE_MPI)
+        specifics::printBuildSpecifics();
+        mytime::writeTimeLogHeader();
+    }
+    catch (std::exception& e)
+    {
+        LOG::LOGGER.ERR("Error while parsing config file: %s\n",
+            e.what());
+        clearAllCache();
+        return 1;
+    }
+
+    #if defined(ENABLE_MPI)
+    try
+    {
         if (process::SAVE_EACH_PE_RESULT)
             ioh::boot_saver = new ioh::BootstrapFile(process::FNAME_BASE,
                 bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS, bins::TOTAL_KZ_BINS);
         MPI_Barrier(MPI_COMM_WORLD);
-        #endif
-
-
-        if (specifics::TURN_OFF_SFID)
-            LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
-
-        specifics::printBuildSpecifics();
-        specifics::printConfigSpecifics();
-        mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
-    {   
-        fprintf(stderr, "Error while logging contructed: %s\n", e.what());
-        bins::cleanUpBins();
-
-        #if defined(ENABLE_MPI)
+    {
+        LOG::LOGGER.ERR("Error while openning BootstrapFile: %s\n",
+            e.what());
+        clearAllCache();
         MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-
         return 1;
     }
+    #endif
 
     try
     {
@@ -111,7 +121,7 @@ int main(int argc, char *argv[])
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
-        bins::cleanUpBins();
+        clearAllCache();
 
         #if defined(ENABLE_MPI)
         delete ioh::boot_saver;
@@ -161,7 +171,7 @@ int main(int argc, char *argv[])
 
         delete qps;
         delete process::sq_private_table;
-        bins::cleanUpBins();
+        clearAllCache();
         #if defined(ENABLE_MPI)
         delete ioh::boot_saver;
         MPI_Abort(MPI_COMM_WORLD, 1);
@@ -173,7 +183,7 @@ int main(int argc, char *argv[])
     delete qps;
     delete process::sq_private_table;
 
-    bins::cleanUpBins();
+    clearAllCache();
 
     #if defined(ENABLE_MPI)
     MPI_Barrier(MPI_COMM_WORLD);

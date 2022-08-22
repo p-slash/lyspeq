@@ -45,12 +45,12 @@ int main(int argc, char *argv[])
     if (argc == 3)
         force_rewrite = !(strcmp(argv[2], "--unforce") == 0);
 
-    ConfigFile config = ConfigFile(FNAME_CONFIG);
+    ConfigFile config = ConfigFile();
 
     try
     {
         // Read variables from config file and set up bins.
-        config.readAll();
+        config.readFile(FNAME_CONFIG);
         process::readProcess(config);
         bins::readBins(config);
         specifics::readSpecifics(config);

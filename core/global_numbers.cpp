@@ -36,23 +36,43 @@ namespace process
     CacheAllSQTables: int
         Pass > 0 to cache all SQ tables into memory. Otherwise, read
         each file when needed. On by default.
+    AllocatedMemoryMB: double
+        Allocated memory in MB, so that QMLE can save matrices into
+        memory. Default 1500.
     */
-    void readProcess(const ConfigFile &config)
+    void readProcess(ConfigFile &config)
     {
-        int save_pe_res = config.getInteger("SaveEachProcessResult", -1), 
-            cache_all_sq = config.getInteger("CacheAllSQTables", 1);
+        LOG::LOGGER.STD("Reading process parameters from config.\n");
+
+        config.addDefaults(process_default_parameters);
+
+        int save_pe_res = config.getInteger("SaveEachProcessResult"), 
+            cache_all_sq = config.getInteger("CacheAllSQTables");
         MEMORY_ALLOC = config.getDouble("AllocatedMemoryMB");
 
         SAVE_EACH_PE_RESULT    = save_pe_res > 0;
         SAVE_ALL_SQ_FILES      = cache_all_sq > 0;
-        FNAME_BASE = config.get("OutputDir", ".") + '/'
-            + config.get("OutputFileBase", "qmle");
-        TMP_FOLDER = config.get("TemporaryFolder", ".");
+        FNAME_BASE = config.get("OutputDir") + '/'
+            + config.get("OutputFileBase");
+        TMP_FOLDER = config.get("TemporaryFolder");
 
         #if !defined(ENABLE_MPI)
         if (SAVE_EACH_PE_RESULT)
             throw std::invalid_argument("Bootstrap saving only supported when compiled with MPI.");
         #endif
+
+        LOG::LOGGER.STD("Fname base is set to %s.\n",
+            FNAME_BASE.c_str());
+        #define booltostr(x) x ? "true" : "false"
+        LOG::LOGGER.STD("SaveEachProcessResult is set to %s.\n",
+            booltostr(SAVE_EACH_PE_RESULT));
+        LOG::LOGGER.STD("CacheAllSQTables is set to %s.\n",
+            booltostr(SAVE_ALL_SQ_FILES));
+        LOG::LOGGER.STD("AllocatedMemoryMB is set to %.1e MB.\n",
+            MEMORY_ALLOC);
+        LOG::LOGGER.STD("TemporaryFolder is set to %s.\n",
+            TMP_FOLDER.c_str());
+        #undef booltostr
     }
 }
 
@@ -67,7 +87,7 @@ namespace bins
     {
         // Construct k edges
         NUMBER_OF_K_BANDS = nlin + nlog;
-        
+
         // Add one more bin if klast is larger than the last bin
         double ktemp = (k0 + dklin*nlin)*pow(10, nlog*dklog);
         if (klast > ktemp)
@@ -133,8 +153,12 @@ namespace bins
     RedshiftBinWidth: double
     NumberOfRedshiftBins: double
     */
-    void readBins(const ConfigFile &config)
+    void readBins(ConfigFile &config)
     {
+        LOG::LOGGER.STD("Reading binning parameters from config.\n");
+
+        config.addDefaults(bins_default_parameters);
+
         int N_KLIN_BIN, N_KLOG_BIN;
         double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, klast=-1;
 
@@ -173,6 +197,17 @@ namespace bins
         // Redshift and wavenumber bins are constructed
         bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN,
             LOG_K_SPACING, klast, Z_0);
+
+        LOG::LOGGER.STD("K0 %.3e\n", K_0);
+        LOG::LOGGER.STD("LinearKBinWidth %.3e\n", LIN_K_SPACING);
+        LOG::LOGGER.STD("NumberOfLinearBins %d\n", N_KLIN_BIN);
+        LOG::LOGGER.STD("Log10KBinWidth %.3e\n", LOG_K_SPACING);
+        LOG::LOGGER.STD("NumberOfLog10Bins %d\n", N_KLOG_BIN);
+        LOG::LOGGER.STD("LastKEdge %.3e\n", klast);
+
+        LOG::LOGGER.STD("FirstRedshiftBinCenter %.3e\n", Z_0);
+        LOG::LOGGER.STD("RedshiftBinWidth %.3e\n", Z_BIN_WIDTH);
+        LOG::LOGGER.STD("NumberOfRedshiftBins %d\n", NUMBER_OF_Z_BINS);
     }
 
     int findRedshiftBin(double z)
@@ -347,7 +382,7 @@ namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX,
-           PRECOMPUTED_FISHER;
+           USE_PRECOMPUTED_FISHER;
     int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
         CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1;
     double RESOMAT_DECONVOLUTION_M = 0;
@@ -398,8 +433,10 @@ namespace specifics
         File to precomputed Fisher matrix. If present, Fisher matrix is not
         calculated for spectra. Off by default.
     */
-    void readSpecifics(const ConfigFile &config)
+    void readSpecifics(ConfigFile &config)
     {
+        LOG::LOGGER.STD("Reading specifics from config.\n");
+        config.addDefaults(specifics_default_parameters);
         int sfid_off, usmoothlogs, use_picca_file, use_reso_mat;
         double  temp_chisq;
 
@@ -428,7 +465,8 @@ namespace specifics
         TURN_OFF_SFID        = sfid_off > 0;
         SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
         USE_RESOLUTION_MATRIX= use_reso_mat > 0;
-        PRECOMPUTED_FISHER   = !config.get("PrecomputedFisher").empty();
+        std::string precomp_fisher_str = config.get("PrecomputedFisher");
+        USE_PRECOMPUTED_FISHER   = !precomp_fisher_str.empty();
 
         if (use_picca_file>0)
             INPUT_QSO_FILE = qio::Picca;
@@ -441,6 +479,31 @@ namespace specifics
         if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
 
         calcNvecs();
+
+        #define booltostr(x) x ? "true" : "false"
+        LOG::LOGGER.STD("InputIsPicca is set to %s.\n",
+            booltostr(INPUT_QSO_FILE));
+        LOG::LOGGER.STD("UseResoMatrix is set to %s.\n",
+            booltostr(USE_RESOLUTION_MATRIX));
+        LOG::LOGGER.STD("ResoMatDeconvolutionM is set to %.2f.\n",
+            RESOMAT_DECONVOLUTION_M);
+        LOG::LOGGER.STD("OversampleRmat is set to %d.\n",
+            OVERSAMPLING_FACTOR);
+        LOG::LOGGER.STD("DynamicChunkNumber is set to %d.\n",
+            NUMBER_OF_CHUNKS);
+        LOG::LOGGER.STD("Fiducial signal matrix is set to turned %s.\n",
+            TURN_OFF_SFID ? "OFF" : "ON");
+        LOG::LOGGER.STD("SmoothLnkLnP is set to %s.\n",
+            booltostr(SMOOTH_LOGK_LOGP));
+        LOG::LOGGER.STD("ChiSqConvergence is set to %.2e.\n",
+            CHISQ_CONVERGENCE_EPS);
+        LOG::LOGGER.STD("PrecomputedFisher is turn %s, and set to %s.\n",
+            booltostr(USE_PRECOMPUTED_FISHER), precomp_fisher_str.c_str());
+        LOG::LOGGER.STD("ContinuumLogLambdaMargOrder is set to %d.\n",
+            CONT_LOGLAM_MARG_ORDER);
+        LOG::LOGGER.STD("ContinuumLambdaMargOrder is set to %d.\n",
+            CONT_LAM_MARG_ORDER);
+        #undef booltostr
     }
     
     #if defined(TOPHAT_Z_BINNING_FN)

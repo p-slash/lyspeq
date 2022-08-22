@@ -4,13 +4,12 @@
 #include <cstring> // strcpy
 #include <cstdlib>
 #include <cstdio>
+#include <stdexcept> // std::invalid_argument
 
-ConfigFile::ConfigFile(const std::string &fname)
-{
-    file_name = fname;
-    
-    no_params = 0;
-}
+// ConfigFile::ConfigFile(const config_map &default_config) : 
+// {
+//     key_umap = default_config;
+// }
 
 // void ConfigFile::addKey(const std::string key, void *variable, VariableType vt)
 // {
@@ -23,9 +22,22 @@ ConfigFile::ConfigFile(const std::string &fname)
 //     no_params++;
 // }
 
-void ConfigFile::readAll()
+void ConfigFile::addDefaults(const config_map &default_config)
 {
-    FILE *config_file = ioh::open_file(file_name.c_str(), "r");
+    for (auto it = default_config.begin(); it != default_config.end(); ++it)
+    {
+        auto kumap_itr = key_umap.find(it->first);
+        if (kumap_itr == key_umap.end())
+            key_umap[it->first] = it->second;
+    }
+}
+
+void ConfigFile::readFile(const std::string &fname)
+{
+    if (fname.empty())
+        throw std::invalid_argument("ConfigFile::readAll() fname is empty.");
+
+    FILE *config_file = ioh::open_file(fname.c_str(), "r");
     
     char line[1024], buffer_key[200], buffer_value[500];
 
@@ -76,5 +88,19 @@ int ConfigFile::getInteger(const std::string &key, int fallback) const
         return fallback;
 }
 
+// bool ConfigFile::getBool(const std::string &key, bool fallback=false) const
+// {
+//     const std::string true_values[] = {"ON", "on", "true", "True", "TRUE"};
+//     auto kumap_itr = key_umap.find(key);
+
+//     bool result = fallback;
+//     if (kumap_itr != key_umap.end())
+//     {
+//         std::string value = kumap_itr->second;
+//         if (value == "ON" || value == "on" || value == "true")
+//         return std::stoi(kumap_itr->second);
+//     }
+//     return result;
+// }
 
 

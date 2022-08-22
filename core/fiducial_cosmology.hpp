@@ -26,6 +26,7 @@ namespace conv
         Off by default.
     */
     void readConversion(const ConfigFile &config);
+    void clearCache();
 }
 
 namespace fidcosmo
@@ -48,6 +49,7 @@ namespace fidcosmo
     FiducialLorentzianLambda: double
     */
     void readFiducialCosmo(const ConfigFile &config);
+    void clearCache();
 
     // Assume binary file starts with 
     // two integers, 

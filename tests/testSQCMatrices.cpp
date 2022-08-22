@@ -80,15 +80,13 @@ int main(int argc, char *argv[])
 
     gsl_set_error_handler_off();
 
-    ConfigFile config = ConfigFile(FNAME_CONFIG);
+    ConfigFile config = ConfigFile();
 
     try
     {
         // Read variables from config file and set up bins.
-        config.readAll();
-        process::readProcess(config);
-        bins::readBins(config);
-        specifics::readSpecifics(config);
+        config.readFile(FNAME_CONFIG);
+        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
     }
     catch (std::exception& e)
     {
@@ -98,17 +96,20 @@ int main(int argc, char *argv[])
 
     try
     {
-        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
+        process::readProcess(config);
+        bins::readBins(config);
+        specifics::readSpecifics(config);
+        // conv::readConversion(config);
+        // fidcosmo::readFiducialCosmo(config);
+
+        specifics::printBuildSpecifics();
+        mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
-    {   
-        fprintf(stderr, "Error while logging contructed: %s\n", e.what());
+    {
+        LOG::LOGGER.ERR("Error while parsing config file: %s\n",
+            e.what());
         bins::cleanUpBins();
-
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-
         return 1;
     }
 
