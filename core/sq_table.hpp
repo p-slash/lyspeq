@@ -59,7 +59,7 @@ public:
     SQLookupTable(const ConfigFile &config);
 
     ~SQLookupTable();
-    
+
     void readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q, 
         bool alloc=false);
 

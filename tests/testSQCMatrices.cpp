@@ -46,13 +46,6 @@ public:
             chunks[0].qFile->size, chunks[0].qFile->size);
 
         chunks[0]._freeMatrices();
-        delete chunks[0].interp2d_signal_matrix;
-        chunks[0].interp2d_signal_matrix = NULL;
-        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-        {
-            delete chunks[0].interp_derivative_matrix[kn];
-            chunks[0].interp_derivative_matrix[kn] = NULL;
-        }
     }
 };
 

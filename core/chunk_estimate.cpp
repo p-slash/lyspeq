@@ -680,14 +680,6 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 
     _allocateMatrices();
 
-    // This function allocates new signal & deriv matrices 
-    // if process::SAVE_ALL_SQ_FILES=false 
-    // i.e., no caching of SQ files
-    // If all tables are cached, then this function simply points 
-    // to those in process:sq_private_table
-    process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, 
-        interp_derivative_matrix);
-
     // Preload last nqj_eff matrices
     // 0 is the last matrix
     // i_kz = N_Q_MATRICES - j_kz - 1
@@ -748,15 +740,6 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 
     LOG::LOGGER.DEB("Freeing matrices\n");
     _freeMatrices();
-
-    // Do not delete if these are pointers to process::sq_private_table
-    if (!process::SAVE_ALL_SQ_FILES)
-    {
-        if (interp2d_signal_matrix!=NULL)
-            delete interp2d_signal_matrix;
-        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-            delete interp_derivative_matrix[kn];
-    }
 }
 
 void Chunk::_allocateMatrices()
@@ -788,6 +771,14 @@ void Chunk::_allocateMatrices()
 
     isQjSet   = false;
     isSfidSet = false;
+
+    // This function allocates new signal & deriv matrices 
+    // if process::SAVE_ALL_SQ_FILES=false 
+    // i.e., no caching of SQ files
+    // If all tables are cached, then this function simply points 
+    // to those in process:sq_private_table
+    process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, 
+        interp_derivative_matrix);
 }
 
 void Chunk::_freeMatrices()
@@ -823,6 +814,15 @@ void Chunk::_freeMatrices()
 
     isQjSet   = false;
     isSfidSet = false;
+
+    // Do not delete if these are pointers to process::sq_private_table
+    if (!process::SAVE_ALL_SQ_FILES)
+    {
+        if (interp2d_signal_matrix!=NULL)
+            delete interp2d_signal_matrix;
+        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
+            delete interp_derivative_matrix[kn];
+    }
 }
 
 // void Chunk::_saveIndividualResult()
