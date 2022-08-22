@@ -4,6 +4,7 @@
 #define BOOTSTRAP_FILE_H
 
 #include <string>
+#include <memory>
 #include "mpi.h" 
 
 namespace ioh
@@ -26,7 +27,7 @@ public:
     void writeBoot(const double *pk, const double *fisher);
 };
 
-extern BootstrapFile *boot_saver;
+extern std::unique_ptr<BootstrapFile> boot_saver;
 
 }
 #endif

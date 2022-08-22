@@ -60,6 +60,13 @@ void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
     z_ij = sqrt(li * lj) / LYA_REST - 1.;
 }
 
+inline
+int _getMaxKindex(double knyq)
+{
+    auto it = std::lower_bound(bins::KBAND_CENTERS.begin(), bins::KBAND_CENTERS.end(), knyq);
+    return std::distance(bins::KBAND_CENTERS.begin(), it);
+}
+
 Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2) :
 stored_qj(NULL), stored_sfid(NULL)
 {
@@ -68,8 +75,7 @@ stored_qj(NULL), stored_sfid(NULL)
 
     qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
 
-    _kncut = std::lower_bound(bins::KBAND_CENTERS, bins::KBAND_CENTERS+bins::NUMBER_OF_K_BANDS, 
-        PI / qFile->dv_kms) - bins::KBAND_CENTERS;
+    _kncut = _getMaxKindex(PI / qFile->dv_kms);
 
     _findRedshiftBin();
 

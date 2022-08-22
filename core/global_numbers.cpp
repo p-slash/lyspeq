@@ -2,9 +2,7 @@
 #include "io/config_file.hpp"
 #include "io/logger.hpp"
 
-#include <cstdio>
 #include <cmath>
-#include <chrono>    /* clock_t, clock, CLOCKS_PER_SEC */
 #include <stdexcept> // std::invalid_argument
 
 namespace process
@@ -81,8 +79,8 @@ namespace bins
 {
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
         FISHER_SIZE, DEGREE_OF_FREEDOM;
-    double *KBAND_EDGES, *KBAND_CENTERS;
-    double  Z_BIN_WIDTH, *ZBIN_CENTERS, Z_LOWER_EDGE, Z_UPPER_EDGE;
+    std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
+    double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE;
 
     void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0)
     {
@@ -99,8 +97,8 @@ namespace bins
         TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
         FISHER_SIZE = TOTAL_KZ_BINS * TOTAL_KZ_BINS;
 
-        KBAND_EDGES   = new double[NUMBER_OF_K_BANDS + 1];
-        KBAND_CENTERS = new double[NUMBER_OF_K_BANDS];
+        KBAND_EDGES.reserve(NUMBER_OF_K_BANDS + 1);
+        KBAND_CENTERS.reserve(NUMBER_OF_K_BANDS);
 
         // Linearly spaced bins
         for (int i = 0; i < nlin + 1; i++)
@@ -119,20 +117,13 @@ namespace bins
             KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
 
         // Construct redshift bins
-        ZBIN_CENTERS = new double[NUMBER_OF_Z_BINS];
+        ZBIN_CENTERS.reserve(NUMBER_OF_Z_BINS);
 
         for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
             ZBIN_CENTERS[zm] = z0 + Z_BIN_WIDTH * zm;
 
         Z_LOWER_EDGE = ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.;
         Z_UPPER_EDGE = ZBIN_CENTERS[NUMBER_OF_Z_BINS-1] + Z_BIN_WIDTH/2.;
-    }
-
-    void cleanUpBins()
-    {
-        delete [] KBAND_EDGES;
-        delete [] KBAND_CENTERS;
-        delete [] ZBIN_CENTERS;
     }
 
     /* This function reads following keys from config file:

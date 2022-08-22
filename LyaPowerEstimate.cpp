@@ -22,13 +22,7 @@
 
 void clearAllCache()
 {
-    bins::cleanUpBins();
-    conv::clearCache();
-    fidcosmo::clearCache();
-    delete process::sq_private_table;
-
     #if defined(ENABLE_MPI)
-    delete ioh::boot_saver;
     MPI_Abort(MPI_COMM_WORLD, 1);
     #endif
 }
@@ -59,7 +53,7 @@ int main(int argc, char *argv[])
     gsl_set_error_handler_off();
 
     ConfigFile config = ConfigFile();
-    OneDQuadraticPowerEstimate *qps = NULL;
+    std::unique_ptr<OneDQuadraticPowerEstimate> qps;
 
     // Let all PEs to read config at the same time.
     try
@@ -95,7 +89,7 @@ int main(int argc, char *argv[])
     try
     {
         if (process::SAVE_EACH_PE_RESULT)
-            ioh::boot_saver = new ioh::BootstrapFile(process::FNAME_BASE,
+            ioh::boot_saver = std::make_unique<ioh::BootstrapFile>(process::FNAME_BASE,
                 bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS, bins::TOTAL_KZ_BINS);
         MPI_Barrier(MPI_COMM_WORLD);
     }
@@ -112,7 +106,7 @@ int main(int argc, char *argv[])
     try
     {
         // Allocate and read look up tables
-        process::sq_private_table = new SQLookupTable(config);
+        process::sq_private_table = std::make_unique<SQLookupTable>(config);
 
         // Readjust allocated memory wrt save tables
         if (process::SAVE_ALL_SQ_FILES || specifics::USE_RESOLUTION_MATRIX)
@@ -136,7 +130,7 @@ int main(int argc, char *argv[])
 
     try
     {
-        qps = new OneDQuadraticPowerEstimate(config);
+        qps = std::make_unique<OneDQuadraticPowerEstimate>(config);
     }
     catch (std::exception& e)
     {
@@ -162,13 +156,11 @@ int main(int argc, char *argv[])
         sprintf(buf, "%s_error_dump_fisher_matrix.dat", process::FNAME_BASE.c_str());
         qps->writeFisherMatrix(buf);
 
-        delete qps;
         clearAllCache();
 
         return 1;
     }
 
-    delete qps;
     clearAllCache();
 
     #if defined(ENABLE_MPI)

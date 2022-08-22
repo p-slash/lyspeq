@@ -12,12 +12,13 @@
 #include <vector>
 #include <set>
 #include <stdexcept>
+#include <memory>
 
 // Conversion functions
 namespace conv
 {
     bool USE_LOG_V = false, FLUX_TO_DELTAF_BY_CHUNKS = false, INPUT_IS_DELTA_FLUX = false;
-    Interpolation *interp_mean_flux = NULL;
+    std::unique_ptr<Interpolation> interp_mean_flux;
 
     /* This function reads following keys from config file:
     UseChunksMeanFlux: int
@@ -162,17 +163,11 @@ namespace conv
         to_read_meanflux.read((char *)f_values, size*sizeof(double));
         to_read_meanflux.close();
 
-        interp_mean_flux = new Interpolation(GSL_CUBIC_INTERPOLATION, z_values, f_values, size);
+        interp_mean_flux = std::make_unique<Interpolation>(GSL_CUBIC_INTERPOLATION, z_values, f_values, size);
         delete [] z_values;
         delete [] f_values;
 
         convertFluxToDeltaF = &fullConversion;
-    }
-
-    void clearCache()
-    {
-        delete interp_mean_flux;
-        interp_mean_flux = NULL;
     }
 }
 
@@ -189,7 +184,7 @@ namespace fidcosmo
     double (*fiducialPowerGrowthFactor)(double, double, double, void*) = &pd13::Palanque_Delabrouille_etal_2013_fit_growth_factor;
     
     double FID_LOWEST_K = 0, FID_HIGHEST_K = 10.;
-    Interpolation2D *interp2d_fiducial_power = NULL;
+    std::unique_ptr<Interpolation2D> interp2d_fiducial_power;
 
     /* This function reads following keys from config file:
     FiducialPowerFile: string
@@ -217,12 +212,6 @@ namespace fidcosmo
             setFiducialPowerFromFile(FNAME_FID_POWER);
         else if (pd13::FIDUCIAL_PD13_PARAMS.A <= 0)
             throw std::invalid_argument("FiducialAmplitude must be > 0.");
-    }
-
-    void clearCache()
-    {
-        delete interp2d_fiducial_power;
-        interp2d_fiducial_power = NULL;
     }
 
     inline double interpolationFiducialPower(double k, double z, void *params)
@@ -262,7 +251,7 @@ namespace fidcosmo
         to_read_fidpow.read((char *)fiducial_power_from_file, size*sizeof(double));
         to_read_fidpow.close();
         
-        interp2d_fiducial_power = new Interpolation2D(GSL_BICUBIC_INTERPOLATION, k_values, z_values, 
+        interp2d_fiducial_power = std::make_unique<Interpolation2D>(GSL_BICUBIC_INTERPOLATION, k_values, z_values, 
             fiducial_power_from_file, n_k_points, n_z_points);
 
         delete [] k_values;

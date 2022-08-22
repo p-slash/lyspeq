@@ -19,11 +19,6 @@
 
 void clearAllCache()
 {
-    bins::cleanUpBins();
-    conv::clearCache();
-    fidcosmo::clearCache();
-    delete process::sq_private_table;
-
     #if defined(ENABLE_MPI)
     MPI_Abort(MPI_COMM_WORLD, 1);
     #endif
@@ -88,7 +83,7 @@ int main(int argc, char *argv[])
 
     try
     {
-        process::sq_private_table = new SQLookupTable(config);
+        process::sq_private_table = std::make_unique<SQLookupTable>(config);
         process::sq_private_table->computeTables(force_rewrite);
     }
     catch (std::exception& e)
