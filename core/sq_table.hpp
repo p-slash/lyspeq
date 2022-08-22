@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <memory>
 
 #include "mathtools/discrete_interpolation.hpp"
 #include "io/config_file.hpp"
@@ -78,7 +79,7 @@ public:
 
 namespace process
 {
-    extern SQLookupTable *sq_private_table;
+    extern std::unique_ptr<SQLookupTable> sq_private_table;
 }
 
 #endif

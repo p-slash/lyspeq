@@ -444,7 +444,7 @@ double SQLookupTable::getMaxMemUsage()
     return getOneSetMemUsage() * NUMBER_OF_R_VALUES + rdvsize;
 }
 
-SQLookupTable *process::sq_private_table = NULL;
+std::unique_ptr<SQLookupTable> process::sq_private_table;
 
 
 // SQLookupTable::SQLookupTable(const SQLookupTable &sq)

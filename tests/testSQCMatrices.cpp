@@ -99,21 +99,19 @@ int main(int argc, char *argv[])
     {
         LOG::LOGGER.ERR("Error while parsing config file: %s\n",
             e.what());
-        bins::cleanUpBins();
         return 1;
     }
 
     try
     {
         // Allocate and read look up tables
-        process::sq_private_table = new SQLookupTable(config);
+        process::sq_private_table = std::make_unique<SQLookupTable>(config);
         if (process::SAVE_ALL_SQ_FILES)
             process::sq_private_table->readTables();
     }
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
-        bins::cleanUpBins();
         
         #if defined(ENABLE_MPI)
         MPI_Abort(MPI_COMM_WORLD, 1);
@@ -134,8 +132,6 @@ int main(int argc, char *argv[])
 
     TestOneQSOEstimate toqso(filepaths[0]);
     toqso.saveMatrices(config.get("OutputDir"));
-
-    delete process::sq_private_table;
     return 0;
 }
 
