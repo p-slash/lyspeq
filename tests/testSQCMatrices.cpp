@@ -80,6 +80,8 @@ int main(int argc, char *argv[])
         // Read variables from config file and set up bins.
         config.readFile(FNAME_CONFIG);
         LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
+        specifics::printBuildSpecifics();
+        mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
     {
@@ -91,12 +93,7 @@ int main(int argc, char *argv[])
     {
         process::readProcess(config);
         bins::readBins(config);
-        specifics::readSpecifics(config);
-        // conv::readConversion(config);
-        // fidcosmo::readFiducialCosmo(config);
-
-        specifics::printBuildSpecifics();
-        mytime::writeTimeLogHeader();
+        specifics::readSpecifics(config); 
     }
     catch (std::exception& e)
     {

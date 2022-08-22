@@ -28,12 +28,17 @@ namespace conv
         Reads the mean flux from a file and get deltas using this mean flux.
         Off by default.
     */
-    void readConversion(const ConfigFile &config)
+    void readConversion(ConfigFile &config)
     {
+        LOG::LOGGER.STD("###############################################\n");
+        LOG::LOGGER.STD("Reading conversion parameters from config.\n");
+
+        config.addDefaults(conversion_default_parameters);
+
         // If 1, uses mean of each chunk as F-bar
-        int uchunkmean = config.getInteger("UseChunksMeanFlux", -1);
+        int uchunkmean = config.getInteger("UseChunksMeanFlux");
         // If 1, input is delta_f
-        int udeltaf = config.getInteger("InputIsDeltaFlux", 1);
+        int udeltaf = config.getInteger("InputIsDeltaFlux");
 
         FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
         INPUT_IS_DELTA_FLUX       = udeltaf > 0;
@@ -72,6 +77,15 @@ namespace conv
         }
         else if (!(INPUT_IS_DELTA_FLUX || FLUX_TO_DELTAF_BY_CHUNKS))
             INPUT_IS_DELTA_FLUX = true;
+
+        #define booltostr(x) x ? "true" : "false"
+        LOG::LOGGER.STD("UseChunksMeanFlux is set to %s.\n",
+            booltostr(FLUX_TO_DELTAF_BY_CHUNKS));
+        LOG::LOGGER.STD("InputIsDeltaFlux is set to %s.\n",
+            booltostr(INPUT_IS_DELTA_FLUX));
+        LOG::LOGGER.STD("MeanFluxFile is set to %s.\n\n",
+            FNAME_MEAN_FLUX.c_str());
+        #undef booltostr
     }
 
     void noConversion(const double *lambda, double *flux, double *noise, int size)

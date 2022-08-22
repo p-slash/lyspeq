@@ -200,7 +200,6 @@ namespace specifics
     void readSpecifics(ConfigFile &config);
 
     void printBuildSpecifics(FILE *toWrite=NULL);
-    void printConfigSpecifics(FILE *toWrite=NULL);
 }
 
 #endif

@@ -40,7 +40,8 @@ FileNameList: string
 FileInputDir: string
     Directory where files reside.
 */
-OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const ConfigFile &config)
+OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const ConfigFile &con)
+    : config(con)
 {
     Z_BIN_COUNTS = new int[bins::NUMBER_OF_Z_BINS+2]();
     NUMBER_OF_ITERATIONS = config.getInteger("NumberOfIterations", 1);
@@ -635,10 +636,10 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
     double z, k1, k2, kc, Pfid, ThetaP, ErrorP, dk, bk, tk;
 
     toWrite = ioh::open_file(fname, "w");
-    
+
     specifics::printBuildSpecifics(toWrite);
-    specifics::printConfigSpecifics(toWrite);
-    
+    config.writeConfig(toWrite);
+
     fprintf(toWrite, "# Fiducial Power Spectrum\n"
         "# Pfid(k, z) = (A*pi/k0) * q^(2+n+alpha*ln(q)+beta*ln(x)) * x^B / (1 + lambda * k^2)\n"
         "# k0=0.009 s km^-1, z0=3.0 and q=k/k0, x=(1+z)/(1+z0)\n"
@@ -705,8 +706,6 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
     }
 
     fclose(toWrite);
-        
-    // LOG::LOGGER.IO("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
     LOG::LOGGER.STD("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
 }
 

@@ -88,6 +88,16 @@ int ConfigFile::getInteger(const std::string &key, int fallback) const
         return fallback;
 }
 
+void ConfigFile::writeConfig(FILE *toWrite, std::string prefix) const
+{
+    const char *c_prefix = prefix.c_str();
+    fprintf(toWrite, "%sUsing following configuration parameters:\n",
+        c_prefix);
+    for (auto it = key_umap.begin(); it != key_umap.end(); ++it)
+        fprintf(toWrite, "%s%s %s\n", c_prefix,
+            it->first.c_str(), it->second.c_str());
+}
+
 // bool ConfigFile::getBool(const std::string &key, bool fallback=false) const
 // {
 //     const std::string true_values[] = {"ON", "on", "true", "True", "TRUE"};

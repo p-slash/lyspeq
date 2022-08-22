@@ -22,6 +22,7 @@
 
 class OneDQuadraticPowerEstimate
 {
+    const ConfigFile &config;
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS,
         NUMBER_OF_ITERATIONS;
 
@@ -72,7 +73,7 @@ public:
     FileInputDir: string
         Directory where files reside.
     */
-    OneDQuadraticPowerEstimate(const ConfigFile &config);
+    OneDQuadraticPowerEstimate(const ConfigFile &con);
 
     ~OneDQuadraticPowerEstimate();
     
