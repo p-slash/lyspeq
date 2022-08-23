@@ -1,6 +1,7 @@
 #ifndef CHUNK_ESTIMATE_H
 #define CHUNK_ESTIMATE_H
 
+#include <memory>
 #include "io/qso_file.hpp"
 #include "mathtools/discrete_interpolation.hpp"
 
@@ -28,7 +29,7 @@ matrices. This scheme speeds up the algorithm.
 class Chunk
 {
 protected:
-    qio::QSOFile *qFile;
+    std::unique_ptr<qio::QSOFile> qFile;
 
     int _matrix_n, RES_INDEX, N_Q_MATRICES, fisher_index_start, nqj_eff;
     int _kncut;
@@ -42,6 +43,7 @@ protected:
     // Note that noise matrix is diagonal and stored as pointer to its array 
     double  *covariance_matrix, *inverse_covariance_matrix, 
         *temp_matrix[2], **stored_qj, *stored_sfid;
+    std::unique_ptr<double[]> temp_vector, weighted_data_vector;
     bool isQjSet, isSfidSet, isSfidStored, isCovInverted;
 
     DiscreteInterpolation2D  *interp2d_signal_matrix;

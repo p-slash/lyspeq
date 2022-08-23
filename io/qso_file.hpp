@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <memory>
 #include <map>
 
 #include <fitsio.h>
@@ -80,14 +81,14 @@ public:
         double &sig2noi, double &dv_kms, double &dlambda, int &oversampling);
 
     void readData(double *lambda, double *delta, double *noise);
-    mxhelp::Resolution* readAllocResolutionMatrix(int oversampling, double dlambda);
+    std::unique_ptr<mxhelp::Resolution> readAllocResolutionMatrix(int oversampling, double dlambda);
 };
 
 class QSOFile
 {
     ifileformat PB;
-    PiccaFile *pfile;
-    BQFile *bqfile;
+    std::unique_ptr<PiccaFile> pfile;
+    std::unique_ptr<BQFile> bqfile;
 
     double *wave_head, *delta_head, *noise_head;
 public:
@@ -96,7 +97,7 @@ public:
     long id;
     int size, R_fwhm, oversampling;
     double *wave, *delta, *noise;
-    mxhelp::Resolution *Rmat;
+    std::unique_ptr<mxhelp::Resolution> Rmat;
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);
     QSOFile(const qio::QSOFile &qmaster, int i1, int i2);

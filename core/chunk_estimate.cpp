@@ -67,8 +67,8 @@ int _getMaxKindex(double knyq)
     return std::distance(bins::KBAND_CENTERS.begin(), it);
 }
 
-Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2) :
-stored_qj(NULL), stored_sfid(NULL)
+Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
+    : stored_qj(NULL), stored_sfid(NULL)
 {
     isCovInverted = false;
     _copyQSOFile(qmaster, i1, i2);
@@ -97,7 +97,7 @@ stored_qj(NULL), stored_sfid(NULL)
 
 void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 {
-    qFile = new qio::QSOFile(qmaster, i1, i2);
+    qFile = std::make_unique<qio::QSOFile>(qmaster, i1, i2);
 
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
@@ -212,7 +212,6 @@ Chunk::Chunk(Chunk &&rhs)
     LOG::LOGGER.DEB("moving %s\n", rhs.qFile->fname.c_str());
 
     qFile = std::move(rhs.qFile);
-    rhs.qFile = NULL;
 
     _matrix_n = std::move(rhs._matrix_n);
     _kncut    = std::move(rhs._kncut);
@@ -256,7 +255,6 @@ Chunk::Chunk(Chunk &&rhs)
 Chunk::~Chunk()
 {
     process::updateMemory(getMinMemUsage());
-    delete qFile;
 
     if (nqj_eff > 0)
         delete [] stored_qj;
@@ -451,10 +449,9 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     // add noise matrix diagonally
     // but smooth before adding
-    double *smooth_noise = new double[qFile->size];
-    Smoother::smoothNoise(qFile->noise, smooth_noise, qFile->size);
-    cblas_daxpy(qFile->size, 1., smooth_noise, 1, covariance_matrix, qFile->size+1);
-    delete [] smooth_noise;
+    Smoother::smoothNoise(qFile->noise, temp_vector.get(), qFile->size);
+    cblas_daxpy(qFile->size, 1., temp_vector.get(), 1,
+        covariance_matrix, qFile->size+1);
 
     isCovInverted = false;
 
@@ -512,22 +509,20 @@ void Chunk::_addMarginalizations()
 
     // Roll back to initial position
     temp_v = temp_matrix[0];
-    double *svals = new double[specifics::CONT_NVECS];
+    static auto svals = std::make_unique<double[]>(specifics::CONT_NVECS);
     // SVD to get orthogonal marg vectors
-    mxhelp::LAPACKE_svd(temp_v, svals, qFile->size, specifics::CONT_NVECS);
+    mxhelp::LAPACKE_svd(temp_v, svals.get(), qFile->size, specifics::CONT_NVECS);
     LOG::LOGGER.DEB("SVD'ed\n");
 
     // Remove each 
     for (int i = 0; i < specifics::CONT_NVECS; ++i, temp_v += qFile->size)
     {
-        LOG::LOGGER.DEB("i: %d, s: %.2e\n", i, svals[i]);
+        LOG::LOGGER.DEB("i: %d, s: %.2e\n", i, svals.get()[i]);
         // skip if this vector is degenerate
-        if (svals[i]<1e-6)  continue;
+        if (svals.get()[i]<1e-6)  continue;
 
         _remShermanMorrison(temp_v, qFile->size, temp_y, inverse_covariance_matrix);
     }
-
-    delete [] svals;
 }
 
 // Calculate the inverse into temp_matrix[0]
@@ -613,12 +608,11 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 
 void Chunk::computePSbeforeFvector()
 {
-    double *weighted_data_vector = new double[qFile->size];
     double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix, temp_tk = 0;
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
     cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
-        qFile->size, qFile->delta, 1, 0, weighted_data_vector, 1);
+        qFile->size, qFile->delta, 1, 0, weighted_data_vector.get(), 1);
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
@@ -631,8 +625,8 @@ void Chunk::computePSbeforeFvector()
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, 
-            Q_ikz_matrix, qFile->size);
+        double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector.get(), 
+            Q_ikz_matrix, temp_vector.get(), qFile->size);
          LOG::LOGGER.DEB("-> dk (%.1e)   ", temp_dk);
 
         LOG::LOGGER.DEB("-> weighted Q   ");
@@ -670,8 +664,6 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("\n");
     }
-
-    delete [] weighted_data_vector;
 }
 
 void Chunk::oneQSOiteration(const double *ps_estimate, 
@@ -759,6 +751,9 @@ void Chunk::_allocateMatrices()
 
     for (int i = 0; i < 2; ++i)
         temp_matrix[i] = new double[DATA_SIZE_2];
+
+    temp_vector = std::make_unique<double[]>(qFile->size);
+    weighted_data_vector = std::make_unique<double[]>(qFile->size);
     
     for (int i = 0; i < nqj_eff; ++i)
         stored_qj[i] = new double[DATA_SIZE_2];
@@ -801,6 +796,8 @@ void Chunk::_freeMatrices()
     LOG::LOGGER.DEB("Free temps\n");
     for (int i = 0; i < 2; ++i)
         delete [] temp_matrix[i];
+    temp_vector.reset();
+    weighted_data_vector.reset();
 
     LOG::LOGGER.DEB("Free storedqj\n");
     for (int i = 0; i < nqj_eff; ++i)
