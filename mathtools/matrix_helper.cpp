@@ -252,8 +252,6 @@ namespace mxhelp
     // Normalizing this row by row is not yielding somewhat wrong signal matrix
     void DiaMatrix::constructGaussian(double *v, double R_kms, double a_kms)
     {
-        // std::unique_ptr<double[]> rownorm(new double[ndim]());
-
         for (int d = 0; d < ndiags; ++d)
         {
             int off = offsets[d], nelem = ndim - abs(off);
@@ -264,7 +262,6 @@ namespace mxhelp
             {
                 int j = i+abs(off);
                 *(dia_slice+i) = _window_fn_v(v[j]-v[i], R_kms, a_kms);
-                // rownorm[row] += *(dia_slice+i);
             }
         }
 
@@ -327,13 +324,11 @@ namespace mxhelp
 
     void DiaMatrix::getRow(int i, double *row)
     {
-        int *indices = new int[ndiags];
-        _getRowIndices(i, indices);
+        auto indices = std::make_unique<int[]>(ndiags);
+        _getRowIndices(i, indices.get());
 
         for (int j = 0; j < ndiags; ++j)
-            row[j] = matrix[indices[j]];
-
-        delete [] indices;
+            row[j] = matrix[indices.get()[j]];
     }
 
     void DiaMatrix::transpose()
@@ -511,15 +506,6 @@ namespace mxhelp
         nvals = nrows*nelem_per_row;
         fine_dlambda = dlambda/oversampling;
         matrix  = std::make_unique<double[]>(nvals);
-        
-        // nptrs = nrows+1;
-        // indices = new int[nvals];
-        // iptrs   = new int[nptrs];
-
-        // for (int i = 0; i < nvals; ++i)
-        //     indices[i] = int(i/nelem_per_row)*oversampling + (i%nelem_per_row);
-        // for (int i = 0; i < nptrs; ++i)
-        //     iptrs[i]   = i*nelem_per_row;
     }
 
     OversampledMatrix::~OversampledMatrix()
