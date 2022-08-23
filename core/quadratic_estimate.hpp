@@ -24,9 +24,8 @@
 class OneDQuadraticPowerEstimate
 {
     const ConfigFile &config;
-    int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS,
-        NUMBER_OF_ITERATIONS;
-
+    int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, NUMBER_OF_ITERATIONS;
+    std::vector<int> Z_BIN_COUNTS;
     std::vector<std::string> local_fpaths;
 
     // 3 TOTAL_KZ_BINS sized vectors

@@ -70,7 +70,8 @@ namespace mxhelp
         double* _getDiagonal(int d);
         std::unique_ptr<double[]> sandwich_buffer;
 
-        void _getRowIndices(int i, int *indices);
+        // void _getRowIndices(int i, int *indices);
+        void _getRowIndices(int i, std::vector<int> &indices);
 
     public:
         int ndim, ndiags, size;
@@ -81,6 +82,7 @@ namespace mxhelp
         ~DiaMatrix();
 
         void getRow(int i, double *row);
+        void getRow(int i, std::vector<double> &row);
         // Swap diagonals
         void transpose();
         void deconvolve(double m); // bool byCol

@@ -43,7 +43,7 @@ FileInputDir: string
 OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const ConfigFile &con)
     : config(con)
 {
-    Z_BIN_COUNTS = new int[bins::NUMBER_OF_Z_BINS+2]();
+    Z_BIN_COUNTS.assign(bins::NUMBER_OF_Z_BINS+2, 0);
     NUMBER_OF_ITERATIONS = config.getInteger("NumberOfIterations", 1);
     // Allocate memory
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
@@ -127,7 +127,7 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     // MPI Reduce ZBIN_COUNTS
     #if defined(ENABLE_MPI)
-    MPI_Allreduce(MPI_IN_PLACE, Z_BIN_COUNTS, bins::NUMBER_OF_Z_BINS+2, 
+    MPI_Allreduce(MPI_IN_PLACE, Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS+2, 
         MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     #endif
 
@@ -190,7 +190,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     double ave_balance = std::accumulate(bucket_time.begin(), 
         bucket_time.end(), 0.) / process::total_pes;
     std::for_each(bucket_time.begin(), bucket_time.end(), 
-        [&](double &t) { t = t/ave_balance-1; });
+        [ave_balance](double &t) { t = t/ave_balance-1; });
 
     // find min and max offset
     auto minmax_off = std::minmax_element(bucket_time.begin(), bucket_time.end());
@@ -198,7 +198,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
 
     // convert to absolute values and find find median
     std::for_each(bucket_time.begin(), bucket_time.end(), 
-        [&](double &t) { t = fabs(t); });
+        [](double &t) { t = fabs(t); });
     std::sort(bucket_time.begin(), bucket_time.end());
     double med_offset = bucket_time[bucket_time.size()/2];
 
@@ -222,8 +222,6 @@ OneDQuadraticPowerEstimate::~OneDQuadraticPowerEstimate()
 
     delete [] fisher_matrix_sum;
     delete [] inverse_fisher_matrix_sum;
-
-    delete [] Z_BIN_COUNTS;
 }
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
@@ -258,12 +256,9 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
     mxhelp::LAPACKE_InvertMatrixLU(inverse_fisher_matrix_sum, 
         bins::TOTAL_KZ_BINS);
-    
+
     for (auto it = empty_indx.begin(); it != empty_indx.end(); ++it)
-    {
-        double *ptr = inverse_fisher_matrix_sum+(bins::TOTAL_KZ_BINS+1)*(*it);
-        *ptr = 0;
-    }
+        inverse_fisher_matrix_sum[(bins::TOTAL_KZ_BINS+1)*(*it)] = 0;
 
     isFisherInverted = true;
 
@@ -606,9 +601,9 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
     
     fprintf(toWrite, "%d %d\n", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
 
-    auto fprint = [&](const int& zc) { fprintf(toWrite, "%d ", zc); };
-    
-    std::for_each(Z_BIN_COUNTS, Z_BIN_COUNTS+bins::NUMBER_OF_Z_BINS+2, fprint);
+    auto fprint = [toWrite](const int& zc) { fprintf(toWrite, "%d ", zc); };
+
+    std::for_each(Z_BIN_COUNTS.begin(), Z_BIN_COUNTS.end(), fprint);
 
     fprintf(toWrite, "\n");
 

@@ -5,13 +5,8 @@ DiscreteInterpolation1D::DiscreteInterpolation1D(double x_start, double delta_x,
 : x1(x_start), dx(delta_x), N(Nsize)
 {
     x2 = x1 + dx * (N-1);
-    y = new double[N];
-    std::copy(y_arr, y_arr+N, y);
-}
-
-DiscreteInterpolation1D::~DiscreteInterpolation1D()
-{
-    delete [] y;
+    y = std::make_unique<double[]>(N);
+    std::copy(y_arr, y_arr+N, y.get());
 }
 
 void DiscreteInterpolation1D::_limitBoundary(double &x)
@@ -38,13 +33,8 @@ DiscreteInterpolation2D::DiscreteInterpolation2D(double x_start, double delta_x,
     y2 = y1 + dy * (Ny-1);
 
     size = Nx*Ny;
-    z = new double[size];
-    std::copy(z_arr, z_arr+size, z);
-}
-
-DiscreteInterpolation2D::~DiscreteInterpolation2D()
-{
-    delete [] z;
+    z = std::make_unique<double[]>(size);
+    std::copy(z_arr, z_arr+size, z.get());
 }
 
 long DiscreteInterpolation2D::_getIndex(long nx, long ny)
