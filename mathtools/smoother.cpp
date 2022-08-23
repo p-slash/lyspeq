@@ -79,21 +79,24 @@ void Smoother::smoothNoise(const double *n2, double *out, int size)
 
     // Isolate masked pixels as they have high noise
     std::vector<int> mask_idx;
-    double *padded_noise = new double[size+2*HWSIZE];
+    std::vector<double> padded_noise(size+2*HWSIZE, 0);
 
     for (int i = 0; i < size; ++i)
     {
         double n = sqrt(n2[i]);
         // n->0 should be smoothed
         if ((n-median) > 3.5*mad)
+        {
             mask_idx.push_back(i);
+            padded_noise[i+HWSIZE] = median;
+        }
         else
             padded_noise[i+HWSIZE] = n;
     }
 
     // Replace their values with median noise
-    for (auto it = mask_idx.begin(); it != mask_idx.end(); ++it)
-        padded_noise[*it+HWSIZE] = median;
+    // for (auto it = mask_idx.begin(); it != mask_idx.end(); ++it)
+    //     padded_noise[*it+HWSIZE] = median;
     // Pad array by the edge values
     for (int i = 0; i < HWSIZE; ++i)
     {
@@ -105,15 +108,13 @@ void Smoother::smoothNoise(const double *n2, double *out, int size)
     std::fill_n(out, size, 0);
     for (int i = 0; i < size; ++i)
     {
-        out[i] = cblas_ddot(KS, Smoother::gaussian_kernel, 1, padded_noise+i, 1);
+        out[i] = cblas_ddot(KS, Smoother::gaussian_kernel, 1, padded_noise.data()+i, 1);
         out[i] *= out[i];
     }
 
     // Restore original noise for masked pixels
     for (auto it = mask_idx.begin(); it != mask_idx.end(); ++it)
         out[*it] = n2[*it];
-
-    delete [] padded_noise;
 }
 
 #undef HWSIZE

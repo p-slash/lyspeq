@@ -151,7 +151,7 @@ int main()
     mxhelp::printfMatrix(result_R, NR, NR);
 
     // Unit test getRow of dia matrix
-    double testrow[Ndiag];
+    std::vector<double> testrow(Ndiag);
     diarmat.getRow(0, testrow);
     for (int i = 0; i < Ndiag; ++i)
         printf("%.0f ", testrow[i]);

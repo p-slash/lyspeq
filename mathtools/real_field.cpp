@@ -77,7 +77,8 @@ void RealField::fftX2K()
     // Normalization of FFT
     double norm  = length / size_real;
 
-    std::for_each(field_k, field_k+size_complex, [&](std::complex<double> &f) { f *= norm; });
+    std::for_each(field_k, field_k+size_complex,
+        [norm](std::complex<double> &f) { f *= norm; });
 
     current_space = K_SPACE;
 } 
@@ -87,8 +88,10 @@ void RealField::fftK2X()
     assert(current_space == K_SPACE);
 
     fftw_execute(p_k2x);
+    double _len = length;
 
-    std::for_each(field_x, field_x+size_real, [&](double &f) { f /= length; });
+    std::for_each(field_x, field_x+size_real,
+        [_len](double &f) { f /= _len; });
 
     current_space = X_SPACE;
 }

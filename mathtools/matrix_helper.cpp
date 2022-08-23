@@ -29,7 +29,8 @@
 
 // cblas_dcopy(N, sour, isour, tar, itar);
 #define EPSILON_D std::numeric_limits<double>::epsilon()
-double nonzero_min_element(const double *first, const double *last)
+template<class InputIt>
+constexpr double nonzero_min_element(InputIt first, InputIt last)
 {
     if (first == last) return *first;
  
@@ -309,11 +310,25 @@ namespace mxhelp
         freeBuffer();
     }
 
-    void DiaMatrix::_getRowIndices(int i, int *indices)
+    // void DiaMatrix::_getRowIndices(int i, int *indices)
+    // {
+    //     int noff = ndiags/2;
+    //     for (int j = ndiags-1; j >= 0; --j)
+    //         indices[ndiags-1-j] = j*ndim+offsets[j]+i;
+    //     if (i < noff)
+    //         for (int j = 0; j < noff-i; ++j)
+    //             indices[j]=indices[ndiags-1-j];
+    //     else if (i > ndim-noff-1)
+    //         for (int j = 0; j < i-ndim+noff+1; ++j)
+    //             indices[ndiags-1-j]=indices[j];
+    // }
+
+    void DiaMatrix::_getRowIndices(int i, std::vector<int> &indices)
     {
+        indices.clear();
         int noff = ndiags/2;
         for (int j = ndiags-1; j >= 0; --j)
-            indices[ndiags-1-j] = j*ndim+offsets[j]+i;
+            indices.push_back(j*ndim+offsets[j]+i);
         if (i < noff)
             for (int j = 0; j < noff-i; ++j)
                 indices[j]=indices[ndiags-1-j];
@@ -324,11 +339,21 @@ namespace mxhelp
 
     void DiaMatrix::getRow(int i, double *row)
     {
-        auto indices = std::make_unique<int[]>(ndiags);
-        _getRowIndices(i, indices.get());
+        std::vector<int> indices(ndiags);
+        _getRowIndices(i, indices);
 
         for (int j = 0; j < ndiags; ++j)
-            row[j] = matrix[indices.get()[j]];
+            row[j] = matrix[indices[j]];
+    }
+
+    void DiaMatrix::getRow(int i, std::vector<double> &row)
+    {
+        row.clear();
+        std::vector<int> indices(ndiags);
+        _getRowIndices(i, indices);
+
+        for (int j = 0; j < ndiags; ++j)
+            row.push_back(matrix[indices[j]]);
     }
 
     void DiaMatrix::transpose()
@@ -346,12 +371,13 @@ namespace mxhelp
     void DiaMatrix::deconvolve(double m) //bool byCol
     {
         #define HALF_PAD_NO 5
-        int input_size = ndiags+2*HALF_PAD_NO, *indices = new int[ndiags];
-        double *row = new double[input_size];
+        int input_size = ndiags+2*HALF_PAD_NO;
+        std::unique_ptr<double[]> row = std::make_unique<double[]>(input_size);
+        std::vector<int> indices(ndiags);
 
         // if (byCol)  transpose();
 
-        RealField deconvolver(input_size, 1, row);
+        RealField deconvolver(input_size, 1, row.get());
 
         for (int i = 0; i < ndim; ++i)
         {
@@ -372,8 +398,6 @@ namespace mxhelp
 
         // if (byCol)  transpose();
 
-        delete [] indices;
-        delete [] row;
         #undef HALF_PAD_NO
     }
 
@@ -737,13 +761,16 @@ namespace mxhelp
         osamp_matrix = std::make_unique<OversampledMatrix>(ncols, nelem_per_row, osamp, dlambda);
 
         #define INPUT_SIZE dia_matrix->ndiags
-        double *win = new double[INPUT_SIZE], *wout = new double[nelem_per_row], 
-               *row = new double[INPUT_SIZE], *newrow;
+        double *newrow;
+        std::vector<double> row, win, wout;
+        row.reserve(INPUT_SIZE);
+        win.reserve(INPUT_SIZE);
+        wout.reserve(nelem_per_row);
 
         for (int i = 0; i < INPUT_SIZE; ++i)
-            win[i] = i-noff;
+            win.push_back(i-noff);
         for (int i = 0; i < nelem_per_row; ++i)
-            wout[i] = i*1./osamp-noff;
+            wout.push_back(i*1./osamp-noff);
 
         gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, INPUT_SIZE);
         gsl_interp_accel *acc = gsl_interp_accel_alloc();
@@ -756,16 +783,16 @@ namespace mxhelp
             newrow = osamp_matrix->matrix.get()+i*nelem_per_row;
 
             // interpolate log, shift before log
-            double _shift = *std::min_element(row, row+INPUT_SIZE)
-                - nonzero_min_element(row, row+INPUT_SIZE);
+            double _shift = *std::min_element(row.begin(), row.end())
+                - nonzero_min_element(row.begin(), row.end());
 
-            std::for_each(row, row+INPUT_SIZE, [_shift](double &f) { f = log(f-_shift); } );
+            std::for_each(row.begin(), row.end(), [_shift](double &f) { f = log(f-_shift); } );
 
-            gsl_interp_init(interp_cubic, win, row, INPUT_SIZE);
+            gsl_interp_init(interp_cubic, win.data(), row.data(), INPUT_SIZE);
 
-            std::transform(wout, wout+nelem_per_row, newrow, 
+            std::transform(wout.begin(), wout.end(), newrow, 
                 [&](const double &l) 
-                { return exp(gsl_interp_eval(interp_cubic, win, row, l, acc)) + _shift; }
+                { return exp(gsl_interp_eval(interp_cubic, win.data(), row.data(), l, acc)) + _shift; }
             );
 
             // double sum = 0;
@@ -788,9 +815,6 @@ namespace mxhelp
         // Clean up
         gsl_interp_free(interp_cubic);
         gsl_interp_accel_free(acc);
-        delete [] win;
-        delete [] wout;
-        delete [] row;
         dia_matrix.reset();
         #undef INPUT_SIZE
     }
