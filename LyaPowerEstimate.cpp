@@ -20,13 +20,6 @@
 #include "io/config_file.hpp"
 #include "io/bootstrap_file.hpp"
 
-void clearAllCache()
-{
-    #if defined(ENABLE_MPI)
-    MPI_Abort(MPI_COMM_WORLD, 1);
-    #endif
-}
-
 int main(int argc, char *argv[])
 {
     #if defined(ENABLE_MPI)
@@ -66,6 +59,9 @@ int main(int argc, char *argv[])
     catch (std::exception& e)
     {
         fprintf(stderr, "Error while reading config file: %s\n", e.what());
+        #if defined(ENABLE_MPI)
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
         return 1;
     }
 
@@ -81,7 +77,9 @@ int main(int argc, char *argv[])
     {
         LOG::LOGGER.ERR("Error while parsing config file: %s\n",
             e.what());
-        clearAllCache();
+        #if defined(ENABLE_MPI)
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
         return 1;
     }
 
@@ -97,7 +95,9 @@ int main(int argc, char *argv[])
     {
         LOG::LOGGER.ERR("Error while openning BootstrapFile: %s\n",
             e.what());
-        clearAllCache();
+        #if defined(ENABLE_MPI)
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
 
         return 1;
     }
@@ -120,7 +120,9 @@ int main(int argc, char *argv[])
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
-        clearAllCache();
+        #if defined(ENABLE_MPI)
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
 
         return 1;
     }
@@ -135,7 +137,9 @@ int main(int argc, char *argv[])
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while Quadratic Estimator contructed: %s\n", e.what());
-        clearAllCache();
+        #if defined(ENABLE_MPI)
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
 
         return 1;
     } 
@@ -156,12 +160,12 @@ int main(int argc, char *argv[])
         sprintf(buf, "%s_error_dump_fisher_matrix.dat", process::FNAME_BASE.c_str());
         qps->writeFisherMatrix(buf);
 
-        clearAllCache();
+        #if defined(ENABLE_MPI)
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
 
         return 1;
     }
-
-    clearAllCache();
 
     #if defined(ENABLE_MPI)
     MPI_Finalize();

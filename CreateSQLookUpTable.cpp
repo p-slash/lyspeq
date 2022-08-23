@@ -17,13 +17,6 @@
 #include "io/config_file.hpp"
 #include "io/logger.hpp"
 
-void clearAllCache()
-{
-    #if defined(ENABLE_MPI)
-    MPI_Abort(MPI_COMM_WORLD, 1);
-    #endif
-}
-
 int main(int argc, char *argv[])
 {
     #if defined(ENABLE_MPI)
@@ -75,7 +68,9 @@ int main(int argc, char *argv[])
     {
         LOG::LOGGER.ERR("Error while parsing config file: %s\n",
             e.what());
-        clearAllCache();
+        #if defined(ENABLE_MPI)
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
         return 1;
     }
 
@@ -89,12 +84,12 @@ int main(int argc, char *argv[])
     catch (std::exception& e)
     {   
         LOG::LOGGER.ERR("Error constructing SQ Table: %s\n", e.what());
-        clearAllCache();
+        #if defined(ENABLE_MPI)
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
         
         return 1;
-    }
-
-    clearAllCache();       
+    }    
 
     #if defined(ENABLE_MPI)
     MPI_Finalize();

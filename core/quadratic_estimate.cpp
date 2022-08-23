@@ -52,6 +52,8 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const ConfigFile &con)
         dbt_estimate_fisher_weighted_vector[dbt_i]   = new double[bins::TOTAL_KZ_BINS];
     }
 
+    temp_vector = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+
     previous_power_estimate_vector = new double[bins::TOTAL_KZ_BINS];
     current_power_estimate_vector  = new double[bins::TOTAL_KZ_BINS]();
     fisher_matrix_sum              = new double[bins::FISHER_SIZE];
@@ -62,8 +64,6 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const ConfigFile &con)
     isFisherInverted = false;
     if (specifics::USE_PRECOMPUTED_FISHER)
         _readPrecomputedFisher(config.get("PrecomputedFisher").c_str());
-    else
-        precomputed_fisher = NULL;
 
     std::string flist  = config.get("FileNameList"),
                 findir = config.get("FileInputDir");
@@ -464,8 +464,9 @@ void OneDQuadraticPowerEstimate::iterate()
             _savePEResult();
 
         LOG::LOGGER.DEB("MPI All reduce.\n");
-        MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, bins::FISHER_SIZE,
-            MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        if (!specifics::USE_PRECOMPUTED_FISHER)
+            MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum, bins::FISHER_SIZE,
+                MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
             MPI_Allreduce(MPI_IN_PLACE, dbt_estimate_sum_before_fisher_vector[dbt_i], 
@@ -474,8 +475,8 @@ void OneDQuadraticPowerEstimate::iterate()
 
         // If fisher is precomputed, copy this into fisher_matrix_sum. 
         // oneQSOiteration iteration will not compute fishers as well.
-        if (precomputed_fisher != NULL)
-            std::copy(precomputed_fisher, precomputed_fisher + bins::FISHER_SIZE, 
+        if (specifics::USE_PRECOMPUTED_FISHER)
+            std::copy(precomputed_fisher.begin(), precomputed_fisher.end(), 
                 fisher_matrix_sum);
 
         try
@@ -574,7 +575,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     r  = sqrt(r / _NewDegreesOfFreedom);
 
     rfull = sqrt(fabs(mxhelp::my_cblas_dsymvdot(previous_power_estimate_vector, 
-        fisher_matrix_sum, bins::TOTAL_KZ_BINS)) / _NewDegreesOfFreedom);
+        fisher_matrix_sum, temp_vector.get(), bins::TOTAL_KZ_BINS)) / _NewDegreesOfFreedom);
     
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
     LOG::LOGGER.STD("Chi^2/dof convergence test:\nDiagonal: %.3f. Full Fisher: %.3f.\n"
@@ -783,7 +784,8 @@ void OneDQuadraticPowerEstimate::_readPrecomputedFisher(const std::string &fname
     int N1, N2;
     precomputed_fisher = mxhelp::fscanfMatrix(fname.c_str(), N1, N2);
 
-    if (N1 != bins::TOTAL_KZ_BINS || N2 != bins::TOTAL_KZ_BINS)
+    if (N1 != bins::TOTAL_KZ_BINS || N2 != bins::TOTAL_KZ_BINS
+        || precomputed_fisher.size() != bins::FISHER_SIZE)
         throw std::invalid_argument("Precomputed Fisher matrix does not have" 
             " correct number of rows or columns.");
 }
@@ -791,23 +793,23 @@ void OneDQuadraticPowerEstimate::_readPrecomputedFisher(const std::string &fname
 #if defined(ENABLE_MPI)
 void OneDQuadraticPowerEstimate::_savePEResult()
 {
-    double *tmppower = new double[bins::TOTAL_KZ_BINS];
+    auto tmppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+
     std::copy(dbt_estimate_sum_before_fisher_vector[0], 
         dbt_estimate_sum_before_fisher_vector[0]+bins::TOTAL_KZ_BINS, 
-        tmppower);
+        tmppower.get());
 
-    mxhelp::vector_sub(tmppower, dbt_estimate_sum_before_fisher_vector[1], bins::TOTAL_KZ_BINS);
-    mxhelp::vector_sub(tmppower, dbt_estimate_sum_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(tmppower.get(), dbt_estimate_sum_before_fisher_vector[1], bins::TOTAL_KZ_BINS);
+    mxhelp::vector_sub(tmppower.get(), dbt_estimate_sum_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
 
     try
     {
-        ioh::boot_saver->writeBoot(tmppower, fisher_matrix_sum);
+        ioh::boot_saver->writeBoot(tmppower.get(), fisher_matrix_sum);
     }
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("ERROR: Saving PE results: %d\n", process::this_pe);
     }
-    delete [] tmppower;
 }
 #endif
 

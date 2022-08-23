@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <memory>
 
 #include "io/config_file.hpp"
 
@@ -34,7 +35,8 @@ class OneDQuadraticPowerEstimate
             *previous_power_estimate_vector, *current_power_estimate_vector,
             *powerspectra_fits;
 
-    double *precomputed_fisher;
+    std::unique_ptr<double[]> temp_vector;
+    std::vector<double> precomputed_fisher;
     void _readPrecomputedFisher(const std::string &fname);
 
     // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices

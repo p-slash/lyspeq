@@ -1,6 +1,9 @@
 #ifndef MATRIX_HELPER_H
 #define MATRIX_HELPER_H
 
+#include <memory>
+#include <vector>
+
 #ifdef USE_MKL_CBLAS
 #include "mkl_cblas.h"
 #else
@@ -46,11 +49,12 @@ namespace mxhelp
 
     // vT . S . v
     // Assumes S is square symmetric matrix NxN
-    double my_cblas_dsymvdot(const double *v, const double *S, int N);
+    double my_cblas_dsymvdot(const double *v, const double *S,
+        double *temp_vector, int N);
 
     void printfMatrix(const double *A, int N1, int N2);
     void fprintfMatrix(const char *fname, const double *A, int N1, int N2);
-    double* fscanfMatrix(const char *fname, int &N1, int &N2);
+    std::vector<double> fscanfMatrix(const char *fname, int &N1, int &N2);
 
     // LAPACKE functions
     // In-place invert by first LU factorization
@@ -64,14 +68,14 @@ namespace mxhelp
     class DiaMatrix
     {
         double* _getDiagonal(int d);
-        double* sandwich_buffer;
+        std::unique_ptr<double[]> sandwich_buffer;
 
         void _getRowIndices(int i, int *indices);
 
     public:
         int ndim, ndiags, size;
-        int *offsets;
-        double *matrix;
+        std::unique_ptr<int[]> offsets;
+        std::unique_ptr<double[]> matrix;
 
         DiaMatrix(int nm, int ndia);
         ~DiaMatrix();
@@ -102,13 +106,14 @@ namespace mxhelp
 
     class OversampledMatrix
     {
-        double *sandwich_buffer;
+        std::unique_ptr<double[]> sandwich_buffer;
 
         double* _getRow(int i);
     public:
         int nrows, ncols, nvals;
         int nelem_per_row, oversampling;
-        double fine_dlambda, *values, *temp_highres_mat;
+        double fine_dlambda;
+        std::unique_ptr<double[]> temp_highres_mat, matrix;
 
         // n1 : Number of rows.
         // nelem_prow : Number of elements per row. Should be odd.
@@ -148,10 +153,10 @@ namespace mxhelp
     {
         bool is_dia_matrix;
         int ncols;
-        DiaMatrix *dia_matrix;
-        OversampledMatrix *osamp_matrix;
+        std::unique_ptr<DiaMatrix> dia_matrix;
+        std::unique_ptr<OversampledMatrix> osamp_matrix;
     public:
-        double *values, *temp_highres_mat;
+        double *matrix, *temp_highres_mat;
 
         Resolution(int nm, int ndia);
         // n1 : Number of rows.

@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <string>
-#include <memory>
 
 #include "mathtools/discrete_interpolation.hpp"
 #include "io/config_file.hpp"
@@ -39,8 +38,8 @@ class SQLookupTable
     std::string DIR, S_BASE, Q_BASE;
 
     // Temporary arrays. They are not stored after construction!
-    double  *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY,
-            *signal_array, *derivative_array;
+    std::unique_ptr<double[]>  LINEAR_V_ARRAY, LINEAR_Z_ARRAY,
+        signal_array, derivative_array;
 
     DiscreteInterpolation2D **interp2d_signal_matrices;
     DiscreteInterpolation1D **interp_derivative_matrices;

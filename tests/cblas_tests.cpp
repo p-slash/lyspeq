@@ -65,7 +65,9 @@ int main()
     printf("%lf\n", mxhelp::trace_ddiagmv(smy_matrix_A, vector_B, NA));
 
     // my_cblas_dsymvdot
-    printf("%lf\n", mxhelp::my_cblas_dsymvdot(vector_B, smy_matrix_A, NA));
+    auto temp_vector = std::make_unique<double[]>(NA);
+    printf("%lf\n", mxhelp::my_cblas_dsymvdot(vector_B, smy_matrix_A,
+        temp_vector.get(), NA));
     
     // Test LU invert
     mxhelp::LAPACKE_InvertMatrixLU(smy_matrix_A, NA);
@@ -99,7 +101,7 @@ int main()
         0.36,0.29,0.69,0.53,0.13,0.64,0.07,0.66,0.99,0.83,0.51,0.07,0.36,0.64,0.26,0.76,0.96,
         0.73,0.43,0.63,0.22,0.71,0.86,0.32,0.93,1.0,0.27,0.37,0.83};
     double mtrxB1[Nrows*Ncols], mtrxB2[Nrows*Nrows];
-    std::copy(&valss[0], &valss[0]+Nrows*Nelemprow, ovrmat.values);
+    std::copy(&valss[0], &valss[0]+Nrows*Nelemprow, ovrmat.matrix.get());
 
     printf("Left multiplication-----\n");
     ovrmat.multiplyLeft(matrxA, mtrxB1);
@@ -132,7 +134,7 @@ int main()
         result_R[NR*NR];
 
     mxhelp::DiaMatrix diarmat(NR, Ndiag);
-    std::copy(&dia_R[0], &dia_R[0]+NR*Ndiag, diarmat.matrix);
+    std::copy(&dia_R[0], &dia_R[0]+NR*Ndiag, diarmat.matrix.get());
     
     // printf("-----\n");
     printf("LN-----\n");

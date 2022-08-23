@@ -102,25 +102,24 @@ namespace bins
 
         // Linearly spaced bins
         for (int i = 0; i < nlin + 1; i++)
-            KBAND_EDGES[i] = k0 + dklin * i;
+            KBAND_EDGES.push_back(k0 + dklin * i);
         // Logarithmicly spaced bins
-        for (int i = 1, j = nlin + 1; i < nlog + 1; i++, j++)
-            KBAND_EDGES[j] = KBAND_EDGES[nlin] * pow(10., i * dklog);
+        for (int i = 1; i < nlog + 1; i++)
+            KBAND_EDGES.push_back(KBAND_EDGES[nlin] * pow(10., i * dklog));
         
         // Last bin
         if (klast > ktemp)
-            KBAND_EDGES[NUMBER_OF_K_BANDS] = klast;
-
+            KBAND_EDGES.push_back(klast);
 
         // Set up k bin centers
         for (int kn = 0; kn < NUMBER_OF_K_BANDS; ++kn)
-            KBAND_CENTERS[kn] = (KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.;
+            KBAND_CENTERS.push_back((KBAND_EDGES[kn] + KBAND_EDGES[kn + 1]) / 2.);
 
         // Construct redshift bins
         ZBIN_CENTERS.reserve(NUMBER_OF_Z_BINS);
 
         for (int zm = 0; zm < NUMBER_OF_Z_BINS; ++zm)
-            ZBIN_CENTERS[zm] = z0 + Z_BIN_WIDTH * zm;
+            ZBIN_CENTERS.push_back(z0 + Z_BIN_WIDTH * zm);
 
         Z_LOWER_EDGE = ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.;
         Z_UPPER_EDGE = ZBIN_CENTERS[NUMBER_OF_Z_BINS-1] + Z_BIN_WIDTH/2.;
