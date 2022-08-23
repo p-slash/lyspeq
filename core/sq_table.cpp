@@ -17,6 +17,8 @@
 
 #define ONE_SIGMA_2_FWHM 2.35482004503
 
+std::unique_ptr<SQLookupTable> process::sq_private_table;
+
 // Internal Functions and Variables
 namespace sqhelper
 {
@@ -429,35 +431,6 @@ double SQLookupTable::getMaxMemUsage()
 
     return getOneSetMemUsage() * NUMBER_OF_R_VALUES + rdvsize;
 }
-
-std::unique_ptr<SQLookupTable> process::sq_private_table;
-
-
-// SQLookupTable::SQLookupTable(const SQLookupTable &sq)
-// {
-//     LOG::LOGGER.STD("Copying SQ table.\n");
-    
-//     NUMBER_OF_R_VALUES = sq.NUMBER_OF_R_VALUES;
-
-//     N_V_POINTS      = sq.N_V_POINTS;
-//     N_Z_POINTS_OF_S = sq.N_Z_POINTS_OF_S;
-
-//     LENGTH_V      = sq.LENGTH_V;
-//     LENGTH_Z_OF_S = sq.LENGTH_Z_OF_S;
-
-//     R_VALUES = sq.R_VALUES;
-
-//     interp2d_signal_matrices   = new double*[NUMBER_OF_R_VALUES];
-//     interp_derivative_matrices = new double*[NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS];
-
-//     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-//         std::copy(sq.interp2d_signal_matrices[r], sq.interp2d_signal_matrices[r]+N_V_POINTS*N_Z_POINTS_OF_S,
-//             interp2d_signal_matrices[r]);
-        
-//     for (int q = 0; q < NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS; ++q)
-//         std::copy(sq.interp_derivative_matrices[q], sq.interp_derivative_matrices[q]+N_V_POINTS,
-//             interp_derivative_matrices[q]);
-// }
 
 
 
