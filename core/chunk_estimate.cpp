@@ -115,8 +115,7 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         _matrix_n = qFile->size;
     }
 
-    interp2d_signal_matrix   = NULL;
-    interp_derivative_matrix = new DiscreteInterpolation1D*[bins::NUMBER_OF_K_BANDS];
+    interp_derivative_matrix.reserve(bins::NUMBER_OF_K_BANDS);
 }
 
 void Chunk::_findRedshiftBin()
@@ -240,7 +239,6 @@ Chunk::Chunk(Chunk &&rhs)
 
     interp_derivative_matrix = std::move(rhs.interp_derivative_matrix);
     // interp2d_signal_matrix   = std::move(rhs.interp2d_signal_matrix);
-    rhs.interp_derivative_matrix = NULL;
     // rhs.interp2d_signal_matrix   = NULL;
 }
 
@@ -258,7 +256,6 @@ Chunk::~Chunk()
 
     if (nqj_eff > 0)
         delete [] stored_qj;
-    delete [] interp_derivative_matrix;
 }
 
 double Chunk::getMinMemUsage()
@@ -376,7 +373,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
         double *inter_mat = (_matrix_n == qFile->size) ? qi : qFile->Rmat->temp_highres_mat;
         double *ptr = inter_mat, *li=highres_lambda, *lj, *lstart, *lend, 
             *highres_l_end = highres_lambda+_matrix_n;
-        DiscreteInterpolation1D *interp_deriv_kn=interp_derivative_matrix[kn];
+        shared_interp_1d interp_deriv_kn=interp_derivative_matrix[kn];
 
         for (int row = 0; row < _matrix_n; ++row, ++li)
         {
@@ -821,10 +818,9 @@ void Chunk::_freeMatrices()
     // Do not delete if these are pointers to process::sq_private_table
     if (!process::SAVE_ALL_SQ_FILES)
     {
-        if (interp2d_signal_matrix!=NULL)
-            delete interp2d_signal_matrix;
-        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-            delete interp_derivative_matrix[kn];
+        if (interp2d_signal_matrix)
+            interp2d_signal_matrix.reset();
+        interp_derivative_matrix.clear();
     }
 }
 

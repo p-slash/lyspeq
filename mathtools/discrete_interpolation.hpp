@@ -2,6 +2,7 @@
 #define DISCRETE_INTERPOLATION_H
 
 #include <memory>
+
 // Stores a copy of y array.
 // Assumes evenly spaced x.
 // Linearly interpolates
@@ -39,5 +40,8 @@ public:
     
     double evaluate(double x, double y);
 };
+
+typedef std::shared_ptr<DiscreteInterpolation1D> shared_interp_1d;
+typedef std::shared_ptr<DiscreteInterpolation2D> shared_interp_2d;
 
 #endif

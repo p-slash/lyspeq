@@ -41,13 +41,15 @@ protected:
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
+
     double  *covariance_matrix, *inverse_covariance_matrix, 
         *temp_matrix[2], **stored_qj, *stored_sfid;
+
     std::unique_ptr<double[]> temp_vector, weighted_data_vector;
     bool isQjSet, isSfidSet, isSfidStored, isCovInverted;
 
-    DiscreteInterpolation2D  *interp2d_signal_matrix;
-    DiscreteInterpolation1D **interp_derivative_matrix;
+    shared_interp_2d interp2d_signal_matrix;
+    std::vector<shared_interp_1d> interp_derivative_matrix;
 
     // 3 TOTAL_KZ_BINS sized vectors
     double  *dbt_estimate_before_fisher_vector[3];
