@@ -81,10 +81,10 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
-    conv::convertFluxToDeltaF(qFile->wave, qFile->delta, qFile->noise, qFile->size);
+    conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), qFile->size);
 
     // Keep noise as error squared (variance)
-    std::for_each(qFile->noise, qFile->noise+qFile->size, [](double &n) { n*=n; });
+    std::for_each(qFile->noise(), qFile->noise()+qFile->size, [](double &n) { n*=n; });
 
     nqj_eff = 0;
 
@@ -446,7 +446,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     // add noise matrix diagonally
     // but smooth before adding
-    Smoother::smoothNoise(qFile->noise, temp_vector.get(), qFile->size);
+    Smoother::smoothNoise(qFile->noise(), temp_vector.get(), qFile->size);
     cblas_daxpy(qFile->size, 1., temp_vector.get(), 1,
         covariance_matrix, qFile->size+1);
 
@@ -492,13 +492,13 @@ void Chunk::_addMarginalizations()
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLogLam(qFile->wave, qFile->size, cmo, temp_v);
+        _getUnitVectorLogLam(qFile->wave(), qFile->size, cmo, temp_v);
         temp_v += qFile->size;
     }
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLam(qFile->wave, qFile->size, cmo, temp_v);
+        _getUnitVectorLam(qFile->wave(), qFile->size, cmo, temp_v);
         temp_v += qFile->size;
     }
 
@@ -609,7 +609,7 @@ void Chunk::computePSbeforeFvector()
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
     cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1., inverse_covariance_matrix, 
-        qFile->size, qFile->delta, 1, 0, weighted_data_vector.get(), 1);
+        qFile->size, qFile->delta(), 1, 0, weighted_data_vector.get(), 1);
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
@@ -632,7 +632,7 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise, 
+        double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise(), 
             qFile->size);
 
         // Set Fiducial Signal Matrix
@@ -761,11 +761,11 @@ void Chunk::_allocateMatrices()
     // Create a temp highres lambda array
     if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
     {
-        highres_lambda = qFile->Rmat->allocWaveGrid(qFile->wave[0]);
+        highres_lambda = qFile->Rmat->allocWaveGrid(qFile->wave()[0]);
         qFile->Rmat->allocateTempHighRes();
     }
     else
-        highres_lambda = qFile->wave;
+        highres_lambda = qFile->wave();
 
     isQjSet   = false;
     isSfidSet = false;

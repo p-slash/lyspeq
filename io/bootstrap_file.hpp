@@ -19,7 +19,8 @@ class BootstrapFile
     int nkbins, nzbins, nkzbins, pe,
         ndiags, cf_size, elems_count;
     // First bins::TOTAL_KZ_BINS elements are the power spectrum
-    double *data_buffer;
+    std::unique_ptr<double[]> data_buffer;
+
 public:
     BootstrapFile(const std::string &base, int nk, int nz, int thispe);
     ~BootstrapFile();
