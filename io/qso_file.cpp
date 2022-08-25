@@ -42,9 +42,7 @@ double _getMediandlambda(const double *wave, int size)
 // double *wave, *delta, *noise;
 // mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
-: PB(p_or_b),
-wave_head(NULL), delta_head(NULL), noise_head(NULL), 
-fname(fname_qso)
+: PB(p_or_b), shift(0), fname(fname_qso), size(0)
 {
     if (PB == Picca)
         pfile = std::make_unique<PiccaFile>(fname);
@@ -57,23 +55,20 @@ fname(fname_qso)
 }
 
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
-: PB(qmaster.PB), fname(qmaster.fname), 
+: PB(qmaster.PB), shift(0), fname(qmaster.fname), 
 z_qso(qmaster.z_qso), snr(qmaster.snr), id(qmaster.id),
 R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
 // dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda),
 {
     size = i2-i1;
 
-    wave  = new double[size];
-    delta = new double[size];
-    noise = new double[size];
-    wave_head  = wave;
-    delta_head = delta;
-    noise_head = noise;
+    wave_head  = std::make_unique<double[]>(size);
+    delta_head = std::make_unique<double[]>(size);
+    noise_head = std::make_unique<double[]>(size);
 
-    std::copy(qmaster.wave+i1, qmaster.wave+i2, wave);
-    std::copy(qmaster.delta+i1, qmaster.delta+i2, delta);
-    std::copy(qmaster.noise+i1, qmaster.noise+i2, noise);
+    std::copy(qmaster.wave()+i1, qmaster.wave()+i2, wave());
+    std::copy(qmaster.delta()+i1, qmaster.delta()+i2, delta());
+    std::copy(qmaster.noise()+i1, qmaster.noise()+i2, noise());
 
     if (qmaster.Rmat)
         Rmat = std::make_unique<mxhelp::Resolution>(qmaster.Rmat.get(), i1, i2);
@@ -90,9 +85,6 @@ void QSOFile::closeFile()
 QSOFile::~QSOFile()
 {
     closeFile();
-    delete [] wave_head;
-    delete [] delta_head;
-    delete [] noise_head;
 }
 
 void QSOFile::readParameters()
@@ -105,24 +97,23 @@ void QSOFile::readParameters()
 
 void QSOFile::readData()
 {
-    wave  = new double[size];
-    delta = new double[size];
-    noise = new double[size];
+    if (size <= 0)
+        throw std::runtime_error("File is non-positive!");
+
+    wave_head  = std::make_unique<double[]>(size);
+    delta_head = std::make_unique<double[]>(size);
+    noise_head = std::make_unique<double[]>(size);
 
     if (pfile)
-        pfile->readData(wave, delta, noise);
+        pfile->readData(wave(), delta(), noise());
     else
-        bqfile->readData(wave, delta, noise);
-
-    wave_head  = wave;
-    delta_head = delta;
-    noise_head = noise;
+        bqfile->readData(wave(), delta(), noise());
 
     // Update dv and dlambda
     if (dlambda < 0)
-        dlambda = _getMediandlambda(wave, size);
+        dlambda = _getMediandlambda(wave(), size);
     if (dv_kms < 0)
-        dv_kms  = _getMediandv(wave, size);
+        dv_kms  = _getMediandv(wave(), size);
 }
 
 int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
@@ -130,8 +121,8 @@ int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
     double l1 = LYA_REST * (1+z_lower_edge), l2 = LYA_REST * (1+z_upper_edge);
     int wi1, wi2;
 
-    wi1 = std::lower_bound(wave, wave+size, l1)-wave;
-    wi2 = std::upper_bound(wave, wave+size, l2)-wave;
+    wi1 = std::lower_bound(wave(), wave()+size, l1)-wave();
+    wi2 = std::upper_bound(wave(), wave()+size, l2)-wave();
     int newsize = wi2-wi1;
 
     if ((wi1 == size) || (wi2 == 0)) // empty
@@ -140,9 +131,7 @@ int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
     if ((wi1 == 0) && (wi2 == size)) // no change
         return size;
 
-    wave  += wi1;
-    delta += wi1;
-    noise += wi1;
+    shift = wi1;
     size  = newsize;
 
     if (Rmat)
@@ -155,22 +144,19 @@ int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
 void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 {
-    if (wave_head == NULL)
+    if (!wave_head)
     {
-        wave  = new double[size];
-        delta = new double[size];
+        wave_head  = std::make_unique<double[]>(size);
+        delta_head = std::make_unique<double[]>(size);
         if (pfile)
-            pfile->readData(wave, delta, delta);
+            pfile->readData(wave(), delta(), delta());
         else
-            bqfile->readData(wave, delta, delta);
-
-        wave_head  = wave;
-        delta_head = delta;
+            bqfile->readData(wave(), delta(), delta());
     }
 
-    zmin = wave[0] / LYA_REST - 1;
-    zmax = wave[size-1] / LYA_REST - 1;
-    zmed = wave[size/2] / LYA_REST - 1;
+    zmin = wave()[0] / LYA_REST - 1;
+    zmax = wave()[size-1] / LYA_REST - 1;
+    zmed = wave()[size/2] / LYA_REST - 1;
 }
 
 void QSOFile::readAllocResolutionMatrix()
@@ -183,8 +169,8 @@ void QSOFile::readAllocResolutionMatrix()
 
 void QSOFile::recalcDvDLam()
 {
-    dlambda = _getMediandlambda(wave, size);
-    dv_kms  = _getMediandv(wave, size);
+    dlambda = _getMediandlambda(wave(), size);
+    dv_kms  = _getMediandv(wave(), size);
 }
 
 // ============================================================================
