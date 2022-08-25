@@ -404,7 +404,7 @@ void OneDQuadraticPowerEstimate::iterate()
                 MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            MPI_Allreduce(MPI_IN_PLACE, dbt_estimate_sum_before_fisher_vector[dbt_i], 
+            MPI_Allreduce(MPI_IN_PLACE, dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 
                 bins::TOTAL_KZ_BINS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         #endif
 
@@ -442,7 +442,8 @@ void OneDQuadraticPowerEstimate::iterate()
 
         if (hasConverged())
         {
-            LOG::LOGGER.STD("Iteration has converged in %d iterations.\n", i+1);
+            LOG::LOGGER.STD("Iteration has converged in %d iterations.\n",
+                iteration+1);
             break;
         }
 
