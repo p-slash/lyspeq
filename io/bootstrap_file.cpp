@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <stdexcept>
 
-std::unique_ptr<BootstrapFile> ioh::boot_saver;
+std::unique_ptr<ioh::BootstrapFile> ioh::boot_saver;
 
 ioh::BootstrapFile::BootstrapFile(const std::string &base, int nk, int nz, int thispe)
 : nkbins(nz), nzbins(nz), nkzbins(nk*nz), pe(thispe)
