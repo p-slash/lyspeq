@@ -96,63 +96,6 @@ void RealField::fftK2X()
     current_space = X_SPACE;
 }
 
-void RealField::getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins)
-{
-    int *bincount = new int[number_of_bins];
-
-    getPowerSpectrum(ps, kband_edges, number_of_bins, bincount);
-    delete [] bincount;
-}
-
-void RealField::getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins, 
-    int *bincount)
-{
-    if (current_space == X_SPACE)   fftX2K();
-
-    int bin_no = 0;
-
-    double temp;
-
-    for (int n = 0; n < number_of_bins; n++)
-    {
-        bincount[n] = 0;
-        ps[n]       = 0;
-    }
-
-    for (int i = 1; i < size_complex; i++)
-    {
-        temp = i * (2. * PI / length);
-
-        if (temp < kband_edges[0] )             continue;
-        if (temp > kband_edges[number_of_bins]) break;
-
-        while (kband_edges[bin_no + 1] < temp)  bin_no++;
-
-        temp = std::norm(field_k[i]);
-
-        bincount[bin_no]++;
-        ps[bin_no] += temp;
-
-        // if (i == 0 || i == size_real / 2)
-        // {
-        //     bincount[bin_no]++;
-        //     ps[bin_no] += temp;
-        // }
-        // else
-        // {
-        //     bincount[bin_no] += 2;
-        //     ps[bin_no] += 2. * temp;
-        // }
-    }
-
-    for (int n = 0; n < number_of_bins; n++)
-    {
-        ps[n] /= length * bincount[n];
-        
-        if (bincount[n] == 0)   ps[n] = 0;
-    }
-}
-
 void RealField::deconvolve(double (*f)(double, void*), void *params)
 {
     if (current_space == X_SPACE)   fftX2K();
@@ -208,6 +151,60 @@ void RealField::deconvolveSinc(double m)//, double downsampling)
 
 
 
+// void RealField::getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins)
+// {
+//     int *bincount = new int[number_of_bins];
 
+//     getPowerSpectrum(ps, kband_edges, number_of_bins, bincount);
+//     delete [] bincount;
+// }
 
+// void RealField::getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins, 
+//     int *bincount)
+// {
+//     if (current_space == X_SPACE)   fftX2K();
+
+//     int bin_no = 0;
+
+//     double temp;
+
+//     for (int n = 0; n < number_of_bins; n++)
+//     {
+//         bincount[n] = 0;
+//         ps[n]       = 0;
+//     }
+
+//     for (int i = 1; i < size_complex; i++)
+//     {
+//         temp = i * (2. * PI / length);
+
+//         if (temp < kband_edges[0] )             continue;
+//         if (temp > kband_edges[number_of_bins]) break;
+
+//         while (kband_edges[bin_no + 1] < temp)  bin_no++;
+
+//         temp = std::norm(field_k[i]);
+
+//         bincount[bin_no]++;
+//         ps[bin_no] += temp;
+
+//         // if (i == 0 || i == size_real / 2)
+//         // {
+//         //     bincount[bin_no]++;
+//         //     ps[bin_no] += temp;
+//         // }
+//         // else
+//         // {
+//         //     bincount[bin_no] += 2;
+//         //     ps[bin_no] += 2. * temp;
+//         // }
+//     }
+
+//     for (int n = 0; n < number_of_bins; n++)
+//     {
+//         ps[n] /= length * bincount[n];
+        
+//         if (bincount[n] == 0)   ps[n] = 0;
+//     }
+// }
 
