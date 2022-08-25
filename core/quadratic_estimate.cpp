@@ -382,9 +382,9 @@ void OneDQuadraticPowerEstimate::iterate()
     total_time_1it  = mytime::timer.getTime() - total_time_1it;
     LOG::LOGGER.STD("Local files are read in %.1f minutes.\n", total_time_1it);
 
-    for (int i = 0; i < NUMBER_OF_ITERATIONS; i++)
+    for (int iteration = 0; iteration < NUMBER_OF_ITERATIONS; iteration++)
     {
-        LOG::LOGGER.STD("Iteration number %d of %d.\n", i+1, NUMBER_OF_ITERATIONS);
+        LOG::LOGGER.STD("Iteration number %d of %d.\n", iteration+1, NUMBER_OF_ITERATIONS);
         total_time_1it = mytime::timer.getTime();
 
         // Set total Fisher matrix and omn before F to zero for all k, z bins
@@ -435,7 +435,7 @@ void OneDQuadraticPowerEstimate::iterate()
             total_time_1it = mytime::timer.getTime() - total_time_1it;
             total_time    += total_time_1it;
             if (process::this_pe == 0)
-                iterationOutput(i, total_time_1it, total_time);
+                iterationOutput(iteration, total_time_1it, total_time);
             throw e;
         }
 
@@ -444,7 +444,7 @@ void OneDQuadraticPowerEstimate::iterate()
         total_time    += total_time_1it;
 
         if (process::this_pe == 0)
-            iterationOutput(i, total_time_1it, total_time);
+            iterationOutput(iteration, total_time_1it, total_time);
 
         #if defined(ENABLE_MPI)
         MPI_Barrier(MPI_COMM_WORLD);
@@ -456,7 +456,7 @@ void OneDQuadraticPowerEstimate::iterate()
             break;
         }
 
-        if (i == NUMBER_OF_ITERATIONS-1)
+        if (iteration == NUMBER_OF_ITERATIONS-1)
             break;
 
         try
