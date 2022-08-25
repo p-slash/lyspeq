@@ -293,8 +293,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
         bins::TOTAL_KZ_BINS);
 }
 
-void OneDQuadraticPowerEstimate::_readScriptOutput(double *script_power, 
-    const char *fname, void *itsfits)
+void OneDQuadraticPowerEstimate::_readScriptOutput(const char *fname, void *itsfits)
 {
     int fr;
     FILE *tmp_fit_file = ioh::open_file(fname, "r");
@@ -316,67 +315,18 @@ void OneDQuadraticPowerEstimate::_readScriptOutput(double *script_power,
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        fr = fscanf(tmp_fit_file, "%le\n", &script_power[i_kz]);
+        fr = fscanf(tmp_fit_file, "%le\n", &powerspectra_fits[i_kz]);
 
         if (fr != 1)
             throw std::runtime_error("Reading fit power values from tmp_fit_file!");
 
-        script_power[i_kz] -= powerSpectrumFiducial(kn, zm);
+        powerspectra_fits[i_kz] -= powerSpectrumFiducial(kn, zm);
     }
 
     fclose(tmp_fit_file);
 }
 
-
-// Note that fitting is done deviations plus fiducial power
-void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fitted_power)
-{
-    static fidpd13::pd13_fit_params iteration_fits = fidpd13::FIDUCIAL_PD13_PARAMS;
-    
-    char tmp_ps_fname[320], tmp_fit_fname[320];
-
-    ioh::create_tmp_file(tmp_ps_fname, process::TMP_FOLDER);
-    ioh::create_tmp_file(tmp_fit_fname, process::TMP_FOLDER);
-    
-    writeSpectrumEstimates(tmp_ps_fname);
-
-    std::ostringstream command("lorentzian_fit.py ", std::ostringstream::ate);
-    command << tmp_ps_fname << " " << tmp_fit_fname << " "
-        << iteration_fits.A << " " << iteration_fits.n << " " 
-        << iteration_fits.n << " ";
-
-    // Do not pass redshift parameters if there is only one redshift bin
-    if (bins::NUMBER_OF_Z_BINS > 1)
-        command << iteration_fits.B << " " << iteration_fits.beta << " ";
-    
-    command << iteration_fits.lambda;
-    
-    // Sublime text acts weird when `<< " >> " <<` is explicitly typed
-    #define GGSTR " >> "
-    if (process::this_pe == 0) 
-        command << GGSTR << LOG::LOGGER.getFileName(LOG::TYPE::STD);   
-    #undef GGSTR
-
-    LOG::LOGGER.STD("%s\n", command.str().c_str());
-    LOG::LOGGER.close();
-
-    // Print from python does not go into LOG::LOGGER
-    int s1 = system(command.str().c_str());
-    
-    LOG::LOGGER.reopen();
-    remove(tmp_ps_fname);
-
-    if (s1 != 0)
-    {
-        LOG::LOGGER.ERR("Error in fitting.\n");  
-        throw std::runtime_error("fitting error");
-    }
-
-    _readScriptOutput(fitted_power, tmp_fit_fname, &iteration_fits);
-    remove(tmp_fit_fname);
-}
-
-void OneDQuadraticPowerEstimate::_smoothPowerSpectra(double *smoothed_power)
+void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
 {
     char tmp_ps_fname[320], tmp_smooth_fname[320];
     
@@ -412,7 +362,7 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra(double *smoothed_power)
         throw std::runtime_error("smoothing error");
     }
 
-    _readScriptOutput(smoothed_power, tmp_smooth_fname);
+    _readScriptOutput(tmp_smooth_fname);
     remove(tmp_smooth_fname);
 }
 
@@ -511,7 +461,7 @@ void OneDQuadraticPowerEstimate::iterate()
 
         try
         {
-            _smoothPowerSpectra(powerspectra_fits);
+            _smoothPowerSpectra();
         }
         catch (std::exception& e)
         {
@@ -816,7 +766,53 @@ void OneDQuadraticPowerEstimate::_savePEResult()
 
 
 
+// Note that fitting is done deviations plus fiducial power
+// void OneDQuadraticPowerEstimate::_fitPowerSpectra(double *fitted_power)
+// {
+//     static fidpd13::pd13_fit_params iteration_fits = fidpd13::FIDUCIAL_PD13_PARAMS;
+    
+//     char tmp_ps_fname[320], tmp_fit_fname[320];
 
+//     ioh::create_tmp_file(tmp_ps_fname, process::TMP_FOLDER);
+//     ioh::create_tmp_file(tmp_fit_fname, process::TMP_FOLDER);
+    
+//     writeSpectrumEstimates(tmp_ps_fname);
+
+//     std::ostringstream command("lorentzian_fit.py ", std::ostringstream::ate);
+//     command << tmp_ps_fname << " " << tmp_fit_fname << " "
+//         << iteration_fits.A << " " << iteration_fits.n << " " 
+//         << iteration_fits.n << " ";
+
+//     // Do not pass redshift parameters if there is only one redshift bin
+//     if (bins::NUMBER_OF_Z_BINS > 1)
+//         command << iteration_fits.B << " " << iteration_fits.beta << " ";
+    
+//     command << iteration_fits.lambda;
+    
+//     // Sublime text acts weird when `<< " >> " <<` is explicitly typed
+//     #define GGSTR " >> "
+//     if (process::this_pe == 0) 
+//         command << GGSTR << LOG::LOGGER.getFileName(LOG::TYPE::STD);   
+//     #undef GGSTR
+
+//     LOG::LOGGER.STD("%s\n", command.str().c_str());
+//     LOG::LOGGER.close();
+
+//     // Print from python does not go into LOG::LOGGER
+//     int s1 = system(command.str().c_str());
+    
+//     LOG::LOGGER.reopen();
+//     remove(tmp_ps_fname);
+
+//     if (s1 != 0)
+//     {
+//         LOG::LOGGER.ERR("Error in fitting.\n");  
+//         throw std::runtime_error("fitting error");
+//     }
+
+//     _readScriptOutput(fitted_power, tmp_fit_fname, &iteration_fits);
+//     remove(tmp_fit_fname);
+// }
 
 
 

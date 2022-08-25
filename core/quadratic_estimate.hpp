@@ -52,11 +52,11 @@ class OneDQuadraticPowerEstimate
     // Add $HOME/bin to your $PATH
 
     // Fitting procedure calls Python3 script lorentzian_fit.py.
-    void _fitPowerSpectra(double *fitted_power);
+    // void _fitPowerSpectra(double *fitted_power);
 
     // Weighted smoothing using 2D spline calls Python3 script smbivspline.py
-    void _smoothPowerSpectra(double *smoothed_power);
-    void _readScriptOutput(double *script_power, const char *fname, void *itsfits=NULL);
+    void _smoothPowerSpectra();
+    void _readScriptOutput(const char *fname, void *itsfits=NULL);
 
     // Performs a load balancing operation based on N^3 estimation
     void _loadBalancing(std::vector<std::string> &filepaths, 
