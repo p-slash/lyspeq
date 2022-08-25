@@ -41,7 +41,6 @@ int main(int argc, char *argv[])
     }
 
     const char *FNAME_CONFIG = argv[1];
-    int r = 0;
 
     gsl_set_error_handler_off();
 
@@ -171,7 +170,7 @@ int main(int argc, char *argv[])
     MPI_Finalize();
     #endif
 
-    return r;
+    return 0;
 }
 
 

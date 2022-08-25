@@ -664,7 +664,8 @@ void Chunk::computePSbeforeFvector()
 }
 
 void Chunk::oneQSOiteration(const double *ps_estimate, 
-    double *dbt_sum_vector[3], double *fisher_sum)
+    std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
+    double *fisher_sum)
 {
     LOG::LOGGER.DEB("File %s\n", qFile->fname.c_str());
     LOG::LOGGER.DEB("TargetID %ld\n", qFile->id);
@@ -717,7 +718,7 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
         mxhelp::vector_add(fisher_sum, fisher_matrix, bins::FISHER_SIZE);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            mxhelp::vector_add(dbt_sum_vector[dbt_i], 
+            mxhelp::vector_add(dbt_sum_vector[dbt_i].get(), 
                 dbt_estimate_before_fisher_vector[dbt_i], bins::TOTAL_KZ_BINS);
 
         // // Write results to file with their qso filename as base

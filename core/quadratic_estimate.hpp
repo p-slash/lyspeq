@@ -29,17 +29,19 @@ class OneDQuadraticPowerEstimate
     std::vector<std::string> local_fpaths;
 
     // 3 TOTAL_KZ_BINS sized vectors
-    double  *dbt_estimate_sum_before_fisher_vector[3],
-            *dbt_estimate_fisher_weighted_vector[3], 
-            *previous_power_estimate_vector, *current_power_estimate_vector,
-            *powerspectra_fits;
+    std::vector<std::unique_ptr<double[]>>
+                dbt_estimate_sum_before_fisher_vector,
+                dbt_estimate_fisher_weighted_vector;
+    std::unique_ptr<double[]>   previous_power_estimate_vector,
+                                current_power_estimate_vector,
+                                powerspectra_fits;
 
     std::unique_ptr<double[]> temp_vector;
     std::vector<double> precomputed_fisher;
     void _readPrecomputedFisher(const std::string &fname);
 
     // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
-    double *fisher_matrix_sum, *inverse_fisher_matrix_sum;
+    std::unique_ptr<double[]> fisher_matrix_sum, inverse_fisher_matrix_sum;
 
     bool isFisherInverted;
 
@@ -76,7 +78,7 @@ public:
     */
     OneDQuadraticPowerEstimate(const ConfigFile &con);
 
-    ~OneDQuadraticPowerEstimate();
+    ~OneDQuadraticPowerEstimate() {};
     
     double powerSpectrumFiducial(int kn, int zm);
 

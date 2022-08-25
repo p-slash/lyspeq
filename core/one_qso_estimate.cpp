@@ -98,7 +98,8 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 }
 
 void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, 
-    double *dbt_sum_vector[3], double *fisher_sum)
+    std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
+    double *fisher_sum)
 {
     for (auto it = chunks.begin(); it != chunks.end(); ++it)
     {
