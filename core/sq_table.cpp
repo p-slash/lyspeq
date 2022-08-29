@@ -4,10 +4,6 @@
 #include <algorithm> // std::copy
 #include <stdexcept>
 
-#if defined(ENABLE_MPI)
-#include "mpi.h" 
-#endif
-
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
 #include "mathtools/fourier_integrator.hpp"

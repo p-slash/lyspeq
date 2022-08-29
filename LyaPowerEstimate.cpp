@@ -166,7 +166,12 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    qps.reset();
+
     #if defined(ENABLE_MPI)
+    // Make sure bootsaver is deleted before
+    // MPI finalized
+    ioh::boot_saver.reset();
     MPI_Finalize();
     #endif
 
