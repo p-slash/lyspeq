@@ -329,9 +329,8 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
 
     if (specifics::SMOOTH_LOGK_LOGP)
         additional_command = " --interp_log";
-    
-    if (process::this_pe == 0) 
-        additional_command += " >> " + LOG::LOGGER.getFileName(LOG::TYPE::STD);
+ 
+    additional_command += " >> " + LOG::LOGGER.getFileName(LOG::TYPE::STD);
 
     command << additional_command;
       
@@ -452,7 +451,12 @@ void OneDQuadraticPowerEstimate::iterate()
 
         try
         {
-            _smoothPowerSpectra();
+            if (process::this_pe == 0)
+                _smoothPowerSpectra();
+            #if defined(ENABLE_MPI)
+            MPI_Bcast(powerspectra_fits.get(), bins::TOTAL_KZ_BINS,
+                MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            #endif
         }
         catch (std::exception& e)
         {
