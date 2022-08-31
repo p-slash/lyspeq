@@ -6,6 +6,30 @@
 #define N 8
 #define NA 4
 
+bool isClose(double a, double b, double relerr=1e-4)
+{
+    double diff = fabs(a-b), divi = (fabs(a)+fabs(b))/2;
+    return (diff/divi) < relerr;
+}
+
+void test_trace_ddiagmv()
+{
+    const int ndim = 496;
+    const double truth = -3522.0979676252823;
+    std::vector<double> A, vec;
+    int nrows, ncols;
+
+    A = mxhelp::fscanfMatrix("tests/input/test_matrix_ddiagmv.txt", nrows, ncols);
+    assert(nrows == ndim);
+    assert(ncols == ndim);
+    vec = mxhelp::fscanfMatrix("tests/input/test_diagonal_ddiagmv.txt", nrows, ncols);
+    assert(nrows == ndim);
+    assert(ncols == 1);
+
+    double result =  mxhelp::trace_ddiagmv(A.data(), vec.data(), ndim);
+    assert(isClose(result, truth));
+}
+
 int main()
 {
     // Test cblas_ddot
@@ -62,13 +86,14 @@ int main()
     }
 
     // Test trace_ddiagmv
+    test_trace_ddiagmv();
     printf("%lf\n", mxhelp::trace_ddiagmv(smy_matrix_A, vector_B, NA));
 
     // my_cblas_dsymvdot
     auto temp_vector = std::make_unique<double[]>(NA);
     printf("%lf\n", mxhelp::my_cblas_dsymvdot(vector_B, smy_matrix_A,
         temp_vector.get(), NA));
-    
+
     // Test LU invert
     mxhelp::LAPACKE_InvertMatrixLU(smy_matrix_A, NA);
     mxhelp::printfMatrix(smy_matrix_A, NA, NA);
