@@ -10,7 +10,7 @@
 std::unique_ptr<ioh::BootstrapFile> ioh::boot_saver;
 
 ioh::BootstrapFile::BootstrapFile(const std::string &base, int nk, int nz, int thispe)
-: nkbins(nz), nzbins(nz), pe(thispe)
+: nkbins(nk), nzbins(nz), pe(thispe)
 {
     int r=0;
     std::string out_fname = base + "-bootresults.dat";

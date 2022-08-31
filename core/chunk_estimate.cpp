@@ -564,6 +564,11 @@ void Chunk::computePSbeforeFvector()
 {
     double *Q_ikz_matrix = temp_matrix[0].get(), *Sfid_matrix, temp_tk = 0;
 
+    if (isSfidSet)
+        Sfid_matrix = stored_sfid.get();
+    else
+        Sfid_matrix = temp_matrix[1].get();
+
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
     cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size, 1.,
         inverse_covariance_matrix.get(), 
@@ -596,13 +601,8 @@ void Chunk::computePSbeforeFvector()
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
         {
-            if (isSfidSet)
-                Sfid_matrix = stored_sfid.get();
-            else
-            {
-                Sfid_matrix = temp_matrix[1].get();
+            if (!isSfidSet)
                 _setFiducialSignalMatrix(Sfid_matrix);
-            }
 
             LOG::LOGGER.DEB("-> tk   ");
             // Tr(C-1 Qi C-1 Sfid)
