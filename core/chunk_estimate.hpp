@@ -37,11 +37,13 @@ protected:
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // DATA_SIZE sized vectors. 
     // Will have finer spacing when rmat is oversampled
-    double *highres_lambda;
+    double *_matrix_lambda; // Do not delete!
+
+    // Oversampled resomat specifics
+    std::unique_ptr<double[]> _finer_lambda, _finer_matrix;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
-
     std::unique_ptr<double[]> covariance_matrix, inverse_covariance_matrix,
         stored_sfid;
     std::vector<std::unique_ptr<double[]>> temp_matrix, stored_qj;

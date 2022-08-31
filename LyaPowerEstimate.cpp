@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     {
         if (process::SAVE_EACH_PE_RESULT)
             ioh::boot_saver = std::make_unique<ioh::BootstrapFile>(process::FNAME_BASE,
-                bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS, bins::TOTAL_KZ_BINS);
+                bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS, process::this_pe);
         MPI_Barrier(MPI_COMM_WORLD);
     }
     catch (std::exception& e)

@@ -67,21 +67,21 @@ namespace mxhelp
 
     class DiaMatrix
     {
-        double* _getDiagonal(int d);
-        std::unique_ptr<double[]> sandwich_buffer;
+        std::unique_ptr<int[]> offsets;
+        std::unique_ptr<double[]> values, sandwich_buffer;
 
+        double* _getDiagonal(int d);
         // void _getRowIndices(int i, int *indices);
         void _getRowIndices(int i, std::vector<int> &indices);
 
     public:
         int ndim, ndiags, size;
-        std::unique_ptr<int[]> offsets;
-        std::unique_ptr<double[]> matrix;
 
         DiaMatrix(int nm, int ndia);
         DiaMatrix(DiaMatrix &&rhs) = default;
         DiaMatrix(const DiaMatrix &rhs) = delete;
 
+        double* matrix() const { return values.get(); };
         void getRow(int i, double *row);
         void getRow(int i, std::vector<double> &row);
         // Swap diagonals
@@ -109,14 +109,13 @@ namespace mxhelp
 
     class OversampledMatrix
     {
-        std::unique_ptr<double[]> sandwich_buffer;
+        std::unique_ptr<double[]> values, sandwich_buffer;
 
         double* _getRow(int i);
     public:
         int nrows, ncols, nvals;
         int nelem_per_row, oversampling;
         double fine_dlambda;
-        std::unique_ptr<double[]> temp_highres_mat, matrix;
 
         // n1 : Number of rows.
         // nelem_prow : Number of elements per row. Should be odd.
@@ -126,6 +125,7 @@ namespace mxhelp
         OversampledMatrix(OversampledMatrix &&rhs) = default;
         OversampledMatrix(const OversampledMatrix &rhs) = delete;
 
+        double* matrix() const { return values.get(); };
         int getNCols() const { return ncols; };
 
         // R . A = B
@@ -137,11 +137,8 @@ namespace mxhelp
         // B should be nrows x nrows, will be initialized to zero
         void multiplyRight(const double* A, double *B);
 
-        // Manually create and set temp_highres_mat
-        void allocateTempHighRes();
-        double* allocWaveGrid(double w1);
         // B = R . Temp . R^T
-        void sandwichHighRes(double *B);
+        void sandwichHighRes(double *B, double *temp_highres_mat);
 
         void freeBuffers();
         double getMinMemUsage();
@@ -160,8 +157,6 @@ namespace mxhelp
         std::unique_ptr<DiaMatrix> dia_matrix;
         std::unique_ptr<OversampledMatrix> osamp_matrix;
     public:
-        double *matrix, *temp_highres_mat;
-
         Resolution(int nm, int ndia);
         // n1 : Number of rows.
         // nelem_prow : Number of elements per row. Should be odd.
@@ -174,6 +169,9 @@ namespace mxhelp
 
         int getNCols() const { return ncols; };
         bool isDiaMatrix() const { return is_dia_matrix; };
+        double* matrix() const;
+        int getNElemPerRow() const;
+
         void cutBoundary(int i1, int i2);
 
         void transpose();
@@ -181,11 +179,8 @@ namespace mxhelp
         void deconvolve(double m);
         void oversample(int osamp, double dlambda);
 
-        // Manually create and set temp_highres_mat
-        void allocateTempHighRes();
-        double* allocWaveGrid(double w1);
         // B = R . Temp . R^T
-        void sandwich(double *B);
+        void sandwich(double *B, double *temp_highres_mat);
 
         void freeBuffers();
         double getMinMemUsage();

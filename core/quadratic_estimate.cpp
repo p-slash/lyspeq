@@ -399,7 +399,7 @@ void OneDQuadraticPowerEstimate::iterate()
 
         LOG::LOGGER.DEB("MPI All reduce.\n");
         if (!specifics::USE_PRECOMPUTED_FISHER)
-            MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum.get(),bins::FISHER_SIZE,
+            MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum.get(), bins::FISHER_SIZE,
                 MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
@@ -726,7 +726,7 @@ void OneDQuadraticPowerEstimate::_readPrecomputedFisher(const std::string &fname
     precomputed_fisher = mxhelp::fscanfMatrix(fname.c_str(), N1, N2);
 
     if (N1 != bins::TOTAL_KZ_BINS || N2 != bins::TOTAL_KZ_BINS
-        || precomputed_fisher.size() != bins::FISHER_SIZE)
+        || precomputed_fisher.size() != (unsigned long) bins::FISHER_SIZE)
         throw std::invalid_argument("Precomputed Fisher matrix does not have" 
             " correct number of rows or columns.");
 }

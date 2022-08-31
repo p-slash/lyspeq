@@ -16,8 +16,9 @@ namespace ioh
 class BootstrapFile
 {
     MPI_File bootfile;
-    int nkbins, nzbins, nkzbins, pe,
-        ndiags, cf_size, elems_count;
+    int nkbins, nzbins, pe,
+        nkzbins, ndiags, cf_size,
+        elems_count;
     // First bins::TOTAL_KZ_BINS elements are the power spectrum
     std::unique_ptr<double[]> data_buffer;
 
