@@ -89,10 +89,10 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     NUMBER_OF_QSOS = ioh::readList(fname_list, filepaths);
     // Add parent directory to file path
-    for (auto fq = filepaths.begin(); fq != filepaths.end(); ++fq)
+    for (auto &fq : filepaths)
     {
-        fq->insert(0, "/");
-        fq->insert(0, dir);
+        fq.insert(0, "/");
+        fq.insert(0, dir);
     }
 
     // Each PE reads a different section of files
@@ -245,8 +245,8 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     mxhelp::LAPACKE_InvertMatrixLU(inverse_fisher_matrix_sum.get(), 
         bins::TOTAL_KZ_BINS);
 
-    for (auto it = empty_indx.begin(); it != empty_indx.end(); ++it)
-        inverse_fisher_matrix_sum[(bins::TOTAL_KZ_BINS+1)*(*it)] = 0;
+    for (auto i_kz : empty_indx)
+        inverse_fisher_matrix_sum[(bins::TOTAL_KZ_BINS+1)*i_kz] = 0;
 
     isFisherInverted = true;
 
@@ -360,8 +360,8 @@ void OneDQuadraticPowerEstimate::iterate()
     // Construct local queue
     std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
     local_queue.reserve(local_fpaths.size());
-    for (auto it = local_fpaths.begin(); it != local_fpaths.end(); ++it)
-        local_queue.push_back(std::make_unique<OneQSOEstimate>(*it));
+    for (auto fpath : local_fpaths)
+        local_queue.push_back(std::make_unique<OneQSOEstimate>(fpath));
 
     if (specifics::INPUT_QSO_FILE == qio::Picca)
         qio::PiccaFile::clearCache();
@@ -379,9 +379,9 @@ void OneDQuadraticPowerEstimate::iterate()
 
         // Calculation for each spectrum
         LOG::LOGGER.DEB("Running on local queue size %zu\n", local_queue.size());
-        for (auto it = local_queue.begin(); it != local_queue.end(); ++it)
+        for (auto &one_qso : local_queue)
         {
-            (*it)->oneQSOiteration(powerspectra_fits.get(), 
+            one_qso->oneQSOiteration(powerspectra_fits.get(), 
                 dbt_estimate_sum_before_fisher_vector,
                 fisher_matrix_sum.get()
             );

@@ -24,11 +24,11 @@
 
 void ConfigFile::addDefaults(const config_map &default_config)
 {
-    for (auto it = default_config.begin(); it != default_config.end(); ++it)
+    for (auto entry : default_config)
     {
-        auto kumap_itr = key_umap.find(it->first);
+        auto kumap_itr = key_umap.find(entry.first);
         if (kumap_itr == key_umap.end())
-            key_umap[it->first] = it->second;
+            key_umap[entry.first] = entry.second;
     }
 }
 
@@ -93,9 +93,9 @@ void ConfigFile::writeConfig(FILE *toWrite, std::string prefix) const
     const char *c_prefix = prefix.c_str();
     fprintf(toWrite, "%sUsing following configuration parameters:\n",
         c_prefix);
-    for (auto it = key_umap.begin(); it != key_umap.end(); ++it)
+    for (auto entry : key_umap)
         fprintf(toWrite, "%s%s %s\n", c_prefix,
-            it->first.c_str(), it->second.c_str());
+            entry.first.c_str(), entry.second.c_str());
 }
 
 // bool ConfigFile::getBool(const std::string &key, bool fallback=false) const

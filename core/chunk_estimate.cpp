@@ -259,8 +259,6 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
         #endif
 
         return res * N_Q_MATRICES * N_M_COMBO;
-
-        #undef N_M_COMBO
     }
     catch (std::exception& e)
     {

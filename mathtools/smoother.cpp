@@ -110,7 +110,7 @@ void Smoother::smoothNoise(const double *n2, double *out, int size)
     }
 
     // Restore original noise for masked pixels
-    for (auto it = mask_idx.begin(); it != mask_idx.end(); ++it)
-        out[*it] = n2[*it];
+    for (auto idx : mask_idx)
+        out[idx] = n2[idx];
 }
 
