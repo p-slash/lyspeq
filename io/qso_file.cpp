@@ -4,6 +4,7 @@
 #include <cmath>
 #include <algorithm>
 #include <numeric> // std::adjacent_difference
+#include <limits>
 #include <stdexcept>
 
 namespace qio
@@ -440,7 +441,9 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
 
     _checkStatus();
 
-    std::for_each(noise, noise+curr_N, [](double &ld) { ld = 1./sqrt(ld+1e-32); });
+    std::for_each(noise, noise+curr_N, [](double &ld)
+        { ld = 1./sqrt(ld+std::numeric_limits<double>::epsilon()); }
+    );
 }
 
 std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix(int oversampling, double dlambda)
