@@ -138,7 +138,7 @@ namespace mxhelp
         void multiplyRight(const double* A, double *B);
 
         // B = R . Temp . R^T
-        void sandwichHighRes(double *B, double *temp_highres_mat);
+        void sandwichHighRes(double *B, const double *temp_highres_mat);
 
         void freeBuffers();
         double getMinMemUsage();
@@ -180,7 +180,7 @@ namespace mxhelp
         void oversample(int osamp, double dlambda);
 
         // B = R . Temp . R^T
-        void sandwich(double *B, double *temp_highres_mat);
+        void sandwich(double *B, const double *temp_highres_mat);
 
         void freeBuffers();
         double getMinMemUsage();

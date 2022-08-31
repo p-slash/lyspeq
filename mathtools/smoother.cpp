@@ -19,9 +19,6 @@ void _findMedianStatistics(double *arr, int size, double &median, double &mad)
     mad = 1.4826 * arr[size/2]; // The constant factor makes it unbiased
 }
 
-#define HWSIZE 25
-#define KS 2*HWSIZE+1
-
 int Smoother::sigmapix;
 double Smoother::gaussian_kernel[KS];
 bool Smoother::isKernelSet = false, Smoother::useMedianNoise = false, Smoother::isSmoothingOn = false;
@@ -117,5 +114,3 @@ void Smoother::smoothNoise(const double *n2, double *out, int size)
         out[*it] = n2[*it];
 }
 
-#undef HWSIZE
-#undef KS

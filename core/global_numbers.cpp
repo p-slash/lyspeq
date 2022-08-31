@@ -498,49 +498,39 @@ namespace specifics
             CONT_LAM_MARG_ORDER);
         #undef booltostr
     }
-    
+
     #if defined(TOPHAT_Z_BINNING_FN)
-    #define BINNING_SHAPE "Top Hat"
+    const std::string BINNING_SHAPE = "Top Hat";
     #elif defined(TRIANGLE_Z_BINNING_FN)
-    #define BINNING_SHAPE "Triangular"
+    const std::string BINNING_SHAPE = "Triangular";
     #else
-    #define BINNING_SHAPE "ERROR NOT DEFINED"
+    const std::string BINNING_SHAPE = "ERROR NOT DEFINED";
     #endif
 
-    #define tostr(a) #a
-    #define tovstr(a) tostr(a)
-
     #if defined(FISHER_OPTIMIZATION)
-    #define FISHER_TXT "ON"
+    const std::string FISHER_TXT = "ON";
     #else
-    #define FISHER_TXT "OFF"
+    const std::string FISHER_TXT = "OFF";
     #endif
 
     #if defined(REDSHIFT_GROWTH_POWER)
-    #define RGP_TEXT "ON"
+    const std::string RGP_TEXT = "ON";
     #else
-    #define RGP_TEXT "OFF"
+    const std::string RGP_TEXT = "OFF";
     #endif
 
-    const char BUILD_SPECIFICS[] =  
-        "# This version is build by the following options:\n"
-        "# Fisher optimization: " FISHER_TXT "\n"
-        "# Redshift binning shape: " BINNING_SHAPE "\n" 
-        "# Redshift growth scaling: " RGP_TEXT "\n";
-
-    #undef tostr
-    #undef tovstr
-    #undef BINNING_SHAPE
-    #undef FISHER_TXT
-    #undef RGP_TEXT
-    #undef TORE_TEXT
+    const std::string BUILD_SPECIFICS = 
+        std::string("# This version is build by the following options:\n") +
+        "# Fisher optimization: " + FISHER_TXT + "\n" +
+        "# Redshift binning shape: " + BINNING_SHAPE + "\n" +
+        "# Redshift growth scaling: " + RGP_TEXT + "\n";
 
     void printBuildSpecifics(FILE *toWrite)
     {
         if (toWrite == NULL)
-            LOG::LOGGER.STD(BUILD_SPECIFICS);
+            LOG::LOGGER.STD(BUILD_SPECIFICS.c_str());
         else
-            fprintf(toWrite, specifics::BUILD_SPECIFICS);
+            fprintf(toWrite, "%s", BUILD_SPECIFICS.c_str());
     }
 }
 

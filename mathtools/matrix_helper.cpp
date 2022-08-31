@@ -24,11 +24,12 @@
 #include "lapacke.h"
 #endif
 
-#define SQRT_2 1.41421356237
-#define SQRT_PI 1.77245385091
+const double
+MY_SQRT_2 = 1.41421356237,
+MY_SQRT_PI = 1.77245385091,
+MY_EPSILON_D = std::numeric_limits<double>::epsilon();
 
-// cblas_dcopy(N, sour, isour, tar, itar);
-#define EPSILON_D std::numeric_limits<double>::epsilon()
+// cblas_dcopy(N, sour, isour, tar, itar); 
 template<class InputIt>
 constexpr double nonzero_min_element(InputIt first, InputIt last)
 {
@@ -39,41 +40,37 @@ constexpr double nonzero_min_element(InputIt first, InputIt last)
     {
         double tmp = fabs(*first);
 
-        if (smallest < EPSILON_D)
+        if (smallest < MY_EPSILON_D)
             smallest = tmp;
-        else if (tmp < smallest && tmp > EPSILON_D) 
+        else if (tmp < smallest && tmp > MY_EPSILON_D) 
             smallest = tmp;
     }
 
-    if (smallest < EPSILON_D)
-        smallest = EPSILON_D;
+    if (smallest < MY_EPSILON_D)
+        smallest = MY_EPSILON_D;
 
     return smallest;
 }
-#undef EPSILON_D
 
 double _window_fn_v(double x, double R, double a)
 {
-    double gamma_p = (x + (a/2))/R/SQRT_2,
-           gamma_m = (x - (a/2))/R/SQRT_2;
+    double gamma_p = (x + (a/2))/R/MY_SQRT_2,
+           gamma_m = (x - (a/2))/R/MY_SQRT_2;
 
     return (erf(gamma_p)-erf(gamma_m))/2;
 }
 
 double _integral_erf(double x)
 {
-    return exp(-x*x)/SQRT_PI + x * erf(x);   
+    return exp(-x*x)/MY_SQRT_PI + x * erf(x);   
 }
 
 double _integrated_window_fn_v(double x, double R, double a)
 {
-    double xr = x/R/SQRT_2, ar = a/R/SQRT_2;
+    double xr = x/R/MY_SQRT_2, ar = a/R/MY_SQRT_2;
 
-    return (R/a/SQRT_2) * (_integral_erf(xr+ar) + _integral_erf(xr-ar) - 2*_integral_erf(xr));
+    return (R/a/MY_SQRT_2) * (_integral_erf(xr+ar) + _integral_erf(xr-ar) - 2*_integral_erf(xr));
 }
-
-#undef SQRT_PI
-#undef SQRT_2
 
 namespace mxhelp
 {
@@ -365,7 +362,7 @@ namespace mxhelp
 
     void DiaMatrix::deconvolve(double m) //bool byCol
     {
-        #define HALF_PAD_NO 5
+        const int HALF_PAD_NO = 5;
         int input_size = ndiags+2*HALF_PAD_NO;
         std::unique_ptr<double[]> row = std::make_unique<double[]>(input_size);
         std::vector<int> indices(ndiags);
@@ -392,8 +389,6 @@ namespace mxhelp
         }
 
         // if (byCol)  transpose();
-
-        #undef HALF_PAD_NO
     }
 
     void DiaMatrix::freeBuffer()
@@ -578,7 +573,7 @@ namespace mxhelp
         }
     }
 
-    void OversampledMatrix::sandwichHighRes(double *B, double *temp_highres_mat)
+    void OversampledMatrix::sandwichHighRes(double *B, const double *temp_highres_mat)
     {
         if (!sandwich_buffer)
             sandwich_buffer = std::make_unique<double[]>(nrows*ncols);
@@ -736,19 +731,18 @@ namespace mxhelp
         double rescalor = (double) dia_matrix->ndiags / (double) nelem_per_row;
         osamp_matrix = std::make_unique<OversampledMatrix>(ncols, nelem_per_row, osamp, dlambda);
 
-        #define INPUT_SIZE dia_matrix->ndiags
         double *newrow;
         std::vector<double> row, win, wout;
-        row.reserve(INPUT_SIZE);
-        win.reserve(INPUT_SIZE);
+        row.reserve(dia_matrix->ndiags);
+        win.reserve(dia_matrix->ndiags);
         wout.reserve(nelem_per_row);
 
-        for (int i = 0; i < INPUT_SIZE; ++i)
+        for (int i = 0; i < dia_matrix->ndiags; ++i)
             win.push_back(i-noff);
         for (int i = 0; i < nelem_per_row; ++i)
             wout.push_back(i*1./osamp-noff);
 
-        gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, INPUT_SIZE);
+        gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, dia_matrix->ndiags);
         gsl_interp_accel *acc = gsl_interp_accel_alloc();
 
         // ncols == nrows for dia matrix
@@ -764,7 +758,7 @@ namespace mxhelp
 
             std::for_each(row.begin(), row.end(), [_shift](double &f) { f = log(f-_shift); } );
 
-            gsl_interp_init(interp_cubic, win.data(), row.data(), INPUT_SIZE);
+            gsl_interp_init(interp_cubic, win.data(), row.data(), dia_matrix->ndiags);
 
             std::transform(wout.begin(), wout.end(), newrow, 
                 [&](const double &l) 
@@ -791,7 +785,6 @@ namespace mxhelp
         gsl_interp_free(interp_cubic);
         gsl_interp_accel_free(acc);
         dia_matrix.reset();
-        #undef INPUT_SIZE
     }
 
     void Resolution::deconvolve(double m)
@@ -799,11 +792,11 @@ namespace mxhelp
         if (is_dia_matrix) dia_matrix->deconvolve(m);
     }
 
-    void Resolution::sandwich(double *B, double *temp_highres_mat)
+    void Resolution::sandwich(double *B, const double *temp_highres_mat)
     {
         if (is_dia_matrix)
         {
-            double *tmat __attribute__((unused)) = temp_highres_mat;
+            const double *tmat __attribute__((unused)) = temp_highres_mat;
             dia_matrix->sandwich(B);
         }
         else

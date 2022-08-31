@@ -6,8 +6,9 @@
 
 #include <stdexcept>
 
-#define MIN_PIXELS_IN_SPEC 20
-#define MAX_PIXELS_IN_FOREST 1000
+const int
+MIN_PIXELS_IN_SPEC = 20,
+MAX_PIXELS_IN_FOREST = 1000;
 
 int _decideNChunks(int size, std::vector<int> &indices)
 {
@@ -58,8 +59,6 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
     for (int nc = 0; nc < nchunks; ++nc)
         chunks.emplace_back(qFile, indices[nc], indices[nc+1]);
 }
-
-OneQSOEstimate::~OneQSOEstimate() {}
 
 double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 {

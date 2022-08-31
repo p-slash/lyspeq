@@ -11,13 +11,12 @@
 // Debugging flags. Comment out to turn off
 // #define DEBUG_MATRIX_OUT
 
-#define SPEED_OF_LIGHT 299792.458
-#define LYA_REST 1215.67
-#define PI 3.14159265359
-#define ONE_SIGMA_2_FWHM 2.35482004503
-
-// Quadratic Estimate numbers
-#define CONVERGENCE_EPS 1E-4
+const double
+SPEED_OF_LIGHT = 299792.458,
+LYA_REST = 1215.67,
+MY_PI = 3.14159265359,
+ONE_SIGMA_2_FWHM = 2.35482004503,
+CONVERGENCE_EPS = 1E-4; // Quadratic Estimate numbers
 
 namespace qio
 {

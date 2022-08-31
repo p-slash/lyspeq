@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cassert>
 
-#define PI 3.14159265359
+const double MY_PI = 3.14159265359;
 
 void RealField::construct(double *data)
 {
@@ -104,7 +104,7 @@ void RealField::deconvolve(double (*f)(double, void*), void *params)
 
     for (int i = 0; i < size_complex; i++)
     {
-        k = i * (2. * PI / length);
+        k = i * (2. * MY_PI / length);
 
         field_k[i] /= f(k, params);
     }
@@ -118,7 +118,7 @@ void RealField::deconvolveSinc(double m)//, double downsampling)
 
     for (int i = 1; i < size_complex; i++)
     {
-        x = PI * m * i / size_real;
+        x = MY_PI * m * i / size_real;
         // y = x / (downsampling+1e-8);
         x = sin(x)/x;
         // y = downsampling>1 ? sin(y)/y : 1;
@@ -176,7 +176,7 @@ void RealField::deconvolveSinc(double m)//, double downsampling)
 
 //     for (int i = 1; i < size_complex; i++)
 //     {
-//         temp = i * (2. * PI / length);
+//         temp = i * (2. * MY_PI / length);
 
 //         if (temp < kband_edges[0] )             continue;
 //         if (temp > kband_edges[number_of_bins]) break;
