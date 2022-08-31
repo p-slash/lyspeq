@@ -10,7 +10,7 @@
 std::unique_ptr<ioh::BootstrapFile> ioh::boot_saver;
 
 ioh::BootstrapFile::BootstrapFile(const std::string &base, int nk, int nz, int thispe)
-: nkbins(nz), nzbins(nz), nkzbins(nk*nz), pe(thispe)
+: nkbins(nz), nzbins(nz), pe(thispe)
 {
     int r=0;
     std::string out_fname = base + "-bootresults.dat";
@@ -18,6 +18,7 @@ ioh::BootstrapFile::BootstrapFile(const std::string &base, int nk, int nz, int t
     r += MPI_File_open(MPI_COMM_WORLD, out_fname.c_str(), 
         MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &bootfile);
 
+    nkzbins = nk*nz;
     #ifdef FISHER_OPTIMIZATION
     ndiags  = 3;
     cf_size = 3*nkzbins-nkbins-1;

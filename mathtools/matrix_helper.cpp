@@ -224,7 +224,7 @@ namespace mxhelp
             throw std::runtime_error("DiaMatrix ndiagonal cannot be even!");
 
         size = ndim*ndiags;
-        matrix = std::make_unique<double[]>(size);
+        values = std::make_unique<double[]>(size);
 
         offsets = std::make_unique<int[]>(ndiags);
         for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
@@ -236,10 +236,10 @@ namespace mxhelp
         auto newmat = std::make_unique<double[]>(size);
 
         for (int d = 0; d < ndiags; ++d)
-            cblas_dcopy(ndim, matrix.get()+d, ndiags,
+            cblas_dcopy(ndim, matrix()+d, ndiags,
                 newmat.get()+d*ndim, 1);
 
-        matrix = std::move(newmat);
+        values = std::move(newmat);
     }
 
     double* DiaMatrix::_getDiagonal(int d)
@@ -247,7 +247,7 @@ namespace mxhelp
         int off = offsets[d], od1 = 0;
         if (off > 0)  od1 = off;
 
-        return matrix.get()+(d*ndim+od1);
+        return matrix()+(d*ndim+od1);
     }
 
     // Normalizing this row by row is not yielding somewhat wrong signal matrix
@@ -297,7 +297,7 @@ namespace mxhelp
                 if (abs(off)>ndiags/2)
                     fprintf(toWrite, "0 ");
                 else
-                    fprintf(toWrite, "%14le ", *(matrix.get()+d*ndim+j));
+                    fprintf(toWrite, "%14le ", *(matrix()+d*ndim+j));
             }
             fprintf(toWrite, "\n");
         }
@@ -338,7 +338,7 @@ namespace mxhelp
         _getRowIndices(i, indices);
 
         for (int j = 0; j < ndiags; ++j)
-            row[j] = matrix[indices[j]];
+            row[j] = values[indices[j]];
     }
 
     void DiaMatrix::getRow(int i, std::vector<double> &row)
@@ -348,7 +348,7 @@ namespace mxhelp
         _getRowIndices(i, indices);
 
         for (int j = 0; j < ndiags; ++j)
-            row.push_back(matrix[indices[j]]);
+            row.push_back(values[indices[j]]);
     }
 
     void DiaMatrix::transpose()
@@ -378,7 +378,7 @@ namespace mxhelp
         {
             _getRowIndices(i, indices);
             for (int p = 0; p < ndiags; ++p)
-                row[p+HALF_PAD_NO] = matrix[indices[p]];
+                row[p+HALF_PAD_NO] = values[indices[p]];
 
             // Set padded regions to zero
             for (int p = 0; p < HALF_PAD_NO; ++p)
@@ -388,7 +388,7 @@ namespace mxhelp
             deconvolver.deconvolveSinc(m);
 
             for (int p = 0; p < ndiags; ++p)
-                matrix[indices[p]] = row[p+HALF_PAD_NO];
+                values[indices[p]] = row[p+HALF_PAD_NO];
         }
 
         // if (byCol)  transpose();
@@ -524,12 +524,12 @@ namespace mxhelp
         ncols = nrows*oversampling + nelem_per_row-1;
         nvals = nrows*nelem_per_row;
         fine_dlambda = dlambda/oversampling;
-        matrix  = std::make_unique<double[]>(nvals);
+        values  = std::make_unique<double[]>(nvals);
     }
 
     double* OversampledMatrix::_getRow(int i)
     {
-        return matrix.get()+i*nelem_per_row;
+        return matrix()+i*nelem_per_row;
     }
 
     // R . A = B
@@ -537,7 +537,7 @@ namespace mxhelp
     // B should be nrows x ncols, will be initialized to zero
     void OversampledMatrix::multiplyLeft(const double* A, double *B)
     {
-        double *bsub = B, *rrow=matrix.get();
+        double *bsub = B, *rrow=matrix();
         const double *Asub = A;
 
         for (int i = 0; i < nrows; ++i)
@@ -560,7 +560,7 @@ namespace mxhelp
     // B should be nrows x nrows, will be initialized to zero
     void OversampledMatrix::multiplyRight(const double* A, double *B)
     {
-        double *bsub = B, *rrow=matrix.get();
+        double *bsub = B, *rrow=matrix();
         const double *Asub = A;
 
         for (int i = 0; i < nrows; ++i)
@@ -578,23 +578,13 @@ namespace mxhelp
         }
     }
 
-    void OversampledMatrix::sandwichHighRes(double *B)
+    void OversampledMatrix::sandwichHighRes(double *B, double *temp_highres_mat)
     {
         if (!sandwich_buffer)
             sandwich_buffer = std::make_unique<double[]>(nrows*ncols);
 
-        multiplyLeft(temp_highres_mat.get(), sandwich_buffer.get());
+        multiplyLeft(temp_highres_mat, sandwich_buffer.get());
         multiplyRight(sandwich_buffer.get(), B);
-    }
-
-    double* OversampledMatrix::allocWaveGrid(double w1)
-    {
-        double *oversamp_wave = new double[ncols];
-
-        for (int i = 0; i < ncols; ++i)
-            oversamp_wave[i] = w1 + (i - int(nelem_per_row/2))*fine_dlambda;
-
-        return oversamp_wave;
     }
 
     double OversampledMatrix::getMinMemUsage()
@@ -610,15 +600,6 @@ namespace mxhelp
                sandwichsize = (double)sizeof(double) * nrows * ncols / 1048576.;
 
         return highressize+sandwichsize;
-    }
-
-    void OversampledMatrix::allocateTempHighRes()
-    {
-        long highsize = ncols;
-        highsize *= ncols;
-
-        if (!temp_highres_mat)
-            temp_highres_mat = std::make_unique<double[]>(highsize);
     }
 
     void OversampledMatrix::fprintfMatrix(const char *fname)
@@ -642,21 +623,18 @@ namespace mxhelp
     void OversampledMatrix::freeBuffers()
     {
         sandwich_buffer.reset();
-        temp_highres_mat.reset();
     }
 
     // Main resolution object
     Resolution::Resolution(int nm, int ndia) : is_dia_matrix(true), ncols(nm)
     {
         dia_matrix = std::make_unique<DiaMatrix>(nm, ndia);
-        matrix     = dia_matrix->matrix.get();
     }
 
     Resolution::Resolution(int n1, int nelem_prow, int osamp, double dlambda) :
         is_dia_matrix(false)
     {
         osamp_matrix = std::make_unique<OversampledMatrix>(n1, nelem_prow, osamp, dlambda);
-        matrix = osamp_matrix->matrix.get();
         ncols  = osamp_matrix->getNCols();
     }
 
@@ -669,11 +647,10 @@ namespace mxhelp
         {
             int ndiags = rmaster->dia_matrix->ndiags;
             dia_matrix = std::make_unique<DiaMatrix>(newsize, ndiags);
-            matrix = dia_matrix->matrix.get();
 
             for (int d = 0; d < ndiags; ++d)
-                std::copy_n(rmaster->matrix+(rmaster->ncols*d)+i1, 
-                    newsize, matrix+newsize*d);
+                std::copy_n(rmaster->matrix()+(rmaster->ncols*d)+i1, 
+                    newsize, matrix()+newsize*d);
 
             ncols = newsize;
         }
@@ -684,9 +661,8 @@ namespace mxhelp
 
             osamp_matrix = std::make_unique<OversampledMatrix>(newsize, nelemprow, osamp, 1.);
             osamp_matrix->fine_dlambda = rmaster->osamp_matrix->fine_dlambda;
-            matrix = osamp_matrix->matrix.get();
 
-            std::copy_n(rmaster->matrix+(i1*nelemprow), newsize*nelemprow, matrix);
+            std::copy_n(rmaster->matrix()+(i1*nelemprow), newsize*nelemprow, matrix());
 
             ncols = osamp_matrix->getNCols();
         }
@@ -701,11 +677,10 @@ namespace mxhelp
             auto new_dia_matrix = std::make_unique<DiaMatrix>(newsize, dia_matrix->ndiags);
 
             for (int d = 0; d < dia_matrix->ndiags; ++d)
-                std::copy_n(dia_matrix->matrix.get()+(ncols*d)+i1, newsize, 
-                    new_dia_matrix->matrix.get()+newsize*d);
+                std::copy_n(dia_matrix->matrix()+(ncols*d)+i1, newsize, 
+                    new_dia_matrix->matrix()+newsize*d);
 
             dia_matrix = std::move(new_dia_matrix);
-            matrix = dia_matrix->matrix.get();
             ncols  = newsize;
         }
         else
@@ -714,11 +689,10 @@ namespace mxhelp
                 osamp_matrix->nelem_per_row, osamp_matrix->oversampling, 1.);
             new_osamp_matrix->fine_dlambda = osamp_matrix->fine_dlambda;
 
-            std::copy_n(osamp_matrix->matrix.get()+(i1*osamp_matrix->nelem_per_row),
-                newsize*osamp_matrix->nelem_per_row, new_osamp_matrix->matrix.get());
+            std::copy_n(osamp_matrix->matrix()+(i1*osamp_matrix->nelem_per_row),
+                newsize*osamp_matrix->nelem_per_row, new_osamp_matrix->matrix());
 
             osamp_matrix = std::move(new_osamp_matrix);
-            matrix = osamp_matrix->matrix.get();
             ncols  = osamp_matrix->getNCols();
         }
     }
@@ -731,10 +705,27 @@ namespace mxhelp
     void Resolution::orderTranspose()
     {
         if (is_dia_matrix)
-        {
             dia_matrix->orderTranspose();
-            matrix = dia_matrix->matrix.get();
-        }
+    }
+
+    double* Resolution::matrix() const
+    {
+        if (is_dia_matrix)
+            return dia_matrix->matrix();
+        else
+            return osamp_matrix->matrix();
+
+        return NULL;
+    }
+
+    int Resolution::getNElemPerRow() const
+    {
+        if (is_dia_matrix)
+            return dia_matrix->ndiags;
+        else
+            return osamp_matrix->nelem_per_row;
+
+        return 0;
     }
 
     void Resolution::oversample(int osamp, double dlambda)
@@ -765,7 +756,7 @@ namespace mxhelp
         {
             dia_matrix->getRow(i, row);
 
-            newrow = osamp_matrix->matrix.get()+i*nelem_per_row;
+            newrow = osamp_matrix->matrix()+i*nelem_per_row;
 
             // interpolate log, shift before log
             double _shift = *std::min_element(row.begin(), row.end())
@@ -795,7 +786,6 @@ namespace mxhelp
 
         is_dia_matrix = false;
         ncols = osamp_matrix->getNCols();
-        matrix = osamp_matrix->matrix.get();
 
         // Clean up
         gsl_interp_free(interp_cubic);
@@ -809,25 +799,15 @@ namespace mxhelp
         if (is_dia_matrix) dia_matrix->deconvolve(m);
     }
 
-    void Resolution::allocateTempHighRes()
+    void Resolution::sandwich(double *B, double *temp_highres_mat)
     {
-        if (!is_dia_matrix)
+        if (is_dia_matrix)
         {
-            osamp_matrix->allocateTempHighRes();
-            temp_highres_mat = osamp_matrix->temp_highres_mat.get();
+            double *tmat __attribute__((unused)) = temp_highres_mat;
+            dia_matrix->sandwich(B);
         }
-    }
-
-    double* Resolution::allocWaveGrid(double w1)
-    {
-        if (!is_dia_matrix)   return osamp_matrix->allocWaveGrid(w1);
-        else                  return NULL;
-    }
-
-    void Resolution::sandwich(double *B)
-    {
-        if (is_dia_matrix)  dia_matrix->sandwich(B);
-        else                osamp_matrix->sandwichHighRes(B);
+        else
+            osamp_matrix->sandwichHighRes(B, temp_highres_mat);
     }
 
     void Resolution::freeBuffers()

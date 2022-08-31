@@ -463,7 +463,7 @@ std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix(int ove
         throw std::runtime_error("Resolution matrix is not properly formatted.");
 
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_elem_per_row, 0, 
-        Rmat->matrix, &nonull, &status);
+        Rmat->matrix(), &nonull, &status);
     _checkStatus();
 
     if (oversampling == -1)

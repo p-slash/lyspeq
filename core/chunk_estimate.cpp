@@ -209,62 +209,6 @@ bool Chunk::_isAboveNyquist(int i_kz)
     return kn > _kncut;
 }
 
-
-// Chunk::Chunk(Chunk &&rhs) : 
-// qFile(std::move(rhs.qFile)), _matrix_n(std::move(rhs._matrix_n)),
-// RES_INDEX(rhs.RES_INDEX),N_Q_MATRICES(std::move(rhs.N_Q_MATRICES)),
-// fisher_index_start(std::move(rhs.fisher_index_start)),
-// nqj_eff(rhs.nqj_eff), _kncut(std::move(rhs._kncut)),
-// LOWER_REDSHIFT(std::move(rhs.LOWER_REDSHIFT)),
-// UPPER_REDSHIFT(std::move(rhs.UPPER_REDSHIFT)),
-// MEDIAN_REDSHIFT(std::move(rhs.MEDIAN_REDSHIFT)),
-// BIN_REDSHIFT(std::move(rhs.BIN_REDSHIFT)),
-// highres_lambda(rhs.highres_lambda),
-// covariance_matrix(rhs.covariance_matrix),
-// inverse_covariance_matrix(rhs.inverse_covariance_matrix),
-// stored_qj(rhs.stored_qj),
-// stored_sfid(rhs.stored_sfid),
-// temp_vector(std::move(rhs.temp_vector)),
-// weighted_data_vector(std::move(rhs.weighted_data_vector)),
-// isQjSet(rhs.isQjSet), isSfidSet(rhs.isSfidSet), isSfidStored(rhs.isSfidStored),
-// isCovInverted(rhs.isCovInverted),
-// interp2d_signal_matrix(std::move(rhs.interp2d_signal_matrix)),
-// interp_derivative_matrix(std::move(rhs.interp_derivative_matrix)),
-// fisher_matrix(rhs.fisher_matrix),
-// ZBIN(rhs.ZBIN), ZBIN_LOW(rhs.ZBIN), ZBIN_UPP(rhs.ZBIN)
-// {
-//     LOG::LOGGER.ERR("Moving %s\n", qFile->fname.c_str());
-//     rhs.highres_lambda = NULL;
-//     rhs.covariance_matrix = NULL;
-//     rhs.inverse_covariance_matrix = NULL;
-//     temp_matrix[0] = rhs.temp_matrix[0];
-//     temp_matrix[1] = rhs.temp_matrix[1];
-
-//     rhs.temp_matrix[0] = NULL;
-//     rhs.temp_matrix[1] = NULL;
-
-//     for (int i = 0; i < nqj_eff; ++i)
-//     {
-//         stored_qj[i] = std::move(rhs.stored_qj[i]);
-//         rhs.stored_qj[i] = NULL;
-//     }
-//     rhs.stored_qj = NULL;
-
-//     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-//     {
-//         dbt_estimate_before_fisher_vector[dbt_i]=
-//             rhs.dbt_estimate_before_fisher_vector[dbt_i];
-//     }
-// }
-
-// Chunk& Chunk::operator=(const Chunk& rhs)
-// {
-//     #ifdef DEBUG
-//     LOG::LOGGER.ERR("Copying %s\n", qFile->fname.c_str());
-//     #endif
-//     throw std::runtime_error("Copying is not implemented!\n");
-// }
-
 Chunk::~Chunk()
 {
     process::updateMemory(getMinMemUsage());
@@ -337,14 +281,14 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
     }
     else
     {
-        double *inter_mat = (_matrix_n == qFile->size) ? sm : qFile->Rmat->temp_highres_mat;
-        double *ptr = inter_mat, *li=highres_lambda;
+        double *inter_mat = (_finer_matrix) ? _finer_matrix.get() : sm;
+        double *ptr = inter_mat, *li=_matrix_lambda;
 
         for (int row = 0; row < _matrix_n; ++row, ++li)
         {
             ptr += row;
 
-            for (double *lj=li; lj != (highres_lambda+_matrix_n); ++lj, ++ptr)
+            for (double *lj=li; lj != (_matrix_lambda+_matrix_n); ++lj, ++ptr)
             {
                 _getVandZ(*li, *lj, v_ij, z_ij);
 
@@ -355,7 +299,7 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
         mxhelp::copyUpperToLower(inter_mat, _matrix_n);
 
         if (specifics::USE_RESOLUTION_MATRIX)
-            qFile->Rmat->sandwich(sm);
+            qFile->Rmat->sandwich(sm, inter_mat);
     }
     
     t = mytime::timer.getTime() - t;
@@ -382,19 +326,20 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
         bins::setRedshiftBinningFunction(zm);
         _setL2Limits(zm);
 
-        double *inter_mat = (_matrix_n == qFile->size) ? qi : qFile->Rmat->temp_highres_mat;
-        double *ptr = inter_mat, *li=highres_lambda, *lj, *lstart, *lend, 
-            *highres_l_end = highres_lambda+_matrix_n;
-        shared_interp_1d interp_deriv_kn=interp_derivative_matrix[kn];
+        double *inter_mat = (_finer_matrix) ? _finer_matrix.get() : qi;
+        double *ptr = inter_mat, *li=_matrix_lambda, 
+            *highres_l_end = _matrix_lambda + _matrix_n;
+
+        shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
 
         for (int row = 0; row < _matrix_n; ++row, ++li)
         {
             ptr += row;
-            lstart = std::lower_bound(li, highres_l_end, _L2MIN/(*li));
-            lend   = std::upper_bound(li, highres_l_end, _L2MAX/(*li));
+            double *lstart = std::lower_bound(li, highres_l_end, _L2MIN/(*li));
+            double *lend   = std::upper_bound(li, highres_l_end, _L2MAX/(*li));
 
             // printf("i: %d \t %ld - %ld \n", row, lstart-highres_lambda, lend-highres_lambda);
-
+            double *lj;
             for (lj = li; lj != lstart; ++lj, ++ptr)
                 *ptr = 0;
 
@@ -421,7 +366,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
         mxhelp::copyUpperToLower(inter_mat, _matrix_n);
 
         if (specifics::USE_RESOLUTION_MATRIX)
-            qFile->Rmat->sandwich(qi);
+            qFile->Rmat->sandwich(qi, inter_mat);
     }
 
     t = mytime::timer.getTime() - t; 
@@ -779,11 +724,21 @@ void Chunk::_allocateMatrices()
     // Create a temp highres lambda array
     if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
     {
-        highres_lambda = qFile->Rmat->allocWaveGrid(qFile->wave()[0]);
-        qFile->Rmat->allocateTempHighRes();
+        unsigned long highsize = qFile->Rmat->getNCols();
+        _finer_lambda   = std::make_unique<double[]>(highsize);
+
+        double fine_dlambda = qFile->dlambda/specifics::OVERSAMPLING_FACTOR;
+        int disp = qFile->Rmat->getNElemPerRow()/2;
+        for (unsigned long i = 0; i < highsize; ++i)
+            _finer_lambda[i] = qFile->wave()[0] + (i - disp)*fine_dlambda;
+
+        _matrix_lambda = _finer_lambda.get();
+
+        highsize *= highsize;
+        _finer_matrix = std::make_unique<double[]>(highsize);
     }
     else
-        highres_lambda = qFile->wave();
+        _matrix_lambda = qFile->wave();
 
     isQjSet   = false;
     isSfidSet = false;
@@ -821,11 +776,11 @@ void Chunk::_freeMatrices()
 
     LOG::LOGGER.DEB("Free resomat related\n");
     if (specifics::USE_RESOLUTION_MATRIX)
-    {
         qFile->Rmat->freeBuffers();
-        if (!qFile->Rmat->isDiaMatrix())
-            delete [] highres_lambda;
-    }
+
+    _finer_matrix.reset();
+    _finer_lambda.reset();
+    _matrix_lambda = NULL;
 
     isQjSet   = false;
     isSfidSet = false;
@@ -838,25 +793,6 @@ void Chunk::_freeMatrices()
         interp_derivative_matrix.clear();
     }
 }
-
-// void Chunk::_saveIndividualResult()
-// {
-//     mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], 
-//         dbt_estimate_before_fisher_vector[1], bins::TOTAL_KZ_BINS);
-//     mxhelp::vector_sub(dbt_estimate_before_fisher_vector[0], 
-//         dbt_estimate_before_fisher_vector[2], bins::TOTAL_KZ_BINS);
-
-//     try
-//     {
-//         ioh::boot_saver->writeBoot(qFile->id, 
-//             dbt_estimate_before_fisher_vector[0], fisher_matrix);
-//     }
-//     catch (std::exception& e)
-//     {
-//         LOG::LOGGER.ERR("ERROR: Saving individual results: %s\n", 
-//             qFile->fname.c_str());
-//     }
-// }
 
 void Chunk::fprintfMatrices(const char *fname_base)
 {

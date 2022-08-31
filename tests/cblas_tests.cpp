@@ -101,7 +101,7 @@ int main()
         0.36,0.29,0.69,0.53,0.13,0.64,0.07,0.66,0.99,0.83,0.51,0.07,0.36,0.64,0.26,0.76,0.96,
         0.73,0.43,0.63,0.22,0.71,0.86,0.32,0.93,1.0,0.27,0.37,0.83};
     double mtrxB1[Nrows*Ncols], mtrxB2[Nrows*Nrows];
-    std::copy(&valss[0], &valss[0]+Nrows*Nelemprow, ovrmat.matrix.get());
+    std::copy(&valss[0], &valss[0]+Nrows*Nelemprow, ovrmat.matrix());
 
     printf("Left multiplication-----\n");
     ovrmat.multiplyLeft(matrxA, mtrxB1);
@@ -134,7 +134,7 @@ int main()
         result_R[NR*NR];
 
     mxhelp::DiaMatrix diarmat(NR, Ndiag);
-    std::copy(&dia_R[0], &dia_R[0]+NR*Ndiag, diarmat.matrix.get());
+    std::copy(&dia_R[0], &dia_R[0]+NR*Ndiag, diarmat.matrix());
     
     // printf("-----\n");
     printf("LN-----\n");
