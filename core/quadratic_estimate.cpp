@@ -358,10 +358,10 @@ void OneDQuadraticPowerEstimate::iterate()
     double total_time = 0, total_time_1it = mytime::timer.getTime();;
 
     // Construct local queue
-    std::vector<OneQSOEstimate> local_queue;
+    std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
     local_queue.reserve(local_fpaths.size());
     for (auto it = local_fpaths.begin(); it != local_fpaths.end(); ++it)
-        local_queue.emplace_back(*it);
+        local_queue.push_back(std::make_unique<OneQSOEstimate>(*it));
 
     if (specifics::INPUT_QSO_FILE == qio::Picca)
         qio::PiccaFile::clearCache();
@@ -381,7 +381,7 @@ void OneDQuadraticPowerEstimate::iterate()
         LOG::LOGGER.DEB("Running on local queue size %zu\n", local_queue.size());
         for (auto it = local_queue.begin(); it != local_queue.end(); ++it)
         {
-            it->oneQSOiteration(powerspectra_fits.get(), 
+            (*it)->oneQSOiteration(powerspectra_fits.get(), 
                 dbt_estimate_sum_before_fisher_vector,
                 fisher_matrix_sum.get()
             );
