@@ -18,7 +18,7 @@ int _decideNChunks(int size, std::vector<int> &indices)
 
     indices.reserve(nchunks+1);
     for (int i = 0; i < nchunks; ++i)
-        indices.push_back((size*i)/nchunks);
+        indices.push_back((int)((size*i)/nchunks));
     indices.push_back(size);
 
     return nchunks;
@@ -57,7 +57,9 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
     // create chunk objects
     chunks.reserve(nchunks);
     for (int nc = 0; nc < nchunks; ++nc)
-        chunks.emplace_back(qFile, indices[nc], indices[nc+1]);
+        chunks.push_back(
+            std::make_unique<Chunk>(qFile, indices[nc], indices[nc+1])
+        );
 }
 
 double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
@@ -100,11 +102,11 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate,
     std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
     double *fisher_sum)
 {
-    for (auto it = chunks.begin(); it != chunks.end(); ++it)
+    for (auto &chunk : chunks)
     {
         try
         {
-            it->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
+            chunk->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
         }
         catch (std::exception& e)
         {
