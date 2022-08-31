@@ -404,7 +404,7 @@ namespace mxhelp
     void DiaMatrix::multiply(char SIDER, char TRANSR, const double* A, 
         double *B)
     {
-        std::for_each(B, B+ndim*ndim, [](double &b) { b=0; });
+        std::fill_n(B, ndim*ndim, 0);
 
         int transpose = 1;
 
