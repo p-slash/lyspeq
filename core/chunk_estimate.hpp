@@ -42,8 +42,9 @@ protected:
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
 
-    double  *covariance_matrix, *inverse_covariance_matrix, 
-        *temp_matrix[2], **stored_qj, *stored_sfid;
+    std::unique_ptr<double[]> covariance_matrix, inverse_covariance_matrix,
+        stored_sfid;
+    std::vector<std::unique_ptr<double[]>> temp_matrix, stored_qj;
 
     std::unique_ptr<double[]> temp_vector, weighted_data_vector;
     bool isQjSet, isSfidSet, isSfidStored, isCovInverted;
@@ -52,10 +53,10 @@ protected:
     std::vector<shared_interp_1d> interp_derivative_matrix;
 
     // 3 TOTAL_KZ_BINS sized vectors
-    double  *dbt_estimate_before_fisher_vector[3];
+    std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
 
     // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
-    double  *fisher_matrix;
+    std::unique_ptr<double[]> fisher_matrix;
 
     void _copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     void _findRedshiftBin();
@@ -65,7 +66,7 @@ protected:
     bool _isQikzStored(int i_kz)
     { return isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)); };
     double* _getStoredQikz(int i_kz) const
-    { return stored_qj[N_Q_MATRICES-i_kz-1]; };
+    { return stored_qj[N_Q_MATRICES-i_kz-1].get(); };
 
     void _allocateMatrices();
     void _freeMatrices();
@@ -87,7 +88,8 @@ public:
     ~Chunk();
 
     // Move constructor 
-    Chunk(Chunk &&rhs);
+    Chunk(Chunk &&rhs) = default;
+    Chunk(const Chunk &rhs) = delete;
     // Chunk& operator=(const Chunk& rhs); // = default;
 
     static double getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2);

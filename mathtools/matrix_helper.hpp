@@ -79,7 +79,8 @@ namespace mxhelp
         std::unique_ptr<double[]> matrix;
 
         DiaMatrix(int nm, int ndia);
-        ~DiaMatrix();
+        DiaMatrix(DiaMatrix &&rhs) = default;
+        DiaMatrix(const DiaMatrix &rhs) = delete;
 
         void getRow(int i, double *row);
         void getRow(int i, std::vector<double> &row);
@@ -122,7 +123,8 @@ namespace mxhelp
         // osamp : Oversampling coefficient.
         // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
         OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda);
-        ~OversampledMatrix();
+        OversampledMatrix(OversampledMatrix &&rhs) = default;
+        OversampledMatrix(const OversampledMatrix &rhs) = delete;
 
         int getNCols() const { return ncols; };
 
@@ -167,7 +169,8 @@ namespace mxhelp
         // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
         Resolution(int n1, int nelem_prow, int osamp, double dlambda);
         Resolution(const Resolution *rmaster, int i1, int i2);
-        ~Resolution();
+        Resolution(Resolution &&rhs) = default;
+        Resolution(const Resolution &rhs) = delete;
 
         int getNCols() const { return ncols; };
         bool isDiaMatrix() const { return is_dia_matrix; };

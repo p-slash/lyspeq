@@ -59,8 +59,6 @@ class SQLookupTable
 public:
     SQLookupTable(const ConfigFile &config);
 
-    ~SQLookupTable();
-
     void readSQforR(int r_index, shared_interp_2d &s,
         std::vector<shared_interp_1d>  &q, 
         bool alloc=false);

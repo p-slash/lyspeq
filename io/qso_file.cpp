@@ -472,11 +472,6 @@ std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix(int ove
     return Rmat;
 }
 
-PiccaFile::~PiccaFile()
-{
-    // fits_close_file(fits_file, &status);
-}
-
 // void PiccaFile::_move(int index)
 // {
 //     int hdutype;

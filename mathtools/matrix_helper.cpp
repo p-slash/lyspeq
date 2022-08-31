@@ -228,7 +228,7 @@ namespace mxhelp
 
         offsets = std::make_unique<int[]>(ndiags);
         for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
-            offsets.get()[j] = i;
+            offsets[j] = i;
     }
 
     void DiaMatrix::orderTranspose()
@@ -244,7 +244,7 @@ namespace mxhelp
 
     double* DiaMatrix::_getDiagonal(int d)
     {
-        int off = offsets.get()[d], od1 = 0;
+        int off = offsets[d], od1 = 0;
         if (off > 0)  od1 = off;
 
         return matrix.get()+(d*ndim+od1);
@@ -303,11 +303,6 @@ namespace mxhelp
         }
 
         fclose(toWrite);
-    }
-
-    DiaMatrix::~DiaMatrix()
-    {
-        freeBuffer();
     }
 
     // void DiaMatrix::_getRowIndices(int i, int *indices)
@@ -532,11 +527,6 @@ namespace mxhelp
         matrix  = std::make_unique<double[]>(nvals);
     }
 
-    OversampledMatrix::~OversampledMatrix()
-    {
-        freeBuffers();
-    }
-
     double* OversampledMatrix::_getRow(int i)
     {
         return matrix.get()+i*nelem_per_row;
@@ -700,11 +690,6 @@ namespace mxhelp
 
             ncols = osamp_matrix->getNCols();
         }
-    }
-
-    Resolution::~Resolution()
-    {
-        freeBuffers();
     }
 
     void Resolution::cutBoundary(int i1, int i2)
