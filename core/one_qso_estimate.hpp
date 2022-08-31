@@ -22,7 +22,6 @@ protected:
 
 public:
     OneQSOEstimate(const std::string &f_qso);
-    ~OneQSOEstimate();
 
     // Move constructor 
     OneQSOEstimate(OneQSOEstimate &&rhs) = default;

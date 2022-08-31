@@ -252,7 +252,7 @@ bool PiccaFile::compareFnames(const std::string &s1, const std::string &s2)
     return hdu1 < hdu2;
 }
 
-#define MAX_NO_FILES 1
+const int MAX_NO_FILES = 1;
 
 // Normals
 // Assume fname to be ..fits.gz[1]
@@ -365,7 +365,7 @@ void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resoluti
 
     fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
 
-    #define LN10 2.30258509299
+    const double LN10 = 2.30258509299;
     // Soft read DLL, if not present set to -1 to be fixed later while reading data
     if (_isHeaderKey("DLL"))
     {
@@ -374,7 +374,6 @@ void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resoluti
     }
     else
         dv_kms = -1;
-    #undef LN10
 
     // Soft read DLAMBDA, if not present set to -1 to be fixed later while reading data
     if (_isHeaderKey("DLAMBDA"))

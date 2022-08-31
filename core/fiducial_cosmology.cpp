@@ -258,9 +258,9 @@ namespace fidcosmo
     // Palanque_Delabrouille et al. 2013 based functions. Extra Lorentzian decay
     namespace pd13
     {
-    // Defined values for PD fit
-    #define K_0 0.009 // s km^-1
-    #define Z_0 3.0
+        // Defined values for PD fit
+        // K_0 in s km^-1
+        const double K_0 = 0.009, Z_0 = 3.0;
 
         pd13_fit_params FIDUCIAL_PD13_PARAMS = {6.621420e-02, -2.685349e+00, -2.232763e-01, 3.591244e+00, -1.768045e-01, 3.598261e+02};
 
@@ -270,12 +270,10 @@ namespace fidcosmo
 
             double  q0 = k / K_0 + 1E-10, x0 = (1. + z) / (1. + Z_0);
 
-            return    (pfp->A * PI / K_0)
+            return    (pfp->A * MY_PI / K_0)
                     * pow(q0, 2. + pfp->n + pfp->alpha * log(q0) + pfp->beta  * log(x0)) 
                     * pow(x0,   pfp->B) / (1. + pfp->lambda * k * k);
         }
-
-    #undef Z_0 // Do not need Z_0 after this point
 
         double Palanque_Delabrouille_etal_2013_fit_growth_factor(double z_ij, double k_kn, double z_zm, void *params)
         {
@@ -285,8 +283,6 @@ namespace fidcosmo
 
             return  pow(xm, pfp->B + pfp->beta  * log(q0));
         }
-
-    #undef K_0 // Do not need K_0 either
     }
 }
 
@@ -311,7 +307,7 @@ double signal_matrix_integrand(double k, void *params)
 
     double result = spectral_response_window_fn(k, sqip->spec_window_params);
 
-    return result * result * fidcosmo::fiducialPowerSpectrum(k, sqip->spec_window_params->z_ij, sqip->fiducial_pd_params) / PI;
+    return result * result * fidcosmo::fiducialPowerSpectrum(k, sqip->spec_window_params->z_ij, sqip->fiducial_pd_params) / MY_PI;
 }
 
 double q_matrix_integrand(double k, void *params)
@@ -319,7 +315,7 @@ double q_matrix_integrand(double k, void *params)
     struct sq_integrand_params *sqip = (struct sq_integrand_params*) params;
 
     double result = spectral_response_window_fn(k, sqip->spec_window_params);
-    return result * result / PI;
+    return result * result / MY_PI;
 }
 
 

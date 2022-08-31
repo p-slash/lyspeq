@@ -11,8 +11,6 @@
 #include "io/sq_lookup_table_file.hpp"
 #include "io/logger.hpp"
 
-#define ONE_SIGMA_2_FWHM 2.35482004503
-
 std::unique_ptr<SQLookupTable> process::sq_private_table;
 
 // Internal Functions and Variables

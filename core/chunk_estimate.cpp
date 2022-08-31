@@ -25,25 +25,23 @@ void _check_isnan(double *mat, int size, std::string msg)
     #endif
 }
 
-#define DATA_SIZE_2 qFile->size*qFile->size
-
 double _L2MAX, _L2MIN;
 inline
 void _setL2Limits(int zm)
 {
     #if defined(TOPHAT_Z_BINNING_FN)
-    #define ZSTART (bins::ZBIN_CENTERS[zm]-bins::Z_BIN_WIDTH/2)
-    #define ZEND (bins::ZBIN_CENTERS[zm]+bins::Z_BIN_WIDTH/2)
+    const double
+    ZSTART = bins::ZBIN_CENTERS[zm] - bins::Z_BIN_WIDTH/2,
+    ZEND   = bins::ZBIN_CENTERS[zm] + bins::Z_BIN_WIDTH/2;
     #elif defined(TRIANGLE_Z_BINNING_FN)
-    #define ZSTART (bins::ZBIN_CENTERS[zm]-bins::Z_BIN_WIDTH)
-    #define ZEND (bins::ZBIN_CENTERS[zm]+bins::Z_BIN_WIDTH)
+    const double
+    ZSTART = bins::ZBIN_CENTERS[zm] - bins::Z_BIN_WIDTH,
+    ZEND   = bins::ZBIN_CENTERS[zm] + bins::Z_BIN_WIDTH;
     #endif
     _L2MAX  = (1 + ZEND) * LYA_REST;
     _L2MAX *=_L2MAX;
     _L2MIN  = (1 + ZSTART) * LYA_REST;
     _L2MIN *=_L2MIN;
-    #undef ZSTART
-    #undef ZEND
 }
 
 // inline
@@ -76,7 +74,7 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 
     qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
 
-    _kncut = _getMaxKindex(PI / qFile->dv_kms);
+    _kncut = _getMaxKindex(MY_PI / qFile->dv_kms);
 
     _findRedshiftBin();
 
@@ -95,6 +93,9 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     _setNQandFisherIndex();
 
     _setStoredMatrices();
+
+    interp_derivative_matrix.reserve(bins::NUMBER_OF_K_BANDS);
+
     process::updateMemory(-getMinMemUsage());
 }
 
@@ -118,7 +119,7 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         _matrix_n = qFile->size;
     }
 
-    interp_derivative_matrix.reserve(bins::NUMBER_OF_K_BANDS);
+    DATA_SIZE_2 = (unsigned long)(qFile->size)*(unsigned long)(qFile->size);
 }
 
 void Chunk::_findRedshiftBin()
@@ -252,9 +253,9 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
         N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 
         #ifdef FISHER_OPTIMIZATION
-        #define N_M_COMBO 3.
+        const int N_M_COMBO = 3;
         #else
-        #define N_M_COMBO (N_Q_MATRICES + 1.)
+        const int N_M_COMBO = N_Q_MATRICES + 1;
         #endif
 
         return res * N_Q_MATRICES * N_M_COMBO;
@@ -810,8 +811,6 @@ void Chunk::fprintfMatrices(const char *fname_base)
         qFile->Rmat->fprintfMatrix(buf);
     }
 }
-
-#undef DATA_SIZE_2
 
 
 
