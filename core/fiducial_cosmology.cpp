@@ -17,7 +17,7 @@
 // Conversion functions
 namespace conv
 {
-    bool USE_LOG_V = false, FLUX_TO_DELTAF_BY_CHUNKS = false, INPUT_IS_DELTA_FLUX = false;
+    bool FLUX_TO_DELTAF_BY_CHUNKS = false, INPUT_IS_DELTA_FLUX = false;
     std::unique_ptr<Interpolation> interp_mean_flux;
 
     /* This function reads following keys from config file:
@@ -102,8 +102,8 @@ namespace conv
         const double *l __attribute__((unused)) = lambda;
         double chunk_mean = std::accumulate(flux, flux+size, 0.) / size;
 
-        std::for_each(flux, flux+size, [&](double &f) { f = f/chunk_mean-1; });
-        std::for_each(noise, noise+size, [&](double &n) { n /= chunk_mean; });
+        std::for_each(flux, flux+size, [chunk_mean](double &f) { f = f/chunk_mean-1; });
+        std::for_each(noise, noise+size, [chunk_mean](double &n) { n /= chunk_mean; });
     }
 
     void fullConversion(const double *lambda, double *flux, double *noise, int size)

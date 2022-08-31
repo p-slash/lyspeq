@@ -25,9 +25,9 @@ public:
     ~OneQSOEstimate();
 
     // Move constructor 
-    OneQSOEstimate(OneQSOEstimate &&rhs)
-     : chunks(std::move(rhs.chunks)), indices(std::move(rhs.indices)) {};
-    OneQSOEstimate& operator=(const OneQSOEstimate& rhs) = default;
+    OneQSOEstimate(OneQSOEstimate &&rhs) = default;
+    OneQSOEstimate(const OneQSOEstimate &rhs) = delete;
+    // OneQSOEstimate& operator=(const OneQSOEstimate& rhs) = default;
 
     static double getComputeTimeEst(std::string fname_qso, int &zbin);
 

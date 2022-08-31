@@ -77,8 +77,6 @@ public:
         Directory where files reside.
     */
     OneDQuadraticPowerEstimate(const ConfigFile &con);
-
-    ~OneDQuadraticPowerEstimate() {};
     
     double powerSpectrumFiducial(int kn, int zm);
 

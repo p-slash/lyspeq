@@ -40,6 +40,8 @@ class BQFile
 
 public:
     BQFile(const std::string &fname_qso);
+    BQFile(BQFile &&rhs) = default;
+    BQFile(const BQFile &rhs) = delete;
     ~BQFile();
 
     void readParameters(int &data_number, double &z, int &fwhm_resolution, 
@@ -73,7 +75,8 @@ public:
 
     // Assume fname to be ..fits.gz[1]
     PiccaFile(const std::string &fname_qso);
-    ~PiccaFile();
+    PiccaFile(PiccaFile &&rhs) = default;
+    PiccaFile(const PiccaFile &rhs) = delete;
 
     int getNumberSpectra() const {return no_spectra;};
 
@@ -101,6 +104,9 @@ public:
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);
     QSOFile(const qio::QSOFile &qmaster, int i1, int i2);
+    QSOFile(QSOFile &&rhs) = default;
+    QSOFile(const QSOFile &rhs) = delete;
+
     void closeFile();
     ~QSOFile();
 

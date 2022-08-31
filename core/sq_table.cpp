@@ -348,8 +348,6 @@ int SQLookupTable::findSpecResIndex(int spec_res, double dv) const
     return -1;
 }
 
-SQLookupTable::~SQLookupTable() {}
-
 void SQLookupTable::allocateSignalAndDerivArrays()
 {
     derivative_array = std::make_unique<double[]>(N_V_POINTS);

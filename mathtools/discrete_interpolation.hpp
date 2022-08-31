@@ -16,7 +16,6 @@ class DiscreteInterpolation1D
     void _limitBoundary(double &x);
 public:
     DiscreteInterpolation1D(double x_start, double delta_x, const double *y_arr, long Nsize);
-    ~DiscreteInterpolation1D() {};
     
     double evaluate(double x);
 };
@@ -36,7 +35,6 @@ class DiscreteInterpolation2D
 public:
     DiscreteInterpolation2D(double x_start, double delta_x, double y_start, double delta_y,
         const double *z_arr, long Nxsize, long Nysize);
-    ~DiscreteInterpolation2D() {};
     
     double evaluate(double x, double y);
 };

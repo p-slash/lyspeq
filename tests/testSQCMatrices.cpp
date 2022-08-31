@@ -33,16 +33,16 @@ public:
             chunks[0].interp2d_signal_matrix, chunks[0].interp_derivative_matrix);
 
         // Save fiducial signal matrix
-        chunks[0]._setFiducialSignalMatrix(chunks[0].covariance_matrix);
+        chunks[0]._setFiducialSignalMatrix(chunks[0].covariance_matrix.get());
         std::string fsave(out_dir);
         fsave+="/signal_matrix.txt";
-        mxhelp::fprintfMatrix(fsave.c_str(), chunks[0].covariance_matrix, 
+        mxhelp::fprintfMatrix(fsave.c_str(), chunks[0].covariance_matrix.get(), 
             chunks[0].qFile->size, chunks[0].qFile->size);
 
         // Save Q0 matrix
-        chunks[0]._setQiMatrix(chunks[0].temp_matrix[0], 0);
+        chunks[0]._setQiMatrix(chunks[0].temp_matrix[0].get(), 0);
         fsave=out_dir+"/q0_matrix.txt";
-        mxhelp::fprintfMatrix(fsave.c_str(), chunks[0].temp_matrix[0], 
+        mxhelp::fprintfMatrix(fsave.c_str(), chunks[0].temp_matrix[0].get(), 
             chunks[0].qFile->size, chunks[0].qFile->size);
 
         chunks[0]._freeMatrices();
