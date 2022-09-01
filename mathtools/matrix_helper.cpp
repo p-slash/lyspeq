@@ -548,8 +548,8 @@ namespace mxhelp
     // B should be nrows x ncols, will be initialized to zero
     void OversampledMatrix::multiplyLeft(const double* A, double *B)
     {
-        double *bsub = B, *rrow=matrix();
-        const double *Asub = A;
+        double *bsub = B;
+        const double *Asub = A, *rrow=matrix();
 
         for (int i = 0; i < nrows; ++i)
         {
@@ -571,8 +571,8 @@ namespace mxhelp
     // B should be nrows x nrows, will be initialized to zero
     void OversampledMatrix::multiplyRight(const double* A, double *B)
     {
-        double *bsub = B, *rrow=matrix();
-        const double *Asub = A;
+        double *bsub = B;
+        const double *Asub = A, *rrow=matrix();
 
         for (int i = 0; i < nrows; ++i)
         {
@@ -826,8 +826,8 @@ namespace mxhelp
 
     void Resolution::freeBuffer()
     {
-        if (dia_matrix != NULL)   dia_matrix->freeBuffer();
-        if (osamp_matrix != NULL) osamp_matrix->freeBuffer();
+        if (dia_matrix)   dia_matrix->freeBuffer();
+        if (osamp_matrix) osamp_matrix->freeBuffer();
     }
 
     double Resolution::getMinMemUsage()

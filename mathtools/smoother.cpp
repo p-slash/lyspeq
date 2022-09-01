@@ -1,4 +1,6 @@
 #include "mathtools/smoother.hpp"
+#include "io/logger.hpp"
+
 #include <cmath>
 #include <algorithm> // std::for_each
 #include <vector>
