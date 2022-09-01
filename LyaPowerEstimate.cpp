@@ -126,8 +126,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    Smoother::setParameters(config.getInteger("SmoothNoiseWeights", -1));
-    Smoother::setGaussianKernel();
+    process::noise_smoother = std::make_unique<Smoother>(config);
 
     try
     {

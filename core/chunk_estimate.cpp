@@ -402,7 +402,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     // add noise matrix diagonally
     // but smooth before adding
-    Smoother::smoothNoise(qFile->noise(), temp_vector, qFile->size());
+    process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, qFile->size());
     cblas_daxpy(qFile->size(), 1., temp_vector, 1,
         covariance_matrix, qFile->size()+1);
 
