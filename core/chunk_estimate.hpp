@@ -30,10 +30,10 @@ class Chunk
 {
 protected:
     std::unique_ptr<qio::QSOFile> qFile;
-    size_t DATA_SIZE_2;
+    unsigned long DATA_SIZE_2;
 
     int _kncut, _matrix_n, RES_INDEX, N_Q_MATRICES, nqj_eff;
-    size_t fisher_index_start;
+    int fisher_index_start;
     bool isQjSet, isSfidSet, isSfidStored, isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // Will have finer spacing when rmat is oversampled

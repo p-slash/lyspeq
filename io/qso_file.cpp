@@ -10,7 +10,7 @@
 namespace qio
 {
 double _calcdv(double w2, double w1) { return log(w2/w1)*SPEED_OF_LIGHT; }
-double _getMediandv(const double *wave, size_t size)
+double _getMediandv(const double *wave, int size)
 {
     static std::vector<double> temp_arr;
     temp_arr.clear();
@@ -25,7 +25,7 @@ double _getMediandv(const double *wave, size_t size)
     return  median;
 }
 
-double _getMediandlambda(const double *wave, size_t size)
+double _getMediandlambda(const double *wave, int size)
 {
     static std::vector<double> temp_arr;
     temp_arr.clear();
@@ -61,7 +61,7 @@ arr_size(0), shift(0), fname(fname_qso)
     id = 0;
 }
 
-QSOFile::QSOFile(const qio::QSOFile &qmaster, size_t i1, size_t i2)
+QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 : PB(qmaster.PB), shift(0), fname(qmaster.fname), 
 z_qso(qmaster.z_qso), snr(qmaster.snr), id(qmaster.id),
 R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
@@ -126,14 +126,14 @@ void QSOFile::readData()
         dv_kms  = _getMediandv(wave(), size());
 }
 
-size_t QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
+int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 {
     double l1 = LYA_REST * (1+z_lower_edge), l2 = LYA_REST * (1+z_upper_edge);
-    size_t wi1, wi2;
+    int wi1, wi2;
 
     wi1 = std::lower_bound(wave(), wave()+size(), l1)-wave();
     wi2 = std::upper_bound(wave(), wave()+size(), l2)-wave();
-    size_t newsize = wi2-wi1;
+    int newsize = wi2-wi1;
 
     if ((wi1 == arr_size) || (wi2 == 0)) // empty
         return 0;
@@ -196,7 +196,7 @@ BQFile::~BQFile()
     fclose(qso_file);
 }
 
-void BQFile::readParameters(size_t &data_number, double &z, int &fwhm_resolution, 
+void BQFile::readParameters(int &data_number, double &z, int &fwhm_resolution, 
     double &sig2noi, double &dv_kms)
 {
     rewind(qso_file);
@@ -204,7 +204,7 @@ void BQFile::readParameters(size_t &data_number, double &z, int &fwhm_resolution
     if (fread(&header, sizeof(qso_io_header), 1, qso_file) != 1)
         throw std::runtime_error("fread error in header BQFile!");
 
-    data_number      = (size_t) header.data_size;
+    data_number      = header.data_size;
     z                = header.redshift;
     fwhm_resolution  = header.spectrograph_resolution_fwhm;
     sig2noi          = header.signal_to_noise;
@@ -347,7 +347,7 @@ bool PiccaFile::_isColumnName(const std::string &key)
         [key](const std::string &elem) { return elem == key; });
 }
 
-void PiccaFile::readParameters(long &thid, size_t &N, double &z, int &fwhm_resolution, 
+void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resolution, 
     double &sig2noi, double &dv_kms, double &dlambda, int &oversampling)
 {
     curr_elem_per_row = -1;
