@@ -234,9 +234,8 @@ std::map<std::string, fitsfile*> PiccaFile::cache;
 void PiccaFile::clearCache()
 {
     int status=0;
-    std::map<std::string, fitsfile*>::iterator it;
-    for (it = cache.begin(); it != cache.end(); ++it)
-        fits_close_file(it->second, &status);
+    for (auto &it : cache)
+        fits_close_file(it.second, &status);
 
     cache.clear();
 }
@@ -261,7 +260,7 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
     int hdunum, hdutype;
     std::string basefname = decomposeFname(fname_qso, hdunum);
 
-    std::map<std::string, fitsfile*>::iterator it = cache.find(basefname);
+    auto it = cache.find(basefname);
     if (it != cache.end())
     {
         fits_file = it->second;

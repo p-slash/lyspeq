@@ -11,8 +11,8 @@
 
 #include <gsl/gsl_interp.h>
 
-#define lapack_complex_float std::complex<float>
-#define lapack_complex_double std::complex<double>
+// #define lapack_complex_float std::complex<float>
+// #define lapack_complex_double std::complex<double>
 
 #ifdef USE_MKL_CBLAS
 #include "mkl_lapacke.h"
