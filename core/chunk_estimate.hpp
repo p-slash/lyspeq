@@ -30,7 +30,7 @@ class Chunk
 {
 protected:
     std::unique_ptr<qio::QSOFile> qFile;
-    unsigned long DATA_SIZE_2;
+    int DATA_SIZE_2;
 
     int _kncut, _matrix_n, RES_INDEX, N_Q_MATRICES, nqj_eff;
     int fisher_index_start;
