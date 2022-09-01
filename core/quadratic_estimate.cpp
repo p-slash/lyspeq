@@ -245,7 +245,7 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     mxhelp::LAPACKE_InvertMatrixLU(inverse_fisher_matrix_sum.get(), 
         bins::TOTAL_KZ_BINS);
 
-    for (auto i_kz : empty_indx)
+    for (const auto &i_kz : empty_indx)
         inverse_fisher_matrix_sum[(bins::TOTAL_KZ_BINS+1)*i_kz] = 0;
 
     isFisherInverted = true;
@@ -361,7 +361,7 @@ void OneDQuadraticPowerEstimate::iterate()
     // Emplace_back with vector<OneQSOEstimate> leaks memory!!
     std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
     local_queue.reserve(local_fpaths.size());
-    for (auto fpath : local_fpaths)
+    for (const auto &fpath : local_fpaths)
         local_queue.push_back(std::make_unique<OneQSOEstimate>(fpath));
 
     if (specifics::INPUT_QSO_FILE == qio::Picca)
@@ -486,7 +486,8 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         pMax = std::max(p1, p2);
         r    = diff / pMax;
 
-        if (r > CONVERGENCE_EPS)    bool_converged = false;
+        if (r > specifics::CHISQ_CONVERGENCE_EPS)
+            bool_converged = false;
 
         abs_mean += r / _NewDegreesOfFreedom;
         abs_max   = std::max(r, abs_max);
@@ -495,7 +496,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     LOG::LOGGER.STD("Mean relative change is %.1e.\n"
         "Maximum relative change is %.1e.\n"
         "Old test: Iteration converges when this is less than %.1e\n", 
-        abs_mean, abs_max, CONVERGENCE_EPS);
+        abs_mean, abs_max, specifics::CHISQ_CONVERGENCE_EPS);
     
     // Perform a chi-square test as well    
     mxhelp::vector_sub(previous_power_estimate_vector.get(), 
