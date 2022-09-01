@@ -498,7 +498,7 @@ namespace mxhelp
 
     void DiaMatrix::sandwich(double *inplace)
     {
-        if (sandwich_buffer != NULL)
+        if (sandwich_buffer == NULL)
             sandwich_buffer = new double[ndim*ndim];
 
         multiply('L', 'N', inplace, sandwich_buffer);
@@ -591,7 +591,7 @@ namespace mxhelp
 
     void OversampledMatrix::sandwichHighRes(double *B, const double *temp_highres_mat)
     {
-        if (sandwich_buffer != NULL)
+        if (sandwich_buffer == NULL)
             sandwich_buffer = new double[nrows*ncols];
 
         multiplyLeft(temp_highres_mat, sandwich_buffer);
