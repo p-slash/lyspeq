@@ -44,7 +44,7 @@ public:
     BQFile(const BQFile &rhs) = delete;
     ~BQFile();
 
-    void readParameters(int &data_number, double &z, int &fwhm_resolution, 
+    void readParameters(size_t &data_number, double &z, int &fwhm_resolution, 
         double &sig2noi, double &dv_kms);
 
     void readData(double *lambda, double *fluxfluctuations, double *noise);
@@ -80,7 +80,7 @@ public:
 
     int getNumberSpectra() const {return no_spectra;};
 
-    void readParameters(long &thid, int &N, double &z, int &fwhm_resolution, 
+    void readParameters(long &thid, size_t &N, double &z, int &fwhm_resolution, 
         double &sig2noi, double &dv_kms, double &dlambda, int &oversampling);
 
     void readData(double *lambda, double *delta, double *noise);
@@ -93,26 +93,27 @@ class QSOFile
     std::unique_ptr<PiccaFile> pfile;
     std::unique_ptr<BQFile> bqfile;
 
-    std::unique_ptr<double[]> wave_head, delta_head, noise_head;
-    int shift;
+    double *wave_head, *delta_head, *noise_head;
+    size_t arr_size, shift;
 public:
     std::string fname;
     double z_qso, snr, dv_kms, dlambda;
     long id;
-    int size, R_fwhm, oversampling;
+    int R_fwhm, oversampling;
     std::unique_ptr<mxhelp::Resolution> Rmat;
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);
-    QSOFile(const qio::QSOFile &qmaster, int i1, int i2);
-    QSOFile(QSOFile &&rhs) = default;
+    QSOFile(const qio::QSOFile &qmaster, size_t i1, size_t i2);
+    QSOFile(QSOFile &&rhs) = delete;
     QSOFile(const QSOFile &rhs) = delete;
 
     void closeFile();
     ~QSOFile();
 
-    double* wave() const  { return wave_head.get()+shift; };
-    double* delta() const { return delta_head.get()+shift; };
-    double* noise() const { return noise_head.get()+shift; };
+    size_t size() const { return arr_size; };
+    double* wave() const  { return wave_head+shift; };
+    double* delta() const { return delta_head+shift; };
+    double* noise() const { return noise_head+shift; };
 
     void recalcDvDLam();
     void readParameters();
@@ -120,7 +121,7 @@ public:
 
     // This is just a pointer shift for w,d,e. Rmat is copied
     // returns new size
-    int cutBoundary(double z_lower_edge, double z_upper_edge);
+    size_t cutBoundary(double z_lower_edge, double z_upper_edge);
 
     void readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed);
     void readAllocResolutionMatrix();

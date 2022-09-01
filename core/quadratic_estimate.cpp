@@ -698,16 +698,16 @@ void OneDQuadraticPowerEstimate::iterationOutput(int it, double t1, double tot)
     std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
     printfSpectra();
 
-    buffer << "_it" << it+1 << "_quadratic_power_estimate_detailed.dat";
+    buffer << "_it" << it+1 << "_quadratic_power_estimate_detailed.txt";
     writeDetailedSpectrumEstimates(buffer.str().c_str());
 
     buffer.str(process::FNAME_BASE);
-    buffer << "_it" << it+1 << "_fisher_matrix.dat";
+    buffer << "_it" << it+1 << "_fisher_matrix.txt";
     mxhelp::fprintfMatrix(buffer.str().c_str(), fisher_matrix_sum.get(),
         bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
 
     buffer.str(process::FNAME_BASE);
-    buffer << "_it" << it+1 << "_inversefisher_matrix.dat";
+    buffer << "_it" << it+1 << "_inversefisher_matrix.txt";
     mxhelp::fprintfMatrix(buffer.str().c_str(), inverse_fisher_matrix_sum.get(),
         bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     LOG::LOGGER.STD("Fisher matrix and inverse are saved as %s.\n",
