@@ -145,7 +145,7 @@ namespace conv
             return;
         }
 
-        size_t size;
+        int size;
 
         std::ifstream to_read_meanflux = ioh::open_fstream<std::ifstream>(fname, 'b');
         // Assume file starts with two integers 
@@ -227,7 +227,7 @@ namespace fidcosmo
     // Power is ordered for each redshift bin
     void setFiducialPowerFromFile(const std::string &fname)
     {
-        size_t n_k_points, n_z_points, size;
+        int n_k_points, n_z_points, size;
 
         std::ifstream to_read_fidpow = ioh::open_fstream<std::ifstream>(fname, 'b');
         // Assume file starts with two integers 
