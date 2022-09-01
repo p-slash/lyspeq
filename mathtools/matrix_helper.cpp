@@ -748,7 +748,7 @@ namespace mxhelp
         if (!is_dia_matrix) return;
 
         int noff = dia_matrix->ndiags/2, nelem_per_row = 2*noff*osamp + 1;
-        double rescalor = (double) dia_matrix->ndiags / (double) nelem_per_row;
+        // double rescalor = (double) dia_matrix->ndiags / (double) nelem_per_row;
         osamp_matrix = std::make_unique<OversampledMatrix>(ncols, nelem_per_row, osamp, dlambda);
 
         double *newrow;
@@ -776,17 +776,24 @@ namespace mxhelp
             double _shift = *std::min_element(row.begin(), row.end())
                 - nonzero_min_element(row.begin(), row.end());
 
-            std::for_each(row.begin(), row.end(), [_shift](double &f) { f = log(f-_shift); } );
+            std::for_each(row.begin(), row.end(),
+                [_shift](double &f) { f = log(f-_shift); }
+            );
 
             gsl_interp_init(interp_cubic, win.data(), row.data(), dia_matrix->ndiags);
 
             // Paranoid that std::transform lambda is problematic
+            double sum=0;
             for (int jj = 0; jj < nelem_per_row; ++jj)
             {
                 newrow[jj] = _shift + exp(gsl_interp_eval(
                     interp_cubic, win.data(), row.data(), wout[jj], acc));
-                newrow[jj] *= rescalor;
+                sum += newrow[jj];
             }
+
+            std::for_each(newrow, newrow+nelem_per_row,
+                [sum](double &X) { X/=sum; }
+            );
 
             // double sum = 0;
             // for (double* first = newrow; first != newrow+nelem_per_row; ++first)
