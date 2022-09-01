@@ -9,6 +9,8 @@
 #include "cblas.h"
 #endif
 
+std::unique_ptr<Smoother> process::noise_smoother;
+
 void _findMedianStatistics(double *arr, int size, double &median, double &mad)
 {
     std::sort(arr, arr+size);
@@ -19,44 +21,35 @@ void _findMedianStatistics(double *arr, int size, double &median, double &mad)
     mad = 1.4826 * arr[size/2]; // The constant factor makes it unbiased
 }
 
-int Smoother::sigmapix;
-double Smoother::gaussian_kernel[KS];
-bool Smoother::isKernelSet = false, Smoother::useMedianNoise = false, Smoother::isSmoothingOn = false;
-
-void Smoother::setParameters(int noisefactor)
+Smoother::Smoother(ConfigFile &config)
 {
-    // NOISE_SMOOTHING_FACTOR = 0 is mean noise
-    // < 0 uses raw noise
-    // > 0 sets the sigma pixels
-    if (noisefactor >= 0) 
-        Smoother::isSmoothingOn = true;
-    if (noisefactor == 0)
-        Smoother::useMedianNoise = true;
+    LOG::LOGGER.STD("###############################################\n");
+    LOG::LOGGER.STD("Reading noise smoothing parameters from config.\n");
 
-    Smoother::sigmapix = noisefactor;
-}
+    config.addDefaults(smoother_default_parameters);
+    sigmapix = config.getInteger("SmoothNoiseWeights");
+    LOG::LOGGER.STD("SmoothNoiseWeights is set to %d.\n\n", sigmapix);
+ 
+    isSmoothingOn  = (sigmapix >= 0);
+    useMedianNoise = (sigmapix == 0);
 
-void Smoother::setGaussianKernel()
-{
-    if (Smoother::isKernelSet || !Smoother::isSmoothingOn || Smoother::useMedianNoise)
+    if (!isSmoothingOn || useMedianNoise)
         return;
 
-    double sum=0, *g = &Smoother::gaussian_kernel[0];
+    double sum=0, *g = &gaussian_kernel[0];
     for (int i = -HWSIZE; i < HWSIZE+1; ++i, ++g)
     {
-        *g = exp(-pow(i*1./Smoother::sigmapix, 2)/2);
+        *g = exp(-pow(i*1./sigmapix, 2)/2);
         sum += *g;
     }
 
-    std::for_each(&Smoother::gaussian_kernel[0], &Smoother::gaussian_kernel[0]+KS, 
-        [&](double &x) { x /= sum; });
-
-    Smoother::isKernelSet = true;
+    std::for_each(&gaussian_kernel[0], &gaussian_kernel[0]+KS, 
+        [sum](double &x) { x /= sum; });
 }
 
 void Smoother::smoothNoise(const double *n2, double *out, int size)
 {
-    if (!Smoother::isSmoothingOn)
+    if (!isSmoothingOn)
     {
         std::copy(&n2[0], &n2[0] + size, &out[0]); 
         return;
@@ -68,7 +61,7 @@ void Smoother::smoothNoise(const double *n2, double *out, int size)
     std::transform(n2, n2+size, out, [](double x2) { return sqrt(x2); });
     _findMedianStatistics(out, size, median, mad);
 
-    if (Smoother::useMedianNoise)
+    if (useMedianNoise)
     {
         std::fill_n(out, size, median*median);
         return;
@@ -102,10 +95,10 @@ void Smoother::smoothNoise(const double *n2, double *out, int size)
     }
 
     // Convolve
-    std::fill_n(out, size, 0);
+    // std::fill_n(out, size, 0);
     for (int i = 0; i < size; ++i)
     {
-        out[i] = cblas_ddot(KS, Smoother::gaussian_kernel, 1, padded_noise.data()+i, 1);
+        out[i] = cblas_ddot(KS, gaussian_kernel, 1, padded_noise.data()+i, 1);
         out[i] *= out[i];
     }
 
