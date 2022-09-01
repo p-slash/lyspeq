@@ -128,8 +128,6 @@ void RealField::deconvolveSinc(double m)//, double downsampling)
     fftK2X();
 }
 
-#undef PI
-
 // void RealField::applyGaussSmoothing(double r)
 // {
 //     assert(current_space == K_SPACE);
