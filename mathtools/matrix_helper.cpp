@@ -760,10 +760,10 @@ namespace mxhelp
 
             gsl_interp_init(interp_cubic, win.data(), row.data(), dia_matrix->ndiags);
 
-            std::transform(wout.begin(), wout.end(), newrow, 
-                [&](const double &l) 
-                { return exp(gsl_interp_eval(interp_cubic, win.data(), row.data(), l, acc)) + _shift; }
-            );
+            // Paranoid that std::transform lambda is problematic
+            for (int jj = 0; jj < nelem_per_row; ++jj)
+                newrow[jj] = _shift + exp(gsl_interp_eval(
+                    interp_cubic, win.data(), row.data(), wout[jj], acc));
 
             // double sum = 0;
             // for (double* first = newrow; first != newrow+nelem_per_row; ++first)
