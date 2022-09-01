@@ -358,6 +358,7 @@ void OneDQuadraticPowerEstimate::iterate()
     double total_time = 0, total_time_1it = mytime::timer.getTime();;
 
     // Construct local queue
+    // Emplace_back with vector<OneQSOEstimate> leaks memory!!
     std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
     local_queue.reserve(local_fpaths.size());
     for (auto fpath : local_fpaths)

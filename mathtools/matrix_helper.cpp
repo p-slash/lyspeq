@@ -748,6 +748,7 @@ namespace mxhelp
         if (!is_dia_matrix) return;
 
         int noff = dia_matrix->ndiags/2, nelem_per_row = 2*noff*osamp + 1;
+        // Using the following simple scaling yields biased results
         // double rescalor = (double) dia_matrix->ndiags / (double) nelem_per_row;
         osamp_matrix = std::make_unique<OversampledMatrix>(ncols, nelem_per_row, osamp, dlambda);
 
@@ -794,12 +795,6 @@ namespace mxhelp
             std::for_each(newrow, newrow+nelem_per_row,
                 [sum](double &X) { X/=sum; }
             );
-
-            // double sum = 0;
-            // for (double* first = newrow; first != newrow+nelem_per_row; ++first)
-            //     sum += *first;
-            // for (double* first = newrow; first != newrow+nelem_per_row; ++first)
-            //     *first /= sum;
 
             gsl_interp_accel_reset(acc);
         }
