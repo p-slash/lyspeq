@@ -69,7 +69,7 @@ namespace mxhelp
     {
         std::unique_ptr<int[]> offsets;
         double *values, *sandwich_buffer;
-        size_t size;
+        int size;
 
         double* _getDiagonal(int d);
         // void _getRowIndices(int i, int *indices);
@@ -112,7 +112,7 @@ namespace mxhelp
     class OversampledMatrix
     {
         double *values, *sandwich_buffer;
-        size_t nvals;
+        int nvals;
 
         double* _getRow(int i);
     public:
