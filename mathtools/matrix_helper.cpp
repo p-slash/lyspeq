@@ -7,12 +7,7 @@
 #include <utility>
 #include <cmath>
 
-// #include <cassert>
-
 #include <gsl/gsl_interp.h>
-
-// #define lapack_complex_float std::complex<float>
-// #define lapack_complex_double std::complex<double>
 
 #ifdef USE_MKL_CBLAS
 #include "mkl_lapacke.h"
@@ -292,9 +287,9 @@ namespace mxhelp
                 int off = j-i, d=ndiags/2-off;
 
                 if (abs(off)>ndiags/2)
-                    fprintf(toWrite, "0 ");
+                    fprintf(toWrite, "%10.3e ", 0.);
                 else
-                    fprintf(toWrite, "%14le ", *(matrix()+d*ndim+j));
+                    fprintf(toWrite, "%10.3e ", *(_getDiagonal(d)+j));
             }
             fprintf(toWrite, "\n");
         }
@@ -762,18 +757,17 @@ namespace mxhelp
 
             // Paranoid that std::transform lambda is problematic
             for (int jj = 0; jj < nelem_per_row; ++jj)
+            {
                 newrow[jj] = _shift + exp(gsl_interp_eval(
                     interp_cubic, win.data(), row.data(), wout[jj], acc));
+                newrow[jj] *= rescalor;
+            }
 
             // double sum = 0;
             // for (double* first = newrow; first != newrow+nelem_per_row; ++first)
             //     sum += *first;
             // for (double* first = newrow; first != newrow+nelem_per_row; ++first)
             //     *first /= sum;
-
-            std::for_each(newrow, newrow+nelem_per_row, 
-                [rescalor, _shift](double &f) { f = (exp(f)+_shift)*rescalor; }
-            );
 
             gsl_interp_accel_reset(acc);
         }
