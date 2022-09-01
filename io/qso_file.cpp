@@ -10,26 +10,31 @@
 namespace qio
 {
 double _calcdv(double w2, double w1) { return log(w2/w1)*SPEED_OF_LIGHT; }
-double _getMediandv(const double *wave, int size)
+double _getMediandv(const double *wave, size_t size)
 {
-    auto temp_arr = std::make_unique<double[]>(size);
+    static std::vector<double> temp_arr;
+    temp_arr.clear();
+    temp_arr.reserve(size);
 
-    std::adjacent_difference(wave, wave+size, temp_arr.get(), _calcdv);
-    std::sort(temp_arr.get()+1, temp_arr.get()+size);
+    std::adjacent_difference(wave, wave+size, std::back_inserter(temp_arr), _calcdv);
+    std::sort(temp_arr.begin()+1, temp_arr.end());
 
-    double median = temp_arr.get()[1+(size-1)/2];
+    double median = temp_arr[1+(size-1)/2];
+    median = round(median/5)*5;
 
-    return  round(median/5)*5;
+    return  median;
 }
 
-double _getMediandlambda(const double *wave, int size)
+double _getMediandlambda(const double *wave, size_t size)
 {
-    auto temp_arr = std::make_unique<double[]>(size);
+    static std::vector<double> temp_arr;
+    temp_arr.clear();
+    temp_arr.reserve(size);
 
-    std::adjacent_difference(wave, wave+size, temp_arr.get());
-    std::sort(temp_arr.get()+1, temp_arr.get()+size);
+    std::adjacent_difference(wave, wave+size,  std::back_inserter(temp_arr));
+    std::sort(temp_arr.begin()+1, temp_arr.end());
 
-    double median = temp_arr.get()[1+(size-1)/2];
+    double median = temp_arr[1+(size-1)/2];
 
     return median;
 }
@@ -42,8 +47,9 @@ double _getMediandlambda(const double *wave, int size)
 // int R_fwhm;
 // double *wave, *delta, *noise;
 // mxhelp::Resolution *Rmat;
-QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
-: PB(p_or_b), shift(0), fname(fname_qso), size(0)
+QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b) :
+PB(p_or_b), wave_head(NULL), delta_head(NULL), noise_head(NULL),
+arr_size(0), shift(0), fname(fname_qso)
 {
     if (PB == Picca)
         pfile = std::make_unique<PiccaFile>(fname);
@@ -55,17 +61,17 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
     id = 0;
 }
 
-QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
+QSOFile::QSOFile(const qio::QSOFile &qmaster, size_t i1, size_t i2)
 : PB(qmaster.PB), shift(0), fname(qmaster.fname), 
 z_qso(qmaster.z_qso), snr(qmaster.snr), id(qmaster.id),
 R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
 // dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda),
 {
-    size = i2-i1;
+    arr_size = i2-i1;
 
-    wave_head  = std::make_unique<double[]>(size);
-    delta_head = std::make_unique<double[]>(size);
-    noise_head = std::make_unique<double[]>(size);
+    wave_head  = new double[arr_size];
+    delta_head = new double[arr_size];
+    noise_head = new double[arr_size];
 
     std::copy(qmaster.wave()+i1, qmaster.wave()+i2, wave());
     std::copy(qmaster.delta()+i1, qmaster.delta()+i2, delta());
@@ -86,24 +92,27 @@ void QSOFile::closeFile()
 QSOFile::~QSOFile()
 {
     closeFile();
+    delete [] wave_head;
+    delete [] delta_head;
+    delete [] noise_head;
 }
 
 void QSOFile::readParameters()
 {
     if (pfile)
-        pfile->readParameters(id, size, z_qso, R_fwhm, snr, dv_kms, dlambda, oversampling);
+        pfile->readParameters(id, arr_size, z_qso, R_fwhm, snr, dv_kms, dlambda, oversampling);
     else
-        bqfile->readParameters(size, z_qso, R_fwhm, snr, dv_kms);
+        bqfile->readParameters(arr_size, z_qso, R_fwhm, snr, dv_kms);
 }
 
 void QSOFile::readData()
 {
-    if (size <= 0)
+    if (arr_size <= 0)
         throw std::runtime_error("File is non-positive!");
 
-    wave_head  = std::make_unique<double[]>(size);
-    delta_head = std::make_unique<double[]>(size);
-    noise_head = std::make_unique<double[]>(size);
+    wave_head  = new double[arr_size];
+    delta_head = new double[arr_size];
+    noise_head = new double[arr_size];
 
     if (pfile)
         pfile->readData(wave(), delta(), noise());
@@ -112,43 +121,43 @@ void QSOFile::readData()
 
     // Update dv and dlambda
     if (dlambda < 0)
-        dlambda = _getMediandlambda(wave(), size);
+        dlambda = _getMediandlambda(wave(), size());
     if (dv_kms < 0)
-        dv_kms  = _getMediandv(wave(), size);
+        dv_kms  = _getMediandv(wave(), size());
 }
 
-int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
+size_t QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 {
     double l1 = LYA_REST * (1+z_lower_edge), l2 = LYA_REST * (1+z_upper_edge);
-    int wi1, wi2;
+    size_t wi1, wi2;
 
-    wi1 = std::lower_bound(wave(), wave()+size, l1)-wave();
-    wi2 = std::upper_bound(wave(), wave()+size, l2)-wave();
-    int newsize = wi2-wi1;
+    wi1 = std::lower_bound(wave(), wave()+size(), l1)-wave();
+    wi2 = std::upper_bound(wave(), wave()+size(), l2)-wave();
+    size_t newsize = wi2-wi1;
 
-    if ((wi1 == size) || (wi2 == 0)) // empty
+    if ((wi1 == arr_size) || (wi2 == 0)) // empty
         return 0;
 
-    if ((wi1 == 0) && (wi2 == size)) // no change
-        return size;
+    if ((wi1 == 0) && (wi2 == arr_size)) // no change
+        return arr_size;
 
     shift = wi1;
-    size  = newsize;
+    arr_size  = newsize;
 
     if (Rmat)
         Rmat->cutBoundary(wi1, wi2);
 
     // recalcDvDLam();
 
-    return size;
+    return arr_size;
 }
 
 void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 {
-    if (!wave_head)
+    if (wave_head == NULL)
     {
-        wave_head  = std::make_unique<double[]>(size);
-        delta_head = std::make_unique<double[]>(size);
+        wave_head  = new double[size()];
+        delta_head = new double[size()];
         if (pfile)
             pfile->readData(wave(), delta(), delta());
         else
@@ -156,8 +165,8 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
     }
 
     zmin = wave()[0] / LYA_REST - 1;
-    zmax = wave()[size-1] / LYA_REST - 1;
-    zmed = wave()[size/2] / LYA_REST - 1;
+    zmax = wave()[size()-1] / LYA_REST - 1;
+    zmed = wave()[size()/2] / LYA_REST - 1;
 }
 
 void QSOFile::readAllocResolutionMatrix()
@@ -170,8 +179,8 @@ void QSOFile::readAllocResolutionMatrix()
 
 void QSOFile::recalcDvDLam()
 {
-    dlambda = _getMediandlambda(wave(), size);
-    dv_kms  = _getMediandv(wave(), size);
+    dlambda = _getMediandlambda(wave(), size());
+    dv_kms  = _getMediandv(wave(), size());
 }
 
 // ============================================================================
@@ -187,7 +196,7 @@ BQFile::~BQFile()
     fclose(qso_file);
 }
 
-void BQFile::readParameters(int &data_number, double &z, int &fwhm_resolution, 
+void BQFile::readParameters(size_t &data_number, double &z, int &fwhm_resolution, 
     double &sig2noi, double &dv_kms)
 {
     rewind(qso_file);
@@ -195,7 +204,7 @@ void BQFile::readParameters(int &data_number, double &z, int &fwhm_resolution,
     if (fread(&header, sizeof(qso_io_header), 1, qso_file) != 1)
         throw std::runtime_error("fread error in header BQFile!");
 
-    data_number      = header.data_size;
+    data_number      = (size_t) header.data_size;
     z                = header.redshift;
     fwhm_resolution  = header.spectrograph_resolution_fwhm;
     sig2noi          = header.signal_to_noise;
@@ -338,7 +347,7 @@ bool PiccaFile::_isColumnName(const std::string &key)
         [key](const std::string &elem) { return elem == key; });
 }
 
-void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resolution, 
+void PiccaFile::readParameters(long &thid, size_t &N, double &z, int &fwhm_resolution, 
     double &sig2noi, double &dv_kms, double &dlambda, int &oversampling)
 {
     curr_elem_per_row = -1;

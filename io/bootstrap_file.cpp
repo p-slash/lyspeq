@@ -45,21 +45,22 @@ ioh::BootstrapFile::BootstrapFile(const std::string &base, int nk, int nz, int t
     if (r != 0) 
         throw std::runtime_error("Bootstrap file first Nk write.");
 
-    data_buffer = std::make_unique<double[]>(elems_count);
+    data_buffer = new double[elems_count];
 }
 
 ioh::BootstrapFile::~BootstrapFile()
 {
     MPI_File_close(&bootfile);
+    delete [] data_buffer;
 }
 
 void ioh::BootstrapFile::writeBoot(const double *pk, const double *fisher)
 {
     int r=0;
 
-    std::copy(pk, pk + nkzbins, data_buffer.get());
+    std::copy(pk, pk + nkzbins, data_buffer);
 
-    double *v = data_buffer.get()+nkzbins;
+    double *v = data_buffer+nkzbins;
     for (int d = 0; d < ndiags; ++d)
     {
         #ifdef FISHER_OPTIMIZATION
@@ -71,7 +72,7 @@ void ioh::BootstrapFile::writeBoot(const double *pk, const double *fisher)
 
     // Offset is the header first three integer plus shift by PE
     MPI_Offset offset = 3*sizeof(int) + pe*elems_count*sizeof(double);
-    r += MPI_File_write_at_all(bootfile, offset, data_buffer.get(),
+    r += MPI_File_write_at_all(bootfile, offset, data_buffer,
         elems_count, MPI_DOUBLE, MPI_STATUS_IGNORE);
     // r += fwrite(data_buffer, sizeof(double), elems_count, bootfile)-elems_count;
     if (r != 0)

@@ -145,27 +145,30 @@ namespace conv
             return;
         }
 
-        int size;
+        size_t size;
 
         std::ifstream to_read_meanflux = ioh::open_fstream<std::ifstream>(fname, 'b');
         // Assume file starts with two integers 
         // Nk Nz
         to_read_meanflux.read((char *)&size, sizeof(int));
 
-        std::unique_ptr<double[]> z_values(new double[size]),
-            f_values(new double[size]);
+        double *z_values = new double[size],
+               *f_values = new double[size];
 
         // Redshift array as doubles
-        to_read_meanflux.read((char *)z_values.get(), size*sizeof(double));
+        to_read_meanflux.read((char *)z_values, size*sizeof(double));
         
         // Remaining is flux array
-        to_read_meanflux.read((char *)f_values.get(), size*sizeof(double));
+        to_read_meanflux.read((char *)f_values, size*sizeof(double));
         to_read_meanflux.close();
 
         interp_mean_flux = std::make_unique<Interpolation>(GSL_CUBIC_INTERPOLATION,
-            z_values.get(), f_values.get(), size);
+            z_values, f_values, size);
 
         convertFluxToDeltaF = &fullConversion;
+
+        delete [] z_values;
+        delete [] f_values;
     }
 }
 
@@ -224,7 +227,7 @@ namespace fidcosmo
     // Power is ordered for each redshift bin
     void setFiducialPowerFromFile(const std::string &fname)
     {
-        int n_k_points, n_z_points, size;
+        size_t n_k_points, n_z_points, size;
 
         std::ifstream to_read_fidpow = ioh::open_fstream<std::ifstream>(fname, 'b');
         // Assume file starts with two integers 
@@ -233,26 +236,30 @@ namespace fidcosmo
         to_read_fidpow.read((char *)&n_z_points, sizeof(int));
         size = n_k_points * n_z_points;
 
-        std::unique_ptr<double[]> k_values(new double[n_k_points]),
-            z_values(new double[n_z_points]),
-            fiducial_power_from_file(new double[size]);
+        double *k_values = new double[n_k_points],
+               *z_values = new double[n_z_points],
+            *fiducial_power_from_file = new double[size];
 
         // Redshift array, then k array as doubles
-        to_read_fidpow.read((char *)z_values.get(), n_z_points*sizeof(double));
-        to_read_fidpow.read((char *)k_values.get(), n_k_points*sizeof(double));
+        to_read_fidpow.read((char *)z_values, n_z_points*sizeof(double));
+        to_read_fidpow.read((char *)k_values, n_k_points*sizeof(double));
 
         FID_LOWEST_K  = k_values[0];
         FID_HIGHEST_K = k_values[n_k_points - 1];
         
         // Remaining is power array
-        to_read_fidpow.read((char *)fiducial_power_from_file.get(), size*sizeof(double));
+        to_read_fidpow.read((char *)fiducial_power_from_file, size*sizeof(double));
         to_read_fidpow.close();
         
         interp2d_fiducial_power = std::make_unique<Interpolation2D>(GSL_BICUBIC_INTERPOLATION,
-            k_values.get(), z_values.get(), fiducial_power_from_file.get(),
+            k_values, z_values, fiducial_power_from_file,
             n_k_points, n_z_points);
 
         fiducialPowerSpectrum = &interpolationFiducialPower;
+
+        delete [] k_values;
+        delete [] z_values;
+        delete [] fiducial_power_from_file;
     }
 
     // Palanque_Delabrouille et al. 2013 based functions. Extra Lorentzian decay

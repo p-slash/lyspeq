@@ -38,8 +38,8 @@ class SQLookupTable
     std::string DIR, S_BASE, Q_BASE;
 
     // Temporary arrays. They are not stored after construction!
-    std::unique_ptr<double[]>  LINEAR_V_ARRAY, LINEAR_Z_ARRAY,
-        signal_array, derivative_array;
+    double *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY,
+           *signal_array, *derivative_array;
 
     std::vector<shared_interp_2d> interp2d_signal_matrices;
     std::vector<shared_interp_1d> interp_derivative_matrices;
@@ -58,6 +58,8 @@ class SQLookupTable
 
 public:
     SQLookupTable(const ConfigFile &config);
+    SQLookupTable(SQLookupTable &&rhs) = delete;
+    SQLookupTable(const SQLookupTable &rhs) = delete;
 
     void readSQforR(int r_index, shared_interp_2d &s,
         std::vector<shared_interp_1d>  &q, 

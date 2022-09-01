@@ -125,19 +125,21 @@ namespace mxhelp
 
     void LAPACKE_InvertMatrixLU(double *A, int N)
     {
-        auto ipiv = std::make_unique<lapack_int[]>(N);
+        lapack_int *ipiv = new lapack_int[N];
         lapack_int LIN = N, info;
 
         // Factorize A
         // the LU factorization of a general m-by-n matrix.
         info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN,
-            ipiv.get());
+            ipiv);
 
         LAPACKErrorHandle("ERROR in LU decomposition.", info);
 
         info = LAPACKE_dgetri(LAPACK_ROW_MAJOR, LIN, A, LIN,
-            ipiv.get());
+            ipiv);
         LAPACKErrorHandle("ERROR in LU invert.", info);
+
+        delete [] ipiv;
         // dpotrf(CblasUpper, N, A, N); 
         // the Cholesky factorization of a symmetric positive-definite matrix
     }
@@ -206,7 +208,8 @@ namespace mxhelp
     }
 
     // class DiaMatrix
-    DiaMatrix::DiaMatrix(int nm, int ndia) : ndim(nm), ndiags(ndia)
+    DiaMatrix::DiaMatrix(int nm, int ndia)
+        : sandwich_buffer(NULL), ndim(nm), ndiags(ndia)
     {
         // e.g. ndim=724, ndiags=11
         // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
@@ -216,22 +219,30 @@ namespace mxhelp
             throw std::runtime_error("DiaMatrix ndiagonal cannot be even!");
 
         size = ndim*ndiags;
-        values = std::make_unique<double[]>(size);
+        values = new double[size];
 
         offsets = std::make_unique<int[]>(ndiags);
         for (int i=ndiags/2, j=0; i > -(ndiags/2)-1; --i, ++j)
             offsets[j] = i;
     }
 
+    DiaMatrix::~DiaMatrix()
+    {
+        delete [] values;
+        freeBuffer();
+    }
+
     void DiaMatrix::orderTranspose()
     {
-        auto newmat = std::make_unique<double[]>(size);
+        double *newmat = new double[size];
 
         for (int d = 0; d < ndiags; ++d)
             cblas_dcopy(ndim, matrix()+d, ndiags,
-                newmat.get()+d*ndim, 1);
+                newmat+d*ndim, 1);
 
-        values = std::move(newmat);
+        // values = std::move(newmat);
+        delete [] values;
+        values = newmat;
     }
 
     double* DiaMatrix::_getDiagonal(int d)
@@ -388,7 +399,11 @@ namespace mxhelp
 
     void DiaMatrix::freeBuffer()
     {
-        sandwich_buffer.reset();
+        if (sandwich_buffer != NULL)
+        {
+            delete [] sandwich_buffer;
+            sandwich_buffer = NULL;
+        }
     }
 
     void DiaMatrix::multiply(char SIDER, char TRANSR, const double* A, 
@@ -483,11 +498,11 @@ namespace mxhelp
 
     void DiaMatrix::sandwich(double *inplace)
     {
-        if (!sandwich_buffer)
-            sandwich_buffer = std::make_unique<double[]>(ndim*ndim);
+        if (sandwich_buffer != NULL)
+            sandwich_buffer = new double[ndim*ndim];
 
-        multiply('L', 'N', inplace, sandwich_buffer.get());
-        multiply('R', 'T', sandwich_buffer.get(), inplace);
+        multiply('L', 'N', inplace, sandwich_buffer);
+        multiply('R', 'T', sandwich_buffer, inplace);
     }
 
     double DiaMatrix::getMinMemUsage()
@@ -509,12 +524,18 @@ namespace mxhelp
 
     // class OversampledMatrix
     OversampledMatrix::OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda) : 
-        nrows(n1), nelem_per_row(nelem_prow), oversampling(osamp)
+        sandwich_buffer(NULL), nrows(n1), nelem_per_row(nelem_prow), oversampling(osamp)
     {
         ncols = nrows*oversampling + nelem_per_row-1;
         nvals = nrows*nelem_per_row;
         fine_dlambda = dlambda/oversampling;
-        values  = std::make_unique<double[]>(nvals);
+        values  = new double[nvals];
+    }
+
+    OversampledMatrix::~OversampledMatrix()
+    {
+        delete [] values;
+        freeBuffer();
     }
 
     double* OversampledMatrix::_getRow(int i)
@@ -570,11 +591,11 @@ namespace mxhelp
 
     void OversampledMatrix::sandwichHighRes(double *B, const double *temp_highres_mat)
     {
-        if (!sandwich_buffer)
-            sandwich_buffer = std::make_unique<double[]>(nrows*ncols);
+        if (sandwich_buffer != NULL)
+            sandwich_buffer = new double[nrows*ncols];
 
-        multiplyLeft(temp_highres_mat, sandwich_buffer.get());
-        multiplyRight(sandwich_buffer.get(), B);
+        multiplyLeft(temp_highres_mat, sandwich_buffer);
+        multiplyRight(sandwich_buffer, B);
     }
 
     double OversampledMatrix::getMinMemUsage()
@@ -603,16 +624,20 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
         {
             for (int j = 0; j < nelem_per_row; ++j)
-                fprintf(toWrite, "%3le ", *(_getRow(i)+j));
+                fprintf(toWrite, "%3e ", *(_getRow(i)+j));
             fprintf(toWrite, "\n");
         }
 
         fclose(toWrite);
     }
 
-    void OversampledMatrix::freeBuffers()
+    void OversampledMatrix::freeBuffer()
     {
-        sandwich_buffer.reset();
+        if (sandwich_buffer != NULL)
+        {
+            delete [] sandwich_buffer;
+            sandwich_buffer = NULL;
+        }
     }
 
     // Main resolution object
@@ -797,10 +822,10 @@ namespace mxhelp
             osamp_matrix->sandwichHighRes(B, temp_highres_mat);
     }
 
-    void Resolution::freeBuffers()
+    void Resolution::freeBuffer()
     {
         if (dia_matrix != NULL)   dia_matrix->freeBuffer();
-        if (osamp_matrix != NULL) osamp_matrix->freeBuffers();
+        if (osamp_matrix != NULL) osamp_matrix->freeBuffer();
     }
 
     double Resolution::getMinMemUsage()
