@@ -81,9 +81,7 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), qFile->size());
 
     // Keep noise as error squared (variance)
-    LOG::LOGGER.DEB("qFile->noise()[10]: %.5f --> ", qFile->noise()[10]);
     std::for_each(qFile->noise(), qFile->noise()+qFile->size(), [](double &n) { n*=n; });
-    LOG::LOGGER.DEB("%.5f\n", qFile->noise()[10]);
 
     nqj_eff = 0;
 
@@ -105,7 +103,6 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
     if (specifics::USE_RESOLUTION_MATRIX)
     {
         RES_INDEX = 0;
-
         _matrix_n = qFile->Rmat->getNCols();
     }
     else
@@ -561,7 +558,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 
 void Chunk::computePSbeforeFvector()
 {
-    double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix, temp_tk = 0;
+    double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix;
+    std::vector<double> dbt_vec(3, 0);
 
     if (isSfidSet)
         Sfid_matrix = stored_sfid;
@@ -584,9 +582,9 @@ void Chunk::computePSbeforeFvector()
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        double temp_dk = mxhelp::my_cblas_dsymvdot(weighted_data_vector, 
+        dbt_vec[0] = mxhelp::my_cblas_dsymvdot(weighted_data_vector, 
             Q_ikz_matrix, temp_vector, qFile->size());
-         LOG::LOGGER.DEB("-> dk (%.1e)   ", temp_dk);
+         LOG::LOGGER.DEB("-> dk (%.1e)   ", dbt_vec[0]);
 
         LOG::LOGGER.DEB("-> weighted Q   ");
         // Get weighted derivative matrix ikz: C-1 Qi C-1
@@ -594,7 +592,7 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        double temp_bk = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise(), 
+        dbt_vec[1] = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise(), 
             qFile->size());
 
         // Set Fiducial Signal Matrix
@@ -605,12 +603,11 @@ void Chunk::computePSbeforeFvector()
 
             LOG::LOGGER.DEB("-> tk   ");
             // Tr(C-1 Qi C-1 Sfid)
-            temp_tk = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, qFile->size());
+            dbt_vec[2] = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, qFile->size());
         }
-        
-        dbt_estimate_before_fisher_vector[0][i_kz + fisher_index_start] = temp_dk;
-        dbt_estimate_before_fisher_vector[1][i_kz + fisher_index_start] = temp_bk;
-        dbt_estimate_before_fisher_vector[2][i_kz + fisher_index_start] = temp_tk;
+
+        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+            dbt_estimate_before_fisher_vector[dbt_i][i_kz + fisher_index_start] = dbt_vec[dbt_i];
 
         // Do not compute fisher matrix if it is precomputed
         if (!specifics::USE_PRECOMPUTED_FISHER)
@@ -792,13 +789,9 @@ void Chunk::_freeMatrices()
     isQjSet   = false;
     isSfidSet = false;
 
-    // Do not delete if these are pointers to process::sq_private_table
-    if (!process::SAVE_ALL_SQ_FILES)
-    {
-        if (interp2d_signal_matrix)
-            interp2d_signal_matrix.reset();
-        interp_derivative_matrix.clear();
-    }
+    if (interp2d_signal_matrix)
+        interp2d_signal_matrix.reset();
+    interp_derivative_matrix.clear();
 }
 
 void Chunk::fprintfMatrices(const char *fname_base)

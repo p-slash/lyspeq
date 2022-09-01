@@ -24,7 +24,7 @@
 
 void ConfigFile::addDefaults(const config_map &default_config)
 {
-    for (auto entry : default_config)
+    for (const auto &entry : default_config)
     {
         auto kumap_itr = key_umap.find(entry.first);
         if (kumap_itr == key_umap.end())
@@ -93,7 +93,7 @@ void ConfigFile::writeConfig(FILE *toWrite, std::string prefix) const
     const char *c_prefix = prefix.c_str();
     fprintf(toWrite, "%sUsing following configuration parameters:\n",
         c_prefix);
-    for (auto entry : key_umap)
+    for (const auto &entry : key_umap)
         fprintf(toWrite, "%s%s %s\n", c_prefix,
             entry.first.c_str(), entry.second.c_str());
 }

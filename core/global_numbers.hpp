@@ -15,8 +15,7 @@ const double
 SPEED_OF_LIGHT = 299792.458,
 LYA_REST = 1215.67,
 MY_PI = 3.14159265359,
-ONE_SIGMA_2_FWHM = 2.35482004503,
-CONVERGENCE_EPS = 1E-4; // Quadratic Estimate numbers
+ONE_SIGMA_2_FWHM = 2.35482004503;
 
 namespace qio
 {
@@ -58,6 +57,61 @@ namespace process
         memory. Default 1500.
     */
     void readProcess(ConfigFile &config);
+}
+
+namespace specifics
+{
+    extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
+        USE_PRECOMPUTED_FISHER;
+    extern double CHISQ_CONVERGENCE_EPS;
+    extern int CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
+        NUMBER_OF_CHUNKS;
+    extern double RESOMAT_DECONVOLUTION_M;
+    extern qio::ifileformat INPUT_QSO_FILE;
+
+    extern int OVERSAMPLING_FACTOR;
+
+    const config_map specifics_default_parameters ({
+        {"InputIsPicca", "-1"}, {"UseResoMatrix", "-1"},
+        {"ResoMatDeconvolutionM", "-1"}, {"OversampleRmat", "-1"},
+        {"DynamicChunkNumber", "1"}, {"TurnOffBaseline", "-1"},
+        {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "1e-2"},
+        {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
+        {"PrecomputedFisher", ""} });
+
+    /* This function reads following keys from config file:
+    InputIsPicca: int
+        If > 0, input file format is from picca. Off by default.
+    UseResoMatrix: int
+        If > 0, reads and uses the resolution matrix picca files.
+        Off by default.
+    ResoMatDeconvolutionM: double
+        Deconvolve the resolution matrix by this factor in terms of pixel.
+        For example, 1.0 deconvolves one top hat. Off by default and when
+        <= 0.
+    OversampleRmat: int
+        Oversample the resolution matrix by this factor per row. Off when <= 0
+        and by default.
+    DynamicChunkNumber: int
+        Dynamiccaly chunk spectra into this number when > 1. Off by default.
+    TurnOffBaseline: int
+        Turns off the fiducial signal matrix if > 0. Fid is on by default.
+    SmoothLnkLnP: int
+        Smooth the ln k and ln P values when iterating. On by default
+        and when > 0.
+    ChiSqConvergence: int
+        Criteria for chi square convergance. Valid when > 0. Default is 1e-2
+    ContinuumLogLambdaMargOrder: int
+        Polynomial order for log lambda cont marginalization. Default 1.
+    ContinuumLambdaMargOrder: int
+        Polynomial order for lambda cont marginalization. Default -1.
+    PrecomputedFisher: string
+        File to precomputed Fisher matrix. If present, Fisher matrix is not
+        calculated for spectra. Off by default.
+    */
+    void readSpecifics(ConfigFile &config);
+
+    void printBuildSpecifics(FILE *toWrite=NULL);
 }
 
 namespace bins
@@ -144,61 +198,6 @@ namespace mytime
     };
 
     extern Timer timer;
-}
-
-namespace specifics
-{
-    extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
-        USE_PRECOMPUTED_FISHER;
-    extern double CHISQ_CONVERGENCE_EPS;
-    extern int CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
-        NUMBER_OF_CHUNKS;
-    extern double RESOMAT_DECONVOLUTION_M;
-    extern qio::ifileformat INPUT_QSO_FILE;
-
-    extern int OVERSAMPLING_FACTOR;
-
-    const config_map specifics_default_parameters ({
-        {"InputIsPicca", "-1"}, {"UseResoMatrix", "-1"},
-        {"ResoMatDeconvolutionM", "-1"}, {"OversampleRmat", "-1"},
-        {"DynamicChunkNumber", "1"}, {"TurnOffBaseline", "-1"},
-        {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "-1"},
-        {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
-        {"PrecomputedFisher", ""} });
-
-    /* This function reads following keys from config file:
-    InputIsPicca: int
-        If > 0, input file format is from picca. Off by default.
-    UseResoMatrix: int
-        If > 0, reads and uses the resolution matrix picca files.
-        Off by default.
-    ResoMatDeconvolutionM: double
-        Deconvolve the resolution matrix by this factor in terms of pixel.
-        For example, 1.0 deconvolves one top hat. Off by default and when
-        <= 0.
-    OversampleRmat: int
-        Oversample the resolution matrix by this factor per row. Off when <= 0
-        and by default.
-    DynamicChunkNumber: int
-        Dynamiccaly chunk spectra into this number when > 1. Off by default.
-    TurnOffBaseline: int
-        Turns off the fiducial signal matrix if > 0. Fid is on by default.
-    SmoothLnkLnP: int
-        Smooth the ln k and ln P values when iterating. On by default
-        and when > 0.
-    ChiSqConvergence: int
-        Criteria for chi square convergance. Valid when > 0. Default is 1e-4
-    ContinuumLogLambdaMargOrder: int
-        Polynomial order for log lambda cont marginalization. Default 1.
-    ContinuumLambdaMargOrder: int
-        Polynomial order for lambda cont marginalization. Default -1.
-    PrecomputedFisher: string
-        File to precomputed Fisher matrix. If present, Fisher matrix is not
-        calculated for spectra. Off by default.
-    */
-    void readSpecifics(ConfigFile &config);
-
-    void printBuildSpecifics(FILE *toWrite=NULL);
 }
 
 #endif

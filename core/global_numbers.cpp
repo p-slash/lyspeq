@@ -75,6 +75,170 @@ namespace process
     }
 }
 
+namespace specifics
+{
+    double CHISQ_CONVERGENCE_EPS = 0.01;
+    bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX,
+           USE_PRECOMPUTED_FISHER;
+    int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
+        CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1;
+    double RESOMAT_DECONVOLUTION_M = 0;
+    qio::ifileformat INPUT_QSO_FILE = qio::Binary;
+    int OVERSAMPLING_FACTOR = -1;
+
+    void calcNvecs()
+    {
+        if (CONT_LOGLAM_MARG_ORDER >= 0 || CONT_LAM_MARG_ORDER >= 0)
+        {
+            CONT_NVECS = 1;
+            if (CONT_LOGLAM_MARG_ORDER > 0)
+                CONT_NVECS += CONT_LOGLAM_MARG_ORDER;
+            if (CONT_LAM_MARG_ORDER > 0)
+                CONT_NVECS += CONT_LAM_MARG_ORDER;
+        }
+        else
+            CONT_NVECS = 0;
+    }
+
+    /* This function reads following keys from config file:
+    InputIsPicca: int
+        If > 0, input file format is from picca. Off by default.
+    UseResoMatrix: int
+        If > 0, reads and uses the resolution matrix picca files.
+        Off by default.
+    ResoMatDeconvolutionM: double
+        Deconvolve the resolution matrix by this factor in terms of pixel.
+        For example, 1.0 deconvolves one top hat. Off by default and when
+        <= 0.
+    OversampleRmat: int
+        Oversample the resolution matrix by this factor per row. Off when <= 0
+        and by default.
+    DynamicChunkNumber: int
+        Dynamiccaly chunk spectra into this number when > 1. Off by default.
+    TurnOffBaseline: int
+        Turns off the fiducial signal matrix if > 0. Fid is on by default.
+    SmoothLnkLnP: int
+        Smooth the ln k and ln P values when iterating. On by default
+        and when > 0.
+    ChiSqConvergence: int
+        Criteria for chi square convergance. Valid when > 0. Default is 1e-4
+    ContinuumLogLambdaMargOrder: int
+        Polynomial order for log lambda cont marginalization. Default 1.
+    ContinuumLambdaMargOrder: int
+        Polynomial order for lambda cont marginalization. Default 0.
+    PrecomputedFisher: string
+        File to precomputed Fisher matrix. If present, Fisher matrix is not
+        calculated for spectra. Off by default.
+    */
+    void readSpecifics(ConfigFile &config)
+    {
+        LOG::LOGGER.STD("###############################################\n");
+        LOG::LOGGER.STD("Reading specifics from config.\n");
+        config.addDefaults(specifics_default_parameters);
+        int sfid_off, usmoothlogs, use_picca_file, use_reso_mat;
+        double  temp_chisq;
+
+        use_picca_file = config.getInteger("InputIsPicca", -1);
+        use_reso_mat = config.getInteger("UseResoMatrix", -1);
+        RESOMAT_DECONVOLUTION_M = config.getDouble("ResoMatDeconvolutionM");
+        OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat", -1);
+        NUMBER_OF_CHUNKS = config.getInteger("DynamicChunkNumber", 1);
+
+        // Turns off the signal matrix
+        sfid_off = config.getInteger("TurnOffBaseline", -1);
+        // Smooth lnk, lnP
+        usmoothlogs = config.getInteger("SmoothLnkLnP", 1);
+        temp_chisq = config.getDouble("ChiSqConvergence");
+
+        // Continuum marginalization order. Pass <=0 to turn off
+        CONT_LOGLAM_MARG_ORDER = config.getInteger(
+            "ContinuumLogLambdaMargOrder", 1);
+        CONT_LAM_MARG_ORDER = config.getInteger(
+            "ContinuumLambdaMargOrder", 0);
+
+        // char tmp_ps_fname[320];
+        // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
+        // TODO: Test access here
+
+        TURN_OFF_SFID        = sfid_off > 0;
+        SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
+        USE_RESOLUTION_MATRIX= use_reso_mat > 0;
+        std::string precomp_fisher_str = config.get("PrecomputedFisher");
+        USE_PRECOMPUTED_FISHER   = !precomp_fisher_str.empty();
+
+        if (use_picca_file>0)
+            INPUT_QSO_FILE = qio::Picca;
+
+        if (INPUT_QSO_FILE != qio::Picca && USE_RESOLUTION_MATRIX)
+            throw std::invalid_argument(
+                "Resolution matrix is only supported with picca files."
+                " Add 'InputIsPicca 1' to config file if so.");
+
+        if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
+
+        calcNvecs();
+
+        #define booltostr(x) x ? "true" : "false"
+        LOG::LOGGER.STD("InputIsPicca is set to %s.\n",
+            booltostr(INPUT_QSO_FILE));
+        LOG::LOGGER.STD("UseResoMatrix is set to %s.\n",
+            booltostr(USE_RESOLUTION_MATRIX));
+        LOG::LOGGER.STD("ResoMatDeconvolutionM is set to %.2f.\n",
+            RESOMAT_DECONVOLUTION_M);
+        LOG::LOGGER.STD("OversampleRmat is set to %d.\n",
+            OVERSAMPLING_FACTOR);
+        LOG::LOGGER.STD("DynamicChunkNumber is set to %d.\n",
+            NUMBER_OF_CHUNKS);
+        LOG::LOGGER.STD("Fiducial signal matrix is set to turned %s.\n",
+            TURN_OFF_SFID ? "OFF" : "ON");
+        LOG::LOGGER.STD("SmoothLnkLnP is set to %s.\n",
+            booltostr(SMOOTH_LOGK_LOGP));
+        LOG::LOGGER.STD("ChiSqConvergence is set to %.2e.\n",
+            CHISQ_CONVERGENCE_EPS);
+        LOG::LOGGER.STD("PrecomputedFisher is turn %s, and set to %s.\n",
+            booltostr(USE_PRECOMPUTED_FISHER), precomp_fisher_str.c_str());
+        LOG::LOGGER.STD("ContinuumLogLambdaMargOrder is set to %d.\n",
+            CONT_LOGLAM_MARG_ORDER);
+        LOG::LOGGER.STD("ContinuumLambdaMargOrder is set to %d.\n\n",
+            CONT_LAM_MARG_ORDER);
+        #undef booltostr
+    }
+
+    #if defined(TOPHAT_Z_BINNING_FN)
+    const std::string BINNING_SHAPE = "Top Hat";
+    #elif defined(TRIANGLE_Z_BINNING_FN)
+    const std::string BINNING_SHAPE = "Triangular";
+    #else
+    const std::string BINNING_SHAPE = "ERROR NOT DEFINED";
+    #endif
+
+    #if defined(FISHER_OPTIMIZATION)
+    const std::string FISHER_TXT = "ON";
+    #else
+    const std::string FISHER_TXT = "OFF";
+    #endif
+
+    #if defined(REDSHIFT_GROWTH_POWER)
+    const std::string RGP_TEXT = "ON";
+    #else
+    const std::string RGP_TEXT = "OFF";
+    #endif
+
+    const std::string BUILD_SPECIFICS = 
+        std::string("# This version is build by the following options:\n") +
+        "# Fisher optimization: " + FISHER_TXT + "\n" +
+        "# Redshift binning shape: " + BINNING_SHAPE + "\n" +
+        "# Redshift growth scaling: " + RGP_TEXT + "\n";
+
+    void printBuildSpecifics(FILE *toWrite)
+    {
+        if (toWrite == NULL)
+            LOG::LOGGER.STD(BUILD_SPECIFICS.c_str());
+        else
+            fprintf(toWrite, "%s", BUILD_SPECIFICS.c_str());
+    }
+}
+
 namespace bins
 {
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
@@ -369,177 +533,6 @@ namespace mytime
         "i", "T_i", "T_tot", "T_Cinv", "T_Finv", "T_Sfid", "N_Sfid", "T_Q", "N_Q", "T_Qmod", "T_F", "DChi2", "DMean");
     }
 }
-
-namespace specifics
-{
-    double CHISQ_CONVERGENCE_EPS = 0.01;
-    bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX,
-           USE_PRECOMPUTED_FISHER;
-    int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
-        CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1;
-    double RESOMAT_DECONVOLUTION_M = 0;
-    qio::ifileformat INPUT_QSO_FILE = qio::Binary;
-    int OVERSAMPLING_FACTOR = -1;
-
-    void calcNvecs()
-    {
-        if (CONT_LOGLAM_MARG_ORDER >= 0 || CONT_LAM_MARG_ORDER >= 0)
-        {
-            CONT_NVECS = 1;
-            if (CONT_LOGLAM_MARG_ORDER > 0)
-                CONT_NVECS += CONT_LOGLAM_MARG_ORDER;
-            if (CONT_LAM_MARG_ORDER > 0)
-                CONT_NVECS += CONT_LAM_MARG_ORDER;
-        }
-        else
-            CONT_NVECS = 0;
-    }
-
-    /* This function reads following keys from config file:
-    InputIsPicca: int
-        If > 0, input file format is from picca. Off by default.
-    UseResoMatrix: int
-        If > 0, reads and uses the resolution matrix picca files.
-        Off by default.
-    ResoMatDeconvolutionM: double
-        Deconvolve the resolution matrix by this factor in terms of pixel.
-        For example, 1.0 deconvolves one top hat. Off by default and when
-        <= 0.
-    OversampleRmat: int
-        Oversample the resolution matrix by this factor per row. Off when <= 0
-        and by default.
-    DynamicChunkNumber: int
-        Dynamiccaly chunk spectra into this number when > 1. Off by default.
-    TurnOffBaseline: int
-        Turns off the fiducial signal matrix if > 0. Fid is on by default.
-    SmoothLnkLnP: int
-        Smooth the ln k and ln P values when iterating. On by default
-        and when > 0.
-    ChiSqConvergence: int
-        Criteria for chi square convergance. Valid when > 0. Default is 1e-4
-    ContinuumLogLambdaMargOrder: int
-        Polynomial order for log lambda cont marginalization. Default 1.
-    ContinuumLambdaMargOrder: int
-        Polynomial order for lambda cont marginalization. Default 0.
-    PrecomputedFisher: string
-        File to precomputed Fisher matrix. If present, Fisher matrix is not
-        calculated for spectra. Off by default.
-    */
-    void readSpecifics(ConfigFile &config)
-    {
-        LOG::LOGGER.STD("###############################################\n");
-        LOG::LOGGER.STD("Reading specifics from config.\n");
-        config.addDefaults(specifics_default_parameters);
-        int sfid_off, usmoothlogs, use_picca_file, use_reso_mat;
-        double  temp_chisq;
-
-        use_picca_file = config.getInteger("InputIsPicca", -1);
-        use_reso_mat = config.getInteger("UseResoMatrix", -1);
-        RESOMAT_DECONVOLUTION_M = config.getDouble("ResoMatDeconvolutionM");
-        OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat", -1);
-        NUMBER_OF_CHUNKS = config.getInteger("DynamicChunkNumber", 1);
-
-        // Turns off the signal matrix
-        sfid_off = config.getInteger("TurnOffBaseline", -1);
-        // Smooth lnk, lnP
-        usmoothlogs = config.getInteger("SmoothLnkLnP", 1);
-        temp_chisq = config.getDouble("ChiSqConvergence", CONVERGENCE_EPS);
-
-        // Continuum marginalization order. Pass <=0 to turn off
-        CONT_LOGLAM_MARG_ORDER = config.getInteger(
-            "ContinuumLogLambdaMargOrder", 1);
-        CONT_LAM_MARG_ORDER = config.getInteger(
-            "ContinuumLambdaMargOrder", 0);
-
-        // char tmp_ps_fname[320];
-        // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
-        // TODO: Test access here
-
-        TURN_OFF_SFID        = sfid_off > 0;
-        SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
-        USE_RESOLUTION_MATRIX= use_reso_mat > 0;
-        std::string precomp_fisher_str = config.get("PrecomputedFisher");
-        USE_PRECOMPUTED_FISHER   = !precomp_fisher_str.empty();
-
-        if (use_picca_file>0)
-            INPUT_QSO_FILE = qio::Picca;
-
-        if (INPUT_QSO_FILE != qio::Picca && USE_RESOLUTION_MATRIX)
-            throw std::invalid_argument(
-                "Resolution matrix is only supported with picca files."
-                " Add 'InputIsPicca 1' to config file if so.");
-
-        if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
-
-        calcNvecs();
-
-        #define booltostr(x) x ? "true" : "false"
-        LOG::LOGGER.STD("InputIsPicca is set to %s.\n",
-            booltostr(INPUT_QSO_FILE));
-        LOG::LOGGER.STD("UseResoMatrix is set to %s.\n",
-            booltostr(USE_RESOLUTION_MATRIX));
-        LOG::LOGGER.STD("ResoMatDeconvolutionM is set to %.2f.\n",
-            RESOMAT_DECONVOLUTION_M);
-        LOG::LOGGER.STD("OversampleRmat is set to %d.\n",
-            OVERSAMPLING_FACTOR);
-        LOG::LOGGER.STD("DynamicChunkNumber is set to %d.\n",
-            NUMBER_OF_CHUNKS);
-        LOG::LOGGER.STD("Fiducial signal matrix is set to turned %s.\n",
-            TURN_OFF_SFID ? "OFF" : "ON");
-        LOG::LOGGER.STD("SmoothLnkLnP is set to %s.\n",
-            booltostr(SMOOTH_LOGK_LOGP));
-        LOG::LOGGER.STD("ChiSqConvergence is set to %.2e.\n",
-            CHISQ_CONVERGENCE_EPS);
-        LOG::LOGGER.STD("PrecomputedFisher is turn %s, and set to %s.\n",
-            booltostr(USE_PRECOMPUTED_FISHER), precomp_fisher_str.c_str());
-        LOG::LOGGER.STD("ContinuumLogLambdaMargOrder is set to %d.\n",
-            CONT_LOGLAM_MARG_ORDER);
-        LOG::LOGGER.STD("ContinuumLambdaMargOrder is set to %d.\n\n",
-            CONT_LAM_MARG_ORDER);
-        #undef booltostr
-    }
-
-    #if defined(TOPHAT_Z_BINNING_FN)
-    const std::string BINNING_SHAPE = "Top Hat";
-    #elif defined(TRIANGLE_Z_BINNING_FN)
-    const std::string BINNING_SHAPE = "Triangular";
-    #else
-    const std::string BINNING_SHAPE = "ERROR NOT DEFINED";
-    #endif
-
-    #if defined(FISHER_OPTIMIZATION)
-    const std::string FISHER_TXT = "ON";
-    #else
-    const std::string FISHER_TXT = "OFF";
-    #endif
-
-    #if defined(REDSHIFT_GROWTH_POWER)
-    const std::string RGP_TEXT = "ON";
-    #else
-    const std::string RGP_TEXT = "OFF";
-    #endif
-
-    const std::string BUILD_SPECIFICS = 
-        std::string("# This version is build by the following options:\n") +
-        "# Fisher optimization: " + FISHER_TXT + "\n" +
-        "# Redshift binning shape: " + BINNING_SHAPE + "\n" +
-        "# Redshift growth scaling: " + RGP_TEXT + "\n";
-
-    void printBuildSpecifics(FILE *toWrite)
-    {
-        if (toWrite == NULL)
-            LOG::LOGGER.STD(BUILD_SPECIFICS.c_str());
-        else
-            fprintf(toWrite, "%s", BUILD_SPECIFICS.c_str());
-    }
-}
-
-
-
-
-
-
-
 
 
 
