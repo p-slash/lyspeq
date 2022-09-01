@@ -192,7 +192,7 @@ void Chunk::_setStoredMatrices()
 
     if (nqj_eff != N_Q_MATRICES)
         LOG::LOGGER.ERR("===============\n""Not all matrices are stored: %s\n"
-            "#stored: %d vs #required:%d.\n""ND: %zu, M1: %.1f MB. "
+            "#stored: %d vs #required:%d.\n""ND: %d, M1: %.1f MB. "
             "Avail mem after R & SQ subtracted: %.1lf MB\n""===============\n", 
             qFile->fname.c_str(), nqj_eff, N_Q_MATRICES, qFile->size(), size_m1, 
             remain_mem);
@@ -626,7 +626,7 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 {
     LOG::LOGGER.DEB("File %s\n", qFile->fname.c_str());
     LOG::LOGGER.DEB("TargetID %ld\n", qFile->id);
-    LOG::LOGGER.DEB("Size %zu\n", qFile->size());
+    LOG::LOGGER.DEB("Size %d\n", qFile->size());
     LOG::LOGGER.DEB("ncols: %d\n", _matrix_n);
     LOG::LOGGER.DEB("fisher_index_start: %d\n", fisher_index_start);
     LOG::LOGGER.DEB("Allocating matrices\n");
@@ -721,17 +721,17 @@ void Chunk::_allocateMatrices()
     // Create a temp highres lambda array
     if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
     {
-        unsigned long highsize = qFile->Rmat->getNCols();
-        _finer_lambda = new double[highsize];
+        int ncols = qFile->Rmat->getNCols();
+        _finer_lambda = new double[ncols];
 
         double fine_dlambda = qFile->dlambda/specifics::OVERSAMPLING_FACTOR;
         int disp = qFile->Rmat->getNElemPerRow()/2;
-        for (unsigned long i = 0; i < highsize; ++i)
+        for (int i = 0; i < ncols; ++i)
             _finer_lambda[i] = qFile->wave()[0] + (i - disp)*fine_dlambda;
 
         _matrix_lambda = _finer_lambda;
 
-        highsize *= highsize;
+        long highsize = (long)(ncols) * (long)(ncols);
         _finer_matrix = new double[highsize];
     }
     else
