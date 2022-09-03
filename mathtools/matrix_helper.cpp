@@ -158,7 +158,7 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
         {
             for (int j = 0; j < ncols; ++j)
-                printf("%.6le ", *(A+j+ncols*i));
+                printf("%10.3e ", *(A+j+ncols*i));
             printf("\n");
         }
     }
