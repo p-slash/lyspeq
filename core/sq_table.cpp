@@ -24,13 +24,13 @@ namespace sqhelper
 
     // Allocates a double array with size N
     // Must deallocate after!!
-    std::unique_ptr<double[]> allocLinearlySpacedArray(double x0, double lengthx, int N)
+    double* allocLinearlySpacedArray(double x0, double lengthx, int N)
     {
-        auto resulting_array = std::make_unique<double[]>(N);
+        double* resulting_array = new double[N];
         double dx = getLinearSpacing(lengthx, N);
 
         for (int j = 0; j < N; ++j)
-            resulting_array.get()[j] = x0 + dx * j;
+            resulting_array[j] = x0 + dx * j;
 
         return resulting_array;
     }
@@ -49,7 +49,9 @@ DerivativeSLookUpTableBase: string
     Default is deriv.
 FileNameRList: string
 */
-SQLookupTable::SQLookupTable(const ConfigFile &config)
+SQLookupTable::SQLookupTable(const ConfigFile &config) :
+LINEAR_V_ARRAY(NULL), LINEAR_Z_ARRAY(NULL),
+signal_array(NULL), derivative_array(NULL)
 {
     N_V_POINTS = config.getInteger("NumberVPoints");
     N_Z_POINTS_OF_S = config.getInteger("NumberZPoints");
@@ -149,7 +151,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
 
             for (int nv = 0; nv < N_V_POINTS; ++nv)
             {
-                win_params.delta_v_ij = LINEAR_V_ARRAY.get()[nv];
+                win_params.delta_v_ij = LINEAR_V_ARRAY[nv];
 
                 derivative_array[nv] = q_integrator.evaluate(kvalue_1, kvalue_2, 
                     win_params.delta_v_ij, 0);
@@ -160,7 +162,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
             derivative_signal_table.setHeader(N_V_POINTS, 0, LENGTH_V, bins::Z_BIN_WIDTH, 
                 Rthis, dvthis, kvalue_1, kvalue_2);
             
-            derivative_signal_table.writeData(derivative_array.get());
+            derivative_signal_table.writeData(derivative_array);
         }
         
         time_spent_table_q = mytime::timer.getTime() - time_spent_table_q;
@@ -200,14 +202,14 @@ void SQLookupTable::computeTables(bool force_rewrite)
 
         for (int nv = 0; nv < N_V_POINTS; ++nv)
         {
-            win_params.delta_v_ij = LINEAR_V_ARRAY.get()[nv];  // 0 + LENGTH_V * nv / (Nv - 1.);
+            win_params.delta_v_ij = LINEAR_V_ARRAY[nv];  // 0 + LENGTH_V * nv / (Nv - 1.);
             s_integrator.setTableParameters(win_params.delta_v_ij, 
                 fidcosmo::FID_HIGHEST_K - fidcosmo::FID_LOWEST_K);
 
             for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
             {
                 int xy = nz + N_Z_POINTS_OF_S * nv;
-                win_params.z_ij = LINEAR_Z_ARRAY.get()[nz];   // z_first + z_length * nz / (Nz - 1.);
+                win_params.z_ij = LINEAR_Z_ARRAY[nz];   // z_first + z_length * nz / (Nz - 1.);
                 
                 // 1E-15 gave roundoff error for smoothing with 20.8 km/s
                 // Correlation at dv=0 is between 0.01 and 1. 
@@ -222,7 +224,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
         signal_table.setHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, Rthis, dvthis, 
             0, bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
 
-        signal_table.writeData(signal_array.get());
+        signal_table.writeData(signal_array);
 
         time_spent_table_sfid = mytime::timer.getTime() - time_spent_table_sfid;
 
@@ -254,16 +256,16 @@ shared_interp_2d SQLookupTable::_allocReadSFile(int r_index)
         temp_px_width, temp_ki, temp_kf);
 
     // Allocate memory before reading further
-    if (!derivative_array)
+    if (derivative_array == NULL)
         allocateSignalAndDerivArrays();
 
     // Start reading data and set to intep pointer
-    s_table_file.readData(signal_array.get());
+    s_table_file.readData(signal_array);
     itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
     itp_dz = sqhelper::getLinearSpacing(LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
 
     return std::make_shared<DiscreteInterpolation2D>(itp_z1, itp_dz, itp_v1, itp_dv,
-        signal_array.get(), N_Z_POINTS_OF_S, N_V_POINTS);
+        signal_array, N_Z_POINTS_OF_S, N_V_POINTS);
 }
 
 shared_interp_1d SQLookupTable::_allocReadQFile(int kn, int r_index)
@@ -287,14 +289,14 @@ shared_interp_1d SQLookupTable::_allocReadQFile(int kn, int r_index)
     q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, dummy_R, 
         temp_px_width, temp_ki, temp_kf);
 
-    if (!derivative_array)
+    if (derivative_array == NULL)
         allocateSignalAndDerivArrays();
     
-    q_table_file.readData(derivative_array.get());
+    q_table_file.readData(derivative_array);
 
     itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
 
-    return std::make_shared<DiscreteInterpolation1D>(itp_v1, itp_dv, derivative_array.get(), 
+    return std::make_shared<DiscreteInterpolation1D>(itp_v1, itp_dv, derivative_array, 
         N_V_POINTS);
 }
 
@@ -348,11 +350,11 @@ int SQLookupTable::findSpecResIndex(int spec_res, double dv) const
 
 void SQLookupTable::allocateSignalAndDerivArrays()
 {
-    derivative_array = std::make_unique<double[]>(N_V_POINTS);
+    derivative_array = new double[N_V_POINTS];
 
     // Allocate N_Z_POINTS_OF_S dependent arrays
     if (!specifics::TURN_OFF_SFID)
-        signal_array = std::make_unique<double[]>(N_V_POINTS * N_Z_POINTS_OF_S);
+        signal_array = new double [N_V_POINTS * N_Z_POINTS_OF_S];
 }
 
 void SQLookupTable::allocateVAndZArrays()
@@ -367,14 +369,26 @@ void SQLookupTable::allocateVAndZArrays()
 
 void SQLookupTable::deallocateSignalAndDerivArrays()
 {
-    derivative_array.reset();
-    signal_array.reset();
+    delete [] derivative_array;
+    derivative_array = NULL;
+
+    if (!specifics::TURN_OFF_SFID)
+    {
+        delete [] signal_array;
+        signal_array = NULL;
+    }
 }
 
 void SQLookupTable::deallocateVAndZArrays()
 {
-    LINEAR_V_ARRAY.reset();
-    LINEAR_Z_ARRAY.reset();  
+    delete [] LINEAR_V_ARRAY;
+    LINEAR_V_ARRAY = NULL;
+
+    if (!specifics::TURN_OFF_SFID)
+    {
+        delete [] LINEAR_Z_ARRAY;
+        LINEAR_Z_ARRAY = NULL;
+    }
 }
 
 double SQLookupTable::getOneSetMemUsage()

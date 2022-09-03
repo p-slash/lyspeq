@@ -10,13 +10,14 @@
 class DiscreteInterpolation1D
 {
     double x1, x2, dx;
-    std::unique_ptr<double[]> y;
+    double *y;
     long N;
 
     void _limitBoundary(double &x);
 public:
     DiscreteInterpolation1D(double x_start, double delta_x, const double *y_arr, long Nsize);
-    
+    ~DiscreteInterpolation1D() { delete [] y; };
+
     double evaluate(double x);
 };
 
@@ -27,7 +28,7 @@ public:
 class DiscreteInterpolation2D
 {
     double  x1, x2, dx, y1, y2, dy;
-    std::unique_ptr<double[]> z;
+    double *z;
     long    Nx, Ny, size;
 
     long _getIndex(long nx, long ny);
@@ -35,7 +36,8 @@ class DiscreteInterpolation2D
 public:
     DiscreteInterpolation2D(double x_start, double delta_x, double y_start, double delta_y,
         const double *z_arr, long Nxsize, long Nysize);
-    
+    ~DiscreteInterpolation2D() { delete [] z; };
+
     double evaluate(double x, double y);
 };
 

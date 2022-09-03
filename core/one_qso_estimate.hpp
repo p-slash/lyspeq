@@ -17,7 +17,8 @@ class OneQSOEstimate
 {
 protected:
     std::string fname_qso;
-    std::vector<Chunk> chunks;
+    // Emplace_back with vector<OneQSOEstimate> leaks memory!!
+    std::vector<std::unique_ptr<Chunk>> chunks;
     std::vector<int> indices;
 
 public:

@@ -30,36 +30,34 @@ class Chunk
 {
 protected:
     std::unique_ptr<qio::QSOFile> qFile;
-    unsigned long DATA_SIZE_2;
+    int DATA_SIZE_2;
 
-    int _matrix_n, RES_INDEX, N_Q_MATRICES, fisher_index_start, nqj_eff;
-    int _kncut;
-
+    int _kncut, _matrix_n, RES_INDEX, N_Q_MATRICES, nqj_eff;
+    int fisher_index_start;
+    bool isQjSet, isSfidSet, isSfidStored, isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
-    // DATA_SIZE sized vectors. 
     // Will have finer spacing when rmat is oversampled
-    double *_matrix_lambda; // Do not delete!
+    double *_matrix_lambda, *inverse_covariance_matrix; // Do not delete!
 
+    // Uninitialized arrays
     // Oversampled resomat specifics
-    std::unique_ptr<double[]> _finer_lambda, _finer_matrix;
+    double *_finer_lambda, *_finer_matrix;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
-    std::unique_ptr<double[]> covariance_matrix, inverse_covariance_matrix,
-        stored_sfid;
-    std::vector<std::unique_ptr<double[]>> temp_matrix, stored_qj;
+    double *covariance_matrix, *stored_sfid;
+    double *temp_matrix[2], **stored_qj;
+    // DATA_SIZE sized vectors. 
+    double *temp_vector, *weighted_data_vector;
 
-    std::unique_ptr<double[]> temp_vector, weighted_data_vector;
-    bool isQjSet, isSfidSet, isSfidStored, isCovInverted;
+    // Initialized to 0
+    // 3 TOTAL_KZ_BINS sized vectors
+    std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
+    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
+    std::unique_ptr<double[]> fisher_matrix;
 
     shared_interp_2d interp2d_signal_matrix;
     std::vector<shared_interp_1d> interp_derivative_matrix;
-
-    // 3 TOTAL_KZ_BINS sized vectors
-    std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
-
-    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
-    std::unique_ptr<double[]> fisher_matrix;
 
     void _copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     void _findRedshiftBin();
@@ -69,7 +67,7 @@ protected:
     bool _isQikzStored(int i_kz)
     { return isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)); };
     double* _getStoredQikz(int i_kz) const
-    { return stored_qj[N_Q_MATRICES-i_kz-1].get(); };
+    { return stored_qj[N_Q_MATRICES-i_kz-1]; };
 
     void _allocateMatrices();
     void _freeMatrices();
@@ -91,7 +89,7 @@ public:
     ~Chunk();
 
     // Move constructor 
-    Chunk(Chunk &&rhs) = default;
+    Chunk(Chunk &&rhs) = delete;
     Chunk(const Chunk &rhs) = delete;
     // Chunk& operator=(const Chunk& rhs); // = default;
 

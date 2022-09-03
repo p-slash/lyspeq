@@ -93,26 +93,27 @@ class QSOFile
     std::unique_ptr<PiccaFile> pfile;
     std::unique_ptr<BQFile> bqfile;
 
-    std::unique_ptr<double[]> wave_head, delta_head, noise_head;
-    int shift;
+    double *wave_head, *delta_head, *noise_head;
+    int arr_size, shift;
 public:
     std::string fname;
     double z_qso, snr, dv_kms, dlambda;
     long id;
-    int size, R_fwhm, oversampling;
+    int R_fwhm, oversampling;
     std::unique_ptr<mxhelp::Resolution> Rmat;
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);
     QSOFile(const qio::QSOFile &qmaster, int i1, int i2);
-    QSOFile(QSOFile &&rhs) = default;
+    QSOFile(QSOFile &&rhs) = delete;
     QSOFile(const QSOFile &rhs) = delete;
 
     void closeFile();
     ~QSOFile();
 
-    double* wave() const  { return wave_head.get()+shift; };
-    double* delta() const { return delta_head.get()+shift; };
-    double* noise() const { return noise_head.get()+shift; };
+    int size() const { return arr_size; };
+    double* wave() const  { return wave_head+shift; };
+    double* delta() const { return delta_head+shift; };
+    double* noise() const { return noise_head+shift; };
 
     void recalcDvDLam();
     void readParameters();
