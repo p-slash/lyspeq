@@ -6,13 +6,7 @@
 #include <algorithm>
 #include <cassert>
 
-#define N 8
-#define NA 4
-#define NcolsSVD 6
-#define NrowsSVD 5
-const double relerr=1e-5, abserr=1e-8;
-
-bool isClose(double a, double b)
+bool isClose(double a, double b, double relerr=1e-5, double abserr=1e-8)
 {
     double mag = std::max(fabs(a),fabs(b));
     return fabs(a-b) < (abserr + relerr * mag);
@@ -28,8 +22,9 @@ bool allClose(const double *a, const double *b, int size)
 
 void printValues(double truth, double result)
 {
-    printf("Result: %10.5e\n", result);
-    printf("VS.\nTruth : %10.5e\n", truth);
+    printf("Result: %13.5e\n", result);
+    printf("VS\nTruth : %13.5e\n", truth);
+    printf("===========================================\n\n");
 }
 
 void printMatrices(const double *truth, const double *result,
@@ -39,6 +34,7 @@ void printMatrices(const double *truth, const double *result,
     mxhelp::printfMatrix(result, nrows, ncols);
     printf("VS.\nTruth:\n");
     mxhelp::printfMatrix(truth, nrows, ncols);
+    printf("===========================================\n\n");
 }
 
 const double
@@ -47,6 +43,11 @@ sym_matrix_A[] = {
     6, 9, 2, 1,
     7, 2, 0, 1,
     8, 1, 1, 5 },
+diagonal_of_A[] = {
+    4, 9, 0, 5,
+    6, 2, 1, -1,
+    7, 1, -1, -1,
+    8, -1, -1, -1},
 truth_cblas_dsymv_1[] = { 72.0, 44.0, 22.5, 39.0 },
 vector_cblas_dsymv_b_1[] = {4, 5, 6, 7},
 matrix_cblas_dsymm_B[] = {
@@ -77,8 +78,14 @@ truth_SVD_A[] = {
     3.142644e-01, -7.534662e-01, 2.334497e-01, 3.318600e-01, 1.587356e-01, 3.790777e-01, 
     2.299383e-01, -3.635897e-01, -3.054757e-01, 1.649276e-01, -5.182574e-01, -6.525516e-01};
 
+const int
+NA = 4,
+NcolsSVD = 6,
+NrowsSVD = 5;
+
 int test_cblas_ddot()
 {
+    const int N = 8;
     double A[N], B[N], C=0, r=-10;
     for (int i = 0; i < N; ++i)
     {
@@ -100,7 +107,6 @@ int test_cblas_ddot()
 int test_cblas_dsymv()
 {
     double vector_R[NA];
-    // gsl_vector_view gvv_B = gsl_vector_view_array(vector_B, NA);
 
     cblas_dsymv(CblasRowMajor, CblasUpper,
                 NA, 0.5, sym_matrix_A, NA,
@@ -113,6 +119,42 @@ int test_cblas_dsymv()
     fprintf(stderr, "ERROR test_cblas_dsymv.\n");
     printMatrices(truth_cblas_dsymv_1, vector_R, NA, 1);
     return 1;
+}
+
+int test_cblas_dsymm()
+{
+    double result[NA*NA];
+
+    cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper,
+                 NA, NA, 1., sym_matrix_A, NA,
+                 matrix_cblas_dsymm_B, NA,
+                 0, result, NA);
+
+    if (allClose(truth_out_cblas_dsymm, result, NA*NA))
+        return 0;
+    fprintf(stderr, "ERROR cblas_dsymm.\n");
+    printMatrices(truth_out_cblas_dsymm, result, NA, NA);
+    return 1;
+}
+
+int test_getDiagonal()
+{
+    double v[NA];
+    int r = 0;
+    for (int d = 0; d < NA; ++d)
+    {
+        mxhelp::getDiagonal(sym_matrix_A, NA, d, v);
+        const double *truth_diag = &diagonal_of_A[d*NA];
+        
+        if (not allClose(truth_diag, v, NA-d))
+        {
+            fprintf(stderr, "ERROR getDiagonal(%d).\n", d);
+            printMatrices(truth_diag, v, NA-d, 1);
+            r += 1;
+        }
+    }
+
+    return r;
 }
 
 int test_trace_ddiagmv_1()
@@ -131,7 +173,7 @@ int test_trace_ddiagmv_1()
 int test_trace_ddiagmv_2()
 {
     const int ndim = 496;
-    const double truth = -3522.0979676252823;
+    const double truth = -3522.06;
     std::vector<double> A, vec;
     int nrows, ncols;
 
@@ -147,22 +189,6 @@ int test_trace_ddiagmv_2()
         return 0;
     fprintf(stderr, "ERROR trace_ddiagmv_2.\n");
     printValues(truth, result);
-    return 1;
-}
-
-int test_cblas_dsymm()
-{
-    double result[NA*NA];
-
-    cblas_dsymm( CblasRowMajor, CblasLeft, CblasUpper,
-                 NA, NA, 1., sym_matrix_A, NA,
-                 matrix_cblas_dsymm_B, NA,
-                 0, result, NA);
-
-    if (allClose(truth_out_cblas_dsymm, result, NA*NA))
-        return 0;
-    fprintf(stderr, "ERROR cblas_dsymm.\n");
-    printMatrices(truth_out_cblas_dsymm, result, NA, NA);
     return 1;
 }
 
@@ -448,11 +474,11 @@ int main()
     r += test_cblas_ddot();
     r += test_cblas_dsymv();
     r += test_cblas_dsymm();
+    r += test_getDiagonal();
     r += test_trace_ddiagmv_1();
     r += test_trace_ddiagmv_2();
     r += test_my_cblas_dsymvdot();
     r += test_LAPACKE_InvertMatrixLU();
-    
     r += test_OversampledMatrix_multiplications();
 
     // mxhelp::Resolution overmat2(Nrows, Nelemprow, 2, 2);
@@ -463,6 +489,8 @@ int main()
     r += test_DiaMatrix_multiplications();
     r += test_DiaMatrix_getRow();
     r += test_LAPACKE_SVD();
+
+    // test conversion from dia to osamp
 
     // mxhelp::DiaMatrix diarmat2(300, 11);
     // mxhelp::Resolution rmat(300, 11);
@@ -480,7 +508,9 @@ int main()
     // diarmat2.fprintfMatrix("tests/output/diamat.txt");
     // rmat.fprintfMatrix("tests/output/osampmat.txt");
 
-    
+    if (r == 0)
+        printf("Matrix operations work!\n");
+
     return r;
 }
 
