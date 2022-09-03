@@ -37,8 +37,7 @@ test: all
 	mkdir -p $(srcdir)/tests/output
 	
 	@echo "Testing CBLAS functions...."
-	@${exec}cblas_tests > $(srcdir)/tests/output/output_cblas.txt 
-	@diff $(srcdir)/tests/output/output_cblas.txt $(srcdir)/tests/truth/expected_cblas_output.txt
+	@${exec}cblas_tests
 
 	@echo "Producing S & Q lookup tables..."
 	@${exec}CreateSQLookUpTable $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/CreateSQLookUpTable.log
