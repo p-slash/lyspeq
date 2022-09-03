@@ -1,4 +1,6 @@
 #include "mathtools/matrix_helper.hpp"
+#include <unordered_map>
+#include <string>
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
@@ -8,12 +10,12 @@
 #define NA 4
 #define NcolsSVD 6
 #define NrowsSVD 5
-const double relerr = 1e-6;
+const double relerr=1e-5, abserr=1e-8;
 
 bool isClose(double a, double b)
 {
-    double diff = fabs(a-b), divi = std::max(fabs(a),fabs(b))/2;
-    return (diff/divi) < relerr;
+    double mag = std::max(fabs(a),fabs(b));
+    return fabs(a-b) < (abserr + relerr * mag);
 }
 
 bool allClose(const double *a, const double *b, int size)
@@ -22,6 +24,21 @@ bool allClose(const double *a, const double *b, int size)
     for (int i = 0; i < size; ++i)
         result &= isClose(a[i], b[i]);
     return result;
+}
+
+void printValues(double truth, double result)
+{
+    printf("Result: %10.5e\n", result);
+    printf("VS.\nTruth : %10.5e\n", truth);
+}
+
+void printMatrices(const double *truth, const double *result,
+    int nrows, int ncols)
+{
+    printf("Result:\n");
+    mxhelp::printfMatrix(result, nrows, ncols);
+    printf("VS.\nTruth:\n");
+    mxhelp::printfMatrix(truth, nrows, ncols);
 }
 
 const double
@@ -76,6 +93,7 @@ int test_cblas_ddot()
         return 0;
 
     fprintf(stderr, "ERROR cblas_ddot.\n");
+    printValues(C, r);
     return 1;
 }
 
@@ -93,6 +111,7 @@ int test_cblas_dsymv()
         return 0;
 
     fprintf(stderr, "ERROR test_cblas_dsymv.\n");
+    printMatrices(truth_cblas_dsymv_1, vector_R, NA, 1);
     return 1;
 }
 
@@ -105,6 +124,7 @@ int test_trace_ddiagmv_1()
     if (isClose(result, truth))
         return 0;
     fprintf(stderr, "ERROR trace_ddiagmv_1.\n");
+    printValues(truth, result);
     return 1;
 }
 
@@ -122,10 +142,11 @@ int test_trace_ddiagmv_2()
     assert(nrows == ndim);
     assert(ncols == 1);
 
-    double result =  mxhelp::trace_ddiagmv(A.data(), vec.data(), ndim);
+    double result = mxhelp::trace_ddiagmv(A.data(), vec.data(), ndim);
     if (isClose(result, truth))
         return 0;
     fprintf(stderr, "ERROR trace_ddiagmv_2.\n");
+    printValues(truth, result);
     return 1;
 }
 
@@ -141,6 +162,7 @@ int test_cblas_dsymm()
     if (allClose(truth_out_cblas_dsymm, result, NA*NA))
         return 0;
     fprintf(stderr, "ERROR cblas_dsymm.\n");
+    printMatrices(truth_out_cblas_dsymm, result, NA, NA);
     return 1;
 }
 
@@ -155,6 +177,7 @@ int test_my_cblas_dsymvdot()
     if (isClose(result, truth))
         return 0;
     fprintf(stderr, "ERROR my_cblas_dsymvdot.\n");
+    printValues(truth, result);
     return 1;
 }
 
@@ -166,6 +189,7 @@ int test_LAPACKE_InvertMatrixLU()
     if (allClose(truth_lu_inversion_A, invert_matrix, NA*NA))
         return 0;
     fprintf(stderr, "ERROR LAPACKE_InvertMatrixLU.\n");
+    printMatrices(truth_lu_inversion_A, invert_matrix, NA, NA);
     return 1;
 }
 
@@ -183,6 +207,7 @@ int test_LAPACKE_SVD()
     if (allClose(truth_SVD_A, svd_matrix, NcolsSVD*NrowsSVD))
         return 0;
     fprintf(stderr, "ERROR LAPACKE_svd.\n");
+    printMatrices(truth_SVD_A, svd_matrix, NrowsSVD, NcolsSVD);
     return 1;
 }
 
@@ -270,6 +295,8 @@ int test_OversampledMatrix_multiplications()
     if (not allClose(truth_oversample_left_multiplication, mtrxB1.data(), mtrxB1.size()))
     {
         fprintf(stderr, "ERROR OversampledMatrix::multiplyLeft.\n");
+        printMatrices(truth_oversample_left_multiplication,
+            mtrxB1.data(), NrowsOversamp, NcolsOversamp);
         r += 1;
     }
 
@@ -278,6 +305,8 @@ int test_OversampledMatrix_multiplications()
     if (not allClose(truth_oversample_right_multiplication, mtrxB2.data(), mtrxB2.size()))
     {
         fprintf(stderr, "ERROR OversampledMatrix::multiplyRight.\n");
+        printMatrices(truth_oversample_right_multiplication,
+            mtrxB2.data(), NrowsOversamp, NcolsOversamp);
         r += 1;
     }
 
@@ -343,10 +372,31 @@ truth_diamatrix_RT_multiplication[] = {
     -2.50e+01, -3.20e+01, 6.90e+01, -2.00e+01, 3.80e+01, -1.10e+01, -2.50e+01, 
     6.20e+01, 3.10e+01, -1.20e+01, 1.10e+01, 3.10e+01, 2.00e+01, 6.40e+01};
 
+const std::unordered_map<std::string, const double*>
+diamatrix_truth_map ({
+    {"LN", truth_diamatrix_LN_multiplication},
+    {"LT", truth_diamatrix_LT_multiplication},
+    {"RN", truth_diamatrix_RN_multiplication},
+    {"RT", truth_diamatrix_RT_multiplication}
+});
+
+int _compare_one_DiaMatrix_multiplications(const std::string &combo, const double* result)
+{
+    int r = 0;
+    const double *truth = diamatrix_truth_map.at(combo);
+    if (not allClose(truth, result, NrowsDiag*NrowsDiag))
+    {
+        fprintf(stderr, "ERROR DiaMatrix::multiply('%c', '%c').\n", combo[0], combo[1]);
+        printMatrices(truth, result, NrowsDiag, NrowsDiag);
+        r += 1;
+    }
+    return r;
+}
+
 int test_DiaMatrix_multiplications()
 {
     int r = 0;
-    double result_R[NrowsDiag*NrowsDiag];
+    std::vector<double> result_R(NrowsDiag*NrowsDiag, 0);
     mxhelp::DiaMatrix diarmat(NrowsDiag, NdiagDiag);
     std::copy(
         &diamatrix_diagonals[0],
@@ -354,36 +404,11 @@ int test_DiaMatrix_multiplications()
         diarmat.matrix()
     );
 
-    // printf("LN-----\n");
-    diarmat.multiply('L', 'N', diamatrix_multiplier_B, result_R);
-    if (not allClose(truth_diamatrix_LN_multiplication, result_R, NrowsDiag*NrowsDiag))
+    const std::vector<std::string> combos {"LN", "LT", "RN", "RT"};
+    for (const auto &combo: combos)
     {
-        fprintf(stderr, "ERROR DiaMatrix::multiply('L', 'N').\n");
-        r += 1;
-    }
-
-    // printf("LT-----\n");
-    diarmat.multiply('L', 'T', diamatrix_multiplier_B, result_R);
-    if (not allClose(truth_diamatrix_LT_multiplication, result_R, NrowsDiag*NrowsDiag))
-    {
-        fprintf(stderr, "ERROR DiaMatrix::multiply('L', 'T').\n");
-        r += 1;
-    }
-
-    // printf("RN-----\n");
-    diarmat.multiply('R', 'N', diamatrix_multiplier_B, result_R);
-    if (not allClose(truth_diamatrix_RN_multiplication, result_R, NrowsDiag*NrowsDiag))
-    {
-        fprintf(stderr, "ERROR DiaMatrix::multiply('R', 'N').\n");
-        r += 1;
-    }
-
-    // printf("RT-----\n");
-    diarmat.multiply('R', 'T', diamatrix_multiplier_B, result_R);
-    if (not allClose(truth_diamatrix_RT_multiplication, result_R, NrowsDiag*NrowsDiag))
-    {
-        fprintf(stderr, "ERROR DiaMatrix::multiply('R', 'T').\n");
-        r += 1;
+        diarmat.multiply(combo[0], combo[1], diamatrix_multiplier_B, result_R.data());
+        r += _compare_one_DiaMatrix_multiplications(combo, result_R.data());
     }
 
     return r;
@@ -409,6 +434,7 @@ int test_DiaMatrix_getRow()
         if (not allClose(truth_row, testrow.data(), testrow.size()))
         {
             fprintf(stderr, "ERROR DiaMatrix::getRow(%d).\n", row);
+            printMatrices(truth_row, testrow.data(), testrow.size(), 1);
             r += 1;
         }
     }
