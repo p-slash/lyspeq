@@ -23,11 +23,8 @@ protected:
 
 public:
     OneQSOEstimate(const std::string &f_qso);
-
-    // Move constructor 
     OneQSOEstimate(OneQSOEstimate &&rhs) = default;
     OneQSOEstimate(const OneQSOEstimate &rhs) = delete;
-    // OneQSOEstimate& operator=(const OneQSOEstimate& rhs) = default;
 
     static double getComputeTimeEst(std::string fname_qso, int &zbin);
 

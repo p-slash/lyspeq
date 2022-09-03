@@ -85,13 +85,9 @@ public:
     int ZBIN, ZBIN_LOW, ZBIN_UPP;
 
     Chunk(const qio::QSOFile &qmaster, int i1, int i2);
-
-    ~Chunk();
-
-    // Move constructor 
     Chunk(Chunk &&rhs) = delete;
     Chunk(const Chunk &rhs) = delete;
-    // Chunk& operator=(const Chunk& rhs); // = default;
+    ~Chunk();
 
     static double getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2);
 
