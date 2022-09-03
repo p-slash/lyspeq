@@ -438,15 +438,20 @@ int main()
     r += test_DiaMatrix_getRow();
     r += test_LAPACKE_SVD();
 
-    // mxhelp::Resolution rmat(NR, Ndiag);
-    // double v[NR], a_kms=20., R_kms=20.;
-    // for (int i = 0; i < NR; ++i)
-    //     v[i] = int(i - NR/2)*a_kms;
+    // mxhelp::DiaMatrix diarmat2(300, 11);
+    // mxhelp::Resolution rmat(300, 11);
+    // std::vector<double> vel(300);
+    // vel.clear();
+    // double a_kms=20., R_kms=20.;
+    // for (int i = 0; i < 300; ++i)
+    //     vel.push_back((i - 300/2.)*a_kms);
+    // for (auto v : vel)
+    //     printf("v%.1e==", v);
 
-    // diarmat.constructGaussian(v, R_kms, a_kms);
-    // std::copy(diarmat.matrix, diarmat.matrix+NR*Ndiag, rmat.values);
+    // diarmat2.constructGaussian(vel.data(), R_kms, a_kms);
+    // std::copy(diarmat2.matrix(), diarmat2.matrix()+300*11, rmat.matrix());
     // rmat.oversample(3, 1.0);
-    // diarmat.fprintfMatrix("tests/output/diamat.txt");
+    // diarmat2.fprintfMatrix("tests/output/diamat.txt");
     // rmat.fprintfMatrix("tests/output/osampmat.txt");
 
     

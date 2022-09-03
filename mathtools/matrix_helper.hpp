@@ -68,20 +68,22 @@ namespace mxhelp
     class DiaMatrix
     {
         std::unique_ptr<int[]> offsets;
-        std::unique_ptr<double[]> values, sandwich_buffer;
+        double *values, *sandwich_buffer;
+        int size;
 
         double* _getDiagonal(int d);
         // void _getRowIndices(int i, int *indices);
         void _getRowIndices(int i, std::vector<int> &indices);
 
     public:
-        int ndim, ndiags, size;
+        int ndim, ndiags;
 
         DiaMatrix(int nm, int ndia);
-        DiaMatrix(DiaMatrix &&rhs) = default;
+        ~DiaMatrix();
+        DiaMatrix(DiaMatrix &&rhs) = delete;
         DiaMatrix(const DiaMatrix &rhs) = delete;
 
-        double* matrix() const { return values.get(); };
+        double* matrix() const { return values; };
         void getRow(int i, double *row);
         void getRow(int i, std::vector<double> &row);
         // Swap diagonals
@@ -109,11 +111,12 @@ namespace mxhelp
 
     class OversampledMatrix
     {
-        std::unique_ptr<double[]> values, sandwich_buffer;
+        double *values, *sandwich_buffer;
+        int nvals;
 
         double* _getRow(int i);
     public:
-        int nrows, ncols, nvals;
+        int nrows, ncols;
         int nelem_per_row, oversampling;
         double fine_dlambda;
 
@@ -122,10 +125,11 @@ namespace mxhelp
         // osamp : Oversampling coefficient.
         // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
         OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda);
-        OversampledMatrix(OversampledMatrix &&rhs) = default;
+        ~OversampledMatrix();
+        OversampledMatrix(OversampledMatrix &&rhs) = delete;
         OversampledMatrix(const OversampledMatrix &rhs) = delete;
 
-        double* matrix() const { return values.get(); };
+        double* matrix() const { return values; };
         int getNCols() const { return ncols; };
 
         // R . A = B
@@ -140,7 +144,7 @@ namespace mxhelp
         // B = R . Temp . R^T
         void sandwichHighRes(double *B, const double *temp_highres_mat);
 
-        void freeBuffers();
+        void freeBuffer();
         double getMinMemUsage();
         double getBufMemUsage();
 
@@ -182,7 +186,7 @@ namespace mxhelp
         // B = R . Temp . R^T
         void sandwich(double *B, const double *temp_highres_mat);
 
-        void freeBuffers();
+        void freeBuffer();
         double getMinMemUsage();
         double getBufMemUsage();
 

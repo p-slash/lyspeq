@@ -89,10 +89,10 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
 
     NUMBER_OF_QSOS = ioh::readList(fname_list, filepaths);
     // Add parent directory to file path
-    for (auto fq = filepaths.begin(); fq != filepaths.end(); ++fq)
+    for (auto &fq : filepaths)
     {
-        fq->insert(0, "/");
-        fq->insert(0, dir);
+        fq.insert(0, "/");
+        fq.insert(0, dir);
     }
 
     // Each PE reads a different section of files
@@ -245,8 +245,8 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     mxhelp::LAPACKE_InvertMatrixLU(inverse_fisher_matrix_sum.get(), 
         bins::TOTAL_KZ_BINS);
 
-    for (auto it = empty_indx.begin(); it != empty_indx.end(); ++it)
-        inverse_fisher_matrix_sum[(bins::TOTAL_KZ_BINS+1)*(*it)] = 0;
+    for (const auto &i_kz : empty_indx)
+        inverse_fisher_matrix_sum[(bins::TOTAL_KZ_BINS+1)*i_kz] = 0;
 
     isFisherInverted = true;
 
@@ -358,10 +358,11 @@ void OneDQuadraticPowerEstimate::iterate()
     double total_time = 0, total_time_1it = mytime::timer.getTime();;
 
     // Construct local queue
-    std::vector<OneQSOEstimate> local_queue;
+    // Emplace_back with vector<OneQSOEstimate> leaks memory!!
+    std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
     local_queue.reserve(local_fpaths.size());
-    for (auto it = local_fpaths.begin(); it != local_fpaths.end(); ++it)
-        local_queue.emplace_back(*it);
+    for (const auto &fpath : local_fpaths)
+        local_queue.push_back(std::make_unique<OneQSOEstimate>(fpath));
 
     if (specifics::INPUT_QSO_FILE == qio::Picca)
         qio::PiccaFile::clearCache();
@@ -379,9 +380,9 @@ void OneDQuadraticPowerEstimate::iterate()
 
         // Calculation for each spectrum
         LOG::LOGGER.DEB("Running on local queue size %zu\n", local_queue.size());
-        for (auto it = local_queue.begin(); it != local_queue.end(); ++it)
+        for (auto &one_qso : local_queue)
         {
-            it->oneQSOiteration(powerspectra_fits.get(), 
+            one_qso->oneQSOiteration(powerspectra_fits.get(), 
                 dbt_estimate_sum_before_fisher_vector,
                 fisher_matrix_sum.get()
             );
@@ -485,7 +486,8 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         pMax = std::max(p1, p2);
         r    = diff / pMax;
 
-        if (r > CONVERGENCE_EPS)    bool_converged = false;
+        if (r > specifics::CHISQ_CONVERGENCE_EPS)
+            bool_converged = false;
 
         abs_mean += r / _NewDegreesOfFreedom;
         abs_max   = std::max(r, abs_max);
@@ -494,7 +496,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
     LOG::LOGGER.STD("Mean relative change is %.1e.\n"
         "Maximum relative change is %.1e.\n"
         "Old test: Iteration converges when this is less than %.1e\n", 
-        abs_mean, abs_max, CONVERGENCE_EPS);
+        abs_mean, abs_max, specifics::CHISQ_CONVERGENCE_EPS);
     
     // Perform a chi-square test as well    
     mxhelp::vector_sub(previous_power_estimate_vector.get(), 
@@ -698,16 +700,16 @@ void OneDQuadraticPowerEstimate::iterationOutput(int it, double t1, double tot)
     std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
     printfSpectra();
 
-    buffer << "_it" << it+1 << "_quadratic_power_estimate_detailed.dat";
+    buffer << "_it" << it+1 << "_quadratic_power_estimate_detailed.txt";
     writeDetailedSpectrumEstimates(buffer.str().c_str());
 
     buffer.str(process::FNAME_BASE);
-    buffer << "_it" << it+1 << "_fisher_matrix.dat";
+    buffer << "_it" << it+1 << "_fisher_matrix.txt";
     mxhelp::fprintfMatrix(buffer.str().c_str(), fisher_matrix_sum.get(),
         bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
 
     buffer.str(process::FNAME_BASE);
-    buffer << "_it" << it+1 << "_inversefisher_matrix.dat";
+    buffer << "_it" << it+1 << "_inversefisher_matrix.txt";
     mxhelp::fprintfMatrix(buffer.str().c_str(), inverse_fisher_matrix_sum.get(),
         bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     LOG::LOGGER.STD("Fisher matrix and inverse are saved as %s.\n",

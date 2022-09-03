@@ -6,8 +6,6 @@
 
 namespace conv
 {
-    extern bool FLUX_TO_DELTAF_BY_CHUNKS, INPUT_IS_DELTA_FLUX;
-
     void setMeanFlux(const std::string &fname="");
 
     // void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size);
