@@ -10,19 +10,20 @@
 #   Interpolates (ln(1+z), lnk, lnP) with weights e/P
 # Finally, it saves this smooth power in the same order to the output text file.
 
-import numpy as np
+from numpy import genfromtxt, log, exp, savetxt
 from scipy.interpolate import SmoothBivariateSpline
-import argparse
+from argparse import ArgumentParser
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
     parser.add_argument("InputPS", help="Input power spectrum file.")
     parser.add_argument("OutputPS", help="Output power spectrum file.")
-    parser.add_argument("--interp_log", help="Interpolate ln(k), ln(P) instead.", action="store_true")
+    parser.add_argument("--interp_log", action="store_true",
+        help="Interpolate ln(k), ln(P) instead.")
     args = parser.parse_args()
     
     # Read input power file.
-    z, k, p, e = np.genfromtxt(args.InputPS, delimiter = ' ', skip_header = 2, unpack = True, usecols=(0,1,2,3))
+    z, k, p, e = genfromtxt(args.InputPS, delimiter=' ', skip_header=2, unpack=True)
 
     # Create 2D Spline object
     # From scipy manual:
@@ -31,22 +32,22 @@ if __name__ == '__main__':
 
     if args.interp_log:
         print("Smoothing ln(k), ln(P) and removing p,e<=0 points.")
-        mask = np.logical_and(p > 0, e > 0)
+        mask = (p > 0) & (e > 0)
 
-        lnz = np.log(1+z[mask])
-        lnk = np.log(k[mask])
-        lnP = np.log(p[mask])
+        lnz = log(1+z[mask])
+        lnk = log(k[mask])
+        lnP = log(p[mask])
         lnE = e[mask]/p[mask]
 
         wsbispline = SmoothBivariateSpline(lnz, lnk, lnP, w=1./lnE, s=len(lnE))
 
-        smwe_power = wsbispline(np.log(1+z), np.log(k), grid=False)
-        smwe_power = np.exp(smwe_power)
+        smwe_power = wsbispline(log(1+z), log(k), grid=False)
+        smwe_power = exp(smwe_power)
     else:
         print("Smoothing k, P without masking any points.")
         wsbispline = SmoothBivariateSpline(z, k, p, w=1./e, s=len(e))
 
         smwe_power = wsbispline(z, k, grid=False)
 
-    np.savetxt(args.OutputPS, smwe_power, header='', comments='')
+    savetxt(args.OutputPS, smwe_power, header='', comments='')
     exit(0)
