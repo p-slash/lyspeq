@@ -6,8 +6,147 @@
 # For more options pass --help or -h
 # Intel compilers: This has been tested for only Parallel Studio XE 2018 icpc and MKL.
 
-function save_makefile() {
-    echo "# Generated automatically by configure."
+function print_config_help()
+{
+    echo "--build=[build type] or [build type]: Sets the build type"
+    echo "--print-builds : Prints out available build types"
+    echo "--enable-mpi : Enables MPI"
+    echo "--prefix=[directory] --exec_prefix=[directory] : Executables are installed in \${exec_prefix}/bin. Default is ${exec_prefix}"
+    echo "--bindir=[directory] : Executables are installed in \${bindir}. Default is ${bindir}"
+    echo "--srcdir=[directory] : Source directory. Default is current directory (.)"
+    echo "--enable-fisher-optimization : Approximates Fisher matrix by computing only the band elements."
+    echo "--enable-fiducial-growth-z : Enables scaling derivative matrices with fiducial growth function."
+    echo "--enable-openmp : Enables OpenMP"
+    echo "--enable-tbb : Enables TBB"
+    echo "--use-tophat-zbin : Uses tophat redshift binning function instead. Default is triangle."
+    echo "--debug adds -g flag."
+    echo "GSL_DIR=[directory] : GSL directory"
+    echo "FFTW3_DIR=[directory] : FFTW3 directory"
+    echo "CFITSIO_DIR=[directory] : cfitsio directory"
+    echo "CBLAS_DIR=[directory] : CBLAS directory"
+}
+
+function set_config_options()
+{
+    for i in "$@"
+    do
+        case $i in
+            --build=* )
+                SYSTYPE="${i#*=}";;
+            --prefix=* | --exec_prefix=*)
+                exec_prefix="${i#*=}"
+                bindir="${exec_prefix}/bin";;
+            --bindir=*)
+                bindir="${i#*=}";;
+            --srcdir=*)
+                srcdir="${i#*=}";;
+            --enable-fisher-optimization )
+                ENABLE_FISHER_OPTIMIZATION="-DFISHER_OPTIMIZATION";;
+            --enable-mpi )
+                ENABLE_MPI="-DENABLE_MPI";;
+            --use-mkl-cblas )
+                USE_MKL_CBLAS="-DUSE_MKL_CBLAS";;
+            --enable-openmp )
+                CPPFLAGS_OMP="-fopenmp";;
+            --enable-tbb )
+                CPPFLAGS_OMP="-tbb";;
+            --use-tophat-zbin )
+                binz_fn="-DTOPHAT_Z_BINNING_FN";;
+            --enable-fiducial-growth-z )
+                ENABLE_FIDUCIAL_GROWTH_Z="-DREDSHIFT_GROWTH_POWER";;
+            --debug )
+                OPT=-g;;
+            CXX=* )
+                CXX="${i#*=}";;
+            GSL_DIR=* )
+                GSL_DIR="${i#*=}";;
+            FFTW3_DIR=* )
+                FFTW3_DIR="${i#*=}";;
+            CFITSIO_DIR=* )
+                CFITSIO_DIR="${i#*=}";;
+            CBLAS_DIR=* )
+                CBLAS_DIR="${i#*=}";;
+            --help | -h )
+                print_config_help
+                exit 0;;
+            --print-builds )
+                print_build_types
+                exit 0;;
+            * )
+                echo "unknown argument ${i}."
+                exit 1;;
+        esac
+        shift
+    done
+}
+
+avaliable_builds="nersc nersc-mkl arm-macos-clang-openblas x64-macos-clang-openblas x64-macos-gcc9-openblas"
+function print_build_types()
+{
+    echo "Available build types are :"
+    echo "-------------------------"
+    for build in $avaliable_builds
+    do
+        echo $build
+    done
+}
+
+function set_prebuild_system()
+{
+    case ${SYSTYPE} in
+        nersc )
+            CXX="CC"
+            FFTW3_DIR=${FFTW_ROOT}
+            ;;
+        nersc-mkl )
+            CXX="CC -mkl"
+            USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
+            FFTW3_DIR=${FFTW_ROOT}
+            ;;
+        # x64-linux-gnu-mklxe18 )
+        #     CXX="g++"
+
+        #     USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
+        #     CPPFLAGS="${CPPFLAGS_OMP} -m64 -I${MKLROOT}/include"
+        #     LDFLAGS="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
+        #     LDLIBS="-lfftw3 -lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lcfitsio"
+        #     ;;
+        # x64-linux-icpc-mklxe18 )
+        #     CXX="icpc"
+
+        #     USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
+        #     CPPFLAGS="${CPPFLAGS_OMP} -I${MKLROOT}/include"
+        #     LDFLAGS="-L${MKLROOT}/lib/intel64 ${gsl_ldflags}"
+        #     LDLIBS="-lfftw3 -lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lcfitsio"
+        #     ;;
+        x64-macos-clang-openblas )
+            CXX="clang++"
+            CBLAS_DIR="/usr/local/opt/openblas"
+            ;;
+        arm-macos-clang-openblas )
+            CXX="clang++"
+            CFITSIO_DIR="/opt/homebrew/opt/cfitsio"
+            CBLAS_DIR="/opt/homebrew/opt/openblas"
+            FFTW3_DIR="/opt/homebrew/opt/fftw"
+            ;;
+        x64-macos-gcc9-openblas )
+            CXX="g++-9"
+            CBLAS_DIR="/usr/local/opt/openblas"
+            ;;
+        * )
+            echo "Unknown system type ${SYSTYPE}."
+            print_build_types
+            exit 1
+            ;;
+    esac
+
+    # Recover user overwritten options
+    set_config_options $*
+}
+
+function save_makefile()
+{
+    echo "=============================================="
     echo "CXX=${CXX}" > Makefile
     echo "CPPFLAGS=${CPPFLAGS}" >> Makefile
     echo "LDFLAGS=${LDFLAGS}" >> Makefile
@@ -18,58 +157,32 @@ function save_makefile() {
     echo "srcdir=${srcdir}" >> Makefile
     echo "exec=${exec}" >> Makefile
     cat ${srcdir}/Makefile.in >> Makefile
-    echo "Makefile set. Run make to compile."
+
+    echo "I generated a Makefile. Go take a look!"
+    echo "Next step is to run 'make' and 'make test'."
+    echo "Note, if using a cluster, allocate resources before testing."
+    echo "If you are doing iterations, also run 'make install'."
+    echo "This will copy files to ${bindir}."
 }
 
-function user_overwrite_defined_variables()
+cpp17_test_text="int main()
 {
-    if [[ ! -z "${CXXu}" ]]; then
-        CXX="${CXXu}"
-    fi
+    if (__cplusplus >= 201703L)
+        return 0;
+    return 1;
+}"
+function check_compiler_support()
+{
+    test_file="${srcdir}/build-aux/test_cpp17"
+    printf "${cpp17_test_text}" > ${test_file}.cpp
+    compile_command="${CXX} -std=c++17 ${test_file}.cpp -o ${test_file}"
+    echo $compile_command
+    ${compile_command}
+    ${test_file}
 }
 
-function print_build_types() {
-    echo "Available build types are :"
-    echo "-------------------------"
-    echo "* nersc-mkl"
-    echo "# MPI by default. MKL for cblas
-# Linux, Cray compiler-Haswell
-# Explicit FFTW and CFITSIO linking"
-    echo "-------------------------"
-    echo "* nersc"
-    echo "# MPI by default. LibSci for cblas
-# Linux, Cray compiler-Haswell
-# 32-bit integers interface
-# Explicit FFTW and CFITSIO linking"
-    echo "-------------------------"
-    echo "* GNU_XE18MKL or x64-linux-gnu-mklxe18"
-    echo "# Parallel Studio XE 2018, MKL for cblas
-# Linux, GNU compiler, Intel(R) 64 arch
-# 32-bit integers interface, 64-bit interface has runtime errors on Grace
-# Dynamic linking, explicit MKL lib linking
-# No problems with GCC 7.3.0"
-    echo "-------------------------"
-    echo "* XE18_icpcMKL or x64-linux-icpc-mklxe18"
-    echo "# Parallel Studio XE 2018
-# Linux, Intel compiler, Intel(R) 64 arch
-# Uses 32-bit integers interface even though 64-bit integers interface works
-# Dynamic linking, no explicit MKL lib linking
-# Static linking fails for unknown reasons"
-    echo "-------------------------"
-    echo "* clang_openblas or x64-macos-clang-openblas uses clang++"
-    echo "* x64-macos-gcc9-openblas uses g++-9"
-    echo "# To install OpenMP in Mac: brew install libomp
-# To install OpenBLAS:      brew install openblas
-# openblas is keg-only, which means it was not symlinked into /usr/local,
-# because macOS provides BLAS and LAPACK in the Accelerate framework.
-# It is in /usr/local/opt/openblas/lib"
-    echo "-------------------------"
-    echo "* x64-ubuntu-gcc-atlas"
-    echo "* x64-ubuntu-gcc-openblas"
-    echo "# Compile with g++ and uses ATLAS and OpenBLAS respectively with -llapacke"
-}
-
-function set_omp_flags() {
+function set_omp_flags()
+{
     if [[ "${CPPFLAGS_OMP}" = "-fopenmp" ]]; then
         case ${CXX} in
             g++* )
@@ -111,8 +224,9 @@ int main()
     gsl_integration_workspace_free(w);
     return 0;
 }"
-
-function set_gsl_inc_lib() {
+function set_gsl_inc_lib()
+{
+    echo "=============================================="
     echo "Looking for GSL..."
     echo "I will prioritize GSL_DIR, then GSL_INC/LIB, and finally run gsl-config."
     if [[ ! -z "${GSL_DIR}" ]]; then
@@ -137,7 +251,6 @@ function set_gsl_inc_lib() {
         echo "WARNING: No GSL env variable found!"
     fi
 
-    mkdir -p ${srcdir}/build-aux
     test_file="${srcdir}/build-aux/test_gsl_compiling"
     echo "Test compile, link and run."
     printf "${gsl_test_text}" > ${test_file}.cpp
@@ -147,17 +260,21 @@ function set_gsl_inc_lib() {
     run_command="${test_file}"
     
     echo ${compile_command}
-    $(${compile_command})
+    ${compile_command}
     
     echo ${linking}
-    $(${linking})
+    ${linking}
 
     echo ${run_command}
-    $(${run_command})
+    ${run_command}
+
+    CPPFLAGS+="${gsl_cflags} "
+    LDFLAGS+="${gsl_ldflags} "
+    LDLIBS+="-lgsl "
 }
 
 # FFTW3_DIR overrides all
-# If FFTW3_DIR empty, try FFTW3_INC and FFTW3_LIB
+# If FFTW3_DIR empty, then try FFTW_ROOT, finally FFTW3_INC/LIB
 # Finally, test compiling
 fftw_test_text="#include <fftw3.h>
 #define N 10
@@ -175,13 +292,19 @@ int main()
 
     return 0;
 }"
-function set_fftw3_inc_lib() {
+function set_fftw3_inc_lib()
+{
+    echo "=============================================="
     echo "Looking for FFTW3..."
-    echo "I will prioritize FFTW3_DIR, then FFTW3_INC/LIB."
+    echo "I will prioritize FFTW3_DIR, then FFTW_ROOT, finally FFTW3_INC/LIB."
     if [[ ! -z "${FFTW3_DIR}" ]]; then
         echo "FFTW3_DIR=${FFTW3_DIR}"
         fftw3_cflags="-I${FFTW3_DIR}/include"
         fftw3_ldflags="-L${FFTW3_DIR}/lib"
+    elif [[ ! -z ${FFTW_ROOT} ]]; then
+        echo "FFTW_ROOT=${FFTW_ROOT}"
+        fftw3_cflags="-I${FFTW_ROOT}/include"
+        fftw3_ldflags="-L${FFTW_ROOT}/lib"
     elif [[ ! -z "${FFTW3_INC}" && ! -z "${FFTW3_LIB}" ]]; then
         echo "FFTW3_INC=${FFTW3_INC}."
         echo "FFTW3_LIB=${FFTW3_LIB}."
@@ -191,7 +314,6 @@ function set_fftw3_inc_lib() {
         echo "WARNING: No FFTW3 env variable found!"
     fi
 
-    mkdir -p ${srcdir}/build-aux
     test_file="${srcdir}/build-aux/test_fftw3_compiling"
     echo "Test compile, link and run."
     printf "${fftw_test_text}" > ${test_file}.cpp
@@ -201,24 +323,168 @@ function set_fftw3_inc_lib() {
     run_command="${test_file}"
     
     echo ${compile_command}
-    $(${compile_command})
+    ${compile_command}
     
     echo ${linking}
-    $(${linking})
+    ${linking}
 
     echo ${run_command}
-    $(${run_command})
+    ${run_command}
+
+    CPPFLAGS+="${fftw3_cflags} "
+    LDFLAGS+="${fftw3_ldflags} "
+    LDLIBS+="-lfftw3 "
+}
+
+# CBLAS_DIR is the only variable
+cblas_test_text='#ifdef USE_MKL_CBLAS
+#include "mkl_cblas.h"
+#include "mkl_lapacke.h"
+#else
+#include "cblas.h"
+#include "lapacke.h"
+#endif
+#define N 4
+int main()
+{
+    const double A[] = {
+        4, 6, 7, 8,
+        6, 9, 2, 1,
+        7, 2, 0, 1,
+        8, 1, 1, 5 };
+
+    cblas_ddot(N*N, A, 1, A, 1);
+    lapack_int ipiv = 0;
+    return 0;
+}'
+function set_cblas_inc_lib()
+{
+    echo "=============================================="
+    echo "Looking for CBLAS and LAPACKE...."
+    echo "I will only look into CBLAS_DIR."
+    if [[ ! -z "${CBLAS_DIR}" ]]; then
+        echo "CBLAS_DIR=${CBLAS_DIR}"
+        cblas_cflags="-I${CBLAS_DIR}/include"
+        cblas_ldflags="-L${CBLAS_DIR}/lib"
+    fi
+
+    test_file="${srcdir}/build-aux/test_cblas_lapacke_compiling"
+    echo "Test compile, link and run."
+    printf "${cblas_test_text}" > ${test_file}.cpp
+
+    compile_command="${CXX} ${USE_MKL_CBLAS} ${cblas_cflags} -c ${test_file}.cpp -o ${test_file}.o"
+    linking="${CXX} ${USE_MKL_CBLAS} ${cblas_cflags} ${test_file}.o -o ${test_file} ${cblas_ldflags} -lcblas -llapack -lm"
+    run_command="${test_file}"
+    
+    echo ${compile_command}
+    ${compile_command}
+    
+    echo ${linking}
+    ${linking}
+
+    echo ${run_command}
+    ${run_command}
+
+    CPPFLAGS+="${cblas_cflags} "
+    LDFLAGS+="${cblas_ldflags} "
+    LDLIBS+="-lcblas -llapack "
+}
+
+# CFITSIO_DIR is the only variable
+cfitsio_test_text='#include "fitsio.h"
+int main()
+{
+    float version;
+    fits_get_version(&version);
+    return 0;
+}'
+function set_cfitsio_inc_lib()
+{
+    echo "=============================================="
+    echo "Looking for CFITSIO...."
+    echo "I will only look into CFITSIO_DIR."
+    if [[ ! -z "${CFITSIO_DIR}" ]]; then
+        echo "CFITSIO_DIR=${CFITSIO_DIR}"
+        cfitsio_cflags="-I${CFITSIO_DIR}/include"
+        cfitsio_ldflags="-L${CFITSIO_DIR}/lib"
+    fi
+
+    test_file="${srcdir}/build-aux/test_cblas_lapacke_compiling"
+    echo "Test compile, link and run."
+    printf "${cfitsio_test_text}" > ${test_file}.cpp
+
+    compile_command="${CXX} ${cfitsio_cflags} -c ${test_file}.cpp -o ${test_file}.o"
+    linking="${CXX} ${cfitsio_cflags} ${test_file}.o -o ${test_file} ${cfitsio_ldflags} -lcfitsio"
+    run_command="${test_file}"
+    
+    echo ${compile_command}
+    ${compile_command}
+    
+    echo ${linking}
+    ${linking}
+
+    echo ${run_command}
+    ${run_command}
+
+    CPPFLAGS+="${cfitsio_cflags} "
+    LDFLAGS+="${cfitsio_ldflags} "
+    LDLIBS+="-lcfitsio "
+}
+
+
+mpi_test_text='#include "mpi.h"
+int main(int argc, char *argv[])
+{
+    int a, tot;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &a);
+    MPI_Comm_size(MPI_COMM_WORLD, &tot);
+    MPI_Finalize();
+    return 0;
+}'
+function set_mpi_inc_lib()
+{
+    echo "=============================================="
+    echo "Testing MPI workings."
+    test_file="${srcdir}/build-aux/test_mpi_compiling"
+    echo "Test compile, link and run."
+    printf "${mpi_test_text}" > ${test_file}.cpp
+
+    compile_command="${CXX} -c ${test_file}.cpp -o ${test_file}.o"
+    linking="${CXX} ${test_file}.o -o ${test_file}"
+    run_command="${exec}${test_file}"
+    
+    echo ${compile_command}
+    ${compile_command}
+    
+    echo ${linking}
+    ${linking}
+
+    echo ${run_command}
+    ${run_command}
 }
 
 # Default values
-CXX=g++
-OPT=-O3
-en_mpi=
-binz_fn=-DTRIANGLE_Z_BINNING_FN
-fisher_opt=
-z_growth=
-debug=
-exec=./
+CONFIGURE_ARGS="$*"
+
+echo "Hello! I am a pseudo-configure script and NOT an autoconf script."
+echo "I will do my best to produce a working Makefile."
+echo "=============================================="
+
+CXX="g++"
+CPPFLAGS=""
+LDFLAGS=""
+LDLIBS=""
+MORECPPFLAGS=""
+
+OPT="-O3"
+ENABLE_MPI=""
+binz_fn="-DTRIANGLE_Z_BINNING_FN"
+ENABLE_FISHER_OPTIMIZATION=""
+USE_MKL_CBLAS=""
+ENABLE_FIDUCIAL_GROWTH_Z=""
+debug=""
+exec="./"
 
 SYSTYPE=""
 prefix="/usr/local"
@@ -226,158 +492,33 @@ exec_prefix="${prefix}"
 bindir="${exec_prefix}/bin"
 srcdir="."
 
+set -e
+set_config_options $CONFIGURE_ARGS
+if [[ ! -z "${SYSTYPE}" ]]; then
+    set_prebuild_system $CONFIGURE_ARGS
+fi
 
-CONFIGURE_ARGS="$*"
-for i in "$@"
-do
-    case $i in
-        --prefix=* | --exec_prefix=*)
-            exec_prefix="${i#*=}"
-            bindir="${exec_prefix}/bin";;
-        --bindir=*)
-            bindir="${i#*=}";;
-        --srcdir=*)
-            srcdir="${i#*=}";;
-        --enable-fisher-optimization )
-            fisher_opt="-DFISHER_OPTIMIZATION";;
-        --enable-fiducial-growth )
-            z_growth="-DREDSHIFT_GROWTH_POWER";;
-        --enable-mpi )
-            CXXu="mpic++"
-            en_mpi="-DENABLE_MPI";;
-        --enable-openmp )
-            CPPFLAGS_OMP="-fopenmp";;
-        --enable-tbb )
-            CPPFLAGS_OMP="-tbb";;
-        --binz_fn=* )
-            if [[ "${i#*=}" ==  "TRIANGLE_Z_BINNING_FN" || "${i#*=}" ==  "TOPHAT_Z_BINNING_FN" ]]; then
-                binz_fn="-D${i#*=}"
-            else
-                echo "Wrong binning function variable. Using triangle binning in z by default."
-                echo "Pass TRIANGLE_Z_BINNING_FN or TOPHAT_Z_BINNING_FN"
-            fi;;
-        --interactive )
-            SYSTYPE="interactive";;
-        --debug )
-            OPT=-g;;
-        --gsl_dir=* )
-            GSL_DIR="${i#*=}";;
-        --print-builds )
-            print_build_types
-            exit 0;;
-        --help | -h )
-            echo "--prefix=[directory] --exec_prefix=[directory] : Executables are installed in $exec_prefix/bin. Default is /usr/local"
-            echo "--bindir=[directory] : Executables are installed in ${bindir}. Default is /usr/local/bin"
-            echo "--srcdir=[directory] : Source directory. Default is current directory (.)"
-            echo "--enable-fisher-optimization : Approximates Fisher matrix by computing only the band elements."
-            echo "--enable-fiducial-growth : Enables scaling derivative matrices with fiducial growth function."
-            echo "--enable-mpi : Sets C++ compiler to mpic++"
-            echo "--enable-openmp : Enables OpenMP"
-            echo "--enable-tbb : Enables TBB"
-            echo "--build=[build type] or [build type]: Sets the build type"
-            # echo "--interactive : Use interactive mode."
-            echo "--binz_fn=[TRIANGLE_Z_BINNING_FN or TOPHAT_Z_BINNING_FN] : Specify redshift binning function. Default is triangle."
-            echo "--debug adds -g flag."
-            echo "--gsl_dir=[directory] : GSL directory"
-            echo "--print-builds : Prints out available build types"
-            exit 0;;
-        CXX=* )
-            CXXu="${i#*=}";;
-        --build=*|* )
-            SYSTYPE="${i#*=}";;
-    esac
-    shift
-done
+if [[ ! -f "${srcdir}/core/chunk_estimate.cpp" ]]; then
+    echo "error. srcdir is wrong."
+    exit 1
+fi
 
+mkdir -p ${srcdir}/build-aux
+check_compiler_support
 set_gsl_inc_lib
-#set_fftw3_inc_lib
+set_fftw3_inc_lib
+set_cfitsio_inc_lib
+set_cblas_inc_lib
 
-MORECPPFLAGS="${binz_fn} ${en_mpi} ${fisher_opt} ${z_growth}"
+if [[ ! -z "${ENABLE_MPI}" ]]; then
+    exec="srun -n 1 "
+    set_mpi_inc_lib
+fi
 
-OPENBLAS_DIR=/usr/local/opt/openblas
-OPENBLAS_DIR_APPLE=/opt/homebrew/opt/openblas
-CFITSIO_DIR_APPLE=/opt/homebrew/opt/cfitsio
-FFTW_DIR_APPLE=/opt/homebrew/opt/fftw
+LDLIBS+="-lm"
+MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_FIDUCIAL_GROWTH_Z} ${binz_fn}"
+MORECPPFLAGS=$(echo $MORECPPFLAGS | sed 's/ *$//')
 
-case ${SYSTYPE} in
-    nersc )
-        CXX="CC"
-        CXXu="CC"
-        exec="srun -n 1 "
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags} -I${CFITSIO_DIR}/include -I${FFTW_ROOT}/include"
-        LDFLAGS="${gsl_ldflags} -L${CFITSIO_DIR}/lib -L${FFTW_ROOT}/lib"
-        LDLIBS="-lfftw3 -lgsl ${LDLIBS_OMP} -lcfitsio"
-        ;;
-    nersc-mkl )
-        CXX="CC -mkl"
-        CXXu="CC -mkl"
-        exec="srun -n 1 "
-        set_omp_flags
-        MORECPPFLAGS+="-DUSE_MKL_CBLAS"
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags} -I${CFITSIO_DIR}/include -I${FFTW_ROOT}/include"
-        LDFLAGS="${gsl_ldflags} -L${CFITSIO_DIR}/lib -L${FFTW_ROOT}/lib"
-        LDLIBS="-lfftw3 -lgsl ${LDLIBS_OMP} -lcfitsio"
-        ;;
-    GNU_XE18MKL|x64-linux-gnu-mklxe18 )
-        CXX="g++"
-        set_omp_flags
-        MORECPPFLAGS+="-DUSE_MKL_CBLAS"
-        CPPFLAGS="${CPPFLAGS_OMP} -m64 -I${MKLROOT}/include ${gsl_cflags}"
-        LDFLAGS="${gsl_ldflags} -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
-        LDLIBS="-lfftw3 -lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl -lcfitsio"
-        ;;
-    XE18_icpcMKL|x64-linux-icpc-mklxe18 )
-        CXX="icpc"
-        set_omp_flags
-        MORECPPFLAGS+="-DUSE_MKL_CBLAS"
-        CPPFLAGS="${CPPFLAGS_OMP} -I${MKLROOT}/include ${gsl_cflags}"
-        LDFLAGS="-L${MKLROOT}/lib/intel64 ${gsl_ldflags}"
-        LDLIBS="-lfftw3 -lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl -lcfitsio"
-        ;;
-    x64-macos-clang-openblas )
-        CXX="clang++"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags} -I${OPENBLAS_DIR}/include"
-        LDFLAGS="${gsl_ldflags} -L${OPENBLAS_DIR}/lib"
-        LDLIBS="-lfftw3 -lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
-        ;;
-    arm-macos-clang-openblas )
-        CXX="clang++"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags} -I${CFITSIO_DIR_APPLE}/include -I${OPENBLAS_DIR_APPLE}/include -I${FFTW_DIR_APPLE}/include"
-        LDFLAGS="${gsl_ldflags} -L${CFITSIO_DIR_APPLE}/lib -L${OPENBLAS_DIR_APPLE}/lib -L${FFTW_DIR_APPLE}/lib"
-        LDLIBS="-lfftw3 -lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
-        ;;
-    x64-macos-gcc9-openblas )
-        CXX="g++-9"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags} -I${OPENBLAS_DIR}/include"
-        LDFLAGS="${gsl_ldflags} -L${OPENBLAS_DIR}/lib"
-        LDLIBS="-lfftw3 -lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
-        ;;
-    x64-ubuntu-gcc-atlas )
-        CXX="g++"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags}"
-        LDFLAGS="${gsl_ldflags}"
-        LDLIBS="-lfftw3 -lgsl -lcblas -llapacke -latlas -lm -ldl -lcfitsio"
-        ;;
-    x64-ubuntu-gcc-openblas )
-        CXX="g++"
-        set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags}"
-        LDFLAGS="${gsl_ldflags}"
-        LDLIBS="-lfftw3 -lgsl -llapacke -lopenblas -lm -ldl -lcfitsio"
-        ;;
-    * )
-        echo "Unknown system type ${SYSTYPE}."
-        print_build_types
-        exit 1
-        ;;
-esac
-
-user_overwrite_defined_variables
 save_makefile
 echo "./configure ${CONFIGURE_ARGS}" > config.status
 
