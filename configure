@@ -98,27 +98,120 @@ function set_omp_flags() {
     fi
 }
 
-function set_gsl_inc_lib() {
-    if [[ -z "${GSL_DIR}" ]]; then
-        gsl_inc=""
-        gsl_lib=""
-    else
-        gsl_inc="-I${GSL_DIR}/include"
-        gsl_lib="-L${GSL_DIR}/lib"
-        return
-    fi
+# GSL_DIR overrides all
+# If GSL_DIR empty, try GSL_INC and GSL_LIB
+# If they fail, run gsl-config
+# Finally, test compiling
+gsl_test_text="#include <gsl/gsl_integration.h>
+int main()
+{
+    gsl_integration_workspace *w =
+    gsl_integration_workspace_alloc(10);
+    if (w == NULL) return 1;
+    gsl_integration_workspace_free(w);
+    return 0;
+}"
 
-    if [[ $(type gsl-config) > /dev/null ]]; then
+function set_gsl_inc_lib() {
+    echo "Looking for GSL..."
+    echo "I will prioritize GSL_DIR, then GSL_INC/LIB, and finally run gsl-config."
+    if [[ ! -z "${GSL_DIR}" ]]; then
+        echo "GSL_DIR=${GSL_DIR}"
+        gsl_cflags="-I${GSL_DIR}/include"
+        gsl_ldflags="-L${GSL_DIR}/lib"
+    elif [[ ! -z "${GSL_INC}" && ! -z "${GSL_LIB}" ]]; then
+        echo "GSL_INC=${GSL_INC}."
+        echo "GSL_LIB=${GSL_LIB}."
+        gsl_cflags="-I${GSL_INC}"
+        gsl_ldflags="-L${GSL_LIB}"
+    elif [[ $(type gsl-config) > /dev/null ]]; then
+        echo "Running gsl-config."
         GSL_VERSION=$(gsl-config --version)
+        # gsl_cflags=$(gsl-config --cflags)
         GSL_DIR=$(gsl-config --prefix)
         echo "GSL is in the following directory: ${GSL_DIR}"
         echo "Using GSL version ${GSL_VERSION}"
-        gsl_inc="-I${GSL_DIR}/include"
-        gsl_lib="-L${GSL_DIR}/lib"
+        gsl_cflags="-I${GSL_DIR}/include"
+        gsl_ldflags="-L${GSL_DIR}/lib"
+    else
+        echo "WARNING: No GSL env variable found!"
     fi
+
+    mkdir -p ${srcdir}/build-aux
+    test_file="${srcdir}/build-aux/test_gsl_compiling"
+    echo "Test compile, link and run."
+    printf "${gsl_test_text}" > ${test_file}.cpp
+
+    compile_command="${CXX} ${gsl_cflags} -c ${test_file}.cpp -o ${test_file}.o"
+    linking="${CXX} ${gsl_cflags} ${test_file}.o -o ${test_file} ${gsl_ldflags} -lgsl -lcblas -lm"
+    run_command="${test_file}"
+    
+    echo ${compile_command}
+    $(${compile_command})
+    
+    echo ${linking}
+    $(${linking})
+
+    echo ${run_command}
+    $(${run_command})
+}
+
+# FFTW3_DIR overrides all
+# If FFTW3_DIR empty, try FFTW3_INC and FFTW3_LIB
+# Finally, test compiling
+fftw_test_text="#include <fftw3.h>
+#define N 10
+int main()
+{
+    fftw_complex *in, *out;
+    fftw_plan p;
+
+    in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
+    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
+    p = fftw_plan_dft_1d(N, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
+
+    fftw_destroy_plan(p);
+    fftw_free(in); fftw_free(out);
+
+    return 0;
+}"
+function set_fftw3_inc_lib() {
+    echo "Looking for FFTW3..."
+    echo "I will prioritize FFTW3_DIR, then FFTW3_INC/LIB."
+    if [[ ! -z "${FFTW3_DIR}" ]]; then
+        echo "FFTW3_DIR=${FFTW3_DIR}"
+        fftw3_cflags="-I${FFTW3_DIR}/include"
+        fftw3_ldflags="-L${FFTW3_DIR}/lib"
+    elif [[ ! -z "${FFTW3_INC}" && ! -z "${FFTW3_LIB}" ]]; then
+        echo "FFTW3_INC=${FFTW3_INC}."
+        echo "FFTW3_LIB=${FFTW3_LIB}."
+        fftw3_cflags="-I${FFTW3_INC}"
+        fftw3_ldflags="-L${FFTW3_LIB}"
+    else
+        echo "WARNING: No FFTW3 env variable found!"
+    fi
+
+    mkdir -p ${srcdir}/build-aux
+    test_file="${srcdir}/build-aux/test_fftw3_compiling"
+    echo "Test compile, link and run."
+    printf "${fftw_test_text}" > ${test_file}.cpp
+
+    compile_command="${CXX} ${fftw3_cflags} -c ${test_file}.cpp -o ${test_file}.o"
+    linking="${CXX} ${fftw3_cflags} ${test_file}.o -o ${test_file} ${fftw3_ldflags} -lfftw3 -lm"
+    run_command="${test_file}"
+    
+    echo ${compile_command}
+    $(${compile_command})
+    
+    echo ${linking}
+    $(${linking})
+
+    echo ${run_command}
+    $(${run_command})
 }
 
 # Default values
+CXX=g++
 OPT=-O3
 en_mpi=
 binz_fn=-DTRIANGLE_Z_BINNING_FN
@@ -132,7 +225,7 @@ prefix="/usr/local"
 exec_prefix="${prefix}"
 bindir="${exec_prefix}/bin"
 srcdir="."
-set_gsl_inc_lib
+
 
 CONFIGURE_ARGS="$*"
 for i in "$@"
@@ -196,6 +289,9 @@ do
     shift
 done
 
+set_gsl_inc_lib
+#set_fftw3_inc_lib
+
 MORECPPFLAGS="${binz_fn} ${en_mpi} ${fisher_opt} ${z_growth}"
 
 OPENBLAS_DIR=/usr/local/opt/openblas
@@ -209,8 +305,8 @@ case ${SYSTYPE} in
         CXXu="CC"
         exec="srun -n 1 "
         set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${CFITSIO_DIR}/include -I${FFTW_ROOT}/include"
-        LDFLAGS="${gsl_lib} -L${CFITSIO_DIR}/lib -L${FFTW_ROOT}/lib"
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags} -I${CFITSIO_DIR}/include -I${FFTW_ROOT}/include"
+        LDFLAGS="${gsl_ldflags} -L${CFITSIO_DIR}/lib -L${FFTW_ROOT}/lib"
         LDLIBS="-lfftw3 -lgsl ${LDLIBS_OMP} -lcfitsio"
         ;;
     nersc-mkl )
@@ -219,59 +315,59 @@ case ${SYSTYPE} in
         exec="srun -n 1 "
         set_omp_flags
         MORECPPFLAGS+="-DUSE_MKL_CBLAS"
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${CFITSIO_DIR}/include -I${FFTW_ROOT}/include"
-        LDFLAGS="${gsl_lib} -L${CFITSIO_DIR}/lib -L${FFTW_ROOT}/lib"
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags} -I${CFITSIO_DIR}/include -I${FFTW_ROOT}/include"
+        LDFLAGS="${gsl_ldflags} -L${CFITSIO_DIR}/lib -L${FFTW_ROOT}/lib"
         LDLIBS="-lfftw3 -lgsl ${LDLIBS_OMP} -lcfitsio"
         ;;
     GNU_XE18MKL|x64-linux-gnu-mklxe18 )
         CXX="g++"
         set_omp_flags
         MORECPPFLAGS+="-DUSE_MKL_CBLAS"
-        CPPFLAGS="${CPPFLAGS_OMP} -m64 -I${MKLROOT}/include ${gsl_inc}"
-        LDFLAGS="${gsl_lib} -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
+        CPPFLAGS="${CPPFLAGS_OMP} -m64 -I${MKLROOT}/include ${gsl_cflags}"
+        LDFLAGS="${gsl_ldflags} -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
         LDLIBS="-lfftw3 -lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl -lcfitsio"
         ;;
     XE18_icpcMKL|x64-linux-icpc-mklxe18 )
         CXX="icpc"
         set_omp_flags
         MORECPPFLAGS+="-DUSE_MKL_CBLAS"
-        CPPFLAGS="${CPPFLAGS_OMP} -I${MKLROOT}/include ${gsl_inc}"
-        LDFLAGS="-L${MKLROOT}/lib/intel64 ${gsl_lib}"
+        CPPFLAGS="${CPPFLAGS_OMP} -I${MKLROOT}/include ${gsl_cflags}"
+        LDFLAGS="-L${MKLROOT}/lib/intel64 ${gsl_ldflags}"
         LDLIBS="-lfftw3 -lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lm -ldl -lcfitsio"
         ;;
     x64-macos-clang-openblas )
         CXX="clang++"
         set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${OPENBLAS_DIR}/include"
-        LDFLAGS="${gsl_lib} -L${OPENBLAS_DIR}/lib"
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags} -I${OPENBLAS_DIR}/include"
+        LDFLAGS="${gsl_ldflags} -L${OPENBLAS_DIR}/lib"
         LDLIBS="-lfftw3 -lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
         ;;
     arm-macos-clang-openblas )
         CXX="clang++"
         set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${CFITSIO_DIR_APPLE}/include -I${OPENBLAS_DIR_APPLE}/include -I${FFTW_DIR_APPLE}/include"
-        LDFLAGS="${gsl_lib} -L${CFITSIO_DIR_APPLE}/lib -L${OPENBLAS_DIR_APPLE}/lib -L${FFTW_DIR_APPLE}/lib"
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags} -I${CFITSIO_DIR_APPLE}/include -I${OPENBLAS_DIR_APPLE}/include -I${FFTW_DIR_APPLE}/include"
+        LDFLAGS="${gsl_ldflags} -L${CFITSIO_DIR_APPLE}/lib -L${OPENBLAS_DIR_APPLE}/lib -L${FFTW_DIR_APPLE}/lib"
         LDLIBS="-lfftw3 -lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
         ;;
     x64-macos-gcc9-openblas )
         CXX="g++-9"
         set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc} -I${OPENBLAS_DIR}/include"
-        LDFLAGS="${gsl_lib} -L${OPENBLAS_DIR}/lib"
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags} -I${OPENBLAS_DIR}/include"
+        LDFLAGS="${gsl_ldflags} -L${OPENBLAS_DIR}/lib"
         LDLIBS="-lfftw3 -lgsl -lopenblas ${LDLIBS_OMP} -lm -ldl -lcfitsio"
         ;;
     x64-ubuntu-gcc-atlas )
         CXX="g++"
         set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
-        LDFLAGS="${gsl_lib}"
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags}"
+        LDFLAGS="${gsl_ldflags}"
         LDLIBS="-lfftw3 -lgsl -lcblas -llapacke -latlas -lm -ldl -lcfitsio"
         ;;
     x64-ubuntu-gcc-openblas )
         CXX="g++"
         set_omp_flags
-        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
-        LDFLAGS="${gsl_lib}"
+        CPPFLAGS="${CPPFLAGS_OMP} ${gsl_cflags}"
+        LDFLAGS="${gsl_ldflags}"
         LDLIBS="-lfftw3 -lgsl -llapacke -lopenblas -lm -ldl -lcfitsio"
         ;;
     * )
@@ -286,82 +382,4 @@ save_makefile
 echo "./configure ${CONFIGURE_ARGS}" > config.status
 
 
-# Selects compiler
-# Set up GSL directory
-# Set up cblas library
-# function interactive() {
-#     echo "Using interactive mode...."
-#     echo 'Specify your C++ compiler (g++, clang++, icpc):'
-#     read CXX
-#     case ${CXX} in
-#         g++*|clang++|icpc )
-#             ;;
-#         * )
-#             echo "ERROR: Compiler not supported!"
-#             exit 1
-#             ;;
-#     esac
-
-#     if [[ "${CXX}" = "icpc" ]]; then
-#         echo "WARNING: Assuming Parallel Studio XE 2018."
-#     fi
-    
-#     set_omp_flags
-#     set_gsl_inc_lib
-
-#     # CBLAS
-#     echo 'Even though GSL has built in CBLAS functions, I recommended using an optimized library such as Intel MKL or ATLAS.'
-#     echo 'Which library do you want to use (gsl, mkl, openblas, atlas)?'
-#     read which_cblas_lib
-
-#     case ${which_cblas_lib} in
-#         gsl|GSL|Gsl )
-#             LDFLAGS_CBLAS=""
-#             LDLIBS_CBLAS="-lgslcblas"
-#             ;;
-#         atlas|ATLAS|Atlas )
-#             if [[ -z "${ATLAS_DIR}" ]]; then
-#                 echo "Where is ATLAS?"
-#                 read CBLAS_DIR
-#             else
-#                 CBLAS_DIR="${ATLAS_DIR}"
-#             fi
-            
-#             LDFLAGS_CBLAS="-L${CBLAS_DIR}/lib"
-#             LDLIBS_CBLAS="-lcblas -latlas"
-#             ;;
-#         openblas|OpenBLAS|openBLAS )
-#             echo "Where is OpenBLAS?"
-#             read CBLAS_DIR
-#             LDFLAGS_CBLAS="-L${CBLAS_DIR}/lib"
-#             LDLIBS_CBLAS="-lopenblas" 
-#             ;;
-#         mkl|MKL|Mkl )
-#             if [[ "${CXX}" = "icpc" ]]; then
-#                 LDFLAGS_CBLAS=""
-#                 LDLIBS_CBLAS="-lpthread"
-#             elif [[ "${CXX}" = "g++" ]]; then
-#                 if [[ -z "${MKLROOT}" ]]; then
-#                     echo "ERROR: MKLROOT is not defined in environment!"
-#                     exit 1
-#                 fi
-
-#                 CPPFLAGS_OMP+=" -m64"
-#                 LDFLAGS_CBLAS="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
-#                 LDLIBS_CBLAS="-lmkl_intel_lp64 ${LDLIBS_GCC_MKL} -lmkl_core -lpthread"
-#             else
-#                 echo 'Unknown combo'
-#                 exit 1
-#             fi
-#             ;;
-#         * )
-#             echo 'Unknown library'
-#             exit 1
-#             ;;
-#     esac
-
-#     CPPFLAGS="${CPPFLAGS_OMP} ${gsl_inc}"
-#     LDFLAGS="${gsl_lib} ${LDFLAGS_CBLAS}"
-#     LDLIBS="-lgsl ${LDLIBS_CBLAS} ${LDLIBS_OMP} -lm -ldl"
-# }
 

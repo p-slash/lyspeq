@@ -2,6 +2,7 @@
 *.o
 *.log
 backup/
+build-aux/
 dep/
 wiki/
 tests/output/*
