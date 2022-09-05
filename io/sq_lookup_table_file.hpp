@@ -6,10 +6,14 @@
 
 namespace sqhelper
 {
-    std::string QTableFileNameConvention(const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_Q, 
+    std::string QTableFileNameConvention(
+        const std::string &OUTPUT_DIR,
+        const std::string &OUTPUT_FILEBASE_Q, 
         int r, double dv, double k1, double k2);
 
-    std::string STableFileNameConvention(const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_S, 
+    std::string STableFileNameConvention(
+        const std::string &OUTPUT_DIR,
+        const std::string &OUTPUT_FILEBASE_S, 
         int r, double dv);
 
     typedef struct
@@ -28,8 +32,9 @@ namespace sqhelper
         double k2;
     } SQ_IO_Header;
 
-    // This file object reads and writes evaluated S and Q matrices in a standard file format.
-    // spectrograph_resolution, pixel_width and k values can be used to check consistency.
+    /* This file object reads and writes evaluated S and Q matrices
+     * in a standard file format.
+     */
     class SQLookupTableFile
     {
         FILE *sq_file;
