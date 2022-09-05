@@ -91,8 +91,45 @@ int TestOneQSOEstimate::test_setQiMatrix()
     return 0;
 }
 
+int test_SQLookupTable(const ConfigFile &config)
+{
+    int r = 0;
+    // Allocate truth
+    const std::string truth_dir = std::string(SRCDIR) + "/tests/truth/";
+    const config_map truth_sq_map ({{"OutputDir", truth_dir}});
+
+    ConfigFile truth_config(truth_sq_map);
+    truth_config.addDefaults(config);
+    auto truth_sq_table = std::make_unique<SQLookupTable>(truth_config);
+    truth_sq_table->readTables();
+
+    auto truth_sig = truth_sq_table->getSignalMatrixInterp(0);
+    auto calc_sig  = process::sq_private_table->getSignalMatrixInterp(0);
+
+    if (*calc_sig != *truth_sig)
+    {
+        fprintf(stderr, "ERROR SQLookupTable::getSignalMatrixInterp.\n");
+        r += 1;
+    }
+
+    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
+    {
+        auto truth_q = truth_sq_table->getDerivativeMatrixInterp(kn, 0);
+        auto calc_q  = process::sq_private_table->getDerivativeMatrixInterp(kn, 0);
+
+        if (*calc_q != *truth_q)
+        {
+            fprintf(stderr, "ERROR SQLookupTable::getDerivativeMatrixInterp.\n");
+            r += 1;
+        }
+    }
+
+    return r;
+}
+
 int main(int argc, char *argv[])
 {
+    int r=0;
     #if defined(ENABLE_MPI)
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &process::this_pe);
@@ -152,14 +189,7 @@ int main(int argc, char *argv[])
         process::sq_private_table->computeTables(true);
         process::sq_private_table->readTables();
 
-        // Allocate truth
-        const std::string truth_dir = std::string(SRCDIR) + "/tests/truth/";
-        const config_map truth_sq_map ({{"OutputDir", truth_dir}});
-
-        ConfigFile truth_config(truth_sq_map);
-        truth_config.addDefaults(config);
-        auto truth_sq_table = std::make_unique<SQLookupTable>(truth_config);
-        truth_sq_table->readTables();
+        r+=test_SQLookupTable(config);
     }
     catch (std::exception& e)
     {
@@ -183,7 +213,6 @@ int main(int argc, char *argv[])
     }
 
     TestOneQSOEstimate toqso(filepaths[0]);
-    int r=0;
     r+=toqso.test_setFiducialSignalMatrix();
     r+=toqso.test_setQiMatrix();
     return r;
