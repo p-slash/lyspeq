@@ -204,18 +204,22 @@ int main(int argc, char *argv[])
     }
 
     std::vector<std::string> filepaths;
-    std::string INPUT_DIR = config.get("FileInputDir");
+    std::string INPUT_DIR = config.get("FileInputDir") + "/";
     ioh::readList(config.get("FileNameList").c_str(), filepaths);
     // Add parent directory to file path
-    for (std::vector<std::string>::iterator fq = filepaths.begin(); fq != filepaths.end(); ++fq)
-    {
-        fq->insert(0, "/");
-        fq->insert(0, INPUT_DIR);
-    }
+    for (auto &fq : filepaths)
+        fq.insert(0, INPUT_DIR);
 
     TestOneQSOEstimate toqso(filepaths[0]);
     r+=toqso.test_setFiducialSignalMatrix();
     r+=toqso.test_setQiMatrix();
+
+    LOG::LOGGER.STD("SQ matrices work!\n");
+
+    #if defined(ENABLE_MPI)
+    MPI_Finalize();
+    #endif
+
     return r;
 }
 
