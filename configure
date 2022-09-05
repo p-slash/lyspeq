@@ -535,16 +535,12 @@ function set_mpi_inc_lib()
 
     compile_command="${CXX} -c ${test_file}.cpp -o ${test_file}.o"
     linking="${CXX} ${test_file}.o -o ${test_file}"
-    run_command="${exec}${test_file}"
     
     echo ${compile_command}
     ${compile_command}
     
     echo ${linking}
     ${linking}
-
-    echo ${run_command}
-    ${run_command}
 }
 # -----------------------------------------------------------------------------
 
