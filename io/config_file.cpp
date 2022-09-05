@@ -1,26 +1,9 @@
 #include "io/config_file.hpp"
 #include "io/io_helper_functions.hpp"
 
-#include <cstring> // strcpy
 #include <cstdlib>
 #include <cstdio>
 #include <stdexcept> // std::invalid_argument
-
-// ConfigFile::ConfigFile(const config_map &default_config) : 
-// {
-//     key_umap = default_config;
-// }
-
-// void ConfigFile::addKey(const std::string key, void *variable, VariableType vt)
-// {
-//     if (variable == NULL)   return;
-    
-//     vpair new_pair = {variable, vt};
-
-//     key_umap[key] = new_pair;
-
-//     no_params++;
-// }
 
 ConfigFile::ConfigFile(const config_map &default_config) :
 key_umap (default_config)
@@ -119,21 +102,21 @@ void ConfigFile::writeConfig(FILE *toWrite, std::string prefix) const
             entry.first.c_str(), entry.second.c_str());
 }
 
+bool _isNOTin(const std::vector<std::string> &ignored_keys, const std::string &elem)
+{
+    for (const auto &s : ignored_keys)
+        if (s == elem)
+            return false;
+    return true;
+}
+
 void ConfigFile::checkUnusedKeys(const std::vector<std::string> &ignored_keys) const
 {
     std::vector<std::string> uncalled;
 
     for (const auto &entry : key_call_counter)
-    {
-        if ((entry.second == 0)
-            && (std::find(
-                ignored_keys.begin(),
-                ignored_keys.end(),
-                entry.first
-                ) == ignored_keys.end())
-            )
+        if ((entry.second == 0) && _isNOTin(ignored_keys, entry.first))
             uncalled.push_back(entry.first);
-    }
 
     if (!uncalled.empty())
         fprintf(stderr, "ERROR: unused keys in config:\n");
