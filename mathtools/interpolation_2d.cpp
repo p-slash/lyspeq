@@ -6,9 +6,10 @@
 #include <cstdio>
 #include <stdexcept>
 
-Interpolation2D::Interpolation2D(   GSL_2D_INTERPOLATION_TYPE interp_type, \
-                                    const double *x, const double *y, const double *z, \
-                                    long x_size, long y_size)
+Interpolation2D::Interpolation2D(
+    GSL_2D_INTERPOLATION_TYPE interp_type,
+    const double *x, const double *y, const double *z,
+    long x_size, long y_size)
 {
     lowest_x  = x[0];
     highest_x = x[x_size - 1];
@@ -19,9 +20,12 @@ Interpolation2D::Interpolation2D(   GSL_2D_INTERPOLATION_TYPE interp_type, \
     x_accelerator = gsl_interp_accel_alloc();
     y_accelerator = gsl_interp_accel_alloc();
 
-    if      (interp_type == GSL_BILINEAR_INTERPOLATION)     spline = gsl_spline2d_alloc(gsl_interp2d_bilinear, x_size, y_size);
-    else if (interp_type == GSL_BICUBIC_INTERPOLATION)      spline = gsl_spline2d_alloc(gsl_interp2d_bicubic, x_size, y_size);
-    else                                                    throw "2D_INTERP_TYPE_ERROR";
+    if (interp_type == GSL_BILINEAR_INTERPOLATION)
+        spline = gsl_spline2d_alloc(gsl_interp2d_bilinear, x_size, y_size);
+    else if (interp_type == GSL_BICUBIC_INTERPOLATION)
+        spline = gsl_spline2d_alloc(gsl_interp2d_bicubic, x_size, y_size);
+    else
+        throw std::runtime_error("Interpolation2D::GSL_2D_INTERPOLATION_TYPE");
     
     gsl_spline2d_init(spline, x, y, z, x_size, y_size);
 }
@@ -46,9 +50,12 @@ Interpolation2D::Interpolation2D(const Interpolation2D &itp2d)
     long x_size = itp2d.spline->interp_object.xsize;
     long y_size = itp2d.spline->interp_object.ysize;
     // Copied from source code of GSL 2.5
-    spline = gsl_spline2d_alloc(itp2d.spline->interp_object.type, x_size, y_size);
+    spline = gsl_spline2d_alloc(itp2d.spline->interp_object.type,
+        x_size, y_size);
     
-    gsl_spline2d_init(spline, itp2d.spline->xarr, itp2d.spline->yarr, itp2d.spline->zarr, x_size, y_size);
+    gsl_spline2d_init(spline, itp2d.spline->xarr,
+        itp2d.spline->yarr, itp2d.spline->zarr,
+        x_size, y_size);
 }
 
 double Interpolation2D::evaluate(double x, double y) const
@@ -56,7 +63,8 @@ double Interpolation2D::evaluate(double x, double y) const
     int status;
     double result;
 
-    status = gsl_spline2d_eval_e(spline, x, y, x_accelerator, y_accelerator, &result);
+    status = gsl_spline2d_eval_e(spline, x, y, x_accelerator,
+        y_accelerator, &result);
 
     if (!status)
         return result;
@@ -72,7 +80,8 @@ double Interpolation2D::derivate_x(double x, double y) const
     int status;
     double result;
     
-    status = gsl_spline2d_eval_deriv_x_e(spline, x, y, x_accelerator, y_accelerator, &result);
+    status = gsl_spline2d_eval_deriv_x_e(spline, x, y, x_accelerator,
+        y_accelerator, &result);
 
     if (!status)
         return result;
@@ -88,7 +97,8 @@ double Interpolation2D::derivate_y(double x, double y) const
     int status;
     double result;
     
-    status = gsl_spline2d_eval_deriv_y_e(spline, x, y, x_accelerator, y_accelerator, &result);
+    status = gsl_spline2d_eval_deriv_y_e(spline, x, y, x_accelerator,
+        y_accelerator, &result);
 
     if (!status)
         return result;
@@ -99,32 +109,27 @@ double Interpolation2D::derivate_y(double x, double y) const
         throw std::runtime_error(gsl_strerror(status));
 }
 
-double Interpolation2D::extrapolate(double x, double y, 
-    double (*func)(const gsl_spline2d*, const double, const double, gsl_interp_accel*, gsl_interp_accel*)) const
+double Interpolation2D::extrapolate(
+    double x, double y, 
+    double (*func)(
+        const gsl_spline2d*,
+        const double,
+        const double,
+        gsl_interp_accel*,
+        gsl_interp_accel*)
+    ) const
 {
     double x_eval = x, y_eval = y;
 
     if (x < lowest_x)
-    {
-        // fprintf(stderr, "WARNING: Extrapolating 2D interpolation for x=%e is smaller than lowest x=%e!\n", x, lowest_x);
         x_eval = lowest_x;
-    }
     else if (x > highest_x)
-    {
-        // fprintf(stderr, "WARNING: Extrapolating 2D interpolation for x=%e is larger than highest x=%e!\n", x, highest_x);
         x_eval = highest_x;
-    }
 
     if (y < lowest_y)
-    {
-        // fprintf(stderr, "WARNING: Extrapolating 2D interpolation for y=%e is smaller than lowest y=%e!\n", y, lowest_y);
         y_eval = lowest_y;
-    }
     else if (y > highest_y)
-    {
-        // fprintf(stderr, "WARNING: Extrapolating 2D interpolation for y=%e is larger than highest y=%e!\n", y, highest_y);
         y_eval = highest_y;
-    }
 
     return func(spline, x_eval, y_eval, x_accelerator, y_accelerator);
 }
