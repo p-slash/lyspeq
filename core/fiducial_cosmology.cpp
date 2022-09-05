@@ -197,7 +197,7 @@ namespace fidcosmo
     FiducialRedshiftCurvature: double
     FiducialLorentzianLambda: double
     */
-    void readFiducialCosmo(const ConfigFile &config)
+    void readFiducialCosmo(ConfigFile &config)
     {
         // Baseline Power Spectrum
         std::string FNAME_FID_POWER = config.get("FiducialPowerFile");

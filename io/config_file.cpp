@@ -22,13 +22,23 @@
 //     no_params++;
 // }
 
+ConfigFile::ConfigFile(const config_map &default_config) :
+key_umap (default_config)
+{
+    for (const auto &entry : key_umap)
+        key_call_counter[entry.first] = 0;
+}
+
 void ConfigFile::addDefaults(const config_map &default_config)
 {
     for (const auto &entry : default_config)
     {
         auto kumap_itr = key_umap.find(entry.first);
         if (kumap_itr == key_umap.end())
+        {
             key_umap[entry.first] = entry.second;
+            key_call_counter[entry.first] = 0;
+        }
     }
 }
 
@@ -52,38 +62,49 @@ void ConfigFile::readFile(const std::string &fname)
         if (sscanf(line, "%s %s", buffer_key, buffer_value) < 2)
             continue;
 
-        key_umap[std::string(buffer_key)] = std::string(buffer_value);
+        std::string curr_key(buffer_key);
+        key_umap[curr_key] = std::string(buffer_value);
+        key_call_counter[curr_key] = 0;
     }
     
     fclose(config_file);
 }
 
-std::string ConfigFile::get(const std::string &key, const std::string &fallback) const
+std::string ConfigFile::get(const std::string &key, const std::string &fallback)
 {
     auto kumap_itr = key_umap.find(key);
 
     if (kumap_itr != key_umap.end())
+    {
+        ++key_call_counter[key];
         return kumap_itr->second;
+    }
     else
         return fallback;
 }
 
-double ConfigFile::getDouble(const std::string &key, double fallback) const
+double ConfigFile::getDouble(const std::string &key, double fallback)
 {
     auto kumap_itr = key_umap.find(key);
 
     if (kumap_itr != key_umap.end())
+    {
+        ++key_call_counter[key];
         return std::stod(kumap_itr->second);
+    }
     else
         return fallback;
 }
 
-int ConfigFile::getInteger(const std::string &key, int fallback) const
+int ConfigFile::getInteger(const std::string &key, int fallback)
 {
     auto kumap_itr = key_umap.find(key);
 
     if (kumap_itr != key_umap.end())
+    {
+        ++key_call_counter[key];
         return std::stoi(kumap_itr->second);
+    }
     else
         return fallback;
 }
@@ -96,6 +117,31 @@ void ConfigFile::writeConfig(FILE *toWrite, std::string prefix) const
     for (const auto &entry : key_umap)
         fprintf(toWrite, "%s%s %s\n", c_prefix,
             entry.first.c_str(), entry.second.c_str());
+}
+
+void ConfigFile::checkUnusedKeys(const std::vector<std::string> &ignored_keys) const
+{
+    std::vector<std::string> uncalled;
+
+    for (const auto &entry : key_call_counter)
+    {
+        if ((entry.second == 0)
+            && (std::find(
+                ignored_keys.begin(),
+                ignored_keys.end(),
+                entry.first
+                ) == ignored_keys.end())
+            )
+            uncalled.push_back(entry.first);
+    }
+
+    if (!uncalled.empty())
+        fprintf(stderr, "ERROR: unused keys in config:\n");
+    for (const auto &entry : uncalled)
+        fprintf(stderr, "--  %s\n", entry.c_str());
+
+    if (!uncalled.empty())
+        throw std::invalid_argument("Unused keys in config.");
 }
 
 // bool ConfigFile::getBool(const std::string &key, bool fallback=false) const

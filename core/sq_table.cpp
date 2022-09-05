@@ -49,7 +49,7 @@ DerivativeSLookUpTableBase: string
     Default is deriv.
 FileNameRList: string
 */
-SQLookupTable::SQLookupTable(const ConfigFile &config) :
+SQLookupTable::SQLookupTable(ConfigFile &config) :
 LINEAR_V_ARRAY(NULL), LINEAR_Z_ARRAY(NULL),
 signal_array(NULL), derivative_array(NULL)
 {

@@ -48,7 +48,7 @@ namespace fidcosmo
     FiducialRedshiftCurvature: double
     FiducialLorentzianLambda: double
     */
-    void readFiducialCosmo(const ConfigFile &config);
+    void readFiducialCosmo(ConfigFile &config);
 
     // Assume binary file starts with 
     // two integers, 
