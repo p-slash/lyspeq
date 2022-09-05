@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
         process::sq_private_table = std::make_unique<SQLookupTable>(config);
         const std::vector<std::string> ignored_keys({
             "FileNameList", "FileInputDir", "NumberOfIterations",
-            "InputIsDeltaFlux"
+            "InputIsDeltaFlux", "SmoothNoiseWeights"
         });
         config.checkUnusedKeys(ignored_keys);
         process::sq_private_table->computeTables(force_rewrite);
