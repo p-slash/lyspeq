@@ -13,6 +13,7 @@ function print_config_help()
     echo "--force : Forces to produce a Makefile despite errors."
     echo "--print-builds : Prints out available build types"
     echo "--enable-mpi : Enables MPI"
+    echo "--use-mkl-cblas : Links to MKL libraries"
     echo "--prefix=[directory] --exec_prefix=[directory] : Executables are installed in \${exec_prefix}/bin. Default is ${exec_prefix}"
     echo "--bindir=[directory] : Executables are installed in \${bindir}. Default is ${bindir}"
     echo "--srcdir=[directory] : Source directory. Default is current directory (.)"
@@ -23,7 +24,7 @@ function print_config_help()
     echo "--use-tophat-zbin : Uses tophat redshift binning function instead. Default is triangle."
     echo "--debug adds -g flag."
     echo "GSL_DIR=[directory] : GSL directory"
-    echo "FFTW3_DIR=[directory] : FFTW3 directory"
+    echo "FFTW_DIR=[directory] : FFTW directory"
     echo "CFITSIO_DIR=[directory] : cfitsio directory"
     echo "CBLAS_DIR=[directory] : CBLAS directory"
 }
@@ -65,8 +66,8 @@ function set_config_options()
                 CXX="${i#*=}";;
             GSL_DIR=* )
                 GSL_DIR="${i#*=}";;
-            FFTW3_DIR=* )
-                FFTW3_DIR="${i#*=}";;
+            FFTW_DIR=* )
+                FFTW_DIR="${i#*=}";;
             CFITSIO_DIR=* )
                 CFITSIO_DIR="${i#*=}";;
             CBLAS_DIR=* )
@@ -101,12 +102,12 @@ function set_prebuild_system()
     case ${SYSTYPE} in
         nersc )
             CXX="CC"
-            FFTW3_DIR=${FFTW_ROOT}
+            FFTW_DIR=${FFTW_ROOT}
             ;;
         nersc-mkl )
             CXX="CC -mkl"
             USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
-            FFTW3_DIR=${FFTW_ROOT}
+            FFTW_DIR=${FFTW_ROOT}
             ;;
         x64-linux-gnu-mklxe18 )
             CXX="g++"
@@ -124,7 +125,7 @@ function set_prebuild_system()
             CXX="clang++"
             CFITSIO_DIR="/opt/homebrew/opt/cfitsio"
             CBLAS_DIR="/opt/homebrew/opt/openblas"
-            FFTW3_DIR="/opt/homebrew/opt/fftw"
+            FFTW_DIR="/opt/homebrew/opt/fftw"
             ;;
         x64-macos-gcc9-openblas )
             CXX="g++-9"
@@ -313,9 +314,9 @@ function set_gsl_inc_lib()
     printf "${gsl_test_text}" > ${test_file}.cpp
 
     compile_command="${CXX} ${gsl_cflags} -c ${test_file}.cpp -o ${test_file}.o"
-    linking="${CXX} ${gsl_cflags} ${test_file}.o -o ${test_file} ${gsl_ldflags} -lgsl -lcblas -lm"
+    linking="${CXX} ${gsl_cflags} ${test_file}.o -o ${test_file} ${gsl_ldflags} -lgsl -lm"
     run_command="${test_file}"
-    
+
     echo ${compile_command}
     ${compile_command}
     
@@ -330,9 +331,9 @@ function set_gsl_inc_lib()
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
-# FFTW3 settings
-# FFTW3_DIR overrides all
-# If FFTW3_DIR empty, then try FFTW_ROOT, finally FFTW3_INC/LIB
+# FFTW settings
+# FFTW_DIR overrides all
+# If FFTW_DIR empty, then try FFTW_ROOT, finally FFTW_INC/LIB
 # Finally, test compiling
 fftw_test_text="#include <fftw3.h>
 #define N 10
@@ -353,20 +354,20 @@ int main()
 function set_fftw3_inc_lib()
 {
     echo "====================================================================="
-    echo "looking for fftw3. prioritize FFTW3_DIR > FFTW_ROOT > FFTW3_INC/LIB."
-    if [[ ! -z "${FFTW3_DIR}" ]]; then
-        echo "FFTW3_DIR=${FFTW3_DIR}"
-        fftw3_cflags="-I${FFTW3_DIR}/include"
-        fftw3_ldflags="-L${FFTW3_DIR}/lib"
+    echo "looking for fftw3. prioritize FFTW_DIR > FFTW_ROOT > FFTW_INC/LIB."
+    if [[ ! -z "${FFTW_DIR}" ]]; then
+        echo "FFTW_DIR=${FFTW_DIR}"
+        fftw3_cflags="-I${FFTW_DIR}/include"
+        fftw3_ldflags="-L${FFTW_DIR}/lib"
     elif [[ ! -z ${FFTW_ROOT} ]]; then
         echo "FFTW_ROOT=${FFTW_ROOT}"
         fftw3_cflags="-I${FFTW_ROOT}/include"
         fftw3_ldflags="-L${FFTW_ROOT}/lib"
-    elif [[ ! -z "${FFTW3_INC}" && ! -z "${FFTW3_LIB}" ]]; then
-        echo "FFTW3_INC=${FFTW3_INC}."
-        echo "FFTW3_LIB=${FFTW3_LIB}."
-        fftw3_cflags="-I${FFTW3_INC}"
-        fftw3_ldflags="-L${FFTW3_LIB}"
+    elif [[ ! -z "${FFTW_INC}" && ! -z "${FFTW_LIB}" ]]; then
+        echo "FFTW_INC=${FFTW_INC}."
+        echo "FFTW_LIB=${FFTW_LIB}."
+        fftw3_cflags="-I${FFTW_INC}"
+        fftw3_ldflags="-L${FFTW_LIB}"
     else
         echo "Warning: no fftw3 env variable found!"
     fi
@@ -464,7 +465,8 @@ function set_cblas_inc_lib()
 
 # -----------------------------------------------------------------------------
 # CFITSIO settings
-# CFITSIO_DIR is the only variable
+# CFITSIO_DIR overrides asll
+# If CFITSIO_DIR empty, then CFITSIO_INC/LIB
 cfitsio_test_text='#include "fitsio.h"
 int main()
 {
@@ -475,11 +477,16 @@ int main()
 function set_cfitsio_inc_lib()
 {
     echo "====================================================================="
-    echo "looking for cfitsio. I will only consider CFITSIO_DIR."
+    echo "looking for cfitsio. prioritize CFITSIO_DIR > CFITSIO_INC/LIB."
     if [[ ! -z "${CFITSIO_DIR}" ]]; then
         echo "CFITSIO_DIR=${CFITSIO_DIR}"
         cfitsio_cflags="-I${CFITSIO_DIR}/include"
         cfitsio_ldflags="-L${CFITSIO_DIR}/lib"
+    elif [[ ! -z "${CFITSIO_INC}" && ! -z "${CFITSIO_LIB}" ]]; then
+        echo "CFITSIO_INC=${CFITSIO_INC}."
+        echo "CFITSIO_LIB=${CFITSIO_LIB}."
+        cfitsio_cflags="-I${CFITSIO_INC}"
+        cfitsio_ldflags="-L${CFITSIO_LIB}"
     fi
 
     test_file="${srcdir}/build-aux/test_cblas_lapacke_compiling"
@@ -528,16 +535,12 @@ function set_mpi_inc_lib()
 
     compile_command="${CXX} -c ${test_file}.cpp -o ${test_file}.o"
     linking="${CXX} ${test_file}.o -o ${test_file}"
-    run_command="${exec}${test_file}"
     
     echo ${compile_command}
     ${compile_command}
     
     echo ${linking}
     ${linking}
-
-    echo ${run_command}
-    ${run_command}
 }
 # -----------------------------------------------------------------------------
 
