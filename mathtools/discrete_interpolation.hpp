@@ -17,6 +17,9 @@ class DiscreteInterpolation1D
 public:
     DiscreteInterpolation1D(double x_start, double delta_x, const double *y_arr, long Nsize);
     ~DiscreteInterpolation1D() { delete [] y; };
+    bool operator==(const DiscreteInterpolation1D &rhs) const;
+    bool operator!=(const DiscreteInterpolation1D &rhs) const
+    { return ! (*this==rhs); };
 
     double evaluate(double x);
 };
@@ -37,6 +40,9 @@ public:
     DiscreteInterpolation2D(double x_start, double delta_x, double y_start, double delta_y,
         const double *z_arr, long Nxsize, long Nysize);
     ~DiscreteInterpolation2D() { delete [] z; };
+    bool operator==(const DiscreteInterpolation2D &rhs) const;
+    bool operator!=(const DiscreteInterpolation2D &rhs) const
+    { return ! (*this==rhs); };
 
     double evaluate(double x, double y);
 };

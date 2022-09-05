@@ -1,5 +1,23 @@
 #include "discrete_interpolation.hpp"
 #include <algorithm>
+#include <cmath>
+
+// inlines solve duplicate symbol error in tests/test_utils.cpp
+inline
+bool isClose(double a, double b, double relerr=1e-5, double abserr=1e-8)
+{
+    double mag = std::max(fabs(a),fabs(b));
+    return fabs(a-b) < (abserr + relerr * mag);
+}
+
+inline
+bool allClose(const double *a, const double *b, long size)
+{
+    bool result = true;
+    for (long i = 0; i < size; ++i)
+        result &= isClose(a[i], b[i]);
+    return result;
+}
 
 DiscreteInterpolation1D::DiscreteInterpolation1D(double x_start, double delta_x, const double *y_arr, long Nsize)
 : x1(x_start), dx(delta_x), N(Nsize)
@@ -23,6 +41,15 @@ double DiscreteInterpolation1D::evaluate(double x)
     double dn = (x-x1)/dx - n, y1 = y[n], y2=y[n+1];
 
     return y1*(1-dn) + y2*dn;
+}
+
+bool DiscreteInterpolation1D::operator==(const DiscreteInterpolation1D &rhs) const
+{
+    bool result = true;
+    result &= isClose(x1, rhs.x1) & isClose(x2, rhs.x2) & isClose(dx, rhs.dx);
+    result &= N == rhs.N;
+    result &= allClose(y, rhs.y, N);
+    return result;
 }
 
 DiscreteInterpolation2D::DiscreteInterpolation2D(double x_start, double delta_x, double y_start, double delta_y,
@@ -70,6 +97,15 @@ double DiscreteInterpolation2D::evaluate(double x, double y)
     return result;
 }
 
+bool DiscreteInterpolation2D::operator==(const DiscreteInterpolation2D &rhs) const
+{
+    bool result = true;
+    result &= isClose(x1, rhs.x1) & isClose(x2, rhs.x2) & isClose(dx, rhs.dx);
+    result &= isClose(y1, rhs.y1) & isClose(y2, rhs.y2) & isClose(dy, rhs.dy);
+    result &= (Nx == rhs.Nx) & (Ny == rhs.Ny);
+    result &= allClose(z, rhs.z, size);
+    return result;
+}
 
 
 
