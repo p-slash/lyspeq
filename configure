@@ -6,9 +6,11 @@
 # For more options pass --help or -h
 # Intel compilers: This has been tested for only Parallel Studio XE 2018 icpc and MKL.
 
+# Print out config arguments
 function print_config_help()
 {
     echo "--build=[build type] or [build type]: Sets the build type"
+    echo "--force : Forces to produce a Makefile despite errors."
     echo "--print-builds : Prints out available build types"
     echo "--enable-mpi : Enables MPI"
     echo "--prefix=[directory] --exec_prefix=[directory] : Executables are installed in \${exec_prefix}/bin. Default is ${exec_prefix}"
@@ -26,6 +28,7 @@ function print_config_help()
     echo "CBLAS_DIR=[directory] : CBLAS directory"
 }
 
+# Set config options
 function set_config_options()
 {
     for i in "$@"
@@ -33,6 +36,8 @@ function set_config_options()
         case $i in
             --build=* )
                 SYSTYPE="${i#*=}";;
+            --force )
+                ENABLE_FORCE="ENABLE_FORCE";;
             --prefix=* | --exec_prefix=*)
                 exec_prefix="${i#*=}"
                 bindir="${exec_prefix}/bin";;
@@ -83,7 +88,7 @@ function set_config_options()
 avaliable_builds="nersc nersc-mkl arm-macos-clang-openblas x64-macos-clang-openblas x64-macos-gcc9-openblas"
 function print_build_types()
 {
-    echo "Available build types are :"
+    echo "available build types are :"
     echo "-------------------------"
     for build in $avaliable_builds
     do
@@ -103,22 +108,14 @@ function set_prebuild_system()
             USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
             FFTW3_DIR=${FFTW_ROOT}
             ;;
-        # x64-linux-gnu-mklxe18 )
-        #     CXX="g++"
-
-        #     USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
-        #     CPPFLAGS="${CPPFLAGS_OMP} -m64 -I${MKLROOT}/include"
-        #     LDFLAGS="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed"
-        #     LDLIBS="-lfftw3 -lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lcfitsio"
-        #     ;;
-        # x64-linux-icpc-mklxe18 )
-        #     CXX="icpc"
-
-        #     USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
-        #     CPPFLAGS="${CPPFLAGS_OMP} -I${MKLROOT}/include"
-        #     LDFLAGS="-L${MKLROOT}/lib/intel64 ${gsl_ldflags}"
-        #     LDLIBS="-lfftw3 -lgsl -lmkl_intel_lp64 ${MKL_THREAD_LIBS} ${LDLIBS_OMP} -lpthread -lcfitsio"
-        #     ;;
+        x64-linux-gnu-mklxe18 )
+            CXX="g++"
+            USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
+            ;;
+        x64-linux-icpc-mklxe18 )
+            CXX="icpc"
+            USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
+            ;;
         x64-macos-clang-openblas )
             CXX="clang++"
             CBLAS_DIR="/usr/local/opt/openblas"
@@ -134,7 +131,7 @@ function set_prebuild_system()
             CBLAS_DIR="/usr/local/opt/openblas"
             ;;
         * )
-            echo "Unknown system type ${SYSTYPE}."
+            echo "unknown system type ${SYSTYPE}."
             print_build_types
             exit 1
             ;;
@@ -146,7 +143,7 @@ function set_prebuild_system()
 
 function save_makefile()
 {
-    echo "=============================================="
+    echo "====================================================================="
     echo "CXX=${CXX}" > Makefile
     echo "CPPFLAGS=${CPPFLAGS}" >> Makefile
     echo "LDFLAGS=${LDFLAGS}" >> Makefile
@@ -165,6 +162,9 @@ function save_makefile()
     echo "This will copy files to ${bindir}."
 }
 
+# -----------------------------------------------------------------------------
+# Compiler tests
+# Simply test to ID if intel, gnu or clang
 cpp17_test_text="int main()
 {
     if (__cplusplus >= 201703L)
@@ -173,28 +173,62 @@ cpp17_test_text="int main()
 }"
 function check_compiler_support()
 {
+    echo "====================================================================="
+    echo "checking compiler"
+
     test_file="${srcdir}/build-aux/test_cpp17"
-    printf "${cpp17_test_text}" > ${test_file}.cpp
+    echo "${cpp17_test_text}" > ${test_file}.cpp
     compile_command="${CXX} -std=c++17 ${test_file}.cpp -o ${test_file}"
     echo $compile_command
     ${compile_command}
     ${test_file}
-}
 
-function set_omp_flags()
-{
-    if [[ "${CPPFLAGS_OMP}" = "-fopenmp" ]]; then
+    # Try infering from --version output
+    # If fails, use compiler naming
+    version_text=$(${CXX} --version)
+    if [[ $version_text == *"Intel"* ]]; then
+        CXX_COMPILER_ID="intel"
+    elif [[ $version_text == *"GNU"* ]]; then
+        CXX_COMPILER_ID="gnu"
+    elif [[ $version_text == *"clang"* ]]; then
+        CXX_COMPILER_ID="clang"
+    else
         case ${CXX} in
             g++* )
+                CXX_COMPILER_ID="gnu";;
+            clang++* )
+                CXX_COMPILER_ID="clang";;
+            *icpc )
+                CXX_COMPILER_ID="intel";;
+        esac
+    fi
+
+    if [[ -z "${CXX_COMPILER_ID}" ]]; then
+        echo "Warning: could not id compiler."
+    fi
+}
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Open-MP settings based on 2020-22 understandings
+# clang is for macos
+function set_omp_flags()
+{
+    echo "====================================================================="
+    echo "setting openmp flags if any"
+    if [[ "${CPPFLAGS_OMP}" = "-fopenmp" ]]; then
+        case ${CXX_COMPILER_ID} in
+            gnu )
                 CPPFLAGS_OMP="-fopenmp"
                 LDLIBS_OMP="-lgomp"
                 MKL_THREAD_LIBS="-lmkl_gnu_thread -lmkl_core"
                 ;;
-            clang++ )
+            clang )
                 CPPFLAGS_OMP="-Xpreprocessor -fopenmp"
-                LDLIBS_OMP="-lomp"
+                LDLIBS_OMP="-lgomp"
+                MKL_THREAD_LIBS="-lmkl_gnu_thread -lmkl_core"
                 ;;
-            icpc )
+            intel )
                 CPPFLAGS_OMP="-qopenmp"
                 LDLIBS_OMP="-liomp5"
                 MKL_THREAD_LIBS="-lmkl_intel_thread -lmkl_core"
@@ -210,7 +244,32 @@ function set_omp_flags()
         MKL_THREAD_LIBS="-lmkl_sequential -lmkl_core"
     fi
 }
+# -----------------------------------------------------------------------------
 
+# Updates CPPFLAGS, LDFLAGS and LDLIBS
+# Needs ALL three arguments. Always call, e.g.,
+# update_makefile_vars  "$1" "$2" "$3"
+function update_makefile_vars()
+{
+    _cflags=$1
+    _ldlibs=$2
+    _libs=$3
+
+    if [[ ! -z ${_cflags} ]]; then
+        CPPFLAGS+="${_cflags} "
+    fi
+
+    if [[ ! -z ${_ldlibs} ]]; then
+        LDFLAGS+="${_ldlibs} "
+    fi
+
+    if [[ ! -z ${_libs} ]]; then
+        LDLIBS+="${_libs} "
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# GSL settings
 # GSL_DIR overrides all
 # If GSL_DIR empty, try GSL_INC and GSL_LIB
 # If they fail, run gsl-config
@@ -226,9 +285,8 @@ int main()
 }"
 function set_gsl_inc_lib()
 {
-    echo "=============================================="
-    echo "Looking for GSL..."
-    echo "I will prioritize GSL_DIR, then GSL_INC/LIB, and finally run gsl-config."
+    echo "====================================================================="
+    echo "looking for gsl. prioritize GSL_DIR > GSL_INC/LIB > run gsl-config."
     if [[ ! -z "${GSL_DIR}" ]]; then
         echo "GSL_DIR=${GSL_DIR}"
         gsl_cflags="-I${GSL_DIR}/include"
@@ -239,20 +297,19 @@ function set_gsl_inc_lib()
         gsl_cflags="-I${GSL_INC}"
         gsl_ldflags="-L${GSL_LIB}"
     elif [[ $(type gsl-config) > /dev/null ]]; then
-        echo "Running gsl-config."
+        echo "running gsl-config."
         GSL_VERSION=$(gsl-config --version)
         # gsl_cflags=$(gsl-config --cflags)
         GSL_DIR=$(gsl-config --prefix)
-        echo "GSL is in the following directory: ${GSL_DIR}"
-        echo "Using GSL version ${GSL_VERSION}"
+        echo "gsl is in the following directory: ${GSL_DIR}"
+        echo "using gsl version ${GSL_VERSION}"
         gsl_cflags="-I${GSL_DIR}/include"
         gsl_ldflags="-L${GSL_DIR}/lib"
     else
-        echo "WARNING: No GSL env variable found!"
+        echo "Warning: no gsl env variable found!"
     fi
 
     test_file="${srcdir}/build-aux/test_gsl_compiling"
-    echo "Test compile, link and run."
     printf "${gsl_test_text}" > ${test_file}.cpp
 
     compile_command="${CXX} ${gsl_cflags} -c ${test_file}.cpp -o ${test_file}.o"
@@ -268,11 +325,12 @@ function set_gsl_inc_lib()
     echo ${run_command}
     ${run_command}
 
-    CPPFLAGS+="${gsl_cflags} "
-    LDFLAGS+="${gsl_ldflags} "
-    LDLIBS+="-lgsl "
+    update_makefile_vars "${gsl_cflags}" "${gsl_ldflags}" "-lgsl"
 }
+# -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# FFTW3 settings
 # FFTW3_DIR overrides all
 # If FFTW3_DIR empty, then try FFTW_ROOT, finally FFTW3_INC/LIB
 # Finally, test compiling
@@ -294,9 +352,8 @@ int main()
 }"
 function set_fftw3_inc_lib()
 {
-    echo "=============================================="
-    echo "Looking for FFTW3..."
-    echo "I will prioritize FFTW3_DIR, then FFTW_ROOT, finally FFTW3_INC/LIB."
+    echo "====================================================================="
+    echo "looking for fftw3. prioritize FFTW3_DIR > FFTW_ROOT > FFTW3_INC/LIB."
     if [[ ! -z "${FFTW3_DIR}" ]]; then
         echo "FFTW3_DIR=${FFTW3_DIR}"
         fftw3_cflags="-I${FFTW3_DIR}/include"
@@ -311,11 +368,11 @@ function set_fftw3_inc_lib()
         fftw3_cflags="-I${FFTW3_INC}"
         fftw3_ldflags="-L${FFTW3_LIB}"
     else
-        echo "WARNING: No FFTW3 env variable found!"
+        echo "Warning: no fftw3 env variable found!"
     fi
 
     test_file="${srcdir}/build-aux/test_fftw3_compiling"
-    echo "Test compile, link and run."
+
     printf "${fftw_test_text}" > ${test_file}.cpp
 
     compile_command="${CXX} ${fftw3_cflags} -c ${test_file}.cpp -o ${test_file}.o"
@@ -331,11 +388,12 @@ function set_fftw3_inc_lib()
     echo ${run_command}
     ${run_command}
 
-    CPPFLAGS+="${fftw3_cflags} "
-    LDFLAGS+="${fftw3_ldflags} "
-    LDLIBS+="-lfftw3 "
+    update_makefile_vars "${fftw3_cflags}" "${fftw3_ldflags}" "-lfftw3"
 }
+# -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# CBLAS and LAPACKE settings
 # CBLAS_DIR is the only variable
 cblas_test_text='#ifdef USE_MKL_CBLAS
 #include "mkl_cblas.h"
@@ -357,23 +415,42 @@ int main()
     lapack_int ipiv = 0;
     return 0;
 }'
+function set_mkl_libs()
+{
+    cblas_libs="-lmkl_intel_lp64 ${MKL_THREAD_LIBS}"
+    suffix_libs="-lpthread -lm -ldl"
+
+    if [[ ${CXX_COMPILER_ID} != "intel" ]]; then
+        CPPFLAGS="-m64 ${CPPFLAGS}"
+        cblas_libs="-Wl,--no-as-needed ${cblas_libs}"
+    fi
+}
+
 function set_cblas_inc_lib()
 {
-    echo "=============================================="
-    echo "Looking for CBLAS and LAPACKE...."
-    echo "I will only look into CBLAS_DIR."
+    echo "====================================================================="
+    echo "looking for cblas and lapacke. I will only consider CBLAS_DIR."
+    if [[ -z "${CBLAS_DIR}" && ! -z "${USE_MKL_CBLAS}" && ! -z "${MKLROOT}" ]]; then
+        CBLAS_DIR="$MKLROOT"
+    fi
+
     if [[ ! -z "${CBLAS_DIR}" ]]; then
         echo "CBLAS_DIR=${CBLAS_DIR}"
         cblas_cflags="-I${CBLAS_DIR}/include"
         cblas_ldflags="-L${CBLAS_DIR}/lib"
+        cblas_libs="-lcblas -llapack"
+
+        if [[ ! -z "${USE_MKL_CBLAS}" ]]; then
+            cblas_ldflags="-L${CBLAS_DIR}/lib/intel64"
+            set_mkl_libs
+        fi
     fi
 
     test_file="${srcdir}/build-aux/test_cblas_lapacke_compiling"
-    echo "Test compile, link and run."
     printf "${cblas_test_text}" > ${test_file}.cpp
 
     compile_command="${CXX} ${USE_MKL_CBLAS} ${cblas_cflags} -c ${test_file}.cpp -o ${test_file}.o"
-    linking="${CXX} ${USE_MKL_CBLAS} ${cblas_cflags} ${test_file}.o -o ${test_file} ${cblas_ldflags} -lcblas -llapack -lm"
+    linking="${CXX} ${USE_MKL_CBLAS} ${cblas_cflags} ${test_file}.o -o ${test_file} ${cblas_ldflags} ${cblas_libs} ${suffix_libs}"
     run_command="${test_file}"
     
     echo ${compile_command}
@@ -385,11 +462,12 @@ function set_cblas_inc_lib()
     echo ${run_command}
     ${run_command}
 
-    CPPFLAGS+="${cblas_cflags} "
-    LDFLAGS+="${cblas_ldflags} "
-    LDLIBS+="-lcblas -llapack "
+    update_makefile_vars "${cblas_cflags}" "${cblas_ldflags}" "${cblas_libs}"
 }
+# -----------------------------------------------------------------------------
 
+# -----------------------------------------------------------------------------
+# CFITSIO settings
 # CFITSIO_DIR is the only variable
 cfitsio_test_text='#include "fitsio.h"
 int main()
@@ -400,9 +478,8 @@ int main()
 }'
 function set_cfitsio_inc_lib()
 {
-    echo "=============================================="
-    echo "Looking for CFITSIO...."
-    echo "I will only look into CFITSIO_DIR."
+    echo "====================================================================="
+    echo "looking for cfitsio. I will only consider CFITSIO_DIR."
     if [[ ! -z "${CFITSIO_DIR}" ]]; then
         echo "CFITSIO_DIR=${CFITSIO_DIR}"
         cfitsio_cflags="-I${CFITSIO_DIR}/include"
@@ -410,7 +487,6 @@ function set_cfitsio_inc_lib()
     fi
 
     test_file="${srcdir}/build-aux/test_cblas_lapacke_compiling"
-    echo "Test compile, link and run."
     printf "${cfitsio_test_text}" > ${test_file}.cpp
 
     compile_command="${CXX} ${cfitsio_cflags} -c ${test_file}.cpp -o ${test_file}.o"
@@ -426,12 +502,12 @@ function set_cfitsio_inc_lib()
     echo ${run_command}
     ${run_command}
 
-    CPPFLAGS+="${cfitsio_cflags} "
-    LDFLAGS+="${cfitsio_ldflags} "
-    LDLIBS+="-lcfitsio "
+    update_makefile_vars "${cfitsio_cflags}" "${cfitsio_ldflags}" "-lcfitsio"
 }
+# -----------------------------------------------------------------------------
 
-
+# -----------------------------------------------------------------------------
+# MPI settings
 mpi_test_text='#include "mpi.h"
 int main(int argc, char *argv[])
 {
@@ -444,10 +520,9 @@ int main(int argc, char *argv[])
 }'
 function set_mpi_inc_lib()
 {
-    echo "=============================================="
-    echo "Testing MPI workings."
+    echo "====================================================================="
+    echo "testing mpi workings."
     test_file="${srcdir}/build-aux/test_mpi_compiling"
-    echo "Test compile, link and run."
     printf "${mpi_test_text}" > ${test_file}.cpp
 
     compile_command="${CXX} -c ${test_file}.cpp -o ${test_file}.o"
@@ -463,13 +538,18 @@ function set_mpi_inc_lib()
     echo ${run_command}
     ${run_command}
 }
+# -----------------------------------------------------------------------------
 
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# Main script starts here
 # Default values
 CONFIGURE_ARGS="$*"
 
+echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 echo "Hello! I am a pseudo-configure script and NOT an autoconf script."
 echo "I will do my best to produce a working Makefile."
-echo "=============================================="
+echo "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
 
 CXX="g++"
 CPPFLAGS=""
@@ -491,31 +571,40 @@ prefix="/usr/local"
 exec_prefix="${prefix}"
 bindir="${exec_prefix}/bin"
 srcdir="."
+suffix_libs="-lm"
 
-set -e
 set_config_options $CONFIGURE_ARGS
 if [[ ! -z "${SYSTYPE}" ]]; then
     set_prebuild_system $CONFIGURE_ARGS
 fi
 
+if [[ -z "${ENABLE_FORCE}" ]]; then
+    set -e
+fi
+
 if [[ ! -f "${srcdir}/core/chunk_estimate.cpp" ]]; then
-    echo "error. srcdir is wrong."
+    echo "Error: srcdir is wrong."
     exit 1
 fi
 
 mkdir -p ${srcdir}/build-aux
 check_compiler_support
+set_omp_flags
+CPPFLAGS=$(echo "${CPPFLAGS_OMP} ${CPPFLAGS}" | sed 's/ *$//')
 set_gsl_inc_lib
 set_fftw3_inc_lib
 set_cfitsio_inc_lib
 set_cblas_inc_lib
+
+update_makefile_vars "" "" "${LDLIBS_OMP}"
 
 if [[ ! -z "${ENABLE_MPI}" ]]; then
     exec="srun -n 1 "
     set_mpi_inc_lib
 fi
 
-LDLIBS+="-lm"
+update_makefile_vars "" "" "${suffix_libs}"
+
 MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_FIDUCIAL_GROWTH_Z} ${binz_fn}"
 MORECPPFLAGS=$(echo $MORECPPFLAGS | sed 's/ *$//')
 
