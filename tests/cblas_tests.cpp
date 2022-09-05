@@ -1,41 +1,12 @@
 #include "mathtools/matrix_helper.hpp"
+#include "tests/test_utils.hpp"
+
 #include <unordered_map>
 #include <string>
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
 #include <cassert>
-
-bool isClose(double a, double b, double relerr=1e-5, double abserr=1e-8)
-{
-    double mag = std::max(fabs(a),fabs(b));
-    return fabs(a-b) < (abserr + relerr * mag);
-}
-
-bool allClose(const double *a, const double *b, int size)
-{
-    bool result = true;
-    for (int i = 0; i < size; ++i)
-        result &= isClose(a[i], b[i]);
-    return result;
-}
-
-void printValues(double truth, double result)
-{
-    printf("Result: %13.5e\n", result);
-    printf("VS\nTruth : %13.5e\n", truth);
-    printf("===========================================\n\n");
-}
-
-void printMatrices(const double *truth, const double *result,
-    int nrows, int ncols)
-{
-    printf("Result:\n");
-    mxhelp::printfMatrix(result, nrows, ncols);
-    printf("VS.\nTruth:\n");
-    mxhelp::printfMatrix(truth, nrows, ncols);
-    printf("===========================================\n\n");
-}
 
 const double
 sym_matrix_A[] = {
@@ -177,10 +148,13 @@ int test_trace_ddiagmv_2()
     std::vector<double> A, vec;
     int nrows, ncols;
 
-    A = mxhelp::fscanfMatrix("tests/input/test_matrix_ddiagmv.txt", nrows, ncols);
+    const std::string
+    fname_matrix = std::string(SRCDIR) + "/tests/input/test_matrix_ddiagmv.txt",
+    fname_vector = std::string(SRCDIR) + "/tests/input/test_diagonal_ddiagmv.txt";
+    A = mxhelp::fscanfMatrix(fname_matrix.c_str(), nrows, ncols);
     assert(nrows == ndim);
     assert(ncols == ndim);
-    vec = mxhelp::fscanfMatrix("tests/input/test_diagonal_ddiagmv.txt", nrows, ncols);
+    vec = mxhelp::fscanfMatrix(fname_vector.c_str(), nrows, ncols);
     assert(nrows == ndim);
     assert(ncols == 1);
 

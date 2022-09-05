@@ -21,6 +21,7 @@ public:
 
     // add map in source only if it does not exist in target.
     void addDefaults(const config_map &default_config);
+    void addDefaults(const ConfigFile &config) { addDefaults(config.key_umap); };
     void readFile(const std::string &fname);
 
     void writeConfig(FILE *toWrite, std::string prefix="# ") const;
