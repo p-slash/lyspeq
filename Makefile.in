@@ -39,11 +39,8 @@ test: all
 	@echo "Testing CBLAS functions...."
 	@${exec}cblas_tests
 
-	@echo "Producing S & Q lookup tables..."
-	@${exec}CreateSQLookUpTable $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/CreateSQLookUpTable.log
-
-	@echo "Producing interpolated S & Q matrices..."
-	@${exec}testSQCMatrices $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/testSQCMatrices.log
+	@echo "Testing S & Q lookup tables and interpolation..."
+	@${exec}testSQCMatrices $(srcdir)/tests/input/test.config
 
 	@echo "Running QMLE..."
 	@${exec}LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log

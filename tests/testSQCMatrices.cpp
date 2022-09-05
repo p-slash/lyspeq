@@ -13,6 +13,7 @@
 #include "core/global_numbers.hpp"
 #include "core/sq_table.hpp"
 #include "core/one_qso_estimate.hpp"
+#include "core/fiducial_cosmology.hpp"
 
 #include "mathtools/matrix_helper.hpp"
 
@@ -20,34 +21,75 @@
 #include "io/io_helper_functions.hpp"
 #include "io/config_file.hpp"
 
+#include "tests/test_utils.hpp"
+
 class TestOneQSOEstimate: public OneQSOEstimate
 {
 public:
-    TestOneQSOEstimate(const std::string &fname_qso) : OneQSOEstimate(fname_qso) {};
-    ~TestOneQSOEstimate() {};
-
-    void saveMatrices(std::string out_dir)
+    TestOneQSOEstimate(const std::string &fname_qso) : OneQSOEstimate(fname_qso)
     {
         chunks[0]->_allocateMatrices();
         process::sq_private_table->readSQforR(chunks[0]->RES_INDEX, 
             chunks[0]->interp2d_signal_matrix, chunks[0]->interp_derivative_matrix);
+    };
 
-        // Save fiducial signal matrix
-        chunks[0]->_setFiducialSignalMatrix(chunks[0]->covariance_matrix);
-        std::string fsave(out_dir);
-        fsave+="/signal_matrix.txt";
-        mxhelp::fprintfMatrix(fsave.c_str(), chunks[0]->covariance_matrix, 
-            chunks[0]->qFile->size(), chunks[0]->qFile->size());
+    ~TestOneQSOEstimate() { chunks[0]->_freeMatrices(); };
 
-        // Save Q0 matrix
-        chunks[0]->_setQiMatrix(chunks[0]->temp_matrix[0], 0);
-        fsave=out_dir+"/q0_matrix.txt";
-        mxhelp::fprintfMatrix(fsave.c_str(), chunks[0]->temp_matrix[0], 
-            chunks[0]->qFile->size(), chunks[0]->qFile->size());
-
-        chunks[0]->_freeMatrices();
-    }
+    int test_setFiducialSignalMatrix();
+    int test_setQiMatrix();
 };
+
+int TestOneQSOEstimate::test_setFiducialSignalMatrix()
+{
+    chunks[0]->_setFiducialSignalMatrix(chunks[0]->covariance_matrix);
+
+    const std::string
+    fname_sfid_matrix = std::string(SRCDIR) + "/tests/truth/signal_matrix.txt";
+    const int ndim = 488;
+
+    std::vector<double> A, vec;
+    int nrows, ncols;
+
+    A = mxhelp::fscanfMatrix(fname_sfid_matrix.c_str(), nrows, ncols);
+    assert(nrows == ndim);
+    assert(ncols == ndim);
+    assert(chunks[0]->qFile->size() == ndim);
+
+    if (not allClose(A.data(), chunks[0]->covariance_matrix, ndim))
+    {
+        fprintf(stderr, "ERROR Chunk::_setFiducialSignalMatrix.\n");
+        // printMatrices(A.data(), chunks[0]->covariance_matrix, ndim, ndim);
+        return 1;
+    }
+
+    return 0;
+}
+
+int TestOneQSOEstimate::test_setQiMatrix()
+{
+    chunks[0]->_setQiMatrix(chunks[0]->temp_matrix[0], 0);
+
+    const std::string
+    fname_q0_matrix = std::string(SRCDIR) + "/tests/truth/q0_matrix.txt";
+    const int ndim = 488;
+
+    std::vector<double> A, vec;
+    int nrows, ncols;
+
+    A = mxhelp::fscanfMatrix(fname_q0_matrix.c_str(), nrows, ncols);
+    assert(nrows == ndim);
+    assert(ncols == ndim);
+    assert(chunks[0]->qFile->size() == ndim);
+
+    if (not allClose(A.data(), chunks[0]->temp_matrix[0], ndim))
+    {
+        fprintf(stderr, "ERROR Chunk::_setQiMatrix.\n");
+        // printMatrices(A.data(), chunks[0]->temp_matrix[0], ndim, ndim);
+        return 1;
+    }
+
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -93,7 +135,8 @@ int main(int argc, char *argv[])
     {
         process::readProcess(config);
         bins::readBins(config);
-        specifics::readSpecifics(config); 
+        specifics::readSpecifics(config);
+        fidcosmo::readFiducialCosmo(config);
     }
     catch (std::exception& e)
     {
@@ -106,8 +149,17 @@ int main(int argc, char *argv[])
     {
         // Allocate and read look up tables
         process::sq_private_table = std::make_unique<SQLookupTable>(config);
-        if (process::SAVE_ALL_SQ_FILES)
-            process::sq_private_table->readTables();
+        process::sq_private_table->computeTables(true);
+        process::sq_private_table->readTables();
+
+        // Allocate truth
+        const std::string truth_dir = std::string(SRCDIR) + "/tests/truth/";
+        const config_map truth_sq_map ({{"OutputDir", truth_dir}});
+
+        ConfigFile truth_config(truth_sq_map);
+        truth_config.addDefaults(config);
+        auto truth_sq_table = std::make_unique<SQLookupTable>(truth_config);
+        truth_sq_table->readTables();
     }
     catch (std::exception& e)
     {
@@ -131,7 +183,9 @@ int main(int argc, char *argv[])
     }
 
     TestOneQSOEstimate toqso(filepaths[0]);
-    toqso.saveMatrices(config.get("OutputDir"));
-    return 0;
+    int r=0;
+    r+=toqso.test_setFiducialSignalMatrix();
+    r+=toqso.test_setQiMatrix();
+    return r;
 }
 
