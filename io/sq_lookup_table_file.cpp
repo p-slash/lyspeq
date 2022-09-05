@@ -5,7 +5,9 @@
 #include <sstream>
 #include <iomanip>
 
-std::string sqhelper::QTableFileNameConvention(const std::string &OUTPUT_DIR, 
+namespace sqhelper
+{
+std::string QTableFileNameConvention(const std::string &OUTPUT_DIR, 
     const std::string &OUTPUT_FILEBASE_Q, int r, double dv, double k1, double k2)
 {
     std::ostringstream qt_fname;
@@ -18,7 +20,7 @@ std::string sqhelper::QTableFileNameConvention(const std::string &OUTPUT_DIR,
     return qt_fname.str();
 }
 
-std::string sqhelper::STableFileNameConvention(const std::string &OUTPUT_DIR, 
+std::string STableFileNameConvention(const std::string &OUTPUT_DIR, 
     const std::string &OUTPUT_FILEBASE_S, int r, double dv)
 {
     std::ostringstream st_fname;
@@ -45,85 +47,49 @@ SQLookupTableFile::~SQLookupTableFile()
     fclose(sq_file);
 }
 
-void SQLookupTableFile::setHeader(  int nv, int nz, double len_v, double len_z, \
-                                    int R, double dv, \
-                                    double ki, double kf)
+void SQLookupTableFile::setHeader(const SQ_IO_Header hdr)
 {
     if (read_write[0] == 'r')
-    {
-        printf("WARNING: Setting header while reading SQLookupTableFile does nothing!\n");
-        return;
-    }
+        throw std::runtime_error("SQLookupTableFile::setHeader() in reading mode!\n");
 
-    header.vpoints = nv;
-    header.zpoints = nz;
-
-    header.v_length = len_v;
-    header.z_length = len_z;
-
-    header.spectrograph_resolution = R;
-    header.pixel_width = dv;
-
-    header.initial_k = ki;
-    header.final_k = kf;
-
+    header = hdr;
     isHeaderSet = true;
 }
 
-void SQLookupTableFile::readHeader()
+void SQLookupTableFile::_readHeader()
 {
     if (!isHeaderSet)
     {
         rewind(sq_file);
-        if (fread(&header, sizeof(sq_io_header), 1, sq_file) != 1)
+        if (fread(&header, sizeof(SQ_IO_Header), 1, sq_file) != 1)
             throw std::runtime_error("fread error in header SQLookupTableFile!");
 
         isHeaderSet = true;
     }
 }
 
-void SQLookupTableFile::readHeader( int &nv, int &nz, double &len_v, double &len_z, \
-                                    int &R, double &dv, \
-                                    double &ki, double &kf)
+SQ_IO_Header SQLookupTableFile::readHeader()
 {
-
     if (read_write[0] == 'w')
-    {
-        printf("WARNING: Reading header while writing SQLookupTableFile does nothing!\n");
-        return;
-    }
+        throw std::runtime_error("SQLookupTableFile::readHeader() in writing mode!");
 
-    readHeader();
-
-    nv = header.vpoints;
-    nz = header.zpoints;
-
-    len_v = header.v_length;
-    len_z = header.z_length;
-
-    R  = header.spectrograph_resolution;
-    dv = header.pixel_width;
-    
-    ki = header.initial_k;
-    kf = header.final_k;
+    _readHeader();
+    return header;
 }
 
 void SQLookupTableFile::writeData(const double *data)
 {
     if (!isHeaderSet)
-    {
-        printf("WARNING: Set header first before writing SQLookupTableFile!\n");
-        return;
-    }
+        throw std::runtime_error("SQLookupTableFile::writeData() before header is set!");
 
-    int size = header.vpoints * header.zpoints;
+    int size = header.nvpoints * header.nzpoints;
 
     if (size == 0)
-        size = header.vpoints;
+        size = header.nvpoints;
 
     int fw;
 
-    fw = fwrite(&header, sizeof(sq_io_header), 1, sq_file);
+    fw = fwrite(&header, sizeof(SQ_IO_Header), 1, sq_file);
     if (fw != 1)
         throw std::runtime_error( "fwrite error in header SQLookupTableFile!");
 
@@ -136,17 +102,18 @@ void SQLookupTableFile::readData(double *data)
 {
     readHeader();
 
-    fseek(sq_file, sizeof(sq_io_header), SEEK_SET);
+    fseek(sq_file, sizeof(SQ_IO_Header), SEEK_SET);
 
-    size_t size = header.vpoints * header.zpoints;
+    size_t size = header.nvpoints * header.nzpoints;
 
     if (size == 0)
-        size = header.vpoints;
+        size = header.nvpoints;
 
     if (fread(data, sizeof(double), size, sq_file) != size)
         throw std::runtime_error("fread error in data SQLookupTableFile!");
 }
 
+}
 
 
 

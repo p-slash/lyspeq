@@ -11,50 +11,49 @@ namespace sqhelper
 
     std::string STableFileNameConvention(const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_S, 
         int r, double dv);
-}
 
-// This file object reads and writes evaluated S and Q matrices in a standard file format.
-// spectrograph_resolution, pixel_width and k values can be used to check consistency.
-class SQLookupTableFile
-{
-    FILE *sq_file;
-    std::string file_name;
-    char read_write[3];
-
-    struct sq_io_header
+    typedef struct
     {
-        int vpoints;
-        int zpoints;
+        int nvpoints;
+        int nzpoints;
 
         double v_length;
+        double z1;
         double z_length;
 
         int spectrograph_resolution;
         double pixel_width;
 
-        double initial_k;
-        double final_k;
-    } header;
-    
-    bool isHeaderSet;
+        double k1;
+        double k2;
+    } SQ_IO_Header;
 
-    void readHeader();
-    
-public:
-    SQLookupTableFile(std::string fname, char rw);
-    ~SQLookupTableFile();
+    // This file object reads and writes evaluated S and Q matrices in a standard file format.
+    // spectrograph_resolution, pixel_width and k values can be used to check consistency.
+    class SQLookupTableFile
+    {
+        FILE *sq_file;
+        std::string file_name;
+        char read_write[3];
 
-    void setHeader( int nv, int nz, double len_v, double len_z, \
-                    int R, double dv, \
-                    double ki, double kf);
+        SQ_IO_Header header;
+        
+        bool isHeaderSet;
 
-    void readHeader(int &nv, int &nz, double &len_v, double &len_z, \
-                    int &R, double &dv, \
-                    double &ki, double &kf);
+        void _readHeader();
+        
+    public:
+        SQLookupTableFile(std::string fname, char rw);
+        ~SQLookupTableFile();
 
-    void readData(double *data);
-    void writeData(const double *data);
-    
-};
+        void setHeader(const SQ_IO_Header hdr);
+
+        SQ_IO_Header readHeader();
+
+        void readData(double *data);
+        void writeData(const double *data);
+        
+    };
+}
 
 #endif
