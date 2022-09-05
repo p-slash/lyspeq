@@ -79,6 +79,11 @@ int main(int argc, char *argv[])
     try
     {
         process::sq_private_table = std::make_unique<SQLookupTable>(config);
+        const std::vector<std::string> ignored_keys({
+            "FileNameList", "FileInputDir", "NumberOfIterations",
+            "InputIsDeltaFlux"
+        });
+        config.checkUnusedKeys(ignored_keys);
         process::sq_private_table->computeTables(force_rewrite);
     }
     catch (std::exception& e)

@@ -34,6 +34,52 @@ namespace sqhelper
 
         return resulting_array;
     }
+
+    inline
+    bool isClose(double a, double b, double relerr=1e-5, double abserr=1e-8)
+    {
+        double mag = std::max(fabs(a),fabs(b));
+        return fabs(a-b) < (abserr + relerr * mag);
+    }
+
+    void _checkHeaderConsistency(const SQ_IO_Header &hdr,
+        int nvpts, int nzpts, double vlen, double z1, double zlen,
+        int Rthis, double dvthis, double k1, double k2)
+    {
+        std::vector<std::string> inconsistencies;
+        if (hdr.nvpoints != nvpts)
+            inconsistencies.push_back("nvpoints ");
+        if (hdr.nzpoints != nzpts)
+            inconsistencies.push_back("nzpoints ");
+        if (hdr.v_length != vlen)
+            inconsistencies.push_back("v_length ");
+        if (hdr.z1 != z1)
+            inconsistencies.push_back("z1 ");
+        if (hdr.z_length != zlen)
+            inconsistencies.push_back("z_length ");
+        if (hdr.spectrograph_resolution != Rthis)
+            inconsistencies.push_back("spectrograph_resolution ");
+        if (not isClose(hdr.pixel_width, dvthis))
+            inconsistencies.push_back("pixel_width ");
+        if (not isClose(hdr.k1, k1))
+            inconsistencies.push_back("k1 ");
+        if (not isClose(hdr.k2, k2))
+            inconsistencies.push_back("k2 ");
+
+        if (not inconsistencies.empty())
+        {
+            int total_chars = 1;
+            for (const auto &s : inconsistencies)
+                total_chars += s.size();
+
+            std::string msg("Header is inconsistent at ");
+            msg.reserve(msg.size()+total_chars);
+            for_each(inconsistencies.begin(), inconsistencies.end(),
+                [&msg] (const std::string& s) { msg += s; });
+            
+            throw std::runtime_error(msg);
+        }
+    }
 }
 // ---------------------------------------
 
@@ -56,12 +102,13 @@ signal_array(NULL), derivative_array(NULL)
     N_V_POINTS = config.getInteger("NumberVPoints");
     N_Z_POINTS_OF_S = config.getInteger("NumberZPoints");
     LENGTH_V = config.getDouble("VelocityLength");
+    LENGTH_Z_OF_S = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
+    itp_v1 = 0;
+    itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
+
     DIR = config.get("OutputDir", ".");
     S_BASE = config.get("SignalLookUpTableBase", "signal");
     Q_BASE = config.get("DerivativeSLookUpTableBase", "deriv");
-    itp_v1 = 0;
-
-    itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
     std::string frlist = config.get("FileNameRList");
     if (frlist.empty())
@@ -69,7 +116,8 @@ signal_array(NULL), derivative_array(NULL)
 
     NUMBER_OF_R_VALUES = ioh::readListRdv(frlist.c_str(), R_DV_VALUES);
 
-    LOG::LOGGER.STD("Number of R-dv pairs: %d\n", NUMBER_OF_R_VALUES);}
+    LOG::LOGGER.STD("Number of R-dv pairs: %d\n", NUMBER_OF_R_VALUES);
+}
 
 void SQLookupTable::readTables()
 {
@@ -92,9 +140,7 @@ void SQLookupTable::readTables()
 }
 
 void SQLookupTable::computeTables(bool force_rewrite)
-{
-    LENGTH_Z_OF_S = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
-           
+{       
     std::string buf_fnames;
     double time_spent_table_sfid, time_spent_table_q;
 
@@ -102,6 +148,8 @@ void SQLookupTable::computeTables(bool force_rewrite)
         win_params = {0, 0, 0, 0};
     struct sq_integrand_params
         integration_parameters = {&fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
+    sqhelper::SQ_IO_Header tmp_hdr = { N_V_POINTS, 0, LENGTH_V, itp_z1, bins::Z_BIN_WIDTH, 
+                0, 0, 0, 0};
 
     allocateSignalAndDerivArrays();
     allocateVAndZArrays();
@@ -128,19 +176,22 @@ void SQLookupTable::computeTables(bool force_rewrite)
 
         win_params.spectrograph_res = SPEED_OF_LIGHT / Rthis / ONE_SIGMA_2_FWHM;
         win_params.pixel_width = dvthis;
+        tmp_hdr.spectrograph_resolution = Rthis;
+        tmp_hdr.pixel_width = dvthis;
 
         LOG::LOGGER.STD("Creating look up tables for derivative signal matrices."
             " R=%d (%.2f km/s), dv=%.1f.\n", Rthis, win_params.spectrograph_res, dvthis);
 
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
         {
-            double kvalue_1 = bins::KBAND_EDGES[kn];
-            double kvalue_2 = bins::KBAND_EDGES[kn + 1];
+            tmp_hdr.k1 = bins::KBAND_EDGES[kn];
+            tmp_hdr.k2 = bins::KBAND_EDGES[kn+1];
 
-            LOG::LOGGER.STD("Q matrix for k=[%.1e - %.1e] s/km.\n", kvalue_1, kvalue_2);
+            LOG::LOGGER.STD("Q matrix for k=[%.1e - %.1e] s/km.\n",
+                tmp_hdr.k1, tmp_hdr.k2);
 
             buf_fnames = sqhelper::QTableFileNameConvention(DIR, Q_BASE, Rthis, 
-                dvthis, kvalue_1, kvalue_2);
+                dvthis, tmp_hdr.k1, tmp_hdr.k2);
             
             if (!force_rewrite && ioh::file_exists(buf_fnames.c_str()))
             {
@@ -153,15 +204,12 @@ void SQLookupTable::computeTables(bool force_rewrite)
             {
                 win_params.delta_v_ij = LINEAR_V_ARRAY[nv];
 
-                derivative_array[nv] = q_integrator.evaluate(kvalue_1, kvalue_2, 
+                derivative_array[nv] = q_integrator.evaluate(tmp_hdr.k1, tmp_hdr.k2, 
                     win_params.delta_v_ij, 0);
             }
 
-            SQLookupTableFile derivative_signal_table(buf_fnames, 'w');
-
-            derivative_signal_table.setHeader(N_V_POINTS, 0, LENGTH_V, bins::Z_BIN_WIDTH, 
-                Rthis, dvthis, kvalue_1, kvalue_2);
-            
+            sqhelper::SQLookupTableFile derivative_signal_table(buf_fnames, 'w');
+            derivative_signal_table.setHeader(tmp_hdr);
             derivative_signal_table.writeData(derivative_array);
         }
         
@@ -179,6 +227,9 @@ void SQLookupTable::computeTables(bool force_rewrite)
     // Skip this section if fiducial signal matrix is turned off.
     if (specifics::TURN_OFF_SFID) return;
 
+    tmp_hdr = { N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, itp_z1, LENGTH_Z_OF_S, 0, 0, 
+            fidcosmo::FID_LOWEST_K, fidcosmo::FID_HIGHEST_K};
+
     for (int r = r_start_this; r < r_end_this; ++r)
     {
         time_spent_table_sfid = mytime::timer.getTime();
@@ -188,6 +239,8 @@ void SQLookupTable::computeTables(bool force_rewrite)
         // Convert integer FWHM to 1 sigma km/s
         win_params.spectrograph_res = SPEED_OF_LIGHT / Rthis / ONE_SIGMA_2_FWHM;
         win_params.pixel_width = dvthis;
+        tmp_hdr.spectrograph_resolution = Rthis;
+        tmp_hdr.pixel_width = dvthis;
 
         LOG::LOGGER.STD("Creating look up table for signal matrix R=%d (%.2f km/s), dv=%.1f.\n",
             Rthis, win_params.spectrograph_res, dvthis);
@@ -204,7 +257,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
         {
             win_params.delta_v_ij = LINEAR_V_ARRAY[nv];  // 0 + LENGTH_V * nv / (Nv - 1.);
             s_integrator.setTableParameters(win_params.delta_v_ij, 
-                fidcosmo::FID_HIGHEST_K - fidcosmo::FID_LOWEST_K);
+                tmp_hdr.k2 - tmp_hdr.k1);
 
             for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz)
             {
@@ -214,16 +267,14 @@ void SQLookupTable::computeTables(bool force_rewrite)
                 // 1E-15 gave roundoff error for smoothing with 20.8 km/s
                 // Correlation at dv=0 is between 0.01 and 1. 
                 // Giving room for 7 decades, absolute error can be 1e-9
-                signal_array[xy] = s_integrator.evaluate(fidcosmo::FID_LOWEST_K, 
-                    fidcosmo::FID_HIGHEST_K, -1, 1E-9);
+                signal_array[xy] = s_integrator.evaluate(tmp_hdr.k1, 
+                    tmp_hdr.k2, -1, 1E-9);
             }
         }
         
-        SQLookupTableFile signal_table(buf_fnames, 'w');
+        sqhelper::SQLookupTableFile signal_table(buf_fnames, 'w');
 
-        signal_table.setHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, Rthis, dvthis, 
-            0, bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
-
+        signal_table.setHeader(tmp_hdr);
         signal_table.writeData(signal_array);
 
         time_spent_table_sfid = mytime::timer.getTime() - time_spent_table_sfid;
@@ -240,8 +291,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
 shared_interp_2d SQLookupTable::_allocReadSFile(int r_index)
 {
     std::string buf_fnames;
-    int dummy_R;
-    double temp_px_width, temp_ki, temp_kf;
+    sqhelper::SQ_IO_Header tmp_hdr;
 
     int Rthis = R_DV_VALUES[r_index].first;
     double dvthis = R_DV_VALUES[r_index].second;
@@ -250,10 +300,12 @@ shared_interp_2d SQLookupTable::_allocReadSFile(int r_index)
     buf_fnames = sqhelper::STableFileNameConvention(DIR, S_BASE, Rthis, dvthis);
     LOG::LOGGER.STD("Reading sq_lookup_table_file %s.\n", buf_fnames.c_str());
     
-    SQLookupTableFile s_table_file(buf_fnames, 'r');
+    sqhelper::SQLookupTableFile s_table_file(buf_fnames, 'r');
     
-    s_table_file.readHeader(N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, LENGTH_Z_OF_S, dummy_R, 
-        temp_px_width, temp_ki, temp_kf);
+    tmp_hdr = s_table_file.readHeader();
+    sqhelper::_checkHeaderConsistency(tmp_hdr, N_V_POINTS, N_Z_POINTS_OF_S, 
+        LENGTH_V, itp_z1, LENGTH_Z_OF_S, Rthis, dvthis,
+        fidcosmo::FID_LOWEST_K, fidcosmo::FID_HIGHEST_K);
 
     // Allocate memory before reading further
     if (derivative_array == NULL)
@@ -271,12 +323,10 @@ shared_interp_2d SQLookupTable::_allocReadSFile(int r_index)
 shared_interp_1d SQLookupTable::_allocReadQFile(int kn, int r_index)
 {
     std::string buf_fnames;
-    int dummy_R, dummy_Nz;
-    double temp_px_width, temp_ki, temp_kf;
-
+    sqhelper::SQ_IO_Header tmp_hdr;
     int Rthis = R_DV_VALUES[r_index].first;
     double dvthis = R_DV_VALUES[r_index].second;
-    double kvalue_1, kvalue_2, dummy_lzq;
+    double kvalue_1, kvalue_2;
     
     kvalue_1 = bins::KBAND_EDGES[kn];
     kvalue_2 = bins::KBAND_EDGES[kn + 1];
@@ -284,10 +334,11 @@ shared_interp_1d SQLookupTable::_allocReadQFile(int kn, int r_index)
     buf_fnames = sqhelper::QTableFileNameConvention(DIR, Q_BASE, Rthis, dvthis, 
         kvalue_1, kvalue_2);
 
-    SQLookupTableFile q_table_file(buf_fnames, 'r');
+    sqhelper::SQLookupTableFile q_table_file(buf_fnames, 'r');
 
-    q_table_file.readHeader(N_V_POINTS, dummy_Nz, LENGTH_V, dummy_lzq, dummy_R, 
-        temp_px_width, temp_ki, temp_kf);
+    tmp_hdr = q_table_file.readHeader();
+    sqhelper::_checkHeaderConsistency(tmp_hdr, N_V_POINTS, 0, LENGTH_V,
+        itp_z1, bins::Z_BIN_WIDTH, Rthis, dvthis, kvalue_1, kvalue_2);
 
     if (derivative_array == NULL)
         allocateSignalAndDerivArrays();
