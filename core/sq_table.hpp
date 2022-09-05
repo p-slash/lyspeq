@@ -57,7 +57,7 @@ class SQLookupTable
     shared_interp_2d _allocReadSFile(int r_index);
 
 public:
-    SQLookupTable(const ConfigFile &config);
+    SQLookupTable(ConfigFile &config);
     SQLookupTable(SQLookupTable &&rhs) = delete;
     SQLookupTable(const SQLookupTable &rhs) = delete;
 

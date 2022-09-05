@@ -131,6 +131,7 @@ int main(int argc, char *argv[])
     try
     {
         qps = std::make_unique<OneDQuadraticPowerEstimate>(config);
+        config.checkUnusedKeys();
     }
     catch (std::exception& e)
     {
@@ -140,7 +141,7 @@ int main(int argc, char *argv[])
         #endif
 
         return 1;
-    } 
+    }
 
     try
     {

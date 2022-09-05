@@ -40,7 +40,7 @@ FileNameList: string
 FileInputDir: string
     Directory where files reside.
 */
-OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const ConfigFile &con)
+OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
     : config(con)
 {
     Z_BIN_COUNTS.assign(bins::NUMBER_OF_Z_BINS+2, 0);
@@ -76,24 +76,26 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(const ConfigFile &con)
         throw std::invalid_argument("Must pass FileNameList.");
     if (findir.empty())
         throw std::invalid_argument("Must pass FileInputDir.");
-    _readQSOFiles(flist.c_str(), findir.c_str());
 }
 
-void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const char *dir)
+std::vector<std::string>
+OneDQuadraticPowerEstimate::_readQSOFiles()
 {
+    std::string flist  = config.get("FileNameList"),
+                findir = config.get("FileInputDir");
+    if (findir.back() != '/')
+        findir += '/';
+
     double t1, t2;
     std::vector<std::string> filepaths;
     std::vector< std::pair<double, int> > cpu_fname_vector;
 
     LOG::LOGGER.STD("Initial reading of quasar spectra and estimating CPU time.\n");
 
-    NUMBER_OF_QSOS = ioh::readList(fname_list, filepaths);
+    NUMBER_OF_QSOS = ioh::readList(flist.c_str(), filepaths);
     // Add parent directory to file path
     for (auto &fq : filepaths)
-    {
-        fq.insert(0, "/");
-        fq.insert(0, dir);
-    }
+        fq.insert(0, findir);
 
     // Each PE reads a different section of files
     // They sort individually, then merge in pairs
@@ -159,10 +161,12 @@ void OneDQuadraticPowerEstimate::_readQSOFiles(const char *fname_list, const cha
     if (cpu_fname_vector.empty())
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
 
-    _loadBalancing(filepaths, cpu_fname_vector);
+    return _loadBalancing(filepaths, cpu_fname_vector);
 }
 
-void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepaths,
+std::vector<std::string>
+OneDQuadraticPowerEstimate::_loadBalancing(
+    std::vector<std::string> &filepaths,
     std::vector< std::pair<double, int> > &cpu_fname_vector)
 {
     LOG::LOGGER.STD("Load balancing for %d tasks available.\n", process::total_pes);
@@ -170,6 +174,7 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     double load_balance_time = mytime::timer.getTime();
 
     std::vector<double> bucket_time(process::total_pes, 0);
+    std::vector<std::string> local_fpaths;
     local_fpaths.reserve(int(1.1*filepaths.size()/process::total_pes));
 
     std::vector<std::pair <double, int>>::reverse_iterator qe = cpu_fname_vector.rbegin();
@@ -210,6 +215,8 @@ void OneDQuadraticPowerEstimate::_loadBalancing(std::vector<std::string> &filepa
     LOG::LOGGER.STD("Absolute median offset: %.1e\n", med_offset);
     LOG::LOGGER.STD("High-Low offset difference: %.1e\n", max_diff_offset);
     LOG::LOGGER.STD("Load balancing took %.2f sec.\n", load_balance_time*60.);
+
+    return local_fpaths;
 }
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
@@ -356,6 +363,7 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
 void OneDQuadraticPowerEstimate::iterate()
 {
     double total_time = 0, total_time_1it = mytime::timer.getTime();;
+    std::vector<std::string> local_fpaths = _readQSOFiles();
 
     // Construct local queue
     // Emplace_back with vector<OneQSOEstimate> leaks memory!!

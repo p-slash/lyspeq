@@ -23,10 +23,9 @@
 
 class OneDQuadraticPowerEstimate
 {
-    const ConfigFile &config;
+    ConfigFile &config;
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, NUMBER_OF_ITERATIONS;
     std::vector<int> Z_BIN_COUNTS;
-    std::vector<std::string> local_fpaths;
 
     // 3 TOTAL_KZ_BINS sized vectors
     std::vector<std::unique_ptr<double[]>>
@@ -45,7 +44,14 @@ class OneDQuadraticPowerEstimate
 
     bool isFisherInverted;
 
-    void _readQSOFiles(const char *fname_list, const char *dir);
+    // reads all qso files, load balances
+    // Returns local_fpaths
+    std::vector<std::string> _readQSOFiles();
+    // Performs a load balancing operation based on N^3 estimation
+    // Returns local_fpaths
+    std::vector<std::string>
+    _loadBalancing(std::vector<std::string> &filepaths, 
+        std::vector< std::pair<double, int> > &cpu_fname_vector);
     void _savePEResult();
 
     // The next 2 functions call Python scripts.
@@ -60,10 +66,6 @@ class OneDQuadraticPowerEstimate
     void _smoothPowerSpectra();
     void _readScriptOutput(const char *fname, void *itsfits=NULL);
 
-    // Performs a load balancing operation based on N^3 estimation
-    void _loadBalancing(std::vector<std::string> &filepaths, 
-        std::vector< std::pair<double, int> > &cpu_fname_vector);
-
 public:
     /* This function reads following keys from config file:
     NumberOfIterations: int
@@ -76,7 +78,7 @@ public:
     FileInputDir: string
         Directory where files reside.
     */
-    OneDQuadraticPowerEstimate(const ConfigFile &con);
+    OneDQuadraticPowerEstimate(ConfigFile &con);
     
     double powerSpectrumFiducial(int kn, int zm);
 

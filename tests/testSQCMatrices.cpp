@@ -3,6 +3,7 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#include <cassert>
 
 #include <gsl/gsl_errno.h>
 
