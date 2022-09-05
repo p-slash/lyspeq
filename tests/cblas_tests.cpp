@@ -75,7 +75,7 @@ int test_cblas_ddot()
     return 1;
 }
 
-int test_cblas_dsymv()
+int test_cblas_dsymv_1()
 {
     double vector_R[NA];
 
@@ -87,8 +87,42 @@ int test_cblas_dsymv()
     if (allClose(truth_cblas_dsymv_1, vector_R, NA))
         return 0;
 
-    fprintf(stderr, "ERROR test_cblas_dsymv.\n");
+    fprintf(stderr, "ERROR test_cblas_dsymv_1.\n");
     printMatrices(truth_cblas_dsymv_1, vector_R, NA, 1);
+    return 1;
+}
+
+int test_cblas_dsymv_2()
+{
+    const int ndim = 496;
+    std::vector<double> A, vec, truth_out_cblas_dsymv;
+    int nrows, ncols;
+
+    const std::string
+    fname_matrix = std::string(SRCDIR) + "/tests/input/test_symmatrix.txt",
+    fname_vector = std::string(SRCDIR) + "/tests/input/test_diagonal_ddiagmv.txt",
+    fname_truth  = std::string(SRCDIR) + "/tests/truth/truth_dsymv.txt";
+
+    A = mxhelp::fscanfMatrix(fname_matrix.c_str(), nrows, ncols);
+    assert(nrows == ndim);
+    assert(ncols == ndim);
+    vec = mxhelp::fscanfMatrix(fname_vector.c_str(), nrows, ncols);
+    assert(nrows == ndim);
+    assert(ncols == 1);
+    truth_out_cblas_dsymv = mxhelp::fscanfMatrix(fname_truth.c_str(), nrows, ncols);
+    assert(nrows == ndim);
+    assert(ncols == 1);
+
+    std::vector<double> cblas_dsymv_result(ndim);
+    cblas_dsymv(CblasRowMajor, CblasUpper,
+                ndim, 1, A.data(), ndim,
+                vec.data(), 1,
+                0, cblas_dsymv_result.data(), 1);
+
+    if (allClose(truth_out_cblas_dsymv.data(), cblas_dsymv_result.data(), ndim))
+        return 0;
+    fprintf(stderr, "ERROR test_cblas_dsymv_2.\n");
+    printMatrices(truth_out_cblas_dsymv.data(), cblas_dsymv_result.data(), ndim, 1);
     return 1;
 }
 
@@ -446,7 +480,8 @@ int main()
 {
     int r = 0;
     r += test_cblas_ddot();
-    r += test_cblas_dsymv();
+    r += test_cblas_dsymv_1();
+    r += test_cblas_dsymv_2();
     r += test_cblas_dsymm();
     r += test_getDiagonal();
     r += test_trace_ddiagmv_1();
