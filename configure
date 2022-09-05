@@ -405,24 +405,22 @@ cblas_test_text='#ifdef USE_MKL_CBLAS
 #define N 4
 int main()
 {
-    const double A[] = {
-        4, 6, 7, 8,
-        6, 9, 2, 1,
-        7, 2, 0, 1,
-        8, 1, 1, 5 };
-
-    cblas_ddot(N*N, A, 1, A, 1);
+    const double A[]={4,6,7,8};
+    cblas_ddot(N, A, 1, A, 1);
     lapack_int ipiv = 0;
     return 0;
 }'
-function set_mkl_libs()
+function reconfigure_for_mkl_libs()
 {
-    cblas_libs="-lmkl_intel_lp64 ${MKL_THREAD_LIBS}"
-    suffix_libs="-lpthread -lm -ldl"
+    if [[ ! -z "${USE_MKL_CBLAS}" ]]; then
+        cblas_ldflags="-L${CBLAS_DIR}/lib/intel64"
+        cblas_libs="-lmkl_intel_lp64 ${MKL_THREAD_LIBS}"
+        suffix_libs="-lpthread -lm -ldl"
 
-    if [[ ${CXX_COMPILER_ID} != "intel" ]]; then
-        CPPFLAGS="-m64 ${CPPFLAGS}"
-        cblas_libs="-Wl,--no-as-needed ${cblas_libs}"
+        if [[ ${CXX_COMPILER_ID} != "intel" ]]; then
+            CPPFLAGS="-m64 ${CPPFLAGS}"
+            cblas_libs="-Wl,--no-as-needed ${cblas_libs}"
+        fi
     fi
 }
 
@@ -440,17 +438,15 @@ function set_cblas_inc_lib()
         cblas_ldflags="-L${CBLAS_DIR}/lib"
         cblas_libs="-lcblas -llapack"
 
-        if [[ ! -z "${USE_MKL_CBLAS}" ]]; then
-            cblas_ldflags="-L${CBLAS_DIR}/lib/intel64"
-            set_mkl_libs
-        fi
+        reconfigure_for_mkl_libs
     fi
 
     test_file="${srcdir}/build-aux/test_cblas_lapacke_compiling"
     printf "${cblas_test_text}" > ${test_file}.cpp
-
-    compile_command="${CXX} ${USE_MKL_CBLAS} ${cblas_cflags} -c ${test_file}.cpp -o ${test_file}.o"
-    linking="${CXX} ${USE_MKL_CBLAS} ${cblas_cflags} ${test_file}.o -o ${test_file} ${cblas_ldflags} ${cblas_libs} ${suffix_libs}"
+    _compiler="${CXX} ${USE_MKL_CBLAS} ${cblas_cflags}"
+    _links="${cblas_ldflags} ${cblas_libs} ${suffix_libs}"
+    compile_command="${_compiler} -c ${test_file}.cpp -o ${test_file}.o"
+    linking="${_compiler} ${test_file}.o -o ${test_file} ${_links}"
     run_command="${test_file}"
     
     echo ${compile_command}
@@ -522,6 +518,11 @@ function set_mpi_inc_lib()
 {
     echo "====================================================================="
     echo "testing mpi workings."
+    if [[ ${CXX} != "mpi"* ]]; then
+        echo "Warning: ${CXX} may not be mpi wrapper. if this section fails:"
+        echo "(1) try passing 'CXX=mpic++' or similar,"
+        echo "(2) add '--force', then change CXX in Makefile to, e.g., mpic++."
+    fi
     test_file="${srcdir}/build-aux/test_mpi_compiling"
     printf "${mpi_test_text}" > ${test_file}.cpp
 
