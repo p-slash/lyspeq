@@ -504,6 +504,49 @@ int test_DiaMatrix_getRow()
     return r;
 }
 
+int test_Resolution_osamp()
+{
+    const int
+    ndim=496, ndiags=11, osamp_factor=4;
+    mxhelp::DiaMatrix diamat(ndim, ndiags);
+    mxhelp::Resolution rmat(ndim, ndiags);
+    auto vel = std::make_unique<double[]>(ndim);
+
+    const double
+    a_kms=20., R_kms=20.,
+    truth_row[] = { 8.44661e-07,
+        2.54207e-06, 7.50658e-06, 2.13402e-05, 5.73072e-05, 1.43213e-04,
+        3.33479e-04, 7.27409e-04, 1.49424e-03, 2.90292e-03, 5.33307e-03,
+        9.25408e-03, 1.51492e-02, 2.33753e-02, 3.40046e-02, 4.66622e-02,
+        6.04319e-02, 7.38972e-02, 8.53227e-02, 9.30139e-02, 9.57301e-02,
+        9.30139e-02, 8.53227e-02, 7.38972e-02, 6.04319e-02, 4.66622e-02,
+        3.40046e-02, 2.33753e-02, 1.51492e-02, 9.25408e-03, 5.33307e-03,
+        2.90292e-03, 1.49424e-03, 7.27409e-04, 3.33479e-04, 1.43213e-04,
+        5.73072e-05, 2.13402e-05, 7.50658e-06, 2.54207e-06, 8.44661e-07 };
+
+    for (int i = 0; i < ndim; ++i)
+        vel[i] = (i - ndim/2.)*a_kms;
+
+    diamat.constructGaussian(vel.get(), R_kms, a_kms);
+    std::copy(diamat.matrix(), diamat.matrix()+ndim*ndiags, rmat.matrix());
+    rmat.oversample(osamp_factor, a_kms);
+
+    int nelemperrow = rmat.getNElemPerRow(), r=0;
+
+    for (int row = 0; row < ndim; ++row)
+    {
+        double *this_row = rmat.matrix() + row*nelemperrow;
+        if (not allClose(truth_row, this_row, nelemperrow))
+        {
+            fprintf(stderr, "ERROR Resolution::oversample.\n");
+            printMatrices(truth_row, this_row, 1, nelemperrow);
+            r += 1;
+        }
+    }
+
+    return r;
+}
+
 int main()
 {
     int r = 0;
@@ -521,24 +564,7 @@ int main()
     r += test_DiaMatrix_multiplications();
     r += test_DiaMatrix_getRow();
     r += test_LAPACKE_SVD();
-
-    // test conversion from dia to osamp
-
-    // mxhelp::DiaMatrix diarmat2(300, 11);
-    // mxhelp::Resolution rmat(300, 11);
-    // std::vector<double> vel(300);
-    // vel.clear();
-    // double a_kms=20., R_kms=20.;
-    // for (int i = 0; i < 300; ++i)
-    //     vel.push_back((i - 300/2.)*a_kms);
-    // for (auto v : vel)
-    //     printf("v%.1e==", v);
-
-    // diarmat2.constructGaussian(vel.data(), R_kms, a_kms);
-    // std::copy(diarmat2.matrix(), diarmat2.matrix()+300*11, rmat.matrix());
-    // rmat.oversample(3, 1.0);
-    // diarmat2.fprintfMatrix("tests/output/diamat.txt");
-    // rmat.fprintfMatrix("tests/output/osampmat.txt");
+    r += test_Resolution_osamp();
 
     if (r == 0)
         printf("Matrix operations work!\n");
