@@ -314,9 +314,9 @@ function set_gsl_inc_lib()
     printf "${gsl_test_text}" > ${test_file}.cpp
 
     compile_command="${CXX} ${gsl_cflags} -c ${test_file}.cpp -o ${test_file}.o"
-    linking="${CXX} ${gsl_cflags} ${test_file}.o -o ${test_file} ${gsl_ldflags} -lgsl -lcblas -lm"
+    linking="${CXX} ${gsl_cflags} ${test_file}.o -o ${test_file} ${gsl_ldflags} -lgsl -lm"
     run_command="${test_file}"
-    
+
     echo ${compile_command}
     ${compile_command}
     
