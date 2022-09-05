@@ -122,7 +122,7 @@ int test_cblas_dsymv_2()
     if (allClose(truth_out_cblas_dsymv.data(), cblas_dsymv_result.data(), ndim))
         return 0;
     fprintf(stderr, "ERROR test_cblas_dsymv_2.\n");
-    printMatrices(truth_out_cblas_dsymv.data(), cblas_dsymv_result.data(), ndim, 1);
+    // printMatrices(truth_out_cblas_dsymv.data(), cblas_dsymv_result.data(), ndim, 1);
     return 1;
 }
 
@@ -215,7 +215,7 @@ int test_my_cblas_dsymvdot()
     return 1;
 }
 
-int test_LAPACKE_InvertMatrixLU()
+int test_LAPACKE_InvertMatrixLU_1()
 {
     double invert_matrix[NA*NA];
     std::copy(sym_matrix_A, sym_matrix_A+NA*NA, invert_matrix);
@@ -224,6 +224,34 @@ int test_LAPACKE_InvertMatrixLU()
         return 0;
     fprintf(stderr, "ERROR LAPACKE_InvertMatrixLU.\n");
     printMatrices(truth_lu_inversion_A, invert_matrix, NA, NA);
+    return 1;
+}
+
+int test_LAPACKE_InvertMatrixLU_2()
+{
+    const int ndim = 496;
+    std::vector<double> A, truth_out_inverse;
+    int nrows, ncols;
+
+    const std::string
+    fname_matrix = std::string(SRCDIR) + "/tests/input/test_symmatrix.txt",
+    fname_truth  = std::string(SRCDIR) + "/tests/truth/truth_inverse_matrix.txt";
+
+    A = mxhelp::fscanfMatrix(fname_matrix.c_str(), nrows, ncols);
+    assert(nrows == ndim);
+    assert(ncols == ndim);
+
+    truth_out_inverse = mxhelp::fscanfMatrix(fname_truth.c_str(), nrows, ncols);
+    assert(nrows == ndim);
+    assert(ncols == ndim);
+
+    mxhelp::LAPACKE_InvertMatrixLU(A.data(), ndim);
+
+    if (allClose(A.data(), truth_out_inverse.data(), ndim*ndim))
+        return 0;
+
+    fprintf(stderr, "ERROR test_LAPACKE_InvertMatrixLU_2.\n");
+    // printMatrices(truth_out_inverse.data(), A.data(), ndim, ndim);
     return 1;
 }
 
@@ -487,14 +515,9 @@ int main()
     r += test_trace_ddiagmv_1();
     r += test_trace_ddiagmv_2();
     r += test_my_cblas_dsymvdot();
-    r += test_LAPACKE_InvertMatrixLU();
+    r += test_LAPACKE_InvertMatrixLU_1();
+    r += test_LAPACKE_InvertMatrixLU_2();
     r += test_OversampledMatrix_multiplications();
-
-    // mxhelp::Resolution overmat2(Nrows, Nelemprow, 2, 2);
-    // std::copy(&valss[0], &valss[0]+Nrows*Nelemprow, overmat2.values);
-    // mxhelp::Resolution overmatSub(&overmat2, 1, 3);
-    // overmat2.fprintfMatrix("testOrg.txt");
-    // overmatSub.fprintfMatrix("testCopy.txt");
     r += test_DiaMatrix_multiplications();
     r += test_DiaMatrix_getRow();
     r += test_LAPACKE_SVD();
