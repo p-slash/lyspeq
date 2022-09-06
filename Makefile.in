@@ -7,6 +7,7 @@
 # -fshort-enums -fno-common
 				
 #---------------------------------------
+# WARNING: You (probably) should not change anything below
 DIRS=$(addprefix $(srcdir)/, core io mathtools tests)
 DEPDIR=$(addprefix $(srcdir)/, dep)
 $(shell mkdir -p $(DEPDIR))
@@ -31,9 +32,9 @@ CPPFLAGS+=-I$(srcdir) -std=c++17 -DHAVE_INLINE $(MORECPPFLAGS)
 CPPFLAGS+=-MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
-all: cblas_tests testSQCMatrices LyaPowerEstimate CreateSQLookUpTable myfitsread test-fftconvolve
+core: LyaPowerEstimate CreateSQLookUpTable
 
-test: all
+test: core cblas_tests testSQCMatrices
 	mkdir -p $(srcdir)/tests/output
 	
 	@echo "Testing CBLAS functions...."

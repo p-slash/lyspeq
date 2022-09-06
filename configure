@@ -24,7 +24,7 @@ function print_config_help()
     echo "--use-tophat-zbin : Uses tophat redshift binning function instead. Default is triangle."
     echo "--debug adds -g flag."
     echo "GSL_DIR=[directory] : GSL directory"
-    echo "FFTW_DIR=[directory] : FFTW directory"
+    echo "FFTW_ROOT=[directory] : FFTW directory"
     echo "CFITSIO_DIR=[directory] : cfitsio directory"
     echo "CBLAS_DIR=[directory] : CBLAS directory"
 }
@@ -66,8 +66,8 @@ function set_config_options()
                 CXX="${i#*=}";;
             GSL_DIR=* )
                 GSL_DIR="${i#*=}";;
-            FFTW_DIR=* )
-                FFTW_DIR="${i#*=}";;
+            FFTW_ROOT=* )
+                FFTW_ROOT="${i#*=}";;
             CFITSIO_DIR=* )
                 CFITSIO_DIR="${i#*=}";;
             CBLAS_DIR=* )
@@ -102,12 +102,10 @@ function set_prebuild_system()
     case ${SYSTYPE} in
         nersc )
             CXX="CC"
-            FFTW_DIR=${FFTW_ROOT}
             ;;
         nersc-mkl )
             CXX="CC -mkl"
             USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
-            FFTW_DIR=${FFTW_ROOT}
             ;;
         x64-linux-gnu-mklxe18 )
             CXX="g++"
@@ -125,7 +123,7 @@ function set_prebuild_system()
             CXX="clang++"
             CFITSIO_DIR="/opt/homebrew/opt/cfitsio"
             CBLAS_DIR="/opt/homebrew/opt/openblas"
-            FFTW_DIR="/opt/homebrew/opt/fftw"
+            FFTW_ROOT="/opt/homebrew/opt/fftw"
             ;;
         x64-macos-gcc9-openblas )
             CXX="g++-9"
@@ -140,27 +138,6 @@ function set_prebuild_system()
 
     # Recover user overwritten options
     set_config_options $*
-}
-
-function save_makefile()
-{
-    echo "====================================================================="
-    echo "CXX=${CXX}" > Makefile
-    echo "CPPFLAGS=${CPPFLAGS}" >> Makefile
-    echo "LDFLAGS=${LDFLAGS}" >> Makefile
-    echo "LDLIBS=${LDLIBS}" >> Makefile
-    echo "MORECPPFLAGS=${MORECPPFLAGS}" >> Makefile
-    echo "OPT=${OPT}" >> Makefile
-    echo "bindir=${bindir}" >> Makefile
-    echo "srcdir=${srcdir}" >> Makefile
-    echo "exec=${exec}" >> Makefile
-    cat ${srcdir}/Makefile.in >> Makefile
-
-    echo "I generated a Makefile. Go take a look!"
-    echo "Next step is to run 'make' and 'make test'."
-    echo "Note, if using a cluster, allocate resources before testing."
-    echo "If you are doing iterations, also run 'make install'."
-    echo "This will copy files to ${bindir}."
 }
 
 # -----------------------------------------------------------------------------
@@ -315,7 +292,6 @@ function set_gsl_inc_lib()
 
     compile_command="${CXX} ${gsl_cflags} -c ${test_file}.cpp -o ${test_file}.o"
     linking="${CXX} ${gsl_cflags} ${test_file}.o -o ${test_file} ${gsl_ldflags} -lgsl -lm"
-    run_command="${test_file}"
 
     echo ${compile_command}
     ${compile_command}
@@ -323,17 +299,14 @@ function set_gsl_inc_lib()
     echo ${linking}
     ${linking}
 
-    echo ${run_command}
-    ${run_command}
-
     update_makefile_vars "${gsl_cflags}" "${gsl_ldflags}" "-lgsl"
 }
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
 # FFTW settings
-# FFTW_DIR overrides all
-# If FFTW_DIR empty, then try FFTW_ROOT, finally FFTW_INC/LIB
+# FFTW_ROOT overrides all
+# If FFTW_ROOT empty, then try FFTW_DIR, finally FFTW_INC/LIB
 # Finally, test compiling
 fftw_test_text="#include <fftw3.h>
 #define N 10
@@ -354,15 +327,15 @@ int main()
 function set_fftw3_inc_lib()
 {
     echo "====================================================================="
-    echo "looking for fftw3. prioritize FFTW_DIR > FFTW_ROOT > FFTW_INC/LIB."
-    if [[ ! -z "${FFTW_DIR}" ]]; then
-        echo "FFTW_DIR=${FFTW_DIR}"
-        fftw3_cflags="-I${FFTW_DIR}/include"
-        fftw3_ldflags="-L${FFTW_DIR}/lib"
-    elif [[ ! -z ${FFTW_ROOT} ]]; then
+    echo "looking for fftw3. prioritize FFTW_ROOT > FFTW_DIR > FFTW_INC/LIB."
+    if [[ ! -z ${FFTW_ROOT} ]]; then
         echo "FFTW_ROOT=${FFTW_ROOT}"
         fftw3_cflags="-I${FFTW_ROOT}/include"
         fftw3_ldflags="-L${FFTW_ROOT}/lib"
+    elif [[ ! -z "${FFTW_DIR}" ]]; then
+        echo "FFTW_DIR=${FFTW_DIR}"
+        fftw3_cflags="-I${FFTW_DIR}/include"
+        fftw3_ldflags="-L${FFTW_DIR}/lib"
     elif [[ ! -z "${FFTW_INC}" && ! -z "${FFTW_LIB}" ]]; then
         echo "FFTW_INC=${FFTW_INC}."
         echo "FFTW_LIB=${FFTW_LIB}."
@@ -378,16 +351,12 @@ function set_fftw3_inc_lib()
 
     compile_command="${CXX} ${fftw3_cflags} -c ${test_file}.cpp -o ${test_file}.o"
     linking="${CXX} ${fftw3_cflags} ${test_file}.o -o ${test_file} ${fftw3_ldflags} -lfftw3 -lm"
-    run_command="${test_file}"
     
     echo ${compile_command}
     ${compile_command}
     
     echo ${linking}
     ${linking}
-
-    echo ${run_command}
-    ${run_command}
 
     update_makefile_vars "${fftw3_cflags}" "${fftw3_ldflags}" "-lfftw3"
 }
@@ -428,7 +397,8 @@ function reconfigure_for_mkl_libs()
 function set_cblas_inc_lib()
 {
     echo "====================================================================="
-    echo "looking for cblas and lapacke. I will only consider CBLAS_DIR."
+    echo "looking for cblas and lapacke. prioritize CBLAS_DIR."
+    echo "if you are using MKL, I will look for MKLROOT if CBLAS_DIR is not defined."
     if [[ -z "${CBLAS_DIR}" && ! -z "${USE_MKL_CBLAS}" && ! -z "${MKLROOT}" ]]; then
         CBLAS_DIR="$MKLROOT"
     fi
@@ -448,16 +418,12 @@ function set_cblas_inc_lib()
     _links="${cblas_ldflags} ${cblas_libs} ${suffix_libs}"
     compile_command="${_compiler} -c ${test_file}.cpp -o ${test_file}.o"
     linking="${_compiler} ${test_file}.o -o ${test_file} ${_links}"
-    run_command="${test_file}"
     
     echo ${compile_command}
     ${compile_command}
     
     echo ${linking}
     ${linking}
-
-    echo ${run_command}
-    ${run_command}
 
     update_makefile_vars "${cblas_cflags}" "${cblas_ldflags}" "${cblas_libs}"
 }
@@ -494,16 +460,12 @@ function set_cfitsio_inc_lib()
 
     compile_command="${CXX} ${cfitsio_cflags} -c ${test_file}.cpp -o ${test_file}.o"
     linking="${CXX} ${cfitsio_cflags} ${test_file}.o -o ${test_file} ${cfitsio_ldflags} -lcfitsio"
-    run_command="${test_file}"
     
     echo ${compile_command}
     ${compile_command}
     
     echo ${linking}
     ${linking}
-
-    echo ${run_command}
-    ${run_command}
 
     update_makefile_vars "${cfitsio_cflags}" "${cfitsio_ldflags}" "-lcfitsio"
 }
@@ -526,9 +488,9 @@ function set_mpi_inc_lib()
     echo "====================================================================="
     echo "testing mpi workings."
     if [[ ${CXX} != "mpi"* ]]; then
-        echo "Warning: ${CXX} may not be mpi wrapper. if this section fails:"
-        echo "(1) try passing 'CXX=mpic++' or similar,"
-        echo "(2) add '--force', then change CXX in Makefile to, e.g., mpic++."
+        echo "Warning: ${CXX} may not be an mpi wrapper. if this section fails:"
+        echo "1) try passing 'CXX=mpic++' or similar,"
+        echo "2) add '--force', then change CXX in Makefile to, e.g., mpic++."
     fi
     test_file="${srcdir}/build-aux/test_mpi_compiling"
     printf "${mpi_test_text}" > ${test_file}.cpp
@@ -612,8 +574,32 @@ update_makefile_vars "" "" "${suffix_libs}"
 MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_FIDUCIAL_GROWTH_Z} ${binz_fn}"
 MORECPPFLAGS=$(echo $MORECPPFLAGS | sed 's/ *$//')
 
-save_makefile
-echo "./configure ${CONFIGURE_ARGS}" > config.status
+# Save makefile
+echo "====================================================================="
+cat > Makefile << EOF
+# I am genereted by a pseudo-configure script and NOT an autoconf script.
+# Make sure flags and libraries are correct for your system.
+CXX=${CXX}
+CPPFLAGS=${CPPFLAGS}
+LDFLAGS=${LDFLAGS}
+LDLIBS=${LDLIBS}
+MORECPPFLAGS=${MORECPPFLAGS}
+OPT=${OPT}
+bindir=${bindir}
+srcdir=${srcdir}
+exec=${exec}
+EOF
+cat >> Makefile < ${srcdir}/Makefile.in
+
+echo "I generated a Makefile. Go take a look!"
+echo "Next step is to run 'make' and 'make test'."
+echo "Note, if using a cluster, allocate resources before testing."
+echo "If you are doing iterations, also run 'make install'."
+echo "This will copy files to ${bindir}."
+
+cat > config.status << EOF
+./configure ${CONFIGURE_ARGS}
+EOF
 
 
 
