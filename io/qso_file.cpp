@@ -120,6 +120,7 @@ void QSOFile::readData()
         bqfile->readData(wave(), delta(), noise());
 
     _cutMaskedBoundary();
+    _zeroMaskedFlux();
 
     // Update dv and dlambda
     if (dlambda < 0)
@@ -150,6 +151,13 @@ void QSOFile::_cutMaskedBoundary(double sigma_cut)
 
     if (Rmat)
         Rmat->cutBoundary(ni1, ni2);
+}
+
+void QSOFile::_zeroMaskedFlux(double sigma_cut)
+{
+    for (int i = 0; i < size(); ++i)
+        if (noise()[i] > sigma_cut)
+            delta()[i] = 0;
 }
 
 int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
