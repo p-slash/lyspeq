@@ -13,14 +13,28 @@
 
 std::unique_ptr<Smoother> process::noise_smoother;
 
-void _findMedianStatistics(double *arr, int size, double &median, double &mad)
+double _getMedianBelowThreshold(double *sorted_arr, int size, double thres=1e3)
+{
+    int jj = size/2;
+    double median = sorted_arr[jj];
+    while ((jj != 0) && (median>thres))
+    {
+        --jj;
+        median = sorted_arr[jj];
+    }
+
+    return median;
+}
+
+void _findMedianStatistics(double *arr, int size, double &median, double &mad, double thres=1e3)
 {
     std::sort(arr, arr+size);
-    median = arr[size/2];
+    median = _getMedianBelowThreshold(arr, size, thres);
 
     std::for_each(arr, arr+size, [median](double &f) { f = fabs(f-median); });
     std::sort(arr, arr+size);
-    mad = 1.4826 * arr[size/2]; // The constant factor makes it unbiased
+
+    mad = 1.4826 * _getMedianBelowThreshold(arr, size, thres); // The constant factor makes it unbiased
 }
 
 Smoother::Smoother(ConfigFile &config)

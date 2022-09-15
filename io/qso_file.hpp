@@ -95,6 +95,7 @@ class QSOFile
 
     double *wave_head, *delta_head, *noise_head;
     int arr_size, shift;
+    void _cutMaskedBoundary(double sigma_cut=1e3);
 public:
     std::string fname;
     double z_qso, snr, dv_kms, dlambda;

@@ -119,11 +119,37 @@ void QSOFile::readData()
     else
         bqfile->readData(wave(), delta(), noise());
 
+    _cutMaskedBoundary();
+
     // Update dv and dlambda
     if (dlambda < 0)
         dlambda = _getMediandlambda(wave(), size());
     if (dv_kms < 0)
         dv_kms  = _getMediandv(wave(), size());
+}
+
+void QSOFile::_cutMaskedBoundary(double sigma_cut)
+{
+    int ni1 = 0, ni2 = size();
+
+    while ((ni1 < size()) && (noise()[ni1] > sigma_cut))
+        ++ni1;
+    while ((ni2 > 0) && (noise()[ni2-1] > sigma_cut))
+        --ni2;
+
+    if ((ni1 == 0) && (ni2 == arr_size)) // no change
+        return;
+
+    shift = ni1;
+    arr_size = ni2-ni1;
+
+    if (arr_size < 0)
+        throw std::runtime_error(
+            "Empty spectrum when masked pixels at boundary are removed!"
+        );
+
+    if (Rmat)
+        Rmat->cutBoundary(ni1, ni2);
 }
 
 int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
