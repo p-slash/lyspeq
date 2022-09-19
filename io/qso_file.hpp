@@ -94,9 +94,11 @@ class QSOFile
     std::unique_ptr<BQFile> bqfile;
 
     double *wave_head, *delta_head, *noise_head;
-    int arr_size, shift;
+    int arr_size, shift, num_masked_pixels;
+    // count num_masked_pixels after cutting
     void _cutMaskedBoundary(double sigma_cut=1e3);
-    // void _zeroMaskedFlux(double sigma_cut=1e3);
+    void _countMaskedPixels(double sigma_cut=1e3);
+
 public:
     std::string fname;
     double z_qso, snr, dv_kms, dlambda;
@@ -105,6 +107,7 @@ public:
     std::unique_ptr<mxhelp::Resolution> Rmat;
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);
+    // The "copy" constructor below also cuts masked boundaries.
     QSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     QSOFile(QSOFile &&rhs) = delete;
     QSOFile(const QSOFile &rhs) = delete;
@@ -113,6 +116,7 @@ public:
     ~QSOFile();
 
     int size() const { return arr_size; };
+    int realSize() const { return arr_size-num_masked_pixels; };
     double* wave() const  { return wave_head+shift; };
     double* delta() const { return delta_head+shift; };
     double* noise() const { return noise_head+shift; };
@@ -122,8 +126,9 @@ public:
     void readData();
 
     // This is just a pointer shift for w,d,e. Rmat is copied
-    // returns new size
-    int cutBoundary(double z_lower_edge, double z_upper_edge);
+    // Cuts masked boundaries as well
+    // Counts the num_masked_pixels
+    void cutBoundary(double z_lower_edge, double z_upper_edge);
 
     void readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed);
     void readAllocResolutionMatrix();

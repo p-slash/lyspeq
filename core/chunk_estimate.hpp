@@ -5,6 +5,9 @@
 #include "io/qso_file.hpp"
 #include "mathtools/discrete_interpolation.hpp"
 
+const int
+MIN_PIXELS_IN_CHUNK = 20;
+
 /*
 This object creates and computes C, S, Q, Q-slash matrices,
 as well as a power spectrum estimate and a fisher matrix for individual 
@@ -91,6 +94,7 @@ public:
 
     static double getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2);
 
+    int realSize() const { return qFile->realSize(); };
     void setCovarianceMatrix(const double *ps_estimate);
     void invertCovarianceMatrix();
 

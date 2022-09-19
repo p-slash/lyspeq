@@ -49,7 +49,7 @@ double _getMediandlambda(const double *wave, int size)
 // mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b) :
 PB(p_or_b), wave_head(NULL), delta_head(NULL), noise_head(NULL),
-arr_size(0), shift(0), fname(fname_qso)
+arr_size(0), shift(0), num_masked_pixels(0), fname(fname_qso)
 {
     if (PB == Picca)
         pfile = std::make_unique<PiccaFile>(fname);
@@ -77,9 +77,11 @@ R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
     std::copy(qmaster.delta()+i1, qmaster.delta()+i2, delta());
     std::copy(qmaster.noise()+i1, qmaster.noise()+i2, noise());
 
-    if (qmaster.Rmat)
-        Rmat = std::make_unique<mxhelp::Resolution>(qmaster.Rmat.get(), i1, i2);
+    _cutMaskedBoundary();
 
+    if (qmaster.Rmat)
+        Rmat = std::make_unique<mxhelp::Resolution>(
+            qmaster.Rmat.get(), i1+shift, i1+shift+arr_size);
     recalcDvDLam();
 }
 
@@ -119,7 +121,6 @@ void QSOFile::readData()
     else
         bqfile->readData(wave(), delta(), noise());
 
-    _cutMaskedBoundary();
     // _zeroMaskedFlux();
 
     // Update dv and dlambda
@@ -127,6 +128,16 @@ void QSOFile::readData()
         dlambda = _getMediandlambda(wave(), size());
     if (dv_kms < 0)
         dv_kms  = _getMediandv(wave(), size());
+}
+
+int QSOFile::_countMaskedPixels(double sigma_cut)
+{
+    num_masked_pixels = 0; 
+    for (const double *n=noise(); n!=noise()+size(); ++n)
+        if (*n > sigma_cut)
+            ++num_masked_pixels;
+
+    return num_masked_pixels;
 }
 
 void QSOFile::_cutMaskedBoundary(double sigma_cut)
@@ -141,7 +152,7 @@ void QSOFile::_cutMaskedBoundary(double sigma_cut)
     if ((ni1 == 0) && (ni2 == arr_size)) // no change
         return;
 
-    shift = ni1;
+    shift += ni1;
     arr_size = ni2-ni1;
 
     if (arr_size < 0)
@@ -149,18 +160,10 @@ void QSOFile::_cutMaskedBoundary(double sigma_cut)
             "Empty spectrum when masked pixels at boundary are removed!"
         );
 
-    if (Rmat)
-        Rmat->cutBoundary(ni1, ni2);
+    _countMaskedPixels(sigma_cut);
 }
 
-// void QSOFile::_zeroMaskedFlux(double sigma_cut)
-// {
-//     for (int i = 0; i < size(); ++i)
-//         if (noise()[i] > sigma_cut)
-//             delta()[i] = 0;
-// }
-
-int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
+void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 {
     double l1 = LYA_REST * (1+z_lower_edge), l2 = LYA_REST * (1+z_upper_edge);
     int wi1, wi2;
@@ -170,20 +173,18 @@ int QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
     int newsize = wi2-wi1;
 
     if ((wi1 == arr_size) || (wi2 == 0)) // empty
-        return 0;
+        return;
 
     if ((wi1 == 0) && (wi2 == arr_size)) // no change
-        return arr_size;
+        return;
 
-    shift = wi1;
-    arr_size  = newsize;
+    shift += wi1;
+    arr_size = newsize;
+
+    _cutMaskedBoundary();
 
     if (Rmat)
-        Rmat->cutBoundary(wi1, wi2);
-
-    // recalcDvDLam();
-
-    return arr_size;
+        Rmat->cutBoundary(shift, shift+arr_size);
 }
 
 void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
@@ -196,6 +197,7 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
             pfile->readData(wave(), delta(), delta());
         else
             bqfile->readData(wave(), delta(), delta());
+        _cutMaskedBoundary();
     }
 
     zmin = wave()[0] / LYA_REST - 1;
