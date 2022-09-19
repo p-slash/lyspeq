@@ -57,10 +57,21 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
     chunks.reserve(nchunks);
     for (int nc = 0; nc < nchunks; ++nc)
     {
-        auto _chunk = std::make_unique<Chunk>(qFile, indices[nc], indices[nc+1]);
-        if (_chunk->realSize() < MIN_PIXELS_IN_CHUNK)
-            continue;
-        chunks.push_back(std::move(_chunk));
+        try
+        {
+            auto _chunk = std::make_unique<Chunk>(qFile, indices[nc], indices[nc+1]);
+            if (_chunk->realSize() < MIN_PIXELS_IN_CHUNK)
+            {
+                LOG::LOGGER.ERR("Skipping chunk %d of %s.\n", nc, fname_qso.c_str());
+                continue;
+            }
+            chunks.push_back(std::move(_chunk));
+        }
+        catch (std::exception& e)
+        {
+            LOG::LOGGER.ERR("%s. Skipping chunk %d of %s.\n", e.what(), nc,
+                fname_qso.c_str());
+        }
     }
 }
 
