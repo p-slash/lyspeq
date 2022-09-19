@@ -130,14 +130,12 @@ void QSOFile::readData()
         dv_kms  = _getMediandv(wave(), size());
 }
 
-int QSOFile::_countMaskedPixels(double sigma_cut)
+void QSOFile::_countMaskedPixels(double sigma_cut)
 {
     num_masked_pixels = 0; 
     for (const double *n=noise(); n!=noise()+size(); ++n)
         if (*n > sigma_cut)
             ++num_masked_pixels;
-
-    return num_masked_pixels;
 }
 
 void QSOFile::_cutMaskedBoundary(double sigma_cut)
