@@ -7,7 +7,6 @@
 #include <stdexcept>
 
 const int
-MIN_PIXELS_IN_SPEC = 20,
 MAX_PIXELS_IN_FOREST = 1000;
 
 int _decideNChunks(int size, std::vector<int> &indices)
@@ -47,19 +46,22 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
     qFile.closeFile();
 
     // Boundary cut
-    int newsize = qFile.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
+    qFile.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-    if (newsize < MIN_PIXELS_IN_SPEC)   return;
+    if (qFile.realSize() < MIN_PIXELS_IN_CHUNK)   return;
 
     // decide nchunk with lambda points array[nchunks+1]
-    int nchunks = _decideNChunks(newsize, indices);
+    int nchunks = _decideNChunks(qFile.size(), indices);
 
     // create chunk objects
     chunks.reserve(nchunks);
     for (int nc = 0; nc < nchunks; ++nc)
-        chunks.push_back(
-            std::make_unique<Chunk>(qFile, indices[nc], indices[nc+1])
-        );
+    {
+        auto _chunk = std::make_unique<Chunk>(qFile, indices[nc], indices[nc+1]);
+        if (_chunk->realSize() < MIN_PIXELS_IN_CHUNK)
+            continue;
+        chunks.push_back(std::move(_chunk));
+    }
 }
 
 double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
@@ -72,9 +74,9 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 
         qtemp.readParameters();
         qtemp.readData();
-        int newsize = qtemp.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
+        qtemp.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-        if (newsize < MIN_PIXELS_IN_SPEC)
+        if (qtemp.realSize() < MIN_PIXELS_IN_CHUNK)
             return 0;
 
         double z1, z2, zm;
@@ -83,7 +85,7 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 
         // decide chunks
         std::vector<int> indices;
-        int nchunks = _decideNChunks(newsize, indices);
+        int nchunks = _decideNChunks(qtemp.size(), indices);
 
         // add compute time from chunks
         double res = 0;

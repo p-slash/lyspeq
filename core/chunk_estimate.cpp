@@ -227,6 +227,8 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
     try
     {
         qio::QSOFile qtemp(qmaster, i1, i2);
+        if (qtemp.realSize() < MIN_PIXELS_IN_CHUNK)
+            return 0;
 
         double z1, z2, zm; 
         qtemp.readMinMaxMedRedshift(z1, z2, zm);
