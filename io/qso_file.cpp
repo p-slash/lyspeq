@@ -62,7 +62,7 @@ arr_size(0), shift(0), num_masked_pixels(0), fname(fname_qso)
 }
 
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
-: PB(qmaster.PB), shift(0), fname(qmaster.fname), 
+: PB(qmaster.PB), shift(0), num_masked_pixels(0), fname(qmaster.fname), 
 z_qso(qmaster.z_qso), snr(qmaster.snr), id(qmaster.id),
 R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
 // dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda),
@@ -132,9 +132,9 @@ void QSOFile::readData()
 
 void QSOFile::_countMaskedPixels(double sigma_cut)
 {
-    num_masked_pixels = 0; 
-    for (const double *n=noise(); n!=noise()+size(); ++n)
-        if (*n > sigma_cut)
+    num_masked_pixels = 0;
+    for (int i = 0; i < size(); ++i)
+        if (noise()[i] > sigma_cut)
             ++num_masked_pixels;
 }
 
