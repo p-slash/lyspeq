@@ -78,10 +78,10 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
-    conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), qFile->size());
+    conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), size());
 
     // Keep noise as error squared (variance)
-    std::for_each(qFile->noise(), qFile->noise()+qFile->size(), [](double &n) { n*=n; });
+    std::for_each(qFile->noise(), qFile->noise()+size(), [](double &n) { n*=n; });
 
     nqj_eff = 0;
 
@@ -111,10 +111,10 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         RES_INDEX = process::sq_private_table->findSpecResIndex(qFile->R_fwhm, qFile->dv_kms);
 
         if (RES_INDEX == -1) throw std::out_of_range("SPECRES not found in tables!");
-        _matrix_n = qFile->size();
+        _matrix_n = size();
     }
 
-    DATA_SIZE_2 = qFile->size()*qFile->size();
+    DATA_SIZE_2 = size()*size();
 }
 
 void Chunk::_findRedshiftBin()
@@ -191,7 +191,7 @@ void Chunk::_setStoredMatrices()
         LOG::LOGGER.ERR("===============\n""Not all matrices are stored: %s\n"
             "#stored: %d vs #required:%d.\n""ND: %d, M1: %.1f MB. "
             "Avail mem after R & SQ subtracted: %.1lf MB\n""===============\n", 
-            qFile->fname.c_str(), nqj_eff, N_Q_MATRICES, qFile->size(), size_m1, 
+            qFile->fname.c_str(), nqj_eff, N_Q_MATRICES, size(), size_m1, 
             remain_mem);
 
     isQjSet   = false;
@@ -214,7 +214,7 @@ Chunk::~Chunk()
 
 double Chunk::getMinMemUsage()
 {
-    double minmem = (double)sizeof(double) * qFile->size() * 3 / 1048576.; // in MB
+    double minmem = (double)sizeof(double) * size() * 3 / 1048576.; // in MB
 
     if (specifics::USE_RESOLUTION_MATRIX)
         minmem += qFile->Rmat->getMinMemUsage();
@@ -401,9 +401,9 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     // add noise matrix diagonally
     // but smooth before adding
-    process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, qFile->size());
-    cblas_daxpy(qFile->size(), 1., temp_vector, 1,
-        covariance_matrix, qFile->size()+1);
+    process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
+    cblas_daxpy(size(), 1., temp_vector, 1,
+        covariance_matrix, size()+1);
 
     isCovInverted = false;
 
@@ -442,19 +442,19 @@ void Chunk::_addMarginalizations()
     double *temp_v = temp_matrix[0], *temp_y = temp_matrix[1];
 
     // Zeroth order
-    std::fill_n(temp_v, qFile->size(), 1./sqrt(qFile->size()));
-    temp_v += qFile->size();
+    std::fill_n(temp_v, size(), 1./sqrt(size()));
+    temp_v += size();
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLogLam(qFile->wave(), qFile->size(), cmo, temp_v);
-        temp_v += qFile->size();
+        _getUnitVectorLogLam(qFile->wave(), size(), cmo, temp_v);
+        temp_v += size();
     }
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLam(qFile->wave(), qFile->size(), cmo, temp_v);
-        temp_v += qFile->size();
+        _getUnitVectorLam(qFile->wave(), size(), cmo, temp_v);
+        temp_v += size();
     }
 
     LOG::LOGGER.DEB("nvecs %d\n", specifics::CONT_NVECS);
@@ -463,17 +463,17 @@ void Chunk::_addMarginalizations()
     temp_v = temp_matrix[0];
     static auto svals = std::make_unique<double[]>(specifics::CONT_NVECS);
     // SVD to get orthogonal marg vectors
-    mxhelp::LAPACKE_svd(temp_v, svals.get(), qFile->size(), specifics::CONT_NVECS);
+    mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
     LOG::LOGGER.DEB("SVD'ed\n");
 
     // Remove each 
-    for (int i = 0; i < specifics::CONT_NVECS; ++i, temp_v += qFile->size())
+    for (int i = 0; i < specifics::CONT_NVECS; ++i, temp_v += size())
     {
         LOG::LOGGER.DEB("i: %d, s: %.2e\n", i, svals[i]);
         // skip if this vector is degenerate
         if (svals[i]<1e-6)  continue;
 
-        _remShermanMorrison(temp_v, qFile->size(), temp_y, inverse_covariance_matrix);
+        _remShermanMorrison(temp_v, size(), temp_y, inverse_covariance_matrix);
     }
 }
 
@@ -483,7 +483,7 @@ void Chunk::invertCovarianceMatrix()
 {
     double t = mytime::timer.getTime();
 
-    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, qFile->size());
+    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, size());
 
     inverse_covariance_matrix = covariance_matrix;
 
@@ -504,14 +504,14 @@ void Chunk::_getWeightedMatrix(double *m)
     //C-1 . Q
     // std::fill_n(temp_matrix[1], DATA_SIZE_2, 0);
     cblas_dsymm(CblasRowMajor, CblasLeft, CblasUpper,
-        qFile->size(), qFile->size(), 1., inverse_covariance_matrix, qFile->size(),
-        m, qFile->size(), 0, temp_matrix[1], qFile->size());
+        size(), size(), 1., inverse_covariance_matrix, size(),
+        m, size(), 0, temp_matrix[1], size());
 
     //C-1 . Q . C-1
     // std::fill_n(m, DATA_SIZE_2, 0);
     cblas_dsymm(CblasRowMajor, CblasRight, CblasUpper,
-        qFile->size(), qFile->size(), 1., inverse_covariance_matrix, qFile->size(),
-        temp_matrix[1], qFile->size(), 0, m, qFile->size());
+        size(), size(), 1., inverse_covariance_matrix, size(),
+        temp_matrix[1], size(), 0, m, size());
 
     t = mytime::timer.getTime() - t;
 
@@ -542,7 +542,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
             _setQiMatrix(Q_jkz_matrix, j_kz);
         }
 
-        temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, qFile->size());
+        temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size());
 
         int ind_ij = (i_kz + fisher_index_start) 
                 + bins::TOTAL_KZ_BINS * (j_kz + fisher_index_start),
@@ -569,9 +569,9 @@ void Chunk::computePSbeforeFvector()
         Sfid_matrix = temp_matrix[1];
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
-    cblas_dsymv(CblasRowMajor, CblasUpper, qFile->size(), 1.,
+    cblas_dsymv(CblasRowMajor, CblasUpper, size(), 1.,
         inverse_covariance_matrix, 
-        qFile->size(), qFile->delta(), 1, 0, weighted_data_vector, 1);
+        size(), qFile->delta(), 1, 0, weighted_data_vector, 1);
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
@@ -585,7 +585,7 @@ void Chunk::computePSbeforeFvector()
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
         dbt_vec[0] = mxhelp::my_cblas_dsymvdot(weighted_data_vector, 
-            Q_ikz_matrix, temp_vector, qFile->size());
+            Q_ikz_matrix, temp_vector, size());
          LOG::LOGGER.DEB("-> dk (%.1e)   ", dbt_vec[0]);
 
         LOG::LOGGER.DEB("-> weighted Q   ");
@@ -595,7 +595,7 @@ void Chunk::computePSbeforeFvector()
         LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
         dbt_vec[1] = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise(), 
-            qFile->size());
+            size());
 
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
@@ -605,7 +605,7 @@ void Chunk::computePSbeforeFvector()
 
             LOG::LOGGER.DEB("-> tk   ");
             // Tr(C-1 Qi C-1 Sfid)
-            dbt_vec[2] = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, qFile->size());
+            dbt_vec[2] = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, size());
         }
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
@@ -625,7 +625,7 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 {
     LOG::LOGGER.DEB("File %s\n", qFile->fname.c_str());
     LOG::LOGGER.DEB("TargetID %ld\n", qFile->id);
-    LOG::LOGGER.DEB("Size %d\n", qFile->size());
+    LOG::LOGGER.DEB("Size %d\n", size());
     LOG::LOGGER.DEB("ncols: %d\n", _matrix_n);
     LOG::LOGGER.DEB("fisher_index_start: %d\n", fisher_index_start);
     LOG::LOGGER.DEB("Allocating matrices\n");
@@ -688,7 +688,7 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
             e.what(), qFile->fname.c_str());
 
         LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
-            qFile->size(), MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
+            size(), MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
     }
 
     LOG::LOGGER.DEB("Freeing matrices\n");
@@ -708,8 +708,8 @@ void Chunk::_allocateMatrices()
     for (int i = 0; i < 2; ++i)
         temp_matrix[i] = new double[DATA_SIZE_2];
 
-    temp_vector = new double[qFile->size()];
-    weighted_data_vector = new double[qFile->size()];
+    temp_vector = new double[size()];
+    weighted_data_vector = new double[size()];
     
     for (int i = 0; i < nqj_eff; ++i)
         stored_qj[i] = new double[DATA_SIZE_2];
@@ -803,7 +803,7 @@ void Chunk::fprintfMatrices(const char *fname_base)
     if (isSfidStored)
     {
         sprintf(buf, "%s-signal.txt", fname_base);
-        mxhelp::fprintfMatrix(buf, stored_sfid, qFile->size(), qFile->size());
+        mxhelp::fprintfMatrix(buf, stored_sfid, size(), size());
     }
 
     if (qFile->Rmat != NULL)

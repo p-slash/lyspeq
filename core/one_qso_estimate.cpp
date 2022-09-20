@@ -62,7 +62,8 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
             auto _chunk = std::make_unique<Chunk>(qFile, indices[nc], indices[nc+1]);
             if (_chunk->realSize() < MIN_PIXELS_IN_CHUNK)
             {
-                LOG::LOGGER.ERR("Skipping chunk %d of %s.\n", nc, fname_qso.c_str());
+                LOG::LOGGER.ERR("Skipping chunk %d of %s. Realsize %d/%d\n",
+                    nc, fname_qso.c_str(), _chunk->realSize(), _chunk->size());
                 continue;
             }
             chunks.push_back(std::move(_chunk));
