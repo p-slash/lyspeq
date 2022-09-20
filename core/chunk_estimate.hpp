@@ -95,6 +95,7 @@ public:
     static double getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2);
 
     int realSize() const { return qFile->realSize(); };
+    int size() const { return qFile->size(); };
     void setCovarianceMatrix(const double *ps_estimate);
     void invertCovarianceMatrix();
 

@@ -96,8 +96,8 @@ class QSOFile
     double *wave_head, *delta_head, *noise_head;
     int arr_size, shift, num_masked_pixels;
     // count num_masked_pixels after cutting
-    void _cutMaskedBoundary(double sigma_cut=1e3);
-    void _countMaskedPixels(double sigma_cut=1e3);
+    void _cutMaskedBoundary(double sigma_cut=1e6);
+    void _countMaskedPixels(double sigma_cut=1e6);
 
 public:
     std::string fname;
