@@ -191,10 +191,11 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
     {
         wave_head  = new double[size()];
         delta_head = new double[size()];
+        noise_head = new double[size()];
         if (pfile)
-            pfile->readData(wave(), delta(), delta());
+            pfile->readData(wave(), delta(), noise());
         else
-            bqfile->readData(wave(), delta(), delta());
+            bqfile->readData(wave(), delta(), noise());
         _cutMaskedBoundary();
     }
 
