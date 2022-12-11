@@ -12,6 +12,7 @@ namespace LOG
         {
             STD,
             ERR,
+            DEB,
             TIME
         };
     }
@@ -36,13 +37,14 @@ namespace LOG
 
         std::string getFileName(TYPE::LOG_TYPE lt) const;
 
-        void open(const char *outdir, int np);
+        void open(const std::string &outdir, int np);
         void close();
         void reopen();
 
         void STD(const char *fmt, ...);
         void ERR(const char *fmt, ...);
         void TIME(const char *fmt, ...);
+        void DEB(const char *fmt, ...);
     };
 
     extern Logger LOGGER;

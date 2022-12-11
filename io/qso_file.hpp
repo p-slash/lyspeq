@@ -4,14 +4,16 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <memory>
 #include <map>
+
 #include <fitsio.h>
-#include "core/matrix_helper.hpp"
+
+#include "core/global_numbers.hpp"
+#include "mathtools/matrix_helper.hpp"
 
 namespace qio
 {
-enum ifileformat {Binary, Picca};
-
 class BQFile
 {
     FILE *qso_file;
@@ -38,6 +40,8 @@ class BQFile
 
 public:
     BQFile(const std::string &fname_qso);
+    BQFile(BQFile &&rhs) = default;
+    BQFile(const BQFile &rhs) = delete;
     ~BQFile();
 
     void readParameters(int &data_number, double &z, int &fwhm_resolution, 
@@ -71,7 +75,8 @@ public:
 
     // Assume fname to be ..fits.gz[1]
     PiccaFile(const std::string &fname_qso);
-    ~PiccaFile();
+    PiccaFile(PiccaFile &&rhs) = default;
+    PiccaFile(const PiccaFile &rhs) = delete;
 
     int getNumberSpectra() const {return no_spectra;};
 
@@ -79,36 +84,51 @@ public:
         double &sig2noi, double &dv_kms, double &dlambda, int &oversampling);
 
     void readData(double *lambda, double *delta, double *noise);
-    mxhelp::Resolution* readAllocResolutionMatrix(int oversampling, double dlambda);
+    std::unique_ptr<mxhelp::Resolution> readAllocResolutionMatrix(int oversampling, double dlambda);
 };
 
 class QSOFile
 {
     ifileformat PB;
-    PiccaFile *pfile;
-    BQFile *bqfile;
+    std::unique_ptr<PiccaFile> pfile;
+    std::unique_ptr<BQFile> bqfile;
 
     double *wave_head, *delta_head, *noise_head;
+    int arr_size, shift, num_masked_pixels;
+    // count num_masked_pixels after cutting
+    void _cutMaskedBoundary(double sigma_cut=1e6);
+    void _countMaskedPixels(double sigma_cut=1e6);
+
 public:
     std::string fname;
     double z_qso, snr, dv_kms, dlambda;
     long id;
-    int size, R_fwhm, oversampling;
-    double *wave, *delta, *noise;
-    mxhelp::Resolution *Rmat;
+    int R_fwhm, oversampling;
+    std::unique_ptr<mxhelp::Resolution> Rmat;
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);
+    // The "copy" constructor below also cuts masked boundaries.
     QSOFile(const qio::QSOFile &qmaster, int i1, int i2);
+    QSOFile(QSOFile &&rhs) = delete;
+    QSOFile(const QSOFile &rhs) = delete;
+
     void closeFile();
     ~QSOFile();
+
+    int size() const { return arr_size; };
+    int realSize() const { return arr_size-num_masked_pixels; };
+    double* wave() const  { return wave_head+shift; };
+    double* delta() const { return delta_head+shift; };
+    double* noise() const { return noise_head+shift; };
 
     void recalcDvDLam();
     void readParameters();
     void readData();
 
     // This is just a pointer shift for w,d,e. Rmat is copied
-    // returns new size
-    int cutBoundary(double z_lower_edge, double z_upper_edge);
+    // Cuts masked boundaries as well
+    // Counts the num_masked_pixels
+    void cutBoundary(double z_lower_edge, double z_upper_edge);
 
     void readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed);
     void readAllocResolutionMatrix();

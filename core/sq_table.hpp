@@ -4,7 +4,8 @@
 #include <vector>
 #include <string>
 
-#include "gsltools/discrete_interpolation.hpp"
+#include "mathtools/discrete_interpolation.hpp"
+#include "io/config_file.hpp"
 
 // This table read, stores and interpolates pre-evaluated S and Q matrices for different 
 // spectral resolution (R) values. Here R is assumend to be an integer where c / R is in km/s.
@@ -36,8 +37,13 @@ class SQLookupTable
     
     std::string DIR, S_BASE, Q_BASE;
 
-    DiscreteInterpolation2D **interp2d_signal_matrices;
-    DiscreteInterpolation1D **interp_derivative_matrices;
+    // Temporary arrays. They are not stored after construction!
+    double *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY,
+           *signal_array, *derivative_array;
+
+    std::vector<shared_interp_2d> interp2d_signal_matrices;
+    std::vector<shared_interp_1d> interp_derivative_matrices;
+
     double itp_v1, itp_dv, itp_z1, itp_dz; 
 
     int getIndex4DerivativeInterpolation(int kn, int r_index) const;
@@ -47,17 +53,16 @@ class SQLookupTable
     void deallocateSignalAndDerivArrays();
     void deallocateVAndZArrays();
 
-    DiscreteInterpolation1D* _allocReadQFile(int kn, int r_index);
-    DiscreteInterpolation2D* _allocReadSFile(int r_index);
+    shared_interp_1d _allocReadQFile(int kn, int r_index);
+    shared_interp_2d _allocReadSFile(int r_index);
 
 public:
-    SQLookupTable(const char *dir, const char *s_base, const char *q_base, 
-        const char *fname_rlist, int Nv=0, int Nz=0, double Lv=0);
-    // SQLookupTable(const SQLookupTable &sq);
+    SQLookupTable(ConfigFile &config);
+    SQLookupTable(SQLookupTable &&rhs) = delete;
+    SQLookupTable(const SQLookupTable &rhs) = delete;
 
-    ~SQLookupTable();
-    
-    void readSQforR(int r_index, DiscreteInterpolation2D*& s, DiscreteInterpolation1D**& q, 
+    void readSQforR(int r_index, shared_interp_2d &s,
+        std::vector<shared_interp_1d>  &q, 
         bool alloc=false);
 
     void readTables();
@@ -66,11 +71,16 @@ public:
 
     int findSpecResIndex(int spec_res, double dv) const;
 
-    DiscreteInterpolation1D* getDerivativeMatrixInterp(int kn, int r_index) const;
-    DiscreteInterpolation2D* getSignalMatrixInterp(int r_index) const;
+    shared_interp_1d getDerivativeMatrixInterp(int kn, int r_index) const;
+    shared_interp_2d getSignalMatrixInterp(int r_index) const;
 
     double getOneSetMemUsage();
     double getMaxMemUsage();
 };
+
+namespace process
+{
+    extern std::unique_ptr<SQLookupTable> sq_private_table;
+}
 
 #endif

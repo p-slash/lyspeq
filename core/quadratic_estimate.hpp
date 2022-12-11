@@ -3,6 +3,9 @@
 
 #include <vector>
 #include <string>
+#include <memory>
+
+#include "io/config_file.hpp"
 
 // This umbrella class manages the quadratic estimator by 
 //      storing the total Fisher matrix and its inverse,
@@ -20,22 +23,35 @@
 
 class OneDQuadraticPowerEstimate
 {
-    int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, *Z_BIN_COUNTS;
-
-    std::vector<std::string> local_fpaths;
+    ConfigFile &config;
+    int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, NUMBER_OF_ITERATIONS;
+    std::vector<int> Z_BIN_COUNTS;
 
     // 3 TOTAL_KZ_BINS sized vectors
-    double  *dbt_estimate_sum_before_fisher_vector[3],
-            *dbt_estimate_fisher_weighted_vector[3], 
-            *previous_power_estimate_vector, *current_power_estimate_vector,
-            *powerspectra_fits;
+    std::vector<std::unique_ptr<double[]>>
+                dbt_estimate_sum_before_fisher_vector,
+                dbt_estimate_fisher_weighted_vector;
+    std::unique_ptr<double[]>   previous_power_estimate_vector,
+                                current_power_estimate_vector,
+                                powerspectra_fits;
+
+    std::unique_ptr<double[]> temp_vector;
+    std::vector<double> precomputed_fisher;
+    void _readPrecomputedFisher(const std::string &fname);
 
     // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
-    double *fisher_matrix_sum, *inverse_fisher_matrix_sum;
+    std::unique_ptr<double[]> fisher_matrix_sum, inverse_fisher_matrix_sum;
 
     bool isFisherInverted;
 
-    void _readQSOFiles(const char *fname_list, const char *dir);
+    // reads all qso files, load balances
+    // Returns local_fpaths
+    std::vector<std::string> _readQSOFiles();
+    // Performs a load balancing operation based on N^3 estimation
+    // Returns local_fpaths
+    std::vector<std::string>
+    _loadBalancing(std::vector<std::string> &filepaths, 
+        std::vector< std::pair<double, int> > &cpu_fname_vector);
     void _savePEResult();
 
     // The next 2 functions call Python scripts.
@@ -44,23 +60,25 @@ class OneDQuadraticPowerEstimate
     // Add $HOME/bin to your $PATH
 
     // Fitting procedure calls Python3 script lorentzian_fit.py.
-    void _fitPowerSpectra(double *fitted_power);
+    // void _fitPowerSpectra(double *fitted_power);
 
     // Weighted smoothing using 2D spline calls Python3 script smbivspline.py
-    void _smoothPowerSpectra(double *smoothed_power);
-    void _readScriptOutput(double *script_power, const char *fname, void *itsfits=NULL);
-
-    // Performs a load balancing operation based on N^3 estimation
-    void _loadBalancing(std::vector<std::string> &filepaths, 
-        std::vector< std::pair<double, int> > &cpu_fname_vector);
+    void _smoothPowerSpectra();
+    void _readScriptOutput(const char *fname, void *itsfits=NULL);
 
 public:
-    static double *precomputed_fisher;
-    static void readPrecomputedFisher(const char *fname);
-
-    OneDQuadraticPowerEstimate(const char *fname_list, const char *dir);
-
-    ~OneDQuadraticPowerEstimate();
+    /* This function reads following keys from config file:
+    NumberOfIterations: int
+        Number of iterations. Default 1.
+    PrecomputedFisher: string
+        File to precomputed Fisher matrix. If present, Fisher matrix is not
+            calculated for spectra. Off by default.
+    FileNameList: string
+        File to spectra to list. Filenames are wrt FileInputDir.
+    FileInputDir: string
+        Directory where files reside.
+    */
+    OneDQuadraticPowerEstimate(ConfigFile &con);
     
     double powerSpectrumFiducial(int kn, int zm);
 
@@ -69,7 +87,7 @@ public:
     void computePowerSpectrumEstimates();
 
     // Passing fit values for the power spectrum for numerical stability
-    void iterate(int number_of_iterations, const char *fname_base);
+    void iterate();
 
     // Deviation between actual estimates (not fit values)
     bool hasConverged();
@@ -81,27 +99,8 @@ public:
     // You can find that value in logs--printfSpectra prints all
     void writeSpectrumEstimates(const char *fname);
     void writeDetailedSpectrumEstimates(const char *fname);
-    void iterationOutput(const char *fnamebase, int it, double t1, double tot);
+    void iterationOutput(int it, double t1, double tot);
 };
-
-class Smoother
-{
-    #define HWSIZE 25
-    #define KS 2*HWSIZE+1
-
-    static int sigmapix;
-    static double gaussian_kernel[KS];
-    static bool isKernelSet, useMedianNoise, isSmoothingOn;
-
-public:
-    static void setParameters(int noisefactor);
-    static void setGaussianKernel();
-    static void smoothNoise(const double *n2, double *out, int size);
-
-    #undef HWSIZE
-    #undef KS
-};
-
 
 #endif
 

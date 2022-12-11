@@ -1,8 +1,12 @@
 #ifndef CHUNK_ESTIMATE_H
 #define CHUNK_ESTIMATE_H
 
+#include <memory>
 #include "io/qso_file.hpp"
-#include "gsltools/discrete_interpolation.hpp"
+#include "mathtools/discrete_interpolation.hpp"
+
+const int
+MIN_PIXELS_IN_CHUNK = 20;
 
 /*
 This object creates and computes C, S, Q, Q-slash matrices,
@@ -28,30 +32,35 @@ matrices. This scheme speeds up the algorithm.
 class Chunk
 {
 protected:
-    qio::QSOFile *qFile;
+    std::unique_ptr<qio::QSOFile> qFile;
+    int DATA_SIZE_2;
 
-    int _matrix_n, RES_INDEX, N_Q_MATRICES, fisher_index_start, nqj_eff;
-    int _kncut;
-
+    int _kncut, _matrix_n, RES_INDEX, N_Q_MATRICES, nqj_eff;
+    int fisher_index_start;
+    bool isQjSet, isSfidSet, isSfidStored, isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
-    // DATA_SIZE sized vectors. 
     // Will have finer spacing when rmat is oversampled
-    double *highres_lambda;
+    double *_matrix_lambda, *inverse_covariance_matrix; // Do not delete!
+
+    // Uninitialized arrays
+    // Oversampled resomat specifics
+    double *_finer_lambda, *_finer_matrix;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
-    double  *covariance_matrix, *inverse_covariance_matrix, 
-        *temp_matrix[2], **stored_qj, *stored_sfid;
-    bool isQjSet, isSfidSet, isSfidStored, isCovInverted;
+    double *covariance_matrix, *stored_sfid;
+    double *temp_matrix[2], **stored_qj;
+    // DATA_SIZE sized vectors. 
+    double *temp_vector, *weighted_data_vector;
 
-    DiscreteInterpolation2D  *interp2d_signal_matrix;
-    DiscreteInterpolation1D **interp_derivative_matrix;
-
+    // Initialized to 0
     // 3 TOTAL_KZ_BINS sized vectors
-    double  *dbt_estimate_before_fisher_vector[3];
-
+    std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
     // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
-    double  *fisher_matrix;
+    std::unique_ptr<double[]> fisher_matrix;
+
+    shared_interp_2d interp2d_signal_matrix;
+    std::vector<shared_interp_1d> interp_derivative_matrix;
 
     void _copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     void _findRedshiftBin();
@@ -67,7 +76,7 @@ protected:
     void _freeMatrices();
     // void _saveIndividualResult();
 
-    void _setFiducialSignalMatrix(double *&sm, bool copy=true);
+    void _setFiducialSignalMatrix(double *sm);
     void _setQiMatrix(double *qi, int i_kz);
     void _addMarginalizations();
     void _getWeightedMatrix(double *m);
@@ -79,15 +88,14 @@ public:
     int ZBIN, ZBIN_LOW, ZBIN_UPP;
 
     Chunk(const qio::QSOFile &qmaster, int i1, int i2);
-
+    Chunk(Chunk &&rhs) = delete;
+    Chunk(const Chunk &rhs) = delete;
     ~Chunk();
-
-    // Move constructor 
-    Chunk(Chunk &&rhs);
-    Chunk& operator=(const Chunk& rhs); // = default;
 
     static double getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2);
 
+    int realSize() const { return qFile->realSize(); };
+    int size() const { return qFile->size(); };
     void setCovarianceMatrix(const double *ps_estimate);
     void invertCovarianceMatrix();
 
@@ -95,7 +103,8 @@ public:
     void computeFisherMatrix();
 
     // Pass fit values for the power spectrum for numerical stability
-    void oneQSOiteration(const double *ps_estimate, double *dbt_sum_vector[3], 
+    void oneQSOiteration(const double *ps_estimate,
+        std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
         double *fisher_sum);
 
     void fprintfMatrices(const char *fname_base);

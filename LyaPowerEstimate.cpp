@@ -9,9 +9,16 @@
 #endif
 
 #include "core/global_numbers.hpp"
+#include "core/sq_table.hpp"
 #include "core/quadratic_estimate.hpp"
+#include "core/fiducial_cosmology.hpp"
+
+#include "mathtools/smoother.hpp"
+
 #include "io/logger.hpp"
 #include "io/io_helper_functions.hpp"
+#include "io/config_file.hpp"
+#include "io/bootstrap_file.hpp"
 
 int main(int argc, char *argv[])
 {
@@ -27,74 +34,78 @@ int main(int argc, char *argv[])
     if (argc<2)
     {
         fprintf(stderr, "Missing config file!\n");
+        #if defined(ENABLE_MPI)
+        MPI_Finalize();
+        #endif
         return 1;
     }
 
     const char *FNAME_CONFIG = argv[1];
-    int r = 0;
 
     gsl_set_error_handler_off();
 
-    char FNAME_LIST[300],
-         FNAME_RLIST[300],
-         INPUT_DIR[300],
-         FILEBASE_S[300], FILEBASE_Q[300],
-         OUTPUT_DIR[300],
-         OUTPUT_FILEBASE[300],
-         buf[700];
-
-    int NUMBER_OF_ITERATIONS, Nv, Nz;
-    
-    OneDQuadraticPowerEstimate *qps = NULL;
+    ConfigFile config = ConfigFile();
+    std::unique_ptr<OneDQuadraticPowerEstimate> qps;
 
     // Let all PEs to read config at the same time.
     try
     {
-        // Read variables from config file and set up bins.
-        ioh::readConfigFile( FNAME_CONFIG, FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR,
-            OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, &NUMBER_OF_ITERATIONS, &Nv, &Nz, NULL);
+        config.readFile(FNAME_CONFIG);
+        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
+        specifics::printBuildSpecifics();
+        mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
     {
         fprintf(stderr, "Error while reading config file: %s\n", e.what());
+        #if defined(ENABLE_MPI)
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
         return 1;
     }
 
     try
     {
-        LOG::LOGGER.open(OUTPUT_DIR, process::this_pe);
-
-        #if defined(ENABLE_MPI)
-        if (process::SAVE_EACH_PE_RESULT)
-            ioh::boot_saver = new ioh::BootstrapFile(OUTPUT_DIR, OUTPUT_FILEBASE);
-        MPI_Barrier(MPI_COMM_WORLD);
-        #endif
-
-
-        if (specifics::TURN_OFF_SFID)
-            LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
-
-        specifics::printBuildSpecifics();
-        specifics::printConfigSpecifics();
-        mytime::writeTimeLogHeader();
+        process::readProcess(config);
+        bins::readBins(config);
+        specifics::readSpecifics(config);
+        conv::readConversion(config);
+        fidcosmo::readFiducialCosmo(config);
     }
     catch (std::exception& e)
-    {   
-        fprintf(stderr, "Error while logging contructed: %s\n", e.what());
-        bins::cleanUpBins();
+    {
+        LOG::LOGGER.ERR("Error while parsing config file: %s\n",
+            e.what());
+        #if defined(ENABLE_MPI)
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        #endif
+        return 1;
+    }
 
+    #if defined(ENABLE_MPI)
+    try
+    {
+        if (process::SAVE_EACH_PE_RESULT)
+            ioh::boot_saver = std::make_unique<ioh::BootstrapFile>(process::FNAME_BASE,
+                bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS, process::this_pe);
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    catch (std::exception& e)
+    {
+        LOG::LOGGER.ERR("Error while openning BootstrapFile: %s\n",
+            e.what());
         #if defined(ENABLE_MPI)
         MPI_Abort(MPI_COMM_WORLD, 1);
         #endif
 
         return 1;
     }
+    #endif
 
     try
     {
         // Allocate and read look up tables
-        process::sq_private_table = new SQLookupTable(OUTPUT_DIR, FILEBASE_S, FILEBASE_Q, 
-            FNAME_RLIST, Nv, Nz);
+        process::sq_private_table = std::make_unique<SQLookupTable>(config);
 
         // Readjust allocated memory wrt save tables
         if (process::SAVE_ALL_SQ_FILES || specifics::USE_RESOLUTION_MATRIX)
@@ -104,78 +115,67 @@ int main(int argc, char *argv[])
         }
         else
             process::updateMemory(-process::sq_private_table->getOneSetMemUsage());
-
     }
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
-        bins::cleanUpBins();
-
         #if defined(ENABLE_MPI)
-        delete ioh::boot_saver;
         MPI_Abort(MPI_COMM_WORLD, 1);
         #endif
 
         return 1;
     }
-    
+
+    process::noise_smoother = std::make_unique<Smoother>(config);
+
     try
     {
-        qps = new OneDQuadraticPowerEstimate(FNAME_LIST, INPUT_DIR);
+        qps = std::make_unique<OneDQuadraticPowerEstimate>(config);
+        config.checkUnusedKeys();
     }
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while Quadratic Estimator contructed: %s\n", e.what());
-        bins::cleanUpBins();
-
-        delete process::sq_private_table;
-
         #if defined(ENABLE_MPI)
-        delete ioh::boot_saver;
         MPI_Abort(MPI_COMM_WORLD, 1);
         #endif
-        
+
         return 1;
-    } 
+    }
 
     try
     {
-        sprintf(buf, "%s/%s", OUTPUT_DIR, OUTPUT_FILEBASE);
-        qps->iterate(NUMBER_OF_ITERATIONS, buf);
+        qps->iterate();
     }
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while Iteration: %s\n", e.what());
         qps->printfSpectra();
 
-        sprintf(buf, "%s/error_dump_%s_quadratic_power_estimate_detailed.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
+        char buf[512];
+        sprintf(buf, "%s_error_dump_quadratic_power_estimate_detailed.dat", process::FNAME_BASE.c_str());
         qps->writeDetailedSpectrumEstimates(buf);
         
-        sprintf(buf, "%s/error_dump_%s_fisher_matrix.dat", OUTPUT_DIR, OUTPUT_FILEBASE);
+        sprintf(buf, "%s_error_dump_fisher_matrix.dat", process::FNAME_BASE.c_str());
         qps->writeFisherMatrix(buf);
 
-        delete qps;
-        delete process::sq_private_table;
-        bins::cleanUpBins();
         #if defined(ENABLE_MPI)
-        delete ioh::boot_saver;
         MPI_Abort(MPI_COMM_WORLD, 1);
         #endif
-        
+
         return 1;
     }
-    
-    delete qps;
-    delete process::sq_private_table;
 
-    bins::cleanUpBins();
+    qps.reset();
 
     #if defined(ENABLE_MPI)
-    delete ioh::boot_saver;
+    // Make sure bootsaver is deleted before
+    // MPI finalized
+    ioh::boot_saver.reset();
     MPI_Finalize();
     #endif
 
-    return r;
+    return 0;
 }
 
 

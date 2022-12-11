@@ -1,6 +1,9 @@
 #ifndef MATRIX_HELPER_H
 #define MATRIX_HELPER_H
 
+#include <memory>
+#include <vector>
+
 #ifdef USE_MKL_CBLAS
 #include "mkl_cblas.h"
 #else
@@ -46,11 +49,12 @@ namespace mxhelp
 
     // vT . S . v
     // Assumes S is square symmetric matrix NxN
-    double my_cblas_dsymvdot(const double *v, const double *S, int N);
+    double my_cblas_dsymvdot(const double *v, const double *S,
+        double *temp_vector, int N);
 
     void printfMatrix(const double *A, int N1, int N2);
     void fprintfMatrix(const char *fname, const double *A, int N1, int N2);
-    void fscanfMatrix(const char *fname, double *& A, int &N1, int &N2);
+    std::vector<double> fscanfMatrix(const char *fname, int &N1, int &N2);
 
     // LAPACKE functions
     // In-place invert by first LU factorization
@@ -63,20 +67,25 @@ namespace mxhelp
 
     class DiaMatrix
     {
-        double* _getDiagonal(int d);
-        double* sandwich_buffer;
+        std::unique_ptr<int[]> offsets;
+        double *values, *sandwich_buffer;
+        int size;
 
-        void _getRowIndices(int i, int *indices);
+        double* _getDiagonal(int d);
+        // void _getRowIndices(int i, int *indices);
+        void _getRowIndices(int i, std::vector<int> &indices);
 
     public:
-        int ndim, ndiags, size;
-        int *offsets;
-        double *matrix;
+        int ndim, ndiags;
 
         DiaMatrix(int nm, int ndia);
         ~DiaMatrix();
+        DiaMatrix(DiaMatrix &&rhs) = delete;
+        DiaMatrix(const DiaMatrix &rhs) = delete;
 
+        double* matrix() const { return values; };
         void getRow(int i, double *row);
+        void getRow(int i, std::vector<double> &row);
         // Swap diagonals
         void transpose();
         void deconvolve(double m); // bool byCol
@@ -102,13 +111,14 @@ namespace mxhelp
 
     class OversampledMatrix
     {
-        double *sandwich_buffer;
+        double *values, *sandwich_buffer;
+        int nvals;
 
         double* _getRow(int i);
     public:
-        int nrows, ncols, nvals;
+        int nrows, ncols;
         int nelem_per_row, oversampling;
-        double fine_dlambda, *values, *temp_highres_mat;
+        double fine_dlambda;
 
         // n1 : Number of rows.
         // nelem_prow : Number of elements per row. Should be odd.
@@ -116,7 +126,10 @@ namespace mxhelp
         // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
         OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda);
         ~OversampledMatrix();
+        OversampledMatrix(OversampledMatrix &&rhs) = delete;
+        OversampledMatrix(const OversampledMatrix &rhs) = delete;
 
+        double* matrix() const { return values; };
         int getNCols() const { return ncols; };
 
         // R . A = B
@@ -128,13 +141,10 @@ namespace mxhelp
         // B should be nrows x nrows, will be initialized to zero
         void multiplyRight(const double* A, double *B);
 
-        // Manually create and set temp_highres_mat
-        void allocateTempHighRes();
-        double* allocWaveGrid(double w1);
         // B = R . Temp . R^T
-        void sandwichHighRes(double *B);
+        void sandwichHighRes(double *B, const double *temp_highres_mat);
 
-        void freeBuffers();
+        void freeBuffer();
         double getMinMemUsage();
         double getBufMemUsage();
 
@@ -148,11 +158,9 @@ namespace mxhelp
     {
         bool is_dia_matrix;
         int ncols;
-        DiaMatrix *dia_matrix;
-        OversampledMatrix *osamp_matrix;
+        std::unique_ptr<DiaMatrix> dia_matrix;
+        std::unique_ptr<OversampledMatrix> osamp_matrix;
     public:
-        double *values, *temp_highres_mat;
-
         Resolution(int nm, int ndia);
         // n1 : Number of rows.
         // nelem_prow : Number of elements per row. Should be odd.
@@ -160,10 +168,14 @@ namespace mxhelp
         // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
         Resolution(int n1, int nelem_prow, int osamp, double dlambda);
         Resolution(const Resolution *rmaster, int i1, int i2);
-        ~Resolution();
+        Resolution(Resolution &&rhs) = default;
+        Resolution(const Resolution &rhs) = delete;
 
         int getNCols() const { return ncols; };
         bool isDiaMatrix() const { return is_dia_matrix; };
+        double* matrix() const;
+        int getNElemPerRow() const;
+
         void cutBoundary(int i1, int i2);
 
         void transpose();
@@ -171,13 +183,10 @@ namespace mxhelp
         void deconvolve(double m);
         void oversample(int osamp, double dlambda);
 
-        // Manually create and set temp_highres_mat
-        void allocateTempHighRes();
-        double* allocWaveGrid(double w1);
         // B = R . Temp . R^T
-        void sandwich(double *B);
+        void sandwich(double *B, const double *temp_highres_mat);
 
-        void freeBuffers();
+        void freeBuffer();
         double getMinMemUsage();
         double getBufMemUsage();
 

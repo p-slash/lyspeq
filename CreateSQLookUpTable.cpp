@@ -12,9 +12,10 @@
 
 #include "core/global_numbers.hpp"
 #include "core/sq_table.hpp"
-#include "io/logger.hpp"
+#include "core/fiducial_cosmology.hpp"
 
-#define ONE_SIGMA_2_FWHM 2.35482004503
+#include "io/config_file.hpp"
+#include "io/logger.hpp"
 
 int main(int argc, char *argv[])
 {
@@ -30,6 +31,9 @@ int main(int argc, char *argv[])
     if (argc<2)
     {
         fprintf(stderr, "Missing config file!\n");
+        #if defined(ENABLE_MPI)
+        MPI_Finalize();
+        #endif
         return -1;
     }
 
@@ -39,20 +43,13 @@ int main(int argc, char *argv[])
     if (argc == 3)
         force_rewrite = !(strcmp(argv[2], "--unforce") == 0);
 
-    char FNAME_RLIST[300],
-         OUTPUT_DIR[300],
-         OUTPUT_FILEBASE_S[300],
-         OUTPUT_FILEBASE_Q[300];
-
-    int Nv, Nz;
-
-    double LENGTH_V;
-
+    ConfigFile config = ConfigFile();
     try
     {
-        // Read variables from config file and set up bins.
-        ioh::readConfigFile( FNAME_CONFIG, NULL, FNAME_RLIST, NULL, OUTPUT_DIR, NULL, 
-            OUTPUT_FILEBASE_S, OUTPUT_FILEBASE_Q, NULL, &Nv, &Nz, &LENGTH_V);
+        config.readFile(FNAME_CONFIG);
+        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
+        specifics::printBuildSpecifics();
+        mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
     {
@@ -62,26 +59,18 @@ int main(int argc, char *argv[])
 
     try
     {
-        LOG::LOGGER.open(OUTPUT_DIR, process::this_pe);
-        
-        #if defined(ENABLE_MPI)
-        MPI_Barrier(MPI_COMM_WORLD);
-        #endif
-
-        if (specifics::TURN_OFF_SFID)  LOG::LOGGER.STD("Fiducial signal matrix is turned off.\n");
-        
-        specifics::printBuildSpecifics();
-        specifics::printConfigSpecifics();
+        process::readProcess(config);
+        bins::readBins(config);
+        specifics::readSpecifics(config);
+        fidcosmo::readFiducialCosmo(config);
     }
     catch (std::exception& e)
-    {   
-        fprintf(stderr, "Error while logging contructed: %s\n", e.what());
-        bins::cleanUpBins();
-
+    {
+        LOG::LOGGER.ERR("Error while parsing config file: %s\n",
+            e.what());
         #if defined(ENABLE_MPI)
         MPI_Abort(MPI_COMM_WORLD, 1);
         #endif
-
         return 1;
     }
 
@@ -89,23 +78,24 @@ int main(int argc, char *argv[])
 
     try
     {
-        process::sq_private_table = new SQLookupTable(OUTPUT_DIR, OUTPUT_FILEBASE_S, 
-            OUTPUT_FILEBASE_Q, FNAME_RLIST, Nv, Nz, LENGTH_V);
+        process::sq_private_table = std::make_unique<SQLookupTable>(config);
+        const std::vector<std::string> ignored_keys({
+            "FileNameList", "FileInputDir", "NumberOfIterations",
+            "UseChunksMeanFlux", "InputIsDeltaFlux", "MeanFluxFile",
+            "SmoothNoiseWeights", "PrecomputedFisher"
+        });
+        config.checkUnusedKeys(ignored_keys);
         process::sq_private_table->computeTables(force_rewrite);
     }
     catch (std::exception& e)
     {   
         LOG::LOGGER.ERR("Error constructing SQ Table: %s\n", e.what());
-        bins::cleanUpBins();
-
         #if defined(ENABLE_MPI)
         MPI_Abort(MPI_COMM_WORLD, 1);
         #endif
         
         return 1;
-    }
-
-    bins::cleanUpBins();       
+    }    
 
     #if defined(ENABLE_MPI)
     MPI_Finalize();

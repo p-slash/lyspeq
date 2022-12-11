@@ -1,22 +1,32 @@
 #ifndef FIDUCIAL_COSMOLOGY_H
 #define FIDUCIAL_COSMOLOGY_H
 
-#define SPEED_OF_LIGHT 299792.458
-#define LYA_REST 1215.67
-#define PI 3.14159265359
-#define ONE_SIGMA_2_FWHM 2.35482004503
+#include <string>
+#include "io/config_file.hpp"
 
 namespace conv
 {
-    extern bool FLUX_TO_DELTAF_BY_CHUNKS, INPUT_IS_DELTA_FLUX;
-
-    void setMeanFlux(const char *fname=0);
+    void setMeanFlux(const std::string &fname="");
 
     // void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size);
     void convertLambdaToRedshift(double *lambda, int size);
 
     extern void (*convertFluxToDeltaF)(const double *lambda, double *flux, double *noise, int size);
     // void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size);
+
+    const config_map conversion_default_parameters ({
+        {"UseChunksMeanFlux", "-1"}, {"InputIsDeltaFlux", "1"}, 
+        {"MeanFluxFile", ""}});
+    /* This function reads following keys from config file:
+    UseChunksMeanFlux: int
+        Forces the mean flux of each chunk to be zero when > 0. Off by default.
+    InputIsDeltaFlux: int
+        Assumes input is delta when > 0. True by default.
+    MeanFluxFile: string
+        Reads the mean flux from a file and get deltas using this mean flux.
+        Off by default.
+    */
+    void readConversion(ConfigFile &config);
 }
 
 namespace fidcosmo
@@ -28,13 +38,25 @@ namespace fidcosmo
     extern double (*fiducialPowerGrowthFactor)(double z_ij, double k_kn, double z_zm, void *params);
     extern double FID_LOWEST_K, FID_HIGHEST_K;
 
+    /* This function reads following keys from config file:
+    FiducialPowerFile: string
+        File for the fiducial power spectrum. Off by default.
+    FiducialAmplitude: double
+    FiducialSlope: double
+    FiducialCurvature: double
+    FiducialRedshiftPower: double
+    FiducialRedshiftCurvature: double
+    FiducialLorentzianLambda: double
+    */
+    void readFiducialCosmo(ConfigFile &config);
+
     // Assume binary file starts with 
     // two integers, 
     // then redshift values as doubles, 
     // k values as doubles,
     // finally power values as doubles.
     // Power is ordered for each redshift bin
-    void setFiducialPowerFromFile(const char *fname);
+    void setFiducialPowerFromFile(const std::string &fname);
 
     namespace pd13
     {
