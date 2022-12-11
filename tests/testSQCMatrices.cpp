@@ -3,6 +3,7 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#include <cassert>
 
 #include <gsl/gsl_errno.h>
 
@@ -11,45 +12,125 @@
 #endif
 
 #include "core/global_numbers.hpp"
-#include "core/matrix_helper.hpp"
+#include "core/sq_table.hpp"
 #include "core/one_qso_estimate.hpp"
+#include "core/fiducial_cosmology.hpp"
+
+#include "mathtools/matrix_helper.hpp"
+
 #include "io/logger.hpp"
 #include "io/io_helper_functions.hpp"
+#include "io/config_file.hpp"
+
+#include "tests/test_utils.hpp"
 
 class TestOneQSOEstimate: public OneQSOEstimate
 {
 public:
-    TestOneQSOEstimate(std::string fname_qso) : OneQSOEstimate(fname_qso) {};
-    ~TestOneQSOEstimate() {};
-
-    void saveMatrices(std::string out_dir)
+    TestOneQSOEstimate(const std::string &fname_qso) : OneQSOEstimate(fname_qso)
     {
-        chunks[0]._allocateMatrices();
-        process::sq_private_table->readSQforR(chunks[0].RES_INDEX, 
-            chunks[0].interp2d_signal_matrix, chunks[0].interp_derivative_matrix);
+        chunks[0]->_allocateMatrices();
+        process::sq_private_table->readSQforR(chunks[0]->RES_INDEX, 
+            chunks[0]->interp2d_signal_matrix, chunks[0]->interp_derivative_matrix);
+    };
 
-        // Save fiducial signal matrix
-        chunks[0]._setFiducialSignalMatrix(chunks[0].covariance_matrix);
-        std::string fsave(out_dir);
-        fsave+="/signal_matrix.txt";
-        mxhelp::fprintfMatrix(fsave.c_str(), chunks[0].covariance_matrix, 
-            chunks[0].qFile->size, chunks[0].qFile->size);
+    ~TestOneQSOEstimate() { chunks[0]->_freeMatrices(); };
 
-        // Save Q0 matrix
-        chunks[0]._setQiMatrix(chunks[0].temp_matrix[0], 0);
-        fsave=out_dir+"/q0_matrix.txt";
-        mxhelp::fprintfMatrix(fsave.c_str(), chunks[0].temp_matrix[0], 
-            chunks[0].qFile->size, chunks[0].qFile->size);
-
-        chunks[0]._freeMatrices();
-        delete chunks[0].interp2d_signal_matrix;
-        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-            delete chunks[0].interp_derivative_matrix[kn];
-    }
+    int test_setFiducialSignalMatrix();
+    int test_setQiMatrix();
 };
+
+int TestOneQSOEstimate::test_setFiducialSignalMatrix()
+{
+    chunks[0]->_setFiducialSignalMatrix(chunks[0]->covariance_matrix);
+
+    const std::string
+    fname_sfid_matrix = std::string(SRCDIR) + "/tests/truth/signal_matrix.txt";
+    const int ndim = 488;
+
+    std::vector<double> A, vec;
+    int nrows, ncols;
+
+    A = mxhelp::fscanfMatrix(fname_sfid_matrix.c_str(), nrows, ncols);
+    assert(nrows == ndim);
+    assert(ncols == ndim);
+    assert(chunks[0]->qFile->size() == ndim);
+
+    if (not allClose(A.data(), chunks[0]->covariance_matrix, ndim))
+    {
+        fprintf(stderr, "ERROR Chunk::_setFiducialSignalMatrix.\n");
+        // printMatrices(A.data(), chunks[0]->covariance_matrix, ndim, ndim);
+        return 1;
+    }
+
+    return 0;
+}
+
+int TestOneQSOEstimate::test_setQiMatrix()
+{
+    chunks[0]->_setQiMatrix(chunks[0]->temp_matrix[0], 0);
+
+    const std::string
+    fname_q0_matrix = std::string(SRCDIR) + "/tests/truth/q0_matrix.txt";
+    const int ndim = 488;
+
+    std::vector<double> A, vec;
+    int nrows, ncols;
+
+    A = mxhelp::fscanfMatrix(fname_q0_matrix.c_str(), nrows, ncols);
+    assert(nrows == ndim);
+    assert(ncols == ndim);
+    assert(chunks[0]->qFile->size() == ndim);
+
+    if (not allClose(A.data(), chunks[0]->temp_matrix[0], ndim))
+    {
+        fprintf(stderr, "ERROR Chunk::_setQiMatrix.\n");
+        // printMatrices(A.data(), chunks[0]->temp_matrix[0], ndim, ndim);
+        return 1;
+    }
+
+    return 0;
+}
+
+int test_SQLookupTable(const ConfigFile &config)
+{
+    int r = 0;
+    // Allocate truth
+    const std::string truth_dir = std::string(SRCDIR) + "/tests/truth/";
+    const config_map truth_sq_map ({{"OutputDir", truth_dir}});
+
+    ConfigFile truth_config(truth_sq_map);
+    truth_config.addDefaults(config);
+    auto truth_sq_table = std::make_unique<SQLookupTable>(truth_config);
+    truth_sq_table->readTables();
+
+    auto truth_sig = truth_sq_table->getSignalMatrixInterp(0);
+    auto calc_sig  = process::sq_private_table->getSignalMatrixInterp(0);
+
+    if (*calc_sig != *truth_sig)
+    {
+        fprintf(stderr, "ERROR SQLookupTable::getSignalMatrixInterp.\n");
+        r += 1;
+    }
+
+    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
+    {
+        auto truth_q = truth_sq_table->getDerivativeMatrixInterp(kn, 0);
+        auto calc_q  = process::sq_private_table->getDerivativeMatrixInterp(kn, 0);
+
+        if (*calc_q != *truth_q)
+        {
+            fprintf(stderr, "ERROR SQLookupTable::getDerivativeMatrixInterp.\n");
+            r += 1;
+        }
+    }
+
+    return r;
+}
 
 int main(int argc, char *argv[])
 {
+    int r=0;
     #if defined(ENABLE_MPI)
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &process::this_pe);
@@ -62,6 +143,9 @@ int main(int argc, char *argv[])
     if (argc<2)
     {
         fprintf(stderr, "Missing config file!\n");
+        #if defined(ENABLE_MPI)
+        MPI_Finalize();
+        #endif
         return 1;
     }
 
@@ -69,16 +153,15 @@ int main(int argc, char *argv[])
 
     gsl_set_error_handler_off();
 
-    char FNAME_LIST[300], FNAME_RLIST[300], INPUT_DIR[300], FILEBASE_S[300], FILEBASE_Q[300],
-         OUTPUT_DIR[300], OUTPUT_FILEBASE[300];
-
-    int NUMBER_OF_ITERATIONS;
+    ConfigFile config = ConfigFile();
 
     try
     {
         // Read variables from config file and set up bins.
-        ioh::readConfigFile( FNAME_CONFIG, FNAME_LIST, FNAME_RLIST, INPUT_DIR, OUTPUT_DIR,
-            OUTPUT_FILEBASE, FILEBASE_S, FILEBASE_Q, &NUMBER_OF_ITERATIONS, NULL, NULL, NULL);
+        config.readFile(FNAME_CONFIG);
+        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
+        specifics::printBuildSpecifics();
+        mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
     {
@@ -88,31 +171,30 @@ int main(int argc, char *argv[])
 
     try
     {
-        LOG::LOGGER.open(OUTPUT_DIR, process::this_pe);
+        process::readProcess(config);
+        bins::readBins(config);
+        specifics::readSpecifics(config);
+        fidcosmo::readFiducialCosmo(config);
     }
     catch (std::exception& e)
-    {   
-        fprintf(stderr, "Error while logging contructed: %s\n", e.what());
-        bins::cleanUpBins();
-
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-
+    {
+        LOG::LOGGER.ERR("Error while parsing config file: %s\n",
+            e.what());
         return 1;
     }
 
     try
     {
         // Allocate and read look up tables
-        process::sq_private_table = new SQLookupTable(OUTPUT_DIR, FILEBASE_S, FILEBASE_Q, FNAME_RLIST);
-        if (process::SAVE_ALL_SQ_FILES)
-            process::sq_private_table->readTables();
+        process::sq_private_table = std::make_unique<SQLookupTable>(config);
+        process::sq_private_table->computeTables(true);
+        process::sq_private_table->readTables();
+
+        r+=test_SQLookupTable(config);
     }
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
-        bins::cleanUpBins();
         
         #if defined(ENABLE_MPI)
         MPI_Abort(MPI_COMM_WORLD, 1);
@@ -122,16 +204,22 @@ int main(int argc, char *argv[])
     }
 
     std::vector<std::string> filepaths;
-    ioh::readList(FNAME_LIST, filepaths);
+    std::string INPUT_DIR = config.get("FileInputDir") + "/";
+    ioh::readList(config.get("FileNameList").c_str(), filepaths);
     // Add parent directory to file path
-    for (std::vector<std::string>::iterator fq = filepaths.begin(); fq != filepaths.end(); ++fq)
-    {
-        fq->insert(0, "/");
-        fq->insert(0, INPUT_DIR);
-    }
+    for (auto &fq : filepaths)
+        fq.insert(0, INPUT_DIR);
 
     TestOneQSOEstimate toqso(filepaths[0]);
-    toqso.saveMatrices(std::string(OUTPUT_DIR));
-    return 0;
+    r+=toqso.test_setFiducialSignalMatrix();
+    r+=toqso.test_setQiMatrix();
+
+    LOG::LOGGER.STD("SQ matrices work!\n");
+
+    #if defined(ENABLE_MPI)
+    MPI_Finalize();
+    #endif
+
+    return r;
 }
 

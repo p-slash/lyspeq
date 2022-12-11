@@ -6,8 +6,8 @@
 
 #include <stdexcept>
 
-#define MIN_PIXELS_IN_SPEC 20
-#define MAX_PIXELS_IN_FOREST 1000
+const int
+MAX_PIXELS_IN_FOREST = 1000;
 
 int _decideNChunks(int size, std::vector<int> &indices)
 {
@@ -17,14 +17,15 @@ int _decideNChunks(int size, std::vector<int> &indices)
 
     indices.reserve(nchunks+1);
     for (int i = 0; i < nchunks; ++i)
-        indices.push_back((size*i)/nchunks);
+        indices.push_back((int)((size*i)/nchunks));
     indices.push_back(size);
 
     return nchunks;
 }
 
-OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
+OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
 {
+    fname_qso = f_qso;
     qio::QSOFile qFile(fname_qso, specifics::INPUT_QSO_FILE);
 
     qFile.readParameters();
@@ -45,20 +46,35 @@ OneQSOEstimate::OneQSOEstimate(std::string fname_qso)
     qFile.closeFile();
 
     // Boundary cut
-    int newsize = qFile.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
+    qFile.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-    if (newsize < MIN_PIXELS_IN_SPEC)   return;
+    if (qFile.realSize() < MIN_PIXELS_IN_CHUNK)   return;
 
     // decide nchunk with lambda points array[nchunks+1]
-    int nchunks = _decideNChunks(newsize, indices);
+    int nchunks = _decideNChunks(qFile.size(), indices);
 
     // create chunk objects
     chunks.reserve(nchunks);
     for (int nc = 0; nc < nchunks; ++nc)
-        chunks.emplace_back(qFile, indices[nc], indices[nc+1]);
+    {
+        try
+        {
+            auto _chunk = std::make_unique<Chunk>(qFile, indices[nc], indices[nc+1]);
+            if (_chunk->realSize() < MIN_PIXELS_IN_CHUNK)
+            {
+                LOG::LOGGER.ERR("Skipping chunk %d of %s. Realsize %d/%d\n",
+                    nc, fname_qso.c_str(), _chunk->realSize(), _chunk->size());
+                continue;
+            }
+            chunks.push_back(std::move(_chunk));
+        }
+        catch (std::exception& e)
+        {
+            LOG::LOGGER.ERR("%s. Skipping chunk %d of %s.\n", e.what(), nc,
+                fname_qso.c_str());
+        }
+    }
 }
-
-OneQSOEstimate::~OneQSOEstimate() {}
 
 double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 {
@@ -70,9 +86,9 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 
         qtemp.readParameters();
         qtemp.readData();
-        int newsize = qtemp.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
+        qtemp.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-        if (newsize < MIN_PIXELS_IN_SPEC)
+        if (qtemp.realSize() < MIN_PIXELS_IN_CHUNK)
             return 0;
 
         double z1, z2, zm;
@@ -81,7 +97,7 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 
         // decide chunks
         std::vector<int> indices;
-        int nchunks = _decideNChunks(newsize, indices);
+        int nchunks = _decideNChunks(qtemp.size(), indices);
 
         // add compute time from chunks
         double res = 0;
@@ -97,10 +113,20 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
 }
 
 void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, 
-    double *dbt_sum_vector[3], double *fisher_sum)
+    std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
+    double *fisher_sum)
 {
-    for (auto it = chunks.begin(); it != chunks.end(); ++it)
-        it->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
+    for (auto &chunk : chunks)
+    {
+        try
+        {
+            chunk->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
+        }
+        catch (std::exception& e)
+        {
+            LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
+        }
+    }
 }
 
 

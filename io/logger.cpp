@@ -5,7 +5,6 @@
 #include <stdexcept>
 
 #include "io/io_helper_functions.hpp"
-// #include "core/global_numbers.hpp"
 
 namespace LOG
 {
@@ -45,7 +44,7 @@ Logger::~Logger()
     close();
 }
 
-void Logger::open(const char *outdir, int np)
+void Logger::open(const std::string &outdir, int np)
 {
     this_pe = np;
     std::ostringstream oss_fname(outdir, std::ostringstream::ate);
@@ -94,6 +93,7 @@ std::string Logger::getFileName(TYPE::LOG_TYPE lt) const
         case TYPE::STD:   return std_fname;
         case TYPE::ERR:   return err_fname;
         case TYPE::TIME:  return time_fname;
+        case TYPE::DEB:   return err_fname;
     }
 
     return NULL;
@@ -139,6 +139,25 @@ void Logger::TIME(const char *fmt, ...)
     va_end(args);
 }
 
+void Logger::DEB(const char *fmt, ...)
+{    
+    #ifdef DEBUG
+    if (!errfileOpened && !err_fname.empty())
+    {
+        errfile = ioh::open_file(err_fname.c_str(), "w");
+        errfileOpened = true;
+    }
+
+    va_list args;
+    va_start(args, fmt);
+
+    write_log(errfile, stderr, fmt, args);
+
+    va_end(args);
+    #else
+    const char *l __attribute__((unused)) = fmt;
+    #endif
+}
 
 
 

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include "core/chunk_estimate.hpp"
 
 /*
@@ -15,22 +16,21 @@ nchunks = specifics::NUMBER_OF_CHUNKS * size / MAX_PIXELS_IN_FOREST+1;
 class OneQSOEstimate
 {
 protected:
-    std::vector<Chunk> chunks;
+    std::string fname_qso;
+    // Emplace_back with vector<OneQSOEstimate> leaks memory!!
+    std::vector<std::unique_ptr<Chunk>> chunks;
     std::vector<int> indices;
 
 public:
-    OneQSOEstimate(std::string fname_qso);
-    ~OneQSOEstimate();
-
-    // Move constructor 
-    OneQSOEstimate(OneQSOEstimate &&rhs)
-     : chunks(std::move(rhs.chunks)), indices(std::move(rhs.indices)) {};
-    OneQSOEstimate& operator=(const OneQSOEstimate& rhs) = default;
+    OneQSOEstimate(const std::string &f_qso);
+    OneQSOEstimate(OneQSOEstimate &&rhs) = default;
+    OneQSOEstimate(const OneQSOEstimate &rhs) = delete;
 
     static double getComputeTimeEst(std::string fname_qso, int &zbin);
 
     // Pass fit values for the power spectrum for numerical stability
-    void oneQSOiteration(const double *ps_estimate, double *dbt_sum_vector[3], 
+    void oneQSOiteration(const double *ps_estimate, 
+        std::vector<std::unique_ptr<double[]>> &dbt_sum_vector, 
         double *fisher_sum);
 };
 

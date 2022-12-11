@@ -1,17 +1,19 @@
 #define MPI_VEC_TAG 2
+#define MPI_SIZE_TAG 33
 
 namespace mpisort
 {
+    // Ref: https://stackoverflow.com/questions/33618937/trouble-understanding-mpi-type-create-struct
     MPI_Datatype getPairType()
     {
         // Create MPI pair type
-        std::pair<double, int> tmp;
+        std::pair<double, int> tmp = std::make_pair(10.1, 101);
 
         int blocklengths[] = {1, 1};
         MPI_Aint disp[3];
-        MPI_Get_address(&tmp, disp);
-        MPI_Get_address(&tmp.first, disp+1);
-        MPI_Get_address(&tmp.second, disp+2);
+        MPI_Get_address(&tmp, &disp[0]);
+        MPI_Get_address(&tmp.first, &disp[1]);
+        MPI_Get_address(&tmp.second, &disp[2]);
 
         MPI_Aint offsets[2] = { MPI_Aint_diff(disp[1], disp[0]), MPI_Aint_diff(disp[2], disp[0]) };
 
@@ -23,6 +25,7 @@ namespace mpisort
         MPI_Type_get_extent(tmp_type, &lb, &extent);
         MPI_Type_create_resized(tmp_type, lb, extent, &my_mpi_pair_type);
         MPI_Type_commit(&my_mpi_pair_type);
+        MPI_Type_free(&tmp_type);
 
         return my_mpi_pair_type;
     }
@@ -39,6 +42,7 @@ namespace mpisort
         cpu_index_vec.resize(size);
 
         MPI_Bcast(cpu_index_vec.data(), size, MY_MPI_PAIR, root_pe, MPI_COMM_WORLD);
+        MPI_Type_free(&MY_MPI_PAIR);
     }
 
     void mergeSortedArrays(int height, int Npe, int id, 
@@ -72,27 +76,34 @@ namespace mpisort
             }
 
             // First recieve the size of the transmission
-            MPI_Probe(child_pe, MPI_VEC_TAG, MPI_COMM_WORLD, &status);
-            MPI_Get_count(&status, MY_MPI_PAIR, &transmission_count);
+            MPI_Recv(&transmission_count, 1, MPI_INT, child_pe, MPI_SIZE_TAG,
+                MPI_COMM_WORLD, &status);
+            // MPI_Probe(child_pe, MPI_VEC_TAG, MPI_COMM_WORLD, &status);
+            // MPI_Get_count(&status, MY_MPI_PAIR, &transmission_count);
 
             local_cpu_ind_vec.resize(local_size+transmission_count);
 
             MPI_Recv(local_cpu_ind_vec.data()+local_size, transmission_count, MY_MPI_PAIR, child_pe, 
                 MPI_VEC_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            
+
             std::inplace_merge(local_cpu_ind_vec.begin(), local_cpu_ind_vec.begin()+local_size, 
                 local_cpu_ind_vec.end());
-           
+
             // Recursive call 
             mergeSortedArrays(height+1, next_Npe, id, local_cpu_ind_vec);
         }
         else
         {
+            MPI_Send(&transmission_count, 1, MPI_INT, parent_pe, MPI_SIZE_TAG,
+                MPI_COMM_WORLD);
             // If this is the child, just send data to the parent
             MPI_Send(local_cpu_ind_vec.data(), transmission_count, MY_MPI_PAIR, parent_pe, 
                 MPI_VEC_TAG, MPI_COMM_WORLD);
         }
+
+        MPI_Type_free(&MY_MPI_PAIR);
     }
 }
 
+#undef MPI_SIZE_TAG
 #undef MPI_VEC_TAG

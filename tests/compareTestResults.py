@@ -64,7 +64,7 @@ if __name__ == '__main__':
     # TESTING SQ LOOKUP TABLES
     # Read signal tables
     print(f"{bcolors.BOLD}Comparing signal lookup tables...{bcolors.ENDC}")
-    true_signal_table = readSQTable(args.SourceDir+"/tests/truth/signal_R70000.dat")
+    true_signal_table = readSQTable(args.SourceDir+"/tests/truth/signal_R70000_dv20.0.dat")
     comp_signal_table = readSQTable(args.SourceDir+"/tests/output/signal_R70000_dv20.0.dat")
     ERR_CODE += testMaxDiffArrays(true_signal_table, comp_signal_table)
     del true_signal_table, comp_signal_table
@@ -72,10 +72,9 @@ if __name__ == '__main__':
     print(f"{bcolors.BOLD}Comparing derivative lookup tables...{bcolors.ENDC}")
     TRUTH_DIR = os.path.join(args.SourceDir, "tests/truth")
     deriv_flist = [os.path.join(TRUTH_DIR, ff)  for ff in os.listdir(TRUTH_DIR) \
-                    if ff.startswith("deriv_R70000")]
+                    if ff.startswith("deriv_R70000_dv20.0")]
     for drv_true_file in deriv_flist:
         drv_comp_file = drv_true_file.replace("truth", "output")
-        drv_comp_file = drv_comp_file.replace("R70000", "R70000_dv20.0")
         print("\tFile:", drv_comp_file)
         true_deriv_table = readSQTable(drv_true_file)
         comp_deriv_table = readSQTable(drv_comp_file)

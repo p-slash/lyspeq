@@ -45,8 +45,8 @@ public:
     // Must have the same size
     void changeData(double *newdata);
 
-    void getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins);
-    void getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins, int *bincount);
+    // void getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins);
+    // void getPowerSpectrum(double *ps, const double *kband_edges, int number_of_bins, int *bincount);
     void deconvolve(double (*f)(double, void*), void *params);
     void deconvolveSinc(double m); //, double downsampling=-1);
 

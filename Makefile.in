@@ -7,7 +7,8 @@
 # -fshort-enums -fno-common
 				
 #---------------------------------------
-DIRS=$(addprefix $(srcdir)/, core io gsltools tests)
+# WARNING: You (probably) should not change anything below
+DIRS=$(addprefix $(srcdir)/, core io mathtools tests)
 DEPDIR=$(addprefix $(srcdir)/, dep)
 $(shell mkdir -p $(DEPDIR))
 SRCEXT=cpp
@@ -16,32 +17,31 @@ VPATH=$(srcdir):$(DIRS)
 SOURCES=fiducial_cosmology.cpp global_numbers.cpp matrix_helper.cpp one_qso_estimate.cpp \
 quadratic_estimate.cpp sq_table.cpp discrete_interpolation.cpp fourier_integrator.cpp \
 interpolation.cpp interpolation_2d.cpp config_file.cpp io_helper_functions.cpp qso_file.cpp \
-sq_lookup_table_file.cpp logger.cpp real_field.cpp chunk_estimate.cpp
+sq_lookup_table_file.cpp logger.cpp real_field.cpp chunk_estimate.cpp smoother.cpp bootstrap_file.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o testSQCMatrices.o \
 test-fftconvolve.o myfitsread.o
+global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
+sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
+discrete_interpolation.o interpolation.o interpolation_2d.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
-CPPFLAGS+=-I$(srcdir) -std=gnu++11 -DHAVE_INLINE $(MORECPPFLAGS)
+CPPFLAGS+=-I$(srcdir) -std=c++17 -DHAVE_INLINE $(MORECPPFLAGS)
 CPPFLAGS+=-MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
-all: cblas_tests testSQCMatrices LyaPowerEstimate CreateSQLookUpTable myfitsread test-fftconvolve
+core: LyaPowerEstimate CreateSQLookUpTable
 
-test: all
+test: core cblas_tests testSQCMatrices
 	mkdir -p $(srcdir)/tests/output
 	
 	@echo "Testing CBLAS functions...."
-	@${exec}cblas_tests > $(srcdir)/tests/output/output_cblas.txt 
-	@diff $(srcdir)/tests/output/output_cblas.txt $(srcdir)/tests/truth/expected_cblas_output.txt
+	@${exec}cblas_tests
 
-	@echo "Producing S & Q lookup tables..."
-	@${exec}CreateSQLookUpTable $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/CreateSQLookUpTable.log
-
-	@echo "Producing interpolated S & Q matrices..."
-	@${exec}testSQCMatrices $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/testSQCMatrices.log
+	@echo "Testing S & Q lookup tables and interpolation..."
+	@${exec}testSQCMatrices $(srcdir)/tests/input/test.config
 
 	@echo "Running QMLE..."
 	@${exec}LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log
@@ -51,14 +51,17 @@ test: all
 LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-CreateSQLookUpTable: CreateSQLookUpTable.o $(OBJECTS)
+CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-cblas_tests: cblas_tests.o matrix_helper.o real_field.o
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+test_utils.o: test_utils.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" -c $^ -o $@
 
-testSQCMatrices: testSQCMatrices.o $(OBJECTS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+cblas_tests: cblas_tests.o matrix_helper.o real_field.o test_utils.o
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+testSQCMatrices: testSQCMatrices.o test_utils.o $(OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testPointRef: testPointRef.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
