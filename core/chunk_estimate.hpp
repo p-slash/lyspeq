@@ -35,7 +35,7 @@ protected:
     std::unique_ptr<qio::QSOFile> qFile;
     int DATA_SIZE_2;
 
-    int _kncut, _matrix_n, RES_INDEX, N_Q_MATRICES, nqj_eff;
+    int _kncut, _matrix_n, RES_INDEX, N_Q_MATRICES;
     int fisher_index_start;
     bool isQjSet, isSfidSet, isSfidStored, isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
@@ -49,7 +49,7 @@ protected:
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
     double *covariance_matrix, *stored_sfid;
-    double *temp_matrix[2], **stored_qj;
+    double *temp_matrix[2], *stored_qj;
     // DATA_SIZE sized vectors. 
     double *temp_vector, *weighted_data_vector;
 
@@ -67,10 +67,8 @@ protected:
     void _setNQandFisherIndex();
     void _setStoredMatrices();
     bool _isAboveNyquist(int i_kz);
-    bool _isQikzStored(int i_kz)
-    { return isQjSet && (i_kz >= (N_Q_MATRICES - nqj_eff)); };
     double* _getStoredQikz(int i_kz) const
-    { return stored_qj[N_Q_MATRICES-i_kz-1]; };
+    { return stored_qj[(N_Q_MATRICES-i_kz-1) * DATA_SIZE_2]; };
 
     void _allocateMatrices();
     void _freeMatrices();

@@ -1,7 +1,6 @@
 #include "mathtools/matrix_helper.hpp"
 #include "mathtools/real_field.hpp"
 
-#include <stdexcept>
 #include <algorithm>
 #include <limits>
 #include <utility>
