@@ -3,12 +3,45 @@
 
 #include <memory>
 #include <vector>
+#include <stdexcept>
 
 #ifdef USE_MKL_CBLAS
 #include "mkl_cblas.h"
 #else
 #include "cblas.h"
 #endif
+
+#include "cuda_runtime.h"
+#include "cublas_v2.h"
+
+class CuHelper
+{
+    cudaError_t cudaStat;
+    cublasStatus_t stat;
+    cublasHandle_t handle;
+public:
+    CuHelper() {
+        stat = cublasCreate(&handle);
+        if (stat != CUBLAS_STATUS_SUCCESS)
+            throw std::runtime_error("CUBLAS initialization failed.\n");
+    };
+    ~CuHelper() { cublasDestroy(handle); };
+    
+    // Trace of A.B
+    // Assumes A and B square matrices NxN, and at least one to be symmetric.
+    // No stride or whatsoever. Continous allocation
+    // Uses BLAS dot product.
+    inline
+    double trace_dsymm(const double *A, const double *B, int N) {
+        double result;
+        stat = cublasDdot(handle, N, A, 1, B, 1, &result);
+        if (stat != CUBLAS_STATUS_SUCCESS)
+            throw std::runtime_error("CUBLAS trace_dsymm/cublasDdot failed.\n");
+        return result;
+    }
+};
+
+extern std::unique_ptr<CuHelper> cuhelper;
 
 namespace mxhelp
 {

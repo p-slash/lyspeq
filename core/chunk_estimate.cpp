@@ -83,8 +83,6 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     // Keep noise as error squared (variance)
     std::for_each(qFile->noise(), qFile->noise()+size(), [](double &n) { n*=n; });
 
-    nqj_eff = 0;
-
     // Set up number of matrices, index for Fisher matrix
     _setNQandFisherIndex();
 
@@ -176,23 +174,19 @@ void Chunk::_setStoredMatrices()
     if (remain_mem > (3+N_Q_MATRICES)*size_m1)
     {
         remain_mem -= (3+N_Q_MATRICES)*size_m1;
-        nqj_eff     = N_Q_MATRICES;
 
         if (remain_mem > size_m1)
             isSfidStored = !specifics::TURN_OFF_SFID;
     }
     else
-        nqj_eff = remain_mem / size_m1 - 3;
-
-    if (nqj_eff < 0)  nqj_eff = 0;
-    else              stored_qj = new double*[nqj_eff];
-
-    if (nqj_eff != N_Q_MATRICES)
+    {
         LOG::LOGGER.ERR("===============\n""Not all matrices are stored: %s\n"
-            "#stored: %d vs #required:%d.\n""ND: %d, M1: %.1f MB. "
+            "#required:%d.\n""ND: %d, M1: %.1f MB. "
             "Avail mem after R & SQ subtracted: %.1lf MB\n""===============\n", 
-            qFile->fname.c_str(), nqj_eff, N_Q_MATRICES, size(), size_m1, 
+            qFile->fname.c_str(), N_Q_MATRICES, size(), size_m1, 
             remain_mem);
+        throw std::runtime_error("Not all matrices are stored.\n");
+    }
 
     isQjSet   = false;
     isSfidSet = false;
@@ -208,8 +202,6 @@ bool Chunk::_isAboveNyquist(int i_kz)
 Chunk::~Chunk()
 {
     process::updateMemory(getMinMemUsage());
-    if (nqj_eff > 0)
-        delete [] stored_qj;
 }
 
 double Chunk::getMinMemUsage()
@@ -312,7 +304,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     int kn, zm;
     double v_ij, z_ij;
 
-    if (_isQikzStored(i_kz))
+    if (isQjSet)
     {
         t_interp = 0;
         double *ptr = _getStoredQikz(i_kz);
@@ -387,13 +379,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     {
         if (_isAboveNyquist(i_kz)) continue;
 
-        if (_isQikzStored(i_kz))
-            Q_ikz_matrix = _getStoredQikz(i_kz);
-        else
-        {
-            Q_ikz_matrix = temp_matrix[0];
-            _setQiMatrix(Q_ikz_matrix, i_kz);
-        }
+        Q_ikz_matrix = _getStoredQikz(i_kz);
 
         cblas_daxpy(DATA_SIZE_2, ps_estimate[i_kz + fisher_index_start], 
             Q_ikz_matrix, 1, covariance_matrix, 1);
@@ -534,15 +520,9 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
             continue;
         #endif
 
-        if (_isQikzStored(j_kz))
-            Q_jkz_matrix = _getStoredQikz(j_kz);
-        else
-        {
-            Q_jkz_matrix = temp_matrix[1];
-            _setQiMatrix(Q_jkz_matrix, j_kz);
-        }
+        Q_jkz_matrix = _getStoredQikz(j_kz);
 
-        temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size());
+        temp = 0.5 * cuhelper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size());
 
         int ind_ij = (i_kz + fisher_index_start) 
                 + bins::TOTAL_KZ_BINS * (j_kz + fisher_index_start),
@@ -632,19 +612,19 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 
     _allocateMatrices();
 
-    // Preload last nqj_eff matrices
+    // Preload matrices
     // 0 is the last matrix
     // i_kz = N_Q_MATRICES - j_kz - 1
     LOG::LOGGER.DEB("Setting qi matrices\n");
 
-    for (int j_kz = 0; j_kz < nqj_eff; ++j_kz)
+    for (int j_kz = 0; j_kz < N_Q_MATRICES; ++j_kz)
     {
         if (_isAboveNyquist(N_Q_MATRICES - j_kz - 1)) continue;
 
-        _setQiMatrix(stored_qj[j_kz], N_Q_MATRICES - j_kz - 1);
+        _setQiMatrix(&stored_qj[j_kz*DATA_SIZE_2], N_Q_MATRICES-j_kz-1);
     }
 
-    if (nqj_eff > 0)    isQjSet = true;
+    isQjSet = true;
 
     // Preload fiducial signal matrix if memory allows
     if (isSfidStored)
@@ -711,8 +691,7 @@ void Chunk::_allocateMatrices()
     temp_vector = new double[size()];
     weighted_data_vector = new double[size()];
     
-    for (int i = 0; i < nqj_eff; ++i)
-        stored_qj[i] = new double[DATA_SIZE_2];
+    cudaMallocManaged(&stored_qj, N_Q_MATRICES*DATA_SIZE_2*sizeof(double));
 
     if (isSfidStored)
         stored_sfid = new double[DATA_SIZE_2];
@@ -770,8 +749,7 @@ void Chunk::_freeMatrices()
     delete [] weighted_data_vector;
 
     LOG::LOGGER.DEB("Free storedqj\n");
-    for (int i = 0; i < nqj_eff; ++i)
-        delete [] stored_qj[i];
+    cudaFree(stored_qj);
 
     LOG::LOGGER.DEB("Free stored sfid\n");
     if (isSfidStored)
