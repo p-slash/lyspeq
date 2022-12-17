@@ -19,10 +19,7 @@ double _getMediandv(const double *wave, int size)
     std::adjacent_difference(wave, wave+size, std::back_inserter(temp_arr), _calcdv);
     std::sort(temp_arr.begin()+1, temp_arr.end());
 
-    double median = temp_arr[1+(size-1)/2];
-    median = round(median/5)*5;
-
-    return  median;
+    return temp_arr[1+(size-1)/2];
 }
 
 double _getMediandlambda(const double *wave, int size)
@@ -34,9 +31,7 @@ double _getMediandlambda(const double *wave, int size)
     std::adjacent_difference(wave, wave+size,  std::back_inserter(temp_arr));
     std::sort(temp_arr.begin()+1, temp_arr.end());
 
-    double median = temp_arr[1+(size-1)/2];
-
-    return median;
+    return temp_arr[1+(size-1)/2];
 }
 
 // ============================================================================
@@ -413,7 +408,7 @@ void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resoluti
     if (_isHeaderKey("DLL"))
     {
         fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
-        dv_kms = round(dv_kms*SPEED_OF_LIGHT*LN10/5)*5;
+        dv_kms = dv_kms*SPEED_OF_LIGHT*LN10;
     }
     else
         dv_kms = -1;

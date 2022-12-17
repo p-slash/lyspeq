@@ -61,7 +61,7 @@ void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
 inline
 int _getMaxKindex(double knyq)
 {
-    auto it = std::lower_bound(bins::KBAND_CENTERS.begin(), bins::KBAND_CENTERS.end(), 0.5*knyq);
+    auto it = std::lower_bound(bins::KBAND_CENTERS.begin(), bins::KBAND_CENTERS.end(), knyq);
     return std::distance(bins::KBAND_CENTERS.begin(), it);
 }
 

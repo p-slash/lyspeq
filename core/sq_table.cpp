@@ -1,5 +1,6 @@
 #include "core/sq_table.hpp"
 
+#include <cmath>
 #include <cstdio>
 #include <algorithm> // std::copy
 #include <stdexcept>
@@ -392,8 +393,9 @@ int SQLookupTable::getIndex4DerivativeInterpolation(int kn, int r_index) const
 
 int SQLookupTable::findSpecResIndex(int spec_res, double dv) const
 {
+    double rounded_dv = round(dv/5)*5;
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r)
-        if (R_DV_VALUES[r].first == spec_res && fabs(dv - R_DV_VALUES[r].second)<0.01)
+        if (R_DV_VALUES[r].first == spec_res && fabs(rounded_dv - R_DV_VALUES[r].second)<0.01)
             return r;
 
     return -1;
