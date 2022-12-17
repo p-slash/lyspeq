@@ -14,11 +14,33 @@
 #include "cuda_runtime.h"
 #include "cublas_v2.h"
 
+// namespace cudaspace {
+//     template<class T>
+//     T* myCudaMalloc(int N) {
+//         cudaError_t cudaStat;
+//         T* devPtr;
+//         cudaStat = cudaMalloc((void**)&devPtr, N*sizeof(T));
+//         if (cudaStat != cudaSuccess)
+//             throw std::runtime_error("cudaMalloc failed.\n");
+//         return devPtr;
+//     }
+
+//     template<class T>
+//     void myCudaFree(T* devPtr) { cudaFree(devPtr); }
+
+//     template<class T[]>
+//     auto make_unique_cuda<T[]>(int N) {
+//         std::unique_ptr<T*, decltype(&myCudaFree)> uptr(myCudaMalloc(N), &myCudaFree);
+//         return std::move(uptr);
+//     }
+// }
+
 class CuHelper
 {
     cudaError_t cudaStat;
     cublasStatus_t stat;
     cublasHandle_t handle;
+
 public:
     CuHelper() {
         stat = cublasCreate(&handle);
@@ -26,12 +48,12 @@ public:
             throw std::runtime_error("CUBLAS initialization failed.\n");
     };
     ~CuHelper() { cublasDestroy(handle); };
-    
+
     // Trace of A.B
     // Assumes A and B square matrices NxN, and at least one to be symmetric.
     // No stride or whatsoever. Continous allocation
     // Uses BLAS dot product.
-    inline
+    __inline__
     double trace_dsymm(const double *A, const double *B, int N) {
         double result;
         stat = cublasDdot(handle, N, A, 1, B, 1, &result);

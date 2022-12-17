@@ -68,7 +68,7 @@ protected:
     void _setStoredMatrices();
     bool _isAboveNyquist(int i_kz);
     double* _getStoredQikz(int i_kz) const
-    { return stored_qj[(N_Q_MATRICES-i_kz-1) * DATA_SIZE_2]; };
+    { return stored_qj + (N_Q_MATRICES-i_kz-1) * DATA_SIZE_2; };
 
     void _allocateMatrices();
     void _freeMatrices();
