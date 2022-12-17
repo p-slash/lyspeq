@@ -4,6 +4,8 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ `dv` of of `QSOFile` is not rounded to nearest five.
++ `Chunk` estimate calculates until Nyquist not half of it.
 + Continuum marginalization now has lambda polynomial templates. New keywords in config are `ContinuumLambdaMargOrder` for lambda polynomials, `ContinuumLogLambdaMargOrder` for log lambda polynomials.
 + `DynamicChunkNumber` to dynamically chunk spectrum into multiple segments. This is achieved by moving quadratic estimator to a new class `Chunk` and using `OneQSOEstimate` as a wrapper for multiple chunks instead. `MAX_PIXELS_IN_FOREST 1000` due to typical performance limitations. If a given spectrum has more pixels than this, resulting `nchunks` will be greater than `DynamicChunkNumber`.
 + Continuum marginalization is now implemented with Sherman-Morrison identity. New option `ContinuumMargOrder` decides the maximum order of `ln lambda`. E.g., `ContinuumMargOrder 1` will marginalize out constant and slope. Old options `ContinuumMargAmp` and `ContinuumMargDerv` are removed.
@@ -224,9 +226,9 @@ When using this format, construct the file list using HDU numbers of each chunk.
         fwhm_resolution = int(SPEED_OF_LIGHT / MEANRESO / ONE_SIGMA_2_FWHM / 100 + 0.5) * 100;
 
 + `MEANSNR` is read, but not used.
-+ Pixel spacing is read from `DLL` (difference of log10 lambda), then converted and rounded up to km/s units.
++ Pixel spacing is read from `DLL` (difference of log10 lambda), then converted to km/s units.
 
-        dv_kms = round(DLL * SPEED_OF_LIGHT * ln(10) / 5) * 5;
+        dv_kms = DLL * SPEED_OF_LIGHT * ln(10);
 
 **Following data are read from the data tables:**
 
