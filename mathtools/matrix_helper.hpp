@@ -17,16 +17,23 @@
 class CuHelper
 {
     // cudaError_t cudaStat;
-    cublasStatus_t stat;
+    cublasStatus_t blas_stat;
+    cusolverStatus_t solver_stat;
 
 public:
-    cublasHandle_t handle;
+    cublasHandle_t blas_handle;
+    cusolverDnHandle_t solver_handle;
+
     CuHelper() {
-        stat = cublasCreate(&handle);
-        if (stat != CUBLAS_STATUS_SUCCESS)
+        blas_stat = cublasCreate(&blas_handle);
+        if (blas_stat != CUBLAS_STATUS_SUCCESS)
             throw std::runtime_error("CUBLAS initialization failed.\n");
+
+        solver_stat = cusolverDnCreate(&solver_handle);
+        if (solver_handle != CUSOLVER_STATUS_SUCCESS)
+            throw std::runtime_error("CUSOLVER initialization failed.\n");
     };
-    ~CuHelper() { cublasDestroy(handle); };
+    ~CuHelper() { cublasDestroy(blas_handle); cusolverDnDestroy(solver_handle); };
 
     // Trace of A.B
     // Assumes A and B square matrices NxN, and at least one to be symmetric.
@@ -34,16 +41,16 @@ public:
     // Uses BLAS dot product.
     double trace_dsymm(const double *A, const double *B, int N) {
         double result;
-        stat = cublasDdot(handle, N*N, A, 1, B, 1, &result);
-        if (stat != CUBLAS_STATUS_SUCCESS)
+        blas_stat = cublasDdot(blas_handle, N*N, A, 1, B, 1, &result);
+        if (blas_stat != CUBLAS_STATUS_SUCCESS)
             throw std::runtime_error("trace_dsymm/cublasDdot failed.\n");
         return result;
     }
 
     double trace_ddiagmv(const double *A, const double *B, int N) {
         double result;
-        stat = cublasDdot(handle, N, A, N+1, B, 1, &result);
-        if (stat != CUBLAS_STATUS_SUCCESS)
+        blas_stat = cublasDdot(blas_handle, N, A, N+1, B, 1, &result);
+        if (blas_stat != CUBLAS_STATUS_SUCCESS)
             throw std::runtime_error("trace_ddiagmv/cublasDdot failed.\n");
         return result;
     }
@@ -53,15 +60,15 @@ public:
     double my_cublas_dsymvdot(const double *v, const double *S, double *temp_vector, int N) {
         dsmyv(CUBLAS_FILL_MODE_UPPER, N, 1., S, N, v, 1, 0, temp_vector, 1);
         double result;
-        stat = cublasDdot(handle, N, v, 1, temp_vector, 1, &result);
-        if (stat != CUBLAS_STATUS_SUCCESS)
+        blas_stat = cublasDdot(blas_handle, N, v, 1, temp_vector, 1, &result);
+        if (blas_stat != CUBLAS_STATUS_SUCCESS)
             throw std::runtime_error("my_cublas_dsymvdot/cublasDdot failed.\n");
         return result;
     }
 
     void dcopy(const double *x, double *y, int N) {
-        stat = cublasDcopy(handle, N, x, 1, y, 1);
-        if (stat != CUBLAS_STATUS_SUCCESS)
+        blas_stat = cublasDcopy(blas_handle, N, x, 1, y, 1);
+        if (blas_stat != CUBLAS_STATUS_SUCCESS)
             throw std::runtime_error("cublasDcopy failed.\n");
     }
 
@@ -69,8 +76,8 @@ public:
                 const double *x, double *y,
                 int N,
                 int incx=1, int incy=1) {
-        stat = cublasDaxpy(handle, N, &alpha, x, incx, y, incy);
-        if (stat != CUBLAS_STATUS_SUCCESS)
+        blas_stat = cublasDaxpy(blas_handle, N, &alpha, x, incx, y, incy);
+        if (blas_stat != CUBLAS_STATUS_SUCCESS)
             throw std::runtime_error("cublasDaxpy failed.\n");
     }
     
@@ -79,11 +86,11 @@ public:
                const double *A, int lda,
                const double *B, int ldb,
                double beta, double *C, int ldc) {
-        stat = cublasDsymm(handle, side, uplo,
+        blas_stat = cublasDsymm(blas_handle, side, uplo,
             m, n, &alpha,
             A, lda, B, ldb,
             &beta, C, ldc);
-        if (stat != CUBLAS_STATUS_SUCCESS)
+        if (blas_stat != CUBLAS_STATUS_SUCCESS)
             throw std::runtime_error("cublasDsymm failed.\n");
     }
 
@@ -92,12 +99,16 @@ public:
                 const double *A, int lda,
                 const double *x, int incx, double beta,
                 double *y, int incy) {
-        stat = cublasDsymv(handle, uplo,
+        blas_stat = cublasDsymv(blas_handle, uplo,
             n, &alpha, A, lda, x, incx,
             &beta, y, incy);
-        if (stat != CUBLAS_STATUS_SUCCESS)
+        if (blas_stat != CUBLAS_STATUS_SUCCESS)
             throw std::runtime_error("cublasDsymv failed.\n");
     }
+
+    // In-place invert by Cholesky factorization
+    void invert_cholesky(double *A, int N);
+    void svd(double *A, double *svals, int m, int n);
 };
 
 extern std::unique_ptr<CuHelper> cuhelper;

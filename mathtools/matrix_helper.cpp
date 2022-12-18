@@ -66,6 +66,58 @@ double _integrated_window_fn_v(double x, double R, double a)
     return (R/a/MY_SQRT_2) * (_integral_erf(xr+ar) + _integral_erf(xr-ar) - 2*_integral_erf(xr));
 }
 
+void CuHelper::invert_cholesky(double *A, int N) {
+    int lworkf = 0, lworki = 0; /* size of workspace */
+    double *d_work = nullptr;   /* device workspace for getrf */
+    /* If devInfo = 0, the Cholesky factorization is successful.
+    if devInfo = -i, the i-th parameter is wrong (not counting handle).
+    if devInfo = i, the leading minor of order i is not positive definite. */
+    __device__ int devInfo = -1;
+
+    solver_stat = cusolverDnDpotrf_bufferSize(
+        solver_handle, CUBLAS_FILL_MODE_UPPER,
+        N, A, N, &lworkf);
+    if (solver_stat != CUSOLVER_STATUS_SUCCESS)
+        throw std::runtime_error("cusolverDnDpotrf_bufferSize failed.\n");
+
+    cudaMalloc(&d_work, lworkf*sizeof(double));
+    solver_stat = cusolverDnDpotrf(
+        solver_handle, CUBLAS_FILL_MODE_UPPER,
+        N, A, N, d_work, lworkf, &devInfo);
+    if (solver_stat != CUSOLVER_STATUS_SUCCESS)
+        throw std::runtime_error("cusolverDnDpotrf failed.\n");
+    if (devInfo != 0)
+        throw std::runtime_error("Cholesky factorization is not successful.\n");
+
+    int lworki = 0;
+    solver_stat = cusolverDnDpotri_bufferSize(
+        solver_handle, CUBLAS_FILL_MODE_UPPER,
+        N, A, N, &lworki);
+    if (solver_stat != CUSOLVER_STATUS_SUCCESS)
+        throw std::runtime_error("cusolverDnDpotri_bufferSize failed.\n");
+
+    if (lworki > lworkf) {
+        cudaFree(d_work);
+        cudaMalloc(&d_work, lworki*sizeof(double));
+    }
+
+    solver_stat = cusolverDnDpotri(
+        solver_handle, CUBLAS_FILL_MODE_UPPER,
+        N, A, N, d_work, lworki, &devInfo);
+    if (solver_stat != CUSOLVER_STATUS_SUCCESS)
+        throw std::runtime_error("cusolverDnDpotri failed.\n");
+    if (devInfo != 0)
+        throw std::runtime_error("Cholesky inversion is not successful.\n");
+
+    cudaFree(d_work);
+}
+
+void CuHelper::svd(double *A, double *svals, int m, int n) {
+    int lwork = 0;
+    solver_stat = cusolverDnDgesvd_bufferSize(
+        solver_handle, m, n, &lwork);
+}
+
 namespace mxhelp
 {
     void copyUpperToLower(double *A, int N)
