@@ -162,24 +162,15 @@ void Chunk::_setNQandFisherIndex()
 void Chunk::_setStoredMatrices()
 {
     double size_m1 = (double)sizeof(double) * DATA_SIZE_2 / 1048576.; // in MB
-    double remain_mem = process::MEMORY_ALLOC;
+    double remain_mem = process::MEMORY_ALLOC,
+           needed_mem = (3+N_Q_MATRICES+(!specifics::TURN_OFF_SFID))*size_m1
 
     // Resolution matrix needs another temp storage.
     if (specifics::USE_RESOLUTION_MATRIX)
         remain_mem -= qFile->Rmat->getBufMemUsage();
 
-    isSfidStored = false;
-
-    // Need at least 3 matrices as temp
-    if (remain_mem > (3+N_Q_MATRICES)*size_m1)
-    {
-        remain_mem -= (3+N_Q_MATRICES)*size_m1;
-
-        if (remain_mem > size_m1)
-            isSfidStored = !specifics::TURN_OFF_SFID;
-    }
-    else
-    {
+    // Need at least 3 matrices as temp one for sfid
+    if (remain_mem < needed_mem) {
         LOG::LOGGER.ERR("===============\n""Not all matrices are stored: %s\n"
             "#required:%d.\n""ND: %d, M1: %.1f MB. "
             "Avail mem after R & SQ subtracted: %.1lf MB\n""===============\n", 
@@ -189,7 +180,6 @@ void Chunk::_setStoredMatrices()
     }
 
     isQjSet   = false;
-    isSfidSet = false;
 }
 
 bool Chunk::_isAboveNyquist(int i_kz)
@@ -265,32 +255,25 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
     double t = mytime::timer.getTime();
     double v_ij, z_ij;
 
-    if (isSfidSet)
-    {
-        std::copy(stored_sfid, stored_sfid + DATA_SIZE_2, sm);
-    }
-    else
-    {
-        double *inter_mat = (_finer_matrix != NULL) ? _finer_matrix : sm;
-        double *ptr = inter_mat, *li=_matrix_lambda;
+    double *inter_mat = (_finer_matrix != NULL) ? _finer_matrix : sm;
+    double *ptr = inter_mat, *li=_matrix_lambda;
 
-        for (int row = 0; row < _matrix_n; ++row, ++li)
+    for (int row = 0; row < _matrix_n; ++row, ++li)
+    {
+        ptr += row;
+
+        for (double *lj=li; lj != (_matrix_lambda+_matrix_n); ++lj, ++ptr)
         {
-            ptr += row;
+            _getVandZ(*li, *lj, v_ij, z_ij);
 
-            for (double *lj=li; lj != (_matrix_lambda+_matrix_n); ++lj, ++ptr)
-            {
-                _getVandZ(*li, *lj, v_ij, z_ij);
-
-                *ptr = interp2d_signal_matrix->evaluate(z_ij, v_ij);
-            }
+            *ptr = interp2d_signal_matrix->evaluate(z_ij, v_ij);
         }
-
-        mxhelp::copyUpperToLower(inter_mat, _matrix_n);
-
-        if (specifics::USE_RESOLUTION_MATRIX)
-            qFile->Rmat->sandwich(sm, inter_mat);
     }
+
+    mxhelp::copyUpperToLower(inter_mat, _matrix_n);
+
+    if (specifics::USE_RESOLUTION_MATRIX)
+        qFile->Rmat->sandwich(sm, inter_mat);
     
     t = mytime::timer.getTime() - t;
 
@@ -370,26 +353,26 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 {
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
-        _setFiducialSignalMatrix(covariance_matrix);
+        cuhelper.dcopy(stored_sfid, covariance_matrix, DATA_SIZE_2);
     else
-        std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
+        cudaMemset(covariance_matrix, 0, DATA_SIZE_2*sizeof(double));
 
-    double *Q_ikz_matrix;
+    __device__ double *Q_ikz_matrix;
+    double *alpha = ps_estimate + fisher_index_start;
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
     {
         if (_isAboveNyquist(i_kz)) continue;
 
         Q_ikz_matrix = _getStoredQikz(i_kz);
 
-        cblas_daxpy(DATA_SIZE_2, ps_estimate[i_kz + fisher_index_start], 
-            Q_ikz_matrix, 1, covariance_matrix, 1);
+        cuhelper.daxpy(alpha+i_kz, Q_ikz_matrix, covariance_matrix, DATA_SIZE_2);
     }
 
     // add noise matrix diagonally
     // but smooth before adding
     process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
-    cblas_daxpy(size(), 1., temp_vector, 1,
-        covariance_matrix, size()+1);
+    double _alpha=1.;
+    cuhelper.daxpy(&_alpha, temp_vector, covariance_matrix, size(), 1, size()+1);
 
     isCovInverted = false;
 
@@ -488,14 +471,12 @@ void Chunk::_getWeightedMatrix(double *m)
     double t = mytime::timer.getTime();
 
     //C-1 . Q
-    // std::fill_n(temp_matrix[1], DATA_SIZE_2, 0);
-    cblas_dsymm(CblasRowMajor, CblasLeft, CblasUpper,
+    cuhelper.dsymm(CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER,
         size(), size(), 1., inverse_covariance_matrix, size(),
         m, size(), 0, temp_matrix[1], size());
 
     //C-1 . Q . C-1
-    // std::fill_n(m, DATA_SIZE_2, 0);
-    cblas_dsymm(CblasRowMajor, CblasRight, CblasUpper,
+    cuhelper.dsymm(CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER,
         size(), size(), 1., inverse_covariance_matrix, size(),
         temp_matrix[1], size(), 0, m, size());
 
@@ -506,7 +487,7 @@ void Chunk::_getWeightedMatrix(double *m)
 
 void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 {
-    double temp, *Q_jkz_matrix, t = mytime::timer.getTime();
+    double temp=0, t = mytime::timer.getTime();
     
     // Now compute Fisher Matrix
     for (int j_kz = i_kz; j_kz < N_Q_MATRICES; ++j_kz)
@@ -520,7 +501,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
             continue;
         #endif
 
-        Q_jkz_matrix = _getStoredQikz(j_kz);
+        __device__ double *Q_jkz_matrix = _getStoredQikz(j_kz);
 
         temp = 0.5 * cuhelper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size());
 
@@ -540,16 +521,15 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int i_kz)
 
 void Chunk::computePSbeforeFvector()
 {
-    double *Q_ikz_matrix = temp_matrix[0], *Sfid_matrix;
+    __device__ double *Q_ikz_matrix = temp_matrix[0], *dev_noise;
     std::vector<double> dbt_vec(3, 0);
 
-    if (isSfidSet)
-        Sfid_matrix = stored_sfid;
-    else
-        Sfid_matrix = temp_matrix[1];
+    // Move qfile noise to gpu
+    cudaMalloc(&dev_noise, size()*sizeof(double));
+    cudaMemcpy(dev_noise, qFile->noise(), size()*sizeof(double), cudaMemcpyHostToDevice);
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
-    cblas_dsymv(CblasRowMajor, CblasUpper, size(), 1.,
+    cuhelper.dsmyv(CUBLAS_FILL_MODE_UPPER, size(), 1.,
         inverse_covariance_matrix, 
         size(), qFile->delta(), 1, 0, weighted_data_vector, 1);
 
@@ -560,13 +540,13 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("   -> set qi   ");
         // Set derivative matrix ikz
-        _setQiMatrix(Q_ikz_matrix, i_kz);
+        cuhelper.dcopy(_getStoredQikz(i_kz), Q_ikz_matrix, DATA_SIZE_2);
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        dbt_vec[0] = mxhelp::my_cblas_dsymvdot(weighted_data_vector, 
+        dbt_vec[0] = cuhelper.my_cublas_dsymvdot(weighted_data_vector, 
             Q_ikz_matrix, temp_vector, size());
-         LOG::LOGGER.DEB("-> dk (%.1e)   ", dbt_vec[0]);
+        LOG::LOGGER.DEB("-> dk (%.1e)   ", dbt_vec[0]);
 
         LOG::LOGGER.DEB("-> weighted Q   ");
         // Get weighted derivative matrix ikz: C-1 Qi C-1
@@ -574,18 +554,14 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        dbt_vec[1] = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise(), 
-            size());
+        dbt_vec[1] = cuhelper.trace_ddiagmv(Q_ikz_matrix, dev_noise, size());
 
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
         {
-            if (!isSfidSet)
-                _setFiducialSignalMatrix(Sfid_matrix);
-
             LOG::LOGGER.DEB("-> tk   ");
             // Tr(C-1 Qi C-1 Sfid)
-            dbt_vec[2] = mxhelp::trace_dsymm(Q_ikz_matrix, Sfid_matrix, size());
+            dbt_vec[2] = cuhelper.trace_dsymm(Q_ikz_matrix, stored_sfid, size());
         }
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
@@ -597,6 +573,7 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("\n");
     }
+    cudaFree(dev_noise);
 }
 
 void Chunk::oneQSOiteration(const double *ps_estimate, 
@@ -627,11 +604,8 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     isQjSet = true;
 
     // Preload fiducial signal matrix if memory allows
-    if (isSfidStored)
-    {
+    if (!specifics::TURN_OFF_SFID)
         _setFiducialSignalMatrix(stored_sfid);
-        isSfidSet = true;
-    }
 
     LOG::LOGGER.DEB("Setting cov matrix\n");
 
@@ -683,18 +657,18 @@ void Chunk::_allocateMatrices()
 
     fisher_matrix = std::make_unique<double[]>(bins::FISHER_SIZE);
 
-    covariance_matrix = new double[DATA_SIZE_2];
+    cudaMalloc(&covariance_matrix, DATA_SIZE_2*sizeof(double));
 
     for (int i = 0; i < 2; ++i)
-        temp_matrix[i] = new double[DATA_SIZE_2];
+        cudaMallocManaged(&temp_matrix[i], DATA_SIZE_2*sizeof(double));
 
-    temp_vector = new double[size()];
-    weighted_data_vector = new double[size()];
-    
+    cudaMallocManaged(&temp_vector, size()*sizeof(double));
+    cudaMalloc(&weighted_data_vector, size()*sizeof(double));
+
     cudaMallocManaged(&stored_qj, N_Q_MATRICES*DATA_SIZE_2*sizeof(double));
 
-    if (isSfidStored)
-        stored_sfid = new double[DATA_SIZE_2];
+    if (!specifics::TURN_OFF_SFID)
+        cudaMallocManaged(&stored_sfid, DATA_SIZE_2*sizeof(double));
 
     // Create a temp highres lambda array
     if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
@@ -720,7 +694,6 @@ void Chunk::_allocateMatrices()
     }
 
     isQjSet   = false;
-    isSfidSet = false;
 
     // This function allocates new signal & deriv matrices 
     // if process::SAVE_ALL_SQ_FILES=false 
@@ -739,21 +712,21 @@ void Chunk::_freeMatrices()
     fisher_matrix.reset();
 
     LOG::LOGGER.DEB("Free cov\n");
-    delete [] covariance_matrix;
+    cudaFree(covariance_matrix);
 
     LOG::LOGGER.DEB("Free temps\n");
     for (int i = 0; i < 2; ++i)
-        delete [] temp_matrix[i];
+        cudaFree(temp_matrix[i]);
 
-    delete [] temp_vector;
-    delete [] weighted_data_vector;
+    cudaFree(temp_vector);
+    cudaFree(weighted_data_vector);
 
     LOG::LOGGER.DEB("Free storedqj\n");
     cudaFree(stored_qj);
 
     LOG::LOGGER.DEB("Free stored sfid\n");
-    if (isSfidStored)
-        delete [] stored_sfid;
+    if (!specifics::TURN_OFF_SFID)
+        cudaFree(stored_sfid);
 
     LOG::LOGGER.DEB("Free resomat related\n");
     if (specifics::USE_RESOLUTION_MATRIX)
@@ -767,7 +740,6 @@ void Chunk::_freeMatrices()
     }
 
     isQjSet   = false;
-    isSfidSet = false;
 
     if (interp2d_signal_matrix)
         interp2d_signal_matrix.reset();
@@ -778,7 +750,7 @@ void Chunk::fprintfMatrices(const char *fname_base)
 {
     char buf[1024];
 
-    if (isSfidStored)
+    if (!specifics::TURN_OFF_SFID)
     {
         sprintf(buf, "%s-signal.txt", fname_base);
         mxhelp::fprintfMatrix(buf, stored_sfid, size(), size());
