@@ -37,10 +37,10 @@ protected:
 
     int _kncut, _matrix_n, RES_INDEX, N_Q_MATRICES;
     int fisher_index_start;
-    bool isQjSet, isSfidSet, isSfidStored, isCovInverted;
+    bool isQjSet, isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // Will have finer spacing when rmat is oversampled
-    double *_matrix_lambda, *inverse_covariance_matrix; // Do not delete!
+    double *_matrix_lambda; // Do not delete!
 
     // Uninitialized arrays
     // Oversampled resomat specifics
@@ -48,10 +48,12 @@ protected:
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
-    double *covariance_matrix, *stored_sfid;
-    double *temp_matrix[2], *stored_qj;
-    // DATA_SIZE sized vectors. 
-    double *temp_vector, *weighted_data_vector;
+    __device__
+    double  *covariance_matrix, *inverse_covariance_matrix,
+            *weighted_data_vector; // DATA_SIZE sized vector
+    __host__ __device__
+    double  *temp_matrix[2], *stored_qj, *stored_sfid,
+            *temp_vector; // DATA_SIZE sized vector.
 
     // Initialized to 0
     // 3 TOTAL_KZ_BINS sized vectors

@@ -37,7 +37,7 @@
 
 class CuHelper
 {
-    cudaError_t cudaStat;
+    // cudaError_t cudaStat;
     cublasStatus_t stat;
     cublasHandle_t handle;
 
@@ -53,13 +53,71 @@ public:
     // Assumes A and B square matrices NxN, and at least one to be symmetric.
     // No stride or whatsoever. Continous allocation
     // Uses BLAS dot product.
-    __inline__
     double trace_dsymm(const double *A, const double *B, int N) {
         double result;
         stat = cublasDdot(handle, N, A, 1, B, 1, &result);
         if (stat != CUBLAS_STATUS_SUCCESS)
-            throw std::runtime_error("CUBLAS trace_dsymm/cublasDdot failed.\n");
+            throw std::runtime_error("trace_dsymm/cublasDdot failed.\n");
         return result;
+    }
+
+    double trace_ddiagmv(const double *A, const double *B, int N) {
+        double result;
+        stat = cublasDdot(handle, N, A, N+1, B, 1, &result);
+        if (stat != CUBLAS_STATUS_SUCCESS)
+            throw std::runtime_error("trace_ddiagmv/cublasDdot failed.\n");
+        return result;
+    }
+
+    // vT . S . v
+    // Assumes S is square symmetric matrix NxN
+    double my_cublas_dsymvdot(const double *v, const double *S, double *temp_vector, int N) {
+        dsmyv(CUBLAS_FILL_MODE_UPPER, N, 1., S, N, v, 1, 0, temp_vector, 1);
+        double result;
+        stat = cublasDdot(handle, N, v, 1, temp_vector, 1, &result);
+        if (stat != CUBLAS_STATUS_SUCCESS)
+            throw std::runtime_error("my_cublas_dsymvdot/cublasDdot failed.\n");
+        return result;
+    }
+
+    void dcopy(const double *x, double *y, int N) {
+        stat = cublasDcopy(handle, N, x, 1, y, 1);
+        if (stat != CUBLAS_STATUS_SUCCESS)
+            throw std::runtime_error("cublasDcopy failed.\n");
+    }
+
+    void daxpy( const double *alpha,
+                const double *x, double *y,
+                int N,
+                int incx=1, int incy=1) {
+        stat = cublasDaxpy(handle, N, alpha, x, incx, y, incy);
+        if (stat != CUBLAS_STATUS_SUCCESS)
+            throw std::runtime_error("cublasDaxpy failed.\n");
+    }
+    
+    void dsymm(cublasSideMode_t side, cublasFillMode_t uplo,
+               int m, int n, double alpha,
+               const double *A, int lda,
+               const double *B, int ldb,
+               double beta, double *C, int ldc) {
+        stat = cublasDsymm(handle, side, uplo,
+            m, n, &alpha,
+            A, lda, B, ldb,
+            &beta, C, ldc);
+        if (stat != CUBLAS_STATUS_SUCCESS)
+            throw std::runtime_error("cublasDsymm failed.\n");
+    }
+
+    void dsmyv( cublasFillMode_t uplo,
+                int n, double alpha,
+                const double *A, int lda,
+                const double *x, int incx, double beta,
+                double *y, int incy) {
+        stat = cublasDsymv(handle, uplo,
+            n, &alpha, A, lda, x, incx,
+            &beta, y, incy);
+        if (stat != CUBLAS_STATUS_SUCCESS)
+            throw std::runtime_error("cublasDsymv failed.\n");
     }
 };
 
