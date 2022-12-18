@@ -178,8 +178,6 @@ void Chunk::_setStoredMatrices()
             remain_mem);
         throw std::runtime_error("Not all matrices are stored.\n");
     }
-
-    isQjSet   = false;
 }
 
 bool Chunk::_isAboveNyquist(int i_kz)
@@ -287,60 +285,51 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     int kn, zm;
     double v_ij, z_ij;
 
-    if (isQjSet)
+    bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
+    bins::setRedshiftBinningFunction(zm);
+    _setL2Limits(zm);
+
+    double *inter_mat = (_finer_matrix != NULL) ? _finer_matrix : qi;
+    double *ptr = inter_mat, *li = _matrix_lambda, 
+        *highres_l_end = _matrix_lambda + _matrix_n;
+
+    shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
+
+    for (int row = 0; row < _matrix_n; ++row, ++li)
     {
-        t_interp = 0;
-        double *ptr = _getStoredQikz(i_kz);
-        std::copy(ptr, ptr + DATA_SIZE_2, qi);
-    }
-    else
-    {
-        bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
-        bins::setRedshiftBinningFunction(zm);
-        _setL2Limits(zm);
+        ptr += row;
+        double *lstart = std::lower_bound(li, highres_l_end, _L2MIN/(*li));
+        double *lend   = std::upper_bound(li, highres_l_end, _L2MAX/(*li));
 
-        double *inter_mat = (_finer_matrix != NULL) ? _finer_matrix : qi;
-        double *ptr = inter_mat, *li = _matrix_lambda, 
-            *highres_l_end = _matrix_lambda + _matrix_n;
+        // printf("i: %d \t %ld - %ld \n", row, lstart-highres_lambda, lend-highres_lambda);
+        double *lj;
+        for (lj = li; lj != lstart; ++lj, ++ptr)
+            *ptr = 0;
 
-        shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
-
-        for (int row = 0; row < _matrix_n; ++row, ++li)
+        for (; lj != lend; ++lj, ++ptr)
         {
-            ptr += row;
-            double *lstart = std::lower_bound(li, highres_l_end, _L2MIN/(*li));
-            double *lend   = std::upper_bound(li, highres_l_end, _L2MAX/(*li));
+            _getVandZ(*li, *lj, v_ij, z_ij);
 
-            // printf("i: %d \t %ld - %ld \n", row, lstart-highres_lambda, lend-highres_lambda);
-            double *lj;
-            for (lj = li; lj != lstart; ++lj, ++ptr)
-                *ptr = 0;
-
-            for (; lj != lend; ++lj, ++ptr)
-            {
-                _getVandZ(*li, *lj, v_ij, z_ij);
-
-                *ptr  = interp_deriv_kn->evaluate(v_ij);
-                *ptr *= bins::redshiftBinningFunction(z_ij, zm);
-                // Every pixel pair should scale to the bin redshift
-                #ifdef REDSHIFT_GROWTH_POWER
-                *ptr *= fidcosmo::fiducialPowerGrowthFactor(z_ij, 
-                    bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 
-                    &fidpd13::FIDUCIAL_PD13_PARAMS);
-                #endif
-            }
-
-            for (; lj != highres_l_end; ++lj, ++ptr)
-                *ptr = 0;
+            *ptr  = interp_deriv_kn->evaluate(v_ij);
+            *ptr *= bins::redshiftBinningFunction(z_ij, zm);
+            // Every pixel pair should scale to the bin redshift
+            #ifdef REDSHIFT_GROWTH_POWER
+            *ptr *= fidcosmo::fiducialPowerGrowthFactor(z_ij, 
+                bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 
+                &fidpd13::FIDUCIAL_PD13_PARAMS);
+            #endif
         }
 
-        t_interp = mytime::timer.getTime() - t;
-
-        mxhelp::copyUpperToLower(inter_mat, _matrix_n);
-
-        if (specifics::USE_RESOLUTION_MATRIX)
-            qFile->Rmat->sandwich(qi, inter_mat);
+        for (; lj != highres_l_end; ++lj, ++ptr)
+            *ptr = 0;
     }
+
+    t_interp = mytime::timer.getTime() - t;
+
+    mxhelp::copyUpperToLower(inter_mat, _matrix_n);
+
+    if (specifics::USE_RESOLUTION_MATRIX)
+        qFile->Rmat->sandwich(qi, inter_mat);
 
     t = mytime::timer.getTime() - t; 
 
@@ -601,8 +590,6 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
         _setQiMatrix(&stored_qj[j_kz*DATA_SIZE_2], N_Q_MATRICES-j_kz-1);
     }
 
-    isQjSet = true;
-
     // Preload fiducial signal matrix if memory allows
     if (!specifics::TURN_OFF_SFID)
         _setFiducialSignalMatrix(stored_sfid);
@@ -693,8 +680,6 @@ void Chunk::_allocateMatrices()
         _finer_matrix  = NULL;
     }
 
-    isQjSet   = false;
-
     // This function allocates new signal & deriv matrices 
     // if process::SAVE_ALL_SQ_FILES=false 
     // i.e., no caching of SQ files
@@ -738,8 +723,6 @@ void Chunk::_freeMatrices()
             delete [] _finer_lambda;
         }
     }
-
-    isQjSet   = false;
 
     if (interp2d_signal_matrix)
         interp2d_signal_matrix.reset();
