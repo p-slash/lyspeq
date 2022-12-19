@@ -80,7 +80,7 @@ void CuHelper::invert_cholesky(double *A, int N) {
     if (solver_stat != CUSOLVER_STATUS_SUCCESS)
         throw std::runtime_error("cusolverDnDpotrf_bufferSize failed.\n");
 
-    cudaMalloc(&d_work, lworkf*sizeof(double));
+    cudaMalloc((void**) &d_work, lworkf*sizeof(double));
     solver_stat = cusolverDnDpotrf(
         solver_handle, CUBLAS_FILL_MODE_UPPER,
         N, A, N, d_work, lworkf, &devInfo);
@@ -98,7 +98,7 @@ void CuHelper::invert_cholesky(double *A, int N) {
 
     if (lworki > lworkf) {
         cudaFree(d_work);
-        cudaMalloc(&d_work, lworki*sizeof(double));
+        cudaMalloc((void**) &d_work, lworki*sizeof(double));
     }
 
     solver_stat = cusolverDnDpotri(
@@ -113,9 +113,27 @@ void CuHelper::invert_cholesky(double *A, int N) {
 }
 
 void CuHelper::svd(double *A, double *svals, int m, int n) {
-    int lwork = 0;
+    int lwork = 0; /* size of workspace */
+    double *d_work = nullptr;   /* device workspace */
+    __device__ int devInfo = -1;
+
     solver_stat = cusolverDnDgesvd_bufferSize(
         solver_handle, m, n, &lwork);
+    if (solver_stat != CUSOLVER_STATUS_SUCCESS)
+        throw std::runtime_error("cusolverDnDgesvd_bufferSize failed.\n");
+
+    cudaMalloc((void**) &d_work, lwork*sizeof(double));
+
+    solver_stat = cusolverDnDgesvd(
+        solver_handle, 'O', 'N', m, n, A, m, svals,
+        nullptr, m, nullptr, n, d_work, lwork,
+        nullptr, &devInfo);
+    if (solver_stat != CUSOLVER_STATUS_SUCCESS)
+        throw std::runtime_error("cusolverDnDgesvd failed.\n");
+    if (devInfo != 0)
+        throw std::runtime_error("SVD is not successful.\n");
+
+    cudaFree(d_work);
 }
 
 namespace mxhelp

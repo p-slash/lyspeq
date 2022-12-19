@@ -352,7 +352,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     double *alpha = ps_estimate + fisher_index_start;
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
-        __device__ double *Q_ikz_matrix = _getDevQikz(idx);
+        double *Q_ikz_matrix = _getDevQikz(idx);
 
         cuhelper->daxpy(alpha[i_kz], Q_ikz_matrix, covariance_matrix, DATA_SIZE_2);
     }
@@ -407,21 +407,24 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 
 void Chunk::_addMarginalizations()
 {
-    __device__ double *temp_v = temp_matrix[0], *temp_y = temp_matrix[1];
+    double *temp_v = temp_matrix[0].get(),
+                      *temp_y = temp_matrix[1].get();
 
     // Zeroth order
-    std::fill_n(temp_v, size(), 1./sqrt(size()));
+    for (int i = 0; i < size(); ++i)
+        temp_v[i] = rsqrt(size());
+    // std::fill_n(temp_v, size(), 1./sqrt(size()));
     temp_v += size();
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLogLam(dev_wave, size(), cmo, temp_v);
+        _getUnitVectorLogLam(dev_wave.get(), size(), cmo, temp_v);
         temp_v += size();
     }
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLam(dev_wave, size(), cmo, temp_v);
+        _getUnitVectorLam(dev_wave.get(), size(), cmo, temp_v);
         temp_v += size();
     }
 
@@ -429,9 +432,10 @@ void Chunk::_addMarginalizations()
 
     // Roll back to initial position
     temp_v = temp_matrix[0];
-    static auto svals = std::make_unique<double[]>(specifics::CONT_NVECS);
+    static MyCuDouble svals = MyCuDouble(specifics::CONT_NVECS);
     // SVD to get orthogonal marg vectors
-    mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
+    cuhelper.svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
+    // mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
     LOG::LOGGER.DEB("SVD'ed\n");
 
     // Remove each 
@@ -451,9 +455,9 @@ void Chunk::invertCovarianceMatrix()
 {
     double t = mytime::timer.getTime();
 
-    cuhelper->invert_cholesky(covariance_matrix, size());
+    cuhelper->invert_cholesky(covariance_matrix.get(), size());
 
-    inverse_covariance_matrix = covariance_matrix;
+    inverse_covariance_matrix = covariance_matrix.get();
 
     isCovInverted = true;
 
@@ -472,12 +476,12 @@ void Chunk::_getWeightedMatrix(double *m)
     //C-1 . Q
     cuhelper->dsymm(CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER,
         size(), size(), 1., inverse_covariance_matrix, size(),
-        m, size(), 0, temp_matrix[1], size());
+        m, size(), 0, temp_matrix[1].get(), size());
 
     //C-1 . Q . C-1
     cuhelper->dsymm(CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER,
         size(), size(), 1., inverse_covariance_matrix, size(),
-        temp_matrix[1], size(), 0, m, size());
+        temp_matrix[1].get(), size(), 0, m, size());
 
     t = mytime::timer.getTime() - t;
 
@@ -505,7 +509,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
         // cudaStream_t stream;
         // cudaStreamCreate(&stream);
         // stream_vec.push_back(stream);
-        __device__ double *Q_jkz_matrix = _getDevQikz(jdx);
+        double *Q_jkz_matrix = _getDevQikz(jdx);
 
         // cublasSetStream(cuhelper->blas_handle, stream);
         temp = 0.5 * cuhelper->trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size());
@@ -526,13 +530,13 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 
 void Chunk::computePSbeforeFvector()
 {
-    __device__ double *Q_ikz_matrix = temp_matrix[0];
+    double *Q_ikz_matrix = temp_matrix[0];
     std::vector<double> dbt_vec(3, 0);
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
     cuhelper->dsmyv(CUBLAS_FILL_MODE_UPPER, size(), 1.,
         inverse_covariance_matrix, 
-        size(), dev_delta, 1, 0, weighted_data_vector, 1);
+        size(), dev_delta.get(), 1, 0, weighted_data_vector.get(), 1);
 
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
@@ -543,8 +547,8 @@ void Chunk::computePSbeforeFvector()
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        dbt_vec[0] = cuhelper->my_cublas_dsymvdot(weighted_data_vector, 
-            Q_ikz_matrix, temp_vector, size());
+        dbt_vec[0] = cuhelper->my_cublas_dsymvdot(weighted_data_vector.get(), 
+            Q_ikz_matrix, temp_vector.get(), size());
         LOG::LOGGER.DEB("-> dk (%.1e)   ", dbt_vec[0]);
 
         LOG::LOGGER.DEB("-> weighted Q   ");
@@ -553,14 +557,14 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        dbt_vec[1] = cuhelper->trace_ddiagmv(Q_ikz_matrix, dev_noise, size());
+        dbt_vec[1] = cuhelper->trace_ddiagmv(Q_ikz_matrix, dev_noise.get(), size());
 
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
         {
             LOG::LOGGER.DEB("-> tk   ");
             // Tr(C-1 Qi C-1 Sfid)
-            dbt_vec[2] = cuhelper->trace_dsymm(Q_ikz_matrix, dev_sfid, size());
+            dbt_vec[2] = cuhelper->trace_dsymm(Q_ikz_matrix, dev_sfid.get(), size());
         }
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
@@ -595,14 +599,13 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     for (int jdx = 0; jdx < i_kz_vector.size(); ++jdx) {
         int j_kz = i_kz_vector[jdx];
         _setQiMatrix(cpu_qj + jdx*DATA_SIZE_2, N_Q_MATRICES-j_kz-1);
-        cudaMemcpyAsync(dev_qj + jdx*DATA_SIZE_2, cpu_qj + jdx*DATA_SIZE_2,
-            DATA_SIZE_2*sizeof(double), cudaMemcpyHostToDevice);
+        dev_qj.asyncCpy(cpu_qj + jdx*DATA_SIZE_2, DATA_SIZE_2, jdx*DATA_SIZE_2);
     }
 
     // Preload fiducial signal matrix if memory allows
     if (!specifics::TURN_OFF_SFID) {
         _setFiducialSignalMatrix(cpu_sfid);
-        cudaMemcpyAsync(dev_sfid, cpu_sfid, DATA_SIZE_2*sizeof(double), cudaMemcpyHostToDevice);
+        dev_sfid.asyncCpy(cpu_sfid, DATA_SIZE_2);
     }
 
     LOG::LOGGER.DEB("Setting cov matrix\n");
@@ -649,14 +652,10 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 void Chunk::_allocateMatrices()
 {
     // Move qfile to gpu
-    cudaMalloc(&dev_wave, size()*sizeof(double));
-    cudaMalloc(&dev_delta, size()*sizeof(double));
-    cudaMalloc(&dev_noise, size()*sizeof(double));
-    cudaMalloc(&dev_smnoise, size()*sizeof(double));
-
-    cudaMemcpyAsync(dev_wave,  qFile->wave(),  size()*sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpyAsync(dev_delta, qFile->delta(), size()*sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpyAsync(dev_noise, qFile->noise(), size()*sizeof(double), cudaMemcpyHostToDevice);
+    dev_wave  = MyCuDouble(size(), qFile->wave());
+    dev_delta = MyCuDouble(size(), qFile->delta());
+    dev_noise = MyCuDouble(size(), qFile->noise());
+    dev_smnoise = MyCuDouble(size());
 
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
         dbt_estimate_before_fisher_vector.push_back(
@@ -664,24 +663,24 @@ void Chunk::_allocateMatrices()
 
     fisher_matrix = std::make_unique<double[]>(bins::FISHER_SIZE);
 
-    cudaMalloc(&covariance_matrix, DATA_SIZE_2*sizeof(double));
+    covariance_matrix = MyCuDouble(DATA_SIZE_2);
 
     for (int i = 0; i < 2; ++i)
-        cudaMalloc(&temp_matrix[i], DATA_SIZE_2*sizeof(double));
+        temp_matrix[i] = MyCuDouble(DATA_SIZE_2);
 
-    cudaMalloc(&temp_vector, size()*sizeof(double));
-    cudaMalloc(&weighted_data_vector, size()*sizeof(double));
+    temp_vector = MyCuDouble(size());
+    weighted_data_vector = MyCuDouble(size());
 
     cpu_qj = new double[i_kz_vector.size()*DATA_SIZE_2];
-    cudaMalloc(&dev_qj, i_kz_vector.size()*DATA_SIZE_2*sizeof(double));
+    dev_qj = MyCuDouble(i_kz_vector.size()*DATA_SIZE_2);
 
     // but smooth noise add save dev_smnoise
     process::noise_smoother->smoothNoise(qFile->noise(), cpu_qj, size());
-    cudaMemcpyAsync(dev_smnoise, cpu_qj, size()*sizeof(double), cudaMemcpyHostToDevice);
+    dev_smnoise.asyncCpy(cpu_qj, size());
 
     if (!specifics::TURN_OFF_SFID) {
         stored_sfid = new double[DATA_SIZE_2];
-        cudaMalloc(&dev_sfid, DATA_SIZE_2*sizeof(double));
+        dev_sfid = MyCuDouble(DATA_SIZE_2);
     }
 
     // Create a temp highres lambda array
@@ -718,10 +717,10 @@ void Chunk::_allocateMatrices()
 
 void Chunk::_freeMatrices()
 {
-    cudaFree(dev_wave);
-    cudaFree(dev_delta);
-    cudaFree(dev_noise);
-    cudaFree(dev_smnoise);
+    dev_wave.reset();
+    dev_delta.reset();
+    dev_noise.reset();
+    dev_smnoise.reset();
 
     dbt_estimate_before_fisher_vector.clear();
 
@@ -729,23 +728,23 @@ void Chunk::_freeMatrices()
     fisher_matrix.reset();
 
     LOG::LOGGER.DEB("Free cov\n");
-    cudaFree(covariance_matrix);
+    covariance_matrix.reset();
 
     LOG::LOGGER.DEB("Free temps\n");
     for (int i = 0; i < 2; ++i)
-        cudaFree(temp_matrix[i]);
+        temp_matrix[i].reset();
 
-    cudaFree(temp_vector);
-    cudaFree(weighted_data_vector);
+    temp_vector.reset();
+    weighted_data_vector.reset();
 
     LOG::LOGGER.DEB("Free storedqj\n");
     delete [] cpu_qj;
-    cudaFree(dev_qj);
+    dev_qj.reset();
 
     LOG::LOGGER.DEB("Free stored sfid\n");
     if (!specifics::TURN_OFF_SFID) {
         delete [] cpu_sfid;
-        cudaFree(dev_sfid);
+        dev_sfid.reset();
     }
 
     LOG::LOGGER.DEB("Free resomat related\n");
