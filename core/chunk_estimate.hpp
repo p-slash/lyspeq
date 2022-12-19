@@ -52,7 +52,7 @@ protected:
     // Do not delete inverse_covariance_matrix.
     __device__  double  *covariance_matrix, *inverse_covariance_matrix,
                         *temp_matrix[2], *dev_qj, *dev_sfid,
-                        *dev_wave, *dev_delta, *dev_noise,
+                        *dev_wave, *dev_delta, *dev_noise, *dev_smnoise,
                         *temp_vector, *weighted_data_vector; // DATA_SIZE sized vector
     __host__    double  *cpu_qj, *cpu_sfid;
 
