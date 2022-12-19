@@ -50,10 +50,10 @@ protected:
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
     // Do not delete inverse_covariance_matrix.
-    MyCuDouble  *covariance_matrix,
-                *temp_matrix[2], *dev_qj, *dev_sfid,
-                *dev_wave, *dev_delta, *dev_noise, *dev_smnoise,
-                *temp_vector, *weighted_data_vector; // DATA_SIZE sized vector
+    MyCuDouble  covariance_matrix,
+                temp_matrix[2], dev_qj, dev_sfid,
+                dev_wave, dev_delta, dev_noise, dev_smnoise,
+                temp_vector, weighted_data_vector; // DATA_SIZE sized vector
     double      *cpu_qj, *cpu_sfid; // Host
 
     // Initialized to 0
