@@ -41,20 +41,20 @@ protected:
     bool isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // Will have finer spacing when rmat is oversampled
-    __host__    double  *_matrix_lambda; // Do not delete!
+    double  *_matrix_lambda, *inverse_covariance_matrix; // Do not delete!
 
     // Uninitialized arrays
     // Oversampled resomat specifics
-    __host__    double  *_finer_lambda, *_finer_matrix;
+    double  *_finer_lambda, *_finer_matrix; // Host
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
     // Do not delete inverse_covariance_matrix.
-    __device__  double  *covariance_matrix, *inverse_covariance_matrix,
-                        *temp_matrix[2], *dev_qj, *dev_sfid,
-                        *dev_wave, *dev_delta, *dev_noise, *dev_smnoise,
-                        *temp_vector, *weighted_data_vector; // DATA_SIZE sized vector
-    __host__    double  *cpu_qj, *cpu_sfid;
+    MyCuDouble  *covariance_matrix,
+                *temp_matrix[2], *dev_qj, *dev_sfid,
+                *dev_wave, *dev_delta, *dev_noise, *dev_smnoise,
+                *temp_vector, *weighted_data_vector; // DATA_SIZE sized vector
+    double      *cpu_qj, *cpu_sfid; // Host
 
     // Initialized to 0
     // 3 TOTAL_KZ_BINS sized vectors
@@ -70,7 +70,7 @@ protected:
     void _setNQandFisherIndex();
     void _setStoredMatrices();
     double* _getDevQikz(int idx) const
-    { return dev_qj + (i_kz_vector.size()-idx-1) * DATA_SIZE_2; };
+    { return dev_qj.get() + (i_kz_vector.size()-idx-1) * DATA_SIZE_2; };
 
     void _allocateMatrices();
     void _freeMatrices();

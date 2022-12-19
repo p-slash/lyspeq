@@ -14,6 +14,28 @@
 #include "cuda_runtime.h"
 #include "cublas_v2.h"
 
+class MyCuDouble
+{
+    double *dev_ptr;
+public:
+    MyCuDouble(int n) { cudaMalloc((void**) &dev_ptr, n*sizeof(double)); }
+    MyCuDouble(int n, double *cpu_ptr) { 
+        cudaMalloc((void**) &dev_ptr, n*sizeof(double));
+        asyncCpy(cpu_ptr, n);
+    }
+    ~MyCuDouble() { cudaFree(dev_ptr); }
+    MyCuDouble(const MyCuDouble& udev_ptr) = delete;
+    MyCuDouble& operator=(const MyCuDouble& udev_ptr) = delete;
+    double* get() const { return dev_ptr; }
+    void asyncCpy(double *cpu_ptr, int n, int offset=0) {
+        cudaMemcpyAsync(dev_ptr + offset,  cpu_ptr,  n*sizeof(double), cudaMemcpyHostToDevice);
+    }
+    void reset() {
+        cudaFree(dev_ptr);
+        dev_ptr = nullptr;
+    }
+}
+
 class CuHelper
 {
     // cudaError_t cudaStat;
