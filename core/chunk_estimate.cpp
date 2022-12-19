@@ -407,8 +407,8 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 
 void Chunk::_addMarginalizations()
 {
-    double *temp_v = temp_matrix[0].get(),
-                      *temp_y = temp_matrix[1].get();
+    double  *temp_v = temp_matrix[0].get(),
+            *temp_y = temp_matrix[1].get();
 
     // Zeroth order
     for (int i = 0; i < size(); ++i)

@@ -68,7 +68,6 @@ double _integrated_window_fn_v(double x, double R, double a)
 
 void CuHelper::invert_cholesky(double *A, int N) {
     int lworkf = 0, lworki = 0; /* size of workspace */
-    double *d_work = nullptr;   /* device workspace for getrf */
     /* If devInfo = 0, the Cholesky factorization is successful.
     if devInfo = -i, the i-th parameter is wrong (not counting handle).
     if devInfo = i, the leading minor of order i is not positive definite. */
@@ -80,10 +79,11 @@ void CuHelper::invert_cholesky(double *A, int N) {
     if (solver_stat != CUSOLVER_STATUS_SUCCESS)
         throw std::runtime_error("cusolverDnDpotrf_bufferSize failed.\n");
 
-    cudaMalloc((void**) &d_work, lworkf*sizeof(double));
+    d_work = MyCuDouble(lworkf); /* device workspace for getrf */
+
     solver_stat = cusolverDnDpotrf(
         solver_handle, CUBLAS_FILL_MODE_UPPER,
-        N, A, N, d_work, lworkf, &devInfo);
+        N, A, N, d_work.get(), lworkf, &devInfo);
     if (solver_stat != CUSOLVER_STATUS_SUCCESS)
         throw std::runtime_error("cusolverDnDpotrf failed.\n");
     if (devInfo != 0)
@@ -96,10 +96,8 @@ void CuHelper::invert_cholesky(double *A, int N) {
     if (solver_stat != CUSOLVER_STATUS_SUCCESS)
         throw std::runtime_error("cusolverDnDpotri_bufferSize failed.\n");
 
-    if (lworki > lworkf) {
-        cudaFree(d_work);
-        cudaMalloc((void**) &d_work, lworki*sizeof(double));
-    }
+    if (lworki > lworkf)
+        d_work.realloc(lworki);
 
     solver_stat = cusolverDnDpotri(
         solver_handle, CUBLAS_FILL_MODE_UPPER,
@@ -108,13 +106,10 @@ void CuHelper::invert_cholesky(double *A, int N) {
         throw std::runtime_error("cusolverDnDpotri failed.\n");
     if (devInfo != 0)
         throw std::runtime_error("Cholesky inversion is not successful.\n");
-
-    cudaFree(d_work);
 }
 
 void CuHelper::svd(double *A, double *svals, int m, int n) {
     int lwork = 0; /* size of workspace */
-    double *d_work = nullptr;   /* device workspace */
     __device__ int devInfo = -1;
 
     solver_stat = cusolverDnDgesvd_bufferSize(
@@ -122,18 +117,16 @@ void CuHelper::svd(double *A, double *svals, int m, int n) {
     if (solver_stat != CUSOLVER_STATUS_SUCCESS)
         throw std::runtime_error("cusolverDnDgesvd_bufferSize failed.\n");
 
-    cudaMalloc((void**) &d_work, lwork*sizeof(double));
+    d_work = MyCuDouble(lwork); /* device workspace */
 
     solver_stat = cusolverDnDgesvd(
         solver_handle, 'O', 'N', m, n, A, m, svals,
-        nullptr, m, nullptr, n, d_work, lwork,
+        nullptr, m, nullptr, n, d_work.get(), lwork,
         nullptr, &devInfo);
     if (solver_stat != CUSOLVER_STATUS_SUCCESS)
         throw std::runtime_error("cusolverDnDgesvd failed.\n");
     if (devInfo != 0)
         throw std::runtime_error("SVD is not successful.\n");
-
-    cudaFree(d_work);
 }
 
 namespace mxhelp
