@@ -359,8 +359,8 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     // add noise matrix diagonally
     // but smooth before adding
-    process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
-    cuhelper->daxpy(1., temp_vector, covariance_matrix, size(), 1, size()+1);
+    // process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
+    cuhelper->daxpy(1., dev_smnoise, covariance_matrix, size(), 1, size()+1);
 
     isCovInverted = false;
 
@@ -652,6 +652,8 @@ void Chunk::_allocateMatrices()
     cudaMalloc(&dev_wave, size()*sizeof(double));
     cudaMalloc(&dev_delta, size()*sizeof(double));
     cudaMalloc(&dev_noise, size()*sizeof(double));
+    cudaMalloc(&dev_smnoise, size()*sizeof(double));
+
     cudaMemcpyAsync(dev_wave,  qFile->wave(),  size()*sizeof(double), cudaMemcpyHostToDevice);
     cudaMemcpyAsync(dev_delta, qFile->delta(), size()*sizeof(double), cudaMemcpyHostToDevice);
     cudaMemcpyAsync(dev_noise, qFile->noise(), size()*sizeof(double), cudaMemcpyHostToDevice);
@@ -672,6 +674,10 @@ void Chunk::_allocateMatrices()
 
     cpu_qj = new double[i_kz_vector.size()*DATA_SIZE_2];
     cudaMalloc(&dev_qj, i_kz_vector.size()*DATA_SIZE_2*sizeof(double));
+
+    // but smooth noise add save dev_smnoise
+    process::noise_smoother->smoothNoise(qFile->noise(), cpu_qj, size());
+    cudaMemcpyAsync(dev_smnoise, cpu_qj, size()*sizeof(double), cudaMemcpyHostToDevice);
 
     if (!specifics::TURN_OFF_SFID) {
         stored_sfid = new double[DATA_SIZE_2];
@@ -715,6 +721,7 @@ void Chunk::_freeMatrices()
     cudaFree(dev_wave);
     cudaFree(dev_delta);
     cudaFree(dev_noise);
+    cudaFree(dev_smnoise);
 
     dbt_estimate_before_fisher_vector.clear();
 
