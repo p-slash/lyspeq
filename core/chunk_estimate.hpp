@@ -35,25 +35,26 @@ protected:
     std::unique_ptr<qio::QSOFile> qFile;
     int DATA_SIZE_2;
 
-    int _kncut, _matrix_n, RES_INDEX, N_Q_MATRICES;
+    int _matrix_n, RES_INDEX, N_Q_MATRICES;
+    std::vector<int> i_kz_vector;
     int fisher_index_start;
     bool isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // Will have finer spacing when rmat is oversampled
-    double *_matrix_lambda; // Do not delete!
+    __host__    double  *_matrix_lambda; // Do not delete!
 
     // Uninitialized arrays
     // Oversampled resomat specifics
-    double *_finer_lambda, *_finer_matrix;
+    __host__    double  *_finer_lambda, *_finer_matrix;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
-    __device__
-    double  *covariance_matrix, *inverse_covariance_matrix,
-            *weighted_data_vector; // DATA_SIZE sized vector
-    __host__ __device__
-    double  *temp_matrix[2], *stored_qj, *stored_sfid,
-            *temp_vector; // DATA_SIZE sized vector.
+    // Do not delete inverse_covariance_matrix.
+    __device__  double  *covariance_matrix, *inverse_covariance_matrix,
+                        *temp_matrix[2], *dev_qj, *dev_sfid,
+                        *dev_wave, *dev_delta, *dev_noise,
+                        *temp_vector, *weighted_data_vector; // DATA_SIZE sized vector
+    __host__    double  *cpu_qj, *cpu_sfid;
 
     // Initialized to 0
     // 3 TOTAL_KZ_BINS sized vectors
@@ -68,9 +69,8 @@ protected:
     void _findRedshiftBin();
     void _setNQandFisherIndex();
     void _setStoredMatrices();
-    bool _isAboveNyquist(int i_kz);
-    double* _getStoredQikz(int i_kz) const
-    { return stored_qj + (N_Q_MATRICES-i_kz-1) * DATA_SIZE_2; };
+    double* _getDevQikz(int idx) const
+    { return dev_qj + (i_kz_vector.size()-idx-1) * DATA_SIZE_2; };
 
     void _allocateMatrices();
     void _freeMatrices();
