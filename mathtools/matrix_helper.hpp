@@ -17,11 +17,19 @@
 class MyCuDouble
 {
     double *dev_ptr;
+
+    void _alloc(int n) {
+        cudaError_t stat = cudaMalloc((void**) &dev_ptr, n*sizeof(double));
+        if (stat != cudaSuccess) {
+            dev_ptr = nullptr;
+            throw std::runtime_error("cudaMalloc failed.\n");
+        }
+    }
 public:
-    MyCuDouble(int n) { cudaMalloc((void**) &dev_ptr, n*sizeof(double)); }
+    MyCuDouble() { dev_ptr = nullptr; }
+    MyCuDouble(int n) { _alloc(n); }
     MyCuDouble(int n, double *cpu_ptr) { 
-        cudaMalloc((void**) &dev_ptr, n*sizeof(double));
-        asyncCpy(cpu_ptr, n);
+        _alloc(n); asyncCpy(cpu_ptr, n);
     }
     ~MyCuDouble() { cudaFree(dev_ptr); }
 
@@ -35,13 +43,16 @@ public:
         cudaMemcpyAsync(dev_ptr + offset, cpu_ptr, n*sizeof(double), cudaMemcpyHostToDevice);
     }
     void reset() {
-        cudaFree(dev_ptr);
-        dev_ptr = nullptr;
+        if (dev_ptr != nullptr) {
+            cudaFree(dev_ptr);
+            dev_ptr = nullptr;
+        }
     }
 
-    void realloc(int n) {
-        reset();
-        cudaMalloc((void**) &dev_ptr, n*sizeof(double));
+    void realloc(int n, double *cpu_ptr=nullptr) {
+        reset(); _alloc(n);
+        if (cpu_ptr != nullptr)
+            asyncCpy(cpu_ptr, n);
     }
 }
 

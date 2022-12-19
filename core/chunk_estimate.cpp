@@ -432,7 +432,7 @@ void Chunk::_addMarginalizations()
 
     // Roll back to initial position
     temp_v = temp_matrix[0];
-    static MyCuDouble svals = MyCuDouble(specifics::CONT_NVECS);
+    static MyCuDouble svals(specifics::CONT_NVECS);
     // SVD to get orthogonal marg vectors
     cuhelper.svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
     // mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
@@ -652,10 +652,10 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 void Chunk::_allocateMatrices()
 {
     // Move qfile to gpu
-    dev_wave  = MyCuDouble(size(), qFile->wave());
-    dev_delta = MyCuDouble(size(), qFile->delta());
-    dev_noise = MyCuDouble(size(), qFile->noise());
-    dev_smnoise = MyCuDouble(size());
+    dev_wave.realloc(size(), qFile->wave());
+    dev_delta.realloc(size(), qFile->delta());
+    dev_noise.realloc(size(), qFile->noise());
+    dev_smnoise.realloc(size());
 
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
         dbt_estimate_before_fisher_vector.push_back(
@@ -663,16 +663,16 @@ void Chunk::_allocateMatrices()
 
     fisher_matrix = std::make_unique<double[]>(bins::FISHER_SIZE);
 
-    covariance_matrix = MyCuDouble(DATA_SIZE_2);
+    covariance_matrix.realloc(DATA_SIZE_2);
 
     for (int i = 0; i < 2; ++i)
-        temp_matrix[i] = MyCuDouble(DATA_SIZE_2);
+        temp_matrix[i].realloc(DATA_SIZE_2);
 
-    temp_vector = MyCuDouble(size());
-    weighted_data_vector = MyCuDouble(size());
+    temp_vector.realloc(size());
+    weighted_data_vector.realloc(size());
 
     cpu_qj = new double[i_kz_vector.size()*DATA_SIZE_2];
-    dev_qj = MyCuDouble(i_kz_vector.size()*DATA_SIZE_2);
+    dev_qj.realloc(i_kz_vector.size()*DATA_SIZE_2);
 
     // but smooth noise add save dev_smnoise
     process::noise_smoother->smoothNoise(qFile->noise(), cpu_qj, size());
@@ -680,7 +680,7 @@ void Chunk::_allocateMatrices()
 
     if (!specifics::TURN_OFF_SFID) {
         stored_sfid = new double[DATA_SIZE_2];
-        dev_sfid = MyCuDouble(DATA_SIZE_2);
+        dev_sfid.realloc(DATA_SIZE_2);
     }
 
     // Create a temp highres lambda array
