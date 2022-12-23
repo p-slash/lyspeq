@@ -111,13 +111,13 @@ void FourierIntegrator::handle_gsl_status(int status, double result, double erro
                 break;
             case GSL_ETABLE:
                 fprintf(stderr, "Number of levels %d is insufficient for the requested accuracy.\n", MY_TABLE_SIZE);
-                throw std::runtime_error(err_msg);
                 break;
             case GSL_EDIVERGE:
                 fprintf(stderr, "The integral is divergent, or too slowly convergent to be integrated numerically.\n");
-                throw std::runtime_error(err_msg);
                 break;
         }
+
+        throw std::runtime_error(err_msg);
     }
 }
 
