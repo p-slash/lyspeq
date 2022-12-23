@@ -172,6 +172,7 @@ void Chunk::_setNQandFisherIndex()
 void Chunk::_setStoredMatrices()
 {
     double size_m1 = (double)sizeof(double) * DATA_SIZE_2 / 1048576.; // in MB
+
     // host covariance and temp_matrix[2] are no longer needed
     // maybe still check for gpu memory alloc?
     double remain_mem = process::MEMORY_ALLOC,
@@ -354,6 +355,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     const double *alpha = ps_estimate + fisher_index_start;
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
+
         double *Q_ikz_matrix = _getDevQikz(idx);
 
         cuhelper.daxpy(alpha[i_kz], Q_ikz_matrix, covariance_matrix.get(), DATA_SIZE_2);
