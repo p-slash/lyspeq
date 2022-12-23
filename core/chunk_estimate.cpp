@@ -13,17 +13,17 @@
 #include <cstdlib>
 #include <stdexcept>
 
-void _check_isnan(double *mat, int size, std::string msg)
-{
-    #ifdef CHECK_NAN
-    if (std::any_of(mat, mat+size, [](double x) {return std::isnan(x);}))
-        throw std::runtime_error(msg);
-    #else
-        double *tmat __attribute__((unused)) = mat;
-        int tsize __attribute__((unused)) = size;
-        std::string tmsg __attribute__((unused)) = msg;
-    #endif
-}
+// void _check_isnan(double *mat, int size, std::string msg)
+// {
+//     #ifdef CHECK_NAN
+//     if (std::any_of(mat, mat+size, [](double x) {return std::isnan(x);}))
+//         throw std::runtime_error(msg);
+//     #else
+//         double *tmat __attribute__((unused)) = mat;
+//         int tsize __attribute__((unused)) = size;
+//         std::string tmsg __attribute__((unused)) = msg;
+//     #endif
+// }
 
 double _L2MAX, _L2MIN;
 inline
@@ -173,7 +173,7 @@ void Chunk::_setStoredMatrices()
     // host covariance and temp_matrix[2] are no longer needed
     // maybe still check for gpu memory alloc?
     double remain_mem = process::MEMORY_ALLOC,
-           needed_mem = (3+i_kz_vector.size()+(!specifics::TURN_OFF_SFID))*size_m1
+           needed_mem = (3+i_kz_vector.size()+(!specifics::TURN_OFF_SFID))*size_m1;
 
     // Resolution matrix needs another temp storage.
     if (specifics::USE_RESOLUTION_MATRIX)
@@ -345,22 +345,22 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 {
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
-        cuhelper->dcopy(dev_sfid, covariance_matrix, DATA_SIZE_2);
+        cuhelper->dcopy(dev_sfid.get(), covariance_matrix.get(), DATA_SIZE_2);
     else
-        cudaMemset(covariance_matrix, 0, DATA_SIZE_2*sizeof(double));
+        cudaMemset(covariance_matrix.get(), 0, DATA_SIZE_2*sizeof(double));
 
-    double *alpha = ps_estimate + fisher_index_start;
+    const double *alpha = ps_estimate + fisher_index_start;
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
         double *Q_ikz_matrix = _getDevQikz(idx);
 
-        cuhelper->daxpy(alpha[i_kz], Q_ikz_matrix, covariance_matrix, DATA_SIZE_2);
+        cuhelper->daxpy(alpha[i_kz], Q_ikz_matrix, covariance_matrix.get(), DATA_SIZE_2);
     }
 
     // add noise matrix diagonally
     // but smooth before adding
     // process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
-    cuhelper->daxpy(1., dev_smnoise, covariance_matrix, size(), 1, size()+1);
+    cuhelper->daxpy(1., dev_smnoise.get(), covariance_matrix.get(), size(), 1, size()+1);
 
     isCovInverted = false;
 
@@ -431,10 +431,10 @@ void Chunk::_addMarginalizations()
     LOG::LOGGER.DEB("nvecs %d\n", specifics::CONT_NVECS);
 
     // Roll back to initial position
-    temp_v = temp_matrix[0];
+    temp_v = temp_matrix[0].get();
     static MyCuDouble svals(specifics::CONT_NVECS);
     // SVD to get orthogonal marg vectors
-    cuhelper.svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
+    cuhelper->svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
     // mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
     LOG::LOGGER.DEB("SVD'ed\n");
 
@@ -530,7 +530,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 
 void Chunk::computePSbeforeFvector()
 {
-    double *Q_ikz_matrix = temp_matrix[0];
+    double *Q_ikz_matrix = temp_matrix[0].get();
     std::vector<double> dbt_vec(3, 0);
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
@@ -611,19 +611,19 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     LOG::LOGGER.DEB("Setting cov matrix\n");
 
     setCovarianceMatrix(ps_estimate);
-    _check_isnan(covariance_matrix, DATA_SIZE_2, "NaN: covariance");
+    // _check_isnan(covariance_matrix, DATA_SIZE_2, "NaN: covariance");
 
     try {
         LOG::LOGGER.DEB("Inverting cov matrix\n");
         invertCovarianceMatrix();
-        _check_isnan(inverse_covariance_matrix, DATA_SIZE_2,
-            "NaN: inverse cov");
+        // _check_isnan(inverse_covariance_matrix, DATA_SIZE_2,
+        //     "NaN: inverse cov");
 
         LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
 
-        _check_isnan(fisher_matrix.get(), bins::FISHER_SIZE,
-            "NaN: chunk fisher");
+        // _check_isnan(fisher_matrix.get(), bins::FISHER_SIZE,
+            // "NaN: chunk fisher");
 
         mxhelp::vector_add(fisher_sum, fisher_matrix.get(), bins::FISHER_SIZE);
 
@@ -679,7 +679,7 @@ void Chunk::_allocateMatrices()
     dev_smnoise.asyncCpy(cpu_qj, size());
 
     if (!specifics::TURN_OFF_SFID) {
-        stored_sfid = new double[DATA_SIZE_2];
+        cpu_sfid = new double[DATA_SIZE_2];
         dev_sfid.realloc(DATA_SIZE_2);
     }
 

@@ -55,7 +55,7 @@ public:
         if (cpu_ptr != nullptr)
             asyncCpy(cpu_ptr, n);
     }
-}
+};
 
 class CuHelper
 {
@@ -73,7 +73,7 @@ public:
             throw std::runtime_error("CUBLAS initialization failed.\n");
 
         solver_stat = cusolverDnCreate(&solver_handle);
-        if (solver_handle != CUSOLVER_STATUS_SUCCESS)
+        if (solver_stat != CUSOLVER_STATUS_SUCCESS)
             throw std::runtime_error("CUSOLVER initialization failed.\n");
     };
     ~CuHelper() { cublasDestroy(blas_handle); cusolverDnDestroy(solver_handle); };
