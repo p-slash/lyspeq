@@ -295,7 +295,7 @@ function set_gsl_inc_lib()
 
     echo ${compile_command}
     ${compile_command}
-    
+
     echo ${linking}
     ${linking}
 
@@ -351,10 +351,10 @@ function set_fftw3_inc_lib()
 
     compile_command="${CXX} ${fftw3_cflags} -c ${test_file}.cpp -o ${test_file}.o"
     linking="${CXX} ${fftw3_cflags} ${test_file}.o -o ${test_file} ${fftw3_ldflags} -lfftw3 -lm"
-    
+
     echo ${compile_command}
     ${compile_command}
-    
+
     echo ${linking}
     ${linking}
 
@@ -418,14 +418,59 @@ function set_cblas_inc_lib()
     _links="${cblas_ldflags} ${cblas_libs} ${suffix_libs}"
     compile_command="${_compiler} -c ${test_file}.cpp -o ${test_file}.o"
     linking="${_compiler} ${test_file}.o -o ${test_file} ${_links}"
-    
+
     echo ${compile_command}
     ${compile_command}
-    
+
     echo ${linking}
     ${linking}
 
     update_makefile_vars "${cblas_cflags}" "${cblas_ldflags}" "${cblas_libs}"
+}
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# CUDA test
+# Finally, test compiling
+cuda_test_text="#include <cublas_v2.h>
+#include <cuda_runtime.h>
+#include <cusolverDn.h>
+
+int main()
+{
+    cublasHandle_t blas_handle;
+    cusolverDnHandle_t solver_handle;
+
+    if (cublasCreate(&blas_handle) != CUBLAS_STATUS_SUCCESS)
+        return 1;
+
+    if (cusolverDnCreate(&solver_handle) != CUSOLVER_STATUS_SUCCESS) {
+        cublasDestroy(blas_handle);
+        return 1;
+    }
+    cublasDestroy(blas_handle);
+    cusolverDnDestroy(solver_handle);
+    return 0;
+}"
+function set_cuda_lib()
+{
+    echo "====================================================================="
+    echo "testing for cuBLAS and cuSolver."
+    cuda_ldlibs="-lcublas -lcusolver"
+
+    test_file="${srcdir}/build-aux/test_cuda_compiling"
+    printf "${cuda_test_text}" > ${test_file}.cu
+
+    compile_command="${CXX} -c ${test_file}.cu -o ${test_file}.o"
+    linking="${CXX} ${test_file}.o -o ${test_file} ${cuda_ldlibs}"
+
+    echo ${compile_command}
+    ${compile_command}
+
+    echo ${linking}
+    ${linking}
+
+    update_makefile_vars "" "" "${cuda_ldlibs}"
 }
 # -----------------------------------------------------------------------------
 
@@ -455,15 +500,15 @@ function set_cfitsio_inc_lib()
         cfitsio_ldflags="-L${CFITSIO_LIB}"
     fi
 
-    test_file="${srcdir}/build-aux/test_cblas_lapacke_compiling"
+    test_file="${srcdir}/build-aux/test_cfitsio_compiling"
     printf "${cfitsio_test_text}" > ${test_file}.cpp
 
     compile_command="${CXX} ${cfitsio_cflags} -c ${test_file}.cpp -o ${test_file}.o"
     linking="${CXX} ${cfitsio_cflags} ${test_file}.o -o ${test_file} ${cfitsio_ldflags} -lcfitsio"
-    
+
     echo ${compile_command}
     ${compile_command}
-    
+
     echo ${linking}
     ${linking}
 
@@ -497,10 +542,10 @@ function set_mpi_inc_lib()
 
     compile_command="${CXX} -c ${test_file}.cpp -o ${test_file}.o"
     linking="${CXX} ${test_file}.o -o ${test_file}"
-    
+
     echo ${compile_command}
     ${compile_command}
-    
+
     echo ${linking}
     ${linking}
 }
@@ -561,6 +606,7 @@ set_gsl_inc_lib
 set_fftw3_inc_lib
 set_cfitsio_inc_lib
 set_cblas_inc_lib
+set_cuda_lib
 
 update_makefile_vars "" "" "${LDLIBS_OMP}"
 
@@ -571,8 +617,6 @@ fi
 
 update_makefile_vars "" "" "${suffix_libs}"
 
-# Link cuda
-LDLIBS+="-lcublas -lcusolver"
 MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_FIDUCIAL_GROWTH_Z} ${binz_fn}"
 MORECPPFLAGS=$(echo $MORECPPFLAGS | sed 's/ *$//')
 
