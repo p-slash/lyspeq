@@ -548,7 +548,7 @@ if [[ -z "${ENABLE_FORCE}" ]]; then
     set -e
 fi
 
-if [[ ! -f "${srcdir}/core/chunk_estimate.cpp" ]]; then
+if [[ ! -f "${srcdir}/core/quadratic_estimate.cpp" ]]; then
     echo "Error: srcdir is wrong."
     exit 1
 fi
@@ -571,6 +571,8 @@ fi
 
 update_makefile_vars "" "" "${suffix_libs}"
 
+# Link cuda
+LDLIBS+="-lcublas -lcusolver"
 MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_FIDUCIAL_GROWTH_Z} ${binz_fn}"
 MORECPPFLAGS=$(echo $MORECPPFLAGS | sed 's/ *$//')
 

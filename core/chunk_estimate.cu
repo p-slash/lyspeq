@@ -14,6 +14,7 @@
 #include <stdexcept>
 
 const int CU_BLOCK_SIZE = 256;
+CuHelper cuhelper;
 // void _check_isnan(double *mat, int size, std::string msg)
 // {
 //     #ifdef CHECK_NAN
