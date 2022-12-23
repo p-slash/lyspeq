@@ -458,7 +458,7 @@ void Chunk::_addMarginalizations()
         // skip if this vector is degenerate
         if (svals[i]<1e-6)  continue;
 
-        _remShermanMorrison<<<1, 1>>>(temp_v, size(), temp_y, inverse_covariance_matrix);
+        _remShermanMorrison(temp_v, size(), temp_y, inverse_covariance_matrix);
     }
 }
 
