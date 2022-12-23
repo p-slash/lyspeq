@@ -42,7 +42,7 @@ public:
 
 int TestOneQSOEstimate::test_setFiducialSignalMatrix()
 {
-    chunks[0]->_setFiducialSignalMatrix(chunks[0]->covariance_matrix);
+    chunks[0]->_setFiducialSignalMatrix(chunks[0]->cpu_sfid);
 
     const std::string
     fname_sfid_matrix = std::string(SRCDIR) + "/tests/truth/signal_matrix.txt";
@@ -56,7 +56,7 @@ int TestOneQSOEstimate::test_setFiducialSignalMatrix()
     assert(ncols == ndim);
     assert(chunks[0]->qFile->size() == ndim);
 
-    if (not allClose(A.data(), chunks[0]->covariance_matrix, ndim))
+    if (not allClose(A.data(), chunks[0]->cpu_sfid, ndim))
     {
         fprintf(stderr, "ERROR Chunk::_setFiducialSignalMatrix.\n");
         // printMatrices(A.data(), chunks[0]->covariance_matrix, ndim, ndim);
@@ -68,7 +68,7 @@ int TestOneQSOEstimate::test_setFiducialSignalMatrix()
 
 int TestOneQSOEstimate::test_setQiMatrix()
 {
-    chunks[0]->_setQiMatrix(chunks[0]->temp_matrix[0], 0);
+    chunks[0]->_setQiMatrix(chunks[0]->cpu_qj, 0);
 
     const std::string
     fname_q0_matrix = std::string(SRCDIR) + "/tests/truth/q0_matrix.txt";
@@ -82,7 +82,7 @@ int TestOneQSOEstimate::test_setQiMatrix()
     assert(ncols == ndim);
     assert(chunks[0]->qFile->size() == ndim);
 
-    if (not allClose(A.data(), chunks[0]->temp_matrix[0], ndim))
+    if (not allClose(A.data(), chunks[0]->cpu_qj, ndim))
     {
         fprintf(stderr, "ERROR Chunk::_setQiMatrix.\n");
         // printMatrices(A.data(), chunks[0]->temp_matrix[0], ndim, ndim);
