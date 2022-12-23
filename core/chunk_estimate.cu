@@ -345,7 +345,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 {
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
-        cuhelper->dcopy(dev_sfid.get(), covariance_matrix.get(), DATA_SIZE_2);
+        cuhelper.dcopy(dev_sfid.get(), covariance_matrix.get(), DATA_SIZE_2);
     else
         cudaMemset(covariance_matrix.get(), 0, DATA_SIZE_2*sizeof(double));
 
@@ -354,13 +354,13 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
         int i_kz = i_kz_vector[idx];
         double *Q_ikz_matrix = _getDevQikz(idx);
 
-        cuhelper->daxpy(alpha[i_kz], Q_ikz_matrix, covariance_matrix.get(), DATA_SIZE_2);
+        cuhelper.daxpy(alpha[i_kz], Q_ikz_matrix, covariance_matrix.get(), DATA_SIZE_2);
     }
 
     // add noise matrix diagonally
     // but smooth before adding
     // process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
-    cuhelper->daxpy(1., dev_smnoise.get(), covariance_matrix.get(), size(), 1, size()+1);
+    cuhelper.daxpy(1., dev_smnoise.get(), covariance_matrix.get(), size(), 1, size()+1);
 
     isCovInverted = false;
 
@@ -372,37 +372,40 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     // #endif
 }
 
+__global__
 void _getUnitVectorLogLam(const double *w, int size, int cmo, double *out)
 {
     for (int i = 0; i < size; ++i)
         out[i] = pow(log(w[i]/LYA_REST), cmo);
-    __device__ double alpha = rnorm(size, out);
-    cublasDscal(cuhelper->blas_handle, size, &alpha, out, 1);
+    double alpha = rnorm(size, out);
+    cublasDscal(cuhelper.blas_handle, size, &alpha, out, 1);
     // std::transform(w, w+size, out, [cmo](const double &l) { return pow(log(l/LYA_REST), cmo); });
     // double norm = sqrt(cblas_dnrm2(size, out, 1));
     // cblas_dscal(size, 1./norm, out, 1);
 }
 
+__global__
 void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 {
     for (int i = 0; i < size; ++i)
         out[i] = pow(w[i]/LYA_REST, cmo);
-    __device__ double alpha = rnorm(size, out);
-    cublasDscal(cuhelper->blas_handle, size, &alpha, out, 1);
+    double alpha = rnorm(size, out);
+    cublasDscal(cuhelper.blas_handle, size, &alpha, out, 1);
     // std::transform(w, w+size, out, [cmo](const double &l) { return pow(l/LYA_REST, cmo); });
     // double norm = sqrt(cblas_dnrm2(size, out, 1));
     // cblas_dscal(size, 1./norm, out, 1);
 }
 
+__global__
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
     // cudaMemset(y, 0, size*sizeof(double));
-    cuhelper->dsmyv(CUBLAS_FILL_MODE_UPPER, size, 1., cinv, size, v, 1, 0, y, 1);
+    cuhelper.dsmyv(CUBLAS_FILL_MODE_UPPER, size, 1., cinv, size, v, 1, 0, y, 1);
     __device__ double alpha;
-    cublasDdot(cuhelper->blas_handle, size, v, 1, y, 1, &alpha);
+    cublasDdot(cuhelper.blas_handle, size, v, 1, y, 1, &alpha);
     alpha = -1./alpha;
-    cublasDsyr(cuhelper->blas_handle, CUBLAS_FILL_MODE_UPPER, size, &alpha, y, 1, cinv, size);
-    // cublasDger(cuhelper->blas_handle, size, size, &norm, y, 1, y, 1, cinv, size);
+    cublasDsyr(cuhelper.blas_handle, CUBLAS_FILL_MODE_UPPER, size, &alpha, y, 1, cinv, size);
+    // cublasDger(cuhelper.blas_handle, size, size, &norm, y, 1, y, 1, cinv, size);
 }
 
 void Chunk::_addMarginalizations()
@@ -412,19 +415,19 @@ void Chunk::_addMarginalizations()
 
     // Zeroth order
     for (int i = 0; i < size(); ++i)
-        temp_v[i] = rsqrt(size());
+        temp_v[i] = 1/sqrt(size());
     // std::fill_n(temp_v, size(), 1./sqrt(size()));
     temp_v += size();
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLogLam(dev_wave.get(), size(), cmo, temp_v);
+        _getUnitVectorLogLam<<<1, 1>>>(dev_wave.get(), size(), cmo, temp_v);
         temp_v += size();
     }
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLam(dev_wave.get(), size(), cmo, temp_v);
+        _getUnitVectorLam<<<1, 1>>>(dev_wave.get(), size(), cmo, temp_v);
         temp_v += size();
     }
 
@@ -434,7 +437,7 @@ void Chunk::_addMarginalizations()
     temp_v = temp_matrix[0].get();
     static MyCuDouble svals(specifics::CONT_NVECS);
     // SVD to get orthogonal marg vectors
-    cuhelper->svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
+    cuhelper.svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
     // mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
     LOG::LOGGER.DEB("SVD'ed\n");
 
@@ -445,7 +448,7 @@ void Chunk::_addMarginalizations()
         // skip if this vector is degenerate
         if (svals[i]<1e-6)  continue;
 
-        _remShermanMorrison(temp_v, size(), temp_y, inverse_covariance_matrix);
+        _remShermanMorrison<<<1, 1>>>(temp_v, size(), temp_y, inverse_covariance_matrix);
     }
 }
 
@@ -455,7 +458,7 @@ void Chunk::invertCovarianceMatrix()
 {
     double t = mytime::timer.getTime();
 
-    cuhelper->invert_cholesky(covariance_matrix.get(), size());
+    cuhelper.invert_cholesky(covariance_matrix.get(), size());
 
     inverse_covariance_matrix = covariance_matrix.get();
 
@@ -474,12 +477,12 @@ void Chunk::_getWeightedMatrix(double *m)
     double t = mytime::timer.getTime();
 
     //C-1 . Q
-    cuhelper->dsymm(CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER,
+    cuhelper.dsymm(CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER,
         size(), size(), 1., inverse_covariance_matrix, size(),
         m, size(), 0, temp_matrix[1].get(), size());
 
     //C-1 . Q . C-1
-    cuhelper->dsymm(CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER,
+    cuhelper.dsymm(CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER,
         size(), size(), 1., inverse_covariance_matrix, size(),
         temp_matrix[1].get(), size(), 0, m, size());
 
@@ -511,8 +514,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
         // stream_vec.push_back(stream);
         double *Q_jkz_matrix = _getDevQikz(jdx);
 
-        // cublasSetStream(cuhelper->blas_handle, stream);
-        temp = 0.5 * cuhelper->trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size());
+        // cublasSetStream(cuhelper.blas_handle, stream);
+        temp = 0.5 * cuhelper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size());
 
         int ind_ij = (i_kz + fisher_index_start) 
                 + bins::TOTAL_KZ_BINS * (j_kz + fisher_index_start),
@@ -534,7 +537,7 @@ void Chunk::computePSbeforeFvector()
     std::vector<double> dbt_vec(3, 0);
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
-    cuhelper->dsmyv(CUBLAS_FILL_MODE_UPPER, size(), 1.,
+    cuhelper.dsmyv(CUBLAS_FILL_MODE_UPPER, size(), 1.,
         inverse_covariance_matrix, 
         size(), dev_delta.get(), 1, 0, weighted_data_vector.get(), 1);
 
@@ -543,11 +546,11 @@ void Chunk::computePSbeforeFvector()
         LOG::LOGGER.DEB("PSb4F -> loop %d\n", i_kz);
         LOG::LOGGER.DEB("   -> set qi   ");
         // Set derivative matrix ikz
-        cuhelper->dcopy(_getDevQikz(idx), Q_ikz_matrix, DATA_SIZE_2);
+        cuhelper.dcopy(_getDevQikz(idx), Q_ikz_matrix, DATA_SIZE_2);
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        dbt_vec[0] = cuhelper->my_cublas_dsymvdot(weighted_data_vector.get(), 
+        dbt_vec[0] = cuhelper.my_cublas_dsymvdot(weighted_data_vector.get(), 
             Q_ikz_matrix, temp_vector.get(), size());
         LOG::LOGGER.DEB("-> dk (%.1e)   ", dbt_vec[0]);
 
@@ -557,14 +560,14 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        dbt_vec[1] = cuhelper->trace_ddiagmv(Q_ikz_matrix, dev_noise.get(), size());
+        dbt_vec[1] = cuhelper.trace_ddiagmv(Q_ikz_matrix, dev_noise.get(), size());
 
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
         {
             LOG::LOGGER.DEB("-> tk   ");
             // Tr(C-1 Qi C-1 Sfid)
-            dbt_vec[2] = cuhelper->trace_dsymm(Q_ikz_matrix, dev_sfid.get(), size());
+            dbt_vec[2] = cuhelper.trace_dsymm(Q_ikz_matrix, dev_sfid.get(), size());
         }
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)

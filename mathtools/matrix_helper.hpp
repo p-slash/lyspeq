@@ -154,7 +154,7 @@ public:
     void svd(double *A, double *svals, int m, int n);
 };
 
-extern std::unique_ptr<CuHelper> cuhelper;
+extern CuHelper cuhelper;
 
 namespace mxhelp
 {
