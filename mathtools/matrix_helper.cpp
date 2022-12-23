@@ -79,7 +79,7 @@ void CuHelper::invert_cholesky(double *A, int N) {
     if (solver_stat != CUSOLVER_STATUS_SUCCESS)
         throw std::runtime_error("cusolverDnDpotrf_bufferSize failed.\n");
 
-    d_work = MyCuDouble(lworkf); /* device workspace for getrf */
+    MyCuDouble d_work(lworkf); /* device workspace for getrf */
 
     solver_stat = cusolverDnDpotrf(
         solver_handle, CUBLAS_FILL_MODE_UPPER,
@@ -89,7 +89,6 @@ void CuHelper::invert_cholesky(double *A, int N) {
     if (devInfo != 0)
         throw std::runtime_error("Cholesky factorization is not successful.\n");
 
-    int lworki = 0;
     solver_stat = cusolverDnDpotri_bufferSize(
         solver_handle, CUBLAS_FILL_MODE_UPPER,
         N, A, N, &lworki);
@@ -101,7 +100,7 @@ void CuHelper::invert_cholesky(double *A, int N) {
 
     solver_stat = cusolverDnDpotri(
         solver_handle, CUBLAS_FILL_MODE_UPPER,
-        N, A, N, d_work, lworki, &devInfo);
+        N, A, N, d_work.get(), lworki, &devInfo);
     if (solver_stat != CUSOLVER_STATUS_SUCCESS)
         throw std::runtime_error("cusolverDnDpotri failed.\n");
     if (devInfo != 0)
@@ -117,7 +116,7 @@ void CuHelper::svd(double *A, double *svals, int m, int n) {
     if (solver_stat != CUSOLVER_STATUS_SUCCESS)
         throw std::runtime_error("cusolverDnDgesvd_bufferSize failed.\n");
 
-    d_work = MyCuDouble(lwork); /* device workspace */
+    MyCuDouble d_work(lwork); /* device workspace */
 
     solver_stat = cusolverDnDgesvd(
         solver_handle, 'O', 'N', m, n, A, m, svals,
