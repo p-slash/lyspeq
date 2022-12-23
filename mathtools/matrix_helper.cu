@@ -66,6 +66,8 @@ double _integrated_window_fn_v(double x, double R, double a)
     return (R/a/MY_SQRT_2) * (_integral_erf(xr+ar) + _integral_erf(xr-ar) - 2*_integral_erf(xr));
 }
 
+CuHelper cuhelper;
+
 void CuHelper::invert_cholesky(double *A, int N) {
     int lworkf = 0, lworki = 0; /* size of workspace */
     /* If devInfo = 0, the Cholesky factorization is successful.
