@@ -374,6 +374,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     // #endif
 }
 
+// CUDA Kernels to set marginalization vectors
 __global__
 void _setZerothOrder(int size, double alpha, double *out)
 {
@@ -406,12 +407,13 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
     for (int i = index; i < size; i += stride)
         out[i] /= alpha;
 }
+// End CUDA Kernels ------------------------------
 
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
     // cudaMemset(y, 0, size*sizeof(double));
     cuhelper.dsmyv(CUBLAS_FILL_MODE_UPPER, size, 1., cinv, size, v, 1, 0, y, 1);
-    double alpha;
+    __device__ double alpha;
     cublasDdot(cuhelper.blas_handle, size, v, 1, y, 1, &alpha);
     alpha = -1./alpha;
     cublasDsyr(cuhelper.blas_handle, CUBLAS_FILL_MODE_UPPER, size, &alpha, y, 1, cinv, size);
