@@ -4,7 +4,8 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
-+ `dv` of of `QSOFile` is not rounded to nearest five.
++ Demand all matrices to fit into memory. Skip below Nyquist (not half of nyquist)
++ `dv` of `QSOFile` is not rounded to nearest five, but compared with rounded numbers in sq_table.
 + `Chunk` estimate calculates until Nyquist not half of it.
 + Continuum marginalization now has lambda polynomial templates. New keywords in config are `ContinuumLambdaMargOrder` for lambda polynomials, `ContinuumLogLambdaMargOrder` for log lambda polynomials.
 + `DynamicChunkNumber` to dynamically chunk spectrum into multiple segments. This is achieved by moving quadratic estimator to a new class `Chunk` and using `OneQSOEstimate` as a wrapper for multiple chunks instead. `MAX_PIXELS_IN_FOREST 1000` due to typical performance limitations. If a given spectrum has more pixels than this, resulting `nchunks` will be greater than `DynamicChunkNumber`.
