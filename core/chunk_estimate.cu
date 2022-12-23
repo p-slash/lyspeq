@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <stdexcept>
 
+const int CU_BLOCK_SIZE = 256;
 // void _check_isnan(double *mat, int size, std::string msg)
 // {
 //     #ifdef CHECK_NAN
@@ -373,35 +374,43 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 }
 
 __global__
+void _setZerothOrder(int size, double alpha, double *out)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    for (int i = index; i < size; i += stride)
+        out[i] = alpha;
+}
+
+__global__
 void _getUnitVectorLogLam(const double *w, int size, int cmo, double *out)
 {
-    for (int i = 0; i < size; ++i)
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    for (int i = index; i < size; i += stride)
         out[i] = pow(log(w[i]/LYA_REST), cmo);
     double alpha = rnorm(size, out);
-    cublasDscal(cuhelper.blas_handle, size, &alpha, out, 1);
-    // std::transform(w, w+size, out, [cmo](const double &l) { return pow(log(l/LYA_REST), cmo); });
-    // double norm = sqrt(cblas_dnrm2(size, out, 1));
-    // cblas_dscal(size, 1./norm, out, 1);
+    for (int i = index; i < size; i += stride)
+        out[i] /= alpha;
 }
 
 __global__
 void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 {
-    for (int i = 0; i < size; ++i)
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    for (int i = index; i < size; i += stride)
         out[i] = pow(w[i]/LYA_REST, cmo);
     double alpha = rnorm(size, out);
-    cublasDscal(cuhelper.blas_handle, size, &alpha, out, 1);
-    // std::transform(w, w+size, out, [cmo](const double &l) { return pow(l/LYA_REST, cmo); });
-    // double norm = sqrt(cblas_dnrm2(size, out, 1));
-    // cblas_dscal(size, 1./norm, out, 1);
+    for (int i = index; i < size; i += stride)
+        out[i] /= alpha;
 }
 
-__global__
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
     // cudaMemset(y, 0, size*sizeof(double));
     cuhelper.dsmyv(CUBLAS_FILL_MODE_UPPER, size, 1., cinv, size, v, 1, 0, y, 1);
-    __device__ double alpha;
+    double alpha;
     cublasDdot(cuhelper.blas_handle, size, v, 1, y, 1, &alpha);
     alpha = -1./alpha;
     cublasDsyr(cuhelper.blas_handle, CUBLAS_FILL_MODE_UPPER, size, &alpha, y, 1, cinv, size);
@@ -410,24 +419,25 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 
 void Chunk::_addMarginalizations()
 {
+    int num_blocks = (size()+CU_BLOCK_SIZE-1)/CU_BLOCK_SIZE;
+
     double  *temp_v = temp_matrix[0].get(),
             *temp_y = temp_matrix[1].get();
 
     // Zeroth order
-    for (int i = 0; i < size(); ++i)
-        temp_v[i] = 1/sqrt(size());
-    // std::fill_n(temp_v, size(), 1./sqrt(size()));
+    _setZerothOrder<<<num_blocks, CU_BLOCK_SIZE>>>(size(), 1/sqrt(size()), temp_v);
+
     temp_v += size();
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLogLam<<<1, 1>>>(dev_wave.get(), size(), cmo, temp_v);
+        _getUnitVectorLogLam<<<num_blocks, CU_BLOCK_SIZE>>>(dev_wave.get(), size(), cmo, temp_v);
         temp_v += size();
     }
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLam<<<1, 1>>>(dev_wave.get(), size(), cmo, temp_v);
+        _getUnitVectorLam<<<num_blocks, CU_BLOCK_SIZE>>>(dev_wave.get(), size(), cmo, temp_v);
         temp_v += size();
     }
 
