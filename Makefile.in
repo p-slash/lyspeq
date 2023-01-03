@@ -17,10 +17,11 @@ VPATH=$(srcdir):$(DIRS)
 SOURCES=fiducial_cosmology.cpp global_numbers.cpp matrix_helper.cpp one_qso_estimate.cpp \
 quadratic_estimate.cpp sq_table.cpp discrete_interpolation.cpp fourier_integrator.cpp \
 interpolation.cpp interpolation_2d.cpp config_file.cpp io_helper_functions.cpp qso_file.cpp \
-sq_lookup_table_file.cpp logger.cpp real_field.cpp chunk_estimate.cu smoother.cpp bootstrap_file.cpp \
-cuda_helper.cu
+sq_lookup_table_file.cpp logger.cpp real_field.cpp smoother.cpp bootstrap_file.cpp
+CUDA_SOURCES=cuda_helper.cu chunk_estimate.cu
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
+CUDA_OBJECTS=$(CUDA_SOURCES:.cu=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o testSQCMatrices.o \
 test-fftconvolve.o myfitsread.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
@@ -35,11 +36,14 @@ CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
 core: LyaPowerEstimate CreateSQLookUpTable
 
-test: core cblas_tests testSQCMatrices
+test: core cblas_tests testSQCMatrices test_cuda_helper
 	mkdir -p $(srcdir)/tests/output
 	
 	@echo "Testing CBLAS functions...."
 	@${exec}cblas_tests
+
+	@echo "Testing cuda_helper functions...."
+	@${exec}test_cuda_helper
 
 	@echo "Testing S & Q lookup tables and interpolation..."
 	@${exec}testSQCMatrices $(srcdir)/tests/input/test.config
@@ -49,7 +53,7 @@ test: core cblas_tests testSQCMatrices
 
 	@python3 tests/compareTestResults.py $(srcdir)
 	
-LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
+LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS) $(CUDA_OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
@@ -61,7 +65,10 @@ test_utils.o: test_utils.cpp
 cblas_tests: cblas_tests.o matrix_helper.o real_field.o test_utils.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-testSQCMatrices: testSQCMatrices.o test_utils.o $(OBJECTS)
+test_cuda_helper: test_cuda_helper.o cuda_helper.o logger.io io_helper_functions.o
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+testSQCMatrices: testSQCMatrices.o test_utils.o $(OBJECTS) $(CUDA_OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testPointRef: testPointRef.o
@@ -85,11 +92,11 @@ uninstall:
 	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable
 
 clean:
-	$(RM) $(OBJECTS) $(bin_OBJ)
+	$(RM) $(OBJECTS) $(CUDA_OBJECTS) $(bin_OBJ)
 	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests
 
 deepclean:
-	$(RM) $(OBJECTS) $(bin_OBJ) $(DEPS)
+	$(RM) $(OBJECTS) $(CUDA_OBJECTS) $(bin_OBJ) $(DEPS)
 	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests
 
 -include $(DEPS)
