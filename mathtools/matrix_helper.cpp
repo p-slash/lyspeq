@@ -729,8 +729,6 @@ namespace mxhelp
             return dia_matrix->matrix();
         else
             return osamp_matrix->matrix();
-
-        return NULL;
     }
 
     int Resolution::getNElemPerRow() const
@@ -739,8 +737,6 @@ namespace mxhelp
             return dia_matrix->ndiags;
         else
             return osamp_matrix->nelem_per_row;
-
-        return 0;
     }
 
     void Resolution::oversample(int osamp, double dlambda)
