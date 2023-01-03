@@ -467,8 +467,8 @@ function set_cuda_lib()
     echo ${compile_command}
     ${compile_command}
 
-    echo ${linking}
-    ${linking}
+    # echo ${linking}
+    # ${linking}
 
     update_makefile_vars "" "" "${cuda_ldlibs}"
 }
