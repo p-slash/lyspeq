@@ -19,7 +19,8 @@ interpolation.cpp interpolation_2d.cpp config_file.cpp io_helper_functions.cpp q
 sq_lookup_table_file.cpp logger.cpp real_field.cpp smoother.cpp bootstrap_file.cpp
 CUDA_SOURCES=cuda_helper.cu chunk_estimate.cu
 
-OBJECTS=$(SOURCES:.cpp=.o) $(CUDA_SOURCES:.cu=.o)
+CUDA_OBJECTS=$(CUDA_SOURCES:.cu=.o)
+OBJECTS=$(SOURCES:.cpp=.o) $(CUDA_OBJECTS)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o testSQCMatrices.o \
 test-fftconvolve.o myfitsread.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
@@ -33,6 +34,31 @@ CPPFLAGS+=-I$(srcdir) -std=c++17 -DHAVE_INLINE $(MORECPPFLAGS)
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
 core: LyaPowerEstimate CreateSQLookUpTable
+
+$(CUDA_OBJECTS): %.o: %.cu
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
+
+LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+test_utils.o: test_utils.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" -c $^ -o $@
+
+cblas_tests: cblas_tests.o matrix_helper.o real_field.o test_utils.o
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+test_cuda_helper: test_cuda_helper.o cuda_helper.o logger.io io_helper_functions.o
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+testSQCMatrices: testSQCMatrices.o test_utils.o $(OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+testPointRef: testPointRef.o
+myfitsread: myfitsread.o
+test-fftconvolve: test-fftconvolve.o $(OBJECTS)
 
 test: core cblas_tests testSQCMatrices test_cuda_helper
 	mkdir -p $(srcdir)/tests/output
@@ -50,36 +76,6 @@ test: core cblas_tests testSQCMatrices test_cuda_helper
 	@${exec}LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log
 
 	@python3 tests/compareTestResults.py $(srcdir)
-
-%.o: $(CUDA_SOURCES)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
-
-LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS) $(CUDA_OBJECTS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
-
-CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
-
-test_utils.o: test_utils.cpp
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" -c $^ -o $@
-
-cblas_tests: cblas_tests.o matrix_helper.o real_field.o test_utils.o
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
-
-test_cuda_helper: test_cuda_helper.o cuda_helper.o logger.io io_helper_functions.o
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
-
-testSQCMatrices: testSQCMatrices.o test_utils.o $(OBJECTS) $(CUDA_OBJECTS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
-
-testPointRef: testPointRef.o
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
-
-myfitsread: myfitsread.o
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
-
-test-fftconvolve: test-fftconvolve.o $(OBJECTS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 .PHONY: install uninstall clean
 
