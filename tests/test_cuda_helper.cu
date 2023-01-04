@@ -34,7 +34,7 @@ int test_cublas_dsymv_1()
     cuhelper.dsmyv(
         CUBLAS_FILL_MODE_UPPER, NA, 0.5, dev_sym_matrix_A.get(), NA,
         dev_vector_cblas_dsymv_b_1.get(), 1, 0, dev_res.get(), 1);
-    dev_res.syncDownload(cpu_res);
+    dev_res.syncDownload(cpu_res, NA);
 
     if (allClose(truth_cblas_dsymv_1, cpu_res, NA))
         return 0;
