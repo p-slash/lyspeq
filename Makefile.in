@@ -93,11 +93,11 @@ uninstall:
 	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable
 
 clean:
-	$(RM) $(OBJECTS) $(CUDA_OBJECTS) $(bin_OBJ)
+	$(RM) $(OBJECTS) $(bin_OBJ)
 	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests
 
 deepclean:
-	$(RM) $(OBJECTS) $(CUDA_OBJECTS) $(bin_OBJ) $(DEPS)
+	$(RM) $(OBJECTS) $(bin_OBJ) $(DEPS)
 	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests
 
 -include $(DEPS)
