@@ -456,7 +456,7 @@ function set_cuda_lib()
 {
     echo "====================================================================="
     echo "testing for cuBLAS and cuSolver."
-    cuda_ldlibs="-lcublas -lcusolver"
+    cuda_ldlibs="-cudalib=cublas,cusolver"
 
     test_file="${srcdir}/build-aux/test_cuda_compiling"
     printf "${cuda_test_text}" > ${test_file}.cu
