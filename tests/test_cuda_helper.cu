@@ -39,7 +39,7 @@ int test_cublas_dsymv_1()
         return 0;
 
     fprintf(stderr, "ERROR test_cublas_dsymv_1.\n");
-    printMatrices(truth_cblas_dsymv_1, cpu_res, NA, 1);
+    // printMatrices(truth_cblas_dsymv_1, cpu_res, NA, 1);
     return 1;
 }
 
@@ -70,5 +70,8 @@ int main(int argc, char *argv[])
 
     LOG::LOGGER.STD("Asnyc copy a single MyCuDouble.\n");
     MyCuDouble vec(NB, IN_ARR);
+
+    LOG::LOGGER.STD("Testing test_cublas_dsymv_1.\n");
+    r+=test_cublas_dsymv_1();
     return r;
 }
