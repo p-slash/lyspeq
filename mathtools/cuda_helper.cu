@@ -34,6 +34,9 @@ public:
     void asyncCpy(double *cpu_ptr, int n, int offset=0) {
         cudaMemcpyAsync(dev_ptr + offset, cpu_ptr, n*sizeof(double), cudaMemcpyHostToDevice);
     }
+    void syncDownload(double *cpu_ptr, int n, int offset=0) {
+        cudaMemcpy(cpu_ptr, dev_ptr + offset, n*sizeof(double), cudaMemcpyDeviceToHost);
+    }
     void reset() {
         if (dev_ptr != nullptr) {
             cudaFree(dev_ptr);
