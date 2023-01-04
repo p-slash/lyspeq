@@ -11,7 +11,6 @@
 DIRS=$(addprefix $(srcdir)/, core io mathtools tests)
 DEPDIR=$(addprefix $(srcdir)/, dep)
 $(shell mkdir -p $(DEPDIR))
-SRCEXT=cpp
 VPATH=$(srcdir):$(DIRS)
 
 SOURCES=fiducial_cosmology.cpp global_numbers.cpp matrix_helper.cpp one_qso_estimate.cpp \
@@ -20,8 +19,7 @@ interpolation.cpp interpolation_2d.cpp config_file.cpp io_helper_functions.cpp q
 sq_lookup_table_file.cpp logger.cpp real_field.cpp smoother.cpp bootstrap_file.cpp
 CUDA_SOURCES=cuda_helper.cu chunk_estimate.cu
 
-OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
-CUDA_OBJECTS=$(CUDA_SOURCES:.cu=.o)
+OBJECTS=$(SOURCES:.cpp=.o) $(CUDA_SOURCES:.cu=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o testSQCMatrices.o \
 test-fftconvolve.o myfitsread.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
@@ -52,7 +50,10 @@ test: core cblas_tests testSQCMatrices test_cuda_helper
 	@${exec}LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log
 
 	@python3 tests/compareTestResults.py $(srcdir)
-	
+
+%.o: $(CUDA_SOURCES)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $<
+
 LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS) $(CUDA_OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
