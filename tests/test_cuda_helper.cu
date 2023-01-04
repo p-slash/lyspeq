@@ -1,5 +1,6 @@
 #include "mathtools/cuda_helper.cu"
 #include "io/logger.hpp"
+#include "tests/test_utils.hpp"
 #include <cassert>
 
 
@@ -39,7 +40,7 @@ int test_cublas_dsymv_1()
         return 0;
 
     fprintf(stderr, "ERROR test_cublas_dsymv_1.\n");
-    // printMatrices(truth_cblas_dsymv_1, cpu_res, NA, 1);
+    printMatrices(truth_cblas_dsymv_1, cpu_res, NA, 1);
     return 1;
 }
 

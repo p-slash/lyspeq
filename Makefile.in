@@ -50,7 +50,7 @@ test_utils.o: test_utils.cpp
 cblas_tests: cblas_tests.o matrix_helper.o real_field.o test_utils.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-test_cuda_helper: test_cuda_helper.o cuda_helper.o logger.o io_helper_functions.o
+test_cuda_helper: test_cuda_helper.o cuda_helper.o logger.o io_helper_functions.o matrix_helper.o real_field.o test_utils.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testSQCMatrices: testSQCMatrices.o test_utils.o $(OBJECTS)
