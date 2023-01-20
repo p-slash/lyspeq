@@ -415,7 +415,7 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
     // cudaMemset(y, 0, size*sizeof(double));
     cuhelper.dsmyv(CUBLAS_FILL_MODE_UPPER, size, 1., cinv, size, v, 1, 0, y, 1);
-    __device__ double alpha;
+    double alpha;
     cublasDdot(cuhelper.blas_handle, size, v, 1, y, 1, &alpha);
     alpha = -1./alpha;
     cublasDsyr(cuhelper.blas_handle, CUBLAS_FILL_MODE_UPPER, size, &alpha, y, 1, cinv, size);
@@ -450,7 +450,7 @@ void Chunk::_addMarginalizations()
 
     // Roll back to initial position
     temp_v = temp_matrix[0].get();
-    static MyCuDouble svals(specifics::CONT_NVECS);
+    static MyCuPtr<double> svals(specifics::CONT_NVECS);
     // SVD to get orthogonal marg vectors
     cuhelper.svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
     // mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);

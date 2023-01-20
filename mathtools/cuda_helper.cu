@@ -6,36 +6,37 @@
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
 
-class MyCuDouble
+template<typename T>
+class MyCuPtr
 {
-    double *dev_ptr;
+    T *dev_ptr;
 
     void _alloc(int n) {
-        cudaError_t stat = cudaMalloc((void**) &dev_ptr, n*sizeof(double));
+        cudaError_t stat = cudaMalloc((void**) &dev_ptr, n*sizeof(T));
         if (stat != cudaSuccess) {
             dev_ptr = nullptr;
             throw std::runtime_error("cudaMalloc failed.\n");
         }
     }
 public:
-    MyCuDouble() { dev_ptr = nullptr; }
-    MyCuDouble(int n) { _alloc(n); }
-    MyCuDouble(int n, double *cpu_ptr) { 
+    MyCuPtr() { dev_ptr = nullptr; }
+    MyCuPtr(int n) { _alloc(n); }
+    MyCuPtr(int n, T *cpu_ptr) { 
         _alloc(n); asyncCpy(cpu_ptr, n);
     }
-    ~MyCuDouble() { cudaFree(dev_ptr); }
+    ~MyCuPtr() { cudaFree(dev_ptr); }
 
-    double& operator[](int i) { return dev_ptr[i]; }
-    MyCuDouble(const MyCuDouble& udev_ptr) = delete;
-    MyCuDouble& operator=(const MyCuDouble& udev_ptr) = delete;
+    T& operator[](int i) { return dev_ptr[i]; }
+    MyCuPtr(const MyCuPtr& udev_ptr) = delete;
+    MyCuPtr& operator=(const MyCuPtr& udev_ptr) = delete;
 
-    double* get() const { return dev_ptr; }
+    T* get() const { return dev_ptr; }
 
-    void asyncCpy(double *cpu_ptr, int n, int offset=0) {
-        cudaMemcpyAsync(dev_ptr + offset, cpu_ptr, n*sizeof(double), cudaMemcpyHostToDevice);
+    void asyncCpy(T *cpu_ptr, int n, int offset=0) {
+        cudaMemcpyAsync(dev_ptr + offset, cpu_ptr, n*sizeof(T), cudaMemcpyHostToDevice);
     }
-    void syncDownload(double *cpu_ptr, int n, int offset=0) {
-        cudaMemcpy(cpu_ptr, dev_ptr + offset, n*sizeof(double), cudaMemcpyDeviceToHost);
+    void syncDownload(T *cpu_ptr, int n, int offset=0) {
+        cudaMemcpy(cpu_ptr, dev_ptr + offset, n*sizeof(T), cudaMemcpyDeviceToHost);
     }
     void reset() {
         if (dev_ptr != nullptr) {
@@ -44,7 +45,7 @@ public:
         }
     }
 
-    void realloc(int n, double *cpu_ptr=nullptr) {
+    void realloc(int n, T *cpu_ptr=nullptr) {
         reset(); _alloc(n);
         if (cpu_ptr != nullptr)
             asyncCpy(cpu_ptr, n);
@@ -157,7 +158,7 @@ public:
         if (solver_stat != CUSOLVER_STATUS_SUCCESS)
             throw std::runtime_error("cusolverDnDpotrf_bufferSize failed.\n");
 
-        MyCuDouble d_work(lworkf); /* device workspace for getrf */
+        MyCuPtr<double> d_work(lworkf); /* device workspace for getrf */
 
         solver_stat = cusolverDnDpotrf(
             solver_handle, CUBLAS_FILL_MODE_UPPER,
@@ -194,7 +195,7 @@ public:
         if (solver_stat != CUSOLVER_STATUS_SUCCESS)
             throw std::runtime_error("cusolverDnDgesvd_bufferSize failed.\n");
 
-        MyCuDouble d_work(lwork); /* device workspace */
+        MyCuPtr<double> d_work(lwork); /* device workspace */
 
         solver_stat = cusolverDnDgesvd(
             solver_handle, 'O', 'N', m, n, A, m, svals,

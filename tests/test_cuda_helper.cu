@@ -26,7 +26,7 @@ vector_cblas_dsymv_b_1[] = {4, 5, 6, 7};
 
 int test_cublas_dsymv_1()
 {
-    MyCuDouble
+    MyCuPtr<double>
     dev_res(NA), dev_sym_matrix_A(NA*NA, sym_matrix_A),
     dev_vector_cblas_dsymv_b_1(NA, vector_cblas_dsymv_b_1);
     double cpu_res[NA];
@@ -51,26 +51,26 @@ int main(int argc, char *argv[])
     int NA = 500, NB = 5;
     double IN_ARR[] = {1.1, 2.2, 3.3, 4.4, 5.5};
 
-    LOG::LOGGER.STD("Allocating a single MyCuDouble.\n");
-    MyCuDouble covariance_matrix;
+    LOG::LOGGER.STD("Allocating a single MyCuPtr<double>.\n");
+    MyCuPtr<double> covariance_matrix;
     assert(covariance_matrix.get() == nullptr);
     covariance_matrix.realloc(NA*NA);
-    LOG::LOGGER.STD("Reset a single MyCuDouble.\n");
+    LOG::LOGGER.STD("Reset a single MyCuPtr<double>.\n");
     covariance_matrix.reset();
     assert(covariance_matrix.get() == nullptr);
 
-    LOG::LOGGER.STD("Allocating array of two MyCuDouble.\n");
-    MyCuDouble temp_matrix[2];
+    LOG::LOGGER.STD("Allocating array of two MyCuPtr<double>.\n");
+    MyCuPtr<double> temp_matrix[2];
     assert(temp_matrix[0].get() == nullptr);
     assert(temp_matrix[1].get() == nullptr);
     temp_matrix[0].realloc(NA*NA);
     temp_matrix[1].realloc(NA*NA);
-    LOG::LOGGER.STD("Reset array of two MyCuDouble.\n");
+    LOG::LOGGER.STD("Reset array of two MyCuPtr<double>.\n");
     temp_matrix[0].reset();
     temp_matrix[1].reset();
 
-    LOG::LOGGER.STD("Asnyc copy a single MyCuDouble.\n");
-    MyCuDouble vec(NB, IN_ARR);
+    LOG::LOGGER.STD("Asnyc copy a single MyCuPtr<double>.\n");
+    MyCuPtr<double> vec(NB, IN_ARR);
 
     LOG::LOGGER.STD("Testing test_cublas_dsymv_1.\n");
     r+=test_cublas_dsymv_1();
