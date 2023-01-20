@@ -176,5 +176,6 @@ int main(int argc, char *argv[])
     r+=test_cublas_dsymv_1();
     r+=test_cublas_dsymm();
     r+=test_cusolver_SVD();
+    r+=test_cusolver_invert_cholesky();
     return r;
 }
