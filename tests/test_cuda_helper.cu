@@ -129,8 +129,7 @@ int test_cusolver_invert_cholesky()
     assert(nrows == ndim);
     assert(ncols == ndim);
 
-    MyCuPtr<double>
-        dev_A(ndim*ndim, A.data());
+    MyCuPtr<double> dev_A(ndim*ndim, A.data());
 
     cuhelper.invert_cholesky(dev_A.get(), ndim);
     dev_A.syncDownload(A.data(), ndim*ndim);
@@ -139,7 +138,7 @@ int test_cusolver_invert_cholesky()
     if (allClose(A.data(), truth_out_inverse.data(), ndim*ndim))
         return 0;
 
-    fprintf(stderr, "ERROR test_LAPACKE_InvertMatrixLU_2.\n");
+    fprintf(stderr, "ERROR test_cusolver_invert_cholesky.\n");
     // printMatrices(truth_out_inverse.data(), A.data(), ndim, ndim);
     return 1;
 }
