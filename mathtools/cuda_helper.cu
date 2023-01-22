@@ -58,16 +58,16 @@ class CuHelper
     cublasStatus_t blas_stat;
     cusolverStatus_t solver_stat;
 
-    void check_cublas_error(std::string& err_msg) {
+    void check_cublas_error(std::string err_msg) {
         if (blas_stat != CUBLAS_STATUS_SUCCESS) {
             err_msg += std::string(cublasGetStatusString(blas_stat));
             throw std::runtime_error(err_msg);
         }
     }
 
-    void check_cusolver_error(std::string& err_msg) {
+    void check_cusolver_error(std::string err_msg) {
         if (solver_stat == CUSOLVER_STATUS_SUCCESS)
-            return
+            return;
         switch (solver_stat) {
         case CUSOLVER_STATUS_NOT_INITIALIZED:
             err_msg += "The library was not initialized.";  break;
