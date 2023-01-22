@@ -27,7 +27,12 @@ matrix_cblas_dsymm_B[] = {
     3, 1, 9, 0,
     4, 8, 8, 8,
     4, 3, 2, 0,
-    5, 5, 9, 2};
+    5, 5, 9, 2},
+truth_out_cblas_dsymm [] = {
+    104., 113., 170., 64., 
+    67., 89., 139., 74., 
+    34., 28., 88., 18., 
+    57., 44., 127., 18.};
 
 
 int test_cublas_dsymv_1()
@@ -56,7 +61,7 @@ int test_cublas_dsymm()
     double result[NA*NA];
 
     MyCuPtr<double>
-        dev_res(NA)*NA, dev_sym_matrix_A(NA*NA, sym_matrix_A),
+        dev_res(NA*NA), dev_sym_matrix_A(NA*NA, sym_matrix_A),
         dev_matrix_cblas_dsymm_B(NA*NA, matrix_cblas_dsymm_B);
 
 
