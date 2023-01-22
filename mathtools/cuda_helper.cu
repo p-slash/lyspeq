@@ -58,18 +58,38 @@ class CuHelper
     cublasStatus_t blas_stat;
     cusolverStatus_t solver_stat;
 
+    void check_cublas_error(std::string& err_msg) {
+        if (blas_stat != CUBLAS_STATUS_SUCCESS) {
+            err_msg += std::string(cublasGetStatusString(blas_stat));
+            throw std::runtime_error(err_msg);
+        }
+    }
+
+    void check_cusolver_error(std::string& err_msg) {
+        if (solver_stat == CUSOLVER_STATUS_SUCCESS)
+            return
+        switch (solver_stat) {
+        case CUSOLVER_STATUS_NOT_INITIALIZED:
+            err_msg += "The library was not initialized.";  break;
+        case CUSOLVER_STATUS_INVALID_VALUE:
+            err_msg += "Invalid parameters were passed.";   break;
+        case CUSOLVER_STATUS_INTERNAL_ERROR:
+            err_msg += "An internal operation failed.";     break;
+        }
+
+        throw std::runtime_error(err_msg);
+    }
+
 public:
     cublasHandle_t blas_handle;
     cusolverDnHandle_t solver_handle;
 
     CuHelper() {
         blas_stat = cublasCreate(&blas_handle);
-        if (blas_stat != CUBLAS_STATUS_SUCCESS)
-            throw std::runtime_error("CUBLAS initialization failed.\n");
+        check_cublas_error("CUBLAS initialization failed: ");
 
         solver_stat = cusolverDnCreate(&solver_handle);
-        if (solver_stat != CUSOLVER_STATUS_SUCCESS)
-            throw std::runtime_error("CUSOLVER initialization failed.\n");
+        check_cusolver_error("CUSOLVER initialization failed: ");
     };
     ~CuHelper() { cublasDestroy(blas_handle); cusolverDnDestroy(solver_handle); };
 
@@ -80,68 +100,67 @@ public:
     double trace_dsymm(const double *A, const double *B, int N) {
         double result;
         blas_stat = cublasDdot(blas_handle, N*N, A, 1, B, 1, &result);
-        if (blas_stat != CUBLAS_STATUS_SUCCESS)
-            throw std::runtime_error("trace_dsymm/cublasDdot failed.\n");
+        check_cublas_error("trace_dsymm/cublasDdot: ");
         return result;
     }
 
     double trace_ddiagmv(const double *A, const double *B, int N) {
         double result;
         blas_stat = cublasDdot(blas_handle, N, A, N+1, B, 1, &result);
-        if (blas_stat != CUBLAS_STATUS_SUCCESS)
-            throw std::runtime_error("trace_ddiagmv/cublasDdot failed.\n");
+        check_cublas_error("trace_ddiagmv/cublasDdot: ");
         return result;
     }
 
     // vT . S . v
     // Assumes S is square symmetric matrix NxN
-    double my_cublas_dsymvdot(const double *v, const double *S, double *temp_vector, int N) {
+    double my_cublas_dsymvdot(
+            const double *v, const double *S, double *temp_vector, int N) {
         dsmyv(CUBLAS_FILL_MODE_UPPER, N, 1., S, N, v, 1, 0, temp_vector, 1);
         double result;
         blas_stat = cublasDdot(blas_handle, N, v, 1, temp_vector, 1, &result);
-        if (blas_stat != CUBLAS_STATUS_SUCCESS)
-            throw std::runtime_error("my_cublas_dsymvdot/cublasDdot failed.\n");
+        check_cublas_error("my_cublas_dsymvdot/cublasDdot: ");
         return result;
     }
 
     void dcopy(const double *x, double *y, int N) {
         blas_stat = cublasDcopy(blas_handle, N, x, 1, y, 1);
-        if (blas_stat != CUBLAS_STATUS_SUCCESS)
-            throw std::runtime_error("cublasDcopy failed.\n");
+        check_cublas_error("cublasDcopy: ");
     }
 
-    void daxpy( double alpha,
-                const double *x, double *y,
-                int N,
-                int incx=1, int incy=1) {
+    void daxpy( 
+            double alpha,
+            const double *x, double *y,
+            int N,
+            int incx=1, int incy=1) {
         blas_stat = cublasDaxpy(blas_handle, N, &alpha, x, incx, y, incy);
-        if (blas_stat != CUBLAS_STATUS_SUCCESS)
-            throw std::runtime_error("cublasDaxpy failed.\n");
+        check_cublas_error("cublasDaxpy: ");
     }
     
-    void dsymm(cublasSideMode_t side, cublasFillMode_t uplo,
-               int m, int n, double alpha,
-               const double *A, int lda,
-               const double *B, int ldb,
-               double beta, double *C, int ldc) {
-        blas_stat = cublasDsymm(blas_handle, side, uplo,
+    void dsymm(
+            cublasSideMode_t side, cublasFillMode_t uplo,
+            int m, int n, double alpha,
+            const double *A, int lda,
+            const double *B, int ldb,
+            double beta, double *C, int ldc) {
+        blas_stat = cublasDsymm(
+            blas_handle, side, uplo,
             m, n, &alpha,
             A, lda, B, ldb,
             &beta, C, ldc);
-        if (blas_stat != CUBLAS_STATUS_SUCCESS)
-            throw std::runtime_error("cublasDsymm failed.\n");
+        check_cublas_error("cublasDsymm: ");
     }
 
-    void dsmyv( cublasFillMode_t uplo,
-                int n, double alpha,
-                const double *A, int lda,
-                const double *x, int incx, double beta,
-                double *y, int incy) {
-        blas_stat = cublasDsymv(blas_handle, uplo,
+    void dsmyv(
+            cublasFillMode_t uplo,
+            int n, double alpha,
+            const double *A, int lda,
+            const double *x, int incx, double beta,
+            double *y, int incy) {
+        blas_stat = cublasDsymv(
+            blas_handle, uplo,
             n, &alpha, A, lda, x, incx,
             &beta, y, incy);
-        if (blas_stat != CUBLAS_STATUS_SUCCESS)
-            throw std::runtime_error("cublasDsymv failed.\n");
+        check_cublas_error("cublasDsymv: ");
     }
 
     // In-place invert by Cholesky factorization
@@ -155,24 +174,21 @@ public:
         solver_stat = cusolverDnDpotrf_bufferSize(
             solver_handle, CUBLAS_FILL_MODE_UPPER,
             N, A, N, &lworkf);
-        if (solver_stat != CUSOLVER_STATUS_SUCCESS)
-            throw std::runtime_error("cusolverDnDpotrf_bufferSize failed.\n");
+        check_cusolver_error("cusolverDnDpotrf_bufferSize: ");
 
         MyCuPtr<double> d_work(lworkf); /* device workspace for getrf */
 
         solver_stat = cusolverDnDpotrf(
             solver_handle, CUBLAS_FILL_MODE_UPPER,
             N, A, N, d_work.get(), lworkf, &devInfo);
-        if (solver_stat != CUSOLVER_STATUS_SUCCESS)
-            throw std::runtime_error("cusolverDnDpotrf failed.\n");
+        check_cusolver_error("cusolverDnDpotrf: ");
         if (devInfo != 0)
-            throw std::runtime_error("Cholesky factorization is not successful.\n");
+            throw std::runtime_error("Cholesky factorization is not successful.");
 
         solver_stat = cusolverDnDpotri_bufferSize(
             solver_handle, CUBLAS_FILL_MODE_UPPER,
             N, A, N, &lworki);
-        if (solver_stat != CUSOLVER_STATUS_SUCCESS)
-            throw std::runtime_error("cusolverDnDpotri_bufferSize failed.\n");
+        check_cusolver_error("cusolverDnDpotri_bufferSize: ");
 
         if (lworki > lworkf)
             d_work.realloc(lworki);
@@ -180,10 +196,9 @@ public:
         solver_stat = cusolverDnDpotri(
             solver_handle, CUBLAS_FILL_MODE_UPPER,
             N, A, N, d_work.get(), lworki, &devInfo);
-        if (solver_stat != CUSOLVER_STATUS_SUCCESS)
-            throw std::runtime_error("cusolverDnDpotri failed.\n");
+        check_cusolver_error("cusolverDnDpotri: ");
         if (devInfo != 0)
-            throw std::runtime_error("Cholesky inversion is not successful.\n");
+            throw std::runtime_error("Cholesky inversion is not successful.");
     }
 
     void svd(double *A, double *svals, int m, int n) {
@@ -192,8 +207,7 @@ public:
 
         solver_stat = cusolverDnDgesvd_bufferSize(
             solver_handle, m, n, &lwork);
-        if (solver_stat != CUSOLVER_STATUS_SUCCESS)
-            throw std::runtime_error("cusolverDnDgesvd_bufferSize failed.\n");
+        check_cusolver_error("cusolverDnDgesvd_bufferSize: ");
 
         MyCuPtr<double> d_work(lwork); /* device workspace */
 
@@ -201,10 +215,9 @@ public:
             solver_handle, 'O', 'N', m, n, A, m, svals,
             nullptr, m, nullptr, n, d_work.get(), lwork,
             nullptr, &devInfo);
-        if (solver_stat != CUSOLVER_STATUS_SUCCESS)
-            throw std::runtime_error("cusolverDnDgesvd failed.\n");
+        check_cusolver_error("cusolverDnDgesvd: ");
         if (devInfo != 0)
-            throw std::runtime_error("SVD is not successful.\n");
+            throw std::runtime_error("SVD is not successful.");
     }
 
 };
