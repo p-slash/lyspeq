@@ -33,10 +33,16 @@ public:
     T* get() const { return dev_ptr; }
 
     void asyncCpy(T *cpu_ptr, int n, int offset=0) {
-        cudaMemcpyAsync(dev_ptr + offset, cpu_ptr, n*sizeof(T), cudaMemcpyHostToDevice);
+        cudaMemcpyAsync(
+            dev_ptr + offset, cpu_ptr, n*sizeof(T), cudaMemcpyHostToDevice);
+    }
+    void asyncDwn(T *cpu_ptr, int n, int offset=0) {
+        cudaMemcpyAsync(
+            cpu_ptr, dev_ptr + offset, sizeof(T) * n, cudaMemcpyDeviceToHost);
     }
     void syncDownload(T *cpu_ptr, int n, int offset=0) {
-        cudaMemcpy(cpu_ptr, dev_ptr + offset, n*sizeof(T), cudaMemcpyDeviceToHost);
+        cudaMemcpy(
+            cpu_ptr, dev_ptr + offset, n*sizeof(T), cudaMemcpyDeviceToHost);
     }
     void reset() {
         if (dev_ptr != nullptr) {
