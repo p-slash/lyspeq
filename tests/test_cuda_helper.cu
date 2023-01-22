@@ -64,7 +64,6 @@ int test_cublas_dsymm()
         dev_res(NA*NA), dev_sym_matrix_A(NA*NA, sym_matrix_A),
         dev_matrix_cblas_dsymm_B(NA*NA, matrix_cblas_dsymm_B);
 
-
     cuhelper.dsymm(
         CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER,
         NA, NA, 1., dev_sym_matrix_A.get(), NA,
@@ -175,11 +174,20 @@ int main(int argc, char *argv[])
 
     LOG::LOGGER.STD("Asnyc copy a single MyCuPtr<double>.\n");
     MyCuPtr<double> vec(NB, IN_ARR);
+    std::vector cpu_vec(5);
+    vec.syncDownload(cpu_vec.data(), 5);
+    if (!allClose(cpu_vec.data(), IN_ARR, 5)) {
+        fprintf(stderr, "ERROR: sync download\n");
+        r+=1;
+    }
 
     LOG::LOGGER.STD("Testing test_cublas_dsymv_1.\n");
     r+=test_cublas_dsymv_1();
     r+=test_cublas_dsymm();
     r+=test_cusolver_SVD();
     r+=test_cusolver_invert_cholesky();
+
+    if (r != 0)
+        fprintf(stderr, "ERRORs occured!!!!!\n");
     return r;
 }
