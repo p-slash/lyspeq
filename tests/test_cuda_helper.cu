@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
 
     LOG::LOGGER.STD("Asnyc copy a single MyCuPtr<double>.\n");
     MyCuPtr<double> vec(NB, IN_ARR);
-    std::vector cpu_vec(5);
+    std::vector<double> cpu_vec(5);
     vec.syncDownload(cpu_vec.data(), 5);
     if (!allClose(cpu_vec.data(), IN_ARR, 5)) {
         fprintf(stderr, "ERROR: sync download\n");
