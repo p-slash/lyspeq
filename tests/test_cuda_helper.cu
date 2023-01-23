@@ -37,6 +37,7 @@ truth_out_cblas_dsymm [] = {
 
 int test_cublas_dsymv_1()
 {
+    LOG::LOGGER.STD("Testing test_cublas_dsymv_1.\n");
     MyCuPtr<double>
         dev_res(NA), dev_sym_matrix_A(NA*NA, sym_matrix_A),
         dev_vector_cblas_dsymv_b_1(NA, vector_cblas_dsymv_b_1);
@@ -58,6 +59,7 @@ int test_cublas_dsymv_1()
 
 int test_cublas_dsymm()
 {
+    LOG::LOGGER.STD("Testing test_cublas_dsymm.\n");
     double result[NA*NA];
 
     MyCuPtr<double>
@@ -102,6 +104,7 @@ NrowsSVD = 5;
 
 int test_cusolver_SVD()
 {
+    LOG::LOGGER.STD("Testing test_cusolver_SVD.\n");
     MyCuPtr<double>
         svals(NcolsSVD), dev_svd_matrix(NcolsSVD*NrowsSVD, matrix_for_SVD_A);
     double svd_matrix[NcolsSVD*NrowsSVD];
@@ -119,6 +122,7 @@ int test_cusolver_SVD()
 
 int test_cusolver_invert_cholesky()
 {
+    LOG::LOGGER.STD("Testing test_cusolver_invert_cholesky.\n");
     const int ndim = 496;
     std::vector<double> A, truth_out_inverse;
     int nrows, ncols;
@@ -150,12 +154,8 @@ int test_cusolver_invert_cholesky()
 }
 
 
-int main(int argc, char *argv[])
-{
-    int r=0;
-    int NA = 500, NB = 5;
-    double IN_ARR[] = {1.1, 2.2, 3.3, 4.4, 5.5};
-
+void test_MyCuPtr_init() {
+    int NA = 500;
     LOG::LOGGER.STD("Allocating a single MyCuPtr<double>.\n");
     MyCuPtr<double> covariance_matrix;
     assert(covariance_matrix.get() == nullptr);
@@ -163,7 +163,11 @@ int main(int argc, char *argv[])
     LOG::LOGGER.STD("Reset a single MyCuPtr<double>.\n");
     covariance_matrix.reset();
     assert(covariance_matrix.get() == nullptr);
+}
 
+
+void test_MyCuPtr_array() {
+    int NA = 500;
     LOG::LOGGER.STD("Allocating array of two MyCuPtr<double>.\n");
     MyCuPtr<double> temp_matrix[2];
     assert(temp_matrix[0].get() == nullptr);
@@ -173,21 +177,34 @@ int main(int argc, char *argv[])
     LOG::LOGGER.STD("Reset array of two MyCuPtr<double>.\n");
     temp_matrix[0].reset();
     temp_matrix[1].reset();
+}
+
+
+void test_MyCuPtr_async() {
+    int NA = 500, NB = 5;
+    double IN_ARR[] = {1.1, 2.2, 3.3, 4.4, 5.5};
 
     LOG::LOGGER.STD("Asnyc copy a single MyCuPtr<double>.\n");
     MyCuPtr<double> vec(NB, IN_ARR);
     std::vector<double> cpu_vec(5);
     vec.syncDownload(cpu_vec.data(), 5);
-    if (!allClose(cpu_vec.data(), IN_ARR, 5)) {
-        fprintf(stderr, "ERROR: sync download\n");
-        r+=1;
-    }
+    assert (allClose(cpu_vec.data(), IN_ARR, 5));
+}
 
-    LOG::LOGGER.STD("Testing test_cublas_dsymv_1.\n");
-    r+=test_cublas_dsymv_1();
-    r+=test_cublas_dsymm();
-    r+=test_cusolver_SVD();
-    r+=test_cusolver_invert_cholesky();
+
+int main(int argc, char *argv[])
+{
+    int r=0;
+
+    r += asserter(test_MyCuPtr_init, "test_MyCuPtr_init");
+    r += asserter(test_MyCuPtr_array, "test_MyCuPtr_array");
+    r += asserter(test_MyCuPtr_async, "test_MyCuPtr_async");
+
+    r += asserter(test_cublas_dsymv_1, "test_cublas_dsymv_1");
+    r += asserter(test_cublas_dsymm, "test_cublas_dsymm");
+    r += asserter(test_cusolver_SVD, "test_cusolver_SVD");
+    r += asserter(
+        test_cusolver_invert_cholesky, "test_cusolver_invert_cholesky");
 
     if (r != 0)
         fprintf(stderr, "ERRORs occured!!!!!\n");
