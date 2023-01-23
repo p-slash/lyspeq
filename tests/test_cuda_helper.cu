@@ -102,7 +102,7 @@ void test_cusolver_SVD()
         svals(NcolsSVD), dev_svd_matrix(NcolsSVD*NrowsSVD, matrix_for_SVD_A);
     double svd_matrix[NcolsSVD*NrowsSVD];
 
-    cuhelper.svd(dev_svd_matrix.get(), svals.get(), NcolsSVD, NrowsSVD);
+    cuhelper.svd(dev_svd_matrix.get(), svals.get(), NrowsSVD, NcolsSVD);
     dev_svd_matrix.syncDownload(svd_matrix, NcolsSVD*NrowsSVD);
 
     assert (allClose(truth_SVD_A, svd_matrix, NcolsSVD*NrowsSVD));
