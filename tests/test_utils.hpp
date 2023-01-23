@@ -23,6 +23,14 @@ int catcher(void (*fnc)(), const char* fnc_name) {
 }
 
 
+void raiser(bool pass_test, const char* sfile, int line) {
+    char msg[250] = "";
+    sprintf(msg, "not true in %s at %d.", sfile, line);
+    if (!pass_test)
+        throw std::runtime_error(msg);
+}
+
+
 void assert_allclose(
         const double *expected, const double *current, int size,
         const char* sfile, int line) {
@@ -31,11 +39,4 @@ void assert_allclose(
     if (!pass_test)
         printMatrices(expected, current, size, 1);
     raiser(pass_test, sfile, line);
-}
-
-void raiser(bool pass_test, const char* sfile, int line) {
-    char msg[250] = "";
-    sprintf(msg, "not true in %s at %d.", sfile, line);
-    if (!pass_test)
-        throw std::runtime_error(msg);
 }
