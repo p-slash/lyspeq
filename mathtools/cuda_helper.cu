@@ -141,7 +141,7 @@ public:
         blas_stat = cublasDaxpy(blas_handle, N, &alpha, x, incx, y, incy);
         check_cublas_error("cublasDaxpy: ");
     }
-    
+
     void dsymm(
             cublasSideMode_t side, cublasFillMode_t uplo,
             int m, int n, double alpha,

@@ -33,4 +33,5 @@ void printMatrices(const double *truth, const double *result,
     printf("VS.\nTruth:\n");
     mxhelp::printfMatrix(truth, nrows, ncols);
     printf("===========================================\n\n");
+    fflush(stdout);
 }
