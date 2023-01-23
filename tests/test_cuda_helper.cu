@@ -48,8 +48,9 @@ void test_cublas_dsymv_1()
         dev_vector_cblas_dsymv_b_1.get(), 1, 0, dev_res.get(), 1);
     dev_res.syncDownload(cpu_res, NA);
 
-    assert (allClose(truth_cblas_dsymv_1, cpu_res, NA));
-    // printMatrices(truth_cblas_dsymv_1, cpu_res, NA, 1);
+    raiser(
+        allClose(truth_cblas_dsymv_1, cpu_res, NA),
+        err_liner(__FILE__, __LINE__));
 }
 
 
@@ -70,42 +71,46 @@ void test_cublas_dsymm()
 
     dev_res.syncDownload(result, NA*NA);
 
-    assert (allClose(truth_out_cblas_dsymm, result, NA*NA));
-    // printMatrices(truth_out_cblas_dsymm, result, NA, NA);
+    raiser(
+        allClose(truth_out_cblas_dsymm, result, NA*NA),
+        err_liner(__FILE__, __LINE__));
 }
 
 
 double
 matrix_for_SVD_A[] = {
-    8.79, 9.93, 9.83, 5.45, 3.16,
-    6.11, 6.91, 5.04, -0.27, 7.98,
-    -9.15, -7.93, 4.86, 4.85, 3.01,
-    9.57, 1.64,8.83, 0.74, 5.8,
-    -3.49, 4.02, 9.8, 10.00, 4.27,
-     9.84, 0.15, -8.99, -6.02, -5.31},
+    8.79, 6.11,  -9.15,  9.57, -3.49,  9.84,
+    9.93, 6.91,  -7.93,  1.64,  4.02,  0.15,
+    9.83, 5.04,  4.86,  8.83,   9.8,  -8.99,
+    5.45, -0.27, 4.85,  0.74,  10.00, -6.02,
+    3.16, 7.98,  3.01,  5.8,    4.27, -5.31},
 truth_SVD_A[] = {
-    -5.911424e-01, 2.631678e-01, 3.554302e-01, 3.142644e-01, 2.299383e-01,
-    -3.975668e-01, 2.437990e-01, -2.223900e-01, -7.534662e-01, -3.635897e-01,
-    -3.347897e-02, -6.002726e-01, -4.508393e-01, 2.334497e-01, -3.054757e-01,
-    -4.297069e-01, 2.361668e-01,-6.858629e-01, 3.318600e-01, 1.649276e-01,
-    -4.697479e-01, -3.508914e-01,  3.874446e-01,  1.587356e-01, -5.182574e-01,
-     2.933588e-01,  5.762621e-01, -2.085292e-02,  3.790777e-01, -6.525516e-01};
+    -5.911424e-01, -3.975668e-01, -3.347897e-02, -4.297069e-01, -4.697479e-01, 2.933588e-01, 
+    2.631678e-01, 2.437990e-01, -6.002726e-01, 2.361668e-01, -3.508914e-01, 5.762621e-01, 
+    3.554302e-01, -2.223900e-01, -4.508393e-01, -6.858629e-01, 3.874446e-01, -2.085292e-02, 
+    3.142644e-01, -7.534662e-01, 2.334497e-01, 3.318600e-01, 1.587356e-01, 3.790777e-01, 
+    2.299383e-01, -3.635897e-01, -3.054757e-01, 1.649276e-01, -5.182574e-01, -6.525516e-01};
 
 int
-NcolsSVD = 6,
-NrowsSVD = 5;
+NcolsSVD = 5,
+NrowsSVD = 6;
 
 void test_cusolver_SVD()
 {
     LOG::LOGGER.STD("Testing test_cusolver_SVD.\n");
+    cuhelper.streamCreate();
+
     MyCuPtr<double>
-        svals(NcolsSVD), dev_svd_matrix(NcolsSVD*NrowsSVD, matrix_for_SVD_A);
+        svals(NcolsSVD), dev_svd_matrix(NcolsSVD*NrowsSVD, matrix_for_SVD_A, cuhelper.stream);
     double svd_matrix[NcolsSVD*NrowsSVD];
 
     cuhelper.svd(dev_svd_matrix.get(), svals.get(), NrowsSVD, NcolsSVD);
+    // cuhelper.streamSync();
     dev_svd_matrix.syncDownload(svd_matrix, NcolsSVD*NrowsSVD);
 
-    assert (allClose(truth_SVD_A, svd_matrix, NcolsSVD*NrowsSVD));
+    raiser(
+        allClose(truth_SVD_A, svd_matrix, NcolsSVD*NrowsSVD),
+        err_liner(__FILE__, __LINE__));
     // printMatrices(truth_SVD_A, svd_matrix, NrowsSVD, NcolsSVD);
 }
 
@@ -122,12 +127,12 @@ void test_cusolver_invert_cholesky()
     fname_truth  = std::string(SRCDIR) + "/tests/truth/test_inverse_cholesky.txt";
 
     A = mxhelp::fscanfMatrix(fname_matrix.c_str(), nrows, ncols);
-    assert(nrows == ndim);
-    assert(ncols == ndim);
+    raiser(nrows == ndim, err_liner(__FILE__, __LINE__));
+    raiser(ncols == ndim, err_liner(__FILE__, __LINE__));
 
     truth_out_inverse = mxhelp::fscanfMatrix(fname_truth.c_str(), nrows, ncols);
-    assert(nrows == ndim);
-    assert(ncols == ndim);
+    raiser(nrows == ndim, err_liner(__FILE__, __LINE__));
+    raiser(ncols == ndim, err_liner(__FILE__, __LINE__));
 
     MyCuPtr<double> dev_A(ndim*ndim, A.data());
 
@@ -135,7 +140,9 @@ void test_cusolver_invert_cholesky()
     dev_A.syncDownload(A.data(), ndim*ndim);
     mxhelp::copyUpperToLower(A.data(), ndim);
 
-    assert (allClose(A.data(), truth_out_inverse.data(), ndim*ndim));
+    raiser(
+        allClose(A.data(), truth_out_inverse.data(), ndim*ndim),
+        err_liner(__FILE__, __LINE__));
 }
 
 
@@ -143,11 +150,11 @@ void test_MyCuPtr_init() {
     int NA = 500;
     LOG::LOGGER.STD("Allocating a single MyCuPtr<double>.\n");
     MyCuPtr<double> covariance_matrix;
-    assert(covariance_matrix.get() == nullptr);
+    raiser(covariance_matrix.get() == nullptr, err_liner(__FILE__, __LINE__));
     covariance_matrix.realloc(NA*NA);
     LOG::LOGGER.STD("Reset a single MyCuPtr<double>.\n");
     covariance_matrix.reset();
-    assert(covariance_matrix.get() == nullptr);
+    raiser(covariance_matrix.get() == nullptr, err_liner(__FILE__, __LINE__));
 }
 
 
@@ -155,8 +162,8 @@ void test_MyCuPtr_array() {
     int NA = 500;
     LOG::LOGGER.STD("Allocating array of two MyCuPtr<double>.\n");
     MyCuPtr<double> temp_matrix[2];
-    assert(temp_matrix[0].get() == nullptr);
-    assert(temp_matrix[1].get() == nullptr);
+    raiser(temp_matrix[0].get() == nullptr, err_liner(__FILE__, __LINE__));
+    raiser(temp_matrix[1].get() == nullptr, err_liner(__FILE__, __LINE__));
     temp_matrix[0].realloc(NA*NA);
     temp_matrix[1].realloc(NA*NA);
     LOG::LOGGER.STD("Reset array of two MyCuPtr<double>.\n");
@@ -173,7 +180,9 @@ void test_MyCuPtr_async() {
     MyCuPtr<double> vec(NB, IN_ARR);
     std::vector<double> cpu_vec(5);
     vec.syncDownload(cpu_vec.data(), 5);
-    assert (allClose(cpu_vec.data(), IN_ARR, 5));
+    raiser(
+        allClose(cpu_vec.data(), IN_ARR, 5),
+        err_liner(__FILE__, __LINE__));
 }
 
 

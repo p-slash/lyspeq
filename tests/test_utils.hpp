@@ -2,6 +2,13 @@
 #define SRCDIR "."
 #endif
 #include <cassert>
+#include <stdexcept>
+
+constexpr char* err_liner(const char* sfile, int line) {
+    char buf[250] = "";
+    sprintf(buf, "not true in %s at %d.", sfile, line);
+    return buf;
+}
 
 int asserter(void (*fnc)(), const char* fnc_name) {
     try {
@@ -11,6 +18,12 @@ int asserter(void (*fnc)(), const char* fnc_name) {
         return 1;
     }
     return 0;
+}
+
+
+void raiser(bool pass_test, const char* msg) {
+    if (! pass_test)
+        throw std::runtime_error(msg);
 }
 
 bool isClose(double a, double b, double relerr=1e-5, double abserr=1e-8);
