@@ -35,7 +35,7 @@ truth_out_cblas_dsymm [] = {
     64, 74, 18, 18};
 
 
-int test_cublas_dsymv_1()
+void test_cublas_dsymv_1()
 {
     LOG::LOGGER.STD("Testing test_cublas_dsymv_1.\n");
     MyCuPtr<double>
@@ -48,16 +48,12 @@ int test_cublas_dsymv_1()
         dev_vector_cblas_dsymv_b_1.get(), 1, 0, dev_res.get(), 1);
     dev_res.syncDownload(cpu_res, NA);
 
-    if (allClose(truth_cblas_dsymv_1, cpu_res, NA))
-        return 0;
-
-    fprintf(stderr, "ERROR test_cublas_dsymv_1.\n");
-    printMatrices(truth_cblas_dsymv_1, cpu_res, NA, 1);
-    return 1;
+    assert (allClose(truth_cblas_dsymv_1, cpu_res, NA));
+    // printMatrices(truth_cblas_dsymv_1, cpu_res, NA, 1);
 }
 
 
-int test_cublas_dsymm()
+void test_cublas_dsymm()
 {
     LOG::LOGGER.STD("Testing test_cublas_dsymm.\n");
     double result[NA*NA];
@@ -74,11 +70,8 @@ int test_cublas_dsymm()
 
     dev_res.syncDownload(result, NA*NA);
 
-    if (allClose(truth_out_cblas_dsymm, result, NA*NA))
-        return 0;
-    fprintf(stderr, "ERROR test_cublas_dsymm.\n");
-    printMatrices(truth_out_cblas_dsymm, result, NA, NA);
-    return 1;
+    assert (allClose(truth_out_cblas_dsymm, result, NA*NA));
+    // printMatrices(truth_out_cblas_dsymm, result, NA, NA);
 }
 
 
@@ -102,7 +95,7 @@ int
 NcolsSVD = 6,
 NrowsSVD = 5;
 
-int test_cusolver_SVD()
+void test_cusolver_SVD()
 {
     LOG::LOGGER.STD("Testing test_cusolver_SVD.\n");
     MyCuPtr<double>
@@ -112,15 +105,12 @@ int test_cusolver_SVD()
     cuhelper.svd(dev_svd_matrix.get(), svals.get(), NcolsSVD, NrowsSVD);
     dev_svd_matrix.syncDownload(svd_matrix, NcolsSVD*NrowsSVD);
 
-    if (allClose(truth_SVD_A, svd_matrix, NcolsSVD*NrowsSVD))
-        return 0;
-    fprintf(stderr, "ERROR test_cusolver_SVD.\n");
-    printMatrices(truth_SVD_A, svd_matrix, NrowsSVD, NcolsSVD);
-    return 1;
+    assert (allClose(truth_SVD_A, svd_matrix, NcolsSVD*NrowsSVD));
+    // printMatrices(truth_SVD_A, svd_matrix, NrowsSVD, NcolsSVD);
 }
 
 
-int test_cusolver_invert_cholesky()
+void test_cusolver_invert_cholesky()
 {
     LOG::LOGGER.STD("Testing test_cusolver_invert_cholesky.\n");
     const int ndim = 496;
@@ -145,12 +135,7 @@ int test_cusolver_invert_cholesky()
     dev_A.syncDownload(A.data(), ndim*ndim);
     mxhelp::copyUpperToLower(A.data(), ndim);
 
-    if (allClose(A.data(), truth_out_inverse.data(), ndim*ndim))
-        return 0;
-
-    fprintf(stderr, "ERROR test_cusolver_invert_cholesky.\n");
-    // printMatrices(truth_out_inverse.data(), A.data(), ndim, ndim);
-    return 1;
+    assert (allClose(A.data(), truth_out_inverse.data(), ndim*ndim));
 }
 
 

@@ -1,12 +1,13 @@
 #ifndef SRCDIR
 #define SRCDIR "."
 #endif
+#include <cassert>
 
-int asserter(void (*fnc)(), const char* err_msg) {
+int asserter(void (*fnc)(), const char* fnc_name) {
     try {
         fnc();
-    } catch {
-        fprintf(stderr, "%s\n", err_msg);
+    } catch (std::exception& e) {
+        fprintf(stderr, "ERROR in %s: %s\n", fnc_name,  e.what());
         return 1;
     }
     return 0;
