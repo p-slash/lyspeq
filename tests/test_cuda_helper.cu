@@ -196,15 +196,15 @@ int main(int argc, char *argv[])
 {
     int r=0;
 
-    r += asserter(test_MyCuPtr_init, "test_MyCuPtr_init");
-    r += asserter(test_MyCuPtr_array, "test_MyCuPtr_array");
-    r += asserter(test_MyCuPtr_async, "test_MyCuPtr_async");
+    r += asserter(&test_MyCuPtr_init, "test_MyCuPtr_init");
+    r += asserter(&test_MyCuPtr_array, "test_MyCuPtr_array");
+    r += asserter(&test_MyCuPtr_async, "test_MyCuPtr_async");
 
-    r += asserter(test_cublas_dsymv_1, "test_cublas_dsymv_1");
-    r += asserter(test_cublas_dsymm, "test_cublas_dsymm");
-    r += asserter(test_cusolver_SVD, "test_cusolver_SVD");
+    r += asserter(&test_cublas_dsymv_1, "test_cublas_dsymv_1");
+    r += asserter(&test_cublas_dsymm, "test_cublas_dsymm");
+    r += asserter(&test_cusolver_SVD, "test_cusolver_SVD");
     r += asserter(
-        test_cusolver_invert_cholesky, "test_cusolver_invert_cholesky");
+        &test_cusolver_invert_cholesky, "test_cusolver_invert_cholesky");
 
     if (r != 0)
         fprintf(stderr, "ERRORs occured!!!!!\n");
