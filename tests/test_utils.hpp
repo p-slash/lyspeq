@@ -31,12 +31,19 @@ void raiser(bool pass_test, const char* sfile, int line) {
 }
 
 
+void assert_allclose_2d(
+    const double *expected, const double *current, int nrows, int ncols,
+        const char* sfile, int line) {
+    bool pass_test = allClose(expected, current, nrows * ncols);
+
+    if (!pass_test)
+        printMatrices(expected, current, nrows, ncols);
+    raiser(pass_test, sfile, line);
+}
+
+
 void assert_allclose(
         const double *expected, const double *current, int size,
         const char* sfile, int line) {
-    bool pass_test = allClose(expected, current, size);
-
-    if (!pass_test)
-        printMatrices(expected, current, size, 1);
-    raiser(pass_test, sfile, line);
+    assert_allclose_2d(expected, current, size, 1, sfile, line);
 }
