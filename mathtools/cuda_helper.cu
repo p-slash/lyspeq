@@ -207,19 +207,19 @@ public:
             throw std::runtime_error("Cholesky inversion is not successful.");
     }
 
-    void svd(double *A, double *svals, int m, int n) {
+    void svd(double *A, double *svals, int nrows, int ncols) {
         int lwork = 0; /* size of workspace */
         __device__ int devInfo = -1;
 
         solver_stat = cusolverDnDgesvd_bufferSize(
-            solver_handle, m, n, &lwork);
+            solver_handle, nrows, ncols, &lwork);
         check_cusolver_error("cusolverDnDgesvd_bufferSize: ");
 
         MyCuPtr<double> d_work(lwork); /* device workspace */
 
         solver_stat = cusolverDnDgesvd(
-            solver_handle, 'O', 'N', m, n, A, m, svals,
-            nullptr, m, nullptr, n, d_work.get(), lwork,
+            solver_handle, 'O', 'N', nrows, ncols, A, nrows, svals,
+            nullptr, nrows, nullptr, nrows, d_work.get(), lwork,
             nullptr, &devInfo);
         check_cusolver_error("cusolverDnDgesvd: ");
         if (devInfo != 0)
