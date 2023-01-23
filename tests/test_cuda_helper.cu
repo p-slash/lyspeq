@@ -181,7 +181,7 @@ void test_MyCuPtr_array() {
 
 
 void test_MyCuPtr_async() {
-    int NA = 500, NB = 5;
+    int NB = 5;
     double IN_ARR[] = {1.1, 2.2, 3.3, 4.4, 5.5};
 
     LOG::LOGGER.STD("Asnyc copy a single MyCuPtr<double>.\n");
