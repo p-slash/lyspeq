@@ -69,7 +69,8 @@ void test_cublas_dsymm()
 
     dev_res.syncDownload(result, NA*NA);
 
-    assert_allclose(truth_out_cblas_dsymm, result, NA*NA, __FILE__, __LINE__);
+    assert_allclose_2d(
+        truth_out_cblas_dsymm, result, NA, NA, __FILE__, __LINE__);
 }
 
 
@@ -109,8 +110,8 @@ void test_cusolver_SVD()
 
     assert_allclose(truth_svals, cpu_svals, NcolsSVD, __FILE__, __LINE__);
 
-    assert_allclose(
-        truth_SVD_A, svd_matrix, NcolsSVD*NrowsSVD,
+    assert_allclose_2d(
+        truth_SVD_A, svd_matrix, NcolsSVD, NrowsSVD,
         __FILE__, __LINE__);
 }
 
@@ -137,11 +138,11 @@ void test_cusolver_invert_cholesky()
     MyCuPtr<double> dev_A(ndim*ndim, A.data());
 
     cuhelper.invert_cholesky(dev_A.get(), ndim);
-    dev_A.syncDownload(A.data(), ndim*ndim);
+    dev_A.syncDownload(A.data(), ndim * ndim);
     mxhelp::copyUpperToLower(A.data(), ndim);
 
-    assert_allclose(
-        truth_out_inverse.data(), A.data(), ndim*ndim,
+    assert_allclose_2d(
+        truth_out_inverse.data(), A.data(), ndim, ndim,
         __FILE__, __LINE__);
 }
 
