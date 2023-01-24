@@ -36,8 +36,8 @@ truth_out_cblas_dsymm [] = {
 
 void test_cublas_dsymv_1() {
     MyCuPtr<double>
-        dev_res(NA), dev_sym_matrix_A(NA*NA, sym_matrix_A),
-        dev_vector_cblas_dsymv_b_1(NA, vector_cblas_dsymv_b_1);
+        dev_res(NA), dev_sym_matrix_A(NA*NA, sym_matrix_A, cuhelper.stream),
+        dev_vector_cblas_dsymv_b_1(NA, vector_cblas_dsymv_b_1, cuhelper.stream);
     double cpu_res[NA];
 
     cuhelper.dsmyv(
@@ -53,8 +53,8 @@ void test_cublas_dsymm() {
     double result[NA*NA];
 
     MyCuPtr<double>
-        dev_res(NA*NA), dev_sym_matrix_A(NA*NA, sym_matrix_A),
-        dev_matrix_cblas_dsymm_B(NA*NA, matrix_cblas_dsymm_B);
+        dev_res(NA*NA), dev_sym_matrix_A(NA*NA, sym_matrix_A, cuhelper.stream),
+        dev_matrix_cblas_dsymm_B(NA*NA, matrix_cblas_dsymm_B, cuhelper.stream);
 
     cuhelper.dsymm(
         CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER,
@@ -91,12 +91,13 @@ NrowsSVD = 6;
 
 void test_cusolver_SVD() {
     MyCuPtr<double>
-        svals(NcolsSVD), dev_svd_matrix(NcolsSVD*NrowsSVD, matrix_for_SVD_A, cuhelper.stream);
-    double svd_matrix[NcolsSVD*NrowsSVD], cpu_svals[NcolsSVD];
+        svals(NcolsSVD),
+        dev_svd_matrix(NcolsSVD * NrowsSVD, matrix_for_SVD_A, cuhelper.stream);
+    double svd_matrix[NcolsSVD * NrowsSVD], cpu_svals[NcolsSVD];
 
     cuhelper.svd(dev_svd_matrix.get(), svals.get(), NrowsSVD, NcolsSVD);
     // cuhelper.streamSync();
-    dev_svd_matrix.syncDownload(svd_matrix, NcolsSVD*NrowsSVD);
+    dev_svd_matrix.syncDownload(svd_matrix, NcolsSVD * NrowsSVD);
     svals.syncDownload(cpu_svals, NcolsSVD);
 
     assert_allclose(truth_svals, cpu_svals, NcolsSVD, __FILE__, __LINE__);
@@ -126,7 +127,7 @@ void test_cusolver_potrf() {
     raiser(nrows == ndim, __FILE__, __LINE__);
     raiser(ncols == ndim, __FILE__, __LINE__);
 
-    MyCuPtr<double> dev_A(ndim * ndim, A.data());
+    MyCuPtr<double> dev_A(ndim * ndim, A.data(), cuhelper.stream);
     cuhelper.potrf(dev_A.get(), ndim);
     dev_A.syncDownload(A.data(), ndim * ndim);
 
@@ -154,7 +155,7 @@ void test_cusolver_potri() {
     raiser(nrows == ndim, __FILE__, __LINE__);
     raiser(ncols == ndim, __FILE__, __LINE__);
 
-    MyCuPtr<double> dev_A(ndim * ndim, A.data());
+    MyCuPtr<double> dev_A(ndim * ndim, A.data(), cuhelper.stream);
     cuhelper.potri(dev_A.get(), ndim);
     dev_A.syncDownload(A.data(), ndim * ndim);
     mxhelp::copyUpperToLower(A.data(), ndim);
@@ -183,7 +184,7 @@ void test_cusolver_invert_cholesky() {
     raiser(nrows == ndim, __FILE__, __LINE__);
     raiser(ncols == ndim, __FILE__, __LINE__);
 
-    MyCuPtr<double> dev_A(ndim*ndim, A.data());
+    MyCuPtr<double> dev_A(ndim * ndim, A.data(), cuhelper.stream);
 
     cuhelper.invert_cholesky(dev_A.get(), ndim);
     dev_A.syncDownload(A.data(), ndim * ndim);
@@ -199,7 +200,7 @@ void test_MyCuPtr_init() {
     int NA = 500;
     MyCuPtr<double> covariance_matrix;
     raiser(covariance_matrix.get() == nullptr, __FILE__, __LINE__);
-    covariance_matrix.realloc(NA*NA);
+    covariance_matrix.realloc(NA * NA);
     covariance_matrix.reset();
     raiser(covariance_matrix.get() == nullptr, __FILE__, __LINE__);
 }
@@ -210,8 +211,8 @@ void test_MyCuPtr_array() {
     MyCuPtr<double> temp_matrix[2];
     raiser(temp_matrix[0].get() == nullptr, __FILE__, __LINE__);
     raiser(temp_matrix[1].get() == nullptr, __FILE__, __LINE__);
-    temp_matrix[0].realloc(NA*NA);
-    temp_matrix[1].realloc(NA*NA);
+    temp_matrix[0].realloc(NA * NA);
+    temp_matrix[1].realloc(NA * NA);
     temp_matrix[0].reset();
     temp_matrix[1].reset();
 }
@@ -221,7 +222,7 @@ void test_MyCuPtr_async() {
     int NB = 5;
     double IN_ARR[] = {1.1, 2.2, 3.3, 4.4, 5.5};
 
-    MyCuPtr<double> vec(NB, IN_ARR);
+    MyCuPtr<double> vec(NB, IN_ARR, cuhelper.stream);
     std::vector<double> cpu_vec(5);
     vec.syncDownload(cpu_vec.data(), 5);
     assert_allclose(IN_ARR, cpu_vec.data(), 5, __FILE__, __LINE__);
