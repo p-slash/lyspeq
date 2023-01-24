@@ -6,6 +6,7 @@
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
 
+
 template<typename T>
 class MyCuPtr
 {
@@ -58,11 +59,9 @@ public:
     }
 };
 
-class CuHelper
-{
-    // cudaError_t cudaStat;
-    cublasStatus_t blas_stat;
-    cusolverStatus_t solver_stat;
+
+class MyCuStream {
+    cudaStream_t stream;
     cudaError_t cuda_stat;
 
     void check_cuda_error(std::string err_msg) {
@@ -70,6 +69,40 @@ class CuHelper
             throw std::runtime_error(err_msg);
         }
     }
+public:
+    MyCuStream() {
+        cuda_stat = cudaStreamCreateWithFlags(
+            &stream, cudaStreamNonBlocking);
+        check_cuda_error("cudaStreamCreateWithFlags: ");
+    }
+    ~MyCuStream() { cudaStreamDestroy(stream); }
+
+    cudaStream_t get() const {
+        return stream;
+    }
+
+    void setCuBLAS(cublasHandle_t blas_handle) {
+        cuda_stat = cublasSetStream(blas_handle, stream);
+        check_cuda_error("cublasSetStream: ");
+    }
+
+    void setCuSOLVER(cusolverDnHandle_t solver_handle) {
+        cuda_stat = cusolverDnSetStream(solver_handle, stream);
+        check_cuda_error("cusolverDnSetStream: ");
+    }
+
+    void sync() {
+        cuda_stat = cudaStreamSynchronize(stream);
+        check_cuda_error("cudaStreamSynchronize: ");
+    }
+}
+
+
+class CuHelper
+{
+    // cudaError_t cudaStat;
+    cublasStatus_t blas_stat;
+    cusolverStatus_t solver_stat;
 
     void check_cublas_error(std::string err_msg) {
         if (blas_stat != CUBLAS_STATUS_SUCCESS) {
@@ -110,25 +143,6 @@ public:
         cudaDeviceReset();
     };
 
-    cudaStream_t streamCreate() {
-        cudaStream_t stream = NULL;
-        cuda_stat = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-        check_cuda_error("cudaStreamCreateWithFlags: ");
-
-        cublasSetStream(blas_handle, stream);
-        check_cuda_error("cublasSetStream: ");
-
-        cusolverDnSetStream(solver_handle, stream);
-        check_cuda_error("cusolverDnSetStream: ");
-
-        return stream;
-    }
-
-    void streamSync(cudaStream_t stream = NULL) {
-        cudaStreamSynchronize(stream);
-        check_cuda_error("cudaStreamSynchronize: ");
-    }
-
     // Trace of A.B
     // Assumes A and B square matrices NxN, and at least one to be symmetric.
     // No stride or whatsoever. Continous allocation
@@ -150,8 +164,9 @@ public:
     // vT . S . v
     // Assumes S is square symmetric matrix NxN
     double my_cublas_dsymvdot(
-            const double *v, const double *S, double *temp_vector, int N) {
-        dsmyv(CUBLAS_FILL_MODE_UPPER, N, 1., S, N, v, 1, 0, temp_vector, 1);
+            const double *v, const double *S, double *temp_vector, int N,
+            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
+        dsmyv(uplo, N, 1., S, N, v, 1, 0, temp_vector, 1);
         double result;
         blas_stat = cublasDdot(blas_handle, N, v, 1, temp_vector, 1, &result);
         check_cublas_error("my_cublas_dsymvdot/cublasDdot: ");
