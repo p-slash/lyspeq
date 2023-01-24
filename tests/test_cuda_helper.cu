@@ -1,6 +1,5 @@
 #include "mathtools/cuda_helper.cu"
 #include "mathtools/matrix_helper.hpp"
-// #include "io/logger.hpp"
 #include "tests/test_utils.hpp"
 #include <cassert>
 
@@ -51,7 +50,6 @@ void test_cublas_dsymv_1() {
 
 
 void test_cublas_dsymm() {
-    LOG::LOGGER.STD("test_cublas_dsymm...");
     double result[NA*NA];
 
     MyCuPtr<double>
@@ -92,8 +90,6 @@ NcolsSVD = 5,
 NrowsSVD = 6;
 
 void test_cusolver_SVD() {
-    LOG::LOGGER.STD("Testing test_cusolver_SVD.\n");
-
     MyCuPtr<double>
         svals(NcolsSVD), dev_svd_matrix(NcolsSVD*NrowsSVD, matrix_for_SVD_A, cuhelper.stream);
     double svd_matrix[NcolsSVD*NrowsSVD], cpu_svals[NcolsSVD];
@@ -113,7 +109,6 @@ void test_cusolver_SVD() {
 
 
 void test_cusolver_potrf() {
-    LOG::LOGGER.STD("Testing test_cusolver_potrf.\n");
     const int ndim = 496;
     std::vector<double> A, truth_L;
     int nrows, ncols;
@@ -142,7 +137,6 @@ void test_cusolver_potrf() {
 
 
 void test_cusolver_potri() {
-    LOG::LOGGER.STD("Testing test_cusolver_potri.\n");
     const int ndim = 496;
     std::vector<double> A, truth_inverse;
     int nrows, ncols;
@@ -203,11 +197,9 @@ void test_cusolver_invert_cholesky() {
 
 void test_MyCuPtr_init() {
     int NA = 500;
-    // LOG::LOGGER.STD("Allocating a single MyCuPtr<double>.\n");
     MyCuPtr<double> covariance_matrix;
     raiser(covariance_matrix.get() == nullptr, __FILE__, __LINE__);
     covariance_matrix.realloc(NA*NA);
-    // LOG::LOGGER.STD("Reset a single MyCuPtr<double>.\n");
     covariance_matrix.reset();
     raiser(covariance_matrix.get() == nullptr, __FILE__, __LINE__);
 }
@@ -215,13 +207,11 @@ void test_MyCuPtr_init() {
 
 void test_MyCuPtr_array() {
     int NA = 500;
-    // LOG::LOGGER.STD("Allocating array of two MyCuPtr<double>.\n");
     MyCuPtr<double> temp_matrix[2];
     raiser(temp_matrix[0].get() == nullptr, __FILE__, __LINE__);
     raiser(temp_matrix[1].get() == nullptr, __FILE__, __LINE__);
     temp_matrix[0].realloc(NA*NA);
     temp_matrix[1].realloc(NA*NA);
-    // LOG::LOGGER.STD("Reset array of two MyCuPtr<double>.\n");
     temp_matrix[0].reset();
     temp_matrix[1].reset();
 }
@@ -231,7 +221,6 @@ void test_MyCuPtr_async() {
     int NB = 5;
     double IN_ARR[] = {1.1, 2.2, 3.3, 4.4, 5.5};
 
-    // LOG::LOGGER.STD("Asnyc copy a single MyCuPtr<double>.\n");
     MyCuPtr<double> vec(NB, IN_ARR);
     std::vector<double> cpu_vec(5);
     vec.syncDownload(cpu_vec.data(), 5);
