@@ -35,26 +35,30 @@ truth_out_cblas_dsymm [] = {
 
 
 void test_cublas_dsymv_1() {
+    cudaStream_t stream = streamCreate();
     MyCuPtr<double>
-        dev_res(NA), dev_sym_matrix_A(NA*NA, sym_matrix_A, cuhelper.stream),
-        dev_vector_cblas_dsymv_b_1(NA, vector_cblas_dsymv_b_1, cuhelper.stream);
+        dev_res(NA), dev_sym_matrix_A(NA*NA, sym_matrix_A, stream),
+        dev_vector_cblas_dsymv_b_1(NA, vector_cblas_dsymv_b_1, stream);
     double cpu_res[NA];
 
     cuhelper.dsmyv(
         CUBLAS_FILL_MODE_UPPER, NA, 0.5, dev_sym_matrix_A.get(), NA,
         dev_vector_cblas_dsymv_b_1.get(), 1, 0, dev_res.get(), 1);
-    dev_res.syncDownload(cpu_res, NA);
+    dev_res.asyncDwn(cpu_res, NA, 0, stream);
+    cuhelper.streamSync(stream);
+    cudaStreamDestroy(stream);
 
     assert_allclose(truth_cblas_dsymv_1, cpu_res, NA, __FILE__, __LINE__);
 }
 
 
 void test_cublas_dsymm() {
+    cudaStream_t stream = streamCreate();
     double result[NA*NA];
 
     MyCuPtr<double>
-        dev_res(NA*NA), dev_sym_matrix_A(NA*NA, sym_matrix_A, cuhelper.stream),
-        dev_matrix_cblas_dsymm_B(NA*NA, matrix_cblas_dsymm_B, cuhelper.stream);
+        dev_res(NA*NA), dev_sym_matrix_A(NA*NA, sym_matrix_A, stream),
+        dev_matrix_cblas_dsymm_B(NA*NA, matrix_cblas_dsymm_B, stream);
 
     cuhelper.dsymm(
         CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER,
@@ -62,7 +66,9 @@ void test_cublas_dsymm() {
         dev_matrix_cblas_dsymm_B.get(), NA,
         0, dev_res.get(), NA);
 
-    dev_res.syncDownload(result, NA*NA);
+    dev_res.asyncDwn(result, NA*NA, 0, stream);
+    cuhelper.streamSync(stream);
+    cudaStreamDestroy(stream);
 
     assert_allclose_2d(
         truth_out_cblas_dsymm, result, NA, NA, __FILE__, __LINE__);
@@ -90,15 +96,18 @@ NcolsSVD = 5,
 NrowsSVD = 6;
 
 void test_cusolver_SVD() {
+    cudaStream_t stream = streamCreate();
     MyCuPtr<double>
         svals(NcolsSVD),
-        dev_svd_matrix(NcolsSVD * NrowsSVD, matrix_for_SVD_A, cuhelper.stream);
+        dev_svd_matrix(NcolsSVD * NrowsSVD, matrix_for_SVD_A, stream);
     double svd_matrix[NcolsSVD * NrowsSVD], cpu_svals[NcolsSVD];
 
     cuhelper.svd(dev_svd_matrix.get(), svals.get(), NrowsSVD, NcolsSVD);
-    // cuhelper.streamSync();
-    dev_svd_matrix.syncDownload(svd_matrix, NcolsSVD * NrowsSVD);
-    svals.syncDownload(cpu_svals, NcolsSVD);
+    dev_svd_matrix.asyncDwn(svd_matrix, NcolsSVD * NrowsSVD, 0, stream);
+    svals.asyncDwn(cpu_svals, NcolsSVD, 0, stream);
+
+    cuhelper.streamSync(stream);
+    cudaStreamDestroy(stream);
 
     assert_allclose(truth_svals, cpu_svals, NcolsSVD, __FILE__, __LINE__);
 
@@ -127,9 +136,14 @@ void test_cusolver_potrf() {
     raiser(nrows == ndim, __FILE__, __LINE__);
     raiser(ncols == ndim, __FILE__, __LINE__);
 
-    MyCuPtr<double> dev_A(ndim * ndim, A.data(), cuhelper.stream);
+    cudaStream_t stream = streamCreate();
+    MyCuPtr<double> dev_A(ndim * ndim, A.data(), stream);
+
     cuhelper.potrf(dev_A.get(), ndim);
-    dev_A.syncDownload(A.data(), ndim * ndim);
+
+    dev_A.asyncDwn(A.data(), ndim * ndim, 0, stream);
+    cuhelper.streamSync(stream);
+    cudaStreamDestroy(stream);
 
     assert_allclose_2d(
         truth_L.data(), A.data(), ndim, ndim,
@@ -155,11 +169,16 @@ void test_cusolver_potri() {
     raiser(nrows == ndim, __FILE__, __LINE__);
     raiser(ncols == ndim, __FILE__, __LINE__);
 
-    MyCuPtr<double> dev_A(ndim * ndim, A.data(), cuhelper.stream);
-    cuhelper.potri(dev_A.get(), ndim);
-    dev_A.syncDownload(A.data(), ndim * ndim);
-    mxhelp::copyUpperToLower(A.data(), ndim);
+    cudaStream_t stream = streamCreate();
+    MyCuPtr<double> dev_A(ndim * ndim, A.data(), stream);
 
+    cuhelper.potri(dev_A.get(), ndim);
+
+    dev_A.asyncDwn(A.data(), ndim * ndim, 0, stream);
+    cuhelper.streamSync(stream);
+    cudaStreamDestroy(stream);
+
+    mxhelp::copyUpperToLower(A.data(), ndim);
     assert_allclose_2d(
         truth_inverse.data(), A.data(), ndim, ndim,
         __FILE__, __LINE__);
@@ -184,12 +203,16 @@ void test_cusolver_invert_cholesky() {
     raiser(nrows == ndim, __FILE__, __LINE__);
     raiser(ncols == ndim, __FILE__, __LINE__);
 
-    MyCuPtr<double> dev_A(ndim * ndim, A.data(), cuhelper.stream);
+    cudaStream_t stream = streamCreate();
+    MyCuPtr<double> dev_A(ndim * ndim, A.data(), stream);
 
     cuhelper.invert_cholesky(dev_A.get(), ndim);
-    dev_A.syncDownload(A.data(), ndim * ndim);
-    mxhelp::copyUpperToLower(A.data(), ndim);
 
+    dev_A.asyncDwn(A.data(), ndim * ndim, 0, stream);
+    cuhelper.streamSync(stream);
+    cudaStreamDestroy(stream);
+
+    mxhelp::copyUpperToLower(A.data(), ndim);
     assert_allclose_2d(
         truth_out_inverse.data(), A.data(), ndim, ndim,
         __FILE__, __LINE__);
@@ -222,17 +245,17 @@ void test_MyCuPtr_async() {
     int NB = 5;
     double IN_ARR[] = {1.1, 2.2, 3.3, 4.4, 5.5};
 
-    MyCuPtr<double> vec(NB, IN_ARR, cuhelper.stream);
-    std::vector<double> cpu_vec(5);
-    vec.syncDownload(cpu_vec.data(), 5);
-    assert_allclose(IN_ARR, cpu_vec.data(), 5, __FILE__, __LINE__);
+    MyCuPtr<double> vec(NB, IN_ARR);
+    std::vector<double> cpu_vec(NB);
+    vec.asyncDwn(cpu_vec.data(), NB);
+    cudaStreamSynchronize();
+    assert_allclose(IN_ARR, cpu_vec.data(), NB, __FILE__, __LINE__);
 }
 
 
 int main(int argc, char *argv[]) {
     int r=0;
 
-    cuhelper.streamCreate();
     setbuf(stdout, NULL);
 
     r += catcher(&test_MyCuPtr_init, "test_MyCuPtr_init");

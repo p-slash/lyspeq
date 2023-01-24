@@ -96,7 +96,6 @@ class CuHelper
 public:
     cublasHandle_t blas_handle;
     cusolverDnHandle_t solver_handle;
-    cudaStream_t stream = NULL;
 
     CuHelper() {
         blas_stat = cublasCreate(&blas_handle);
@@ -108,11 +107,11 @@ public:
     ~CuHelper() {
         cublasDestroy(blas_handle);
         cusolverDnDestroy(solver_handle);
-        cudaStreamDestroy(stream);
         cudaDeviceReset();
     };
 
-    void streamCreate() {
+    cudaStream_t streamCreate() {
+        cudaStream_t stream = NULL;
         cuda_stat = cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
         check_cuda_error("cudaStreamCreateWithFlags: ");
 
@@ -121,9 +120,11 @@ public:
 
         cusolverDnSetStream(solver_handle, stream);
         check_cuda_error("cusolverDnSetStream: ");
+
+        return stream;
     }
-    
-    void streamSync() {
+
+    void streamSync(cudaStream_t stream = NULL) {
         cudaStreamSynchronize(stream);
         check_cuda_error("cudaStreamSynchronize: ");
     }
