@@ -17,7 +17,7 @@ int catcher(void (*fnc)(), const char* fnc_name) {
     try {
         fnc();
     } catch (std::exception& e) {
-        fprintf(stderr, "ERROR: %s\n",  e.what());
+        printf(" ERROR: %s\n",  e.what());
         return 1;
     }
     printf(" passed.\n");
