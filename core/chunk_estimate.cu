@@ -13,8 +13,9 @@
 #include <cstdlib>
 #include <stdexcept>
 
-const int CU_BLOCK_SIZE = 256;
+constexpr int CU_BLOCK_SIZE = 256;
 CuHelper cuhelper;
+
 // void _check_isnan(double *mat, int size, std::string msg)
 // {
 //     #ifdef CHECK_NAN
@@ -429,35 +430,45 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 
 void Chunk::_addMarginalizations()
 {
-    int num_blocks = (size()+CU_BLOCK_SIZE-1)/CU_BLOCK_SIZE;
+    std::vector<MyCuStream> streams(specifics::CONT_NVECS);
+    int num_blocks = (size() + CU_BLOCK_SIZE - 1) / CU_BLOCK_SIZE,
+        vidx = 1;
 
     double  *temp_v = temp_matrix[0].get(),
             *temp_y = temp_matrix[1].get();
 
     // Zeroth order
-    _setZerothOrder<<<num_blocks, CU_BLOCK_SIZE>>>(size(), 1/sqrt(size()), temp_v);
+    _setZerothOrder<<<num_blocks, CU_BLOCK_SIZE, 0, streams[0]>>>(
+        size(), 1/sqrt(size()), temp_v);
 
-    temp_v += size();
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLogLam<<<num_blocks, CU_BLOCK_SIZE>>>(dev_wave.get(), size(), cmo, temp_v);
-        temp_v += size();
+        _getUnitVectorLogLam<<<num_blocks, CU_BLOCK_SIZE, 0, streams[vidx]>>>(
+            dev_wave.get(), size(), cmo, temp_v + vidx * size());
+        ++vidx;
     }
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLam<<<num_blocks, CU_BLOCK_SIZE>>>(dev_wave.get(), size(), cmo, temp_v);
-        temp_v += size();
+        _getUnitVectorLam<<<num_blocks, CU_BLOCK_SIZE, 0, streams[vidx]>>>(
+            dev_wave.get(), size(), cmo, temp_v + vidx * size());
+        ++vidx;
     }
+
+    for (auto &stream : streams)
+        stream.sync();
 
     LOG::LOGGER.DEB("nvecs %d\n", specifics::CONT_NVECS);
 
-    // Roll back to initial position
-    temp_v = temp_matrix[0].get();
-    static MyCuPtr<double> svals(specifics::CONT_NVECS);
+    static MyCuPtr<double> dev_svals(specifics::CONT_NVECS);
+    static std::vector<double> cpu_svals(specifics::CONT_NVECS);
+
     // SVD to get orthogonal marg vectors
-    cuhelper.svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
+    cuhelper.setBlasStream(streams[0]);
+    cuhelper.svd(temp_v, dev_svals.get(), size(), specifics::CONT_NVECS);
+    dev_svals.asyncDwn(cpu_svals.data(), cpu_svals.size(), 0, streams[0].get());
+    streams[0].sync();
     // mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
     LOG::LOGGER.DEB("SVD'ed\n");
 
@@ -466,7 +477,9 @@ void Chunk::_addMarginalizations()
     {
         LOG::LOGGER.DEB("i: %d, s: %.2e\n", i, svals[i]);
         // skip if this vector is degenerate
-        if (svals[i]<1e-6)  continue;
+        if (cpu_svals[i] < 1e-6)  continue;
+
+        cuhelper.setBlasStream(streams[i]);
 
         _remShermanMorrison(temp_v, size(), temp_y, inverse_covariance_matrix);
     }
@@ -515,9 +528,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 {
     double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx];
-    // std::vector<cudaStream_t> stream_vec;
-    // __device__ double *dev_fisher;
-    // cudaMalloc(&dev_fisher, size()*sizeof(double));
+    cuhelper.setPointerMode2Device();
+    std::vector<MyCuStream> streams;
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
@@ -529,17 +541,25 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
             continue;
         #endif
 
+        MyCuStream stream;
+        cuhelper.setBlasStream(stream);
+
         // cudaStream_t stream;
         // cudaStreamCreate(&stream);
         // stream_vec.push_back(stream);
         double *Q_jkz_matrix = _getDevQikz(jdx);
         int ind_ij = (j_kz + fisher_index_start) 
                 + bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start);
-        double *fij = fisher_matrix + ind_ij;
+        double *fij = dev_fisher.get() + ind_ij;
 
-        // cublasSetStream(cuhelper.blas_handle, stream);
        cuhelper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size(), fij);
+       streams.push_back(stream);
     }
+
+    for (auto &stream : streams)
+        stream.sync();
+
+    cuhelper.setPointerMode2Host();
 
     t = mytime::timer.getTime() - t;
 
@@ -642,6 +662,8 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 
         LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
+        dev_fisher.asyncDwn(fisher_sum, bins::FISHER_SIZE);
+        cudaStreamSynchronize(NULL);
 
         // _check_isnan(fisher_matrix.get(), bins::FISHER_SIZE,
             // "NaN: chunk fisher");
@@ -683,6 +705,8 @@ void Chunk::_allocateMatrices()
             std::make_unique<double[]>(bins::TOTAL_KZ_BINS));
 
     fisher_matrix = std::make_unique<double[]>(bins::FISHER_SIZE);
+    dev_fisher.realloc(bins::FISHER_SIZE);
+    cudaMemset(dev_fisher.get(), 0, bins::FISHER_SIZE * sizeof(double));
 
     covariance_matrix.realloc(DATA_SIZE_2);
 
@@ -747,6 +771,7 @@ void Chunk::_freeMatrices()
 
     LOG::LOGGER.DEB("Free fisher\n");
     fisher_matrix.reset();
+    dev_fisher.reset();
 
     LOG::LOGGER.DEB("Free cov\n");
     covariance_matrix.reset();

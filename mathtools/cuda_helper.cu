@@ -81,16 +81,6 @@ public:
         return stream;
     }
 
-    void setCuBLAS(cublasHandle_t blas_handle) {
-        cuda_stat = cublasSetStream(blas_handle, stream);
-        check_cuda_error("cublasSetStream: ");
-    }
-
-    void setCuSOLVER(cusolverDnHandle_t solver_handle) {
-        cuda_stat = cusolverDnSetStream(solver_handle, stream);
-        check_cuda_error("cusolverDnSetStream: ");
-    }
-
     void sync() {
         cuda_stat = cudaStreamSynchronize(stream);
         check_cuda_error("cudaStreamSynchronize: ");
@@ -142,6 +132,16 @@ public:
         cusolverDnDestroy(solver_handle);
         cudaDeviceReset();
     };
+
+    void setBlasStream(MyCuStream& stream) {
+        blas_stat = cublasSetStream(blas_handle, stream.get());
+        check_cublas_error("cublasSetStream: ");
+    }
+
+    void setSolverStream(MyCuStream& stream) {
+        solver_stat = cusolverDnSetStream(solver_handle, stream.get());
+        check_cusolver_error("cusolverDnSetStream: ");
+    }
 
     void setPointerMode2Host() {
         blas_stat = cublasSetPointerMode(CUBLAS_POINTER_MODE_HOST);
