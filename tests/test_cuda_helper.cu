@@ -6,7 +6,6 @@
 
 
 CuHelper cuhelper;
-cuhelper.streamCreate();
 
 int
 NA = 4;
@@ -119,7 +118,7 @@ void test_cusolver_potrf() {
     std::vector<double> A, truth_L;
     int nrows, ncols;
 
-    constexpr std::string
+    const std::string
     fname_matrix =
         std::string(SRCDIR) + "/tests/input/test_triu_cholesky.txt",
     fname_truth  = std::string(SRCDIR) + "/tests/truth/test_L_cholesky.txt";
@@ -148,7 +147,7 @@ void test_cusolver_potri() {
     std::vector<double> A, truth_inverse;
     int nrows, ncols;
 
-    constexpr std::string
+    const std::string
     fname_matrix = std::string(SRCDIR) + "/tests/truth/test_L_cholesky.txt",
     fname_truth  =
         std::string(SRCDIR) + "/tests/truth/test_inverse_cholesky.txt";
@@ -177,7 +176,7 @@ void test_cusolver_invert_cholesky() {
     std::vector<double> A, truth_out_inverse;
     int nrows, ncols;
 
-    constexpr std::string
+    const std::string
     fname_matrix =
         std::string(SRCDIR) + "/tests/input/test_symmatrix_cholesky.txt",
     fname_truth  = std::string(SRCDIR) + "/tests/truth/test_inverse_cholesky.txt";
@@ -243,6 +242,7 @@ void test_MyCuPtr_async() {
 int main(int argc, char *argv[]) {
     int r=0;
 
+    cuhelper.streamCreate();
     setbuf(stdout, NULL);
 
     r += catcher(&test_MyCuPtr_init, "test_MyCuPtr_init");
