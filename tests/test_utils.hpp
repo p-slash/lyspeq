@@ -13,12 +13,14 @@ void printMatrices(const double *truth, const double *result,
 
 
 int catcher(void (*fnc)(), const char* fnc_name) {
+    printf("%s...", fnc_name);
     try {
         fnc();
     } catch (std::exception& e) {
-        fprintf(stderr, "ERROR in %s: %s\n", fnc_name,  e.what());
+        fprintf(stderr, "ERROR: %s\n",  e.what());
         return 1;
     }
+    printf(" passed.\n");
     return 0;
 }
 
