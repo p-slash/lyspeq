@@ -6,7 +6,7 @@
 #include "mathtools/discrete_interpolation.hpp"
 #include "mathtools/cuda_helper.cu"
 
-const int
+constexpr int
 MIN_PIXELS_IN_CHUNK = 20;
 
 /*
@@ -52,7 +52,7 @@ protected:
     // Note that noise matrix is diagonal and stored as pointer to its array 
     // Do not delete inverse_covariance_matrix.
     MyCuPtr<double>
-        covariance_matrix,
+        covariance_matrix, dev_fisher,
         temp_matrix[2], dev_qj, dev_sfid,
         dev_wave, dev_delta, dev_noise, dev_smnoise,
         temp_vector, weighted_data_vector; // DATA_SIZE sized vector

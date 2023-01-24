@@ -36,7 +36,7 @@ truth_out_cblas_dsymm [] = {
 
 void test_cublas_dsymv_1() {
     MyCuStream stream;
-    stream.setCuBLAS(cuhelper.blas_handle);
+    cuhelper.setBlasStream(stream);
     MyCuPtr<double>
         dev_res(NA), dev_sym_matrix_A(NA*NA, sym_matrix_A, stream.get()),
         dev_vector_cblas_dsymv_b_1(NA, vector_cblas_dsymv_b_1, stream.get());
@@ -54,7 +54,7 @@ void test_cublas_dsymv_1() {
 
 void test_cublas_dsymm() {
     MyCuStream stream;
-    stream.setCuBLAS(cuhelper.blas_handle);
+    cuhelper.setBlasStream(stream);
     double result[NA*NA];
 
     MyCuPtr<double>
@@ -97,7 +97,7 @@ NrowsSVD = 6;
 
 void test_cusolver_SVD() {
     MyCuStream stream;
-    stream.setCuSOLVER(cuhelper.solver_handle);
+    cuhelper.setSolverStream(stream);
     MyCuPtr<double>
         svals(NcolsSVD),
         dev_svd_matrix(NcolsSVD * NrowsSVD, matrix_for_SVD_A, stream.get());
@@ -137,7 +137,7 @@ void test_cusolver_potrf() {
     raiser(ncols == ndim, __FILE__, __LINE__);
 
     MyCuStream stream;
-    stream.setCuSOLVER(cuhelper.solver_handle);
+    cuhelper.setSolverStream(stream);
     MyCuPtr<double> dev_A(ndim * ndim, A.data(), stream.get());
 
     cuhelper.potrf(dev_A.get(), ndim);
@@ -170,7 +170,7 @@ void test_cusolver_potri() {
     raiser(ncols == ndim, __FILE__, __LINE__);
 
     MyCuStream stream;
-    stream.setCuSOLVER(cuhelper.solver_handle);
+    cuhelper.setSolverStream(stream);
     MyCuPtr<double> dev_A(ndim * ndim, A.data(), stream.get());
 
     cuhelper.potri(dev_A.get(), ndim);
@@ -204,7 +204,7 @@ void test_cusolver_invert_cholesky() {
     raiser(ncols == ndim, __FILE__, __LINE__);
 
     MyCuStream stream;
-    stream.setCuSOLVER(cuhelper.solver_handle);
+    cuhelper.setSolverStream(stream);
     MyCuPtr<double> dev_A(ndim * ndim, A.data(), stream.get());
 
     cuhelper.invert_cholesky(dev_A.get(), ndim);
