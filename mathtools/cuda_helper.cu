@@ -225,6 +225,7 @@ public:
     void potri(
             double *A, int N,
             const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
+        int lworki;
         MyCuPtr<int> devInfo(1);
         solver_stat = cusolverDnDpotri_bufferSize(
             solver_handle, uplo,
