@@ -143,6 +143,16 @@ public:
         cudaDeviceReset();
     };
 
+    void setPointerMode2Host() {
+        blas_stat = cublasSetPointerMode(CUBLAS_POINTER_MODE_HOST);
+        check_cublas_error("cublasSetPointerMode - host:");
+    }
+
+    void setPointerMode2Device() {
+        blas_stat = cublasSetPointerMode(CUBLAS_POINTER_MODE_DEVICE);
+        check_cublas_error("cublasSetPointerMode - device:");
+    }
+
     // Trace of A.B
     // Assumes A and B square matrices NxN, and at least one to be symmetric.
     // No stride or whatsoever. Continous allocation
