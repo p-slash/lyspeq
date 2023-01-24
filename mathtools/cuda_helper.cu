@@ -198,42 +198,55 @@ public:
         check_cublas_error("cublasDsymv: ");
     }
 
-    // In-place invert by Cholesky factorization
-    void invert_cholesky(double *A, int N) {
-        int lworkf = 0, lworki = 0; /* size of workspace */
+    void potrf(
+            double *A, int N,
+            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
+        int lworkf = 0; /* size of workspace */
         /* If devInfo = 0, the Cholesky factorization is successful.
         if devInfo = -i, the i-th parameter is wrong (not counting handle).
         if devInfo = i, the leading minor of order i is not positive definite. */
         MyCuPtr<int> devInfo(1);
 
         solver_stat = cusolverDnDpotrf_bufferSize(
-            solver_handle, CUBLAS_FILL_MODE_UPPER,
+            solver_handle, uplo,
             N, A, N, &lworkf);
         check_cusolver_error("cusolverDnDpotrf_bufferSize: ");
 
-        MyCuPtr<double> d_work(lworkf); /* device workspace for getrf */
+        MyCuPtr<double> d_workf(lworkf); /* device workspace for getrf */
 
         solver_stat = cusolverDnDpotrf(
-            solver_handle, CUBLAS_FILL_MODE_UPPER,
-            N, A, N, d_work.get(), lworkf, devInfo.get());
+            solver_handle, uplo,
+            N, A, N, d_workf.get(), lworkf, devInfo.get());
         check_cusolver_error("cusolverDnDpotrf: ");
         // if (devInfo != 0)
         //     throw std::runtime_error("Cholesky factorization is not successful.");
+    }
 
+    void potri(
+            double *A, int N,
+            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
+        MyCuPtr<int> devInfo(1);
         solver_stat = cusolverDnDpotri_bufferSize(
-            solver_handle, CUBLAS_FILL_MODE_UPPER,
+            solver_handle, uplo,
             N, A, N, &lworki);
         check_cusolver_error("cusolverDnDpotri_bufferSize: ");
 
-        if (lworki > lworkf)
-            d_work.realloc(lworki);
+        MyCuPtr<double> d_worki(lworki);
 
         solver_stat = cusolverDnDpotri(
-            solver_handle, CUBLAS_FILL_MODE_UPPER,
-            N, A, N, d_work.get(), lworki, devInfo.get());
+            solver_handle, uplo,
+            N, A, N, d_worki.get(), lworki, devInfo.get());
         check_cusolver_error("cusolverDnDpotri: ");
         // if (devInfo != 0)
         //     throw std::runtime_error("Cholesky inversion is not successful.");
+    }
+
+    // In-place invert by Cholesky factorization
+    void invert_cholesky(
+            double *A, int N,
+            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
+        potrf(A, N, uplo);
+        potri(A, N, uplo);
     }
 
     void svd(double *A, double *svals, int nrows, int ncols) {

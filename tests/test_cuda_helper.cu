@@ -1,11 +1,12 @@
 #include "mathtools/cuda_helper.cu"
 #include "mathtools/matrix_helper.hpp"
-#include "io/logger.hpp"
+// #include "io/logger.hpp"
 #include "tests/test_utils.hpp"
 #include <cassert>
 
 
 CuHelper cuhelper;
+cuhelper.streamCreate();
 
 int
 NA = 4;
@@ -35,9 +36,7 @@ truth_out_cblas_dsymm [] = {
     64, 74, 18, 18};
 
 
-void test_cublas_dsymv_1()
-{
-    LOG::LOGGER.STD("Testing test_cublas_dsymv_1.\n");
+void test_cublas_dsymv_1() {
     MyCuPtr<double>
         dev_res(NA), dev_sym_matrix_A(NA*NA, sym_matrix_A),
         dev_vector_cblas_dsymv_b_1(NA, vector_cblas_dsymv_b_1);
@@ -52,9 +51,8 @@ void test_cublas_dsymv_1()
 }
 
 
-void test_cublas_dsymm()
-{
-    LOG::LOGGER.STD("Testing test_cublas_dsymm.\n");
+void test_cublas_dsymm() {
+    LOG::LOGGER.STD("test_cublas_dsymm...");
     double result[NA*NA];
 
     MyCuPtr<double>
@@ -94,10 +92,8 @@ int
 NcolsSVD = 5,
 NrowsSVD = 6;
 
-void test_cusolver_SVD()
-{
+void test_cusolver_SVD() {
     LOG::LOGGER.STD("Testing test_cusolver_SVD.\n");
-    cuhelper.streamCreate();
 
     MyCuPtr<double>
         svals(NcolsSVD), dev_svd_matrix(NcolsSVD*NrowsSVD, matrix_for_SVD_A, cuhelper.stream);
@@ -110,21 +106,80 @@ void test_cusolver_SVD()
 
     assert_allclose(truth_svals, cpu_svals, NcolsSVD, __FILE__, __LINE__);
 
+    // Truth is degenerate with a minus sign
+    // assert_allclose_2d(
+    //     truth_SVD_A, svd_matrix, NcolsSVD, NrowsSVD,
+    //     __FILE__, __LINE__);
+}
+
+
+void test_cusolver_potrf() {
+    LOG::LOGGER.STD("Testing test_cusolver_potrf.\n");
+    const int ndim = 496;
+    std::vector<double> A, truth_L;
+    int nrows, ncols;
+
+    constexpr std::string
+    fname_matrix =
+        std::string(SRCDIR) + "/tests/input/test_triu_cholesky.txt",
+    fname_truth  = std::string(SRCDIR) + "/tests/truth/test_L_cholesky.txt";
+
+    A = mxhelp::fscanfMatrix(fname_matrix.c_str(), nrows, ncols);
+    raiser(nrows == ndim, __FILE__, __LINE__);
+    raiser(ncols == ndim, __FILE__, __LINE__);
+
+    truth_L = mxhelp::fscanfMatrix(fname_truth.c_str(), nrows, ncols);
+    raiser(nrows == ndim, __FILE__, __LINE__);
+    raiser(ncols == ndim, __FILE__, __LINE__);
+
+    MyCuPtr<double> dev_A(ndim * ndim, A.data());
+    cuhelper.potrf(dev_A.get(), ndim);
+    dev_A.syncDownload(A.data(), ndim * ndim);
+
     assert_allclose_2d(
-        truth_SVD_A, svd_matrix, NcolsSVD, NrowsSVD,
+        truth_L.data(), A.data(), ndim, ndim,
         __FILE__, __LINE__);
 }
 
 
-void test_cusolver_invert_cholesky()
-{
-    LOG::LOGGER.STD("Testing test_cusolver_invert_cholesky.\n");
+void test_cusolver_potri() {
+    LOG::LOGGER.STD("Testing test_cusolver_potri.\n");
+    const int ndim = 496;
+    std::vector<double> A, truth_inverse;
+    int nrows, ncols;
+
+    constexpr std::string
+    fname_matrix = std::string(SRCDIR) + "/tests/truth/test_L_cholesky.txt",
+    fname_truth  =
+        std::string(SRCDIR) + "/tests/truth/test_inverse_cholesky.txt";
+
+    A = mxhelp::fscanfMatrix(fname_matrix.c_str(), nrows, ncols);
+    raiser(nrows == ndim, __FILE__, __LINE__);
+    raiser(ncols == ndim, __FILE__, __LINE__);
+
+    truth_inverse = mxhelp::fscanfMatrix(fname_truth.c_str(), nrows, ncols);
+    raiser(nrows == ndim, __FILE__, __LINE__);
+    raiser(ncols == ndim, __FILE__, __LINE__);
+
+    MyCuPtr<double> dev_A(ndim * ndim, A.data());
+    cuhelper.potri(dev_A.get(), ndim);
+    dev_A.syncDownload(A.data(), ndim * ndim);
+    mxhelp::copyUpperToLower(A.data(), ndim);
+
+    assert_allclose_2d(
+        truth_inverse.data(), A.data(), ndim, ndim,
+        __FILE__, __LINE__);
+}
+
+
+void test_cusolver_invert_cholesky() {
     const int ndim = 496;
     std::vector<double> A, truth_out_inverse;
     int nrows, ncols;
 
-    const std::string
-    fname_matrix = std::string(SRCDIR) + "/tests/input/test_symmatrix_cholesky.txt",
+    constexpr std::string
+    fname_matrix =
+        std::string(SRCDIR) + "/tests/input/test_symmatrix_cholesky.txt",
     fname_truth  = std::string(SRCDIR) + "/tests/truth/test_inverse_cholesky.txt";
 
     A = mxhelp::fscanfMatrix(fname_matrix.c_str(), nrows, ncols);
@@ -149,11 +204,11 @@ void test_cusolver_invert_cholesky()
 
 void test_MyCuPtr_init() {
     int NA = 500;
-    LOG::LOGGER.STD("Allocating a single MyCuPtr<double>.\n");
+    // LOG::LOGGER.STD("Allocating a single MyCuPtr<double>.\n");
     MyCuPtr<double> covariance_matrix;
     raiser(covariance_matrix.get() == nullptr, __FILE__, __LINE__);
     covariance_matrix.realloc(NA*NA);
-    LOG::LOGGER.STD("Reset a single MyCuPtr<double>.\n");
+    // LOG::LOGGER.STD("Reset a single MyCuPtr<double>.\n");
     covariance_matrix.reset();
     raiser(covariance_matrix.get() == nullptr, __FILE__, __LINE__);
 }
@@ -161,13 +216,13 @@ void test_MyCuPtr_init() {
 
 void test_MyCuPtr_array() {
     int NA = 500;
-    LOG::LOGGER.STD("Allocating array of two MyCuPtr<double>.\n");
+    // LOG::LOGGER.STD("Allocating array of two MyCuPtr<double>.\n");
     MyCuPtr<double> temp_matrix[2];
     raiser(temp_matrix[0].get() == nullptr, __FILE__, __LINE__);
     raiser(temp_matrix[1].get() == nullptr, __FILE__, __LINE__);
     temp_matrix[0].realloc(NA*NA);
     temp_matrix[1].realloc(NA*NA);
-    LOG::LOGGER.STD("Reset array of two MyCuPtr<double>.\n");
+    // LOG::LOGGER.STD("Reset array of two MyCuPtr<double>.\n");
     temp_matrix[0].reset();
     temp_matrix[1].reset();
 }
@@ -177,7 +232,7 @@ void test_MyCuPtr_async() {
     int NB = 5;
     double IN_ARR[] = {1.1, 2.2, 3.3, 4.4, 5.5};
 
-    LOG::LOGGER.STD("Asnyc copy a single MyCuPtr<double>.\n");
+    // LOG::LOGGER.STD("Asnyc copy a single MyCuPtr<double>.\n");
     MyCuPtr<double> vec(NB, IN_ARR);
     std::vector<double> cpu_vec(5);
     vec.syncDownload(cpu_vec.data(), 5);
@@ -185,9 +240,10 @@ void test_MyCuPtr_async() {
 }
 
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     int r=0;
+
+    setbuf(stdout, NULL);
 
     r += catcher(&test_MyCuPtr_init, "test_MyCuPtr_init");
     r += catcher(&test_MyCuPtr_array, "test_MyCuPtr_array");
@@ -196,6 +252,8 @@ int main(int argc, char *argv[])
     r += catcher(&test_cublas_dsymv_1, "test_cublas_dsymv_1");
     r += catcher(&test_cublas_dsymm, "test_cublas_dsymm");
     r += catcher(&test_cusolver_SVD, "test_cusolver_SVD");
+    r += catcher(&test_cusolver_potrf, "test_cusolver_potrf");
+    r += catcher(&test_cusolver_potri, "test_cusolver_potri");
     r += catcher(
         &test_cusolver_invert_cholesky, "test_cusolver_invert_cholesky");
 
