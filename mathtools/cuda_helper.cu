@@ -147,30 +147,26 @@ public:
     // Assumes A and B square matrices NxN, and at least one to be symmetric.
     // No stride or whatsoever. Continous allocation
     // Uses BLAS dot product.
-    double trace_dsymm(const double *A, const double *B, int N) {
-        double result;
-        blas_stat = cublasDdot(blas_handle, N*N, A, 1, B, 1, &result);
+    void trace_dsymm(const double *A, const double *B, int N, double *c_res) {
+        blas_stat = cublasDdot(blas_handle, N*N, A, 1, B, 1, c_res);
         check_cublas_error("trace_dsymm/cublasDdot: ");
-        return result;
     }
 
-    double trace_ddiagmv(const double *A, const double *B, int N) {
-        double result;
-        blas_stat = cublasDdot(blas_handle, N, A, N+1, B, 1, &result);
+    void trace_ddiagmv(
+            const double *A, const double *B, int N, double *c_res) {
+        blas_stat = cublasDdot(blas_handle, N, A, N+1, B, 1, c_res);
         check_cublas_error("trace_ddiagmv/cublasDdot: ");
-        return result;
     }
 
     // vT . S . v
     // Assumes S is square symmetric matrix NxN
-    double my_cublas_dsymvdot(
+    void my_cublas_dsymvdot(
             const double *v, const double *S, double *temp_vector, int N,
+            double *c_res,
             const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
         dsmyv(uplo, N, 1., S, N, v, 1, 0, temp_vector, 1);
-        double result;
-        blas_stat = cublasDdot(blas_handle, N, v, 1, temp_vector, 1, &result);
+        blas_stat = cublasDdot(blas_handle, N, v, 1, temp_vector, 1, c_res);
         check_cublas_error("my_cublas_dsymvdot/cublasDdot: ");
-        return result;
     }
 
     void dcopy(const double *x, double *y, int N) {

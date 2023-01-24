@@ -358,13 +358,15 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
         double *Q_ikz_matrix = _getDevQikz(idx);
 
-        cuhelper.daxpy(alpha[i_kz], Q_ikz_matrix, covariance_matrix.get(), DATA_SIZE_2);
+        cuhelper.daxpy(
+            alpha[i_kz], Q_ikz_matrix, covariance_matrix.get(), DATA_SIZE_2);
     }
 
     // add noise matrix diagonally
     // but smooth before adding
     // process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
-    cuhelper.daxpy(1., dev_smnoise.get(), covariance_matrix.get(), size(), 1, size()+1);
+    cuhelper.daxpy(
+        1., dev_smnoise.get(), covariance_matrix.get(), size(), 1, size()+1);
 
     isCovInverted = false;
 
@@ -414,12 +416,15 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
     // cudaMemset(y, 0, size*sizeof(double));
-    cuhelper.dsmyv(CUBLAS_FILL_MODE_UPPER, size, 1., cinv, size, v, 1, 0, y, 1);
+    cuhelper.dsmyv(CUBLAS_FILL_MODE_LOWER, size, 1., cinv, size, v, 1, 0, y, 1);
     double alpha;
     cublasDdot(cuhelper.blas_handle, size, v, 1, y, 1, &alpha);
     alpha = -1./alpha;
-    cublasDsyr(cuhelper.blas_handle, CUBLAS_FILL_MODE_UPPER, size, &alpha, y, 1, cinv, size);
-    // cublasDger(cuhelper.blas_handle, size, size, &norm, y, 1, y, 1, cinv, size);
+    cublasDsyr(
+        cuhelper.blas_handle, CUBLAS_FILL_MODE_LOWER,
+        size, &alpha, y, 1, cinv, size);
+    // cublasDger(
+    // cuhelper.blas_handle, size, size, &norm, y, 1, y, 1, cinv, size);
 }
 
 void Chunk::_addMarginalizations()
@@ -492,12 +497,12 @@ void Chunk::_getWeightedMatrix(double *m)
     double t = mytime::timer.getTime();
 
     //C-1 . Q
-    cuhelper.dsymm(CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER,
+    cuhelper.dsymm(CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER,
         size(), size(), 1., inverse_covariance_matrix, size(),
         m, size(), 0, temp_matrix[1].get(), size());
 
     //C-1 . Q . C-1
-    cuhelper.dsymm(CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER,
+    cuhelper.dsymm(CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_LOWER,
         size(), size(), 1., inverse_covariance_matrix, size(),
         temp_matrix[1].get(), size(), 0, m, size());
 
@@ -508,7 +513,7 @@ void Chunk::_getWeightedMatrix(double *m)
 
 void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 {
-    double temp=0, t = mytime::timer.getTime();
+    double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx];
     // std::vector<cudaStream_t> stream_vec;
     // __device__ double *dev_fisher;
@@ -528,17 +533,12 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
         // cudaStreamCreate(&stream);
         // stream_vec.push_back(stream);
         double *Q_jkz_matrix = _getDevQikz(jdx);
+        int ind_ij = (j_kz + fisher_index_start) 
+                + bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start);
+        double *fij = fisher_matrix + ind_ij;
 
         // cublasSetStream(cuhelper.blas_handle, stream);
-        temp = 0.5 * cuhelper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size());
-
-        int ind_ij = (i_kz + fisher_index_start) 
-                + bins::TOTAL_KZ_BINS * (j_kz + fisher_index_start),
-            ind_ji = (j_kz + fisher_index_start) 
-                + bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start);
-
-        fisher_matrix[ind_ij] = temp;
-        fisher_matrix[ind_ji] = temp;
+       cuhelper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size(), fij);
     }
 
     t = mytime::timer.getTime() - t;
@@ -549,15 +549,19 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 void Chunk::computePSbeforeFvector()
 {
     double *Q_ikz_matrix = temp_matrix[0].get();
-    std::vector<double> dbt_vec(3, 0);
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
-    cuhelper.dsmyv(CUBLAS_FILL_MODE_UPPER, size(), 1.,
+    cuhelper.dsmyv(CUBLAS_FILL_MODE_LOWER, size(), 1.,
         inverse_covariance_matrix, 
         size(), dev_delta.get(), 1, 0, weighted_data_vector.get(), 1);
 
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
+        double *dk, *nk, *tk;
+        dk = dbt_estimate_before_fisher_vector[0][i_kz + fisher_index_start];
+        nk = dbt_estimate_before_fisher_vector[1][i_kz + fisher_index_start];
+        tk = dbt_estimate_before_fisher_vector[2][i_kz + fisher_index_start];
+
         LOG::LOGGER.DEB("PSb4F -> loop %d\n", i_kz);
         LOG::LOGGER.DEB("   -> set qi   ");
         // Set derivative matrix ikz
@@ -565,9 +569,10 @@ void Chunk::computePSbeforeFvector()
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        dbt_vec[0] = cuhelper.my_cublas_dsymvdot(weighted_data_vector.get(), 
-            Q_ikz_matrix, temp_vector.get(), size());
-        LOG::LOGGER.DEB("-> dk (%.1e)   ", dbt_vec[0]);
+        cuhelper.my_cublas_dsymvdot(
+            weighted_data_vector.get(), 
+            Q_ikz_matrix, temp_vector.get(), size(), dk);
+        LOG::LOGGER.DEB("-> dk (%.1e)   ", *dk);
 
         LOG::LOGGER.DEB("-> weighted Q   ");
         // Get weighted derivative matrix ikz: C-1 Qi C-1
@@ -575,18 +580,15 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        dbt_vec[1] = cuhelper.trace_ddiagmv(Q_ikz_matrix, dev_noise.get(), size());
+        cuhelper.trace_ddiagmv(Q_ikz_matrix, dev_noise.get(), size(), nk);
 
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
         {
             LOG::LOGGER.DEB("-> tk   ");
             // Tr(C-1 Qi C-1 Sfid)
-            dbt_vec[2] = cuhelper.trace_dsymm(Q_ikz_matrix, dev_sfid.get(), size());
+            cuhelper.trace_dsymm(Q_ikz_matrix, dev_sfid.get(), size(), tk);
         }
-
-        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            dbt_estimate_before_fisher_vector[dbt_i][i_kz + fisher_index_start] = dbt_vec[dbt_i];
 
         // Do not compute fisher matrix if it is precomputed
         if (!specifics::USE_PRECOMPUTED_FISHER)
@@ -616,8 +618,9 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 
     for (int jdx = 0; jdx < i_kz_vector.size(); ++jdx) {
         int j_kz = i_kz_vector[jdx];
-        _setQiMatrix(cpu_qj + jdx*DATA_SIZE_2, N_Q_MATRICES-j_kz-1);
-        dev_qj.asyncCpy(cpu_qj + jdx*DATA_SIZE_2, DATA_SIZE_2, jdx*DATA_SIZE_2);
+        _setQiMatrix(cpu_qj + jdx * DATA_SIZE_2, N_Q_MATRICES - j_kz - 1);
+        dev_qj.asyncCpy(
+            cpu_qj + jdx * DATA_SIZE_2, DATA_SIZE_2, jdx * DATA_SIZE_2);
     }
 
     // Preload fiducial signal matrix if memory allows
