@@ -607,10 +607,7 @@ namespace mxhelp
     double OversampledMatrix::getBufMemUsage()
     {
         // Convert to MB by division of 1048576
-        double highressize  = (double)sizeof(double) * ncols * (ncols+1) / 1048576.,
-               sandwichsize = (double)sizeof(double) * nrows * ncols / 1048576.;
-
-        return highressize+sandwichsize;
+        return (double)sizeof(double) * nrows * ncols / 1048576.;
     }
 
     void OversampledMatrix::fprintfMatrix(const char *fname)
