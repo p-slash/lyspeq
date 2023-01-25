@@ -25,32 +25,6 @@ void _check_isnan(double *mat, int size, std::string msg)
     #endif
 }
 
-double _L2MAX, _L2MIN;
-inline
-void _setL2Limits(int zm)
-{
-    #if defined(TOPHAT_Z_BINNING_FN)
-    const double
-    ZSTART = bins::ZBIN_CENTERS[zm] - bins::Z_BIN_WIDTH/2,
-    ZEND   = bins::ZBIN_CENTERS[zm] + bins::Z_BIN_WIDTH/2;
-    #elif defined(TRIANGLE_Z_BINNING_FN)
-    const double
-    ZSTART = bins::ZBIN_CENTERS[zm] - bins::Z_BIN_WIDTH,
-    ZEND   = bins::ZBIN_CENTERS[zm] + bins::Z_BIN_WIDTH;
-    #endif
-    _L2MAX  = (1 + ZEND) * LYA_REST;
-    _L2MAX *=_L2MAX;
-    _L2MIN  = (1 + ZSTART) * LYA_REST;
-    _L2MIN *=_L2MIN;
-}
-
-// inline
-// void _getZBinLimits(double *li, int remsize, double *&lptr1, double *&lptr2)
-// {
-//     lptr1 = std::lower_bound(li, li+remsize, _L2MIN/(*li));
-//     lptr2 = std::upper_bound(li, li+remsize, _L2MAX/(*li));
-// }
-
 inline
 void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
 {
@@ -68,6 +42,7 @@ int _getMaxKindex(double knyq)
 Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 {
     isCovInverted = false;
+    on_oversampling = specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix();
     _copyQSOFile(qmaster, i1, i2);
 
     qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
@@ -175,7 +150,11 @@ void Chunk::_setStoredMatrices()
 
     // Resolution matrix needs another temp storage.
     if (specifics::USE_RESOLUTION_MATRIX)
-        remain_mem -= qFile->Rmat->getBufMemUsage();
+        needed_mem += qFile->Rmat->getBufMemUsage();
+    if (on_oversampling) {
+        double ncols = (double) qFile->Rmat->getNCols();
+        needed_mem += sizeof(double) * ncols * (3 * ncols+1) / 1048576;
+    }
 
     // Need at least 3 matrices as temp one for sfid
     if (remain_mem < needed_mem) {
@@ -247,29 +226,30 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
     }
 }
 
+void Chunk::_setVZMatrices() {
+    int idx = 0;
+    for (int row = 0; row < _matrix_n; ++row)
+    {
+        double li = _matrix_lambda[row];
+
+        for (int col = 0; col < _matrix_n; ++col, ++idx)
+        {
+            double lj = _matrix_lambda[col];
+            _getVandZ(li, lj, _vmatrix[idx], _zmatrix[idx]);
+        }
+    }
+}
+
 void Chunk::_setFiducialSignalMatrix(double *sm)
 {
     ++mytime::number_of_times_called_setsfid;
 
     double t = mytime::timer.getTime();
-    double v_ij, z_ij;
+    double *inter_mat = (on_oversampling) ? _finer_matrix : sm;
 
-    double *inter_mat = (_finer_matrix != NULL) ? _finer_matrix : sm;
-    double *ptr = inter_mat, *li=_matrix_lambda;
-
-    for (int row = 0; row < _matrix_n; ++row, ++li)
-    {
-        ptr += row;
-
-        for (double *lj=li; lj != (_matrix_lambda+_matrix_n); ++lj, ++ptr)
-        {
-            _getVandZ(*li, *lj, v_ij, z_ij);
-
-            *ptr = interp2d_signal_matrix->evaluate(z_ij, v_ij);
-        }
-    }
-
-    mxhelp::copyUpperToLower(inter_mat, _matrix_n);
+    for (int i = 0; i < _matrix_n * _matrix_n; ++i)
+        inter_mat[i] = interp2d_signal_matrix->evaluate(
+            _zmatrix[i], _vmatrix[i]);
 
     if (specifics::USE_RESOLUTION_MATRIX)
         qFile->Rmat->sandwich(sm, inter_mat);
@@ -283,54 +263,25 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 {
     ++mytime::number_of_times_called_setq;
     double t = mytime::timer.getTime(), t_interp;
-    int kn, zm;
-    double v_ij, z_ij;
+    int kn, zm, idx = 0;
 
     bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
     bins::setRedshiftBinningFunction(zm);
-    _setL2Limits(zm);
 
-    double *inter_mat = (_finer_matrix != NULL) ? _finer_matrix : qi;
-    double *ptr = inter_mat, *li = _matrix_lambda, 
-        *highres_l_end = _matrix_lambda + _matrix_n;
+    double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
 
     shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
 
-    for (int row = 0; row < _matrix_n; ++row, ++li)
-    {
-        ptr += row;
-        double *lstart = std::lower_bound(li, highres_l_end, _L2MIN/(*li));
-        double *lend   = std::upper_bound(li, highres_l_end, _L2MAX/(*li));
-
-        // printf("i: %d \t %ld - %ld \n", row, lstart-highres_lambda, lend-highres_lambda);
-        double *lj;
-        for (lj = li; lj != lstart; ++lj, ++ptr)
-            *ptr = 0;
-
-        for (; lj != lend; ++lj, ++ptr)
-        {
-            _getVandZ(*li, *lj, v_ij, z_ij);
-
-            *ptr  = interp_deriv_kn->evaluate(v_ij);
-            *ptr *= bins::redshiftBinningFunction(z_ij, zm);
-            // Every pixel pair should scale to the bin redshift
-            #ifdef REDSHIFT_GROWTH_POWER
-            *ptr *= fidcosmo::fiducialPowerGrowthFactor(z_ij, 
-                bins::KBAND_CENTERS[kn], bins::ZBIN_CENTERS[zm], 
-                &fidpd13::FIDUCIAL_PD13_PARAMS);
-            #endif
-        }
-
-        for (; lj != highres_l_end; ++lj, ++ptr)
-            *ptr = 0;
-
-        t_interp = mytime::timer.getTime() - t;
-
-        mxhelp::copyUpperToLower(inter_mat, _matrix_n);
-
-        if (specifics::USE_RESOLUTION_MATRIX)
-            qFile->Rmat->sandwich(qi, inter_mat);
+    for (int i = 0; i < _matrix_n * _matrix_n; ++i) {
+        inter_mat[i] = interp_deriv_kn->evaluate(_vmatrix[i]);
+        inter_mat[i] *= bins::redshiftBinningFunction(_zmatrix[i], zm);
     }
+
+
+    t_interp = mytime::timer.getTime() - t;
+
+    if (specifics::USE_RESOLUTION_MATRIX)
+        qFile->Rmat->sandwich(qi, inter_mat);
 
     t = mytime::timer.getTime() - t; 
 
@@ -574,6 +525,8 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
 
     _allocateMatrices();
 
+    LOG::LOGGER.DEB("Setting v & z matrices\n");
+    _setVZMatrices();
     // Preload last nqj_eff matrices
     // 0 is the last matrix
     // i_kz = N_Q_MATRICES - j_kz - 1
@@ -652,7 +605,7 @@ void Chunk::_allocateMatrices()
         stored_sfid = new double[DATA_SIZE_2];
 
     // Create a temp highres lambda array
-    if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
+    if (on_oversampling)
     {
         int ncols = qFile->Rmat->getNCols();
         _finer_lambda = new double[ncols];
@@ -666,12 +619,16 @@ void Chunk::_allocateMatrices()
 
         long highsize = (long)(ncols) * (long)(ncols);
         _finer_matrix = new double[highsize];
+        _vmatrix = new double[highsize];
+        _zmatrix = new double[highsize];
     }
     else
     {
         _matrix_lambda = qFile->wave();
         _finer_lambda  = NULL;
         _finer_matrix  = NULL;
+        _vmatrix = temp_matrix[0];
+        _zmatrix = temp_matrix[1];
     }
 
     // This function allocates new signal & deriv matrices 
@@ -715,6 +672,8 @@ void Chunk::_freeMatrices()
         {
             delete [] _finer_matrix;
             delete [] _finer_lambda;
+            delete [] _vmatrix;
+            delete [] _zmatrix;
         }
     }
 
