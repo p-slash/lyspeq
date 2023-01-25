@@ -28,7 +28,7 @@ void _check_isnan(double *mat, int size, std::string msg)
 inline
 void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
 {
-    v_ij = SPEED_OF_LIGHT * log(lj / li);
+    v_ij = SPEED_OF_LIGHT * fabs(log(lj / li));
     z_ij = sqrt(li * lj) / LYA_REST - 1.;
 }
 
@@ -276,7 +276,6 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
         inter_mat[i] = interp_deriv_kn->evaluate(_vmatrix[i]);
         inter_mat[i] *= bins::redshiftBinningFunction(_zmatrix[i], zm);
     }
-
 
     t_interp = mytime::timer.getTime() - t;
 
