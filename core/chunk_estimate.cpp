@@ -323,14 +323,14 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 
         for (; lj != highres_l_end; ++lj, ++ptr)
             *ptr = 0;
-
-        t_interp = mytime::timer.getTime() - t;
-
-        mxhelp::copyUpperToLower(inter_mat, _matrix_n);
-
-        if (specifics::USE_RESOLUTION_MATRIX)
-            qFile->Rmat->sandwich(qi, inter_mat);
     }
+
+    t_interp = mytime::timer.getTime() - t;
+
+    mxhelp::copyUpperToLower(inter_mat, _matrix_n);
+
+    if (specifics::USE_RESOLUTION_MATRIX)
+        qFile->Rmat->sandwich(qi, inter_mat);
 
     t = mytime::timer.getTime() - t; 
 
