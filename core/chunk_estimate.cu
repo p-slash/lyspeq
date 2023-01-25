@@ -14,7 +14,8 @@
 #include <stdexcept>
 
 constexpr int CU_BLOCK_SIZE = 256;
-CuHelper cuhelper;
+CuBlasHelper cublas_helper;
+CuSolverHelper cusolver_helper;
 
 // void _check_isnan(double *mat, int size, std::string msg)
 // {
@@ -349,7 +350,8 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 {
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
-        cuhelper.dcopy(dev_sfid.get(), covariance_matrix.get(), DATA_SIZE_2);
+        cublas_helper.dcopy(
+            dev_sfid.get(), covariance_matrix.get(), DATA_SIZE_2);
     else
         cudaMemset(covariance_matrix.get(), 0, DATA_SIZE_2*sizeof(double));
 
@@ -359,14 +361,14 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
         double *Q_ikz_matrix = _getDevQikz(idx);
 
-        cuhelper.daxpy(
+        cublas_helper.daxpy(
             alpha[i_kz], Q_ikz_matrix, covariance_matrix.get(), DATA_SIZE_2);
     }
 
     // add noise matrix diagonally
     // but smooth before adding
     // process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
-    cuhelper.daxpy(
+    cublas_helper.daxpy(
         1., dev_smnoise.get(), covariance_matrix.get(), size(), 1, size()+1);
 
     isCovInverted = false;
@@ -417,12 +419,13 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
     // cudaMemset(y, 0, size*sizeof(double));
-    cuhelper.dsmyv(CUBLAS_FILL_MODE_LOWER, size, 1., cinv, size, v, 1, 0, y, 1);
+    cublas_helper.dsmyv(
+        CUBLAS_FILL_MODE_LOWER, size, 1., cinv, size, v, 1, 0, y, 1);
     double alpha;
-    cublasDdot(cuhelper.blas_handle, size, v, 1, y, 1, &alpha);
+    cublasDdot(cublas_helper.blas_handle, size, v, 1, y, 1, &alpha);
     alpha = -1./alpha;
     cublasDsyr(
-        cuhelper.blas_handle, CUBLAS_FILL_MODE_LOWER,
+        cublas_helper.blas_handle, CUBLAS_FILL_MODE_LOWER,
         size, &alpha, y, 1, cinv, size);
     // cublasDger(
     // cuhelper.blas_handle, size, size, &norm, y, 1, y, 1, cinv, size);
@@ -465,10 +468,10 @@ void Chunk::_addMarginalizations()
     static std::vector<double> cpu_svals(specifics::CONT_NVECS);
 
     // SVD to get orthogonal marg vectors
-    cuhelper.setBlasStream(streams[0]);
-    cuhelper.svd(temp_v, dev_svals.get(), size(), specifics::CONT_NVECS);
-    dev_svals.asyncDwn(cpu_svals.data(), cpu_svals.size(), 0, streams[0].get());
-    streams[0].sync();
+    cublas_helper.resetStream();
+    cusolver_helper.svd(temp_v, dev_svals.get(), size(), specifics::CONT_NVECS);
+    dev_svals.asyncDwn(cpu_svals.data(), cpu_svals.size());
+    cublas_helper.syncMainStream();
     // mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
     LOG::LOGGER.DEB("SVD'ed\n");
 
@@ -478,8 +481,6 @@ void Chunk::_addMarginalizations()
         LOG::LOGGER.DEB("i: %d, s: %.2e\n", i, svals[i]);
         // skip if this vector is degenerate
         if (cpu_svals[i] < 1e-6)  continue;
-
-        cuhelper.setBlasStream(streams[i]);
 
         _remShermanMorrison(temp_v, size(), temp_y, inverse_covariance_matrix);
     }
@@ -491,7 +492,7 @@ void Chunk::invertCovarianceMatrix()
 {
     double t = mytime::timer.getTime();
 
-    cuhelper.invert_cholesky(covariance_matrix.get(), size());
+    cusolver_helper.invert_cholesky(covariance_matrix.get(), size());
 
     inverse_covariance_matrix = covariance_matrix.get();
 
@@ -510,12 +511,12 @@ void Chunk::_getWeightedMatrix(double *m)
     double t = mytime::timer.getTime();
 
     //C-1 . Q
-    cuhelper.dsymm(CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER,
+    cublas_helper.dsymm(CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER,
         size(), size(), 1., inverse_covariance_matrix, size(),
         m, size(), 0, temp_matrix[1].get(), size());
 
     //C-1 . Q . C-1
-    cuhelper.dsymm(CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_LOWER,
+    cublas_helper.dsymm(CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_LOWER,
         size(), size(), 1., inverse_covariance_matrix, size(),
         temp_matrix[1].get(), size(), 0, m, size());
 
@@ -528,7 +529,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 {
     double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx];
-    cuhelper.setPointerMode2Device();
+    cublas_helper.setPointerMode2Device();
     std::vector<MyCuStream> streams;
 
     // Now compute Fisher Matrix
@@ -542,7 +543,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
         #endif
 
         MyCuStream stream;
-        cuhelper.setBlasStream(stream);
+        cublas_helper.setStream(stream);
 
         // cudaStream_t stream;
         // cudaStreamCreate(&stream);
@@ -552,14 +553,15 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
                 + bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start);
         double *fij = dev_fisher.get() + ind_ij;
 
-       cuhelper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size(), fij);
+       cublas_helper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size(), fij);
        streams.push_back(stream);
     }
 
     for (auto &stream : streams)
         stream.sync();
 
-    cuhelper.setPointerMode2Host();
+    cublas_helper.resetStream();
+    cublas_helper.setPointerMode2Host();
 
     t = mytime::timer.getTime() - t;
 
@@ -571,7 +573,7 @@ void Chunk::computePSbeforeFvector()
     double *Q_ikz_matrix = temp_matrix[0].get();
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
-    cuhelper.dsmyv(CUBLAS_FILL_MODE_LOWER, size(), 1.,
+    cublas_helper.dsmyv(CUBLAS_FILL_MODE_LOWER, size(), 1.,
         inverse_covariance_matrix, 
         size(), dev_delta.get(), 1, 0, weighted_data_vector.get(), 1);
 
@@ -585,11 +587,11 @@ void Chunk::computePSbeforeFvector()
         LOG::LOGGER.DEB("PSb4F -> loop %d\n", i_kz);
         LOG::LOGGER.DEB("   -> set qi   ");
         // Set derivative matrix ikz
-        cuhelper.dcopy(_getDevQikz(idx), Q_ikz_matrix, DATA_SIZE_2);
+        cublas_helper.dcopy(_getDevQikz(idx), Q_ikz_matrix, DATA_SIZE_2);
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        cuhelper.my_cublas_dsymvdot(
+        cublas_helper.my_cublas_dsymvdot(
             weighted_data_vector.get(), 
             Q_ikz_matrix, temp_vector.get(), size(), dk);
         LOG::LOGGER.DEB("-> dk (%.1e)   ", *dk);
@@ -600,14 +602,14 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        cuhelper.trace_ddiagmv(Q_ikz_matrix, dev_noise.get(), size(), nk);
+        cublas_helper.trace_ddiagmv(Q_ikz_matrix, dev_noise.get(), size(), nk);
 
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
         {
             LOG::LOGGER.DEB("-> tk   ");
             // Tr(C-1 Qi C-1 Sfid)
-            cuhelper.trace_dsymm(Q_ikz_matrix, dev_sfid.get(), size(), tk);
+            cublas_helper.trace_dsymm(Q_ikz_matrix, dev_sfid.get(), size(), tk);
         }
 
         // Do not compute fisher matrix if it is precomputed
@@ -663,7 +665,7 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
         LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
         dev_fisher.asyncDwn(fisher_sum, bins::FISHER_SIZE);
-        cudaStreamSynchronize(NULL);
+        cublas_helper.syncMainStream();
 
         // _check_isnan(fisher_matrix.get(), bins::FISHER_SIZE,
             // "NaN: chunk fisher");

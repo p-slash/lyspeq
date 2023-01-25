@@ -70,12 +70,20 @@ class MyCuStream {
         }
     }
 public:
-    MyCuStream() {
+    MyCuStream(bool default_stream = false) {
+        if (default_stream) {
+            stream = 0;
+            return;
+        }
         cuda_stat = cudaStreamCreateWithFlags(
             &stream, cudaStreamNonBlocking);
         check_cuda_error("cudaStreamCreateWithFlags: ");
     }
-    ~MyCuStream() { cudaStreamDestroy(stream); }
+    ~MyCuStream() {
+        if (stream == 0)
+            return;
+        cudaStreamDestroy(stream);
+    }
 
     cudaStream_t get() const {
         return stream;
@@ -88,11 +96,9 @@ public:
 }
 
 
-class CuHelper
-{
-    // cudaError_t cudaStat;
+class CuBlasHelper {
+    MyCuStream main_stream(true);
     cublasStatus_t blas_stat;
-    cusolverStatus_t solver_stat;
 
     void check_cublas_error(std::string err_msg) {
         if (blas_stat != CUBLAS_STATUS_SUCCESS) {
@@ -100,47 +106,33 @@ class CuHelper
             throw std::runtime_error(err_msg);
         }
     }
-
-    void check_cusolver_error(std::string err_msg) {
-        if (solver_stat == CUSOLVER_STATUS_SUCCESS)
-            return;
-        switch (solver_stat) {
-        case CUSOLVER_STATUS_NOT_INITIALIZED:
-            err_msg += "The library was not initialized.";  break;
-        case CUSOLVER_STATUS_INVALID_VALUE:
-            err_msg += "Invalid parameters were passed.";   break;
-        case CUSOLVER_STATUS_INTERNAL_ERROR:
-            err_msg += "An internal operation failed.";     break;
-        }
-
-        throw std::runtime_error(err_msg);
-    }
-
 public:
     cublasHandle_t blas_handle;
-    cusolverDnHandle_t solver_handle;
-
-    CuHelper() {
+    CuBlasHelper() {
         blas_stat = cublasCreate(&blas_handle);
         check_cublas_error("CUBLAS initialization failed: ");
 
-        solver_stat = cusolverDnCreate(&solver_handle);
-        check_cusolver_error("CUSOLVER initialization failed: ");
+        setBlasStream(main_stream);
     };
-    ~CuHelper() {
+    ~CuBlasHelper() {
         cublasDestroy(blas_handle);
-        cusolverDnDestroy(solver_handle);
-        cudaDeviceReset();
     };
 
-    void setBlasStream(MyCuStream& stream) {
+    void setStream(MyCuStream& stream) {
         blas_stat = cublasSetStream(blas_handle, stream.get());
         check_cublas_error("cublasSetStream: ");
     }
 
-    void setSolverStream(MyCuStream& stream) {
-        solver_stat = cusolverDnSetStream(solver_handle, stream.get());
-        check_cusolver_error("cusolverDnSetStream: ");
+    void resetStream() {
+        setStream(main_stream);
+    }
+
+    void syncMainStream() {
+        main_stream.sync();
+    }
+
+    MyCuStream getMainStream() const {
+        return main_stream;
     }
 
     void setPointerMode2Host() {
@@ -218,6 +210,59 @@ public:
             n, &alpha, A, lda, x, incx,
             &beta, y, incy);
         check_cublas_error("cublasDsymv: ");
+    }
+}
+
+
+class CuSolverHelper
+{
+    MyCuStream main_stream(true);
+    cusolverStatus_t solver_stat;
+
+    void check_cusolver_error(std::string err_msg) {
+        if (solver_stat == CUSOLVER_STATUS_SUCCESS)
+            return;
+        switch (solver_stat) {
+        case CUSOLVER_STATUS_NOT_INITIALIZED:
+            err_msg += "The library was not initialized.";  break;
+        case CUSOLVER_STATUS_INVALID_VALUE:
+            err_msg += "Invalid parameters were passed.";   break;
+        case CUSOLVER_STATUS_INTERNAL_ERROR:
+            err_msg += "An internal operation failed.";     break;
+        }
+
+        throw std::runtime_error(err_msg);
+    }
+
+public:
+    cusolverDnHandle_t solver_handle;
+
+    CuSolverHelper() {
+        solver_stat = cusolverDnCreate(&solver_handle);
+        check_cusolver_error("CUSOLVER initialization failed: ");
+
+        setSolverStream(main_stream);
+    };
+    ~CuSolverHelper() {
+        cusolverDnDestroy(solver_handle);
+        // cudaDeviceReset();
+    };
+
+    void setStream(MyCuStream& stream) {
+        solver_stat = cusolverDnSetStream(solver_handle, stream.get());
+        check_cusolver_error("cusolverDnSetStream: ");
+    }
+
+    void resetStream() {
+        setStream(main_stream);
+    }
+
+    void syncMainStream() {
+        main_stream.sync();
+    }
+
+    MyCuStream getMainStream() const {
+        return main_stream;
     }
 
     void potrf(
