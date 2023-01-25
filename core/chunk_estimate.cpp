@@ -323,14 +323,14 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 
         for (; lj != highres_l_end; ++lj, ++ptr)
             *ptr = 0;
-
-        t_interp = mytime::timer.getTime() - t;
-
-        mxhelp::copyUpperToLower(inter_mat, _matrix_n);
-
-        if (specifics::USE_RESOLUTION_MATRIX)
-            qFile->Rmat->sandwich(qi, inter_mat);
     }
+
+    t_interp = mytime::timer.getTime() - t;
+
+    mxhelp::copyUpperToLower(inter_mat, _matrix_n);
+
+    if (specifics::USE_RESOLUTION_MATRIX)
+        qFile->Rmat->sandwich(qi, inter_mat);
 
     t = mytime::timer.getTime() - t; 
 
@@ -343,7 +343,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 {
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
-        cblas_dcopy(DATA_SIZE_2, stored_sfid, 1, covariance_matrix, 1);
+        std::copy(stored_sfid, stored_sfid + DATA_SIZE_2, covariance_matrix);
     else
         std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
 
@@ -524,7 +524,8 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("   -> set qi   ");
         // Set derivative matrix ikz
-        cblas_dcopy(DATA_SIZE_2, _getStoredQikz(idx), 1, Q_ikz_matrix, 1);
+        double *ptr = _getStoredQikz(idx);
+        std::copy(ptr, ptr + DATA_SIZE_2, Q_ikz_matrix);
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
