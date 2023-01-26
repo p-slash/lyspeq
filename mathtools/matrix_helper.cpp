@@ -406,9 +406,8 @@ namespace mxhelp
         }
     }
 
-    void DiaMatrix::multiply(char SIDER, char TRANSR, const double* A, 
-        double *B)
-    {
+    void DiaMatrix::multiply(
+            char SIDER, char TRANSR, const double* A, double *B) {
         std::fill_n(B, ndim*ndim, 0);
 
         int transpose = 1;
@@ -496,13 +495,63 @@ namespace mxhelp
         }
     }
 
+    // void DiaMatrix::sandwichOld(double *inplace)
+    // {
+    //     if (sandwich_buffer == NULL)
+    //         sandwich_buffer = new double[ndim*ndim];
+
+    //     multiply('L', 'N', inplace, sandwich_buffer);
+    //     multiply('R', 'T', sandwich_buffer, inplace);
+    // }
+
+    void DiaMatrix::multiplyLeft(
+            char TRANS_A, const double* A, double *B) {
+        std::fill_n(B, ndim*ndim, 0);
+
+        int inc_a = 1, row_step_a = ndim;
+
+        if (TRANS_A == 'N' || TRANS_A == 'n') {
+            inc_a = 1;
+            row_step_a = ndim;
+        }
+        // Switch to column ordering
+        else if (TRANS_A == 'T' || TRANS_A == 't') {
+            inc_a = ndim;
+            row_step_a = 1;
+        }
+        else
+            throw std::runtime_error("DiaMatrix multiply transpose wrong character!");
+
+        for (int d = 0; d < ndiags; ++d)
+        {
+            int off = offsets[d], 
+                nmult = ndim - abs(off),
+                A1 = abs(off), B1 = 0;
+
+            if (off < 0) std::swap(A1, B1);
+
+            const double *Aslice, *dia_slice = _getDiagonal(d);
+            double       *Bslice;
+
+            Aslice = A + A1*row_step_a;
+            Bslice = B + B1*ndim;
+
+            for (int i = 0; i < nmult; ++i)
+            {
+                cblas_daxpy(ndim, *(dia_slice+i), Aslice, inc_a, Bslice, 1);
+                Bslice += ndim;
+                Aslice += row_step_a;
+            }
+        }
+    }
+
     void DiaMatrix::sandwich(double *inplace)
     {
         if (sandwich_buffer == NULL)
             sandwich_buffer = new double[ndim*ndim];
 
-        multiply('L', 'N', inplace, sandwich_buffer);
-        multiply('R', 'T', sandwich_buffer, inplace);
+        multiplyLeft('N', inplace, sandwich_buffer);
+        multiplyLeft('T', sandwich_buffer, inplace);
     }
 
     double DiaMatrix::getMinMemUsage()
