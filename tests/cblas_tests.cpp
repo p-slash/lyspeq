@@ -380,11 +380,11 @@ int test_OversampledMatrix_multiplications()
 #define NdiagDiag 5
 const double
 diamatrix_diagonals[] = {
-    -1, -1, 5, 2, 7, 7, 4,
-   -1,  4, 1, 7, 2, 4, 3,
-    1,  8, 1, 3, 7, 4, 4,
-    2,  4, 1, 7, 1, 4, -1,
-    9, 1, 1, 2, 7, -1, -1},
+    0, 0, 5, 2, 7, 7, 4,
+    0, 4, 1, 7, 2, 4, 3,
+    1, 8, 1, 3, 7, 4, 4,
+    2, 4, 1, 7, 1, 4, 0,
+    9, 1, 1, 2, 7, 0, 0},
 diamatrix_rows[] = {
     5, 4, 1, 4, 5,
        2, 2, 8, 1, 2,
@@ -401,6 +401,14 @@ diamatrix_multiplier_B[] = {
     1, 2, -5, 7, -1, 6, 1, 
     3, -7, 0, 9, 1, -6, -2, 
     -3, 5, 9, -6, 4, 1, 8},
+diamatrix_multiplier_Sym[] = {
+    -2, -5,  5,  3,  8,  5, -5,
+    -5, -4, -3, 11,  2, -1,  9,
+     5, -3, -4,  1,  5,  9,  5,
+     3, 11,  1,  2,  9,  0,  3,
+     8,  2,  5,  9,  6,  7,  9,
+     5, -1,  9,  0,  7, -6,  9,
+    -5,  9,  5,  3,  9,  9,  0},
 truth_diamatrix_LN_multiplication[] = {
     2.50e+01, -2.00e+00, 4.80e+01, -3.10e+01, -2.00e+01, -8.30e+01, -5.20e+01, 
     2.00e+00, -5.40e+01, 5.90e+01, -1.20e+01, 3.00e+00, -1.01e+02, -7.60e+01, 
@@ -432,14 +440,24 @@ truth_diamatrix_RT_multiplication[] = {
     3.10e+01, 2.20e+01, 8.10e+01, -4.00e+01, -2.00e+00, -4.00e+01, 8.00e+00, 
     -1.60e+01, 2.70e+01, 5.40e+01, 5.80e+01, 6.50e+01, 4.00e+01, 2.10e+01, 
     -2.50e+01, -3.20e+01, 6.90e+01, -2.00e+01, 3.80e+01, -1.10e+01, -2.50e+01, 
-    6.20e+01, 3.10e+01, -1.20e+01, 1.10e+01, 3.10e+01, 2.00e+01, 6.40e+01};
+    6.20e+01, 3.10e+01, -1.20e+01, 1.10e+01, 3.10e+01, 2.00e+01, 6.40e+01},
+truth_diamatrix_Tl_multiplication[] = {
+     22,  -10,   55,   31,  -16,  -25,   62,
+     -5,  -60,   53,   22,   27,  -32,   31,
+     32,  -56,   20,   81,   54,   69,  -12,
+      0,  -72,  -76,  -40,   58,  -20,   11,
+     -3,  -74, -110,   -2,   65,   38,   31,
+    -11,  -61,  -63,  -40,   40,  -11,   20,
+    -59,  -64,  -73,    8,   21,  -25,   64};
 
 const std::unordered_map<std::string, const double*>
 diamatrix_truth_map ({
     {"LN", truth_diamatrix_LN_multiplication},
     {"LT", truth_diamatrix_LT_multiplication},
     {"RN", truth_diamatrix_RN_multiplication},
-    {"RT", truth_diamatrix_RT_multiplication}
+    {"RT", truth_diamatrix_RT_multiplication},
+    {"Nl", truth_diamatrix_LN_multiplication},
+    {"Tl", truth_diamatrix_Tl_multiplication}
 });
 
 int _compare_one_DiaMatrix_multiplications(const std::string &combo, const double* result)
@@ -473,6 +491,26 @@ int test_DiaMatrix_multiplications()
         r += _compare_one_DiaMatrix_multiplications(combo, result_R.data());
     }
 
+    return r;
+}
+
+int test_DiaMatrix_multipyLeft()
+{
+    int r = 0;
+    std::vector<double> result_R(NrowsDiag*NrowsDiag, 0);
+    mxhelp::DiaMatrix diarmat(NrowsDiag, NdiagDiag);
+    std::copy(
+        &diamatrix_diagonals[0],
+        &diamatrix_diagonals[0]+NrowsDiag*NdiagDiag,
+        diarmat.matrix()
+    );
+
+    const std::vector<std::string> combos {"Nl", "Tl"};
+    for (const auto &combo: combos)
+    {
+        diarmat.multiplyLeft(combo[0], diamatrix_multiplier_B, result_R.data());
+        r += _compare_one_DiaMatrix_multiplications(combo, result_R.data());
+    }
     return r;
 }
 
@@ -562,6 +600,7 @@ int main()
     r += test_LAPACKE_InvertMatrixLU_2();
     r += test_OversampledMatrix_multiplications();
     r += test_DiaMatrix_multiplications();
+    r += test_DiaMatrix_multipyLeft();
     r += test_DiaMatrix_getRow();
     r += test_LAPACKE_SVD();
     r += test_Resolution_osamp();

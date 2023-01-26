@@ -101,6 +101,7 @@ namespace mxhelp
         // TRANSR = 'N' or 'n',  op( R ) = R.
         // TRANSR = 'T' or 't',  op( R ) = R^T.
         void multiply(char SIDER, char TRANSR, const double* A, double *B);
+        void multiplyLeft(char TRANS_A, const double* A, double *B);
 
         // R . inplace . R^T
         void sandwich(double *inplace);
