@@ -28,7 +28,7 @@ void _check_isnan(double *mat, int size, std::string msg)
 inline
 void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
 {
-    v_ij = SPEED_OF_LIGHT * fabs(log(lj / li));
+    v_ij = SPEED_OF_LIGHT * log(lj / li);
     z_ij = sqrt(li * lj) / LYA_REST - 1.;
 }
 
@@ -232,7 +232,7 @@ void Chunk::_setVZMatrices() {
     {
         double li = _matrix_lambda[i];
 
-        for (int j = 0; j < _matrix_n; ++j, ++idx)
+        for (int j = i; j < _matrix_n; ++j, ++idx)
         {
             double lj = _matrix_lambda[j];
             _getVandZ(li, lj, _vmatrix[idx], _zmatrix[idx]);
@@ -246,10 +246,18 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
 
     double t = mytime::timer.getTime();
     double *inter_mat = (on_oversampling) ? _finer_matrix : sm;
+    double *ptr = inter_mat;
 
-    for (int i = 0; i < _matrix_n * _matrix_n; ++i)
-        inter_mat[i] = interp2d_signal_matrix->evaluate(
-            _zmatrix[i], _vmatrix[i]);
+    int idx = 0;
+    for (int i = 0; i < _matrix_n; ++i) {
+        ptr += i;
+        for (int j = i; j < _matrix_n; ++j, ++ptr, ++idx) {
+            *ptr = interp2d_signal_matrix->evaluate(
+                _zmatrix[idx], _vmatrix[idx]);
+        }
+    }
+
+    mxhelp::copyUpperToLower(inter_mat, _matrix_n);
 
     if (specifics::USE_RESOLUTION_MATRIX)
         qFile->Rmat->sandwich(sm, inter_mat);
@@ -269,15 +277,20 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     bins::setRedshiftBinningFunction(zm);
 
     double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
-
     shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
 
-    for (int i = 0; i < _matrix_n * _matrix_n; ++i) {
-        inter_mat[i] = interp_deriv_kn->evaluate(_vmatrix[i]);
-        inter_mat[i] *= bins::redshiftBinningFunction(_zmatrix[i], zm);
+    int idx = 0;
+    double *ptr = inter_mat;
+    for (int i = 0; i < _matrix_n; ++i) {
+        ptr += i;
+        for (int j = i; j < _matrix_n; ++j, ++ptr, ++idx) {
+            *ptr = interp_deriv_kn->evaluate(_vmatrix[idx]);
+            *ptr *= bins::redshiftBinningFunction(_zmatrix[idx], zm);
+        }
     }
 
     t_interp = mytime::timer.getTime() - t;
+    mxhelp::copyUpperToLower(inter_mat, _matrix_n);
 
     if (specifics::USE_RESOLUTION_MATRIX)
         qFile->Rmat->sandwich(qi, inter_mat);
