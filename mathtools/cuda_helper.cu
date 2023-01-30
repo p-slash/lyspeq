@@ -1,6 +1,7 @@
 #ifndef CUDA_HELPER_H
 #define CUDA_HELPER_H
 
+#include <memory>
 #include <stdexcept>
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
@@ -94,11 +95,11 @@ public:
         cuda_stat = cudaStreamSynchronize(stream);
         check_cuda_error("cudaStreamSynchronize: ");
     }
-}
+};
 
 
 class CuBlasHelper {
-    MyCuStream main_stream(true);
+    std::unique_ptr<MyCuStream> main_stream;
     cublasStatus_t blas_stat;
 
     void check_cublas_error(std::string err_msg) {
@@ -113,7 +114,8 @@ public:
         blas_stat = cublasCreate(&blas_handle);
         check_cublas_error("CUBLAS initialization failed: ");
 
-        setBlasStream(main_stream);
+        main_stream = std::make_unique<MyCuStream>(true);
+        setStream(*main_stream);
     };
     ~CuBlasHelper() {
         cublasDestroy(blas_handle);
@@ -125,24 +127,24 @@ public:
     }
 
     void resetStream() {
-        setStream(main_stream);
+        setStream(*main_stream);
     }
 
     void syncMainStream() {
-        main_stream.sync();
+        main_stream->sync();
     }
 
-    MyCuStream getMainStream() const {
-        return main_stream;
+    MyCuStream* getMainStream() const {
+        return main_stream.get();
     }
 
     void setPointerMode2Host() {
-        blas_stat = cublasSetPointerMode(CUBLAS_POINTER_MODE_HOST);
+        blas_stat = cublasSetPointerMode(blas_handle, CUBLAS_POINTER_MODE_HOST);
         check_cublas_error("cublasSetPointerMode - host:");
     }
 
     void setPointerMode2Device() {
-        blas_stat = cublasSetPointerMode(CUBLAS_POINTER_MODE_DEVICE);
+        blas_stat = cublasSetPointerMode(blas_handle, CUBLAS_POINTER_MODE_DEVICE);
         check_cublas_error("cublasSetPointerMode - device:");
     }
 
@@ -167,7 +169,7 @@ public:
             const double *v, const double *S, double *temp_vector, int N,
             double *c_res,
             const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
-        dsmyv(uplo, N, 1., S, N, v, 1, 0, temp_vector, 1);
+        dsmyv(N, 1., S, N, v, 1, 0, temp_vector, 1, uplo);
         blas_stat = cublasDdot(blas_handle, N, v, 1, temp_vector, 1, c_res);
         check_cublas_error("my_cublas_dsymvdot/cublasDdot: ");
     }
@@ -213,12 +215,12 @@ public:
             &beta, y, incy);
         check_cublas_error("cublasDsymv: ");
     }
-}
+};
 
 
 class CuSolverHelper
 {
-    MyCuStream main_stream(true);
+    std::unique_ptr<MyCuStream> main_stream;
     cusolverStatus_t solver_stat;
 
     void check_cusolver_error(std::string err_msg) {
@@ -243,7 +245,8 @@ public:
         solver_stat = cusolverDnCreate(&solver_handle);
         check_cusolver_error("CUSOLVER initialization failed: ");
 
-        setSolverStream(main_stream);
+        main_stream = std::make_unique<MyCuStream>(true);
+        setStream(*main_stream);
     };
     ~CuSolverHelper() {
         cusolverDnDestroy(solver_handle);
@@ -256,15 +259,15 @@ public:
     }
 
     void resetStream() {
-        setStream(main_stream);
+        setStream(*main_stream);
     }
 
     void syncMainStream() {
-        main_stream.sync();
+        main_stream->sync();
     }
 
-    MyCuStream getMainStream() const {
-        return main_stream;
+    MyCuStream* getMainStream() const {
+        return main_stream.get();
     }
 
     void potrf(
