@@ -13,7 +13,6 @@
 #include <cstdlib>
 #include <stdexcept>
 
-constexpr int CU_BLOCK_SIZE = 256;
 CuBlasHelper cublas_helper;
 CuSolverHelper cusolver_helper;
 
@@ -372,13 +371,6 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
         1., dev_smnoise.get(), covariance_matrix.get(), size(), 1, size()+1);
 
     isCovInverted = false;
-
-    // When compiled with debugging feature
-    // save matrices to files, break
-    // #ifdef DEBUG_MATRIX_OUT
-    // it->fprintfMatrices(fname_base);
-    // throw std::runtime_error("DEBUGGING QUIT.");
-    // #endif
 }
 
 // CUDA Kernels to set marginalization vectors
@@ -419,14 +411,11 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
     // cudaMemset(y, 0, size*sizeof(double));
-    cublas_helper.dsmyv(
-        CUBLAS_FILL_MODE_LOWER, size, 1., cinv, size, v, 1, 0, y, 1);
+    cublas_helper.dsmyv(size, 1., cinv, size, v, 1, 0, y, 1);
     double alpha;
     cublasDdot(cublas_helper.blas_handle, size, v, 1, y, 1, &alpha);
     alpha = -1./alpha;
-    cublasDsyr(
-        cublas_helper.blas_handle, CUBLAS_FILL_MODE_LOWER,
-        size, &alpha, y, 1, cinv, size);
+    cublasDsyr(cublas_helper.blas_handle, size, &alpha, y, 1, cinv, size);
     // cublasDger(
     // cuhelper.blas_handle, size, size, &norm, y, 1, y, 1, cinv, size);
 }
@@ -434,27 +423,27 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 void Chunk::_addMarginalizations()
 {
     std::vector<MyCuStream> streams(specifics::CONT_NVECS);
-    int num_blocks = (size() + CU_BLOCK_SIZE - 1) / CU_BLOCK_SIZE,
+    int num_blocks = (size() + MYCU_BLOCK_SIZE - 1) / MYCU_BLOCK_SIZE,
         vidx = 1;
 
     double  *temp_v = temp_matrix[0].get(),
             *temp_y = temp_matrix[1].get();
 
     // Zeroth order
-    _setZerothOrder<<<num_blocks, CU_BLOCK_SIZE, 0, streams[0]>>>(
+    _setZerothOrder<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[0]>>>(
         size(), 1/sqrt(size()), temp_v);
 
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLogLam<<<num_blocks, CU_BLOCK_SIZE, 0, streams[vidx]>>>(
+        _getUnitVectorLogLam<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx]>>>(
             dev_wave.get(), size(), cmo, temp_v + vidx * size());
         ++vidx;
     }
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLam<<<num_blocks, CU_BLOCK_SIZE, 0, streams[vidx]>>>(
+        _getUnitVectorLam<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx]>>>(
             dev_wave.get(), size(), cmo, temp_v + vidx * size());
         ++vidx;
     }
@@ -511,12 +500,12 @@ void Chunk::_getWeightedMatrix(double *m)
     double t = mytime::timer.getTime();
 
     //C-1 . Q
-    cublas_helper.dsymm(CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER,
+    cublas_helper.dsymm(CUBLAS_SIDE_LEFT,
         size(), size(), 1., inverse_covariance_matrix, size(),
         m, size(), 0, temp_matrix[1].get(), size());
 
     //C-1 . Q . C-1
-    cublas_helper.dsymm(CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_LOWER,
+    cublas_helper.dsymm(CUBLAS_SIDE_RIGHT,
         size(), size(), 1., inverse_covariance_matrix, size(),
         temp_matrix[1].get(), size(), 0, m, size());
 
@@ -570,19 +559,20 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 
 void Chunk::computePSbeforeFvector()
 {
-    double *Q_ikz_matrix = temp_matrix[0].get();
+    double
+        *Q_ikz_matrix = temp_matrix[0].get(),
+        *dk0 = dbt_estimate_before_fisher_vector[0].get() + fisher_index_start,
+        *nk0 = dbt_estimate_before_fisher_vector[1].get() + fisher_index_start,
+        *tk0 = dbt_estimate_before_fisher_vector[2].get() + fisher_index_start;
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
-    cublas_helper.dsmyv(CUBLAS_FILL_MODE_LOWER, size(), 1.,
-        inverse_covariance_matrix, 
+    cublas_helper.dsmyv(
+        size(), 1., inverse_covariance_matrix, 
         size(), dev_delta.get(), 1, 0, weighted_data_vector.get(), 1);
 
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
-        double *dk, *nk, *tk;
-        dk = dbt_estimate_before_fisher_vector[0][i_kz + fisher_index_start];
-        nk = dbt_estimate_before_fisher_vector[1][i_kz + fisher_index_start];
-        tk = dbt_estimate_before_fisher_vector[2][i_kz + fisher_index_start];
+        double *dk = dk0 + i_kz, *nk = nk0 + i_kz, *tk = tk0 + i_kz;
 
         LOG::LOGGER.DEB("PSb4F -> loop %d\n", i_kz);
         LOG::LOGGER.DEB("   -> set qi   ");
