@@ -415,7 +415,9 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
     double alpha;
     cublasDdot(cublas_helper.blas_handle, size, v, 1, y, 1, &alpha);
     alpha = -1./alpha;
-    cublasDsyr(cublas_helper.blas_handle, size, &alpha, y, 1, cinv, size);
+    cublasDsyr(
+        cublas_helper.blas_handle, CUBLAS_FILL_MODE_LOWER,
+        size, &alpha, y, 1, cinv, size);
     // cublasDger(
     // cuhelper.blas_handle, size, size, &norm, y, 1, y, 1, cinv, size);
 }
@@ -430,20 +432,20 @@ void Chunk::_addMarginalizations()
             *temp_y = temp_matrix[1].get();
 
     // Zeroth order
-    _setZerothOrder<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[0]>>>(
+    _setZerothOrder<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[0].get()>>>(
         size(), 1/sqrt(size()), temp_v);
 
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLogLam<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx]>>>(
+        _getUnitVectorLogLam<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx].get()>>>(
             dev_wave.get(), size(), cmo, temp_v + vidx * size());
         ++vidx;
     }
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLam<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx]>>>(
+        _getUnitVectorLam<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx].get()>>>(
             dev_wave.get(), size(), cmo, temp_v + vidx * size());
         ++vidx;
     }
@@ -467,7 +469,7 @@ void Chunk::_addMarginalizations()
     // Remove each 
     for (int i = 0; i < specifics::CONT_NVECS; ++i, temp_v += size())
     {
-        LOG::LOGGER.DEB("i: %d, s: %.2e\n", i, svals[i]);
+        LOG::LOGGER.DEB("i: %d, s: %.2e\n", i, cpu_svals[i]);
         // skip if this vector is degenerate
         if (cpu_svals[i] < 1e-6)  continue;
 
