@@ -6,6 +6,7 @@
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
 
+constexpr int MYCU_BLOCK_SIZE = 256;
 
 template<typename T>
 class MyCuPtr
@@ -186,11 +187,12 @@ public:
     }
 
     void dsymm(
-            cublasSideMode_t side, cublasFillMode_t uplo,
+            cublasSideMode_t side,
             int m, int n, double alpha,
             const double *A, int lda,
             const double *B, int ldb,
-            double beta, double *C, int ldc) {
+            double beta, double *C, int ldc,
+            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
         blas_stat = cublasDsymm(
             blas_handle, side, uplo,
             m, n, &alpha,
@@ -200,11 +202,11 @@ public:
     }
 
     void dsmyv(
-            cublasFillMode_t uplo,
             int n, double alpha,
             const double *A, int lda,
             const double *x, int incx, double beta,
-            double *y, int incy) {
+            double *y, int incy,
+            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
         blas_stat = cublasDsymv(
             blas_handle, uplo,
             n, &alpha, A, lda, x, incx,
