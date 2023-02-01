@@ -7,7 +7,7 @@
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
 
-constexpr int MYCU_BLOCK_SIZE = 256;
+const int MYCU_BLOCK_SIZE = 256;
 
 template<typename T>
 class MyCuPtr
@@ -37,11 +37,13 @@ public:
 
     void asyncCpy(T *cpu_ptr, int n, int offset=0, cudaStream_t stream=NULL) {
         cudaMemcpyAsync(
-            dev_ptr + offset, cpu_ptr, n*sizeof(T), cudaMemcpyHostToDevice, stream);
+            dev_ptr + offset, cpu_ptr, n*sizeof(T), cudaMemcpyHostToDevice,
+            stream);
     }
     void asyncDwn(T *cpu_ptr, int n, int offset=0, cudaStream_t stream=NULL) {
         cudaMemcpyAsync(
-            cpu_ptr, dev_ptr + offset, sizeof(T) * n, cudaMemcpyDeviceToHost, stream);
+            cpu_ptr, dev_ptr + offset, sizeof(T) * n, cudaMemcpyDeviceToHost,
+            stream);
     }
     void syncDownload(T *cpu_ptr, int n, int offset=0) {
         cudaMemcpy(
@@ -144,7 +146,8 @@ public:
     }
 
     void setPointerMode2Device() {
-        blas_stat = cublasSetPointerMode(blas_handle, CUBLAS_POINTER_MODE_DEVICE);
+        blas_stat = cublasSetPointerMode(
+            blas_handle, CUBLAS_POINTER_MODE_DEVICE);
         check_cublas_error("cublasSetPointerMode - device:");
     }
 
@@ -276,7 +279,8 @@ public:
         int lworkf = 0; /* size of workspace */
         /* If devInfo = 0, the Cholesky factorization is successful.
         if devInfo = -i, the i-th parameter is wrong (not counting handle).
-        if devInfo = i, the leading minor of order i is not positive definite. */
+        if devInfo = i, the leading minor of order i is not positive definite.
+        */
         MyCuPtr<int> devInfo(1);
 
         solver_stat = cusolverDnDpotrf_bufferSize(

@@ -41,8 +41,8 @@ void test_cublas_dsymv_1() {
         dev_vector_cblas_dsymv_b_1(NA, vector_cblas_dsymv_b_1);
     double cpu_res[NA];
 
-    cuhelper.dsmyv(
-        CUBLAS_FILL_MODE_UPPER, NA, 0.5, dev_sym_matrix_A.get(), NA,
+    cublas_helper.dsmyv(
+        NA, 0.5, dev_sym_matrix_A.get(), NA,
         dev_vector_cblas_dsymv_b_1.get(), 1, 0, dev_res.get(), 1);
     dev_res.asyncDwn(cpu_res, NA);
     cublas_helper.syncMainStream();
@@ -58,8 +58,8 @@ void test_cublas_dsymm() {
         dev_res(NA*NA), dev_sym_matrix_A(NA*NA, sym_matrix_A),
         dev_matrix_cblas_dsymm_B(NA*NA, matrix_cblas_dsymm_B);
 
-    cuhelper.dsymm(
-        CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER,
+    cublas_helper.dsymm(
+        CUBLAS_SIDE_LEFT,
         NA, NA, 1., dev_sym_matrix_A.get(), NA,
         dev_matrix_cblas_dsymm_B.get(), NA,
         0, dev_res.get(), NA);
@@ -98,7 +98,7 @@ void test_cusolver_SVD() {
         dev_svd_matrix(NcolsSVD * NrowsSVD, matrix_for_SVD_A);
     double svd_matrix[NcolsSVD * NrowsSVD], cpu_svals[NcolsSVD];
 
-    cuhelper.svd(dev_svd_matrix.get(), svals.get(), NrowsSVD, NcolsSVD);
+    cusolver_helper.svd(dev_svd_matrix.get(), svals.get(), NrowsSVD, NcolsSVD);
     dev_svd_matrix.asyncDwn(svd_matrix, NcolsSVD * NrowsSVD);
     svals.asyncDwn(cpu_svals, NcolsSVD);
 
@@ -133,7 +133,7 @@ void test_cusolver_potrf() {
 
     MyCuPtr<double> dev_A(ndim * ndim, A.data());
 
-    cuhelper.potrf(dev_A.get(), ndim);
+    cusolver_helper.potrf(dev_A.get(), ndim);
 
     dev_A.asyncDwn(A.data(), ndim * ndim);
     cusolver_helper.syncMainStream();
@@ -164,7 +164,7 @@ void test_cusolver_potri() {
 
     MyCuPtr<double> dev_A(ndim * ndim, A.data());
 
-    cuhelper.potri(dev_A.get(), ndim);
+    cusolver_helper.potri(dev_A.get(), ndim);
 
     dev_A.asyncDwn(A.data(), ndim * ndim);
     cusolver_helper.syncMainStream();
@@ -196,7 +196,7 @@ void test_cusolver_invert_cholesky() {
 
     MyCuPtr<double> dev_A(ndim * ndim, A.data());
 
-    cuhelper.invert_cholesky(dev_A.get(), ndim);
+    cusolver_helper.invert_cholesky(dev_A.get(), ndim);
 
     dev_A.asyncDwn(A.data(), ndim * ndim);
     cusolver_helper.syncMainStream();
