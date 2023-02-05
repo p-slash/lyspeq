@@ -103,7 +103,8 @@ public:
     void computeFisherMatrix();
 
     // Pass fit values for the power spectrum for numerical stability
-    void oneQSOiteration(const double *ps_estimate,
+    void oneQSOiteration(
+        const double *ps_estimate,
         std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
         double *fisher_sum);
 

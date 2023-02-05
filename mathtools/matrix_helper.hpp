@@ -96,12 +96,14 @@ namespace mxhelp
         void orderTranspose();
 
         // B initialized to zero
-        // SIDE = 'L' or 'l',   B = op( R ) . A,
-        // SIDE = 'R' or 'r',   B = A . op( R ).
-        // TRANSR = 'N' or 'n',  op( R ) = R.
-        // TRANSR = 'T' or 't',  op( R ) = R^T.
-        void multiply(char SIDER, char TRANSR, const double* A, double *B);
-        void multiplyLeft(char TRANS_A, const double* A, double *B);
+        // SIDE = CblasLeft,    B = op( R ) . A,
+        // SIDE = CblasRight,   B = A . op( R ).
+        // TRANSR = CblasNoTrans,  op( R ) = R.
+        // TRANSR = CblasTrans,    op( R ) = R^T.
+        void multiply(
+            CBLAS_SIDE SIDER, CBLAS_TRANSPOSE TRANSR,
+            const double* A, double *B);
+        void multiplyLeft(CBLAS_TRANSPOSE TRANS_A, const double* A, double *B);
 
         // R . inplace . R^T
         void sandwich(double *inplace);
