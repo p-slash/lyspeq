@@ -451,17 +451,27 @@ truth_diamatrix_Tl_multiplication[] = {
     -59,  -64,  -73,    8,   21,  -25,   64};
 
 const std::unordered_map<std::string, const double*>
-diamatrix_truth_map ({
-    {"LN", truth_diamatrix_LN_multiplication},
-    {"LT", truth_diamatrix_LT_multiplication},
-    {"RN", truth_diamatrix_RN_multiplication},
-    {"RT", truth_diamatrix_RT_multiplication},
-    {"Nl", truth_diamatrix_LN_multiplication},
-    {"Tl", truth_diamatrix_Tl_multiplication}
-});
+    diamatrix_truth_map ({
+        {"LN", truth_diamatrix_LN_multiplication},
+        {"LT", truth_diamatrix_LT_multiplication},
+        {"RN", truth_diamatrix_RN_multiplication},
+        {"RT", truth_diamatrix_RT_multiplication},
+        {"Nl", truth_diamatrix_LN_multiplication},
+        {"Tl", truth_diamatrix_Tl_multiplication}
+    });
 
-int _compare_one_DiaMatrix_multiplications(const std::string &combo, const double* result)
-{
+const std::unordered_map<char, CBLAS_SIDE>
+    char2side ({
+        {'L', CblasLeft}, {'R', CblasRight}
+    });
+
+const std::unordered_map<char, CBLAS_TRANSPOSE>
+    char2trans ({
+        {'N', CblasNoTrans}, {'T', CblasTrans}
+    });
+
+int _compare_one_DiaMatrix_multiplications(
+        const std::string &combo, const double* result) {
     int r = 0;
     const double *truth = diamatrix_truth_map.at(combo);
     if (not allClose(truth, result, NrowsDiag*NrowsDiag))
@@ -487,7 +497,10 @@ int test_DiaMatrix_multiplications()
     const std::vector<std::string> combos {"LN", "LT", "RN", "RT"};
     for (const auto &combo: combos)
     {
-        diarmat.multiply(combo[0], combo[1], diamatrix_multiplier_B, result_R.data());
+        diarmat.multiply(
+            char2side.at(combo[0]),
+            char2trans.at(combo[1]),
+            diamatrix_multiplier_B, result_R.data());
         r += _compare_one_DiaMatrix_multiplications(combo, result_R.data());
     }
 
@@ -508,7 +521,9 @@ int test_DiaMatrix_multipyLeft()
     const std::vector<std::string> combos {"Nl", "Tl"};
     for (const auto &combo: combos)
     {
-        diarmat.multiplyLeft(combo[0], diamatrix_multiplier_B, result_R.data());
+        diarmat.multiplyLeft(
+            char2trans.at(combo[0]),
+            diamatrix_multiplier_B, result_R.data());
         r += _compare_one_DiaMatrix_multiplications(combo, result_R.data());
     }
     return r;

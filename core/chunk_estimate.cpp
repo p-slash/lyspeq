@@ -440,8 +440,11 @@ void Chunk::_getWeightedMatrix(double *m)
 
 void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 {
-    double temp, t = mytime::timer.getTime();
-    int i_kz = i_kz_vector[idx];
+    double t = mytime::timer.getTime();
+    int i_kz = i_kz_vector[idx],
+        idx_fji_0 = (
+            bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start)
+            + fisher_index_start);
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
@@ -455,15 +458,9 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 
         double *Q_jkz_matrix = _getStoredQikz(jdx);
 
-        temp = 0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size());
-
-        int ind_ij = (i_kz + fisher_index_start) 
-                + bins::TOTAL_KZ_BINS * (j_kz + fisher_index_start),
-            ind_ji = (j_kz + fisher_index_start) 
-                + bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start);
-
-        fisher_matrix[ind_ij] = temp;
-        fisher_matrix[ind_ji] = temp;
+        fisher_matrix[j_kz + idx_fji_0] = (
+            0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size())
+            );
     }
 
     t = mytime::timer.getTime() - t;
@@ -524,10 +521,10 @@ void Chunk::computePSbeforeFvector()
     }
 }
 
-void Chunk::oneQSOiteration(const double *ps_estimate, 
-    std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
-    double *fisher_sum)
-{
+void Chunk::oneQSOiteration(
+        const double *ps_estimate, 
+        std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
+        double *fisher_sum) {
     LOG::LOGGER.DEB("File %s\n", qFile->fname.c_str());
     LOG::LOGGER.DEB("TargetID %ld\n", qFile->id);
     LOG::LOGGER.DEB("Size %d\n", size());
@@ -562,19 +559,22 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     {
         LOG::LOGGER.DEB("Inverting cov matrix\n");
         invertCovarianceMatrix();
-        _check_isnan(inverse_covariance_matrix, DATA_SIZE_2,
+        _check_isnan(
+            inverse_covariance_matrix, DATA_SIZE_2,
             "NaN: inverse cov");
 
         LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
 
-        _check_isnan(fisher_matrix.get(), bins::FISHER_SIZE,
+        _check_isnan(
+            fisher_matrix.get(), bins::FISHER_SIZE,
             "NaN: chunk fisher");
 
         mxhelp::vector_add(fisher_sum, fisher_matrix.get(), bins::FISHER_SIZE);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            mxhelp::vector_add(dbt_sum_vector[dbt_i].get(), 
+            mxhelp::vector_add(
+                dbt_sum_vector[dbt_i].get(), 
                 dbt_estimate_before_fisher_vector[dbt_i].get(),
                 bins::TOTAL_KZ_BINS);
 
@@ -582,12 +582,13 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
         // if (process::SAVE_EACH_SPEC_RESULT)
         //     _saveIndividualResult();
     }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR("ERROR %s: Covariance matrix is not invertable. %s\n",
+    catch (std::exception& e) {
+        LOG::LOGGER.ERR(
+            "ERROR %s: Covariance matrix is not invertable. %s\n",
             e.what(), qFile->fname.c_str());
 
-        LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
+        LOG::LOGGER.ERR(
+            "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
             size(), MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
     }
 
