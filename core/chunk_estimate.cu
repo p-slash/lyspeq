@@ -544,8 +544,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
                 + bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start);
         double *fij = dev_fisher.get() + ind_ij;
 
-       cublas_helper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size(), fij);
-       streams.push_back(stream);
+        cublas_helper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size(), fij);
+        streams.push_back(stream);
     }
 
     for (auto &stream : streams)
