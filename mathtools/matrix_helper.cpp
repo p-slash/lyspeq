@@ -522,15 +522,15 @@ namespace mxhelp
             row_step_a = 1;
         }
         else
-            throw std::runtime_error("DiaMatrix multiply transpose wrong character!");
+            throw std::runtime_error(
+                "DiaMatrix multiply transpose wrong character!");
 
         for (int d = 0; d < ndiags; ++d)
         {
             int off = offsets[d], 
                 nmult = ndim - abs(off),
-                A1 = abs(off), B1 = 0;
-
-            if (off < 0) std::swap(A1, B1);
+                A1 = std::max(0, off),
+                B1 = std::max(0, -off);
 
             const double *Aslice, *dia_slice = _getDiagonal(d);
             double       *Bslice;
