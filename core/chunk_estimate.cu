@@ -16,18 +16,6 @@
 CuBlasHelper cublas_helper;
 CuSolverHelper cusolver_helper;
 
-// void _check_isnan(double *mat, int size, std::string msg)
-// {
-//     #ifdef CHECK_NAN
-//     if (std::any_of(mat, mat+size, [](double x) {return std::isnan(x);}))
-//         throw std::runtime_error(msg);
-//     #else
-//         double *tmat __attribute__((unused)) = mat;
-//         int tsize __attribute__((unused)) = size;
-//         std::string tmsg __attribute__((unused)) = msg;
-//     #endif
-// }
-
 double _L2MAX, _L2MIN;
 inline
 void _setL2Limits(int zm)
@@ -46,13 +34,6 @@ void _setL2Limits(int zm)
     _L2MIN  = (1 + ZSTART) * LYA_REST;
     _L2MIN *=_L2MIN;
 }
-
-// inline
-// void _getZBinLimits(double *li, int remsize, double *&lptr1, double *&lptr2)
-// {
-//     lptr1 = std::lower_bound(li, li+remsize, _L2MIN/(*li));
-//     lptr2 = std::upper_bound(li, li+remsize, _L2MAX/(*li));
-// }
 
 inline
 void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
@@ -463,7 +444,6 @@ void Chunk::_addMarginalizations()
     cusolver_helper.svd(temp_v, dev_svals.get(), size(), specifics::CONT_NVECS);
     dev_svals.asyncDwn(cpu_svals.data(), cpu_svals.size());
     cublas_helper.syncMainStream();
-    // mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
     LOG::LOGGER.DEB("SVD'ed\n");
 
     // Remove each 
@@ -536,9 +516,6 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
         MyCuStream stream;
         cublas_helper.setStream(stream);
 
-        // cudaStream_t stream;
-        // cudaStreamCreate(&stream);
-        // stream_vec.push_back(stream);
         double *Q_jkz_matrix = _getDevQikz(jdx);
         int ind_ij = (j_kz + fisher_index_start) 
                 + bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start);
@@ -646,39 +623,30 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     LOG::LOGGER.DEB("Setting cov matrix\n");
 
     setCovarianceMatrix(ps_estimate);
-    // _check_isnan(covariance_matrix, DATA_SIZE_2, "NaN: covariance");
 
     try {
         LOG::LOGGER.DEB("Inverting cov matrix\n");
         invertCovarianceMatrix();
-        // _check_isnan(inverse_covariance_matrix, DATA_SIZE_2,
-        //     "NaN: inverse cov");
 
         LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
         dev_fisher.asyncDwn(fisher_sum, bins::FISHER_SIZE);
         cublas_helper.syncMainStream();
 
-        // _check_isnan(fisher_matrix.get(), bins::FISHER_SIZE,
-            // "NaN: chunk fisher");
-
         mxhelp::vector_add(fisher_sum, fisher_matrix.get(), bins::FISHER_SIZE);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            mxhelp::vector_add(dbt_sum_vector[dbt_i].get(), 
+            mxhelp::vector_add(
+                dbt_sum_vector[dbt_i].get(), 
                 dbt_estimate_before_fisher_vector[dbt_i].get(),
                 bins::TOTAL_KZ_BINS);
-
-        // // Write results to file with their qso filename as base
-        // if (process::SAVE_EACH_SPEC_RESULT)
-        //     _saveIndividualResult();
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("ERROR %s: Covariance matrix is not invertable. %s\n",
-            e.what(), qFile->fname.c_str());
-
-        LOG::LOGGER.ERR("Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
+        LOG::LOGGER.ERR(
+            "ERROR %s: Covariance matrix is not invertable. %s\n"
+            "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
+            e.what(), qFile->fname.c_str(),
             size(), MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
     }
 
