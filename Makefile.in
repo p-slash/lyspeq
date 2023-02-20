@@ -26,6 +26,8 @@ test-fftconvolve.o myfitsread.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
 sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
 discrete_interpolation.o interpolation.o interpolation_2d.o
+test_objects=test_cuda_helper.o test_utils.o testPointRef.o myfitsread.o \
+test-fftconvolve.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
@@ -44,8 +46,8 @@ LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-test_utils.o: test_utils.cpp
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" -c $^ -o $@
+test_utils.o: test_utils.hpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" -c $<
 
 cblas_tests: cblas_tests.o matrix_helper.o real_field.o test_utils.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
@@ -89,11 +91,11 @@ uninstall:
 	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable
 
 clean:
-	$(RM) $(OBJECTS) $(bin_OBJ)
-	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests
+	$(RM) $(OBJECTS) $(bin_OBJ) $(test_objects)
+	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests testSQCMatrices
+	$(RM) test_cuda_helper testPointRef myfitsread test-fftconvolve
 
-deepclean:
-	$(RM) $(OBJECTS) $(bin_OBJ) $(DEPS)
-	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests
+deepclean: clean
+	$(RM) $(DEPS)
 
 -include $(DEPS)
