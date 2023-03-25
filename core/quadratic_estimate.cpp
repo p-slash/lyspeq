@@ -326,10 +326,10 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
     static std::string
         tmp_ps_fname = (
             process::TMP_FOLDER + "/tmp-power-"
-            + std::to_string(process::this_pe) + ".txt."),
+            + std::to_string(process::this_pe) + ".txt"),
         tmp_smooth_fname= (
             process::TMP_FOLDER + "/tmp-smooth-"
-            + std::to_string(process::this_pe) + ".txt.");
+            + std::to_string(process::this_pe) + ".txt");
     
     // ioh::create_tmp_file(tmp_ps_fname, process::TMP_FOLDER);
     // ioh::create_tmp_file(tmp_smooth_fname, process::TMP_FOLDER);
