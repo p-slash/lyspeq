@@ -21,8 +21,8 @@
 #include "io/logger.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/config_file.hpp"
-
 #include "tests/test_utils.hpp"
+
 
 class TestOneQSOEstimate: public OneQSOEstimate
 {
@@ -36,11 +36,12 @@ public:
 
     ~TestOneQSOEstimate() { chunks[0]->_freeMatrices(); };
 
-    int test_setFiducialSignalMatrix();
-    int test_setQiMatrix();
+    void test_setFiducialSignalMatrix();
+    void test_setQiMatrix();
 };
 
-int TestOneQSOEstimate::test_setFiducialSignalMatrix()
+
+void TestOneQSOEstimate::test_setFiducialSignalMatrix()
 {
     chunks[0]->_setFiducialSignalMatrix(chunks[0]->cpu_sfid);
 
@@ -52,21 +53,14 @@ int TestOneQSOEstimate::test_setFiducialSignalMatrix()
     int nrows, ncols;
 
     A = mxhelp::fscanfMatrix(fname_sfid_matrix.c_str(), nrows, ncols);
-    assert(nrows == ndim);
-    assert(ncols == ndim);
-    assert(chunks[0]->qFile->size() == ndim);
-
-    if (not allClose(A.data(), chunks[0]->cpu_sfid, ndim))
-    {
-        fprintf(stderr, "ERROR Chunk::_setFiducialSignalMatrix.\n");
-        // printMatrices(A.data(), chunks[0]->covariance_matrix, ndim, ndim);
-        return 1;
-    }
-
-    return 0;
+    raiser(nrows == ndim, __FILE__, __LINE__);
+    raiser(ncols == ndim, __FILE__, __LINE__);
+    raiser(chunks[0]->qFile->size() == ndim, __FILE__, __LINE__);
+    assert_allclose_2d(A.data(), chunks[0]->cpu_sfid, ndim, ndim, __FILE__, __LINE__);
 }
 
-int TestOneQSOEstimate::test_setQiMatrix()
+
+void TestOneQSOEstimate::test_setQiMatrix()
 {
     chunks[0]->_setQiMatrix(chunks[0]->cpu_qj, 0);
 
@@ -78,19 +72,12 @@ int TestOneQSOEstimate::test_setQiMatrix()
     int nrows, ncols;
 
     A = mxhelp::fscanfMatrix(fname_q0_matrix.c_str(), nrows, ncols);
-    assert(nrows == ndim);
-    assert(ncols == ndim);
-    assert(chunks[0]->qFile->size() == ndim);
-
-    if (not allClose(A.data(), chunks[0]->cpu_qj, ndim))
-    {
-        fprintf(stderr, "ERROR Chunk::_setQiMatrix.\n");
-        // printMatrices(A.data(), chunks[0]->temp_matrix[0], ndim, ndim);
-        return 1;
-    }
-
-    return 0;
+    raiser(nrows == ndim, __FILE__, __LINE__);
+    raiser(ncols == ndim, __FILE__, __LINE__);
+    raiser(chunks[0]->qFile->size() == ndim, __FILE__, __LINE__);
+    assert_allclose_2d(A.data(), chunks[0]->cpu_qj, ndim, ndim, __FILE__, __LINE__);
 }
+
 
 int test_SQLookupTable(const ConfigFile &config)
 {
@@ -127,6 +114,7 @@ int test_SQLookupTable(const ConfigFile &config)
 
     return r;
 }
+
 
 int main(int argc, char *argv[])
 {
