@@ -88,7 +88,7 @@ namespace sqhelper
 NumberVPoints: int
 NumberZPoints: int
 VelocityLength: double
-OutputDir: string
+LookUpTableDir: string
     Saves into directory. Default is current dir.
 SignalLookUpTableBase: string
     Default is signal.
@@ -107,7 +107,7 @@ signal_array(NULL), derivative_array(NULL)
     itp_v1 = 0;
     itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
 
-    DIR = config.get("OutputDir", ".");
+    DIR = config.get("LookUpTableDir", ".");
     S_BASE = config.get("SignalLookUpTableBase", "signal");
     Q_BASE = config.get("DerivativeSLookUpTableBase", "deriv");
 

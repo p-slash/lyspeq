@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <algorithm>
+#include <string>
 
 int AA = 10, BB=15;
 int *pAA = &AA;
@@ -39,6 +40,13 @@ int main()
     pT = pBB;
     printf("pAA: %d\n", pAA);
     printf("pTa: %d\n", pT);
+
+    std::string buf = std::string("BASED") + "_error_dump_quadratic_power_estimate_detailed.dat";
+    printf("Test output: %s\n", buf.c_str());
+
+    int jj = 3;
+    buf = std::string("TEMP") + "/tmp-power-" + std::to_string(jj) + ".txt.",
+    printf("Test output: %s\n", buf.c_str());
 
     return 0;
 }
