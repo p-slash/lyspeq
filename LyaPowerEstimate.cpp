@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <string>
 
 #include <gsl/gsl_errno.h>
 
@@ -152,12 +153,11 @@ int main(int argc, char *argv[])
         LOG::LOGGER.ERR("Error while Iteration: %s\n", e.what());
         qps->printfSpectra();
 
-        char buf[512];
-        sprintf(buf, "%s_error_dump_quadratic_power_estimate_detailed.dat", process::FNAME_BASE.c_str());
-        qps->writeDetailedSpectrumEstimates(buf);
+        std::string buf = process::FNAME_BASE + "_error_dump_quadratic_power_estimate_detailed.dat";
+        qps->writeDetailedSpectrumEstimates(buf.c_str());
         
-        sprintf(buf, "%s_error_dump_fisher_matrix.dat", process::FNAME_BASE.c_str());
-        qps->writeFisherMatrix(buf);
+        buf = process::FNAME_BASE + "_error_dump_fisher_matrix.dat";
+        qps->writeFisherMatrix(buf.c_str());
 
         #if defined(ENABLE_MPI)
         MPI_Abort(MPI_COMM_WORLD, 1);
