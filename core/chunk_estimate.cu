@@ -402,8 +402,8 @@ void Chunk::_addMarginalizations()
         ++vidx;
     }
 
-    for (auto &stream : streams)
-        stream.sync();
+    // for (auto &stream : streams)
+    //     stream.sync();
 
     LOG::LOGGER.DEB("nvecs %d\n", specifics::CONT_NVECS);
 
@@ -496,8 +496,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
         streams.push_back(stream);
     }
 
-    for (auto &stream : streams)
-        stream.sync();
+    // for (auto &stream : streams)
+    //     stream.sync();
 
     cublas_helper.resetStream();
     cublas_helper.setPointerMode2Host();
