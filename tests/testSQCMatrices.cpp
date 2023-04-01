@@ -30,7 +30,7 @@ public:
     TestOneQSOEstimate(const std::string &fname_qso)
             : OneQSOEstimate(fname_qso)
     {
-        chunks[0]->_allocateMatrices();
+        chunks[0]->_allocateCpu();
         process::sq_private_table->readSQforR(
             chunks[0]->RES_INDEX, 
             chunks[0]->interp2d_signal_matrix,
@@ -48,8 +48,8 @@ void TestOneQSOEstimate::test_setFiducialSignalMatrix()
 {
     chunks[0]->_setFiducialSignalMatrix(chunks[0]->cpu_sfid);
 
-    const std::string
-    fname_sfid_matrix = std::string(SRCDIR) + "/tests/truth/signal_matrix.txt";
+    const std::string fname_sfid_matrix =
+        std::string(SRCDIR) + "/tests/truth/signal_matrix.txt";
     const int ndim = 488;
 
     std::vector<double> A, vec;
@@ -68,8 +68,8 @@ void TestOneQSOEstimate::test_setQiMatrix()
 {
     chunks[0]->_setQiMatrix(chunks[0]->cpu_qj, 0);
 
-    const std::string
-    fname_q0_matrix = std::string(SRCDIR) + "/tests/truth/q0_matrix.txt";
+    const std::string fname_q0_matrix =
+        std::string(SRCDIR) + "/tests/truth/q0_matrix.txt";
     const int ndim = 488;
 
     std::vector<double> A, vec;
