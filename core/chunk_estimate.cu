@@ -589,10 +589,11 @@ void Chunk::computePSbeforeFvector()
     }
 }
 
-void Chunk::oneQSOiteration(const double *ps_estimate, 
-    std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
-    double *fisher_sum)
-{
+void Chunk::oneQSOiteration(
+        const double *ps_estimate, 
+        std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
+        double *fisher_sum
+) {
     LOG::LOGGER.DEB("File %s\n", qFile->fname.c_str());
     LOG::LOGGER.DEB("TargetID %ld\n", qFile->id);
     LOG::LOGGER.DEB("Size %d\n", size());
@@ -600,7 +601,7 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     LOG::LOGGER.DEB("fisher_index_start: %d\n", fisher_index_start);
     LOG::LOGGER.DEB("Allocating matrices\n");
 
-    _allocateMatrices();
+    _initIteration();
 
     // Preload matrices
     // 0 is the last matrix
@@ -654,19 +655,21 @@ void Chunk::oneQSOiteration(const double *ps_estimate,
     _freeMatrices();
 }
 
-void Chunk::_allocateMatrices()
-{
+void Chunk::_initIteration() {
+    _allocateCuda();
+    _allocateCpu();
+    // but smooth noise add save dev_smnoise
+    process::noise_smoother->smoothNoise(qFile->noise(), cpu_qj, size());
+    dev_smnoise.asyncCpy(cpu_qj, size());
+}
+
+void Chunk::_allocateCuda() {
     // Move qfile to gpu
     dev_wave.realloc(size(), qFile->wave());
     dev_delta.realloc(size(), qFile->delta());
     dev_noise.realloc(size(), qFile->noise());
     dev_smnoise.realloc(size());
 
-    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-        dbt_estimate_before_fisher_vector.push_back(
-            std::make_unique<double[]>(bins::TOTAL_KZ_BINS));
-
-    fisher_matrix = std::make_unique<double[]>(bins::FISHER_SIZE);
     dev_fisher.realloc(bins::FISHER_SIZE);
     cudaMemset(dev_fisher.get(), 0, bins::FISHER_SIZE * sizeof(double));
 
@@ -678,17 +681,23 @@ void Chunk::_allocateMatrices()
     temp_vector.realloc(size());
     weighted_data_vector.realloc(size());
 
-    cpu_qj = new double[i_kz_vector.size()*DATA_SIZE_2];
     dev_qj.realloc(i_kz_vector.size()*DATA_SIZE_2);
 
-    // but smooth noise add save dev_smnoise
-    process::noise_smoother->smoothNoise(qFile->noise(), cpu_qj, size());
-    dev_smnoise.asyncCpy(cpu_qj, size());
-
-    if (!specifics::TURN_OFF_SFID) {
-        cpu_sfid = new double[DATA_SIZE_2];
+    if (!specifics::TURN_OFF_SFID)
         dev_sfid.realloc(DATA_SIZE_2);
-    }
+}
+
+void Chunk::_allocateCpu() {
+    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+        dbt_estimate_before_fisher_vector.push_back(
+            std::make_unique<double[]>(bins::TOTAL_KZ_BINS));
+
+    fisher_matrix = std::make_unique<double[]>(bins::FISHER_SIZE);
+
+    cpu_qj = new double[i_kz_vector.size()*DATA_SIZE_2];
+
+    if (!specifics::TURN_OFF_SFID)
+        cpu_sfid = new double[DATA_SIZE_2];
 
     // Create a temp highres lambda array
     if (specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix())
@@ -718,8 +727,8 @@ void Chunk::_allocateMatrices()
     // i.e., no caching of SQ files
     // If all tables are cached, then this function simply points 
     // to those in process:sq_private_table
-    process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, 
-        interp_derivative_matrix);
+    process::sq_private_table->readSQforR(
+        RES_INDEX, interp2d_signal_matrix, interp_derivative_matrix);
 }
 
 void Chunk::_freeMatrices()

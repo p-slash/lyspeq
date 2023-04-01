@@ -75,7 +75,9 @@ protected:
     double* _getDevQikz(int idx) const
     { return dev_qj.get() + (i_kz_vector.size()-idx-1) * DATA_SIZE_2; };
 
-    void _allocateMatrices();
+    void _allocateCuda();
+    void _allocateCpu();
+    void _initIteration();
     void _freeMatrices();
     // void _saveIndividualResult();
 
