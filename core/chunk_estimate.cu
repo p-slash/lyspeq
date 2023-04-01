@@ -442,8 +442,7 @@ void Chunk::_addMarginalizations()
     // SVD to get orthogonal marg vectors
     cublas_helper.resetStream();
     cusolver_helper.svd(temp_v, dev_svals.get(), size(), specifics::CONT_NVECS);
-    dev_svals.asyncDwn(cpu_svals.data(), cpu_svals.size());
-    cublas_helper.syncMainStream();
+    dev_svals.syncDownload(cpu_svals.data(), cpu_svals.size());
     LOG::LOGGER.DEB("SVD'ed\n");
 
     // Remove each 
@@ -620,6 +619,7 @@ void Chunk::oneQSOiteration(
         _setFiducialSignalMatrix(cpu_sfid);
         dev_sfid.asyncCpy(cpu_sfid, DATA_SIZE_2);
     }
+    cublas_helper.syncMainStream();
 
     LOG::LOGGER.DEB("Setting cov matrix\n");
 
@@ -631,8 +631,8 @@ void Chunk::oneQSOiteration(
 
         LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
-        dev_fisher.asyncDwn(fisher_sum, bins::FISHER_SIZE);
         cublas_helper.syncMainStream();
+        dev_fisher.syncDownload(fisher_sum, bins::FISHER_SIZE);
 
         mxhelp::vector_add(fisher_sum, fisher_matrix.get(), bins::FISHER_SIZE);
 
@@ -660,7 +660,8 @@ void Chunk::_initIteration() {
     _allocateCpu();
     // but smooth noise add save dev_smnoise
     process::noise_smoother->smoothNoise(qFile->noise(), cpu_qj, size());
-    dev_smnoise.asyncCpy(cpu_qj, size());
+    cublas_helper.syncMainStream();
+    dev_smnoise.syncDownload(cpu_qj, size());
 }
 
 void Chunk::_allocateCuda() {
