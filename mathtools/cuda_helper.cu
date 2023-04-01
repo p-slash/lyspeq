@@ -74,15 +74,17 @@ class MyCuStream {
         }
     }
 public:
-    MyCuStream(bool default_stream = false) {
+    MyCuStream(bool default_stream=false) {
         if (default_stream) {
             stream = 0;
             return;
         }
+
         cuda_stat = cudaStreamCreateWithFlags(
             &stream, cudaStreamNonBlocking);
         check_cuda_error("cudaStreamCreateWithFlags: ");
     }
+
     ~MyCuStream() {
         if (stream == 0)
             return;
@@ -97,11 +99,20 @@ public:
         cuda_stat = cudaStreamSynchronize(stream);
         check_cuda_error("cudaStreamSynchronize: ");
     }
+
+    static void syncMainStream() {
+        if (cudaStreamSynchronize(0) != cudaSuccess)
+            throw std::runtime_error("cudaStreamSynchronize: ");
+    }
+
+    static void syncDevice() {
+        if (cudaDeviceSynchronize() != cudaSuccess)
+            throw std::runtime_error("cudaDeviceSynchronize: ");
+    }
 };
 
 
 class CuBlasHelper {
-    std::unique_ptr<MyCuStream> main_stream;
     cublasStatus_t blas_stat;
 
     void check_cublas_error(std::string err_msg) {
@@ -112,16 +123,15 @@ class CuBlasHelper {
     }
 public:
     cublasHandle_t blas_handle;
+
     CuBlasHelper() {
         blas_stat = cublasCreate(&blas_handle);
         check_cublas_error("CUBLAS initialization failed: ");
+    }
 
-        main_stream = std::make_unique<MyCuStream>(true);
-        setStream(*main_stream);
-    };
     ~CuBlasHelper() {
         cublasDestroy(blas_handle);
-    };
+    }
 
     void setStream(MyCuStream& stream) {
         blas_stat = cublasSetStream(blas_handle, stream.get());
@@ -129,15 +139,8 @@ public:
     }
 
     void resetStream() {
-        setStream(*main_stream);
-    }
-
-    void syncMainStream() {
-        main_stream->sync();
-    }
-
-    MyCuStream* getMainStream() const {
-        return main_stream.get();
+        blas_stat = cublasSetStream(blas_handle, 0);
+        check_cublas_error("cublasSetStream: ");
     }
 
     void setPointerMode2Host() {
@@ -223,7 +226,6 @@ public:
 
 class CuSolverHelper
 {
-    std::unique_ptr<MyCuStream> main_stream;
     cusolverStatus_t solver_stat;
 
     void check_cusolver_error(std::string err_msg) {
@@ -247,14 +249,12 @@ public:
     CuSolverHelper() {
         solver_stat = cusolverDnCreate(&solver_handle);
         check_cusolver_error("CUSOLVER initialization failed: ");
+    }
 
-        main_stream = std::make_unique<MyCuStream>(true);
-        setStream(*main_stream);
-    };
     ~CuSolverHelper() {
         cusolverDnDestroy(solver_handle);
         // cudaDeviceReset();
-    };
+    }
 
     void setStream(MyCuStream& stream) {
         solver_stat = cusolverDnSetStream(solver_handle, stream.get());
@@ -262,15 +262,8 @@ public:
     }
 
     void resetStream() {
-        setStream(*main_stream);
-    }
-
-    void syncMainStream() {
-        main_stream->sync();
-    }
-
-    MyCuStream* getMainStream() const {
-        return main_stream.get();
+        solver_stat = cusolverDnSetStream(solver_handle, 0);
+        check_cusolver_error("cusolverDnSetStream: ");
     }
 
     void potrf(

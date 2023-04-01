@@ -352,7 +352,6 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
         1., dev_smnoise.get(), covariance_matrix.get(), size(), 1, size()+1);
 
     isCovInverted = false;
-    cublas_helper.syncMainStream();
 }
 
 // CUDA Kernels to set marginalization vectors
@@ -455,7 +454,6 @@ void Chunk::_addMarginalizations()
 
         _remShermanMorrison(temp_v, size(), temp_y, inverse_covariance_matrix);
     }
-    cublas_helper.syncMainStream();
 }
 
 // Calculate the inverse into temp_matrix[0]
@@ -621,7 +619,6 @@ void Chunk::oneQSOiteration(
         _setFiducialSignalMatrix(cpu_sfid);
         dev_sfid.asyncCpy(cpu_sfid, DATA_SIZE_2);
     }
-    cublas_helper.syncMainStream();
 
     LOG::LOGGER.DEB("Setting cov matrix\n");
 
@@ -633,7 +630,6 @@ void Chunk::oneQSOiteration(
 
         LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
-        cublas_helper.syncMainStream();
         dev_fisher.syncDownload(fisher_sum, bins::FISHER_SIZE);
 
         mxhelp::vector_add(fisher_sum, fisher_matrix.get(), bins::FISHER_SIZE);
@@ -662,8 +658,7 @@ void Chunk::_initIteration() {
     _allocateCpu();
     // but smooth noise add save dev_smnoise
     process::noise_smoother->smoothNoise(qFile->noise(), cpu_qj, size());
-    cublas_helper.syncMainStream();
-    dev_smnoise.syncDownload(cpu_qj, size());
+    dev_smnoise.asyncCpy(cpu_qj, size());
 }
 
 void Chunk::_allocateCuda() {
