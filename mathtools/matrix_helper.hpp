@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <vector>
+#include <stdexcept>
 
 #ifdef USE_MKL_CBLAS
 #include "mkl_cblas.h"

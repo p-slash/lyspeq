@@ -1,7 +1,6 @@
 #include "mathtools/matrix_helper.hpp"
 #include "mathtools/real_field.hpp"
 
-#include <stdexcept>
 #include <algorithm>
 #include <limits>
 #include <utility>
@@ -114,11 +113,11 @@ namespace mxhelp
     {
         if (info != 0)
         {
-            char err_msg[50];
-            if (info < 0)   sprintf(err_msg, "%s", "Illegal value.");
-            else            sprintf(err_msg, "%s", "Singular.");
+            std::string err_msg(base);
+            if (info < 0)   err_msg += ": Illegal value.";
+            else            err_msg += ": Singular.";
 
-            fprintf(stderr, "%s: %s\n", base, err_msg);
+            fprintf(stderr, "%s\n", err_msg.c_str());
             throw std::runtime_error(err_msg);
         }
     }

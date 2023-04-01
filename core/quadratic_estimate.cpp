@@ -323,12 +323,18 @@ void OneDQuadraticPowerEstimate::_readScriptOutput(const char *fname, void *itsf
 
 void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
 {
-    char tmp_ps_fname[320], tmp_smooth_fname[320];
+    static std::string
+        tmp_ps_fname = (
+            process::TMP_FOLDER + "/tmp-power-"
+            + std::to_string(process::this_pe) + ".txt"),
+        tmp_smooth_fname= (
+            process::TMP_FOLDER + "/tmp-smooth-"
+            + std::to_string(process::this_pe) + ".txt");
     
-    ioh::create_tmp_file(tmp_ps_fname, process::TMP_FOLDER);
-    ioh::create_tmp_file(tmp_smooth_fname, process::TMP_FOLDER);
+    // ioh::create_tmp_file(tmp_ps_fname, process::TMP_FOLDER);
+    // ioh::create_tmp_file(tmp_smooth_fname, process::TMP_FOLDER);
 
-    writeSpectrumEstimates(tmp_ps_fname);
+    writeSpectrumEstimates(tmp_ps_fname.c_str());
 
     std::ostringstream command("smbivspline.py ", std::ostringstream::ate);
     command << tmp_ps_fname << " " << tmp_smooth_fname; 
@@ -348,7 +354,7 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
     int s1 = system(command.str().c_str());
     
     LOG::LOGGER.reopen();
-    remove(tmp_ps_fname);
+    remove(tmp_ps_fname.c_str());
 
     if (s1 != 0)
     {
@@ -356,8 +362,8 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
         throw std::runtime_error("smoothing error");
     }
 
-    _readScriptOutput(tmp_smooth_fname);
-    remove(tmp_smooth_fname);
+    _readScriptOutput(tmp_smooth_fname.c_str());
+    remove(tmp_smooth_fname.c_str());
 }
 
 void OneDQuadraticPowerEstimate::iterate()
@@ -419,6 +425,8 @@ void OneDQuadraticPowerEstimate::iterate()
                 dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 
                 bins::TOTAL_KZ_BINS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         #endif
+        mxhelp::copyUpperToLower(fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
+        cblas_dscal(bins::FISHER_SIZE, 0.5, fisher_matrix_sum.get(), 1);
 
         // If fisher is precomputed, copy this into fisher_matrix_sum. 
         // oneQSOiteration iteration will not compute fishers as well.
