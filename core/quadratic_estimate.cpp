@@ -414,11 +414,15 @@ void OneDQuadraticPowerEstimate::iterate()
 
         LOG::LOGGER.DEB("MPI All reduce.\n");
         if (!specifics::USE_PRECOMPUTED_FISHER)
-            MPI_Allreduce(MPI_IN_PLACE, fisher_matrix_sum.get(), bins::FISHER_SIZE,
+            MPI_Allreduce(
+                MPI_IN_PLACE,
+                fisher_matrix_sum.get(), bins::FISHER_SIZE,
                 MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            MPI_Allreduce(MPI_IN_PLACE, dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 
+            MPI_Allreduce(
+                MPI_IN_PLACE,
+                dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 
                 bins::TOTAL_KZ_BINS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         #endif
         mxhelp::copyUpperToLower(fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
@@ -427,7 +431,8 @@ void OneDQuadraticPowerEstimate::iterate()
         // If fisher is precomputed, copy this into fisher_matrix_sum. 
         // oneQSOiteration iteration will not compute fishers as well.
         if (specifics::USE_PRECOMPUTED_FISHER)
-            std::copy(precomputed_fisher.begin(), precomputed_fisher.end(), 
+            std::copy(
+                precomputed_fisher.begin(), precomputed_fisher.end(), 
                 fisher_matrix_sum.get());
 
         try
