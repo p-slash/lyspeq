@@ -435,8 +435,6 @@ void OneDQuadraticPowerEstimate::iterate()
                 precomputed_fisher.begin(), precomputed_fisher.end(), 
                 fisher_matrix_sum.get());
 
-        mxhelp::copyUpperToLower(fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
-
         try
         {
             LOG::LOGGER.DEB("Invert total Fisher.\n");
