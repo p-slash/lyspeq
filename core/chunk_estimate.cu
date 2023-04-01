@@ -402,8 +402,8 @@ void Chunk::_addMarginalizations()
         ++vidx;
     }
 
-    for (auto &stream : streams)
-        stream.sync();
+    // for (auto &stream : streams)
+    //     stream.sync();
 
     LOG::LOGGER.DEB("nvecs %d\n", specifics::CONT_NVECS);
 
@@ -496,8 +496,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
         streams.push_back(stream);
     }
 
-    for (auto &stream : streams)
-        stream.sync();
+    // for (auto &stream : streams)
+    //     stream.sync();
 
     cublas_helper.resetStream();
     cublas_helper.setPointerMode2Host();
@@ -694,8 +694,8 @@ void Chunk::_allocateCpu() {
         _matrix_lambda = qFile->wave();
         _finer_lambda  = NULL;
         _finer_matrix  = NULL;
-        _vmatrix = temp_matrix[0];
-        _zmatrix = temp_matrix[1];
+        _vmatrix = new double[DATA_SIZE_2];
+        _zmatrix = new double[DATA_SIZE_2];
     }
 
     // This function allocates new signal & deriv matrices 
@@ -747,9 +747,9 @@ void Chunk::_freeMatrices()
     {
         delete [] _finer_matrix;
         delete [] _finer_lambda;
-        delete [] _vmatrix;
-        delete [] _zmatrix;
     }
+    delete [] _vmatrix;
+    delete [] _zmatrix;
 
     if (interp2d_signal_matrix)
         interp2d_signal_matrix.reset();
