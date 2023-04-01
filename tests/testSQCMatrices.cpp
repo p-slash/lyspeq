@@ -39,13 +39,13 @@ public:
 
     ~TestOneQSOEstimate() { chunks[0]->_freeMatrices(); };
 
+    void test_allocateGpu();
     void test_setFiducialSignalMatrix();
     void test_setQiMatrix();
 };
 
 
-void TestOneQSOEstimate::test_setFiducialSignalMatrix()
-{
+void TestOneQSOEstimate::test_setFiducialSignalMatrix() {
     chunks[0]->_setFiducialSignalMatrix(chunks[0]->cpu_sfid);
 
     const std::string fname_sfid_matrix =
@@ -64,8 +64,7 @@ void TestOneQSOEstimate::test_setFiducialSignalMatrix()
 }
 
 
-void TestOneQSOEstimate::test_setQiMatrix()
-{
+void TestOneQSOEstimate::test_setQiMatrix() {
     chunks[0]->_setQiMatrix(chunks[0]->cpu_qj, 0);
 
     const std::string fname_q0_matrix =
@@ -83,6 +82,10 @@ void TestOneQSOEstimate::test_setQiMatrix()
         A.data(), chunks[0]->cpu_qj, ndim, ndim, __FILE__, __LINE__);
 }
 
+
+void TestOneQSOEstimate::test_allocateGpu() {
+    chunks[0]->_allocateCuda();
+}
 
 int test_SQLookupTable(const ConfigFile &config)
 {
@@ -214,6 +217,8 @@ int main(int argc, char *argv[])
     toqso.test_setFiducialSignalMatrix();
     LOG::LOGGER.STD("test_setQiMatrix...\n");
     toqso.test_setQiMatrix();
+    LOG::LOGGER.STD("test_allocateGpu...\n");
+    toqso.test_allocateGpu();
 
     LOG::LOGGER.STD("SQ matrices work!\n");
 
