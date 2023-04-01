@@ -27,11 +27,14 @@
 class TestOneQSOEstimate: public OneQSOEstimate
 {
 public:
-    TestOneQSOEstimate(const std::string &fname_qso) : OneQSOEstimate(fname_qso)
+    TestOneQSOEstimate(const std::string &fname_qso)
+            : OneQSOEstimate(fname_qso)
     {
         chunks[0]->_allocateMatrices();
-        process::sq_private_table->readSQforR(chunks[0]->RES_INDEX, 
-            chunks[0]->interp2d_signal_matrix, chunks[0]->interp_derivative_matrix);
+        process::sq_private_table->readSQforR(
+            chunks[0]->RES_INDEX, 
+            chunks[0]->interp2d_signal_matrix,
+            chunks[0]->interp_derivative_matrix);
     };
 
     ~TestOneQSOEstimate() { chunks[0]->_freeMatrices(); };
@@ -56,7 +59,8 @@ void TestOneQSOEstimate::test_setFiducialSignalMatrix()
     raiser(nrows == ndim, __FILE__, __LINE__);
     raiser(ncols == ndim, __FILE__, __LINE__);
     raiser(chunks[0]->qFile->size() == ndim, __FILE__, __LINE__);
-    assert_allclose_2d(A.data(), chunks[0]->cpu_sfid, ndim, ndim, __FILE__, __LINE__);
+    assert_allclose_2d(
+        A.data(), chunks[0]->cpu_sfid, ndim, ndim, __FILE__, __LINE__);
 }
 
 
@@ -75,7 +79,8 @@ void TestOneQSOEstimate::test_setQiMatrix()
     raiser(nrows == ndim, __FILE__, __LINE__);
     raiser(ncols == ndim, __FILE__, __LINE__);
     raiser(chunks[0]->qFile->size() == ndim, __FILE__, __LINE__);
-    assert_allclose_2d(A.data(), chunks[0]->cpu_qj, ndim, ndim, __FILE__, __LINE__);
+    assert_allclose_2d(
+        A.data(), chunks[0]->cpu_qj, ndim, ndim, __FILE__, __LINE__);
 }
 
 
@@ -102,12 +107,15 @@ int test_SQLookupTable(const ConfigFile &config)
 
     for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
     {
-        auto truth_q = truth_sq_table->getDerivativeMatrixInterp(kn, 0);
-        auto calc_q  = process::sq_private_table->getDerivativeMatrixInterp(kn, 0);
+        auto truth_q =
+            truth_sq_table->getDerivativeMatrixInterp(kn, 0);
+        auto calc_q =
+            process::sq_private_table->getDerivativeMatrixInterp(kn, 0);
 
         if (*calc_q != *truth_q)
         {
-            fprintf(stderr, "ERROR SQLookupTable::getDerivativeMatrixInterp.\n");
+            fprintf(stderr,
+                    "ERROR SQLookupTable::getDerivativeMatrixInterp.\n");
             r += 1;
         }
     }
@@ -142,6 +150,7 @@ int main(int argc, char *argv[])
     gsl_set_error_handler_off();
 
     ConfigFile config = ConfigFile();
+    LOG::LOGGER.STD("Reading config file.\n");
 
     try
     {
@@ -166,11 +175,12 @@ int main(int argc, char *argv[])
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("Error while parsing config file: %s\n",
-            e.what());
+        LOG::LOGGER.ERR(
+            "Error while parsing config file: %s\n", e.what());
         return 1;
     }
 
+    LOG::LOGGER.STD("test_SQLookupTable...\n");
     try
     {
         // Allocate and read look up tables
@@ -178,7 +188,7 @@ int main(int argc, char *argv[])
         process::sq_private_table->computeTables(true);
         process::sq_private_table->readTables();
 
-        r+=test_SQLookupTable(config);
+        r += test_SQLookupTable(config);
     }
     catch (std::exception& e)
     {
@@ -198,9 +208,12 @@ int main(int argc, char *argv[])
     for (auto &fq : filepaths)
         fq.insert(0, INPUT_DIR);
 
+    LOG::LOGGER.STD("TestOneQSOEstimate...\n");
     TestOneQSOEstimate toqso(filepaths[0]);
-    r+=toqso.test_setFiducialSignalMatrix();
-    r+=toqso.test_setQiMatrix();
+    LOG::LOGGER.STD("test_setFiducialSignalMatrix...\n");
+    r += toqso.test_setFiducialSignalMatrix();
+    LOG::LOGGER.STD("test_setQiMatrix...\n");
+    r += toqso.test_setQiMatrix();
 
     LOG::LOGGER.STD("SQ matrices work!\n");
 
