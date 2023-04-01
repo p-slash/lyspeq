@@ -211,9 +211,9 @@ int main(int argc, char *argv[])
     LOG::LOGGER.STD("TestOneQSOEstimate...\n");
     TestOneQSOEstimate toqso(filepaths[0]);
     LOG::LOGGER.STD("test_setFiducialSignalMatrix...\n");
-    r += toqso.test_setFiducialSignalMatrix();
+    toqso.test_setFiducialSignalMatrix();
     LOG::LOGGER.STD("test_setQiMatrix...\n");
-    r += toqso.test_setQiMatrix();
+    toqso.test_setQiMatrix();
 
     LOG::LOGGER.STD("SQ matrices work!\n");
 
