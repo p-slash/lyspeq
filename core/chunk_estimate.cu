@@ -352,6 +352,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
         1., dev_smnoise.get(), covariance_matrix.get(), size(), 1, size()+1);
 
     isCovInverted = false;
+    cublas_helper.syncMainStream();
 }
 
 // CUDA Kernels to set marginalization vectors
@@ -454,6 +455,7 @@ void Chunk::_addMarginalizations()
 
         _remShermanMorrison(temp_v, size(), temp_y, inverse_covariance_matrix);
     }
+    cublas_helper.syncMainStream();
 }
 
 // Calculate the inverse into temp_matrix[0]
