@@ -46,7 +46,8 @@ protected:
 
     // Uninitialized arrays
     // Oversampled resomat specifics
-    double  *_finer_lambda, *_finer_matrix; // Host
+    bool on_oversampling;
+    double *_finer_lambda, *_finer_matrix, *_vmatrix, *_zmatrix;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
@@ -82,6 +83,7 @@ protected:
     // void _saveIndividualResult();
 
     void _setFiducialSignalMatrix(double *sm);
+    void _setVZMatrices();
     void _setQiMatrix(double *qi, int i_kz);
     void _addMarginalizations();
     void _getWeightedMatrix(double *m);
@@ -108,7 +110,8 @@ public:
     void computeFisherMatrix();
 
     // Pass fit values for the power spectrum for numerical stability
-    void oneQSOiteration(const double *ps_estimate,
+    void oneQSOiteration(
+        const double *ps_estimate,
         std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
         double *fisher_sum);
 

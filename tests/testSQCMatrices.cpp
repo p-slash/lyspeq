@@ -35,6 +35,7 @@ public:
             chunks[0]->RES_INDEX, 
             chunks[0]->interp2d_signal_matrix,
             chunks[0]->interp_derivative_matrix);
+        chunks[0]->_setVZMatrices();
     };
 
     ~TestOneQSOEstimate() { chunks[0]->_freeMatrices(); };
