@@ -12,7 +12,7 @@ namespace ioh
 {
     bool file_exists(const char *fname);
 
-    void create_tmp_file(char *fname, const std::string &TMP_FOLDER);
+    void create_tmp_file(char *fname, const std::string &TMP_FOLDER, size_t n);
 
     template <class T>
     T* copyArrayAlloc(const T* source, int size);
