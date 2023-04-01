@@ -4,8 +4,9 @@
 #include <memory>
 #include "io/qso_file.hpp"
 #include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/cuda_helper.cu"
 
-const int
+constexpr int
 MIN_PIXELS_IN_CHUNK = 20;
 
 /*
@@ -41,7 +42,7 @@ protected:
     bool isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // Will have finer spacing when rmat is oversampled
-    double *_matrix_lambda, *inverse_covariance_matrix; // Do not delete!
+    double  *_matrix_lambda, *inverse_covariance_matrix; // Do not delete!
 
     // Uninitialized arrays
     // Oversampled resomat specifics
@@ -50,10 +51,14 @@ protected:
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
-    double *covariance_matrix, *stored_sfid;
-    double *temp_matrix[2], *stored_qj;
-    // DATA_SIZE sized vectors. 
-    double *temp_vector, *weighted_data_vector;
+    // Do not delete inverse_covariance_matrix.
+    MyCuPtr<double>
+        covariance_matrix, dev_fisher,
+        temp_matrix[2], dev_qj, dev_sfid,
+        dev_wave, dev_delta, dev_noise, dev_smnoise,
+        temp_vector, weighted_data_vector; // DATA_SIZE sized vector
+    double
+        *cpu_qj, *cpu_sfid; // Host
 
     // Initialized to 0
     // 3 TOTAL_KZ_BINS sized vectors
@@ -68,10 +73,12 @@ protected:
     void _findRedshiftBin();
     void _setNQandFisherIndex();
     void _setStoredMatrices();
-    double* _getStoredQikz(int idx) const
-    { return stored_qj + (i_kz_vector.size()-idx-1) * DATA_SIZE_2; };
+    double* _getDevQikz(int idx) const
+    { return dev_qj.get() + (i_kz_vector.size()-idx-1) * DATA_SIZE_2; };
 
-    void _allocateMatrices();
+    void _allocateCuda();
+    void _allocateCpu();
+    void _initIteration();
     void _freeMatrices();
     // void _saveIndividualResult();
 
