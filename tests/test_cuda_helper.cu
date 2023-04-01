@@ -45,7 +45,7 @@ void test_cublas_dsymv_1() {
         NA, 0.5, dev_sym_matrix_A.get(), NA,
         dev_vector_cblas_dsymv_b_1.get(), 1, 0, dev_res.get(), 1);
     dev_res.asyncDwn(cpu_res, NA);
-    cublas_helper.syncMainStream();
+    MyCuStream::syncMainStream();
 
     assert_allclose(truth_cblas_dsymv_1, cpu_res, NA, __FILE__, __LINE__);
 }
@@ -65,7 +65,7 @@ void test_cublas_dsymm() {
         0, dev_res.get(), NA);
 
     dev_res.asyncDwn(result, NA*NA);
-    cublas_helper.syncMainStream();
+    MyCuStream::syncMainStream();
 
     assert_allclose_2d(
         truth_out_cblas_dsymm, result, NA, NA, __FILE__, __LINE__);
@@ -102,7 +102,7 @@ void test_cusolver_SVD() {
     dev_svd_matrix.asyncDwn(svd_matrix, NcolsSVD * NrowsSVD);
     svals.asyncDwn(cpu_svals, NcolsSVD);
 
-    cusolver_helper.syncMainStream();
+    MyCuStream::syncMainStream();
 
     assert_allclose(truth_svals, cpu_svals, NcolsSVD, __FILE__, __LINE__);
 
@@ -136,7 +136,7 @@ void test_cusolver_potrf() {
     cusolver_helper.potrf(dev_A.get(), ndim);
 
     dev_A.asyncDwn(A.data(), ndim * ndim);
-    cusolver_helper.syncMainStream();
+    MyCuStream::syncMainStream();
 
     assert_allclose_2d(
         truth_L.data(), A.data(), ndim, ndim,
@@ -167,7 +167,7 @@ void test_cusolver_potri() {
     cusolver_helper.potri(dev_A.get(), ndim);
 
     dev_A.asyncDwn(A.data(), ndim * ndim);
-    cusolver_helper.syncMainStream();
+    MyCuStream::syncMainStream();
 
     mxhelp::copyUpperToLower(A.data(), ndim);
     assert_allclose_2d(
@@ -199,7 +199,7 @@ void test_cusolver_invert_cholesky() {
     cusolver_helper.invert_cholesky(dev_A.get(), ndim);
 
     dev_A.asyncDwn(A.data(), ndim * ndim);
-    cusolver_helper.syncMainStream();
+    MyCuStream::syncMainStream();
 
     mxhelp::copyUpperToLower(A.data(), ndim);
     assert_allclose_2d(
@@ -237,7 +237,7 @@ void test_MyCuPtr_async() {
     MyCuPtr<double> vec(NB, IN_ARR);
     std::vector<double> cpu_vec(NB);
     vec.asyncDwn(cpu_vec.data(), NB);
-    cublas_helper.syncMainStream();
+    MyCuStream::syncMainStream();
     assert_allclose(IN_ARR, cpu_vec.data(), NB, __FILE__, __LINE__);
 }
 
