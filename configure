@@ -54,6 +54,7 @@ function set_config_options()
                 USE_MKL_CBLAS="-DUSE_MKL_CBLAS";;
             --enable-openmp )
                 CPPFLAGS_OMP="-fopenmp";;
+                ENABLE_OMP="-DENABLE_ONMP";;
             --enable-tbb )
                 CPPFLAGS_OMP="-tbb";;
             --use-tophat-zbin )
@@ -570,6 +571,7 @@ MORECPPFLAGS=""
 
 OPT="-O3"
 ENABLE_MPI=""
+ENABLE_OMP=""
 binz_fn="-DTRIANGLE_Z_BINNING_FN"
 ENABLE_FISHER_OPTIMIZATION=""
 USE_MKL_CBLAS=""
@@ -617,7 +619,7 @@ fi
 
 update_makefile_vars "" "" "${suffix_libs}"
 
-MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_FIDUCIAL_GROWTH_Z} ${binz_fn}"
+MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_OMP} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_FIDUCIAL_GROWTH_Z} ${binz_fn}"
 MORECPPFLAGS=$(echo $MORECPPFLAGS | sed 's/ *$//')
 
 # Save makefile

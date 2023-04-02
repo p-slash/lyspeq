@@ -18,6 +18,10 @@
 #include "lapacke.h"
 #endif
 
+#if defined(ENABLE_OMP)
+#include "omp.h"
+#endif
+
 const double
 MY_SQRT_2 = 1.41421356237,
 MY_SQRT_PI = 1.77245385091,
@@ -70,6 +74,7 @@ namespace mxhelp
 {
     void copyUpperToLower(double *A, int N)
     {
+        #pragma omp parallel for
         for (int i = 1; i < N; ++i)
             cblas_dcopy(i, A+i, N, A+N*i, 1);
     }
@@ -236,8 +241,7 @@ namespace mxhelp
         double *newmat = new double[size];
 
         for (int d = 0; d < ndiags; ++d)
-            cblas_dcopy(ndim, matrix()+d, ndiags,
-                newmat+d*ndim, 1);
+            cblas_dcopy(ndim, matrix() + d, ndiags, newmat + d * ndim, 1);
 
         // values = std::move(newmat);
         delete [] values;
@@ -249,7 +253,7 @@ namespace mxhelp
         int off = offsets[d], od1 = 0;
         if (off > 0)  od1 = off;
 
-        return matrix()+(d*ndim+od1);
+        return matrix() + (d * ndim + od1);
     }
 
     // Normalizing this row by row is not yielding somewhat wrong signal matrix
@@ -601,22 +605,18 @@ namespace mxhelp
     // B should be nrows x ncols, will be initialized to zero
     void OversampledMatrix::multiplyLeft(const double* A, double *B)
     {
-        double *bsub = B;
-        const double *Asub = A, *rrow=matrix();
-
+        #pragma omp parallel for
         for (int i = 0; i < nrows; ++i)
         {
-            // double *rrow = _getRow(i), *bsub = B + i*ncols;
-            // const double *Asub = A + i*ncols*oversampling;
+            double *bsub = B + i * ncols;
+            const double
+                *Asub = A + i * ncols*oversampling,
+                *rrow = matrix() + i * nelem_per_row;
 
             cblas_dgemv(
                 CblasRowMajor, CblasTrans,
                 nelem_per_row, ncols, 1., Asub, ncols, 
                 rrow, 1, 0, bsub, 1);
-
-            bsub += ncols;
-            Asub += ncols*oversampling;
-            rrow += nelem_per_row;
         }
     }
 
@@ -625,21 +625,19 @@ namespace mxhelp
     // B should be nrows x nrows, will be initialized to zero
     void OversampledMatrix::multiplyRight(const double* A, double *B)
     {
-        double *bsub = B;
-        const double *Asub = A, *rrow=matrix();
-
+        #pragma omp parallel for
         for (int i = 0; i < nrows; ++i)
         {
+            double *bsub = B + i;
+            const double
+                *Asub = A + i * oversampling,
+                *rrow = matrix() + i * nelem_per_row;
             // double *rrow = _getRow(i), *bsub = B + i;
             // const double *Asub = A + i*oversampling;
 
             cblas_dgemv(CblasRowMajor, CblasNoTrans,
                 nrows, nelem_per_row, 1., Asub, ncols, 
                 rrow, 1, 0, bsub, nrows);
-
-            ++bsub;
-            Asub += oversampling;
-            rrow += nelem_per_row;
         }
     }
 
