@@ -258,7 +258,7 @@ class CuSolverHelper
         throw std::runtime_error(err_msg);
     }
 
-    void check_info(const MyCuPtr<int> &devInfo, std::string err_msg) {
+    void check_info(MyCuPtr<int> &devInfo, std::string err_msg) {
         int cpuInfo = 0;
         devInfo.syncDownload(&cpuInfo, 1);
 
