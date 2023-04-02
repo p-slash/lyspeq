@@ -79,6 +79,8 @@ protected:
     void _allocateCuda();
     void _allocateCpu();
     void _initIteration();
+    void _freeCuda();
+    void _freeCpu();
     void _freeMatrices();
     // void _saveIndividualResult();
 

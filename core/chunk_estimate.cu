@@ -572,8 +572,6 @@ void Chunk::oneQSOiteration(
 
     _initIteration();
 
-    LOG::LOGGER.DEB("Setting v & z matrices\n");
-    _setVZMatrices();
     // Preload last nqj_eff matrices
     // 0 is the last matrix
     // i_kz = N_Q_MATRICES - j_kz - 1
@@ -631,6 +629,9 @@ void Chunk::_initIteration() {
     // but smooth noise add save dev_smnoise
     process::noise_smoother->smoothNoise(qFile->noise(), cpu_qj, size());
     dev_smnoise.asyncCpy(cpu_qj, size());
+
+    LOG::LOGGER.DEB("Setting v & z matrices\n");
+    _setVZMatrices();
 }
 
 void Chunk::_allocateCuda() {
@@ -705,19 +706,13 @@ void Chunk::_allocateCpu() {
         RES_INDEX, interp2d_signal_matrix, interp_derivative_matrix);
 }
 
-void Chunk::_freeMatrices()
-{
+void Chunk::_freeCuda() {
     dev_wave.reset();
     dev_delta.reset();
     dev_noise.reset();
     dev_smnoise.reset();
 
-    dbt_estimate_before_fisher_vector.clear();
-
-    LOG::LOGGER.DEB("Free fisher\n");
-    fisher_matrix.reset();
     dev_fisher.reset();
-
     LOG::LOGGER.DEB("Free cov\n");
     covariance_matrix.reset();
 
@@ -727,16 +722,24 @@ void Chunk::_freeMatrices()
 
     temp_vector.reset();
     weighted_data_vector.reset();
+    dev_qj.reset();
+
+    if (!specifics::TURN_OFF_SFID)
+        dev_sfid.reset();
+}
+
+void _freeCpu() {
+    dbt_estimate_before_fisher_vector.clear();
+
+    LOG::LOGGER.DEB("Free fisher\n");
+    fisher_matrix.reset();
 
     LOG::LOGGER.DEB("Free storedqj\n");
     delete [] cpu_qj;
-    dev_qj.reset();
 
     LOG::LOGGER.DEB("Free stored sfid\n");
-    if (!specifics::TURN_OFF_SFID) {
+    if (!specifics::TURN_OFF_SFID)
         delete [] cpu_sfid;
-        dev_sfid.reset();
-    }
 
     LOG::LOGGER.DEB("Free resomat related\n");
     if (specifics::USE_RESOLUTION_MATRIX)
@@ -748,6 +751,12 @@ void Chunk::_freeMatrices()
     }
     delete [] _vmatrix;
     delete [] _zmatrix;
+}
+
+void Chunk::_freeMatrices()
+{
+    _freeCuda();
+    _freeCpu();
 
     if (interp2d_signal_matrix)
         interp2d_signal_matrix.reset();
