@@ -318,15 +318,19 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
         int i_kz = i_kz_vector[idx];
         double *Q_ikz_matrix = _getStoredQikz(idx);
 
-        cblas_daxpy(DATA_SIZE_2, alpha[i_kz], 
-            Q_ikz_matrix, 1, covariance_matrix, 1);
+        cblas_daxpy(
+            DATA_SIZE_2, alpha[i_kz], 
+            Q_ikz_matrix, 1, covariance_matrix, 1
+        );
     }
 
     // add noise matrix diagonally
     // but smooth before adding
     process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
-    cblas_daxpy(size(), 1., temp_vector, 1,
-        covariance_matrix, size()+1);
+    cblas_daxpy(
+        size(), 1., temp_vector, 1,
+        covariance_matrix, size() + 1
+    );
 
     isCovInverted = false;
 
@@ -340,24 +344,29 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
 void _getUnitVectorLogLam(const double *w, int size, int cmo, double *out)
 {
-    std::transform(w, w+size, out, [cmo](const double &l) { return pow(log(l/LYA_REST), cmo); });
+    std::transform(
+        w, w+size, out,
+        [cmo](const double &l) { return pow(log(l / LYA_REST), cmo); }
+    );
     double norm = sqrt(cblas_dnrm2(size, out, 1));
     cblas_dscal(size, 1./norm, out, 1);
 }
 
 void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 {
-    std::transform(w, w+size, out, [cmo](const double &l) { return pow(l/LYA_REST, cmo); });
+    std::transform(
+        w, w+size, out,
+        [cmo](const double &l) { return pow(l / LYA_REST, cmo); }
+    );
     double norm = sqrt(cblas_dnrm2(size, out, 1));
     cblas_dscal(size, 1./norm, out, 1);
 }
 
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
-    std::fill_n(y, size, 0);
     cblas_dsymv(CblasRowMajor, CblasUpper, size, 1., cinv, size, v, 1, 0, y, 1);
     double norm = cblas_ddot(size, v, 1, y, 1);
-    cblas_dger(CblasRowMajor, size, size, -1./norm, y, 1, y, 1, cinv, size);
+    cblas_dger(CblasRowMajor, size, size, -1. / norm, y, 1, y, 1, cinv, size);
 }
 
 void Chunk::_addMarginalizations()
@@ -365,7 +374,7 @@ void Chunk::_addMarginalizations()
     double *temp_v = temp_matrix[0], *temp_y = temp_matrix[1];
 
     // Zeroth order
-    std::fill_n(temp_v, size(), 1./sqrt(size()));
+    std::fill_n(temp_v, size(), 1. / sqrt(size()));
     temp_v += size();
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
@@ -394,7 +403,7 @@ void Chunk::_addMarginalizations()
     {
         LOG::LOGGER.DEB("i: %d, s: %.2e\n", i, svals[i]);
         // skip if this vector is degenerate
-        if (svals[i]<1e-6)  continue;
+        if (svals[i] < 1e-6)  continue;
 
         _remShermanMorrison(temp_v, size(), temp_y, inverse_covariance_matrix);
     }
@@ -426,13 +435,15 @@ void Chunk::_getWeightedMatrix(double *m)
 
     //C-1 . Q
     // std::fill_n(temp_matrix[1], DATA_SIZE_2, 0);
-    cblas_dsymm(CblasRowMajor, CblasLeft, CblasUpper,
+    cblas_dsymm(
+        CblasRowMajor, CblasLeft, CblasUpper,
         size(), size(), 1., inverse_covariance_matrix, size(),
         m, size(), 0, temp_matrix[1], size());
 
     //C-1 . Q . C-1
     // std::fill_n(m, DATA_SIZE_2, 0);
-    cblas_dsymm(CblasRowMajor, CblasRight, CblasUpper,
+    cblas_dsymm(
+        CblasRowMajor, CblasRight, CblasUpper,
         size(), size(), 1., inverse_covariance_matrix, size(),
         temp_matrix[1], size(), 0, m, size());
 
@@ -461,9 +472,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 
         double *Q_jkz_matrix = _getStoredQikz(jdx);
 
-        fisher_matrix[j_kz + idx_fji_0] = (
-            0.5 * mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size())
-            );
+        fisher_matrix[j_kz + idx_fji_0] =
+            mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size());
     }
 
     t = mytime::timer.getTime() - t;
