@@ -226,6 +226,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 void Chunk::_setVZMatrices() {
     LOG::LOGGER.DEB("Setting v & z matrices\n");
 
+    #pragma omp parallel for
     for (int i = 0; i < _matrix_n; ++i)
     {
         double li = _matrix_lambda[i];
