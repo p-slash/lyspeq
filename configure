@@ -53,8 +53,8 @@ function set_config_options()
             --use-mkl-cblas )
                 USE_MKL_CBLAS="-DUSE_MKL_CBLAS";;
             --enable-openmp )
-                CPPFLAGS_OMP="-fopenmp";;
-                ENABLE_OMP="-DENABLE_ONMP";;
+                CPPFLAGS_OMP="-fopenmp"
+                ENABLE_OMP="-DENABLE_OMP";;
             --enable-tbb )
                 CPPFLAGS_OMP="-tbb";;
             --use-tophat-zbin )
