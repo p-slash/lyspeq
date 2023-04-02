@@ -74,7 +74,6 @@ namespace mxhelp
 {
     void copyUpperToLower(double *A, int N)
     {
-        #pragma omp parallel for
         for (int i = 1; i < N; ++i)
             cblas_dcopy(i, A+i, N, A+N*i, 1);
     }
@@ -605,7 +604,6 @@ namespace mxhelp
     // B should be nrows x ncols, will be initialized to zero
     void OversampledMatrix::multiplyLeft(const double* A, double *B)
     {
-        #pragma omp parallel for
         for (int i = 0; i < nrows; ++i)
         {
             double *bsub = B + i * ncols;
@@ -625,7 +623,6 @@ namespace mxhelp
     // B should be nrows x nrows, will be initialized to zero
     void OversampledMatrix::multiplyRight(const double* A, double *B)
     {
-        #pragma omp parallel for
         for (int i = 0; i < nrows; ++i)
         {
             double *bsub = B + i;
