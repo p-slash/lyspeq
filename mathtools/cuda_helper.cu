@@ -80,9 +80,11 @@ public:
             return;
         }
 
-        cuda_stat = cudaStreamCreateWithFlags(
-            &stream, cudaStreamNonBlocking);
-        check_cuda_error("cudaStreamCreateWithFlags: ");
+        cuda_stat = cudaStreamCreate(&stream);
+        check_cuda_error("cudaStreamCreate: ");
+        // cuda_stat = cudaStreamCreateWithFlags(
+        //     &stream, cudaStreamNonBlocking);
+        // check_cuda_error("cudaStreamCreateWithFlags: ");
     }
 
     ~MyCuStream() {
