@@ -13,6 +13,10 @@
 #include <cstdlib>
 #include <stdexcept>
 
+#if defined(ENABLE_OMP)
+#include "omp.h"
+#endif
+
 CuBlasHelper cublas_helper;
 CuSolverHelper cusolver_helper;
 
@@ -243,6 +247,7 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
     double t = mytime::timer.getTime();
     double *inter_mat = (on_oversampling) ? _finer_matrix : sm;
 
+    #pragma omp parallel for
     for (int i = 0; i < _matrix_n; ++i) {
         for (int j = i; j < _matrix_n; ++j) {
             int idx = j + i * _matrix_n;
@@ -273,6 +278,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
     shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
 
+    #pragma omp parallel for
     for (int i = 0; i < _matrix_n; ++i) {
         for (int j = i; j < _matrix_n; ++j) {
             int idx = j + i * _matrix_n;
