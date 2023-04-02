@@ -103,7 +103,8 @@ namespace mxhelp
         void multiply(
             CBLAS_SIDE SIDER, CBLAS_TRANSPOSE TRANSR,
             const double* A, double *B);
-        void multiplyLeft(CBLAS_TRANSPOSE TRANS_A, const double* A, double *B);
+        void multiplyLeft(const double* A, double *B);
+        void multiplyRightT(const double* A, double *B);
 
         // R . inplace . R^T
         void sandwich(double *inplace);
