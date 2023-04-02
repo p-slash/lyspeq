@@ -258,6 +258,14 @@ class CuSolverHelper
         throw std::runtime_error(err_msg);
     }
 
+    void check_info(const MyCuPtr<int> &devInfo, std::string err_msg) {
+        int cpuInfo = 0;
+        devInfo.syncDownload(&cpuInfo, 1);
+
+        if (cpuInfo != 0)
+            throw std::runtime_error(err_msg);
+    }
+
 public:
     cusolverDnHandle_t solver_handle;
 
@@ -303,10 +311,8 @@ public:
             solver_handle, uplo,
             N, A, N, d_workf.get(), lworkf, devInfo.get());
         check_cusolver_error("cusolverDnDpotrf: ");
-        int cpuInfo = 0;
 
-        // if (devInfo != 0)
-        //     throw std::runtime_error("Cholesky factorization is not successful.");
+        check_info(devInfo, "Cholesky factorization is not successful.");
     }
 
     void potri(
@@ -315,6 +321,7 @@ public:
     ) {
         int lworki;
         MyCuPtr<int> devInfo(1);
+
         solver_stat = cusolverDnDpotri_bufferSize(
             solver_handle, uplo,
             N, A, N, &lworki);
@@ -326,8 +333,8 @@ public:
             solver_handle, uplo,
             N, A, N, d_worki.get(), lworki, devInfo.get());
         check_cusolver_error("cusolverDnDpotri: ");
-        // if (devInfo != 0)
-        //     throw std::runtime_error("Cholesky inversion is not successful.");
+
+        check_info(devInfo, "Cholesky inversion is not successful.");
     }
 
     // In-place invert by Cholesky factorization
@@ -342,7 +349,6 @@ public:
     void svd(double *A, double *svals, int nrows, int ncols) {
         int lwork = 0; /* size of workspace */
         MyCuPtr<int> devInfo(1);
-        // __device__ int devInfo = -1;
 
         solver_stat = cusolverDnDgesvd_bufferSize(
             solver_handle, nrows, ncols, &lwork);
@@ -355,8 +361,8 @@ public:
             nullptr, nrows, nullptr, ncols, d_work.get(), lwork,
             d_rwork.get(), devInfo.get());
         check_cusolver_error("cusolverDnDgesvd: ");
-        // if (devInfo != 0)
-        //     throw std::runtime_error("SVD is not successful.");
+
+        check_info(devInfo, "SVD is not successful.");
     }
 };
 
