@@ -303,6 +303,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 
 void Chunk::setCovarianceMatrix(const double *ps_estimate)
 {
+    LOG::LOGGER.DEB("Setting cov matrix\n");
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
         cublas_helper.dcopy(
@@ -435,6 +436,7 @@ void Chunk::_addMarginalizations()
 // Then swap the pointer with covariance matrix
 void Chunk::invertCovarianceMatrix()
 {
+    LOG::LOGGER.DEB("Inverting cov matrix\n");
     double t = mytime::timer.getTime();
 
     cusolver_helper.invert_cholesky(covariance_matrix.get(), size());
@@ -478,11 +480,12 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
             bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start)
             + fisher_index_start;
     cublas_helper.setPointerMode2Device();
-    std::vector<MyCuStream> streams;
+    std::vector<std::unique_ptr<MyCuStream>> streams;
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
         int j_kz = i_kz_vector[jdx];
+
         #ifdef FISHER_OPTIMIZATION
         int diff_ji = j_kz - i_kz;
 
@@ -490,14 +493,13 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
             continue;
         #endif
 
-        MyCuStream stream;
-        cublas_helper.setStream(stream);
+        streams.push_back(std::make_unique<MyCuStream>());
+        cublas_helper.setStream(*streams.back());
 
         double *Q_jkz_matrix = _getDevQikz(jdx);
         double *fij = dev_fisher.get() + j_kz + idx_fji_0;
 
         cublas_helper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size(), fij);
-        streams.push_back(stream);
     }
 
     // for (auto &stream : streams)
@@ -513,6 +515,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 
 void Chunk::computePSbeforeFvector()
 {
+    LOG::LOGGER.DEB("PS before Fisher\n");
+
     double
         *Q_ikz_matrix = temp_matrix[0].get(),
         *dk0 = dbt_estimate_before_fisher_vector[0].get() + fisher_index_start,
@@ -578,33 +582,11 @@ void Chunk::oneQSOiteration(
 
     _initIteration();
 
-    // Preload last nqj_eff matrices
-    // 0 is the last matrix
-    // i_kz = N_Q_MATRICES - j_kz - 1
-    LOG::LOGGER.DEB("Setting qi matrices\n");
-
-    for (int jdx = 0; jdx < i_kz_vector.size(); ++jdx) {
-        int j_kz = i_kz_vector[jdx];
-        _setQiMatrix(cpu_qj + jdx * DATA_SIZE_2, N_Q_MATRICES - j_kz - 1);
-        dev_qj.asyncCpy(
-            cpu_qj + jdx * DATA_SIZE_2, DATA_SIZE_2, jdx * DATA_SIZE_2);
-    }
-
-    // Preload fiducial signal matrix if memory allows
-    if (!specifics::TURN_OFF_SFID) {
-        _setFiducialSignalMatrix(cpu_sfid);
-        dev_sfid.asyncCpy(cpu_sfid, DATA_SIZE_2);
-    }
-
-    LOG::LOGGER.DEB("Setting cov matrix\n");
-
     setCovarianceMatrix(ps_estimate);
 
     try {
-        LOG::LOGGER.DEB("Inverting cov matrix\n");
         invertCovarianceMatrix();
 
-        LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
         dev_fisher.syncDownload(fisher_sum, bins::FISHER_SIZE);
 
@@ -625,19 +607,37 @@ void Chunk::oneQSOiteration(
             size(), MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
     }
 
-    LOG::LOGGER.DEB("Freeing matrices\n");
     _freeMatrices();
 }
 
 void Chunk::_initIteration() {
     _allocateCuda();
     _allocateCpu();
+
     // but smooth noise add save dev_smnoise
     process::noise_smoother->smoothNoise(qFile->noise(), cpu_qj, size());
     dev_smnoise.asyncCpy(cpu_qj, size());
 
     LOG::LOGGER.DEB("Setting v & z matrices\n");
     _setVZMatrices();
+
+    // Preload fiducial signal matrix if memory allows
+    if (!specifics::TURN_OFF_SFID) {
+        _setFiducialSignalMatrix(cpu_sfid);
+        dev_sfid.asyncCpy(cpu_sfid, DATA_SIZE_2);
+    }
+
+    // Preload last nqj_eff matrices
+    // 0 is the last matrix
+    // i_kz = N_Q_MATRICES - j_kz - 1
+    LOG::LOGGER.DEB("Setting qi matrices\n");
+
+    for (int jdx = 0; jdx < i_kz_vector.size(); ++jdx) {
+        int j_kz = i_kz_vector[jdx];
+        _setQiMatrix(cpu_qj + jdx * DATA_SIZE_2, N_Q_MATRICES - j_kz - 1);
+        dev_qj.asyncCpy(
+            cpu_qj + jdx * DATA_SIZE_2, DATA_SIZE_2, jdx * DATA_SIZE_2);
+    }
 }
 
 void Chunk::_allocateCuda() {
@@ -671,7 +671,7 @@ void Chunk::_allocateCpu() {
 
     fisher_matrix = std::make_unique<double[]>(bins::FISHER_SIZE);
 
-    cpu_qj = new double[i_kz_vector.size()*DATA_SIZE_2];
+    cpu_qj = new double[i_kz_vector.size() * DATA_SIZE_2];
 
     if (!specifics::TURN_OFF_SFID)
         cpu_sfid = new double[DATA_SIZE_2];
@@ -682,10 +682,10 @@ void Chunk::_allocateCpu() {
         int ncols = qFile->Rmat->getNCols();
         _finer_lambda = new double[ncols];
 
-        double fine_dlambda = qFile->dlambda/specifics::OVERSAMPLING_FACTOR;
-        int disp = qFile->Rmat->getNElemPerRow()/2;
+        double fine_dlambda = qFile->dlambda / specifics::OVERSAMPLING_FACTOR;
+        int disp = qFile->Rmat->getNElemPerRow() / 2;
         for (int i = 0; i < ncols; ++i)
-            _finer_lambda[i] = qFile->wave()[0] + (i - disp)*fine_dlambda;
+            _finer_lambda[i] = qFile->wave()[0] + (i - disp) * fine_dlambda;
 
         _matrix_lambda = _finer_lambda;
 
@@ -761,6 +761,8 @@ void Chunk::_freeCpu() {
 
 void Chunk::_freeMatrices()
 {
+    LOG::LOGGER.DEB("Freeing matrices\n");
+
     _freeCuda();
     _freeCpu();
 
