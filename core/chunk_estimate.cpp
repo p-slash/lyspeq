@@ -231,6 +231,8 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 }
 
 void Chunk::_setVZMatrices() {
+    LOG::LOGGER.DEB("Setting v & z matrices\n");
+
     for (int i = 0; i < _matrix_n; ++i)
     {
         double li = _matrix_lambda[i];
@@ -287,8 +289,8 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
         for (int j = i; j < _matrix_n; ++j) {
             int idx = j + i * _matrix_n;
             inter_mat[idx] =
-                interp_deriv_kn->evaluate(_vmatrix[idx])
-                * bins::redshiftBinningFunction(_zmatrix[idx], zm);
+                bins::redshiftBinningFunction(_zmatrix[idx], zm)
+                * interp_deriv_kn->evaluate(_vmatrix[idx]);
         }
     }
 
@@ -307,6 +309,8 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 
 void Chunk::setCovarianceMatrix(const double *ps_estimate)
 {
+    LOG::LOGGER.DEB("Setting cov matrix\n");
+
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
         std::copy(stored_sfid, stored_sfid + DATA_SIZE_2, covariance_matrix);
@@ -413,6 +417,8 @@ void Chunk::_addMarginalizations()
 // Then swap the pointer with covariance matrix
 void Chunk::invertCovarianceMatrix()
 {
+    LOG::LOGGER.DEB("Inverting cov matrix\n");
+
     double t = mytime::timer.getTime();
 
     mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, size());
@@ -483,18 +489,25 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 
 void Chunk::computePSbeforeFvector()
 {
-    double *Q_ikz_matrix = temp_matrix[0];
-    std::vector<double> dbt_vec(3, 0);
+    LOG::LOGGER.DEB("PS before Fisher\n");
+
+    double
+        *Q_ikz_matrix = temp_matrix[0],
+        *dk0 = dbt_estimate_before_fisher_vector[0].get() + fisher_index_start,
+        *nk0 = dbt_estimate_before_fisher_vector[1].get() + fisher_index_start,
+        *tk0 = dbt_estimate_before_fisher_vector[2].get() + fisher_index_start;
 
     LOG::LOGGER.DEB("PSb4F -> weighted data\n");
-    cblas_dsymv(CblasRowMajor, CblasUpper, size(), 1.,
+    cblas_dsymv(
+        CblasRowMajor, CblasUpper, size(), 1.,
         inverse_covariance_matrix, 
         size(), qFile->delta(), 1, 0, weighted_data_vector, 1);
 
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
-        LOG::LOGGER.DEB("PSb4F -> loop %d\n", i_kz);
+        double *dk = dk0 + i_kz, *nk = nk0 + i_kz, *tk = tk0 + i_kz;
 
+        LOG::LOGGER.DEB("PSb4F -> loop %d\n", i_kz);
         LOG::LOGGER.DEB("   -> set qi   ");
         // Set derivative matrix ikz
         double *ptr = _getStoredQikz(idx);
@@ -502,9 +515,10 @@ void Chunk::computePSbeforeFvector()
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        dbt_vec[0] = mxhelp::my_cblas_dsymvdot(weighted_data_vector, 
+        *dk = mxhelp::my_cblas_dsymvdot(
+            weighted_data_vector, 
             Q_ikz_matrix, temp_vector, size());
-         LOG::LOGGER.DEB("-> dk (%.1e)   ", dbt_vec[0]);
+         LOG::LOGGER.DEB("-> dk (%.1e)   ", *dk);
 
         LOG::LOGGER.DEB("-> weighted Q   ");
         // Get weighted derivative matrix ikz: C-1 Qi C-1
@@ -512,19 +526,15 @@ void Chunk::computePSbeforeFvector()
 
         LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        dbt_vec[1] = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise(), 
-            size());
+        *nk = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise(), size());
 
         // Set Fiducial Signal Matrix
         if (!specifics::TURN_OFF_SFID)
         {
             LOG::LOGGER.DEB("-> tk   ");
             // Tr(C-1 Qi C-1 Sfid)
-            dbt_vec[2] = mxhelp::trace_dsymm(Q_ikz_matrix, stored_sfid, size());
+            *tk = mxhelp::trace_dsymm(Q_ikz_matrix, stored_sfid, size());
         }
-
-        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            dbt_estimate_before_fisher_vector[dbt_i][i_kz + fisher_index_start] = dbt_vec[dbt_i];
 
         // Do not compute fisher matrix if it is precomputed
         if (!specifics::USE_PRECOMPUTED_FISHER)
@@ -537,7 +547,8 @@ void Chunk::computePSbeforeFvector()
 void Chunk::oneQSOiteration(
         const double *ps_estimate, 
         std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
-        double *fisher_sum) {
+        double *fisher_sum
+) {
     LOG::LOGGER.DEB("File %s\n", qFile->fname.c_str());
     LOG::LOGGER.DEB("TargetID %ld\n", qFile->id);
     LOG::LOGGER.DEB("Size %d\n", size());
@@ -547,7 +558,6 @@ void Chunk::oneQSOiteration(
 
     _allocateMatrices();
 
-    LOG::LOGGER.DEB("Setting v & z matrices\n");
     _setVZMatrices();
     // Preload last nqj_eff matrices
     // 0 is the last matrix
@@ -563,20 +573,16 @@ void Chunk::oneQSOiteration(
     if (!specifics::TURN_OFF_SFID)
         _setFiducialSignalMatrix(stored_sfid);
 
-    LOG::LOGGER.DEB("Setting cov matrix\n");
-
     setCovarianceMatrix(ps_estimate);
     _check_isnan(covariance_matrix, DATA_SIZE_2, "NaN: covariance");
 
     try
     {
-        LOG::LOGGER.DEB("Inverting cov matrix\n");
         invertCovarianceMatrix();
         _check_isnan(
             inverse_covariance_matrix, DATA_SIZE_2,
             "NaN: inverse cov");
 
-        LOG::LOGGER.DEB("PS before Fisher\n");
         computePSbeforeFvector();
 
         _check_isnan(
@@ -590,10 +596,6 @@ void Chunk::oneQSOiteration(
                 dbt_sum_vector[dbt_i].get(), 
                 dbt_estimate_before_fisher_vector[dbt_i].get(),
                 bins::TOTAL_KZ_BINS);
-
-        // // Write results to file with their qso filename as base
-        // if (process::SAVE_EACH_SPEC_RESULT)
-        //     _saveIndividualResult();
     }
     catch (std::exception& e) {
         LOG::LOGGER.ERR(
@@ -605,7 +607,6 @@ void Chunk::oneQSOiteration(
             size(), MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
     }
 
-    LOG::LOGGER.DEB("Freeing matrices\n");
     _freeMatrices();
 }
 
@@ -668,6 +669,8 @@ void Chunk::_allocateMatrices()
 
 void Chunk::_freeMatrices()
 {
+    LOG::LOGGER.DEB("Freeing matrices\n");
+
     dbt_estimate_before_fisher_vector.clear();
 
     LOG::LOGGER.DEB("Free fisher\n");
