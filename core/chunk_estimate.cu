@@ -386,6 +386,9 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 
 void Chunk::_addMarginalizations()
 {
+    std::vector<int> idx_streams;
+    idx_streams.reserve(num_streams);
+
     int num_blocks = (size() + MYCU_BLOCK_SIZE - 1) / MYCU_BLOCK_SIZE,
         vidx = 1;
 
@@ -400,24 +403,30 @@ void Chunk::_addMarginalizations()
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
+        int idx_s = vidx % num_streams;
+
         _getUnitVectorLogLam<<<
-            num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx % num_streams].get()
+            num_blocks, MYCU_BLOCK_SIZE, 0, streams[idx_s].get()
         >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
 
+        idx_streams.push_back(idx_s);
         ++vidx;
     }
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
+        int idx_s = vidx % num_streams;
+
         _getUnitVectorLam<<<
-            num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx % num_streams].get()
+            num_blocks, MYCU_BLOCK_SIZE, 0, streams[idx_s].get()
         >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
 
+        idx_streams.push_back(idx_s);
         ++vidx;
     }
 
-    // for (auto &stream : streams)
-    //     stream.sync();
+    for (auto &idx_s : idx_streams)
+        streams[idx_s].sync();
 
     LOG::LOGGER.DEB("nvecs %d\n", specifics::CONT_NVECS);
 
@@ -484,12 +493,15 @@ void Chunk::_getWeightedMatrix(double *m)
 
 void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 {
+    cublas_helper.setPointerMode2Device();
+
     double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx],
         idx_fji_0 =
         bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start)
         + fisher_index_start;
-    cublas_helper.setPointerMode2Device();
+    std::vector<int> idx_streams;
+    idx_streams.reserve(num_streams);
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
@@ -502,7 +514,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
             continue;
         #endif
 
-        cublas_helper.setStream(streams[jdx % num_streams]);
+        int idx_s = vidx % num_streams;
+        cublas_helper.setStream(streams[idx_s]);
 
         double *Q_jkz_matrix = _getDevQikz(jdx);
         double *fij = dev_fisher.get() + j_kz + idx_fji_0;
@@ -510,8 +523,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
         cublas_helper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size(), fij);
     }
 
-    // for (auto &stream : streams)
-    //     stream.sync();
+    for (auto &idx_s : idx_streams)
+        streams[idx_s].sync();
 
     cublas_helper.resetStream();
     cublas_helper.setPointerMode2Host();
