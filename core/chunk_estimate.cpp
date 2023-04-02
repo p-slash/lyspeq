@@ -13,6 +13,10 @@
 #include <cstdlib>
 #include <stdexcept>
 
+#if defined(ENABLE_OMP)
+#include "omp.h"
+#endif
+
 void _check_isnan(double *mat, int size, std::string msg)
 {
     #ifdef CHECK_NAN
@@ -227,14 +231,14 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 }
 
 void Chunk::_setVZMatrices() {
-    int idx = 0;
     for (int i = 0; i < _matrix_n; ++i)
     {
         double li = _matrix_lambda[i];
 
-        for (int j = i; j < _matrix_n; ++j, ++idx)
+        for (int j = i; j < _matrix_n; ++j)
         {
             double lj = _matrix_lambda[j];
+            int idx = j + i * _matrix_n;
             _getVandZ(li, lj, _vmatrix[idx], _zmatrix[idx]);
         }
     }
@@ -246,13 +250,12 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
 
     double t = mytime::timer.getTime();
     double *inter_mat = (on_oversampling) ? _finer_matrix : sm;
-    double *ptr = inter_mat;
 
-    int idx = 0;
+    #pragma omp parallel for
     for (int i = 0; i < _matrix_n; ++i) {
-        ptr += i;
-        for (int j = i; j < _matrix_n; ++j, ++ptr, ++idx) {
-            *ptr = interp2d_signal_matrix->evaluate(
+        for (int j = i; j < _matrix_n; ++j) {
+            int idx = j + i * _matrix_n;
+            inter_mat[idx] = interp2d_signal_matrix->evaluate(
                 _zmatrix[idx], _vmatrix[idx]);
         }
     }
@@ -279,13 +282,13 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
     shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
 
-    int idx = 0;
-    double *ptr = inter_mat;
+    #pragma omp parallel for
     for (int i = 0; i < _matrix_n; ++i) {
-        ptr += i;
-        for (int j = i; j < _matrix_n; ++j, ++ptr, ++idx) {
-            *ptr = interp_deriv_kn->evaluate(_vmatrix[idx]);
-            *ptr *= bins::redshiftBinningFunction(_zmatrix[idx], zm);
+        for (int j = i; j < _matrix_n; ++j) {
+            int idx = j + i * _matrix_n;
+            inter_mat[idx] =
+                interp_deriv_kn->evaluate(_vmatrix[idx])
+                * bins::redshiftBinningFunction(_zmatrix[idx], zm);
         }
     }
 
