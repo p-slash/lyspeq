@@ -11,36 +11,34 @@ bool isClose(double a, double b, double relerr=1e-5, double abserr=1e-8)
 }
 
 inline
-bool allClose(const double *a, const double *b, long size)
+bool allClose(const double *a, const double *b, int size)
 {
     bool result = true;
-    for (long i = 0; i < size; ++i)
+    for (int i = 0; i < size; ++i)
         result &= isClose(a[i], b[i]);
     return result;
 }
 
-DiscreteInterpolation1D::DiscreteInterpolation1D(double x_start, double delta_x, const double *y_arr, long Nsize)
-: x1(x_start), dx(delta_x), N(Nsize)
+DiscreteInterpolation1D::DiscreteInterpolation1D(
+        double x_start, double delta_x, const double *y_arr, int Nsize
+) : x1(x_start), dx(delta_x), N(Nsize)
 {
-    x2 = x1 + dx * (N-1);
+    x2 = x1 + dx * (N - 1);
     y = new double[N];
-    std::copy(y_arr, y_arr+N, y);
-}
-
-void DiscreteInterpolation1D::_limitBoundary(double &x)
-{
-    if (x >= x2)        x = x2 - 1e-6;
-    else if (x < x1)    x = x1;
+    std::copy(y_arr, y_arr + N, y);
 }
 
 double DiscreteInterpolation1D::evaluate(double x)
 {
-    _limitBoundary(x);
+    double xx = (x - x1) / dx;
+    int n = (int) xx;
 
-    long n = (x-x1)/dx;
-    double dn = (x-x1)/dx - n, y1 = y[n], y2=y[n+1];
+    if (n < 0) n = 0;
+    else if (n >= N - 1) n = N - 2;
 
-    return y1*(1-dn) + y2*dn;
+    double dn = xx - n, y1 = y[n], y2 = y[n + 1];
+
+    return y1 * (1 - dn) + y2 * dn;
 }
 
 bool DiscreteInterpolation1D::operator==(const DiscreteInterpolation1D &rhs) const
@@ -52,9 +50,10 @@ bool DiscreteInterpolation1D::operator==(const DiscreteInterpolation1D &rhs) con
     return result;
 }
 
-DiscreteInterpolation2D::DiscreteInterpolation2D(double x_start, double delta_x, double y_start, double delta_y,
-    const double *z_arr, long Nxsize, long Nysize)
-: x1(x_start), dx(delta_x), y1(y_start), dy(delta_y), Nx(Nxsize), Ny(Nysize)
+DiscreteInterpolation2D::DiscreteInterpolation2D(
+        double x_start, double delta_x, double y_start, double delta_y,
+        const double *z_arr, int Nxsize, int Nysize
+) : x1(x_start), dx(delta_x), y1(y_start), dy(delta_y), Nx(Nxsize), Ny(Nysize)
 {
     x2 = x1 + dx * (Nx-1);
     y2 = y1 + dy * (Ny-1);
@@ -64,35 +63,25 @@ DiscreteInterpolation2D::DiscreteInterpolation2D(double x_start, double delta_x,
     std::copy(z_arr, z_arr+size, z);
 }
 
-long DiscreteInterpolation2D::_getIndex(long nx, long ny)
-{
-    return nx + Nx*ny;
-}
-
-void DiscreteInterpolation2D::_limitBoundary(double &x, double &y)
-{
-    if (x >= x2)        x = x2 - 1e-6;
-    else if (x < x1)    x = x1;
-
-    if (y >= y2)        y = y2 - 1e-6;
-    else if (y < y1)    y = y1;
-}
-
 double DiscreteInterpolation2D::evaluate(double x, double y)
 {
-    _limitBoundary(x, y);
+    double xx = (x - x1) / dx, yy = (y - y1) / dy;
+    int nx = (int) xx, ny = (int) yy;
 
-    long nx = (x-x1)/dx;
-    long ny = (y-y1)/dy;
-    long ind = _getIndex(nx, ny);
+    if (nx < 0) nx = 0;
+    else if (nx >= Nx - 1) nx = Nx - 2;
 
-    double dnx = (x-x1)/dx - nx;
-    double dny = (y-y1)/dy - ny;
+    if (ny < 0) ny = 0;
+    else if (ny >= Ny - 1) ny = Ny - 2;
 
-    double result = z[ind] * (1-dnx) * (1-dny)
-    + z[ind+1] * (dnx) * (1-dny)
-    + z[ind+Nx] * (1-dnx) * (dny)
-    + z[ind+Nx+1] * (dnx) * (dny);
+    int ind = _getIndex(nx, ny);
+    double dnx = xx - nx, dny = yy - ny;
+
+    double result =
+        z[ind] * (1 - dnx) * (1 - dny)
+        + z[ind + 1] * (dnx) * (1 - dny)
+        + z[ind + Nx] * (1 - dnx) * (dny)
+        + z[ind + Nx + 1] * (dnx) * (dny);
 
     return result;
 }

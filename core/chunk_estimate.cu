@@ -20,14 +20,6 @@
 CuBlasHelper cublas_helper;
 CuSolverHelper cusolver_helper;
 
-
-inline
-void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
-{
-    v_ij = SPEED_OF_LIGHT * log(lj / li);
-    z_ij = sqrt(li * lj) / LYA_REST - 1.;
-}
-
 inline
 int _getMaxKindex(double knyq)
 {
@@ -226,6 +218,9 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 }
 
 void Chunk::_setVZMatrices() {
+    LOG::LOGGER.DEB("Setting v & z matrices\n");
+
+    #pragma omp parallel for
     for (int i = 0; i < _matrix_n; ++i)
     {
         double li = _matrix_lambda[i];
@@ -235,7 +230,8 @@ void Chunk::_setVZMatrices() {
             double lj = _matrix_lambda[j];
             int idx = j + i * _matrix_n;
 
-            _getVandZ(li, lj, _vmatrix[idx], _zmatrix[idx]);
+            _vmatrix[idx] = SPEED_OF_LIGHT * log(lj / li);
+            _zmatrix[idx] = sqrt(li * lj) / LYA_REST - 1.;
         }
     }
 }
@@ -282,9 +278,9 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     for (int i = 0; i < _matrix_n; ++i) {
         for (int j = i; j < _matrix_n; ++j) {
             int idx = j + i * _matrix_n;
-            inter_mat[idx] = 
-                interp_deriv_kn->evaluate(_vmatrix[idx])
-                * bins::redshiftBinningFunction(_zmatrix[idx], zm);
+            inter_mat[idx] =
+                bins::redshiftBinningFunction(_zmatrix[idx], zm)
+                * interp_deriv_kn->evaluate(_vmatrix[idx]);
         }
     }
 
@@ -304,6 +300,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 void Chunk::setCovarianceMatrix(const double *ps_estimate)
 {
     LOG::LOGGER.DEB("Setting cov matrix\n");
+
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
         cublas_helper.dcopy(
@@ -437,6 +434,7 @@ void Chunk::_addMarginalizations()
 void Chunk::invertCovarianceMatrix()
 {
     LOG::LOGGER.DEB("Inverting cov matrix\n");
+
     double t = mytime::timer.getTime();
 
     cusolver_helper.invert_cholesky(covariance_matrix.get(), size());
@@ -475,8 +473,8 @@ void Chunk::_getWeightedMatrix(double *m)
 void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 {
     double t = mytime::timer.getTime();
-    int i_kz = i_kz_vector[idx];
-    int idx_fji_0 =
+    int i_kz = i_kz_vector[idx],
+        idx_fji_0 =
         bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start)
         + fisher_index_start;
     cublas_helper.setPointerMode2Device();
@@ -523,7 +521,6 @@ void Chunk::computePSbeforeFvector()
         *nk0 = dbt_estimate_before_fisher_vector[1].get() + fisher_index_start,
         *tk0 = dbt_estimate_before_fisher_vector[2].get() + fisher_index_start;
 
-    LOG::LOGGER.DEB("PSb4F -> weighted data\n");
     cublas_helper.dsmyv(
         size(), 1., inverse_covariance_matrix, 
         size(), dev_delta.get(), 1, 0, weighted_data_vector.get(), 1);
@@ -532,8 +529,6 @@ void Chunk::computePSbeforeFvector()
         int i_kz = i_kz_vector[idx];
         double *dk = dk0 + i_kz, *nk = nk0 + i_kz, *tk = tk0 + i_kz;
 
-        LOG::LOGGER.DEB("PSb4F -> loop %d\n", i_kz);
-        LOG::LOGGER.DEB("   -> set qi   ");
         // Set derivative matrix ikz
         cublas_helper.dcopy(_getDevQikz(idx), Q_ikz_matrix, DATA_SIZE_2);
 
@@ -542,29 +537,21 @@ void Chunk::computePSbeforeFvector()
         cublas_helper.my_cublas_dsymvdot(
             weighted_data_vector.get(), 
             Q_ikz_matrix, temp_vector.get(), size(), dk);
-        LOG::LOGGER.DEB("-> dk (%.1e)   ", *dk);
 
-        LOG::LOGGER.DEB("-> weighted Q   ");
         // Get weighted derivative matrix ikz: C-1 Qi C-1
         _getWeightedMatrix(Q_ikz_matrix);
 
-        LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
         cublas_helper.trace_ddiagmv(Q_ikz_matrix, dev_noise.get(), size(), nk);
 
         // Set Fiducial Signal Matrix
+        // Tr(C-1 Qi C-1 Sfid)
         if (!specifics::TURN_OFF_SFID)
-        {
-            LOG::LOGGER.DEB("-> tk   ");
-            // Tr(C-1 Qi C-1 Sfid)
             cublas_helper.trace_dsymm(Q_ikz_matrix, dev_sfid.get(), size(), tk);
-        }
 
         // Do not compute fisher matrix if it is precomputed
         if (!specifics::USE_PRECOMPUTED_FISHER)
             _getFisherMatrix(Q_ikz_matrix, idx);
-
-        LOG::LOGGER.DEB("\n");
     }
 }
 
@@ -738,20 +725,16 @@ void Chunk::_freeCuda() {
 
 void Chunk::_freeCpu() {
     dbt_estimate_before_fisher_vector.clear();
-
-    LOG::LOGGER.DEB("Free fisher\n");
     fisher_matrix.reset();
 
-    LOG::LOGGER.DEB("Free storedqj\n");
     delete [] cpu_qj;
 
-    LOG::LOGGER.DEB("Free stored sfid\n");
     if (!specifics::TURN_OFF_SFID)
         delete [] cpu_sfid;
 
-    LOG::LOGGER.DEB("Free resomat related\n");
     if (specifics::USE_RESOLUTION_MATRIX)
         qFile->Rmat->freeBuffer();
+
     if (on_oversampling)
     {
         delete [] _finer_matrix;
