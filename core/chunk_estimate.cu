@@ -728,7 +728,7 @@ void Chunk::_freeCuda() {
         dev_sfid.reset();
 }
 
-void _freeCpu() {
+void Chunk::_freeCpu() {
     dbt_estimate_before_fisher_vector.clear();
 
     LOG::LOGGER.DEB("Free fisher\n");
