@@ -148,7 +148,7 @@ void QSOFile::_cutMaskedBoundary(double sigma_cut)
     shift += ni1;
     arr_size = ni2-ni1;
 
-    if (arr_size < 0)
+    if (arr_size <= 0)
         throw std::runtime_error(
             "Empty spectrum when masked pixels at boundary are removed!"
         );

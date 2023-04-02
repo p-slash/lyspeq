@@ -506,7 +506,8 @@ namespace mxhelp
     // }
 
     void DiaMatrix::multiplyLeft(
-            CBLAS_TRANSPOSE TRANS_A, const double* A, double *B) {
+            CBLAS_TRANSPOSE TRANS_A, const double* A, double *B
+    ) {
         std::fill_n(B, ndim*ndim, 0);
 
         int inc_a = 1, row_step_a = ndim;
