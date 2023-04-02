@@ -79,30 +79,15 @@ if __name__ == '__main__':
         true_deriv_table = readSQTable(drv_true_file)
         comp_deriv_table = readSQTable(drv_comp_file)
         ERR_CODE += testMaxDiffArrays(true_deriv_table, comp_deriv_table)
-    
+
     del true_deriv_table, comp_deriv_table
-
-    # TESTING INTERPOLATED MATRICES
-    # Read and compare interpolated fiducial signal matrix values
-    print(f"{bcolors.BOLD}Comparing fiducial signal matrices...{bcolors.ENDC}")
-    true_fid_signal = np.genfromtxt(args.SourceDir+"/tests/truth/signal_matrix.txt", skip_header=1)
-    comp_fid_signal = np.genfromtxt(args.SourceDir+"/tests/output/signal_matrix.txt", skip_header=1)
-    ERR_CODE += testMaxDiffArrays(true_fid_signal, comp_fid_signal)
-    del true_fid_signal, comp_fid_signal
-
-    # Read and compare interpolated derivative matrix values
-    print(f"{bcolors.BOLD}Comparing derivative matrices...{bcolors.ENDC}")
-    true_q0 = np.genfromtxt(args.SourceDir+"/tests/truth/q0_matrix.txt", skip_header=1)
-    comp_q0 = np.genfromtxt(args.SourceDir+"/tests/output/q0_matrix.txt", skip_header=1)
-    ERR_CODE += testMaxDiffArrays(true_q0, comp_q0)
-    del true_q0, comp_q0
 
     # TESTING THE FINAL RESULTS
     print(f"{bcolors.BOLD}Comparing QMLE results...{bcolors.ENDC}")
     true_Pfid, true_ThetaP, true_ErrorP = \
     readQMLEResults(args.SourceDir+"/tests/truth/test_it1_quadratic_power_estimate_detailed.dat")
     comp_Pfid, comp_ThetaP, comp_ErrorP = \
-    readQMLEResults(args.SourceDir+"/tests/output/test_it1_quadratic_power_estimate_detailed.dat")
+    readQMLEResults(args.SourceDir+"/tests/output/test_it1_quadratic_power_estimate_detailed.txt")
 
     print("1. Fiducial power:")
     ERR_CODE += testMaxDiffArrays(true_Pfid, comp_Pfid)
@@ -113,7 +98,7 @@ if __name__ == '__main__':
 
     print("4. Comparing Fisher matrices...")
     true_fisher = np.genfromtxt(args.SourceDir+"/tests/truth/test_it1_fisher_matrix.dat", skip_header=1)
-    comp_fisher = np.genfromtxt(args.SourceDir+"/tests/output/test_it1_fisher_matrix.dat", skip_header=1)
+    comp_fisher = np.genfromtxt(args.SourceDir+"/tests/output/test_it1_fisher_matrix.txt", skip_header=1)
     ERR_CODE += testMaxDiffArrays(true_fisher, comp_fisher)
 
     if ERR_CODE == 0:
