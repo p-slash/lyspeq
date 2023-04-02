@@ -53,7 +53,8 @@ function set_config_options()
             --use-mkl-cblas )
                 USE_MKL_CBLAS="-DUSE_MKL_CBLAS";;
             --enable-openmp )
-                CPPFLAGS_OMP="-fopenmp";;
+                CPPFLAGS_OMP="-fopenmp"
+                ENABLE_OMP="-DENABLE_OMP";;
             --enable-tbb )
                 CPPFLAGS_OMP="-tbb";;
             --use-tophat-zbin )
@@ -221,6 +222,8 @@ function set_omp_flags()
         LDLIBS_OMP=""
         MKL_THREAD_LIBS="-lmkl_sequential -lmkl_core"
     fi
+
+    update_makefile_vars "${CPPFLAGS_OMP}" "" "${LDLIBS_OMP}"
 }
 # -----------------------------------------------------------------------------
 
@@ -525,6 +528,7 @@ MORECPPFLAGS=""
 
 OPT="-O3"
 ENABLE_MPI=""
+ENABLE_OMP=""
 binz_fn="-DTRIANGLE_Z_BINNING_FN"
 ENABLE_FISHER_OPTIMIZATION=""
 USE_MKL_CBLAS=""
@@ -556,13 +560,10 @@ fi
 mkdir -p ${srcdir}/build-aux
 check_compiler_support
 set_omp_flags
-CPPFLAGS=$(echo "${CPPFLAGS_OMP} ${CPPFLAGS}" | sed 's/ *$//')
 set_gsl_inc_lib
 set_fftw3_inc_lib
 set_cfitsio_inc_lib
 set_cblas_inc_lib
-
-update_makefile_vars "" "" "${LDLIBS_OMP}"
 
 if [[ ! -z "${ENABLE_MPI}" ]]; then
     exec="srun -n 1 "
@@ -571,7 +572,7 @@ fi
 
 update_makefile_vars "" "" "${suffix_libs}"
 
-MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_FIDUCIAL_GROWTH_Z} ${binz_fn}"
+MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_OMP} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_FIDUCIAL_GROWTH_Z} ${binz_fn}"
 MORECPPFLAGS=$(echo $MORECPPFLAGS | sed 's/ *$//')
 
 # Save makefile
