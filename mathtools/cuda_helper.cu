@@ -12,10 +12,16 @@ const int MYCU_BLOCK_SIZE = 256;
 template<typename T>
 class MyCuPtr
 {
+    cudaError_t cuda_stat;
     T *dev_ptr;
 
+    void check_cuda_error(std::string err_msg) {
+        if (cuda_stat != cudaSuccess)
+            throw std::runtime_error(err_msg);
+    }
+
     void _alloc(int n) {
-        cudaError_t stat = cudaMalloc((void**) &dev_ptr, n*sizeof(T));
+        stat = cudaMalloc((void**) &dev_ptr, n*sizeof(T));
         if (stat != cudaSuccess) {
             dev_ptr = nullptr;
             throw std::runtime_error("cudaMalloc failed.");
@@ -36,19 +42,25 @@ public:
     T* get() const { return dev_ptr; }
 
     void asyncCpy(T *cpu_ptr, int n, int offset=0, cudaStream_t stream=NULL) {
-        cudaMemcpyAsync(
+        cuda_stat = cudaMemcpyAsync(
             dev_ptr + offset, cpu_ptr, n*sizeof(T), cudaMemcpyHostToDevice,
             stream);
+        check_cuda_error("asyncCpy::cudaMemcpyAsync: ");
     }
+
     void asyncDwn(T *cpu_ptr, int n, int offset=0, cudaStream_t stream=NULL) {
-        cudaMemcpyAsync(
+        cuda_stat = cudaMemcpyAsync(
             cpu_ptr, dev_ptr + offset, sizeof(T) * n, cudaMemcpyDeviceToHost,
             stream);
+        check_cuda_error("asyncDwn::cudaMemcpyAsync: ");
     }
+
     void syncDownload(T *cpu_ptr, int n, int offset=0) {
-        cudaMemcpy(
+        cuda_stat = cudaMemcpy(
             cpu_ptr, dev_ptr + offset, n*sizeof(T), cudaMemcpyDeviceToHost);
+        check_cuda_error("syncDownload::cudaMemcpy: ");
     }
+
     void reset() {
         if (dev_ptr != nullptr) {
             cudaFree(dev_ptr);
@@ -69,9 +81,8 @@ class MyCuStream {
     cudaError_t cuda_stat;
 
     void check_cuda_error(std::string err_msg) {
-        if (cuda_stat != cudaSuccess) {
+        if (cuda_stat != cudaSuccess)
             throw std::runtime_error(err_msg);
-        }
     }
 public:
     MyCuStream(bool default_stream=false) {
@@ -82,9 +93,6 @@ public:
 
         cuda_stat = cudaStreamCreate(&stream);
         check_cuda_error("cudaStreamCreate: ");
-        // cuda_stat = cudaStreamCreateWithFlags(
-        //     &stream, cudaStreamNonBlocking);
-        // check_cuda_error("cudaStreamCreateWithFlags: ");
     }
 
     ~MyCuStream() {
@@ -166,7 +174,8 @@ public:
     }
 
     void trace_ddiagmv(
-            const double *A, const double *B, int N, double *c_res) {
+            const double *A, const double *B, int N, double *c_res
+    ) {
         blas_stat = cublasDdot(blas_handle, N, A, N+1, B, 1, c_res);
         check_cublas_error("trace_ddiagmv/cublasDdot: ");
     }
@@ -176,7 +185,8 @@ public:
     void my_cublas_dsymvdot(
             const double *v, const double *S, double *temp_vector, int N,
             double *c_res,
-            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
+            const cublasFillMode_t uplo=CUBLAS_FILL_MODE_LOWER
+    ) {
         dsmyv(N, 1., S, N, v, 1, 0, temp_vector, 1, uplo);
         blas_stat = cublasDdot(blas_handle, N, v, 1, temp_vector, 1, c_res);
         check_cublas_error("my_cublas_dsymvdot/cublasDdot: ");
@@ -191,7 +201,8 @@ public:
             double alpha,
             const double *x, double *y,
             int N,
-            int incx=1, int incy=1) {
+            int incx=1, int incy=1
+    ) {
         blas_stat = cublasDaxpy(blas_handle, N, &alpha, x, incx, y, incy);
         check_cublas_error("cublasDaxpy: ");
     }
@@ -202,7 +213,8 @@ public:
             const double *A, int lda,
             const double *B, int ldb,
             double beta, double *C, int ldc,
-            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
+            const cublasFillMode_t uplo=CUBLAS_FILL_MODE_LOWER
+    ) {
         blas_stat = cublasDsymm(
             blas_handle, side, uplo,
             m, n, &alpha,
@@ -216,7 +228,8 @@ public:
             const double *A, int lda,
             const double *x, int incx, double beta,
             double *y, int incy,
-            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
+            const cublasFillMode_t uplo=CUBLAS_FILL_MODE_LOWER
+    ) {
         blas_stat = cublasDsymv(
             blas_handle, uplo,
             n, &alpha, A, lda, x, incx,
@@ -270,7 +283,8 @@ public:
 
     void potrf(
             double *A, int N,
-            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
+            const cublasFillMode_t uplo=CUBLAS_FILL_MODE_LOWER
+    ) {
         int lworkf = 0; /* size of workspace */
         /* If devInfo = 0, the Cholesky factorization is successful.
         if devInfo = -i, the i-th parameter is wrong (not counting handle).
@@ -289,13 +303,16 @@ public:
             solver_handle, uplo,
             N, A, N, d_workf.get(), lworkf, devInfo.get());
         check_cusolver_error("cusolverDnDpotrf: ");
+        int cpuInfo = 0;
+
         // if (devInfo != 0)
         //     throw std::runtime_error("Cholesky factorization is not successful.");
     }
 
     void potri(
             double *A, int N,
-            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
+            const cublasFillMode_t uplo=CUBLAS_FILL_MODE_LOWER
+    ) {
         int lworki;
         MyCuPtr<int> devInfo(1);
         solver_stat = cusolverDnDpotri_bufferSize(
@@ -316,7 +333,8 @@ public:
     // In-place invert by Cholesky factorization
     void invert_cholesky(
             double *A, int N,
-            const cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER) {
+            const cublasFillMode_t uplo=CUBLAS_FILL_MODE_LOWER
+    ) {
         potrf(A, N, uplo);
         potri(A, N, uplo);
     }
