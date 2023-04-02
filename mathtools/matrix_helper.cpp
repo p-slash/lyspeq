@@ -501,33 +501,8 @@ namespace mxhelp
         }
     }
 
-    // void DiaMatrix::sandwichOld(double *inplace)
-    // {
-    //     if (sandwich_buffer == NULL)
-    //         sandwich_buffer = new double[ndim*ndim];
-
-    //     multiply('L', 'N', inplace, sandwich_buffer);
-    //     multiply('R', 'T', sandwich_buffer, inplace);
-    // }
-
-    void DiaMatrix::multiplyLeft(
-            CBLAS_TRANSPOSE TRANS_A, const double* A, double *B) {
-        std::fill_n(B, ndim*ndim, 0);
-
-        int inc_a = 1, row_step_a = ndim;
-
-        if (TRANS_A == CblasNoTrans) {
-            inc_a = 1;
-            row_step_a = ndim;
-        }
-        // Switch to column ordering
-        else if (TRANS_A == CblasTrans) {
-            inc_a = ndim;
-            row_step_a = 1;
-        }
-        else
-            throw std::runtime_error(
-                "DiaMatrix multiply transpose wrong character!");
+    void DiaMatrix::multiplyLeft(const double* A, double *B) {
+        std::fill_n(B, ndim * ndim, 0);
 
         for (int d = 0; d < ndiags; ++d)
         {
@@ -536,17 +511,40 @@ namespace mxhelp
                 A1 = std::max(0, off),
                 B1 = std::max(0, -off);
 
-            const double *Aslice, *dia_slice = _getDiagonal(d);
-            double       *Bslice;
-
-            Aslice = A + A1*row_step_a;
-            Bslice = B + B1*ndim;
+            const double
+                *Aslice = A + A1 * ndim,
+                *dia_slice = _getDiagonal(d);
+            double *Bslice = B + B1 * ndim;
 
             for (int i = 0; i < nmult; ++i)
             {
-                cblas_daxpy(ndim, *(dia_slice+i), Aslice, inc_a, Bslice, 1);
+                cblas_daxpy(ndim, dia_slice[i], Aslice, 1, Bslice, 1);
                 Bslice += ndim;
-                Aslice += row_step_a;
+                Aslice += ndim;
+            }
+        }
+    }
+
+    void DiaMatrix::multiplyRightT(const double* A, double *B) {
+        std::fill_n(B, ndim * ndim, 0);
+
+        for (int d = 0; d < ndiags; ++d)
+        {
+            int off = -offsets[d], 
+                nmult = ndim - abs(off),
+                A1 = std::max(0, -off),
+                B1 = std::max(0, off);
+
+            const double *Aslice = A + A1, *dia_slice = _getDiagonal(d);
+            double *Bslice = B + B1;
+
+            for (int i = 0; i < ndim; ++i)
+            {
+                for (int j = 0; j < nmult; ++j)
+                    Bslice[j] += dia_slice[j] * Aslice[j];
+
+                Bslice += ndim;
+                Aslice += ndim;
             }
         }
     }
@@ -556,8 +554,8 @@ namespace mxhelp
         if (sandwich_buffer == NULL)
             sandwich_buffer = new double[ndim*ndim];
 
-        multiplyLeft(CblasNoTrans, inplace, sandwich_buffer);
-        multiplyLeft(CblasTrans, sandwich_buffer, inplace);
+        multiplyLeft(inplace, sandwich_buffer);
+        multiplyRightT(sandwich_buffer, inplace);
     }
 
     double DiaMatrix::getMinMemUsage()
@@ -579,8 +577,8 @@ namespace mxhelp
 
     // class OversampledMatrix
     OversampledMatrix::OversampledMatrix(
-            int n1, int nelem_prow, int osamp, double dlambda) : 
-        sandwich_buffer(NULL), nrows(n1), nelem_per_row(nelem_prow),
+            int n1, int nelem_prow, int osamp, double dlambda
+    ) : sandwich_buffer(NULL), nrows(n1), nelem_per_row(nelem_prow),
         oversampling(osamp)
     {
         ncols = nrows*oversampling + nelem_per_row-1;

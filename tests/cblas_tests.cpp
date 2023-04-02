@@ -518,12 +518,30 @@ int test_DiaMatrix_multipyLeft()
         diarmat.matrix()
     );
 
-    const std::vector<std::string> combos {"Nl", "Tl"};
+    const std::vector<std::string> combos {"Nl"};
     for (const auto &combo: combos)
     {
-        diarmat.multiplyLeft(
-            char2trans.at(combo[0]),
-            diamatrix_multiplier_B, result_R.data());
+        diarmat.multiplyLeft(diamatrix_multiplier_B, result_R.data());
+        r += _compare_one_DiaMatrix_multiplications(combo, result_R.data());
+    }
+    return r;
+}
+
+int test_DiaMatrix_multiplyRightT()
+{
+    int r = 0;
+    std::vector<double> result_R(NrowsDiag*NrowsDiag, 0);
+    mxhelp::DiaMatrix diarmat(NrowsDiag, NdiagDiag);
+    std::copy(
+        &diamatrix_diagonals[0],
+        &diamatrix_diagonals[0]+NrowsDiag*NdiagDiag,
+        diarmat.matrix()
+    );
+
+    const std::vector<std::string> combos {"RT"};
+    for (const auto &combo: combos)
+    {
+        diarmat.multiplyRightT(diamatrix_multiplier_B, result_R.data());
         r += _compare_one_DiaMatrix_multiplications(combo, result_R.data());
     }
     return r;
@@ -616,6 +634,7 @@ int main()
     r += test_OversampledMatrix_multiplications();
     r += test_DiaMatrix_multiplications();
     r += test_DiaMatrix_multipyLeft();
+    r += test_DiaMatrix_multiplyRightT();
     r += test_DiaMatrix_getRow();
     r += test_LAPACKE_SVD();
     r += test_Resolution_osamp();
