@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ `LookUpTableDir` to save lookup tables instead of being relative to `OutputDir`.
 + Demand all matrices to fit into memory. Skip below Nyquist (not half of nyquist)
 + `dv` of `QSOFile` is not rounded to nearest five, but compared with rounded numbers in sq_table.
 + `Chunk` estimate calculates until Nyquist not half of it.
@@ -174,8 +175,9 @@ You can save individual results for each process by setting this to 1.
 
     SaveEachProcessResult 0
 
-These lookup tables are saved with the follwoing file name bases to `OutputDir`:
+These lookup tables are saved with the following file name bases (optional). Using a fixed path for `LookUpTableDir` is recommended:
 
+    LookUpTableDir                 .
     SignalLookUpTableBase          signal_lookup
     DerivativeSLookUpTableBase     derivative_lookup
 
