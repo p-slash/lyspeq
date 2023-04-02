@@ -222,6 +222,8 @@ function set_omp_flags()
         LDLIBS_OMP=""
         MKL_THREAD_LIBS="-lmkl_sequential -lmkl_core"
     fi
+
+    update_makefile_vars "${CPPFLAGS_OMP}" "" "${LDLIBS_OMP}"
 }
 # -----------------------------------------------------------------------------
 
@@ -603,14 +605,11 @@ fi
 mkdir -p ${srcdir}/build-aux
 check_compiler_support
 set_omp_flags
-CPPFLAGS=$(echo "${CPPFLAGS_OMP} ${CPPFLAGS}" | sed 's/ *$//')
 set_gsl_inc_lib
 set_fftw3_inc_lib
 set_cfitsio_inc_lib
 set_cblas_inc_lib
 set_cuda_lib
-
-update_makefile_vars "" "" "${LDLIBS_OMP}"
 
 if [[ ! -z "${ENABLE_MPI}" ]]; then
     exec="srun -n 1 "
