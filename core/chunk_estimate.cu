@@ -20,6 +20,14 @@
 CuBlasHelper cublas_helper;
 CuSolverHelper cusolver_helper;
 
+#ifdef FISHER_OPTIMIZATION
+const int num_streams = 3;
+#else
+const int num_streams = 16;
+#endif
+std::vector<MyCuStream> streams(num_streams);
+
+
 inline
 int _getMaxKindex(double knyq)
 {
@@ -378,7 +386,6 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 
 void Chunk::_addMarginalizations()
 {
-    std::vector<MyCuStream> streams(specifics::CONT_NVECS);
     int num_blocks = (size() + MYCU_BLOCK_SIZE - 1) / MYCU_BLOCK_SIZE,
         vidx = 1;
 
@@ -386,21 +393,26 @@ void Chunk::_addMarginalizations()
             *temp_y = temp_matrix[1].get();
 
     // Zeroth order
-    _setZerothOrder<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[0].get()>>>(
-        size(), 1/sqrt(size()), temp_v);
+    _setZerothOrder<<<
+        num_blocks, MYCU_BLOCK_SIZE, 0, streams[0].get()
+    >>>(size(), 1 / sqrt(size()), temp_v);
 
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLogLam<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx].get()>>>(
-            dev_wave.get(), size(), cmo, temp_v + vidx * size());
+        _getUnitVectorLogLam<<<
+            num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx % num_streams].get()
+        >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
+
         ++vidx;
     }
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
-        _getUnitVectorLam<<<num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx].get()>>>(
-            dev_wave.get(), size(), cmo, temp_v + vidx * size());
+        _getUnitVectorLam<<<
+            num_blocks, MYCU_BLOCK_SIZE, 0, streams[vidx % num_streams].get()
+        >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
+
         ++vidx;
     }
 
@@ -478,7 +490,6 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
         bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start)
         + fisher_index_start;
     cublas_helper.setPointerMode2Device();
-    std::vector<std::unique_ptr<MyCuStream>> streams;
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
@@ -491,8 +502,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
             continue;
         #endif
 
-        streams.push_back(std::make_unique<MyCuStream>());
-        cublas_helper.setStream(*streams.back());
+        cublas_helper.setStream(streams[jdx % num_streams]);
 
         double *Q_jkz_matrix = _getDevQikz(jdx);
         double *fij = dev_fisher.get() + j_kz + idx_fji_0;
