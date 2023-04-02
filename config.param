@@ -68,7 +68,8 @@ InputIsDeltaFlux 0
 ContinuumMargAmp  100.
 ContinuumMargDerv 100.
 
-# These lookup tables are saved with the follwoing file name bases to OutputDir:
+# These lookup tables are saved with the following names (optional):
+LookUpTableDir .
 SignalLookUpTableBase        signal_zon_lookup
 DerivativeSLookUpTableBase   derivative_zon_lookup
 
