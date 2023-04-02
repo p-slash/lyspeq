@@ -698,18 +698,18 @@ void Chunk::_freeMatrices()
 
 void Chunk::fprintfMatrices(const char *fname_base)
 {
-    char buf[1024];
+    std::string buf;
 
     if (!specifics::TURN_OFF_SFID)
     {
-        sprintf(buf, "%s-signal.txt", fname_base);
-        mxhelp::fprintfMatrix(buf, stored_sfid, size(), size());
+        buf = std::string(fname_base) + "-signal.txt";
+        mxhelp::fprintfMatrix(buf.c_str(), stored_sfid, size(), size());
     }
 
     if (qFile->Rmat != NULL)
     {
-        sprintf(buf, "%s-resolution.txt", fname_base);
-        qFile->Rmat->fprintfMatrix(buf);
+        buf = std::string(fname_base) + "-resolution.txt";
+        qFile->Rmat->fprintfMatrix(buf.c_str());
     }
 }
 

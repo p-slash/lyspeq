@@ -22,10 +22,10 @@ bool ioh::file_exists(const char *fname)
     return true;
 }
 
-void ioh::create_tmp_file(char *fname, const std::string &TMP_FOLDER)
+void ioh::create_tmp_file(char *fname, const std::string &TMP_FOLDER, size_t n)
 {
     int s;
-    sprintf(fname, "%s/tmplyspeqfileXXXXXX", TMP_FOLDER.c_str());
+    snprintf(fname, n, "%s/tmplyspeqfileXXXXXX", TMP_FOLDER.c_str());
 
     s = mkstemp(fname);
 
@@ -51,8 +51,7 @@ FILE * ioh::open_file(const char *fname, const char *read_write)
 
     if (file_to_read_write == NULL)
     {
-        char err_buf[500];
-        sprintf(err_buf, "Cannot open file %s.", fname);
+        std::string err_buf = std::string("Cannot open file: ") + std::string(fname);
 
         fprintf(stderr, "ERROR FILE with %s: %s\n", read_write, fname);
         throw std::runtime_error(err_buf);
