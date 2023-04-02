@@ -514,7 +514,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
             continue;
         #endif
 
-        int idx_s = vidx % num_streams;
+        int idx_s = jdx % num_streams;
         cublas_helper.setStream(streams[idx_s]);
 
         double *Q_jkz_matrix = _getDevQikz(jdx);
