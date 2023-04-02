@@ -21,8 +21,8 @@ class MyCuPtr
     }
 
     void _alloc(int n) {
-        stat = cudaMalloc((void**) &dev_ptr, n*sizeof(T));
-        if (stat != cudaSuccess) {
+        cuda_stat = cudaMalloc((void**) &dev_ptr, n*sizeof(T));
+        if (cuda_stat != cudaSuccess) {
             dev_ptr = nullptr;
             throw std::runtime_error("cudaMalloc failed.");
         }
