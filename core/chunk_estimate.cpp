@@ -30,13 +30,6 @@ void _check_isnan(double *mat, int size, std::string msg)
 }
 
 inline
-void _getVandZ(double li, double lj, double &v_ij, double &z_ij)
-{
-    v_ij = SPEED_OF_LIGHT * log(lj / li);
-    z_ij = sqrt(li * lj) / LYA_REST - 1.;
-}
-
-inline
 int _getMaxKindex(double knyq)
 {
     auto it = std::lower_bound(bins::KBAND_CENTERS.begin(), bins::KBAND_CENTERS.end(), knyq);
@@ -241,7 +234,9 @@ void Chunk::_setVZMatrices() {
         {
             double lj = _matrix_lambda[j];
             int idx = j + i * _matrix_n;
-            _getVandZ(li, lj, _vmatrix[idx], _zmatrix[idx]);
+
+            _vmatrix[idx] = SPEED_OF_LIGHT * log(lj / li);
+            _zmatrix[idx] = sqrt(li * lj) / LYA_REST - 1.;
         }
     }
 }
@@ -497,7 +492,6 @@ void Chunk::computePSbeforeFvector()
         *nk0 = dbt_estimate_before_fisher_vector[1].get() + fisher_index_start,
         *tk0 = dbt_estimate_before_fisher_vector[2].get() + fisher_index_start;
 
-    LOG::LOGGER.DEB("PSb4F -> weighted data\n");
     cblas_dsymv(
         CblasRowMajor, CblasUpper, size(), 1.,
         inverse_covariance_matrix, 
@@ -507,8 +501,6 @@ void Chunk::computePSbeforeFvector()
         int i_kz = i_kz_vector[idx];
         double *dk = dk0 + i_kz, *nk = nk0 + i_kz, *tk = tk0 + i_kz;
 
-        LOG::LOGGER.DEB("PSb4F -> loop %d\n", i_kz);
-        LOG::LOGGER.DEB("   -> set qi   ");
         // Set derivative matrix ikz
         double *ptr = _getStoredQikz(idx);
         std::copy(ptr, ptr + DATA_SIZE_2, Q_ikz_matrix);
@@ -518,29 +510,21 @@ void Chunk::computePSbeforeFvector()
         *dk = mxhelp::my_cblas_dsymvdot(
             weighted_data_vector, 
             Q_ikz_matrix, temp_vector, size());
-         LOG::LOGGER.DEB("-> dk (%.1e)   ", *dk);
 
-        LOG::LOGGER.DEB("-> weighted Q   ");
         // Get weighted derivative matrix ikz: C-1 Qi C-1
         _getWeightedMatrix(Q_ikz_matrix);
 
-        LOG::LOGGER.DEB("-> nk   ");
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
         *nk = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise(), size());
 
         // Set Fiducial Signal Matrix
+        // Tr(C-1 Qi C-1 Sfid)
         if (!specifics::TURN_OFF_SFID)
-        {
-            LOG::LOGGER.DEB("-> tk   ");
-            // Tr(C-1 Qi C-1 Sfid)
             *tk = mxhelp::trace_dsymm(Q_ikz_matrix, stored_sfid, size());
-        }
 
         // Do not compute fisher matrix if it is precomputed
         if (!specifics::USE_PRECOMPUTED_FISHER)
             _getFisherMatrix(Q_ikz_matrix, idx);
-
-        LOG::LOGGER.DEB("\n");
     }
 }
 
@@ -566,7 +550,7 @@ void Chunk::oneQSOiteration(
 
     for (int jdx = 0; jdx < i_kz_vector.size(); ++jdx) {
         int j_kz = i_kz_vector[jdx];
-        _setQiMatrix(stored_qj + jdx*DATA_SIZE_2, N_Q_MATRICES-j_kz-1);
+        _setQiMatrix(stored_qj + jdx * DATA_SIZE_2, N_Q_MATRICES - j_kz - 1);
     }
 
     // Preload fiducial signal matrix if memory allows
@@ -574,20 +558,12 @@ void Chunk::oneQSOiteration(
         _setFiducialSignalMatrix(stored_sfid);
 
     setCovarianceMatrix(ps_estimate);
-    _check_isnan(covariance_matrix, DATA_SIZE_2, "NaN: covariance");
 
     try
     {
         invertCovarianceMatrix();
-        _check_isnan(
-            inverse_covariance_matrix, DATA_SIZE_2,
-            "NaN: inverse cov");
 
         computePSbeforeFvector();
-
-        _check_isnan(
-            fisher_matrix.get(), bins::FISHER_SIZE,
-            "NaN: chunk fisher");
 
         mxhelp::vector_add(fisher_sum, fisher_matrix.get(), bins::FISHER_SIZE);
 
@@ -669,33 +645,23 @@ void Chunk::_allocateMatrices()
 
 void Chunk::_freeMatrices()
 {
-    LOG::LOGGER.DEB("Freeing matrices\n");
-
     dbt_estimate_before_fisher_vector.clear();
-
-    LOG::LOGGER.DEB("Free fisher\n");
     fisher_matrix.reset();
-
-    LOG::LOGGER.DEB("Free cov\n");
     delete [] covariance_matrix;
 
-    LOG::LOGGER.DEB("Free temps\n");
     for (int i = 0; i < 2; ++i)
         delete [] temp_matrix[i];
 
     delete [] temp_vector;
     delete [] weighted_data_vector;
-
-    LOG::LOGGER.DEB("Free storedqj\n");
     delete [] stored_qj;
 
-    LOG::LOGGER.DEB("Free stored sfid\n");
     if (!specifics::TURN_OFF_SFID)
         delete [] stored_sfid;
 
-    LOG::LOGGER.DEB("Free resomat related\n");
     if (specifics::USE_RESOLUTION_MATRIX)
         qFile->Rmat->freeBuffer();
+
     if (on_oversampling)
     {
         delete [] _finer_matrix;
