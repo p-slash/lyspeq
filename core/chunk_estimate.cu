@@ -347,9 +347,9 @@ void _getUnitVectorLogLam(const double *w, int size, int cmo, double *out)
     int stride = blockDim.x * gridDim.x;
     for (int i = index; i < size; i += stride)
         out[i] = pow(log(w[i]/LYA_REST), cmo);
-    double alpha = rnorm(size, out);
-    for (int i = index; i < size; i += stride)
-        out[i] /= alpha;
+    // double alpha = rnorm(size, out);
+    // for (int i = index; i < size; i += stride)
+    //     out[i] /= alpha;
 }
 
 __global__
@@ -359,9 +359,9 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
     int stride = blockDim.x * gridDim.x;
     for (int i = index; i < size; i += stride)
         out[i] = pow(w[i]/LYA_REST, cmo);
-    double alpha = rnorm(size, out);
-    for (int i = index; i < size; i += stride)
-        out[i] /= alpha;
+    // double alpha = rnorm(size, out);
+    // for (int i = index; i < size; i += stride)
+    //     out[i] /= alpha;
 }
 // End CUDA Kernels ------------------------------
 
@@ -477,8 +477,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
     double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx];
     int idx_fji_0 =
-            bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start)
-            + fisher_index_start;
+        bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start)
+        + fisher_index_start;
     cublas_helper.setPointerMode2Device();
     std::vector<std::unique_ptr<MyCuStream>> streams;
 
@@ -620,6 +620,8 @@ void Chunk::_initIteration() {
 
     LOG::LOGGER.DEB("Setting v & z matrices\n");
     _setVZMatrices();
+
+    MyCuStream::syncMainStream();
 
     // Preload fiducial signal matrix if memory allows
     if (!specifics::TURN_OFF_SFID) {
