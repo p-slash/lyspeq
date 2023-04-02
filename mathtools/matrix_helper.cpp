@@ -19,6 +19,10 @@
 #include "lapacke.h"
 #endif
 
+#if defined(ENABLE_OMP)
+#include "omp.h"
+#endif
+
 const double
 MY_SQRT_2 = 1.41421356237,
 MY_SQRT_PI = 1.77245385091,
@@ -406,25 +410,26 @@ namespace mxhelp
         }
     }
 
-    void DiaMatrix::multiply(char SIDER, char TRANSR, const double* A, 
-        double *B)
-    {
+    void DiaMatrix::multiply(
+            CBLAS_SIDE SIDER, CBLAS_TRANSPOSE TRANSR,
+            const double* A, double *B) {
         std::fill_n(B, ndim*ndim, 0);
 
         int transpose = 1;
 
-        if (TRANSR == 'N' || TRANSR == 'n')
+        if (TRANSR == CblasNoTrans)
             transpose = 1;
-        else if (TRANSR == 'T' || TRANSR == 't')
+        else if (TRANSR == CblasTrans)
             transpose = -1;
         else
-            throw std::runtime_error("DiaMatrix multiply transpose wrong character!");
+            throw std::runtime_error(
+                "DiaMatrix multiply transpose wrong character!");
 
-        bool lside = (SIDER == 'L' || SIDER == 'l'),
-             rside = (SIDER == 'R' || SIDER == 'r');
+        bool lside = (SIDER == CblasLeft), rside = (SIDER == CblasRight);
         
         if (!lside && !rside)
-            throw std::runtime_error("DiaMatrix multiply SIDER wrong character!");
+            throw std::runtime_error(
+                "DiaMatrix multiply SIDER wrong character!");
 
         /* Left Side:
         if offset > 0 (upper off-diagonals), 
@@ -496,13 +501,61 @@ namespace mxhelp
         }
     }
 
+    void DiaMatrix::multiplyLeft(const double* A, double *B) {
+        std::fill_n(B, ndim * ndim, 0);
+
+        for (int d = 0; d < ndiags; ++d)
+        {
+            int off = offsets[d], 
+                nmult = ndim - abs(off),
+                A1 = std::max(0, off),
+                B1 = std::max(0, -off);
+
+            const double
+                *Aslice = A + A1 * ndim,
+                *dia_slice = _getDiagonal(d);
+            double *Bslice = B + B1 * ndim;
+
+            for (int i = 0; i < nmult; ++i)
+            {
+                cblas_daxpy(ndim, dia_slice[i], Aslice, 1, Bslice, 1);
+                Bslice += ndim;
+                Aslice += ndim;
+            }
+        }
+    }
+
+    void DiaMatrix::multiplyRightT(const double* A, double *B) {
+        std::fill_n(B, ndim * ndim, 0);
+
+        for (int d = 0; d < ndiags; ++d)
+        {
+            int off = -offsets[d], 
+                nmult = ndim - abs(off),
+                A1 = std::max(0, -off),
+                B1 = std::max(0, off);
+
+            const double *Aslice = A + A1, *dia_slice = _getDiagonal(d);
+            double *Bslice = B + B1;
+
+            for (int i = 0; i < ndim; ++i)
+            {
+                for (int j = 0; j < nmult; ++j)
+                    Bslice[j] += dia_slice[j] * Aslice[j];
+
+                Bslice += ndim;
+                Aslice += ndim;
+            }
+        }
+    }
+
     void DiaMatrix::sandwich(double *inplace)
     {
         if (sandwich_buffer == NULL)
             sandwich_buffer = new double[ndim*ndim];
 
-        multiply('L', 'N', inplace, sandwich_buffer);
-        multiply('R', 'T', sandwich_buffer, inplace);
+        multiplyLeft(inplace, sandwich_buffer);
+        multiplyRightT(sandwich_buffer, inplace);
     }
 
     double DiaMatrix::getMinMemUsage()
@@ -523,8 +576,10 @@ namespace mxhelp
     }
 
     // class OversampledMatrix
-    OversampledMatrix::OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda) : 
-        sandwich_buffer(NULL), nrows(n1), nelem_per_row(nelem_prow), oversampling(osamp)
+    OversampledMatrix::OversampledMatrix(
+            int n1, int nelem_prow, int osamp, double dlambda
+    ) : sandwich_buffer(NULL), nrows(n1), nelem_per_row(nelem_prow),
+        oversampling(osamp)
     {
         ncols = nrows*oversampling + nelem_per_row-1;
         nvals = nrows*nelem_per_row;
@@ -548,21 +603,17 @@ namespace mxhelp
     // B should be nrows x ncols, will be initialized to zero
     void OversampledMatrix::multiplyLeft(const double* A, double *B)
     {
-        double *bsub = B;
-        const double *Asub = A, *rrow=matrix();
-
         for (int i = 0; i < nrows; ++i)
         {
-            // double *rrow = _getRow(i), *bsub = B + i*ncols;
-            // const double *Asub = A + i*ncols*oversampling;
+            double *bsub = B + i * ncols;
+            const double
+                *Asub = A + i * ncols*oversampling,
+                *rrow = matrix() + i * nelem_per_row;
 
-            cblas_dgemv(CblasRowMajor, CblasTrans,
+            cblas_dgemv(
+                CblasRowMajor, CblasTrans,
                 nelem_per_row, ncols, 1., Asub, ncols, 
                 rrow, 1, 0, bsub, 1);
-
-            bsub += ncols;
-            Asub += ncols*oversampling;
-            rrow += nelem_per_row;
         }
     }
 
@@ -571,21 +622,16 @@ namespace mxhelp
     // B should be nrows x nrows, will be initialized to zero
     void OversampledMatrix::multiplyRight(const double* A, double *B)
     {
-        double *bsub = B;
-        const double *Asub = A, *rrow=matrix();
-
         for (int i = 0; i < nrows; ++i)
         {
-            // double *rrow = _getRow(i), *bsub = B + i;
-            // const double *Asub = A + i*oversampling;
+            double *bsub = B + i;
+            const double
+                *Asub = A + i * oversampling,
+                *rrow = matrix() + i * nelem_per_row;
 
             cblas_dgemv(CblasRowMajor, CblasNoTrans,
                 nrows, nelem_per_row, 1., Asub, ncols, 
                 rrow, 1, 0, bsub, nrows);
-
-            ++bsub;
-            Asub += oversampling;
-            rrow += nelem_per_row;
         }
     }
 
@@ -607,10 +653,7 @@ namespace mxhelp
     double OversampledMatrix::getBufMemUsage()
     {
         // Convert to MB by division of 1048576
-        double highressize  = (double)sizeof(double) * ncols * (ncols+1) / 1048576.,
-               sandwichsize = (double)sizeof(double) * nrows * ncols / 1048576.;
-
-        return highressize+sandwichsize;
+        return (double)sizeof(double) * nrows * ncols / 1048576.;
     }
 
     void OversampledMatrix::fprintfMatrix(const char *fname)
