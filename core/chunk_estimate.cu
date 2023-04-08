@@ -7,10 +7,11 @@
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
 
-#include <cmath>
 #include <algorithm> // std::for_each & transform & lower(upper)_bound
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <set>
 #include <stdexcept>
 
 #if defined(ENABLE_OMP)
@@ -386,8 +387,7 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 
 void Chunk::_addMarginalizations()
 {
-    std::vector<int> idx_streams;
-    idx_streams.reserve(num_streams);
+    std::set<int> idx_streams = {0};
 
     int num_blocks = (size() + MYCU_BLOCK_SIZE - 1) / MYCU_BLOCK_SIZE,
         vidx = 1;
@@ -409,7 +409,7 @@ void Chunk::_addMarginalizations()
             num_blocks, MYCU_BLOCK_SIZE, 0, streams[idx_s].get()
         >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
 
-        idx_streams.push_back(idx_s);
+        idx_streams.insert(idx_s);
         ++vidx;
     }
     // Lambda polynomials
@@ -421,22 +421,23 @@ void Chunk::_addMarginalizations()
             num_blocks, MYCU_BLOCK_SIZE, 0, streams[idx_s].get()
         >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
 
-        idx_streams.push_back(idx_s);
+        idx_streams.insert(idx_s);
         ++vidx;
     }
 
     for (auto &idx_s : idx_streams)
         streams[idx_s].sync();
 
+    cublas_helper.resetStream();
+
     LOG::LOGGER.DEB("nvecs %d\n", specifics::CONT_NVECS);
 
     static MyCuPtr<double> dev_svals(specifics::CONT_NVECS);
-    static std::vector<double> cpu_svals(specifics::CONT_NVECS);
+    static auto cpu_svals = std::make_unique<double[]>(specifics::CONT_NVECS);
 
     // SVD to get orthogonal marg vectors
-    cublas_helper.resetStream();
     cusolver_helper.svd(temp_v, dev_svals.get(), size(), specifics::CONT_NVECS);
-    dev_svals.syncDownload(cpu_svals.data(), cpu_svals.size());
+    dev_svals.syncDownload(cpu_svals.get(), cpu_svals.size());
     LOG::LOGGER.DEB("SVD'ed\n");
 
     // Remove each 
@@ -498,10 +499,9 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
     double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx],
         idx_fji_0 =
-        bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start)
-        + fisher_index_start;
-    std::vector<int> idx_streams;
-    idx_streams.reserve(num_streams);
+            bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start)
+            + fisher_index_start;
+    std::set<int> idx_streams;
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
@@ -521,6 +521,8 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
         double *fij = dev_fisher.get() + j_kz + idx_fji_0;
 
         cublas_helper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size(), fij);
+
+        idx_streams.insert(idx_s);
     }
 
     for (auto &idx_s : idx_streams)
