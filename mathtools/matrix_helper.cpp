@@ -516,12 +516,10 @@ namespace mxhelp
                 *dia_slice = _getDiagonal(d);
             double *Bslice = B + B1 * ndim;
 
+            #pragma omp parallel for simd collapse(2)
             for (int i = 0; i < nmult; ++i)
-            {
-                cblas_daxpy(ndim, dia_slice[i], Aslice, 1, Bslice, 1);
-                Bslice += ndim;
-                Aslice += ndim;
-            }
+                for (int j = 0; j < ndim; ++j)
+                    Bslice[j + i * ndim] += dia_slice[i] * Aslice[j + i * ndim];
         }
     }
 
@@ -538,14 +536,10 @@ namespace mxhelp
             const double *Aslice = A + A1, *dia_slice = _getDiagonal(d);
             double *Bslice = B + B1;
 
+            #pragma omp parallel for simd collapse(2)
             for (int i = 0; i < ndim; ++i)
-            {
                 for (int j = 0; j < nmult; ++j)
-                    Bslice[j] += dia_slice[j] * Aslice[j];
-
-                Bslice += ndim;
-                Aslice += ndim;
-            }
+                    Bslice[j + i * ndim] += dia_slice[j] * Aslice[j + i * ndim];
         }
     }
 
