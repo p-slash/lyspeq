@@ -233,14 +233,12 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 void Chunk::_setVZMatrices() {
     LOG::LOGGER.DEB("Setting v & z matrices\n");
 
-    #pragma omp parallel for
+    #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < _matrix_n; ++i)
     {
-        double li = _matrix_lambda[i];
-
         for (int j = i; j < _matrix_n; ++j)
         {
-            double lj = _matrix_lambda[j];
+            double li = _matrix_lambda[i], lj = _matrix_lambda[j];
             int idx = j + i * _matrix_n;
 
             _vmatrix[idx] = SPEED_OF_LIGHT * log(lj / li);
@@ -256,7 +254,7 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
     double t = mytime::timer.getTime();
     double *inter_mat = (on_oversampling) ? _finer_matrix : sm;
 
-    #pragma omp parallel for
+    #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < _matrix_n; ++i) {
         for (int j = i; j < _matrix_n; ++j) {
             int idx = j + i * _matrix_n;
@@ -287,7 +285,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
     shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
 
-    #pragma omp parallel for
+    #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < _matrix_n; ++i) {
         for (int j = i; j < _matrix_n; ++j) {
             int idx = j + i * _matrix_n;
