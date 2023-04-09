@@ -524,10 +524,9 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
         int idx_s = jdx % num_streams;
         cublas_helper.setStream(streams[idx_s]);
 
-        double *Q_jkz_matrix = _getDevQikz(jdx);
-        double *fij = dev_fisher.get() + j_kz + idx_fji_0;
-
-        cublas_helper.trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size(), fij);
+        cublas_helper.trace_dsymm(
+            Qw_ikz_matrix, _getDevQikz(jdx), size(),
+            dev_fisher.get() + j_kz + idx_fji_0);
 
         idx_streams.insert(idx_s);
     }
@@ -658,8 +657,8 @@ void Chunk::_initIteration() {
         size_t offset = jdx * DATA_SIZE_2;
         double _qj = cpu_qj + offset;
 
-        _setQiMatrix(qj, N_Q_MATRICES - j_kz - 1);
-        dev_qj.asyncCpy(qj, DATA_SIZE_2, offset);
+        _setQiMatrix(_qj, j_kz);
+        dev_qj.asyncCpy(_qj, DATA_SIZE_2, offset);
     }
 }
 
