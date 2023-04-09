@@ -87,7 +87,7 @@ if __name__ == '__main__':
     true_Pfid, true_ThetaP, true_ErrorP = \
     readQMLEResults(args.SourceDir+"/tests/truth/test_it1_quadratic_power_estimate_detailed.dat")
     comp_Pfid, comp_ThetaP, comp_ErrorP = \
-    readQMLEResults(args.SourceDir+"/tests/output/test_it1_quadratic_power_estimate_detailed.dat")
+    readQMLEResults(args.SourceDir+"/tests/output/test_it1_quadratic_power_estimate_detailed.txt")
 
     print("1. Fiducial power:")
     ERR_CODE += testMaxDiffArrays(true_Pfid, comp_Pfid)
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     print("4. Comparing Fisher matrices...")
     true_fisher = np.genfromtxt(args.SourceDir+"/tests/truth/test_it1_fisher_matrix.dat", skip_header=1)
-    comp_fisher = np.genfromtxt(args.SourceDir+"/tests/output/test_it1_fisher_matrix.dat", skip_header=1)
+    comp_fisher = np.genfromtxt(args.SourceDir+"/tests/output/test_it1_fisher_matrix.txt", skip_header=1)
     ERR_CODE += testMaxDiffArrays(true_fisher, comp_fisher)
 
     if ERR_CODE == 0:
