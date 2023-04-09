@@ -654,7 +654,7 @@ void Chunk::_initIteration() {
 
     for (int jdx = 0; jdx < i_kz_vector.size(); ++jdx) {
         int j_kz = i_kz_vector[jdx];
-        size_t offset = jdx * DATA_SIZE_2;
+        int offset = jdx * DATA_SIZE_2;
         double _qj = cpu_qj + offset;
 
         _setQiMatrix(_qj, j_kz);
