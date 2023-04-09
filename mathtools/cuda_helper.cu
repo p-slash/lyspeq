@@ -14,6 +14,7 @@ class MyCuPtr
 {
     cudaError_t cuda_stat;
     T *dev_ptr;
+    size_t size;
 
     void check_cuda_error(std::string err_msg) {
         if (cuda_stat != cudaSuccess)
@@ -26,9 +27,10 @@ class MyCuPtr
             dev_ptr = nullptr;
             throw std::runtime_error("cudaMalloc failed.");
         }
+        size = n;
     }
 public:
-    MyCuPtr() { dev_ptr = nullptr; }
+    MyCuPtr() { dev_ptr = nullptr; size = 0; }
     MyCuPtr(int n) { _alloc(n); }
     MyCuPtr(int n, T *cpu_ptr, cudaStream_t stream=NULL) { 
         _alloc(n); asyncCpy(cpu_ptr, n, 0, stream);
@@ -41,23 +43,28 @@ public:
 
     T* get() const { return dev_ptr; }
 
+    void memset(int value=0) {
+        cuda_stat = cudaMemset(dev_ptr, value, size * sizeof(T));
+        check_cuda_error("cudaMemset: ");
+    }
+
     void asyncCpy(T *cpu_ptr, int n, int offset=0, cudaStream_t stream=NULL) {
         cuda_stat = cudaMemcpyAsync(
-            dev_ptr + offset, cpu_ptr, n*sizeof(T), cudaMemcpyHostToDevice,
+            dev_ptr + offset, cpu_ptr, n * sizeof(T), cudaMemcpyHostToDevice,
             stream);
         check_cuda_error("asyncCpy::cudaMemcpyAsync: ");
     }
 
     void asyncDwn(T *cpu_ptr, int n, int offset=0, cudaStream_t stream=NULL) {
         cuda_stat = cudaMemcpyAsync(
-            cpu_ptr, dev_ptr + offset, sizeof(T) * n, cudaMemcpyDeviceToHost,
+            cpu_ptr, dev_ptr + offset, n * sizeof(T), cudaMemcpyDeviceToHost,
             stream);
         check_cuda_error("asyncDwn::cudaMemcpyAsync: ");
     }
 
     void syncDownload(T *cpu_ptr, int n, int offset=0) {
         cuda_stat = cudaMemcpy(
-            cpu_ptr, dev_ptr + offset, n*sizeof(T), cudaMemcpyDeviceToHost);
+            cpu_ptr, dev_ptr + offset, n * sizeof(T), cudaMemcpyDeviceToHost);
         check_cuda_error("syncDownload::cudaMemcpy: ");
     }
 
@@ -65,6 +72,7 @@ public:
         if (dev_ptr != nullptr) {
             cudaFree(dev_ptr);
             dev_ptr = nullptr;
+            size = 0;
         }
     }
 

@@ -315,7 +315,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
         cublas_helper.dcopy(
             dev_sfid.get(), covariance_matrix.get(), DATA_SIZE_2);
     else
-        cudaMemset(covariance_matrix.get(), 0, DATA_SIZE_2*sizeof(double));
+        covariance_matrix.memset();
 
     const double *alpha = ps_estimate + fisher_index_start;
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
@@ -437,7 +437,7 @@ void Chunk::_addMarginalizations()
 
     // SVD to get orthogonal marg vectors
     cusolver_helper.svd(temp_v, dev_svals.get(), size(), specifics::CONT_NVECS);
-    dev_svals.syncDownload(cpu_svals.get(), cpu_svals.size());
+    dev_svals.syncDownload(cpu_svals.get(), specifics::CONT_NVECS);
     LOG::LOGGER.DEB("SVD'ed\n");
 
     // Remove each 
@@ -648,9 +648,11 @@ void Chunk::_initIteration() {
 
     for (int jdx = 0; jdx < i_kz_vector.size(); ++jdx) {
         int j_kz = i_kz_vector[jdx];
-        _setQiMatrix(cpu_qj + jdx * DATA_SIZE_2, N_Q_MATRICES - j_kz - 1);
-        dev_qj.asyncCpy(
-            cpu_qj + jdx * DATA_SIZE_2, DATA_SIZE_2, jdx * DATA_SIZE_2);
+        size_t offset = jdx * DATA_SIZE_2;
+        double _qj = cpu_qj + offset;
+
+        _setQiMatrix(qj, N_Q_MATRICES - j_kz - 1);
+        dev_qj.asyncCpy(qj, DATA_SIZE_2, offset);
     }
 }
 
@@ -662,7 +664,7 @@ void Chunk::_allocateCuda() {
     dev_smnoise.realloc(size());
 
     dev_fisher.realloc(bins::FISHER_SIZE);
-    cudaMemset(dev_fisher.get(), 0, bins::FISHER_SIZE * sizeof(double));
+    dev_fisher.memset(0);
 
     covariance_matrix.realloc(DATA_SIZE_2);
 
