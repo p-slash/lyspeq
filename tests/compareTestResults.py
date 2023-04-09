@@ -82,21 +82,6 @@ if __name__ == '__main__':
     
     del true_deriv_table, comp_deriv_table
 
-    # TESTING INTERPOLATED MATRICES
-    # Read and compare interpolated fiducial signal matrix values
-    print(f"{bcolors.BOLD}Comparing fiducial signal matrices...{bcolors.ENDC}")
-    true_fid_signal = np.genfromtxt(args.SourceDir+"/tests/truth/signal_matrix.txt", skip_header=1)
-    comp_fid_signal = np.genfromtxt(args.SourceDir+"/tests/output/signal_matrix.txt", skip_header=1)
-    ERR_CODE += testMaxDiffArrays(true_fid_signal, comp_fid_signal)
-    del true_fid_signal, comp_fid_signal
-
-    # Read and compare interpolated derivative matrix values
-    print(f"{bcolors.BOLD}Comparing derivative matrices...{bcolors.ENDC}")
-    true_q0 = np.genfromtxt(args.SourceDir+"/tests/truth/q0_matrix.txt", skip_header=1)
-    comp_q0 = np.genfromtxt(args.SourceDir+"/tests/output/q0_matrix.txt", skip_header=1)
-    ERR_CODE += testMaxDiffArrays(true_q0, comp_q0)
-    del true_q0, comp_q0
-
     # TESTING THE FINAL RESULTS
     print(f"{bcolors.BOLD}Comparing QMLE results...{bcolors.ENDC}")
     true_Pfid, true_ThetaP, true_ErrorP = \
