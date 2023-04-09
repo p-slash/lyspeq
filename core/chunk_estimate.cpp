@@ -51,7 +51,14 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), size());
 
     // Keep noise as error squared (variance)
-    std::for_each(qFile->noise(), qFile->noise()+size(), [](double &n) { n*=n; });
+    std::for_each(
+        qFile->noise(), qFile->noise() + size(),
+        [](double &n) { n *= n; });
+
+    // Divide wave by LYA_REST
+    std::for_each(
+        qFile->wave(), qFile->wave() + size(),
+        [](double &w) { w /= LYA_REST; });
 
     // Set up number of matrices, index for Fisher matrix
     _setNQandFisherIndex();
@@ -237,7 +244,7 @@ void Chunk::_setVZMatrices() {
             int idx = j + i * _matrix_n;
 
             _vmatrix[idx] = SPEED_OF_LIGHT * log(lj / li);
-            _zmatrix[idx] = sqrt(li * lj) / LYA_REST - 1.;
+            _zmatrix[idx] = sqrt(li * lj) - 1.;
         }
     }
 }
@@ -346,7 +353,7 @@ void _getUnitVectorLogLam(const double *w, int size, int cmo, double *out)
 {
     std::transform(
         w, w+size, out,
-        [cmo](const double &l) { return pow(log(l / LYA_REST), cmo); }
+        [cmo](const double &l) { return pow(log(l), cmo); }
     );
     double norm = sqrt(cblas_dnrm2(size, out, 1));
     cblas_dscal(size, 1./norm, out, 1);
@@ -356,7 +363,7 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 {
     std::transform(
         w, w+size, out,
-        [cmo](const double &l) { return pow(l / LYA_REST, cmo); }
+        [cmo](const double &l) { return pow(l, cmo); }
     );
     double norm = sqrt(cblas_dnrm2(size, out, 1));
     cblas_dscal(size, 1./norm, out, 1);
@@ -614,7 +621,8 @@ void Chunk::_allocateMatrices()
         int ncols = qFile->Rmat->getNCols();
         _finer_lambda = new double[ncols];
 
-        double fine_dlambda = qFile->dlambda/specifics::OVERSAMPLING_FACTOR;
+        double fine_dlambda =
+            qFile->dlambda / LYA_REST / specifics::OVERSAMPLING_FACTOR;
         int disp = qFile->Rmat->getNElemPerRow()/2;
         for (int i = 0; i < ncols; ++i)
             _finer_lambda[i] = qFile->wave()[0] + (i - disp)*fine_dlambda;
