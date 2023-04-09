@@ -74,7 +74,7 @@ protected:
     void _setNQandFisherIndex();
     void _setStoredMatrices();
     double* _getDevQikz(int idx) const
-    { return dev_qj.get() + (i_kz_vector.size()-idx-1) * DATA_SIZE_2; };
+    { return dev_qj.get() + idx * DATA_SIZE_2; };
 
     void _allocateCuda();
     void _allocateCpu();
