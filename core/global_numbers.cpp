@@ -12,6 +12,7 @@ namespace process
     std::string FNAME_BASE;
     double MEMORY_ALLOC  = 0;
     bool SAVE_EACH_PE_RESULT = false;
+    bool SAVE_EACH_CHUNK_RESULT = false;
     bool SAVE_ALL_SQ_FILES = false;
 
     void updateMemory(double deltamem)
@@ -21,23 +22,6 @@ namespace process
             LOG::LOGGER.ERR("Remaining memory is less than 10 MB!\n");
     }
 
-    /* This function reads following keys from config file:
-    OutputDir: string
-        Output directory. Current dir by default.
-    OutputFileBase: string
-        Base string for output files. "qmle" by default.
-    TemporaryFolder: string
-        Folder to save temporary smooting files. Current dir by default.
-    SaveEachProcessResult: int
-        Pass > 0 to enable mpi saving each result from pe. Turned off
-        by default.
-    CacheAllSQTables: int
-        Pass > 0 to cache all SQ tables into memory. Otherwise, read
-        each file when needed. On by default.
-    AllocatedMemoryMB: double
-        Allocated memory in MB, so that QMLE can save matrices into
-        memory. Default 1500.
-    */
     void readProcess(ConfigFile &config)
     {
         LOG::LOGGER.STD("###############################################\n");
@@ -45,12 +29,14 @@ namespace process
 
         config.addDefaults(process_default_parameters);
 
-        int save_pe_res = config.getInteger("SaveEachProcessResult"), 
+        int save_pe_res = config.getInteger("SaveEachProcessResult"),
+            save_chunk_res = config.getInteger("SaveEachChunkResult"),
             cache_all_sq = config.getInteger("CacheAllSQTables");
         MEMORY_ALLOC = config.getDouble("AllocatedMemoryMB");
 
-        SAVE_EACH_PE_RESULT    = save_pe_res > 0;
-        SAVE_ALL_SQ_FILES      = cache_all_sq > 0;
+        SAVE_EACH_PE_RESULT = save_pe_res > 0;
+        SAVE_EACH_CHUNK_RESULT = save_chunk_res > 0;
+        SAVE_ALL_SQ_FILES = cache_all_sq > 0;
         FNAME_BASE = config.get("OutputDir") + '/'
             + config.get("OutputFileBase");
         TMP_FOLDER = config.get("TemporaryFolder");
@@ -65,6 +51,8 @@ namespace process
         #define booltostr(x) x ? "true" : "false"
         LOG::LOGGER.STD("SaveEachProcessResult is set to %s.\n",
             booltostr(SAVE_EACH_PE_RESULT));
+        LOG::LOGGER.STD("SaveEachChunkResult is set to %s.\n",
+            booltostr(SAVE_EACH_CHUNK_RESULT));
         LOG::LOGGER.STD("CacheAllSQTables is set to %s.\n",
             booltostr(SAVE_ALL_SQ_FILES));
         LOG::LOGGER.STD("AllocatedMemoryMB is set to %.1e MB.\n",
