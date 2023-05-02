@@ -77,6 +77,12 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 
     interp_derivative_matrix.reserve(bins::NUMBER_OF_K_BANDS);
 
+    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+        dbt_estimate_before_fisher_vector.push_back(
+            std::make_unique<double[]>(N_Q_MATRICES));
+
+    fisher_matrix = std::make_unique<double[]>(N_Q_MATRICES * N_Q_MATRICES);
+
     process::updateMemory(-getMinMemUsage());
 }
 
@@ -149,8 +155,10 @@ void Chunk::_setNQandFisherIndex()
 void Chunk::_setStoredMatrices()
 {
     double size_m1 = (double)sizeof(double) * DATA_SIZE_2 / 1048576.; // in MB
+
+    int n_spec_mat = 3 + i_kz_vector.size() + (!specifics::TURN_OFF_SFID);
     double remain_mem = process::MEMORY_ALLOC,
-           needed_mem = (3+i_kz_vector.size()+(!specifics::TURN_OFF_SFID))*size_m1;
+           needed_mem = n_spec_mat * size_m1;
 
     // Resolution matrix needs another temp storage.
     if (specifics::USE_RESOLUTION_MATRIX)
@@ -179,6 +187,8 @@ Chunk::~Chunk()
 double Chunk::getMinMemUsage()
 {
     double minmem = (double)sizeof(double) * size() * 3 / 1048576.; // in MB
+    minmem +=
+        (double)sizeof(double) * (N_Q_MATRICES + 1) * N_Q_MATRICES / 1048576.;
 
     if (specifics::USE_RESOLUTION_MATRIX)
         minmem += qFile->Rmat->getMinMemUsage();
@@ -463,9 +473,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 {
     double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx],
-        idx_fji_0 = (
-            bins::TOTAL_KZ_BINS * (i_kz + fisher_index_start)
-            + fisher_index_start);
+        idx_fji_0 = N_Q_MATRICES * i_kz;
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
@@ -494,9 +502,9 @@ void Chunk::computePSbeforeFvector()
 
     double
         *Q_ikz_matrix = temp_matrix[0],
-        *dk0 = dbt_estimate_before_fisher_vector[0].get() + fisher_index_start,
-        *nk0 = dbt_estimate_before_fisher_vector[1].get() + fisher_index_start,
-        *tk0 = dbt_estimate_before_fisher_vector[2].get() + fisher_index_start;
+        *dk0 = dbt_estimate_before_fisher_vector[0].get(),
+        *nk0 = dbt_estimate_before_fisher_vector[1].get(),
+        *tk0 = dbt_estimate_before_fisher_vector[2].get();
 
     cblas_dsymv(
         CblasRowMajor, CblasUpper, size(), 1.,
@@ -505,7 +513,6 @@ void Chunk::computePSbeforeFvector()
 
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
-        double *dk = dk0 + i_kz, *nk = nk0 + i_kz, *tk = tk0 + i_kz;
 
         // Set derivative matrix ikz
         double *ptr = _getStoredQikz(idx);
@@ -513,7 +520,7 @@ void Chunk::computePSbeforeFvector()
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        *dk = mxhelp::my_cblas_dsymvdot(
+        dk0[i_kz] = mxhelp::my_cblas_dsymvdot(
             weighted_data_vector, 
             Q_ikz_matrix, temp_vector, size());
 
@@ -521,12 +528,12 @@ void Chunk::computePSbeforeFvector()
         _getWeightedMatrix(Q_ikz_matrix);
 
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        *nk = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise(), size());
+        nk0[i_kz] = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise(), size());
 
         // Set Fiducial Signal Matrix
         // Tr(C-1 Qi C-1 Sfid)
         if (!specifics::TURN_OFF_SFID)
-            *tk = mxhelp::trace_dsymm(Q_ikz_matrix, stored_sfid, size());
+            tk0[i_kz] = mxhelp::trace_dsymm(Q_ikz_matrix, stored_sfid, size());
 
         // Do not compute fisher matrix if it is precomputed
         if (!specifics::USE_PRECOMPUTED_FISHER)
@@ -571,13 +578,22 @@ void Chunk::oneQSOiteration(
 
         computePSbeforeFvector();
 
-        mxhelp::vector_add(fisher_sum, fisher_matrix.get(), bins::FISHER_SIZE);
+        for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
+        {
+            int idx_fji_0 =
+                (bins::TOTAL_KZ_BINS + 1) * (i_kz + fisher_index_start);
+            int ncopy = N_Q_MATRICES - i_kz;
+            mxhelp::vector_add(
+                fisher_sum + idx_fji_0,
+                fisher_matrix.get() + i_kz * (N_Q_MATRICES + 1),
+                ncopy);
+        }
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
             mxhelp::vector_add(
-                dbt_sum_vector[dbt_i].get(), 
+                dbt_sum_vector[dbt_i].get() + fisher_index_start, 
                 dbt_estimate_before_fisher_vector[dbt_i].get(),
-                bins::TOTAL_KZ_BINS);
+                N_Q_MATRICES);
     }
     catch (std::exception& e) {
         LOG::LOGGER.ERR(
@@ -594,12 +610,6 @@ void Chunk::oneQSOiteration(
 
 void Chunk::_allocateMatrices()
 {
-    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-        dbt_estimate_before_fisher_vector.push_back(
-            std::make_unique<double[]>(bins::TOTAL_KZ_BINS));
-
-    fisher_matrix = std::make_unique<double[]>(bins::FISHER_SIZE);
-
     covariance_matrix = new double[DATA_SIZE_2];
 
     for (int i = 0; i < 2; ++i)
@@ -652,8 +662,6 @@ void Chunk::_allocateMatrices()
 
 void Chunk::_freeMatrices()
 {
-    dbt_estimate_before_fisher_vector.clear();
-    fisher_matrix.reset();
     delete [] covariance_matrix;
 
     for (int i = 0; i < 2; ++i)
