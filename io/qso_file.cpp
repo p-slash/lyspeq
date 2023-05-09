@@ -332,9 +332,9 @@ void PiccaFile::_checkStatus()
     if (status == 0)
         return;
 
-    char error_msg[50];
-    fits_get_errstatus(status, error_msg);
-    std::string error_msg = std::string("FITS ERROR ") + std::string(error_msg);
+    char fits_msg[50];
+    fits_get_errstatus(status, fits_msg);
+    std::string error_msg = std::string("FITS ERROR ") + std::string(fits_msg);
 
     throw std::runtime_error(error_msg);
 }

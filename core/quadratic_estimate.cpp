@@ -17,17 +17,46 @@
 #include "mathtools/matrix_helper.hpp"
 
 #include "io/io_helper_functions.hpp"
+#include "io/bootstrap_file.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
 #if defined(ENABLE_MPI)
 #include "mpi.h" 
 #include "core/mpi_merge_sort.cpp"
-#include "io/bootstrap_file.hpp"
 #endif
 
 // This variable is set in inverse fisher matrix
 int _NewDegreesOfFreedom = 0;
+
+void _saveChunkResults(
+        std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
+) {
+    // Create FITS file
+    ioh::BootstrapChunksFile bfile(process::FNAME_BASE, process::this_pe);
+    // For each chunk to a different extention
+    for (auto &one_qso : local_queue) {
+        for (auto &one_chunk : one_qso->chunks) {
+            double *pk = one_chunk->dbt_estimate_before_fisher_vector[0].get();
+            int ndim = one_chunk->N_Q_MATRICES;
+
+            mxhelp::vector_sub(
+                pk,
+                one_chunk->dbt_estimate_before_fisher_vector[1].get(),
+                ndim);
+            mxhelp::vector_sub(
+                pk,
+                one_chunk->dbt_estimate_before_fisher_vector[2].get(),
+                ndim);
+
+            bfile.writeChunk(
+                pk, one_chunk->fisher_matrix.get(), ndim,
+                one_chunk->fisher_index_start,
+                one_chunk->qFile->id, one_chunk->qFile->z_qso);
+        }
+    }
+}
+
 
 /* This function reads following keys from config file:
 NumberOfIterations: int
@@ -817,36 +846,6 @@ void OneDQuadraticPowerEstimate::_savePEResult()
     return;
 }
 #endif
-
-void _saveChunkResults(
-        std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
-) {
-    // Create FITS file
-    bfile = BootstrapChunksFile(process::FNAME_BASE, process::thispe);
-    // For each chunk to a different extention
-    for (auto &one_qso : local_queue) {
-        for (auto &one_chunk : one_qso) {
-            double *pk = one_chunk.dbt_estimate_before_fisher_vector[0].get();
-            int ndim = one_chunk.N_Q_MATRICES;
-
-            mxhelp::vector_sub(
-                pk,
-                dbt_estimate_sum_before_fisher_vector[1].get(),
-                ndim);
-            mxhelp::vector_sub(
-                pk,
-                dbt_estimate_sum_before_fisher_vector[2].get(),
-                ndim);
-
-            bfile.writeChunk(
-                pk, one_chunk.fisher_matrix.get(), ndim,
-                one_chunk.fisher_index_start,
-                one_chunk.qFile->id, one_chunk.qFile->z_qso);
-        }
-    }
-}
-
-
 
 
 
