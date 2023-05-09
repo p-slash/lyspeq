@@ -1,5 +1,3 @@
-#if defined(ENABLE_MPI)
-
 #include "io/bootstrap_file.hpp"
 #include "mathtools/matrix_helper.hpp"
 
@@ -7,6 +5,54 @@
 #include <algorithm>
 #include <stdexcept>
 
+
+ioh::BootstrapChunksFile::BootstrapChunksFile(
+        const std::string &base, int thispe
+) {
+    status = 0;
+    std::string out_fname =
+        "!" + base + "-bootchunks-" + std::to_string(this_pe) + ".dat";
+    fits_create_file(&fits_file, out_fname.c_str(), &status);
+    _checkStatus();
+}
+
+
+void ioh::BootstrapFile::writeChunk(
+        const double *pk, const double *fisher, int ndim,
+        int fisher_index_start, long id, double z_qso
+) {
+    int bitpix = DOUBLE_IMG;
+    long naxis = 2;
+    long naxes[2] = { ndim, ndim + 1 };
+
+    fits_create_img(fits_file, bitpix, naxis, naxes, &status);
+    _checkStatus();
+
+    fits_write_key(fits_file, TLONG, "TARGETID", &id, nullptr, &status);
+    fits_write_key(fits_file, TDOUBLE, "ZQSO", &z_qso, nullptr, &status);
+    fits_write_key(fits_file, TINT, "NQDIM", &ndim, nullptr, &status);
+    fits_write_key(
+        fits_file, TINT, "ISTART", &fisher_index_start, nullptr, &status);
+
+    fits_write_img(fits_file, TDOUBLE, 1, ndim, pk, &status);
+    fits_write_img(fits_file, TDOUBLE, ndim + 1, ndim * ndim, fisher, &status);
+    _checkStatus();
+}
+
+
+void ioh::BootstrapFile::_checkStatus() {
+    if (status == 0)
+        return;
+
+    char error_msg[50];
+    fits_get_errstatus(status, error_msg);
+    std::string error_msg = std::string("FITS ERROR ") + std::string(error_msg);
+
+    throw std::runtime_error(error_msg);
+}
+
+
+#if defined(ENABLE_MPI)
 std::unique_ptr<ioh::BootstrapFile> ioh::boot_saver;
 
 ioh::BootstrapFile::BootstrapFile(const std::string &base, int nk, int nz, int thispe)
