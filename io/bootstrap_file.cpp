@@ -11,7 +11,7 @@ ioh::BootstrapChunksFile::BootstrapChunksFile(
 ) {
     status = 0;
     std::string out_fname =
-        "!" + base + "-bootchunks-" + std::to_string(thispe) + ".dat";
+        "!" + base + "-bootchunks-" + std::to_string(thispe) + ".fits";
     fits_create_file(&fits_file, out_fname.c_str(), &status);
     _checkStatus();
 }
