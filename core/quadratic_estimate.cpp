@@ -428,6 +428,10 @@ void OneDQuadraticPowerEstimate::iterate()
 
         LOG::LOGGER.DEB("All done.\n");
 
+        // Scale and copy first before summing across PEs
+        cblas_dscal(bins::FISHER_SIZE, 0.5, fisher_matrix_sum.get(), 1);
+        mxhelp::copyUpperToLower(fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
+
         // Save bootstrap files only if MPI is enabled.
         #if defined(ENABLE_MPI)
         // Save PE estimates to a file
@@ -447,8 +451,6 @@ void OneDQuadraticPowerEstimate::iterate()
                 dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 
                 bins::TOTAL_KZ_BINS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         #endif
-        mxhelp::copyUpperToLower(fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
-        cblas_dscal(bins::FISHER_SIZE, 0.5, fisher_matrix_sum.get(), 1);
 
         // If fisher is precomputed, copy this into fisher_matrix_sum. 
         // oneQSOiteration iteration will not compute fishers as well.
@@ -509,6 +511,10 @@ void OneDQuadraticPowerEstimate::iterate()
             throw e;
         }
     }
+
+    // Save chunk estimates to a file
+    if (process::SAVE_EACH_CHUNK_RESULT)
+        _saveChunkResults(local_queue);
 }
 
 bool OneDQuadraticPowerEstimate::hasConverged()
@@ -782,14 +788,17 @@ void OneDQuadraticPowerEstimate::_savePEResult()
 {
     auto tmppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
-    std::copy(dbt_estimate_sum_before_fisher_vector[0].get(), 
-        dbt_estimate_sum_before_fisher_vector[0].get()+bins::TOTAL_KZ_BINS, 
+    std::copy(
+        dbt_estimate_sum_before_fisher_vector[0].get(), 
+        dbt_estimate_sum_before_fisher_vector[0].get() + bins::TOTAL_KZ_BINS, 
         tmppower.get());
 
-    mxhelp::vector_sub(tmppower.get(),
+    mxhelp::vector_sub(
+        tmppower.get(),
         dbt_estimate_sum_before_fisher_vector[1].get(),
         bins::TOTAL_KZ_BINS);
-    mxhelp::vector_sub(tmppower.get(),
+    mxhelp::vector_sub(
+        tmppower.get(),
         dbt_estimate_sum_before_fisher_vector[2].get(),
         bins::TOTAL_KZ_BINS);
 
@@ -802,9 +811,40 @@ void OneDQuadraticPowerEstimate::_savePEResult()
         LOG::LOGGER.ERR("ERROR: Saving PE results: %d\n", process::this_pe);
     }
 }
+#else
+void OneDQuadraticPowerEstimate::_savePEResult()
+{
+    return;
+}
 #endif
 
+void _saveChunkResults(
+        std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
+) {
+    // Create FITS file
+    bfile = BootstrapChunksFile(process::FNAME_BASE, process::thispe);
+    // For each chunk to a different extention
+    for (auto &one_qso : local_queue) {
+        for (auto &one_chunk : one_qso) {
+            double *pk = one_chunk.dbt_estimate_before_fisher_vector[0].get();
+            int ndim = one_chunk.N_Q_MATRICES;
 
+            mxhelp::vector_sub(
+                pk,
+                dbt_estimate_sum_before_fisher_vector[1].get(),
+                ndim);
+            mxhelp::vector_sub(
+                pk,
+                dbt_estimate_sum_before_fisher_vector[2].get(),
+                ndim);
+
+            bfile.writeChunk(
+                pk, one_chunk.fisher_matrix.get(), ndim,
+                one_chunk.fisher_index_start,
+                one_chunk.qFile->id, one_chunk.qFile->z_qso);
+        }
+    }
+}
 
 
 
