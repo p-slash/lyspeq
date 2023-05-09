@@ -11,13 +11,13 @@ ioh::BootstrapChunksFile::BootstrapChunksFile(
 ) {
     status = 0;
     std::string out_fname =
-        "!" + base + "-bootchunks-" + std::to_string(this_pe) + ".dat";
+        "!" + base + "-bootchunks-" + std::to_string(thispe) + ".dat";
     fits_create_file(&fits_file, out_fname.c_str(), &status);
     _checkStatus();
 }
 
 
-void ioh::BootstrapFile::writeChunk(
+void ioh::BootstrapChunksFile::writeChunk(
         const double *pk, const double *fisher, int ndim,
         int fisher_index_start, long id, double z_qso
 ) {
@@ -34,19 +34,19 @@ void ioh::BootstrapFile::writeChunk(
     fits_write_key(
         fits_file, TINT, "ISTART", &fisher_index_start, nullptr, &status);
 
-    fits_write_img(fits_file, TDOUBLE, 1, ndim, pk, &status);
-    fits_write_img(fits_file, TDOUBLE, ndim + 1, ndim * ndim, fisher, &status);
+    fits_write_img(fits_file, TDOUBLE, 1, ndim, (void *) pk, &status);
+    fits_write_img(fits_file, TDOUBLE, ndim + 1, ndim * ndim, (void *) fisher, &status);
     _checkStatus();
 }
 
 
-void ioh::BootstrapFile::_checkStatus() {
+void ioh::BootstrapChunksFile::_checkStatus() {
     if (status == 0)
         return;
 
-    char error_msg[50];
-    fits_get_errstatus(status, error_msg);
-    std::string error_msg = std::string("FITS ERROR ") + std::string(error_msg);
+    char fits_msg[50];
+    fits_get_errstatus(status, fits_msg);
+    std::string error_msg = std::string("FITS ERROR ") + std::string(fits_msg);
 
     throw std::runtime_error(error_msg);
 }

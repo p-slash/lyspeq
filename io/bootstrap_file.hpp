@@ -15,7 +15,7 @@ class BootstrapChunksFile
 {
 public:
     BootstrapChunksFile(const std::string &base, int thispe);
-    ~BootstrapFile() { fits_close_file(fits_file, &status); };
+    ~BootstrapChunksFile() { fits_close_file(fits_file, &status); };
 
     void writeChunk(
         const double *pk, const double *fisher, int ndim,
@@ -25,7 +25,7 @@ private:
     fitsfile *fits_file;
 
     void _checkStatus();
-}
+};
 
 
 #if defined(ENABLE_MPI)
