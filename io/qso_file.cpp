@@ -329,9 +329,14 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
 
 void PiccaFile::_checkStatus()
 {
-    char error_msg[50]="FITS ERROR ";
-    fits_get_errstatus(status, &error_msg[11]);
-    if (status)     throw std::runtime_error(std::string(error_msg));
+    if (status == 0)
+        return;
+
+    char error_msg[50];
+    fits_get_errstatus(status, error_msg);
+    std::string error_msg = std::string("FITS ERROR ") + std::string(error_msg);
+
+    throw std::runtime_error(error_msg);
 }
 
 void PiccaFile::_setHeaderKeys()
