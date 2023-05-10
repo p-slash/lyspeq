@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ `DynamicChunkNumber` behavior change. `MAX_PIXELS_IN_FOREST = 700` and maximum number of chunks is limited to `DynamicChunkNumber`.
 + `SaveEachChunkResult` option to save each chunk result to FITS file. The fisher matrices are not multiplied by 0.5 and only upper triangle is non-zero.
 + `LookUpTableDir` to save lookup tables instead of being relative to `OutputDir`.
 + Demand all matrices to fit into memory. Skip below Nyquist (not half of nyquist)
