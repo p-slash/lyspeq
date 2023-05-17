@@ -18,7 +18,8 @@ public:
     ~BootstrapChunksFile() { fits_close_file(fits_file, &status); };
 
     void writeChunk(
-        const double *pk, const double *fisher, int ndim,
+        const double *pk, const double *nk, const double *tk,
+        const double *fisher, int ndim,
         int fisher_index_start, long id, double z_qso);
 private:
     int status;

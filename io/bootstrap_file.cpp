@@ -18,12 +18,13 @@ ioh::BootstrapChunksFile::BootstrapChunksFile(
 
 
 void ioh::BootstrapChunksFile::writeChunk(
-        const double *pk, const double *fisher, int ndim,
+        const double *pk, const double *nk, const double *tk,
+        const double *fisher, int ndim,
         int fisher_index_start, long id, double z_qso
 ) {
     int bitpix = DOUBLE_IMG;
     long naxis = 2;
-    long naxes[2] = { ndim, ndim + 1 };
+    long naxes[2] = { ndim, ndim + 3 };
 
     fits_create_img(fits_file, bitpix, naxis, naxes, &status);
     _checkStatus();
@@ -35,7 +36,12 @@ void ioh::BootstrapChunksFile::writeChunk(
         fits_file, TINT, "ISTART", &fisher_index_start, nullptr, &status);
 
     fits_write_img(fits_file, TDOUBLE, 1, ndim, (void *) pk, &status);
-    fits_write_img(fits_file, TDOUBLE, ndim + 1, ndim * ndim, (void *) fisher, &status);
+    fits_write_img(fits_file, TDOUBLE, ndim + 1, ndim, (void *) nk, &status);
+    fits_write_img(
+        fits_file, TDOUBLE, 2 * ndim + 1, ndim, (void *) tk, &status);
+    fits_write_img(
+        fits_file, TDOUBLE, 3 * ndim + 1, ndim * ndim, (void *) fisher,
+        &status);
     _checkStatus();
 }
 
