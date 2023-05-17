@@ -38,19 +38,14 @@ void _saveChunkResults(
     for (auto &one_qso : local_queue) {
         for (auto &one_chunk : one_qso->chunks) {
             double *pk = one_chunk->dbt_estimate_before_fisher_vector[0].get();
+            double *nk = one_chunk->dbt_estimate_before_fisher_vector[1].get();
+            double *tk = one_chunk->dbt_estimate_before_fisher_vector[2].get();
+
             int ndim = one_chunk->N_Q_MATRICES;
 
-            mxhelp::vector_sub(
-                pk,
-                one_chunk->dbt_estimate_before_fisher_vector[1].get(),
-                ndim);
-            mxhelp::vector_sub(
-                pk,
-                one_chunk->dbt_estimate_before_fisher_vector[2].get(),
-                ndim);
-
             bfile.writeChunk(
-                pk, one_chunk->fisher_matrix.get(), ndim,
+                pk, nk, tk,
+                one_chunk->fisher_matrix.get(), ndim,
                 one_chunk->fisher_index_start,
                 one_chunk->qFile->id, one_chunk->qFile->z_qso);
         }
