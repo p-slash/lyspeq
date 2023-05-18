@@ -4,6 +4,7 @@
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
 # Changelog
++ `SaveEachChunkResult` saves only the upper triangle of the Fisher matrix.
 + `DynamicChunkNumber` behavior change. `MAX_PIXELS_IN_FOREST = 700` and maximum number of chunks is limited to `DynamicChunkNumber`.
 + `SaveEachChunkResult` option to save each chunk result to FITS file. The fisher matrices are not multiplied by 0.5 and only upper triangle is non-zero.
 + `LookUpTableDir` to save lookup tables instead of being relative to `OutputDir`.
@@ -246,16 +247,18 @@ Bootstrap file output
 ===
 When `SaveEachProcessResult 1` is passed in the config file, individual results from each process will be saved into files `OutputDir`. All results will be saved to `bootresults.dat`. This file is in binary format. It starts with two integers for `Nk, Nz` and another integer for `ndiags`. Each result is then a double array of size `cf_size+N` in which `Pk` is the first `N=Nk*Nz` element, and `CompressedFisherMatrix` is in the remaining part. Only the upper diagonals (starting with the main) of the Fisher matrix is saved in order to save space. Note this `Pk` value is before multiplication by fisher inverse. Normally, `cf_size = TOTAL_KZ_BINS*ndiags - (ndiags*(ndiags-1))/2` and `ndiags=2*NUMBER_OF_K_BANDS`. When compiled with `FISHER_OPTIMIZATION` option, `ndiags=3` and `cf_size = 3*TOTAL_KZ_BINS-NUMBER_OF_K_BANDS-1`. This Fisher matrix is multiplied by 0.5.
 
-When `SaveEachChunkResult 1` is passed in the config file, individual results from each **chunk** will be saved to FITS files. Each process will have its own file. Each chunk is written to image extensions. All dk, nk, tk and fisher matrix is saved for only valid bins for each chunk. This is given by 'ISTART' key in header. 'NQDIM' key gives the dimension. Fisher matrix is **not** multiplied by 0.5 and saved by full NQDIM x NQDIM even though lower half is 0. Sample code to add chunk fisher to total fisher:
+When `SaveEachChunkResult 1` is passed in the config file, individual results from each **chunk** will be saved to FITS files. Each process will have its own file. Each chunk is written to image extensions. All dk, nk, tk and fisher matrix is saved for only valid bins for each chunk. This is given by 'ISTART' key in header. 'NQDIM' key gives the dimension. Fisher matrix is **not** multiplied by 0.5 and only the upper triangle is saved. Sample code to add chunk fisher to total fisher after converting to NQDIM x NQDIM:
 
 ```
-int idx_fji_0 =
-    (TOTAL_KZ_BINS + 1) * (i_kz + ISTART);
-int ncopy = NQDIM - i_kz;
-mxhelp::vector_add(
-    fisher_total + idx_fji_0,
-    fisher_chunk.get() + i_kz * (NQDIM + 1),
-    ncopy);
+for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
+    int idx_fji_0 =
+        (TOTAL_KZ_BINS + 1) * (i_kz + ISTART);
+    int ncopy = NQDIM - i_kz;
+    mxhelp::vector_add(
+        fisher_total + idx_fji_0,
+        fisher_chunk.get() + i_kz * (NQDIM + 1),
+        ncopy);
+}
 ```
 
 

@@ -4,6 +4,7 @@
 #include <string>
 #include <algorithm>
 #include <stdexcept>
+#include <memory>
 
 
 ioh::BootstrapChunksFile::BootstrapChunksFile(
@@ -23,9 +24,22 @@ void ioh::BootstrapChunksFile::writeChunk(
         int fisher_index_start, long id, double z_qso
 ) {
     int bitpix = DOUBLE_IMG;
-    long naxis = 2;
-    long naxes[2] = { ndim, ndim + 3 };
+    long naxis = 1;
+    int cf_size = 3 * ndim + (ndim * (ndim + 1)) / 2;
+    auto data_buffer_ptr = std::make_unique<double[]>(cf_size);
+    double *data_buffer = data_buffer_ptr.get();
+    std::copy(pk, pk + ndim, data_buffer);
+    std::copy(nk, nk + ndim, data_buffer + ndim);
+    std::copy(tk, tk + ndim, data_buffer + 2 * ndim);
 
+    double *v = data_buffer + 3 * ndim;
+    for (int d = 0; d < ndim; ++d)
+    {
+        mxhelp::getDiagonal(fisher, ndim, d, v);
+        v += ndim - d;
+    }
+
+    long naxes[1] = {cf_size};
     fits_create_img(fits_file, bitpix, naxis, naxes, &status);
     _checkStatus();
 
@@ -35,13 +49,8 @@ void ioh::BootstrapChunksFile::writeChunk(
     fits_write_key(
         fits_file, TINT, "ISTART", &fisher_index_start, nullptr, &status);
 
-    fits_write_img(fits_file, TDOUBLE, 1, ndim, (void *) pk, &status);
-    fits_write_img(fits_file, TDOUBLE, ndim + 1, ndim, (void *) nk, &status);
     fits_write_img(
-        fits_file, TDOUBLE, 2 * ndim + 1, ndim, (void *) tk, &status);
-    fits_write_img(
-        fits_file, TDOUBLE, 3 * ndim + 1, ndim * ndim, (void *) fisher,
-        &status);
+        fits_file, TDOUBLE, 1, cf_size, (void *) data_buffer, &status);
     _checkStatus();
 }
 
