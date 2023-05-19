@@ -53,6 +53,38 @@ void _saveChunkResults(
 }
 
 
+class Progress {
+public:
+    Progress(int total, int percThres=5) {
+        size = total;
+        last_progress = 0;
+        pcounter = 0;
+        thres = percThres;
+        init_time = mytime::timer.getTime();
+    };
+
+    Progress& operator++() {
+        LOG::LOGGER.DEB("One done.\n");
+        ++pcounter;
+        int curr_progress = (100 * pcounter) / size;
+        if (curr_progress - last_progress >= thres) {
+            double time_passed_progress =
+                mytime::timer.getTime() - init_time;
+            double remain_progress =
+                time_passed_progress * (size - pcounter) / pcounter;
+            LOG::LOGGER.STD(
+                "Progress: %d%%. Elapsed: %.1f mins. Remaining: %.1f mins.\n",
+                curr_progress, time_passed_progress, remain_progress);
+            last_progress = curr_progress;
+        }
+        return *this;
+    };
+private:
+    int size, last_progress, pcounter, thres;
+    double init_time;
+};
+
+
 /* This function reads following keys from config file:
 NumberOfIterations: int
     Number of iterations. Default 1.
@@ -439,15 +471,15 @@ void OneDQuadraticPowerEstimate::iterate()
 
         // Calculation for each spectrum
         LOG::LOGGER.DEB("Running on local queue size %zu\n", local_queue.size());
-        for (auto &one_qso : local_queue)
-        {
+        Progress prog_tracker(local_queue.size());
+        for (auto &one_qso : local_queue) {
             one_qso->oneQSOiteration(
                 powerspectra_fits.get(), 
                 dbt_estimate_sum_before_fisher_vector,
                 fisher_matrix_sum.get()
             );
 
-            LOG::LOGGER.DEB("One done.\n");
+            ++prog_tracker;
         }
 
         LOG::LOGGER.DEB("All done.\n");
