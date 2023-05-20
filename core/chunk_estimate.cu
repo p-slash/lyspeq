@@ -612,7 +612,8 @@ void Chunk::oneQSOiteration(
         invertCovarianceMatrix();
 
         computePSbeforeFvector();
-        dev_fisher.syncDownload(fisher_matrix, N_Q_MATRICES * N_Q_MATRICES);
+        dev_fisher.syncDownload(
+            fisher_matrix.get(), N_Q_MATRICES * N_Q_MATRICES);
 
         for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
         {
@@ -670,7 +671,7 @@ void Chunk::_initIteration() {
     for (int jdx = 0; jdx < i_kz_vector.size(); ++jdx) {
         int j_kz = i_kz_vector[jdx];
         int offset = jdx * DATA_SIZE_2;
-        double _qj = cpu_qj + offset;
+        double *_qj = cpu_qj + offset;
 
         _setQiMatrix(_qj, j_kz);
         dev_qj.asyncCpy(_qj, DATA_SIZE_2, offset);
