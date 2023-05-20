@@ -32,12 +32,10 @@ matrices. This scheme speeds up the algorithm.
 class Chunk
 {
 protected:
-    std::unique_ptr<qio::QSOFile> qFile;
     int DATA_SIZE_2;
 
-    int _matrix_n, RES_INDEX, N_Q_MATRICES;
+    int _matrix_n, RES_INDEX;
     std::vector<int> i_kz_vector;
-    int fisher_index_start;
     bool isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // Will have finer spacing when rmat is oversampled
@@ -54,12 +52,6 @@ protected:
     double *temp_matrix[2], *stored_qj;
     // DATA_SIZE sized vectors. 
     double *temp_vector, *weighted_data_vector;
-
-    // Initialized to 0
-    // 3 TOTAL_KZ_BINS sized vectors
-    std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
-    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
-    std::unique_ptr<double[]> fisher_matrix;
 
     shared_interp_2d interp2d_signal_matrix;
     std::vector<shared_interp_1d> interp_derivative_matrix;
@@ -85,7 +77,15 @@ protected:
     friend class TestOneQSOEstimate;
 
 public:
+    std::unique_ptr<qio::QSOFile> qFile;
+    int fisher_index_start, N_Q_MATRICES;
     int ZBIN, ZBIN_LOW, ZBIN_UPP;
+
+    // Initialized to 0
+    // 3 TOTAL_KZ_BINS sized vectors
+    std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
+    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
+    std::unique_ptr<double[]> fisher_matrix;
 
     Chunk(const qio::QSOFile &qmaster, int i1, int i2);
     Chunk(Chunk &&rhs) = delete;

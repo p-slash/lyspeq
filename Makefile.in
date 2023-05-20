@@ -86,7 +86,7 @@ uninstall:
 	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable
 
 clean:
-	$(RM) $(OBJECTS) $(bin_OBJ) $(test_objects)
+	$(RM) $(OBJECTS) $(bin_OBJ) $(test_objects) $(srcdir)/tests/output/*
 	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests testSQCMatrices
 	$(RM) test_cuda_helper testPointRef myfitsread test-fftconvolve
 
