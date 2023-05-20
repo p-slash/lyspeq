@@ -127,6 +127,7 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate,
         catch (std::exception& e)
         {
             LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
+            chunk->ZBIN = -1;
         }
     }
 }
