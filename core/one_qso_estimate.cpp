@@ -7,13 +7,15 @@
 #include <stdexcept>
 
 const int
-MAX_PIXELS_IN_FOREST = 1000;
+MAX_PIXELS_IN_FOREST = 700;
 
 int _decideNChunks(int size, std::vector<int> &indices)
 {
     int nchunks = 1;
-    if (specifics::NUMBER_OF_CHUNKS>1)
-        nchunks += (specifics::NUMBER_OF_CHUNKS*size)/MAX_PIXELS_IN_FOREST;
+    if (specifics::NUMBER_OF_CHUNKS > 1) {
+        nchunks += (specifics::NUMBER_OF_CHUNKS * size) / MAX_PIXELS_IN_FOREST;
+        nchunks = (nchunks > specifics::NUMBER_OF_CHUNKS) ? specifics::NUMBER_OF_CHUNKS : nchunks;
+    }
 
     indices.reserve(nchunks+1);
     for (int i = 0; i < nchunks; ++i)
@@ -125,6 +127,7 @@ void OneQSOEstimate::oneQSOiteration(const double *ps_estimate,
         catch (std::exception& e)
         {
             LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
+            chunk->ZBIN = -1;
         }
     }
 }
