@@ -17,17 +17,73 @@
 #include "mathtools/matrix_helper.hpp"
 
 #include "io/io_helper_functions.hpp"
+#include "io/bootstrap_file.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
 #if defined(ENABLE_MPI)
 #include "mpi.h" 
 #include "core/mpi_merge_sort.cpp"
-#include "io/bootstrap_file.hpp"
 #endif
 
 // This variable is set in inverse fisher matrix
 int _NewDegreesOfFreedom = 0;
+
+void _saveChunkResults(
+        std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
+) {
+    // Create FITS file
+    ioh::BootstrapChunksFile bfile(process::FNAME_BASE, process::this_pe);
+    // For each chunk to a different extention
+    for (auto &one_qso : local_queue) {
+        for (auto &one_chunk : one_qso->chunks) {
+            double *pk = one_chunk->dbt_estimate_before_fisher_vector[0].get();
+            double *nk = one_chunk->dbt_estimate_before_fisher_vector[1].get();
+            double *tk = one_chunk->dbt_estimate_before_fisher_vector[2].get();
+
+            int ndim = one_chunk->N_Q_MATRICES;
+
+            bfile.writeChunk(
+                pk, nk, tk,
+                one_chunk->fisher_matrix.get(), ndim,
+                one_chunk->fisher_index_start,
+                one_chunk->qFile->id, one_chunk->qFile->z_qso);
+        }
+    }
+}
+
+
+class Progress {
+public:
+    Progress(int total, int percThres=5) {
+        size = total;
+        last_progress = 0;
+        pcounter = 0;
+        thres = percThres;
+        init_time = mytime::timer.getTime();
+    };
+
+    Progress& operator++() {
+        LOG::LOGGER.DEB("One done.\n");
+        ++pcounter;
+        int curr_progress = (100 * pcounter) / size;
+        if (curr_progress - last_progress >= thres) {
+            double time_passed_progress =
+                mytime::timer.getTime() - init_time;
+            double remain_progress =
+                time_passed_progress * (size - pcounter) / pcounter;
+            LOG::LOGGER.STD(
+                "Progress: %d%%. Elapsed: %.1f mins. Remaining: %.1f mins.\n",
+                curr_progress, time_passed_progress, remain_progress);
+            last_progress = curr_progress;
+        }
+        return *this;
+    };
+private:
+    int size, last_progress, pcounter, thres;
+    double init_time;
+};
+
 
 /* This function reads following keys from config file:
 NumberOfIterations: int
@@ -415,18 +471,22 @@ void OneDQuadraticPowerEstimate::iterate()
 
         // Calculation for each spectrum
         LOG::LOGGER.DEB("Running on local queue size %zu\n", local_queue.size());
-        for (auto &one_qso : local_queue)
-        {
+        Progress prog_tracker(local_queue.size());
+        for (auto &one_qso : local_queue) {
             one_qso->oneQSOiteration(
                 powerspectra_fits.get(), 
                 dbt_estimate_sum_before_fisher_vector,
                 fisher_matrix_sum.get()
             );
 
-            LOG::LOGGER.DEB("One done.\n");
+            ++prog_tracker;
         }
 
         LOG::LOGGER.DEB("All done.\n");
+
+        // Scale and copy first before summing across PEs
+        cblas_dscal(bins::FISHER_SIZE, 0.5, fisher_matrix_sum.get(), 1);
+        mxhelp::copyUpperToLower(fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
 
         // Save bootstrap files only if MPI is enabled.
         #if defined(ENABLE_MPI)
@@ -447,8 +507,6 @@ void OneDQuadraticPowerEstimate::iterate()
                 dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 
                 bins::TOTAL_KZ_BINS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         #endif
-        mxhelp::copyUpperToLower(fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
-        cblas_dscal(bins::FISHER_SIZE, 0.5, fisher_matrix_sum.get(), 1);
 
         // If fisher is precomputed, copy this into fisher_matrix_sum. 
         // oneQSOiteration iteration will not compute fishers as well.
@@ -509,6 +567,10 @@ void OneDQuadraticPowerEstimate::iterate()
             throw e;
         }
     }
+
+    // Save chunk estimates to a file
+    if (process::SAVE_EACH_CHUNK_RESULT)
+        _saveChunkResults(local_queue);
 }
 
 bool OneDQuadraticPowerEstimate::hasConverged()
@@ -782,14 +844,17 @@ void OneDQuadraticPowerEstimate::_savePEResult()
 {
     auto tmppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
-    std::copy(dbt_estimate_sum_before_fisher_vector[0].get(), 
-        dbt_estimate_sum_before_fisher_vector[0].get()+bins::TOTAL_KZ_BINS, 
+    std::copy(
+        dbt_estimate_sum_before_fisher_vector[0].get(), 
+        dbt_estimate_sum_before_fisher_vector[0].get() + bins::TOTAL_KZ_BINS, 
         tmppower.get());
 
-    mxhelp::vector_sub(tmppower.get(),
+    mxhelp::vector_sub(
+        tmppower.get(),
         dbt_estimate_sum_before_fisher_vector[1].get(),
         bins::TOTAL_KZ_BINS);
-    mxhelp::vector_sub(tmppower.get(),
+    mxhelp::vector_sub(
+        tmppower.get(),
         dbt_estimate_sum_before_fisher_vector[2].get(),
         bins::TOTAL_KZ_BINS);
 
@@ -802,11 +867,12 @@ void OneDQuadraticPowerEstimate::_savePEResult()
         LOG::LOGGER.ERR("ERROR: Saving PE results: %d\n", process::this_pe);
     }
 }
+#else
+void OneDQuadraticPowerEstimate::_savePEResult()
+{
+    return;
+}
 #endif
-
-
-
-
 
 
 

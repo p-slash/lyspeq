@@ -29,12 +29,13 @@ namespace process
     extern std::string TMP_FOLDER;
     extern std::string FNAME_BASE;
     extern double MEMORY_ALLOC;
-    extern bool SAVE_EACH_PE_RESULT;
+    extern bool SAVE_EACH_PE_RESULT, SAVE_EACH_CHUNK_RESULT;
     extern bool SAVE_ALL_SQ_FILES;
 
     const config_map process_default_parameters ({
-        {"OutputDir", "."}, {"OutputFileBase", "qmle"}, 
+        {"OutputDir", "."}, {"OutputFileBase", "qmle"},
         {"TemporaryFolder", "."}, {"SaveEachProcessResult", "-1"},
+        {"SaveEachChunkResult", "-1"},
         {"CacheAllSQTables", "1"} , {"AllocatedMemoryMB", "1500."}});
 
     void updateMemory(double deltamem);
@@ -48,6 +49,9 @@ namespace process
         Folder to save temporary smooting files. Current dir by default.
     SaveEachProcessResult: int
         Pass > 0 to enable mpi saving each result from pe. Turned off
+        by default.
+    SaveEachChunkResult: int
+        Pass > 0 to enable saving each result from chunks. Turned off
         by default.
     CacheAllSQTables: int
         Pass > 0 to cache all SQ tables into memory. Otherwise, read

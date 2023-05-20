@@ -1,12 +1,73 @@
-#if defined(ENABLE_MPI)
-
 #include "io/bootstrap_file.hpp"
 #include "mathtools/matrix_helper.hpp"
 
 #include <string>
 #include <algorithm>
 #include <stdexcept>
+#include <memory>
 
+
+ioh::BootstrapChunksFile::BootstrapChunksFile(
+        const std::string &base, int thispe
+) {
+    status = 0;
+    std::string out_fname =
+        "!" + base + "-bootchunks-" + std::to_string(thispe) + ".fits";
+    fits_create_file(&fits_file, out_fname.c_str(), &status);
+    _checkStatus();
+}
+
+
+void ioh::BootstrapChunksFile::writeChunk(
+        const double *pk, const double *nk, const double *tk,
+        const double *fisher, int ndim,
+        int fisher_index_start, long id, double z_qso
+) {
+    int bitpix = DOUBLE_IMG;
+    long naxis = 1;
+    int cf_size = 3 * ndim + (ndim * (ndim + 1)) / 2;
+    auto data_buffer_ptr = std::make_unique<double[]>(cf_size);
+    double *data_buffer = data_buffer_ptr.get();
+    std::copy(pk, pk + ndim, data_buffer);
+    std::copy(nk, nk + ndim, data_buffer + ndim);
+    std::copy(tk, tk + ndim, data_buffer + 2 * ndim);
+
+    double *v = data_buffer + 3 * ndim;
+    for (int d = 0; d < ndim; ++d)
+    {
+        mxhelp::getDiagonal(fisher, ndim, d, v);
+        v += ndim - d;
+    }
+
+    long naxes[1] = {cf_size};
+    fits_create_img(fits_file, bitpix, naxis, naxes, &status);
+    _checkStatus();
+
+    fits_write_key(fits_file, TLONG, "TARGETID", &id, nullptr, &status);
+    fits_write_key(fits_file, TDOUBLE, "ZQSO", &z_qso, nullptr, &status);
+    fits_write_key(fits_file, TINT, "NQDIM", &ndim, nullptr, &status);
+    fits_write_key(
+        fits_file, TINT, "ISTART", &fisher_index_start, nullptr, &status);
+
+    fits_write_img(
+        fits_file, TDOUBLE, 1, cf_size, (void *) data_buffer, &status);
+    _checkStatus();
+}
+
+
+void ioh::BootstrapChunksFile::_checkStatus() {
+    if (status == 0)
+        return;
+
+    char fits_msg[50];
+    fits_get_errstatus(status, fits_msg);
+    std::string error_msg = std::string("FITS ERROR ") + std::string(fits_msg);
+
+    throw std::runtime_error(error_msg);
+}
+
+
+#if defined(ENABLE_MPI)
 std::unique_ptr<ioh::BootstrapFile> ioh::boot_saver;
 
 ioh::BootstrapFile::BootstrapFile(const std::string &base, int nk, int nz, int thispe)
