@@ -616,6 +616,25 @@ void Chunk::oneQSOiteration(
     _freeMatrices();
 }
 
+void Chunk::addBoot(int p, double *temppower, double* tempfisher) {
+    for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
+    {
+        int idx_fji_0 =
+            (bins::TOTAL_KZ_BINS + 1) * (i_kz + fisher_index_start);
+        int ncopy = N_Q_MATRICES - i_kz;
+
+        cblas_daxpy(
+            ncopy,
+            p, fisher_matrix.get() + i_kz * (N_Q_MATRICES + 1), 1,
+            tempfisher + idx_fji_0, 1);
+    }
+
+    cblas_daxpy(
+        N_Q_MATRICES,
+        p, dbt_estimate_before_fisher_vector[0].get(), 1,
+        temppower + fisher_index_start, 1);
+}
+
 void Chunk::_allocateMatrices()
 {
     covariance_matrix = new double[DATA_SIZE_2];
