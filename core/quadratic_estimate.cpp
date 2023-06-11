@@ -10,6 +10,7 @@
 #include <string>
 #include <sstream>      // std::ostringstream
 
+#include "core/bootstrapper.hpp"
 #include "core/one_qso_estimate.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
@@ -515,6 +516,9 @@ void OneDQuadraticPowerEstimate::iterate()
     // Save chunk estimates to a file
     if (process::SAVE_EACH_CHUNK_RESULT)
         _saveChunkResults(local_queue);
+
+    PoissonBootstrapper pbooter;
+    pbooter.run(local_queue);
 }
 
 bool OneDQuadraticPowerEstimate::hasConverged()
