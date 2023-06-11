@@ -65,7 +65,7 @@ public:
     }
 
 private:
-    unsigned int nboots, nperiter;
+    unsigned int nboots;
     std::unique_ptr<double[]> temppower, tempfisher, allpowers;
     std::unique_ptr<PoissonRNG> pgenerator;
 
