@@ -196,6 +196,14 @@ double Chunk::getMinMemUsage()
     return minmem;
 }
 
+void Chunk::releaseFile() {
+    double released_mem = (double)sizeof(double) * size() * 3 / 1048576.;
+    if (specifics::USE_RESOLUTION_MATRIX)
+        released_mem += qFile->Rmat->getMinMemUsage();
+    process::updateMemory(released_mem);
+    qFile.reset();
+}
+
 double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 {
     try

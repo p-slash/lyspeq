@@ -110,6 +110,7 @@ public:
 
     void fprintfMatrices(const char *fname_base);
     double getMinMemUsage();
+    void releaseFile();
 };
 
 #endif
