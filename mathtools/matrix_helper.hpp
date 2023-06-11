@@ -62,7 +62,7 @@ namespace mxhelp
 
     // Replace zero diagonals with one, then invert
     // Return new number of degrees of freedom
-    int LAPACKE_InvertMatrixLU_safe(const double *in, double *out, int N);
+    int LAPACKE_InvertMatrixLU_safe(double *A, int N);
 
     // Return orthogonal vector in rows of A.
     // A is assumed to have n vectors in its rows.

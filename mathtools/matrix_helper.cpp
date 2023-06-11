@@ -148,17 +148,15 @@ namespace mxhelp
         // the Cholesky factorization of a symmetric positive-definite matrix
     }
 
-    int LAPACKE_InvertMatrixLU_safe(const double *in, double *out, int N)
+    int LAPACKE_InvertMatrixLU_safe(double *A, int N)
     {
-        std::copy(in, in + N * N, out);
-
         // find empty diagonals
         // assert all elements on that row and col are zero
         // replace with 1, then invert, then replace with zero
         std::vector<int> empty_indx;
         for (int i_kz = 0; i_kz < N; ++i_kz)
         {
-            double *ptr = out + (N + 1) * i_kz;
+            double *ptr = A + (N + 1) * i_kz;
             if (*ptr == 0)
             {
                 empty_indx.push_back(i_kz);
@@ -166,10 +164,10 @@ namespace mxhelp
             }
         }
 
-        mxhelp::LAPACKE_InvertMatrixLU(out, N);
+        mxhelp::LAPACKE_InvertMatrixLU(A, N);
 
         for (const auto &i_kz : empty_indx)
-            out[(N + 1) * i_kz] = 0;
+            A[(N + 1) * i_kz] = 0;
 
         return N - empty_indx.size();
     }
