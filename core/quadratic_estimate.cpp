@@ -265,9 +265,11 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
 
+    std::copy(
+        fisher_matrix_sum.get(), fisher_matrix_sum.get() + bins::FISHER_SIZE,
+        inverse_fisher_matrix_sum.get());
     _NewDegreesOfFreedom = mxhelp::LAPACKE_InvertMatrixLU_safe(
-        fisher_matrix_sum.get(), inverse_fisher_matrix_sum.get(),
-        bins::TOTAL_KZ_BINS);
+        inverse_fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
 
     isFisherInverted = true;
 
