@@ -60,6 +60,10 @@ namespace mxhelp
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
 
+    // Replace zero diagonals with one, then invert
+    // Return new number of degrees of freedom
+    int LAPACKE_InvertMatrixLU_safe(const double *in, double *out, int N);
+
     // Return orthogonal vector in rows of A.
     // A is assumed to have n vectors in its rows.
     // vector size is m, which is npixels in spectrum
