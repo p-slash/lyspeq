@@ -295,39 +295,10 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
     double t = mytime::timer.getTime();
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
-    
-    std::copy(
-        fisher_matrix_sum.get(),
-        fisher_matrix_sum.get() + bins::FISHER_SIZE, 
-        inverse_fisher_matrix_sum.get());
 
-    // find empty diagonals
-    // assert all elements on that row and col are zero
-    // replace with 1, then invert, then replace with zero
-    std::vector<int> empty_indx;
-    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
-    {
-        double *ptr = inverse_fisher_matrix_sum.get()+(bins::TOTAL_KZ_BINS+1)*i_kz, 
-            *f1, *f2;
-        if (*ptr == 0)
-        {
-            empty_indx.push_back(i_kz);
-            f1 = inverse_fisher_matrix_sum.get()+bins::TOTAL_KZ_BINS*i_kz;
-            f2 = f1+bins::TOTAL_KZ_BINS;
-            if ( !std::all_of(f1, f2, [](double x){ return x==0;}) )
-                throw std::runtime_error("Not all elements in a row are zero!");
-            *ptr = 1;
-        }
-    }
-
-    _NewDegreesOfFreedom = bins::DEGREE_OF_FREEDOM - empty_indx.size();
-
-    mxhelp::LAPACKE_InvertMatrixLU(
-        inverse_fisher_matrix_sum.get(), 
+    _NewDegreesOfFreedom = mxhelp::LAPACKE_InvertMatrixLU_safe(
+        fisher_matrix_sum.get(), inverse_fisher_matrix_sum.get(),
         bins::TOTAL_KZ_BINS);
-
-    for (const auto &i_kz : empty_indx)
-        inverse_fisher_matrix_sum[(bins::TOTAL_KZ_BINS+1)*i_kz] = 0;
 
     isFisherInverted = true;
 
@@ -624,8 +595,10 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     r  = sqrt(r / _NewDegreesOfFreedom);
 
-    rfull = sqrt(fabs(mxhelp::my_cblas_dsymvdot(previous_power_estimate_vector.get(), 
-        fisher_matrix_sum.get(), temp_vector.get(), bins::TOTAL_KZ_BINS)) / _NewDegreesOfFreedom);
+    rfull = sqrt(fabs(mxhelp::my_cblas_dsymvdot(
+        previous_power_estimate_vector.get(),
+        fisher_matrix_sum.get(), temp_vector.get(), bins::TOTAL_KZ_BINS)
+    ) / _NewDegreesOfFreedom);
     
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
     LOG::LOGGER.STD("Chi^2/dof convergence test:\nDiagonal: %.3f. Full Fisher: %.3f.\n"
