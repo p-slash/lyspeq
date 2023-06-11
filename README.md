@@ -262,6 +262,9 @@ for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
 }
 ```
 
+Poisson Bootstrapping
+===
+`lyspeq` performs a parallel Poisson bootstrapping in the end. Poisson bootstrapping generates random coefficients for each quasar (not chunk) using `Poisson(mu=1)` random distribution. This approximation is based on Binomial distribution for large n. The sum of these coefficients are not constrained to be the total number of quasars in the sample, which could be refined at future versions if necesary [1](https://www.unofficialgoogledatascience.com/2015/08/an-introduction-to-poisson-bootstrap26.html), [2](http://www.med.mcgill.ca/epidemiology/Hanley/Reprints/bootstrap-hanley-macgibbon2006.pdf), [3](https://mihagazvoda.com/posts/poisson-bootstrap/).
 
 
 
