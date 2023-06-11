@@ -55,6 +55,9 @@ public:
             ++prog_tracker;
         }
 
+        if (process::this_pe != 0)
+            return;
+
         _calcuate_covariance();
 
         std::string buffer(process::FNAME_BASE);
@@ -130,18 +133,18 @@ private:
         }
         #endif
 
-        if (process::this_pe == 0)
-        {
-            mxhelp::copyUpperToLower(tempfisher.get(), bins::TOTAL_KZ_BINS);
-            mxhelp::LAPACKE_InvertMatrixLU_safe(
-                tempfisher.get(), bins::TOTAL_KZ_BINS);
+        if (process::this_pe != 0)
+            return;
 
-            cblas_dsymv(
-                CblasRowMajor, CblasUpper, bins::TOTAL_KZ_BINS, 1, 
-                tempfisher.get(), bins::TOTAL_KZ_BINS,
-                temppower.get(), 1,
-                0, allpowers.get() + jj * bins::TOTAL_KZ_BINS, 1);
-        }
+        mxhelp::copyUpperToLower(tempfisher.get(), bins::TOTAL_KZ_BINS);
+        mxhelp::LAPACKE_InvertMatrixLU_safe(
+            tempfisher.get(), bins::TOTAL_KZ_BINS);
+
+        cblas_dsymv(
+            CblasRowMajor, CblasUpper, bins::TOTAL_KZ_BINS, 1, 
+            tempfisher.get(), bins::TOTAL_KZ_BINS,
+            temppower.get(), 1,
+            0, allpowers.get() + jj * bins::TOTAL_KZ_BINS, 1);
     }
 
     void _calcuate_covariance() {
