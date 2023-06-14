@@ -39,8 +39,6 @@ void _saveChunkResults(
     // For each chunk to a different extention
     for (auto &one_qso : local_queue) {
         for (auto &one_chunk : one_qso->chunks) {
-            if (one_chunk->ZBIN == -1)  continue;
-
             double *pk = one_chunk->dbt_estimate_before_fisher_vector[0].get();
             double *nk = one_chunk->dbt_estimate_before_fisher_vector[1].get();
             double *tk = one_chunk->dbt_estimate_before_fisher_vector[2].get();
