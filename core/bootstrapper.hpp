@@ -107,6 +107,8 @@ private:
             }
         }
 
+        mxhelp::copyUpperToLower(tempfisher.get(), bins::TOTAL_KZ_BINS);
+
         #if defined(ENABLE_MPI)
         if (process::this_pe != 0) {
             MPI_Reduce(
@@ -133,7 +135,8 @@ private:
         if (process::this_pe != 0)
             return;
 
-        mxhelp::copyUpperToLower(tempfisher.get(), bins::TOTAL_KZ_BINS);
+        // use LAPACKE_dposv instead?
+
         mxhelp::LAPACKE_InvertMatrixLU_safe(
             tempfisher.get(), bins::TOTAL_KZ_BINS);
 
