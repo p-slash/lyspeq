@@ -1,5 +1,5 @@
 # Changelog
-+ Poisson bootstrap covariance implemented.
++ Poisson bootstrap covariance implemented. `NumberOfBoots` is read from config, default is 20,000.
 + Progress counter implemented.
 + `SaveEachChunkResult` saves only the upper triangle of the Fisher matrix.
 + `DynamicChunkNumber` behavior change. `MAX_PIXELS_IN_FOREST = 700` and maximum number of chunks is limited to `DynamicChunkNumber`.

@@ -65,15 +65,15 @@ namespace process
 
 namespace specifics
 {
-    extern bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
+    extern bool
+        TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
         USE_PRECOMPUTED_FISHER;
     extern double CHISQ_CONVERGENCE_EPS;
-    extern int CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
-        NUMBER_OF_CHUNKS;
+    extern int
+        CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
+        NUMBER_OF_CHUNKS, NUMBER_OF_BOOTS, OVERSAMPLING_FACTOR;
     extern double RESOMAT_DECONVOLUTION_M;
     extern qio::ifileformat INPUT_QSO_FILE;
-
-    extern int OVERSAMPLING_FACTOR;
 
     const config_map specifics_default_parameters ({
         {"InputIsPicca", "-1"}, {"UseResoMatrix", "-1"},
@@ -81,7 +81,7 @@ namespace specifics
         {"DynamicChunkNumber", "1"}, {"TurnOffBaseline", "-1"},
         {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "1e-2"},
         {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
-        {"PrecomputedFisher", ""} });
+        {"PrecomputedFisher", ""}, {"NumberOfBoots", "20000"} });
 
     /* This function reads following keys from config file:
     InputIsPicca: int
@@ -112,6 +112,8 @@ namespace specifics
     PrecomputedFisher: string
         File to precomputed Fisher matrix. If present, Fisher matrix is not
         calculated for spectra. Off by default.
+    NumberOfBoots: int
+        Number of bootstrap realizations.
     */
     void readSpecifics(ConfigFile &config);
 
