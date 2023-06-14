@@ -30,11 +30,9 @@ private:
 };
 
 
-class PoissonBootstrapper
-{
+class PoissonBootstrapper {
 public:
-    PoissonBootstrapper() {
-        nboots = 2 * bins::FISHER_SIZE;
+    PoissonBootstrapper(int num_boots) : nboots(num_boots) {
         pgenerator = std::make_unique<PoissonRNG>(process::this_pe);
         temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
         tempfisher = std::make_unique<double[]>(bins::FISHER_SIZE);
@@ -49,8 +47,7 @@ public:
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
         Progress prog_tracker(nboots);
 
-        for (int jj = 0; jj < nboots; ++jj)
-        {
+        for (int jj = 0; jj < nboots; ++jj) {
             _one_boot(jj, local_queue);
             ++prog_tracker;
         }
@@ -148,20 +145,22 @@ private:
     }
 
     void _calcuate_covariance() {
+        std::fill_n(temppower.get(), bins::TOTAL_KZ_BINS, 0);
         std::fill_n(tempfisher.get(), bins::FISHER_SIZE, 0);
-        auto meanpower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+
+        // Calculate mean power, store into temppower
         for (int jj = 0; jj < nboots; ++jj) {
             mxhelp::vector_add(
-                meanpower.get(),
+                temppower.get(),
                 allpowers.get() + jj * bins::TOTAL_KZ_BINS,
                 bins::TOTAL_KZ_BINS);
         }
 
-        cblas_dscal(bins::TOTAL_KZ_BINS, 1. / nboots, meanpower.get(), 1);
+        cblas_dscal(bins::TOTAL_KZ_BINS, 1. / nboots, temppower.get(), 1);
 
         for (int jj = 0; jj < nboots; ++jj) {
             double *x = allpowers.get() + jj * bins::TOTAL_KZ_BINS;
-            mxhelp::vector_sub(x, meanpower.get(), bins::TOTAL_KZ_BINS);
+            mxhelp::vector_sub(x, temppower.get(), bins::TOTAL_KZ_BINS);
             cblas_dsyr(
                 CblasRowMajor, CblasUpper,
                 bins::TOTAL_KZ_BINS, 1, x, 1,

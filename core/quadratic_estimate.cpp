@@ -517,8 +517,10 @@ void OneDQuadraticPowerEstimate::iterate()
     if (process::SAVE_EACH_CHUNK_RESULT)
         _saveChunkResults(local_queue);
 
-    PoissonBootstrapper pbooter;
-    pbooter.run(local_queue);
+    if (process::NUMBER_OF_BOOTS > 0) {
+        PoissonBootstrapper pbooter(NUMBER_OF_BOOTS);
+        pbooter.run(local_queue);
+    }
 }
 
 bool OneDQuadraticPowerEstimate::hasConverged()
