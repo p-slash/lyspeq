@@ -76,7 +76,6 @@ private:
         for (auto &one_qso : local_queue) {
             for (auto &one_chunk : one_qso->chunks) {
                 one_chunk->releaseFile();
-                if (one_chunk->ZBIN == -1)  continue;
 
                 int ndim = one_chunk->N_Q_MATRICES;
                 double *pk = one_chunk->dbt_estimate_before_fisher_vector[0].get();
@@ -100,11 +99,8 @@ private:
             if (p == 0)
                 continue;
 
-            for (auto &one_chunk : one_qso->chunks) {
-                if (one_chunk->ZBIN == -1)  continue;
-
+            for (auto &one_chunk : one_qso->chunks)
                 one_chunk->addBoot(p, temppower.get(), tempfisher.get());
-            }
         }
 
         #if defined(ENABLE_MPI)

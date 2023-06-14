@@ -114,21 +114,22 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
     }
 }
 
-void OneQSOEstimate::oneQSOiteration(const double *ps_estimate, 
-    std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
-    double *fisher_sum)
-{
-    for (auto &chunk : chunks)
-    {
-        try
-        {
-            chunk->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
+void OneQSOEstimate::oneQSOiteration(
+        const double *ps_estimate, 
+        std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
+        double *fisher_sum
+) {
+    for (auto chunk = chunks.begin(); chunk != chunks.end();) {
+        try {
+            (*chunk)->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
         }
-        catch (std::exception& e)
-        {
+        catch (std::exception& e) {
             LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
-            chunk->ZBIN = -1;
+            chunk = chunks.erase(chunk);
+            continue;
         }
+
+        ++chunk;
     }
 }
 
