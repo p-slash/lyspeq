@@ -64,6 +64,9 @@ namespace mxhelp
     // Return new number of degrees of freedom
     int LAPACKE_InvertMatrixLU_safe(double *A, int N);
 
+    // S is symmetric. Only upper addressed
+    void LAPACKE_solve_safe(double *S, int N, double *b);
+
     // Return orthogonal vector in rows of A.
     // A is assumed to have n vectors in its rows.
     // vector size is m, which is npixels in spectrum

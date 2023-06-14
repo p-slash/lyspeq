@@ -164,12 +164,37 @@ namespace mxhelp
             }
         }
 
-        mxhelp::LAPACKE_InvertMatrixLU(A, N);
+        LAPACKE_InvertMatrixLU(A, N);
 
         for (const auto &i_kz : empty_indx)
             A[(N + 1) * i_kz] = 0;
 
         return N - empty_indx.size();
+    }
+
+    void LAPACKE_solve_safe(double *S, int N, double *b) {
+        lapack_int LIN = N, info;
+        std::vector<int> empty_indx;
+
+        for (int i_kz = 0; i_kz < N; ++i_kz)
+        {
+            double *ptr = S + (N + 1) * i_kz;
+            if (*ptr == 0)
+            {
+                empty_indx.push_back(i_kz);
+                *ptr = 1;
+            }
+        }
+
+        info = LAPACKE_dposv(
+            LAPACK_ROW_MAJOR, 'U',
+            LIN, 1, S, LIN,
+            b, LIN);
+
+        LAPACKErrorHandle("ERROR in solve_safe.", info);
+
+        for (const auto &i_kz : empty_indx)
+            S[(N + 1) * i_kz] = 0;
     }
 
     void LAPACKE_svd(double *A, double *svals, int m, int n)
