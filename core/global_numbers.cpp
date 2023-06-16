@@ -69,7 +69,7 @@ namespace specifics
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX,
            USE_PRECOMPUTED_FISHER;
     int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
-        CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1;
+        CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1, NUMBER_OF_BOOTS = 0;
     double RESOMAT_DECONVOLUTION_M = 0;
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
     int OVERSAMPLING_FACTOR = -1;
@@ -88,36 +88,7 @@ namespace specifics
             CONT_NVECS = 0;
     }
 
-    /* This function reads following keys from config file:
-    InputIsPicca: int
-        If > 0, input file format is from picca. Off by default.
-    UseResoMatrix: int
-        If > 0, reads and uses the resolution matrix picca files.
-        Off by default.
-    ResoMatDeconvolutionM: double
-        Deconvolve the resolution matrix by this factor in terms of pixel.
-        For example, 1.0 deconvolves one top hat. Off by default and when
-        <= 0.
-    OversampleRmat: int
-        Oversample the resolution matrix by this factor per row. Off when <= 0
-        and by default.
-    DynamicChunkNumber: int
-        Dynamiccaly chunk spectra into this number when > 1. Off by default.
-    TurnOffBaseline: int
-        Turns off the fiducial signal matrix if > 0. Fid is on by default.
-    SmoothLnkLnP: int
-        Smooth the ln k and ln P values when iterating. On by default
-        and when > 0.
-    ChiSqConvergence: int
-        Criteria for chi square convergance. Valid when > 0. Default is 1e-4
-    ContinuumLogLambdaMargOrder: int
-        Polynomial order for log lambda cont marginalization. Default 1.
-    ContinuumLambdaMargOrder: int
-        Polynomial order for lambda cont marginalization. Default 0.
-    PrecomputedFisher: string
-        File to precomputed Fisher matrix. If present, Fisher matrix is not
-        calculated for spectra. Off by default.
-    */
+
     void readSpecifics(ConfigFile &config)
     {
         LOG::LOGGER.STD("###############################################\n");
@@ -131,6 +102,7 @@ namespace specifics
         RESOMAT_DECONVOLUTION_M = config.getDouble("ResoMatDeconvolutionM");
         OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat", -1);
         NUMBER_OF_CHUNKS = config.getInteger("DynamicChunkNumber", 1);
+        NUMBER_OF_BOOTS = config.getInteger("NumberOfBoots");
 
         // Turns off the signal matrix
         sfid_off = config.getInteger("TurnOffBaseline", -1);
@@ -230,7 +202,7 @@ namespace specifics
 namespace bins
 {
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
-        FISHER_SIZE, DEGREE_OF_FREEDOM;
+        FISHER_SIZE;
     std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE;
 
@@ -243,8 +215,6 @@ namespace bins
         double ktemp = (k0 + dklin*nlin)*pow(10, nlog*dklog);
         if (klast > ktemp)
             ++NUMBER_OF_K_BANDS;
-
-        DEGREE_OF_FREEDOM = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
 
         TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
         FISHER_SIZE = TOTAL_KZ_BINS * TOTAL_KZ_BINS;
