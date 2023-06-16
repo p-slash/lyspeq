@@ -104,21 +104,19 @@ private:
         }
 
         #if defined(ENABLE_MPI)
+        MPI_Reduce(
+            temppower.get(),
+            allpowers.get() + jj * bins::TOTAL_KZ_BINS,
+            bins::TOTAL_KZ_BINS,
+            MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD
+        );
         if (process::this_pe != 0) {
-            MPI_Reduce(
-                temppower.get(),
-                nullptr, bins::TOTAL_KZ_BINS,
-                MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
             MPI_Reduce(
                 tempfisher.get(),
                 nullptr, bins::FISHER_SIZE,
                 MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         }
         else {
-            MPI_Reduce(
-                MPI_IN_PLACE,
-                temppower.get(), bins::TOTAL_KZ_BINS,
-                MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
             MPI_Reduce(
                 MPI_IN_PLACE,
                 tempfisher.get(), bins::FISHER_SIZE,
