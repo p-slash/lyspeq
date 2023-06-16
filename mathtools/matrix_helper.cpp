@@ -179,7 +179,7 @@ namespace mxhelp
         for (int i_kz = 0; i_kz < N; ++i_kz)
         {
             double *ptr = S + (N + 1) * i_kz;
-            if (*ptr == 0)
+            if (fabs(*ptr) < 1e-6)
             {
                 empty_indx.push_back(i_kz);
                 *ptr = 1;
@@ -189,7 +189,7 @@ namespace mxhelp
         info = LAPACKE_dposv(
             LAPACK_ROW_MAJOR, 'U',
             LIN, 1, S, LIN,
-            b, LIN);
+            b, 1);
 
         LAPACKErrorHandle("ERROR in solve_safe.", info);
 
