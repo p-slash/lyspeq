@@ -185,10 +185,11 @@ namespace specifics
     #endif
 
     const std::string BUILD_SPECIFICS = 
-        std::string("# This version is build by the following options:\n") +
-        "# Fisher optimization: " + FISHER_TXT + "\n" +
-        "# Redshift binning shape: " + BINNING_SHAPE + "\n" +
-        "# Redshift growth scaling: " + RGP_TEXT + "\n";
+        std::string("# You are using lyspeq version " __LYSPEQ_VERSION__ ".\n")
+        + std::string("# This version is build by the following options:\n")
+        + "# Fisher optimization: " + FISHER_TXT + "\n"
+        + "# Redshift binning shape: " + BINNING_SHAPE + "\n"
+        + "# Redshift growth scaling: " + RGP_TEXT + "\n";
 
     void printBuildSpecifics(FILE *toWrite)
     {
