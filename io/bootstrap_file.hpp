@@ -20,7 +20,8 @@ public:
     void writeChunk(
         const double *pk, const double *nk, const double *tk,
         const double *fisher, int ndim,
-        int fisher_index_start, long id, double z_qso);
+        int fisher_index_start, long id, double z_qso,
+        double ra, double dec);
 private:
     int status;
     fitsfile *fits_file;
