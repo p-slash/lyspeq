@@ -10,6 +10,7 @@
 #include <fitsio.h>
 
 #include "core/global_numbers.hpp"
+#include "io/io_helper_functions.hpp"
 #include "mathtools/matrix_helper.hpp"
 
 namespace qio
