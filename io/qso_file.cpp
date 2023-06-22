@@ -1,5 +1,4 @@
 #include "io/qso_file.hpp"
-#include "io/io_helper_functions.hpp"
 
 #include <cmath>
 #include <algorithm>
