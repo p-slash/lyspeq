@@ -3,43 +3,8 @@
 + Karaçaylı N. G., Font-Ribera A., Padmanabhan N., 2020, [MNRAS](https://doi.org/10.1093/mnras/staa2331), 497, 4742
 + Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
 
-# Changelog
-+ Progress counter implemented.
-+ `SaveEachChunkResult` saves only the upper triangle of the Fisher matrix.
-+ `DynamicChunkNumber` behavior change. `MAX_PIXELS_IN_FOREST = 700` and maximum number of chunks is limited to `DynamicChunkNumber`.
-+ `SaveEachChunkResult` option to save each chunk result to FITS file. The fisher matrices are not multiplied by 0.5 and only upper triangle is non-zero.
-+ `LookUpTableDir` to save lookup tables instead of being relative to `OutputDir`.
-+ Demand all matrices to fit into memory. Skip below Nyquist (not half of nyquist)
-+ `dv` of `QSOFile` is not rounded to nearest five, but compared with rounded numbers in sq_table.
-+ `Chunk` estimate calculates until Nyquist not half of it.
-+ Continuum marginalization now has lambda polynomial templates. New keywords in config are `ContinuumLambdaMargOrder` for lambda polynomials, `ContinuumLogLambdaMargOrder` for log lambda polynomials.
-+ `DynamicChunkNumber` to dynamically chunk spectrum into multiple segments. This is achieved by moving quadratic estimator to a new class `Chunk` and using `OneQSOEstimate` as a wrapper for multiple chunks instead. `MAX_PIXELS_IN_FOREST 1000` due to typical performance limitations. If a given spectrum has more pixels than this, resulting `nchunks` will be greater than `DynamicChunkNumber`.
-+ Continuum marginalization is now implemented with Sherman-Morrison identity. New option `ContinuumMargOrder` decides the maximum order of `ln lambda`. E.g., `ContinuumMargOrder 1` will marginalize out constant and slope. Old options `ContinuumMargAmp` and `ContinuumMargDerv` are removed.
-+ `ResoMatDeconvolutionM (double)` option is added to config file. It deconvolves the resolution matrix with this value if >0. Should be around 1.
-+ `SaveEachSpectrumResult` is changed to `SaveEachProcessResult`. This would constrain bootstrap estimation to subsamples determined by the number of processors, but save a lot space and coding.
-+ Deconvolution of sinc added while oversampling using `FFTW` package. This deconvolution is needed because resolution matrix is downsampled in 2D.
-+ Implemented a 'Smoother' class in QuadraticEstimate. `SmoothNoiseWeights (int)` option is added to config file. If 0, qmle uses the mean noise in covariance matrix as weights. For >0, a Gaussian kernel with sigma equals to this value is applied to the noise. For <0, smoothing is turned off.
-+ Pixels in each spectrum is cut below and above the redshift range. Short spectra (Npix < 20) are skipped.
-+ Each PE saves its own bootstrap results into one file.
-+ Logging only on pe==0. Moved io to std and removed io log.
-+ New functionality & config file option `OversampleRmat`. Pass > 0 to oversample resolution in dia matrix form.
-+ Removed EdS approximation option. Always use logarithmic velocity conversion.
-+ Lookuptables are now saved relative to output directory.
-+ Config file has `PrecomputedFisher` option to read file and skip fisher matrix computation.
-+ Config file has `InputIsPicca` option to read picca fits files instead. Construct the file list using HDU numbers of each chunk, e.g. third spectrum, `picca-delta-100.fits.gz[3]`.
-+ Config file has `UseResoMatrix` option to read resolution matrix from picca file.
-+ CFITSIO is a dependency.
-+ Config file has `CacheAllSQTables` option to save all sq tables in memory rather than reading one qso at a time.
-
-# v2
-Intermediate versions have been used to study DESI-lite mocks. Further modifications added configuration options, but most importantly optimizated the speed to run on high resolution quasars. This version gave results on full KODIAQ DR2, SQUAD DR1 and XQ-100 samples that are in good agreement with previous measurements.
-
 ### Highlighted Features
-+ Input data are assumed to be fluctuations and not flux. Added `ConvertFromFluxToDeltaf` to config file to switch behaviors.
-+ Default velocity is logarithmic. Change this by setting `UseEDSVelocity` to 1 in config file.
-+ R & dv pairs are read from a file, instead of assuming fixed dv for all spectra.
-+ A detailed python3 script in `make test` for CBLAS, SQ tables and the estimator results.
-+ Specify allocated memory in MB to store additional derivative matrices and fiducial signal matrix if possible. This speeds up calculations.
++ Poisson bootstrap covariance estimate.
 + Fiducial cosmology has default parameters:
     
         A      =    6.621420e-02
@@ -57,9 +22,7 @@ Intermediate versions have been used to study DESI-lite mocks. Further modificat
         P[nz=1, nk=1...Nk]...P[Nz, nk=1...Nk]
 
 + Intermediate python script applies a weighted smoothing. This smoothing script has --interp_log option, which can be enabled by setting `SmoothLnkLnP` to 1 in the config file.
-+ "SaveEachSpectrumResult" in config file saves each spectrum's Fisher and power' estimates.
-+ Last k edge is now read from config file as `LastKEdge`.
-+ Implemented reading a mean flux file, which can be read by `MeanFluxFile` from the config file.
++ `SaveEachChunkResult` in config file saves each chunk's Fisher and power estimates.
 
 ### Optimizations
 + Each PE reads and sorts its own spectra, then they all perform a merge sort. This saves significant amount of time reading ~1m files.
@@ -262,6 +225,9 @@ for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
 }
 ```
 
+Poisson Bootstrapping
+===
+`lyspeq` performs a parallel Poisson bootstrapping in the end. Poisson bootstrapping generates random coefficients for each quasar (not chunk) using `Poisson(mu=1)` random distribution. This approximation is based on Binomial distribution for large n. The sum of these coefficients are not constrained to be the total number of quasars in the sample, which could be refined at future versions if necesary [1](https://www.unofficialgoogledatascience.com/2015/08/an-introduction-to-poisson-bootstrap26.html), [2](http://www.med.mcgill.ca/epidemiology/Hanley/Reprints/bootstrap-hanley-macgibbon2006.pdf), [3](https://mihagazvoda.com/posts/poisson-bootstrap/).
 
 
 
