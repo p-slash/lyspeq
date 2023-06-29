@@ -795,9 +795,6 @@ void Chunk::_freeCuda() {
 }
 
 void Chunk::_freeCpu() {
-    dbt_estimate_before_fisher_vector.clear();
-    fisher_matrix.reset();
-
     delete [] cpu_qj;
 
     if (!specifics::TURN_OFF_SFID)
