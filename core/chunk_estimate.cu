@@ -83,6 +83,11 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 
     fisher_matrix = std::make_unique<double[]>(N_Q_MATRICES * N_Q_MATRICES);
 
+    dev_fisher.realloc(N_Q_MATRICES * N_Q_MATRICES);
+    dev_fisher.memset();
+    dev_dbt_vector.realloc(3 * N_Q_MATRICES);
+    dev_dbt_vector.memset();
+
     process::updateMemory(-getMinMemUsage());
 }
 
@@ -516,12 +521,10 @@ void Chunk::_getWeightedMatrix(double *m)
 
 void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 {
-    cublas_helper.setPointerMode2Device();
-
     double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx],
         idx_fji_0 = N_Q_MATRICES * i_kz;
-    std::set<int> idx_streams;
+    // std::set<int> idx_streams;
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
@@ -541,14 +544,13 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
             Qw_ikz_matrix, _getDevQikz(jdx), size(),
             dev_fisher.get() + j_kz + idx_fji_0);
 
-        idx_streams.insert(idx_s);
+        // idx_streams.insert(idx_s);
     }
 
-    for (auto &idx_s : idx_streams)
-        streams[idx_s].sync();
+    // for (auto &idx_s : idx_streams)
+    //     streams[idx_s].sync();
 
     cublas_helper.resetStream();
-    cublas_helper.setPointerMode2Host();
 
     t = mytime::timer.getTime() - t;
 
@@ -558,12 +560,13 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 void Chunk::computePSbeforeFvector()
 {
     LOG::LOGGER.DEB("PS before Fisher\n");
+    cublas_helper.setPointerMode2Device();
 
     double
         *Q_ikz_matrix = temp_matrix[0].get(),
-        *dk0 = dbt_estimate_before_fisher_vector[0].get(),
-        *nk0 = dbt_estimate_before_fisher_vector[1].get(),
-        *tk0 = dbt_estimate_before_fisher_vector[2].get();
+        *dk0 = dev_dbt_vector.get(),
+        *nk0 = dk0 + N_Q_MATRICES,
+        *tk0 = nk0 + N_Q_MATRICES;
 
     cublas_helper.dsmyv(
         size(), 1., inverse_covariance_matrix, 
@@ -598,6 +601,8 @@ void Chunk::computePSbeforeFvector()
         if (!specifics::USE_PRECOMPUTED_FISHER)
             _getFisherMatrix(Q_ikz_matrix, idx);
     }
+
+    cublas_helper.setPointerMode2Host();
 }
 
 void Chunk::oneQSOiteration(
@@ -620,8 +625,14 @@ void Chunk::oneQSOiteration(
         invertCovarianceMatrix();
 
         computePSbeforeFvector();
-        dev_fisher.syncDownload(
+
+        dev_fisher.asyncDwn(
             fisher_matrix.get(), N_Q_MATRICES * N_Q_MATRICES);
+        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+            dev_dbt_vector.asyncDwn(
+                dbt_estimate_before_fisher_vector[dbt_i].get(),
+                N_Q_MATRICES, N_Q_MATRICES * dbt_i);
+        MyCuStream::syncMainStream();
 
         for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
         {
@@ -712,9 +723,6 @@ void Chunk::_allocateCuda() {
     dev_noise.realloc(size(), qFile->noise());
     dev_smnoise.realloc(size());
 
-    dev_fisher.realloc(N_Q_MATRICES * N_Q_MATRICES);
-    dev_fisher.memset(0);
-
     covariance_matrix.realloc(DATA_SIZE_2);
 
     for (int i = 0; i < 2; ++i)
@@ -779,7 +787,6 @@ void Chunk::_freeCuda() {
     dev_noise.reset();
     dev_smnoise.reset();
 
-    dev_fisher.reset();
     LOG::LOGGER.DEB("Free cov\n");
     covariance_matrix.reset();
 

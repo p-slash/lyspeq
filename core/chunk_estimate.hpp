@@ -51,7 +51,7 @@ protected:
     // Note that noise matrix is diagonal and stored as pointer to its array 
     // Do not delete inverse_covariance_matrix.
     MyCuPtr<double>
-        covariance_matrix, dev_fisher,
+        covariance_matrix,
         temp_matrix[2], dev_qj, dev_sfid,
         dev_wave, dev_delta, dev_noise, dev_smnoise,
         temp_vector, weighted_data_vector; // DATA_SIZE sized vector
@@ -95,6 +95,8 @@ public:
     std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
     // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
     std::unique_ptr<double[]> fisher_matrix;
+
+    MyCuPtr<double> dev_fisher, dev_dbt_vector;
 
     Chunk(const qio::QSOFile &qmaster, int i1, int i2);
     Chunk(Chunk &&rhs) = delete;
