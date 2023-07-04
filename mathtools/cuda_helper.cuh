@@ -382,4 +382,7 @@ public:
     }
 };
 
+static CuBlasHelper cublas_helper;
+static CuSolverHelper cusolver_helper;
+
 #endif
