@@ -660,7 +660,7 @@ void Chunk::oneQSOiteration(
     _freeMatrices();
 }
 
-void Chunk::addBoot(unsigned int *p, double *temppower, double* tempfisher) {
+void Chunk::addBoot(double *p, double *temppower, double* tempfisher) {
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int idx_fji_0 =
             (bins::TOTAL_KZ_BINS + 1) * (i_kz + fisher_index_start);
