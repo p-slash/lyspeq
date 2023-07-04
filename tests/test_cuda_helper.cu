@@ -1,4 +1,4 @@
-#include "mathtools/cuda_helper.cu"
+#include "mathtools/cuda_helper.cuh"
 #include "mathtools/matrix_helper.hpp"
 #include "tests/test_utils.hpp"
 #include <cassert>
@@ -60,9 +60,9 @@ void test_cublas_dsymm() {
 
     cublas_helper.dsymm(
         CUBLAS_SIDE_LEFT,
-        NA, NA, 1., dev_sym_matrix_A.get(), NA,
+        NA, NA, dev_sym_matrix_A.get(), NA,
         dev_matrix_cblas_dsymm_B.get(), NA,
-        0, dev_res.get(), NA);
+        dev_res.get(), NA);
 
     dev_res.asyncDwn(result, NA*NA);
     MyCuStream::syncMainStream();

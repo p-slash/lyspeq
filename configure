@@ -604,7 +604,7 @@ set_cblas_inc_lib
 set_cuda_lib
 
 if [[ ! -z "${ENABLE_MPI}" ]]; then
-    exec="srun -n 1 "
+    exec="srun -n 1 -G 1 "
     set_mpi_inc_lib
 fi
 
