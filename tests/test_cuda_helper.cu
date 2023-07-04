@@ -4,9 +4,6 @@
 #include <cassert>
 
 
-CuBlasHelper cublas_helper;
-CuSolverHelper cusolver_helper;
-
 int
 NA = 4;
 
