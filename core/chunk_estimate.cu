@@ -401,7 +401,7 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
     // cudaMemset(y, 0, size*sizeof(double));
-    cublas_helper.dsmyv(size, 1., cinv, size, v, 1, 0, y, 1);
+    cublas_helper.dsymv(size, cinv, size, v, 1, y, 1);
     double alpha;
     cublasDdot(cublas_helper.blas_handle, size, v, 1, y, 1, &alpha);
     alpha = -1./alpha;
@@ -414,7 +414,7 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 
 void Chunk::_addMarginalizations()
 {
-    std::set<int> idx_streams = {0};
+    // std::set<int> idx_streams = {0};
 
     int num_blocks = (size() + MYCU_BLOCK_SIZE - 1) / MYCU_BLOCK_SIZE,
         vidx = 1;
@@ -436,7 +436,7 @@ void Chunk::_addMarginalizations()
             num_blocks, MYCU_BLOCK_SIZE, 0, streams[idx_s].get()
         >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
 
-        idx_streams.insert(idx_s);
+        // idx_streams.insert(idx_s);
         ++vidx;
     }
     // Lambda polynomials
@@ -448,12 +448,12 @@ void Chunk::_addMarginalizations()
             num_blocks, MYCU_BLOCK_SIZE, 0, streams[idx_s].get()
         >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
 
-        idx_streams.insert(idx_s);
+        // idx_streams.insert(idx_s);
         ++vidx;
     }
 
-    for (auto &idx_s : idx_streams)
-        streams[idx_s].sync();
+    // for (auto &idx_s : idx_streams)
+        // streams[idx_s].sync();
 
     cublas_helper.resetStream();
 
@@ -506,13 +506,13 @@ void Chunk::_getWeightedMatrix(double *m)
 
     //C-1 . Q
     cublas_helper.dsymm(CUBLAS_SIDE_LEFT,
-        size(), size(), 1., inverse_covariance_matrix, size(),
-        m, size(), 0, temp_matrix[1].get(), size());
+        size(), size(), inverse_covariance_matrix, size(),
+        m, size(), temp_matrix[1].get(), size());
 
     //C-1 . Q . C-1
     cublas_helper.dsymm(CUBLAS_SIDE_RIGHT,
-        size(), size(), 1., inverse_covariance_matrix, size(),
-        temp_matrix[1].get(), size(), 0, m, size());
+        size(), size(), inverse_covariance_matrix, size(),
+        temp_matrix[1].get(), size(), m, size());
 
     t = mytime::timer.getTime() - t;
 
@@ -568,9 +568,9 @@ void Chunk::computePSbeforeFvector()
         *nk0 = dk0 + N_Q_MATRICES,
         *tk0 = nk0 + N_Q_MATRICES;
 
-    cublas_helper.dsmyv(
-        size(), 1., inverse_covariance_matrix, 
-        size(), dev_delta.get(), 1, 0, weighted_data_vector.get(), 1);
+    cublas_helper.dsymv(
+        size(), inverse_covariance_matrix, 
+        size(), dev_delta.get(), 1, weighted_data_vector.get(), 1);
 
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
@@ -848,9 +848,3 @@ void Chunk::fprintfMatrices(const char *fname_base)
         qFile->Rmat->fprintfMatrix(buf.c_str());
     }
 }
-
-
-
-
-
-

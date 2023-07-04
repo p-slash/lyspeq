@@ -4,7 +4,7 @@
 #include <memory>
 #include "io/qso_file.hpp"
 #include "mathtools/discrete_interpolation.hpp"
-#include "mathtools/cuda_helper.cu"
+#include "mathtools/cuda_helper.cuh"
 
 constexpr int
 MIN_PIXELS_IN_CHUNK = 20;
@@ -126,4 +126,3 @@ public:
 };
 
 #endif
-
