@@ -17,6 +17,15 @@
 #include "mathtools/matrix_helper.hpp"
 
 
+__global__
+void _convert_uint_double(int size, unsigned int *in, double *out)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    for (int i = index; i < size; i += stride)
+        out[i] = in[i];
+}
+
 class PoissonRNG {
 public:
     PoissonRNG(unsigned long int seed) {
@@ -27,7 +36,7 @@ public:
     }
 
     void generate(unsigned int *output, int n) {
-        curand_stat = curandGeneratePoisson(rng_engine,output, n, 1);
+        curand_stat = curandGeneratePoisson(rng_engine, output, n, 1);
         check_cuda_error("curandGeneratePoisson");
     }
 
@@ -59,8 +68,12 @@ public:
     void run(
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
-        coefficients.realloc(local_queue.size());
+        nqsos = local_queue.size();
+        uint_coefficients.realloc(nqsos);
+        d_coefficients.realloc(nqsos);
+
         _prerun(local_queue);
+
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
         Progress prog_tracker(nboots);
 
@@ -83,9 +96,9 @@ public:
     }
 
 private:
-    unsigned int nboots;
-    MyCuPtr<double> dev_tmp_power, dev_tmp_fisher;
-    MyCuPtr<unsigned int> coefficients;
+    unsigned int nboots, nqsos;
+    MyCuPtr<double> dev_tmp_power, dev_tmp_fisher, d_coefficients;
+    MyCuPtr<unsigned int> uint_coefficients;
     std::unique_ptr<double[]> temppower, tempfisher, allpowers;
 
     std::unique_ptr<PoissonRNG> pgenerator;
@@ -114,14 +127,19 @@ private:
     ) {
         dev_tmp_power.memset();
         dev_tmp_fisher.memset();
-        pgenerator->generate(coefficients.get(), local_queue.size());
-        int i = 0;
+        pgenerator->generate(uint_coefficients.get(), nqsos);
+
+        int num_blocks = (nqsos + MYCU_BLOCK_SIZE - 1) / MYCU_BLOCK_SIZE;
+        _convert_uint_double<<<
+            num_blocks, MYCU_BLOCK_SIZE
+        >>>(nqsos, uint_coefficients.get(), d_coefficients.get());
+
+        double *p = d_coefficients.get();
 
         for (auto &one_qso : local_queue) {
-            double p = static_cast<double>(*(coefficients.get() + i));
             for (auto &one_chunk : one_qso->chunks)
-                one_chunk->addBoot(&p, dev_tmp_power.get(), dev_tmp_fisher.get());
-            ++i;
+                one_chunk->addBoot(p, dev_tmp_power.get(), dev_tmp_fisher.get());
+            ++p;
         }
 
         dev_tmp_fisher.asyncDwn(tempfisher.get(), bins::FISHER_SIZE);
