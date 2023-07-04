@@ -10,7 +10,7 @@
 #include <string>
 #include <sstream>      // std::ostringstream
 
-#include "core/bootstrapper.hpp"
+#include "core/bootstrapper.cuh"
 #include "core/one_qso_estimate.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
