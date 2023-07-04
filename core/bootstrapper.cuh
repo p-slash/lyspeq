@@ -120,7 +120,7 @@ private:
         for (auto &one_qso : local_queue) {
             double p = static_cast<double>(*(coefficients.get() + i));
             for (auto &one_chunk : one_qso->chunks)
-                one_chunk->addBoot(&p, temppower.get(), tempfisher.get());
+                one_chunk->addBoot(&p, dev_tmp_power.get(), dev_tmp_fisher.get());
             ++i;
         }
 
