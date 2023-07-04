@@ -18,9 +18,6 @@
 #include "omp.h"
 #endif
 
-CuBlasHelper cublas_helper;
-CuSolverHelper cusolver_helper;
-
 #ifdef FISHER_OPTIMIZATION
 const int num_streams = 3;
 #else

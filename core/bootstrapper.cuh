@@ -57,17 +57,16 @@ public:
     }
 
     void run(
-            std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue,
-            CuBlasHelper &cublas_helper
+            std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         coefficients.realloc(local_queue.size());
-        _prerun(local_queue, cublas_helper);
+        _prerun(local_queue);
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
         Progress prog_tracker(nboots);
 
         cublas_helper.setPointerMode2Device();
         for (int jj = 0; jj < nboots; ++jj) {
-            _one_boot(jj, local_queue, cublas_helper);
+            _one_boot(jj, local_queue);
             ++prog_tracker;
         }
 
@@ -92,8 +91,7 @@ private:
     std::unique_ptr<PoissonRNG> pgenerator;
 
     void _prerun(
-            std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue,
-            CuBlasHelper &cublas_helper
+            std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         // Get thetas to prepare.
         for (auto &one_qso : local_queue) {
@@ -112,22 +110,21 @@ private:
     }
 
     void _one_boot(
-            int jj, std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue,
-            CuBlasHelper &cublas_helper
+            int jj, std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         dev_tmp_power.memset();
         dev_tmp_fisher.memset();
-        pgenerator.generate(coefficients.get(), local_queue.size());
+        pgenerator->generate(coefficients.get(), local_queue.size());
         int i = 0;
 
         for (auto &one_qso : local_queue) {
             for (auto &one_chunk : one_qso->chunks)
-                one_chunk->addBoot(p + i, temppower.get(), tempfisher.get());
+                one_chunk->addBoot(coefficients.get() + i, temppower.get(), tempfisher.get());
             ++i;
         }
 
-        dev_tmp_fisher.asyncDwn(tempfisher.get());
-        dev_tmp_power.syncDownload(temppower.get());
+        dev_tmp_fisher.asyncDwn(tempfisher.get(), bins::FISHER_SIZE);
+        dev_tmp_power.syncDownload(temppower.get(), bins::TOTAL_KZ_BINS);
 
         #if defined(ENABLE_MPI)
         MPI_Reduce(
