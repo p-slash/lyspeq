@@ -118,9 +118,9 @@ private:
         int i = 0;
 
         for (auto &one_qso : local_queue) {
-            double *p = static_cast<double*>(coefficients.get() + i);
+            double p = static_cast<double>(*(coefficients.get() + i));
             for (auto &one_chunk : one_qso->chunks)
-                one_chunk->addBoot(p, temppower.get(), tempfisher.get());
+                one_chunk->addBoot(&p, temppower.get(), tempfisher.get());
             ++i;
         }
 
