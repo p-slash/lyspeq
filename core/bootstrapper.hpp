@@ -73,7 +73,7 @@ public:
         if (process::this_pe != 0)
             return;
 
-        mytime::printfBootstrapTimeSpentDetails()
+        mytime::printfBootstrapTimeSpentDetails();
 
         _calcuate_covariance();
 
