@@ -139,8 +139,10 @@ private:
 
         unsigned int *p = cpu_uint_coefficients.get();
         for (auto &one_qso : local_queue) {
-            if (*p == 0)
+            if (*p == 0) {
+                ++p;
                 continue;
+            }
 
             for (auto &one_chunk : one_qso->chunks)
                 one_chunk->addBoot(*p, dev_tmp_power.get(), dev_tmp_fisher.get());
@@ -180,6 +182,7 @@ private:
     }
 
     void _calcuate_covariance() {
+        LOG::LOGGER.STD("Calculating bootstrap covariance.\n");
         std::fill_n(temppower.get(), bins::TOTAL_KZ_BINS, 0);
         std::fill_n(tempfisher.get(), bins::FISHER_SIZE, 0);
 
