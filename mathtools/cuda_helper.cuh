@@ -76,7 +76,10 @@ public:
     }
 
     void realloc(int n, T *cpu_ptr=nullptr, cudaStream_t stream=NULL) {
-        reset(); _alloc(n);
+        if (n > size) {
+            reset(); _alloc(n);
+        }
+
         if (cpu_ptr != nullptr)
             asyncCpy(cpu_ptr, n, 0, stream);
     }
@@ -323,7 +326,8 @@ public:
             N, A, N, &lworkf);
         check_cusolver_error("cusolverDnDpotrf_bufferSize: ");
 
-        MyCuPtr<double> d_workf(lworkf); /* device workspace for getrf */
+        static MyCuPtr<double> d_workf; /* device workspace for getrf */
+        d_workf.realloc(lworkf);
 
         solver_stat = cusolverDnDpotrf(
             solver_handle, uplo,
@@ -344,7 +348,8 @@ public:
             N, A, N, &lworki);
         check_cusolver_error("cusolverDnDpotri_bufferSize: ");
 
-        MyCuPtr<double> d_worki(lworki);
+        static MyCuPtr<double> d_worki;
+        d_worki.realloc(lworki);
 
         solver_stat = cusolverDnDpotri(
             solver_handle, uplo,
@@ -370,7 +375,9 @@ public:
             solver_handle, nrows, ncols, &lwork);
         check_cusolver_error("cusolverDnDgesvd_bufferSize: ");
 
-        MyCuPtr<double> d_work(lwork), d_rwork(ncols); /* device workspace */
+        static MyCuPtr<double> d_work, d_rwork; /* device workspace */
+        d_work.realloc(lwork);
+        d_rwork.realloc(ncols);
 
         solver_stat = cusolverDnDgesvd(
             solver_handle, 'O', 'N', nrows, ncols, A, nrows, svals,
