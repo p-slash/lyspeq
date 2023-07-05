@@ -74,7 +74,10 @@ public:
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         nqsos = local_queue.size();
+        num_blocks = (nqsos + MYCU_BLOCK_SIZE - 1) / MYCU_BLOCK_SIZE;
+
         dev_uint_coefficients.realloc(nqsos);
+        dev_d_coefficients.realloc(nqsos);
         cpu_uint_coefficients = std::make_unique<unsigned int[]>(nqsos);
 
         _prerun(local_queue);
@@ -82,6 +85,7 @@ public:
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
         Progress prog_tracker(nboots);
 
+        cublas_helper.setPointerMode2Device();
         for (int jj = 0; jj < nboots; ++jj) {
             _one_boot(jj, local_queue);
             ++prog_tracker;
@@ -100,8 +104,8 @@ public:
     }
 
 private:
-    unsigned int nboots, nqsos;
-    MyCuPtr<double> dev_tmp_power, dev_tmp_fisher;
+    unsigned int nboots, nqsos, num_blocks;
+    MyCuPtr<double> dev_tmp_power, dev_tmp_fisher, dev_d_coefficients;
     MyCuPtr<unsigned int> dev_uint_coefficients;
 
     std::unique_ptr<double[]> temppower, tempfisher, allpowers;
@@ -135,17 +139,14 @@ private:
         dev_tmp_fisher.memset();
         pgenerator->generate(dev_uint_coefficients.get(), nqsos);
 
-        dev_uint_coefficients.syncDownload(cpu_uint_coefficients.get(), nqsos);
+        _convert_uint_double<<<
+            num_blocks, MYCU_BLOCK_SIZE, 0, 0
+        >>>(nqsos, dev_uint_coefficients.get(), dev_d_coefficients.get());
 
-        unsigned int *p = cpu_uint_coefficients.get();
+        double *p = dev_d_coefficients.get();
         for (auto &one_qso : local_queue) {
-            if (*p == 0) {
-                ++p;
-                continue;
-            }
-
             for (auto &one_chunk : one_qso->chunks)
-                one_chunk->addBoot(*p, dev_tmp_power.get(), dev_tmp_fisher.get());
+                one_chunk->addBoot(p, dev_tmp_power.get(), dev_tmp_fisher.get());
             ++p;
         }
 
