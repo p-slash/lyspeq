@@ -4,7 +4,7 @@
 #include <memory>
 #include "io/qso_file.hpp"
 #include "mathtools/discrete_interpolation.hpp"
-#include "mathtools/cuda_helper.cu"
+#include "mathtools/cuda_helper.cuh"
 
 constexpr int
 MIN_PIXELS_IN_CHUNK = 20;
@@ -51,7 +51,7 @@ protected:
     // Note that noise matrix is diagonal and stored as pointer to its array 
     // Do not delete inverse_covariance_matrix.
     MyCuPtr<double>
-        covariance_matrix, dev_fisher,
+        covariance_matrix,
         temp_matrix[2], dev_qj, dev_sfid,
         dev_wave, dev_delta, dev_noise, dev_smnoise,
         temp_vector, weighted_data_vector; // DATA_SIZE sized vector
@@ -96,6 +96,8 @@ public:
     // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
     std::unique_ptr<double[]> fisher_matrix;
 
+    MyCuPtr<double> dev_fisher, dev_dbt_vector;
+
     Chunk(const qio::QSOFile &qmaster, int i1, int i2);
     Chunk(Chunk &&rhs) = delete;
     Chunk(const Chunk &rhs) = delete;
@@ -120,8 +122,7 @@ public:
     void fprintfMatrices(const char *fname_base);
     double getMinMemUsage();
     void releaseFile();
-    void addBoot(int p, double *temppower, double* tempfisher);
+    void addBoot(double p, double *temppower, double* tempfisher);
 };
 
 #endif
-

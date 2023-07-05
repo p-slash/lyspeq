@@ -1,11 +1,8 @@
-#include "mathtools/cuda_helper.cu"
+#include "mathtools/cuda_helper.cuh"
 #include "mathtools/matrix_helper.hpp"
 #include "tests/test_utils.hpp"
 #include <cassert>
 
-
-CuBlasHelper cublas_helper;
-CuSolverHelper cusolver_helper;
 
 int
 NA = 4;
@@ -21,7 +18,7 @@ diagonal_of_A[] = {
     6, 2, 1, -1,
     7, 1, -1, -1,
     8, -1, -1, -1},
-truth_cblas_dsymv_1[] = { 72.0, 44.0, 22.5, 39.0 },
+truth_cblas_dsymv_1[] = { 144.0, 88.0, 45.0, 78.0 },
 vector_cblas_dsymv_b_1[] = {4, 5, 6, 7},
 matrix_cblas_dsymm_B[] = {
     3, 4, 4, 5,
@@ -41,9 +38,9 @@ void test_cublas_dsymv_1() {
         dev_vector_cblas_dsymv_b_1(NA, vector_cblas_dsymv_b_1);
     double cpu_res[NA];
 
-    cublas_helper.dsmyv(
-        NA, 0.5, dev_sym_matrix_A.get(), NA,
-        dev_vector_cblas_dsymv_b_1.get(), 1, 0, dev_res.get(), 1);
+    cublas_helper.dsymv(
+        NA, dev_sym_matrix_A.get(), NA,
+        dev_vector_cblas_dsymv_b_1.get(), 1, dev_res.get(), 1);
     dev_res.asyncDwn(cpu_res, NA);
     MyCuStream::syncMainStream();
 
@@ -60,9 +57,9 @@ void test_cublas_dsymm() {
 
     cublas_helper.dsymm(
         CUBLAS_SIDE_LEFT,
-        NA, NA, 1., dev_sym_matrix_A.get(), NA,
+        NA, NA, dev_sym_matrix_A.get(), NA,
         dev_matrix_cblas_dsymm_B.get(), NA,
-        0, dev_res.get(), NA);
+        dev_res.get(), NA);
 
     dev_res.asyncDwn(result, NA*NA);
     MyCuStream::syncMainStream();

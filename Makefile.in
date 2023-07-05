@@ -14,10 +14,10 @@ $(shell mkdir -p $(DEPDIR))
 VPATH=$(srcdir):$(DIRS)
 
 SOURCES=fiducial_cosmology.cpp global_numbers.cpp matrix_helper.cpp one_qso_estimate.cpp \
-quadratic_estimate.cpp sq_table.cpp discrete_interpolation.cpp fourier_integrator.cpp \
+sq_table.cpp discrete_interpolation.cpp fourier_integrator.cpp \
 interpolation.cpp interpolation_2d.cpp config_file.cpp io_helper_functions.cpp qso_file.cpp \
 sq_lookup_table_file.cpp logger.cpp real_field.cpp smoother.cpp bootstrap_file.cpp
-CUDA_SOURCES=cuda_helper.cu chunk_estimate.cu
+CUDA_SOURCES=chunk_estimate.cu quadratic_estimate.cu
 
 CUDA_OBJECTS=$(CUDA_SOURCES:.cu=.o)
 OBJECTS=$(SOURCES:.cpp=.o) $(CUDA_OBJECTS)
@@ -48,7 +48,7 @@ CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
 cblas_tests: cblas_tests.o matrix_helper.o real_field.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-test_cuda_helper: test_cuda_helper.o cuda_helper.o logger.o io_helper_functions.o matrix_helper.o real_field.o
+test_cuda_helper: test_cuda_helper.o logger.o io_helper_functions.o matrix_helper.o real_field.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testSQCMatrices: testSQCMatrices.o $(OBJECTS)

@@ -7,11 +7,10 @@
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
 
-const int MYCU_BLOCK_SIZE = 256;
+const static int MYCU_BLOCK_SIZE = 256;
 
 template<typename T>
-class MyCuPtr
-{
+class MyCuPtr {
     cudaError_t cuda_stat;
     T *dev_ptr;
     size_t size;
@@ -77,7 +76,10 @@ public:
     }
 
     void realloc(int n, T *cpu_ptr=nullptr, cudaStream_t stream=NULL) {
-        reset(); _alloc(n);
+        if (n > size) {
+            reset(); _alloc(n);
+        }
+
         if (cpu_ptr != nullptr)
             asyncCpy(cpu_ptr, n, 0, stream);
     }
@@ -129,9 +131,14 @@ public:
     }
 };
 
+static double _CPU_ONE_VALUE_ = 1, _CPU_ZERO_VALUE_ = 0;
+static MyCuPtr<double> _DEV_ONE_VALUE_(1, &_CPU_ONE_VALUE_),
+                       _DEV_ZERO_VALUE_(1, &_CPU_ZERO_VALUE_);
+
 
 class CuBlasHelper {
     cublasStatus_t blas_stat;
+    double *_one_ptr, *_zero_ptr;
 
     void check_cublas_error(std::string err_msg) {
         if (blas_stat != CUBLAS_STATUS_SUCCESS) {
@@ -142,7 +149,7 @@ class CuBlasHelper {
 public:
     cublasHandle_t blas_handle;
 
-    CuBlasHelper() {
+    CuBlasHelper() : _one_ptr(&_CPU_ONE_VALUE_), _zero_ptr(&_CPU_ZERO_VALUE_) {
         blas_stat = cublasCreate(&blas_handle);
         check_cublas_error("CUBLAS initialization failed: ");
     }
@@ -164,12 +171,16 @@ public:
     void setPointerMode2Host() {
         blas_stat = cublasSetPointerMode(blas_handle, CUBLAS_POINTER_MODE_HOST);
         check_cublas_error("cublasSetPointerMode - host:");
+        _one_ptr = &_CPU_ONE_VALUE_;
+        _zero_ptr = &_CPU_ZERO_VALUE_;
     }
 
     void setPointerMode2Device() {
         blas_stat = cublasSetPointerMode(
             blas_handle, CUBLAS_POINTER_MODE_DEVICE);
         check_cublas_error("cublasSetPointerMode - device:");
+        _one_ptr = _DEV_ONE_VALUE_.get();
+        _zero_ptr = _DEV_ZERO_VALUE_.get();
     }
 
     // Trace of A.B
@@ -195,7 +206,7 @@ public:
             double *c_res,
             const cublasFillMode_t uplo=CUBLAS_FILL_MODE_LOWER
     ) {
-        dsmyv(N, 1., S, N, v, 1, 0, temp_vector, 1, uplo);
+        dsymv(N, S, N, v, 1, temp_vector, 1, uplo);
         blas_stat = cublasDdot(blas_handle, N, v, 1, temp_vector, 1, c_res);
         check_cublas_error("my_cublas_dsymvdot/cublasDdot: ");
     }
@@ -217,31 +228,31 @@ public:
 
     void dsymm(
             cublasSideMode_t side,
-            int m, int n, double alpha,
+            int m, int n,
             const double *A, int lda,
             const double *B, int ldb,
-            double beta, double *C, int ldc,
+            double *C, int ldc,
             const cublasFillMode_t uplo=CUBLAS_FILL_MODE_LOWER
     ) {
         blas_stat = cublasDsymm(
             blas_handle, side, uplo,
-            m, n, &alpha,
+            m, n, _one_ptr,
             A, lda, B, ldb,
-            &beta, C, ldc);
+            _zero_ptr, C, ldc);
         check_cublas_error("cublasDsymm: ");
     }
 
-    void dsmyv(
-            int n, double alpha,
+    void dsymv(
+            int n,
             const double *A, int lda,
-            const double *x, int incx, double beta,
+            const double *x, int incx,
             double *y, int incy,
             const cublasFillMode_t uplo=CUBLAS_FILL_MODE_LOWER
     ) {
         blas_stat = cublasDsymv(
             blas_handle, uplo,
-            n, &alpha, A, lda, x, incx,
-            &beta, y, incy);
+            n, _one_ptr, A, lda, x, incx,
+            _zero_ptr, y, incy);
         check_cublas_error("cublasDsymv: ");
     }
 };
@@ -249,6 +260,8 @@ public:
 
 class CuSolverHelper
 {
+    MyCuPtr<int> devInfo;
+    int cpuInfo;
     cusolverStatus_t solver_stat;
 
     void check_cusolver_error(std::string err_msg) {
@@ -266,8 +279,8 @@ class CuSolverHelper
         throw std::runtime_error(err_msg);
     }
 
-    void check_info(MyCuPtr<int> &devInfo, std::string err_msg) {
-        int cpuInfo = 0;
+    void check_info(std::string err_msg) {
+        cpuInfo = 0;
         devInfo.syncDownload(&cpuInfo, 1);
 
         if (cpuInfo != 0)
@@ -280,6 +293,7 @@ public:
     CuSolverHelper() {
         solver_stat = cusolverDnCreate(&solver_handle);
         check_cusolver_error("CUSOLVER initialization failed: ");
+        devInfo.realloc(1);
     }
 
     ~CuSolverHelper() {
@@ -306,21 +320,21 @@ public:
         if devInfo = -i, the i-th parameter is wrong (not counting handle).
         if devInfo = i, the leading minor of order i is not positive definite.
         */
-        MyCuPtr<int> devInfo(1);
 
         solver_stat = cusolverDnDpotrf_bufferSize(
             solver_handle, uplo,
             N, A, N, &lworkf);
         check_cusolver_error("cusolverDnDpotrf_bufferSize: ");
 
-        MyCuPtr<double> d_workf(lworkf); /* device workspace for getrf */
+        static MyCuPtr<double> d_workf; /* device workspace for getrf */
+        d_workf.realloc(lworkf);
 
         solver_stat = cusolverDnDpotrf(
             solver_handle, uplo,
             N, A, N, d_workf.get(), lworkf, devInfo.get());
         check_cusolver_error("cusolverDnDpotrf: ");
 
-        check_info(devInfo, "Cholesky factorization is not successful.");
+        check_info("Cholesky factorization is not successful.");
     }
 
     void potri(
@@ -328,21 +342,21 @@ public:
             const cublasFillMode_t uplo=CUBLAS_FILL_MODE_LOWER
     ) {
         int lworki;
-        MyCuPtr<int> devInfo(1);
 
         solver_stat = cusolverDnDpotri_bufferSize(
             solver_handle, uplo,
             N, A, N, &lworki);
         check_cusolver_error("cusolverDnDpotri_bufferSize: ");
 
-        MyCuPtr<double> d_worki(lworki);
+        static MyCuPtr<double> d_worki;
+        d_worki.realloc(lworki);
 
         solver_stat = cusolverDnDpotri(
             solver_handle, uplo,
             N, A, N, d_worki.get(), lworki, devInfo.get());
         check_cusolver_error("cusolverDnDpotri: ");
 
-        check_info(devInfo, "Cholesky inversion is not successful.");
+        check_info("Cholesky inversion is not successful.");
     }
 
     // In-place invert by Cholesky factorization
@@ -356,13 +370,14 @@ public:
 
     void svd(double *A, double *svals, int nrows, int ncols) {
         int lwork = 0; /* size of workspace */
-        MyCuPtr<int> devInfo(1);
 
         solver_stat = cusolverDnDgesvd_bufferSize(
             solver_handle, nrows, ncols, &lwork);
         check_cusolver_error("cusolverDnDgesvd_bufferSize: ");
 
-        MyCuPtr<double> d_work(lwork), d_rwork(ncols); /* device workspace */
+        static MyCuPtr<double> d_work, d_rwork; /* device workspace */
+        d_work.realloc(lwork);
+        d_rwork.realloc(ncols);
 
         solver_stat = cusolverDnDgesvd(
             solver_handle, 'O', 'N', nrows, ncols, A, nrows, svals,
@@ -370,8 +385,11 @@ public:
             d_rwork.get(), devInfo.get());
         check_cusolver_error("cusolverDnDgesvd: ");
 
-        check_info(devInfo, "SVD is not successful.");
+        check_info("SVD is not successful.");
     }
 };
+
+static CuBlasHelper cublas_helper;
+static CuSolverHelper cusolver_helper;
 
 #endif
