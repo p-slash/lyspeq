@@ -147,7 +147,6 @@ private:
             ++p;
         }
 
-        dev_tmp_fisher.asyncDwn(tempfisher.get(), bins::FISHER_SIZE);
         dev_tmp_power.syncDownload(temppower.get(), bins::TOTAL_KZ_BINS);
 
         #if defined(ENABLE_MPI)
@@ -159,14 +158,14 @@ private:
         );
         if (process::this_pe != 0) {
             MPI_Reduce(
-                tempfisher.get(),
+                dev_tmp_fisher.get(),
                 nullptr, bins::FISHER_SIZE,
                 MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         }
         else {
             MPI_Reduce(
                 MPI_IN_PLACE,
-                tempfisher.get(), bins::FISHER_SIZE,
+                dev_tmp_fisher.get(), bins::FISHER_SIZE,
                 MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         }
         #endif
@@ -174,6 +173,7 @@ private:
         if (process::this_pe != 0)
             return;
 
+        dev_tmp_fisher.syncDownload(tempfisher.get(), bins::FISHER_SIZE);
         mxhelp::LAPACKE_solve_safe(
             tempfisher.get(), bins::TOTAL_KZ_BINS,
             allpowers.get() + jj * bins::TOTAL_KZ_BINS);
