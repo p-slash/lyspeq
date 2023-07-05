@@ -56,6 +56,22 @@ private:
 };
 
 
+namespace mytime
+{
+    static double time_spent_on_oneboot_loop = 0, time_spent_on_oneboot_mpi = 0,
+                  time_spent_on_oneboot_solve = 0;
+
+    void printfBootstrapTimeSpentDetails()
+    {
+        LOG::LOGGER.STD(
+            "Total time spent in loop is %.2f mins.\n"
+            "Total time spent in MPI is %.2f mins.\n"
+            "Total time spent in solve is %.2f mins.\n",
+            time_spent_on_oneboot_loop, time_spent_on_oneboot_mpi,
+            time_spent_on_oneboot_solve);
+    }
+}
+
 class PoissonBootstrapper {
 public:
     PoissonBootstrapper(int num_boots) : nboots(num_boots) {
@@ -89,6 +105,8 @@ public:
 
         if (process::this_pe != 0)
             return;
+
+        mytime::printfBootstrapTimeSpentDetails();
 
         _calcuate_covariance();
 
@@ -136,6 +154,7 @@ private:
         pgenerator->generate(dev_uint_coefficients.get(), nqsos);
 
         dev_uint_coefficients.syncDownload(cpu_uint_coefficients.get(), nqsos);
+        double t1 = mytime::timer.getTime(), t2;
 
         unsigned int *p = cpu_uint_coefficients.get();
         for (auto &one_qso : local_queue) {
@@ -150,6 +169,9 @@ private:
         }
 
         dev_tmp_power.syncDownload(temppower.get(), bins::TOTAL_KZ_BINS);
+
+        t2 = mytime::timer.getTime();
+        mytime::time_spent_on_oneboot_loop += t2 - t1;
 
         #if defined(ENABLE_MPI)
         MPI_Reduce(
@@ -176,9 +198,16 @@ private:
             return;
 
         dev_tmp_fisher.syncDownload(tempfisher.get(), bins::FISHER_SIZE);
+
+        t1 = mytime::timer.getTime();
+        mytime::time_spent_on_oneboot_mpi += t1 - t2;
+
         mxhelp::LAPACKE_solve_safe(
             tempfisher.get(), bins::TOTAL_KZ_BINS,
             allpowers.get() + jj * bins::TOTAL_KZ_BINS);
+
+        t2 = mytime::timer.getTime();
+        mytime::time_spent_on_oneboot_solve += t2 - t1;
     }
 
     void _calcuate_covariance() {
