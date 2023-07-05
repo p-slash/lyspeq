@@ -122,7 +122,7 @@ public:
     void fprintfMatrices(const char *fname_base);
     double getMinMemUsage();
     void releaseFile();
-    void addBoot(double p, double *temppower, double* tempfisher);
+    void addBoot(double *p, double *temppower, double* tempfisher);
 };
 
 #endif
