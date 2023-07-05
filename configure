@@ -452,7 +452,7 @@ function set_cuda_lib()
 {
     echo "====================================================================="
     echo "testing for cuBLAS and cuSolver."
-    cuda_ldlibs="-cudalib=cublas,cusolver"
+    cuda_ldlibs="-cudalib=cublas,cusolver,curand"
 
     test_file="${srcdir}/build-aux/test_cuda_compiling"
     printf "${cuda_test_text}" > ${test_file}.cu
@@ -604,7 +604,7 @@ set_cblas_inc_lib
 set_cuda_lib
 
 if [[ ! -z "${ENABLE_MPI}" ]]; then
-    exec="srun -n 1 "
+    exec="srun -n 1 -G 1 "
     set_mpi_inc_lib
 fi
 

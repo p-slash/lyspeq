@@ -8,25 +8,51 @@
 #include "mpi.h" 
 #endif
 
+#include <curand.h>
+
 #include "core/one_qso_estimate.hpp"
 #include "core/global_numbers.hpp"
 #include "core/progress.hpp"
+#include "mathtools/cuda_helper.cuh"
 #include "mathtools/matrix_helper.hpp"
 
+
+__global__
+void _convert_uint_double(int size, unsigned int *in, double *out)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    for (int i = index; i < size; i += stride)
+        out[i] = in[i];
+}
 
 class PoissonRNG {
 public:
     PoissonRNG(unsigned long int seed) {
-        rng_engine.seed(seed);
+        curand_stat = curandCreateGenerator(&rng_engine, CURAND_RNG_PSEUDO_DEFAULT);
+        check_cuda_error("curandCreateGenerator");
+        curand_stat = curandSetPseudoRandomGeneratorSeed(rng_engine, seed);
+        check_cuda_error("curandSetPseudoRandomGeneratorSeed");
     }
 
-    unsigned int generate() {
-        return p_dist(rng_engine);
+    ~PoissonRNG() {
+        curand_stat = curandDestroyGenerator(rng_engine);
+        check_cuda_error("curandDestroyGenerator");
+    }
+
+    void generate(unsigned int *output, int n) {
+        curand_stat = curandGeneratePoisson(rng_engine, output, n, 1);
+        check_cuda_error("curandGeneratePoisson");
     }
 
 private:
-    std::mt19937_64 rng_engine;
-    std::poisson_distribution<unsigned int> p_dist;
+    curandStatus_t curand_stat;
+    curandGenerator_t rng_engine;
+
+    void check_cuda_error(std::string err_msg) {
+        if (curand_stat != CURAND_STATUS_SUCCESS)
+            throw std::runtime_error(err_msg);
+    }
 };
 
 
@@ -37,6 +63,9 @@ public:
         temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
         tempfisher = std::make_unique<double[]>(bins::FISHER_SIZE);
 
+        dev_tmp_power.realloc(bins::TOTAL_KZ_BINS);
+        dev_tmp_fisher.realloc(bins::FISHER_SIZE);
+
         if (process::this_pe == 0)
             allpowers = std::make_unique<double[]>(nboots * bins::TOTAL_KZ_BINS);
     }
@@ -44,6 +73,12 @@ public:
     void run(
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
+        nqsos = local_queue.size();
+        dev_uint_coefficients.realloc(nqsos);
+        cpu_uint_coefficients = std::make_unique<unsigned int[]>(nqsos);
+
+        _prerun(local_queue);
+
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
         Progress prog_tracker(nboots);
 
@@ -65,8 +100,13 @@ public:
     }
 
 private:
-    unsigned int nboots;
+    unsigned int nboots, nqsos;
+    MyCuPtr<double> dev_tmp_power, dev_tmp_fisher;
+    MyCuPtr<unsigned int> dev_uint_coefficients;
+
     std::unique_ptr<double[]> temppower, tempfisher, allpowers;
+    std::unique_ptr<unsigned int[]> cpu_uint_coefficients;
+
     std::unique_ptr<PoissonRNG> pgenerator;
 
     void _prerun(
@@ -78,12 +118,12 @@ private:
                 one_chunk->releaseFile();
 
                 int ndim = one_chunk->N_Q_MATRICES;
-                double *pk = one_chunk->dbt_estimate_before_fisher_vector[0].get();
-                double *nk = one_chunk->dbt_estimate_before_fisher_vector[1].get();
-                double *tk = one_chunk->dbt_estimate_before_fisher_vector[2].get();
+                double *pk = one_chunk->dev_dbt_vector.get(),
+                       *nk = pk + ndim,
+                       *tk = nk + ndim;
 
-                mxhelp::vector_sub(pk, nk, ndim);
-                mxhelp::vector_sub(pk, tk, ndim);
+                cublas_helper.daxpy(-1, nk, pk, ndim);
+                cublas_helper.daxpy(-1, tk, pk, ndim);
             }
         }
     }
@@ -91,17 +131,25 @@ private:
     void _one_boot(
             int jj, std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
-        std::fill_n(temppower.get(), bins::TOTAL_KZ_BINS, 0);
-        std::fill_n(tempfisher.get(), bins::FISHER_SIZE, 0);
+        dev_tmp_power.memset();
+        dev_tmp_fisher.memset();
+        pgenerator->generate(dev_uint_coefficients.get(), nqsos);
 
+        dev_uint_coefficients.syncDownload(cpu_uint_coefficients.get(), nqsos);
+
+        unsigned int *p = cpu_uint_coefficients.get();
         for (auto &one_qso : local_queue) {
-            int p = pgenerator->generate();
-            if (p == 0)
+            if (*p == 0) {
+                ++p;
                 continue;
+            }
 
             for (auto &one_chunk : one_qso->chunks)
-                one_chunk->addBoot(p, temppower.get(), tempfisher.get());
+                one_chunk->addBoot(*p, dev_tmp_power.get(), dev_tmp_fisher.get());
+            ++p;
         }
+
+        dev_tmp_power.syncDownload(temppower.get(), bins::TOTAL_KZ_BINS);
 
         #if defined(ENABLE_MPI)
         MPI_Reduce(
@@ -112,14 +160,14 @@ private:
         );
         if (process::this_pe != 0) {
             MPI_Reduce(
-                tempfisher.get(),
+                dev_tmp_fisher.get(),
                 nullptr, bins::FISHER_SIZE,
                 MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         }
         else {
             MPI_Reduce(
                 MPI_IN_PLACE,
-                tempfisher.get(), bins::FISHER_SIZE,
+                dev_tmp_fisher.get(), bins::FISHER_SIZE,
                 MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         }
         #endif
@@ -127,12 +175,14 @@ private:
         if (process::this_pe != 0)
             return;
 
+        dev_tmp_fisher.syncDownload(tempfisher.get(), bins::FISHER_SIZE);
         mxhelp::LAPACKE_solve_safe(
             tempfisher.get(), bins::TOTAL_KZ_BINS,
             allpowers.get() + jj * bins::TOTAL_KZ_BINS);
     }
 
     void _calcuate_covariance() {
+        LOG::LOGGER.STD("Calculating bootstrap covariance.\n");
         std::fill_n(temppower.get(), bins::TOTAL_KZ_BINS, 0);
         std::fill_n(tempfisher.get(), bins::FISHER_SIZE, 0);
 

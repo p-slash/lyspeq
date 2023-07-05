@@ -18,9 +18,6 @@
 #include "omp.h"
 #endif
 
-CuBlasHelper cublas_helper;
-CuSolverHelper cusolver_helper;
-
 #ifdef FISHER_OPTIMIZATION
 const int num_streams = 3;
 #else
@@ -82,6 +79,11 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
             std::make_unique<double[]>(N_Q_MATRICES));
 
     fisher_matrix = std::make_unique<double[]>(N_Q_MATRICES * N_Q_MATRICES);
+
+    dev_fisher.realloc(N_Q_MATRICES * N_Q_MATRICES);
+    dev_fisher.memset();
+    dev_dbt_vector.realloc(3 * N_Q_MATRICES);
+    dev_dbt_vector.memset();
 
     process::updateMemory(-getMinMemUsage());
 }
@@ -396,7 +398,7 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
     // cudaMemset(y, 0, size*sizeof(double));
-    cublas_helper.dsmyv(size, 1., cinv, size, v, 1, 0, y, 1);
+    cublas_helper.dsymv(size, cinv, size, v, 1, y, 1);
     double alpha;
     cublasDdot(cublas_helper.blas_handle, size, v, 1, y, 1, &alpha);
     alpha = -1./alpha;
@@ -409,7 +411,7 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 
 void Chunk::_addMarginalizations()
 {
-    std::set<int> idx_streams = {0};
+    // std::set<int> idx_streams = {0};
 
     int num_blocks = (size() + MYCU_BLOCK_SIZE - 1) / MYCU_BLOCK_SIZE,
         vidx = 1;
@@ -431,7 +433,7 @@ void Chunk::_addMarginalizations()
             num_blocks, MYCU_BLOCK_SIZE, 0, streams[idx_s].get()
         >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
 
-        idx_streams.insert(idx_s);
+        // idx_streams.insert(idx_s);
         ++vidx;
     }
     // Lambda polynomials
@@ -443,12 +445,12 @@ void Chunk::_addMarginalizations()
             num_blocks, MYCU_BLOCK_SIZE, 0, streams[idx_s].get()
         >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
 
-        idx_streams.insert(idx_s);
+        // idx_streams.insert(idx_s);
         ++vidx;
     }
 
-    for (auto &idx_s : idx_streams)
-        streams[idx_s].sync();
+    // for (auto &idx_s : idx_streams)
+        // streams[idx_s].sync();
 
     cublas_helper.resetStream();
 
@@ -501,13 +503,13 @@ void Chunk::_getWeightedMatrix(double *m)
 
     //C-1 . Q
     cublas_helper.dsymm(CUBLAS_SIDE_LEFT,
-        size(), size(), 1., inverse_covariance_matrix, size(),
-        m, size(), 0, temp_matrix[1].get(), size());
+        size(), size(), inverse_covariance_matrix, size(),
+        m, size(), temp_matrix[1].get(), size());
 
     //C-1 . Q . C-1
     cublas_helper.dsymm(CUBLAS_SIDE_RIGHT,
-        size(), size(), 1., inverse_covariance_matrix, size(),
-        temp_matrix[1].get(), size(), 0, m, size());
+        size(), size(), inverse_covariance_matrix, size(),
+        temp_matrix[1].get(), size(), m, size());
 
     t = mytime::timer.getTime() - t;
 
@@ -516,12 +518,10 @@ void Chunk::_getWeightedMatrix(double *m)
 
 void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 {
-    cublas_helper.setPointerMode2Device();
-
     double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx],
         idx_fji_0 = N_Q_MATRICES * i_kz;
-    std::set<int> idx_streams;
+    // std::set<int> idx_streams;
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
@@ -541,14 +541,13 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
             Qw_ikz_matrix, _getDevQikz(jdx), size(),
             dev_fisher.get() + j_kz + idx_fji_0);
 
-        idx_streams.insert(idx_s);
+        // idx_streams.insert(idx_s);
     }
 
-    for (auto &idx_s : idx_streams)
-        streams[idx_s].sync();
+    // for (auto &idx_s : idx_streams)
+    //     streams[idx_s].sync();
 
     cublas_helper.resetStream();
-    cublas_helper.setPointerMode2Host();
 
     t = mytime::timer.getTime() - t;
 
@@ -558,16 +557,17 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 void Chunk::computePSbeforeFvector()
 {
     LOG::LOGGER.DEB("PS before Fisher\n");
+    cublas_helper.setPointerMode2Device();
 
     double
         *Q_ikz_matrix = temp_matrix[0].get(),
-        *dk0 = dbt_estimate_before_fisher_vector[0].get(),
-        *nk0 = dbt_estimate_before_fisher_vector[1].get(),
-        *tk0 = dbt_estimate_before_fisher_vector[2].get();
+        *dk0 = dev_dbt_vector.get(),
+        *nk0 = dk0 + N_Q_MATRICES,
+        *tk0 = nk0 + N_Q_MATRICES;
 
-    cublas_helper.dsmyv(
-        size(), 1., inverse_covariance_matrix, 
-        size(), dev_delta.get(), 1, 0, weighted_data_vector.get(), 1);
+    cublas_helper.dsymv(
+        size(), inverse_covariance_matrix, 
+        size(), dev_delta.get(), 1, weighted_data_vector.get(), 1);
 
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
@@ -598,6 +598,8 @@ void Chunk::computePSbeforeFvector()
         if (!specifics::USE_PRECOMPUTED_FISHER)
             _getFisherMatrix(Q_ikz_matrix, idx);
     }
+
+    cublas_helper.setPointerMode2Host();
 }
 
 void Chunk::oneQSOiteration(
@@ -620,8 +622,14 @@ void Chunk::oneQSOiteration(
         invertCovarianceMatrix();
 
         computePSbeforeFvector();
-        dev_fisher.syncDownload(
+
+        dev_fisher.asyncDwn(
             fisher_matrix.get(), N_Q_MATRICES * N_Q_MATRICES);
+        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+            dev_dbt_vector.asyncDwn(
+                dbt_estimate_before_fisher_vector[dbt_i].get(),
+                N_Q_MATRICES, N_Q_MATRICES * dbt_i);
+        MyCuStream::syncMainStream();
 
         for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
         {
@@ -652,22 +660,21 @@ void Chunk::oneQSOiteration(
     _freeMatrices();
 }
 
-void Chunk::addBoot(int p, double *temppower, double* tempfisher) {
-    for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
-    {
+void Chunk::addBoot(double p, double *temppower, double* tempfisher) {
+    for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int idx_fji_0 =
             (bins::TOTAL_KZ_BINS + 1) * (i_kz + fisher_index_start);
         int ncopy = N_Q_MATRICES - i_kz;
 
-        cblas_daxpy(
-            ncopy,
-            p, fisher_matrix.get() + i_kz * (N_Q_MATRICES + 1), 1,
+        cublasDaxpy(
+            cublas_helper.blas_handle,
+            ncopy, &p, dev_fisher.get() + i_kz * (N_Q_MATRICES + 1), 1,
             tempfisher + idx_fji_0, 1);
     }
 
-    cblas_daxpy(
-        N_Q_MATRICES,
-        p, dbt_estimate_before_fisher_vector[0].get(), 1,
+    cublasDaxpy(
+        cublas_helper.blas_handle,
+        N_Q_MATRICES, &p, dev_dbt_vector.get(), 1,
         temppower + fisher_index_start, 1);
 }
 
@@ -711,9 +718,6 @@ void Chunk::_allocateCuda() {
     dev_delta.realloc(size(), qFile->delta());
     dev_noise.realloc(size(), qFile->noise());
     dev_smnoise.realloc(size());
-
-    dev_fisher.realloc(N_Q_MATRICES * N_Q_MATRICES);
-    dev_fisher.memset(0);
 
     covariance_matrix.realloc(DATA_SIZE_2);
 
@@ -779,7 +783,6 @@ void Chunk::_freeCuda() {
     dev_noise.reset();
     dev_smnoise.reset();
 
-    dev_fisher.reset();
     LOG::LOGGER.DEB("Free cov\n");
     covariance_matrix.reset();
 
@@ -841,9 +844,3 @@ void Chunk::fprintfMatrices(const char *fname_base)
         qFile->Rmat->fprintfMatrix(buf.c_str());
     }
 }
-
-
-
-
-
-
