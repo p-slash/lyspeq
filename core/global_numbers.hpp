@@ -41,6 +41,10 @@ namespace process
         {"SaveEachChunkResult", "-1"},
         {"CacheAllSQTables", "1"} , {"AllocatedMemoryMB", "1500."}});
 
+    inline double getMemoryMB(int n) {
+        return (double)sizeof(double) * n / 1048576.;
+    };
+
     void updateMemory(double deltamem);
 
     /* This function reads following keys from config file:
