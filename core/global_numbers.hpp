@@ -9,7 +9,7 @@
 
 #include "io/config_file.hpp"
 
-#define __LYSPEQ_VERSION__ "4.3.3"
+#define __LYSPEQ_VERSION__ "4.3.5"
 
 // Debugging flags. Comment out to turn off
 // #define DEBUG_MATRIX_OUT
@@ -40,6 +40,10 @@ namespace process
         {"TemporaryFolder", "."}, {"SaveEachProcessResult", "-1"},
         {"SaveEachChunkResult", "-1"},
         {"CacheAllSQTables", "1"} , {"AllocatedMemoryMB", "1500."}});
+
+    inline double getMemoryMB(int n) {
+        return (double)sizeof(double) * n / 1048576.;
+    };
 
     void updateMemory(double deltamem);
 
