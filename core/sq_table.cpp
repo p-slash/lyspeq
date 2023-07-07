@@ -446,8 +446,8 @@ void SQLookupTable::deallocateVAndZArrays()
 
 double SQLookupTable::getOneSetMemUsage()
 {
-    double s = (double)sizeof(double) * N_V_POINTS * N_Z_POINTS_OF_S  / 1048576.,
-    q = (double)sizeof(double) * N_V_POINTS * bins::NUMBER_OF_K_BANDS / 1048576.;
+    double s = process::getMemoryMB(N_V_POINTS * N_Z_POINTS_OF_S),
+           q = process::getMemoryMB(N_V_POINTS * bins::NUMBER_OF_K_BANDS);
 
     if (specifics::TURN_OFF_SFID) s = 0;
 
@@ -456,7 +456,7 @@ double SQLookupTable::getOneSetMemUsage()
 
 double SQLookupTable::getMaxMemUsage()
 {
-    double rdvsize = (double)sizeof(double) * NUMBER_OF_R_VALUES * 1.5 / 1048576.;
+    double rdvsize = 1.5 * process::getMemoryMB(NUMBER_OF_R_VALUES);
 
     return getOneSetMemUsage() * NUMBER_OF_R_VALUES + rdvsize;
 }

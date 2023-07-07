@@ -154,7 +154,7 @@ void Chunk::_setNQandFisherIndex()
 // Find number of Qj matrices to preload.
 void Chunk::_setStoredMatrices()
 {
-    double size_m1 = (double)sizeof(double) * DATA_SIZE_2 / 1048576.; // in MB
+    double size_m1 = process::getMemoryMB(DATA_SIZE_2);
 
     int n_spec_mat = 3 + i_kz_vector.size() + (!specifics::TURN_OFF_SFID);
     double remain_mem = process::MEMORY_ALLOC,
@@ -165,7 +165,7 @@ void Chunk::_setStoredMatrices()
         needed_mem += qFile->Rmat->getBufMemUsage();
     if (on_oversampling) {
         double ncols = (double) qFile->Rmat->getNCols();
-        needed_mem += sizeof(double) * ncols * (3 * ncols+1) / 1048576;
+        needed_mem += process::getMemoryMB(ncols * (3 * ncols + 1));
     }
 
     // Need at least 3 matrices as temp one for sfid
@@ -186,18 +186,21 @@ Chunk::~Chunk()
 
 double Chunk::getMinMemUsage()
 {
-    double minmem = (double)sizeof(double) * size() * 3 / 1048576.; // in MB
-    minmem +=
-        (double)sizeof(double) * (N_Q_MATRICES + 1) * N_Q_MATRICES / 1048576.;
-
-    if (specifics::USE_RESOLUTION_MATRIX)
-        minmem += qFile->Rmat->getMinMemUsage();
+    double minmem = process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
+    if (qFile) {
+        minmem += process::getMemoryMB(size() * 3);    
+        if (specifics::USE_RESOLUTION_MATRIX)
+            minmem += qFile->Rmat->getMinMemUsage();
+    }
 
     return minmem;
 }
 
 void Chunk::releaseFile() {
-    double released_mem = (double)sizeof(double) * size() * 3 / 1048576.;
+    if (!qFile)
+        return;
+
+    double released_mem = process::getMemoryMB(size() * 3);
     if (specifics::USE_RESOLUTION_MATRIX)
         released_mem += qFile->Rmat->getMinMemUsage();
     process::updateMemory(released_mem);
