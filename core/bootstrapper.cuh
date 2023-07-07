@@ -156,17 +156,26 @@ private:
         dev_tmp_power.memset();
         dev_tmp_fisher.memset();
         pgenerator->generate(dev_uint_coefficients.get(), nqsos);
+        dev_uint_coefficients.asyncDwn(cpu_uint_coefficients.get(), nqsos);
 
         _convert_uint_double<<<
             num_blocks, MYCU_BLOCK_SIZE, 0, 0
         >>>(nqsos, dev_uint_coefficients.get(), dev_d_coefficients.get());
         double t1 = mytime::timer.getTime(), t2;
 
-        double *p = dev_d_coefficients.get();
+        int i = 0;
+        MyCuStream::syncMainStream();
         for (auto &one_qso : local_queue) {
+            if (cpu_uint_coefficients[i] == 0) {
+                ++i;
+                continue;
+            }
+
             for (auto &one_chunk : one_qso->chunks)
-                one_chunk->addBoot(p, dev_tmp_power.get(), dev_tmp_fisher.get());
-            ++p;
+                one_chunk->addBoot(
+                    dev_d_coefficients.get() + i,
+                    dev_tmp_power.get(), dev_tmp_fisher.get());
+            ++i;
         }
 
         dev_tmp_power.syncDownload(temppower.get(), bins::TOTAL_KZ_BINS);
