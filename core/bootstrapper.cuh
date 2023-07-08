@@ -130,6 +130,7 @@ private:
     void _prerun(
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
+        double subt_alpha = -1;
         // Get thetas to prepare.
         for (auto &one_qso : local_queue) {
             for (auto &one_chunk : one_qso->chunks) {
@@ -140,8 +141,8 @@ private:
                        *nk = pk + ndim,
                        *tk = nk + ndim;
 
-                cublas_helper.daxpy(-1, nk, pk, ndim);
-                cublas_helper.daxpy(-1, tk, pk, ndim);
+                cublas_helper.daxpy(&subt_alpha, nk, pk, ndim);
+                cublas_helper.daxpy(&subt_alpha, tk, pk, ndim);
             }
         }
     }
