@@ -18,7 +18,7 @@
 
 
 __global__
-void _convert_uint_double(int size, unsigned int *in, double *out)
+void _convert_uint_double(int size, const unsigned int *in, double *out)
 {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;

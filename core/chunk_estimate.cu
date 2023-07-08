@@ -650,22 +650,39 @@ void Chunk::oneQSOiteration(
     _freeMatrices();
 }
 
-void Chunk::addBoot(double *p, double *temppower, double* tempfisher) {
-    for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
-        int idx_fji_0 =
-            (bins::TOTAL_KZ_BINS + 1) * (i_kz + fisher_index_start);
+__global__
+void _fisher_axpy(
+        int nqmat, int nkzbins,
+        const double* infisher, const double *p,
+        double* outfisher
+){
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    int stride_i = blockDim.x * gridDim.x;
+    int stride_j = blockDim.y * gridDim.y;
 
-        cublas_helper.setStream(AVAIL_STREAMS[i_kz % NUM_AVAIL_STREAMS]);
-        cublas_helper.daxpy(
-            p, dev_fisher.get() + i_kz * (N_Q_MATRICES + 1),
-            tempfisher + idx_fji_0, N_Q_MATRICES - i_kz);
+    for (; i < nqmat; i += stride_i) {
+        for (; j < nqmat - i; j += stride_j) {
+            outfisher[j + i * (nkzbins + 1)] += (*p) * infisher[j + i * (nqmat + 1)];
+        } 
     }
+}
 
-    cublas_helper.setStream(AVAIL_STREAMS[N_Q_MATRICES % NUM_AVAIL_STREAMS]);
+void Chunk::addBoot(const double *p, double *temppower, double* tempfisher) {
+    outfisher = tempfisher + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
+    static dim3 threads_per_block(16, 16);
+    dim3 num_blocks(
+        (N_Q_MATRICES + threads_per_block.x - 1) / threads_per_block.x,
+        (N_Q_MATRICES + threads_per_block.y - 1) / threads_per_block.y
+    );
+
+    _fisher_axpy<<<
+        num_blocks, threads_per_block
+    >>>(N_Q_MATRICES, bins::TOTAL_KZ_BINS, dev_fisher.get(), p,
+        tempfisher + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start);
+
     cublas_helper.daxpy(
-        p, dev_dbt_vector.get(), temppower + fisher_index_start,
-        N_Q_MATRICES);
-    cublas_helper.resetStream();
+        p, dev_dbt_vector.get(), temppower + fisher_index_start, N_Q_MATRICES);
 }
 
 void Chunk::_initIteration() {
