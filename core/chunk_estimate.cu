@@ -669,7 +669,6 @@ void _fisher_axpy(
 }
 
 void Chunk::addBoot(const double *p, double *temppower, double* tempfisher) {
-    outfisher = tempfisher + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
     static dim3 threads_per_block(16, 16);
     dim3 num_blocks(
         (N_Q_MATRICES + threads_per_block.x - 1) / threads_per_block.x,
