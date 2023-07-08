@@ -158,6 +158,9 @@ public:
         cublasDestroy(blas_handle);
     }
 
+    double* getOnePtr() const { return _one_ptr; }
+    double* getZeroPtr() const { return _zero_ptr; }
+
     void setStream(MyCuStream& stream) {
         blas_stat = cublasSetStream(blas_handle, stream.get());
         check_cublas_error("cublasSetStream: ");
@@ -217,12 +220,12 @@ public:
     }
 
     void daxpy( 
-            double alpha,
+            const double *alpha,
             const double *x, double *y,
             int N,
             int incx=1, int incy=1
     ) {
-        blas_stat = cublasDaxpy(blas_handle, N, &alpha, x, incx, y, incy);
+        blas_stat = cublasDaxpy(blas_handle, N, alpha, x, incx, y, incy);
         check_cublas_error("cublasDaxpy: ");
     }
 
