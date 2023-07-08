@@ -19,11 +19,11 @@
 #endif
 
 #ifdef FISHER_OPTIMIZATION
-const int num_streams = 3;
+const int NUM_AVAIL_STREAMS = 3;
 #else
-const int num_streams = 16;
+const int NUM_AVAIL_STREAMS = 16;
 #endif
-std::vector<MyCuStream> streams(num_streams);
+std::vector<MyCuStream> AVAIL_STREAMS(NUM_AVAIL_STREAMS);
 
 
 inline
@@ -351,14 +351,15 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
         double *Q_ikz_matrix = _getDevQikz(idx);
 
         cublas_helper.daxpy(
-            alpha[i_kz], Q_ikz_matrix, covariance_matrix.get(), DATA_SIZE_2);
+            alpha + i_kz, Q_ikz_matrix, covariance_matrix.get(), DATA_SIZE_2);
     }
 
     // add noise matrix diagonally
     // but smooth before adding
     // process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
     cublas_helper.daxpy(
-        1., dev_smnoise.get(), covariance_matrix.get(), size(), 1, size()+1);
+        cublas_helper.getOnePtr(),
+        dev_smnoise.get(), covariance_matrix.get(), size(), 1, size() + 1);
 
     isCovInverted = false;
 }
@@ -414,8 +415,6 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 
 void Chunk::_addMarginalizations()
 {
-    // std::set<int> idx_streams = {0};
-
     int num_blocks = (size() + MYCU_BLOCK_SIZE - 1) / MYCU_BLOCK_SIZE,
         vidx = 1;
 
@@ -424,36 +423,31 @@ void Chunk::_addMarginalizations()
 
     // Zeroth order
     _setZerothOrder<<<
-        num_blocks, MYCU_BLOCK_SIZE, 0, streams[0].get()
+        num_blocks, MYCU_BLOCK_SIZE, 0, AVAIL_STREAMS[0].get()
     >>>(size(), 1 / sqrt(size()), temp_v);
 
     // Log lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
     {
-        int idx_s = vidx % num_streams;
+        int idx_s = vidx % NUM_AVAIL_STREAMS;
 
         _getUnitVectorLogLam<<<
-            num_blocks, MYCU_BLOCK_SIZE, 0, streams[idx_s].get()
+            num_blocks, MYCU_BLOCK_SIZE, 0, AVAIL_STREAMS[idx_s].get()
         >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
 
-        // idx_streams.insert(idx_s);
         ++vidx;
     }
     // Lambda polynomials
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
     {
-        int idx_s = vidx % num_streams;
+        int idx_s = vidx % NUM_AVAIL_STREAMS;
 
         _getUnitVectorLam<<<
-            num_blocks, MYCU_BLOCK_SIZE, 0, streams[idx_s].get()
+            num_blocks, MYCU_BLOCK_SIZE, 0, AVAIL_STREAMS[idx_s].get()
         >>>(dev_wave.get(), size(), cmo, temp_v + vidx * size());
 
-        // idx_streams.insert(idx_s);
         ++vidx;
     }
-
-    // for (auto &idx_s : idx_streams)
-        // streams[idx_s].sync();
 
     cublas_helper.resetStream();
 
@@ -524,7 +518,6 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
     double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx],
         idx_fji_0 = N_Q_MATRICES * i_kz;
-    // std::set<int> idx_streams;
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
@@ -537,18 +530,13 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
             continue;
         #endif
 
-        int idx_s = jdx % num_streams;
-        cublas_helper.setStream(streams[idx_s]);
+        int idx_s = jdx % NUM_AVAIL_STREAMS;
+        cublas_helper.setStream(AVAIL_STREAMS[idx_s]);
 
         cublas_helper.trace_dsymm(
             Qw_ikz_matrix, _getDevQikz(jdx), size(),
             dev_fisher.get() + j_kz + idx_fji_0);
-
-        // idx_streams.insert(idx_s);
     }
-
-    // for (auto &idx_s : idx_streams)
-    //     streams[idx_s].sync();
 
     cublas_helper.resetStream();
 
@@ -638,11 +626,10 @@ void Chunk::oneQSOiteration(
         {
             int idx_fji_0 =
                 (bins::TOTAL_KZ_BINS + 1) * (i_kz + fisher_index_start);
-            int ncopy = N_Q_MATRICES - i_kz;
             mxhelp::vector_add(
                 fisher_sum + idx_fji_0,
                 fisher_matrix.get() + i_kz * (N_Q_MATRICES + 1),
-                ncopy);
+                N_Q_MATRICES - i_kz);
         }
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
@@ -667,18 +654,18 @@ void Chunk::addBoot(double *p, double *temppower, double* tempfisher) {
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int idx_fji_0 =
             (bins::TOTAL_KZ_BINS + 1) * (i_kz + fisher_index_start);
-        int ncopy = N_Q_MATRICES - i_kz;
 
-        cublasDaxpy(
-            cublas_helper.blas_handle,
-            ncopy, p, dev_fisher.get() + i_kz * (N_Q_MATRICES + 1), 1,
-            tempfisher + idx_fji_0, 1);
+        cublas_helper.setStream(AVAIL_STREAMS[i_kz % NUM_AVAIL_STREAMS]);
+        cublas_helper.daxpy(
+            p, dev_fisher.get() + i_kz * (N_Q_MATRICES + 1),
+            tempfisher + idx_fji_0, N_Q_MATRICES - i_kz);
     }
 
-    cublasDaxpy(
-        cublas_helper.blas_handle,
-        N_Q_MATRICES, p, dev_dbt_vector.get(), 1,
-        temppower + fisher_index_start, 1);
+    cublas_helper.setStream(AVAIL_STREAMS[N_Q_MATRICES % NUM_AVAIL_STREAMS]);
+    cublas_helper.daxpy(
+        p, dev_dbt_vector.get(), temppower + fisher_index_start,
+        N_Q_MATRICES);
+    cublas_helper.resetStream();
 }
 
 void Chunk::_initIteration() {
