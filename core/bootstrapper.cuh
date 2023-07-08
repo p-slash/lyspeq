@@ -8,8 +8,6 @@
 #include "mpi.h" 
 #endif
 
-#include <curand.h>
-
 #include "core/one_qso_estimate.hpp"
 #include "core/global_numbers.hpp"
 #include "core/progress.hpp"
@@ -17,42 +15,19 @@
 #include "mathtools/matrix_helper.hpp"
 
 
-__global__
-void _convert_uint_double(int size, unsigned int *in, double *out)
-{
-    int index = blockIdx.x * blockDim.x + threadIdx.x;
-    int stride = blockDim.x * gridDim.x;
-    for (int i = index; i < size; i += stride)
-        out[i] = in[i];
-}
-
 class PoissonRNG {
 public:
     PoissonRNG(unsigned long int seed) {
-        curand_stat = curandCreateGenerator(&rng_engine, CURAND_RNG_PSEUDO_DEFAULT);
-        check_cuda_error("curandCreateGenerator");
-        curand_stat = curandSetPseudoRandomGeneratorSeed(rng_engine, seed);
-        check_cuda_error("curandSetPseudoRandomGeneratorSeed");
+        rng_engine.seed(seed);
     }
 
-    ~PoissonRNG() {
-        curand_stat = curandDestroyGenerator(rng_engine);
-        check_cuda_error("curandDestroyGenerator");
-    }
-
-    void generate(unsigned int *output, int n) {
-        curand_stat = curandGeneratePoisson(rng_engine, output, n, 1);
-        check_cuda_error("curandGeneratePoisson");
+    unsigned int generate() {
+        return p_dist(rng_engine);
     }
 
 private:
-    curandStatus_t curand_stat;
-    curandGenerator_t rng_engine;
-
-    void check_cuda_error(std::string err_msg) {
-        if (curand_stat != CURAND_STATUS_SUCCESS)
-            throw std::runtime_error(err_msg);
-    }
+    std::mt19937_64 rng_engine;
+    std::poisson_distribution<unsigned int> p_dist;
 };
 
 
@@ -89,10 +64,6 @@ public:
     void run(
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
-        nqsos = local_queue.size();
-        dev_uint_coefficients.realloc(nqsos);
-        cpu_uint_coefficients = std::make_unique<unsigned int[]>(nqsos);
-
         _prerun(local_queue);
 
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
@@ -118,13 +89,9 @@ public:
     }
 
 private:
-    unsigned int nboots, nqsos;
+    unsigned int nboots;
     MyCuPtr<double> dev_tmp_power, dev_tmp_fisher;
-    MyCuPtr<unsigned int> dev_uint_coefficients;
-
     std::unique_ptr<double[]> temppower, tempfisher, allpowers;
-    std::unique_ptr<unsigned int[]> cpu_uint_coefficients;
-
     std::unique_ptr<PoissonRNG> pgenerator;
 
     void _prerun(
@@ -152,21 +119,16 @@ private:
     ) {
         dev_tmp_power.memset();
         dev_tmp_fisher.memset();
-        pgenerator->generate(dev_uint_coefficients.get(), nqsos);
 
-        dev_uint_coefficients.syncDownload(cpu_uint_coefficients.get(), nqsos);
         double t1 = mytime::timer.getTime(), t2;
 
-        unsigned int *p = cpu_uint_coefficients.get();
         for (auto &one_qso : local_queue) {
-            if (*p == 0) {
-                ++p;
+            int p = pgenerator->generate();
+            if (p == 0)
                 continue;
-            }
 
             for (auto &one_chunk : one_qso->chunks)
-                one_chunk->addBoot(*p, dev_tmp_power.get(), dev_tmp_fisher.get());
-            ++p;
+                one_chunk->addBoot(p, dev_tmp_power.get(), dev_tmp_fisher.get());
         }
 
         dev_tmp_power.syncDownload(temppower.get(), bins::TOTAL_KZ_BINS);
