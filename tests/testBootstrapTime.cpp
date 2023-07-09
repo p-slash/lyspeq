@@ -130,11 +130,16 @@ void time_addboot() {
     t2 = mytime::timer.getTime();
     mytime::time_spent_on_addboot[0] += t2 - t1;
 
+    std::fill_n(temppower.get(), TOTAL_KZ_BINS, 0);
+    std::fill_n(tempfisher.get(), TOTAL_KZ_BINS * TOTAL_KZ_BINS, 0);
+
+    t1 = mytime::timer.getTime();
+
     for (int i = 0; i < N_LOOPS; ++i)
         dumdum.addboot2(p, temppower.get(), tempfisher.get());
 
-    t1 = mytime::timer.getTime();
-    mytime::time_spent_on_addboot[1] += t1 - t2;
+    t2 = mytime::timer.getTime();
+    mytime::time_spent_on_addboot[1] += t2 - t1;
 }
 
 

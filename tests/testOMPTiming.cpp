@@ -43,6 +43,7 @@ namespace mytime {
             "Total time spent in %s (no omp) is %.2f mins.\n"
             "Total time spent in %s (w/ omp) is %.2f mins.\n",
             funcname, time_spent_on_func[0], funcname, time_spent_on_func[1]);
+        fflush(stdout);
     }
 
     class Timer
