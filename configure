@@ -589,7 +589,7 @@ if [[ -z "${ENABLE_FORCE}" ]]; then
     set -e
 fi
 
-if [[ ! -f "${srcdir}/core/quadratic_estimate.cpp" ]]; then
+if [[ ! -f "${srcdir}/core/quadratic_estimate.hpp" ]]; then
     echo "Error: srcdir is wrong."
     exit 1
 fi
