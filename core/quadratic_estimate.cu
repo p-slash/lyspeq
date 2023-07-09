@@ -730,7 +730,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 void OneDQuadraticPowerEstimate::initializeIteration()
 {
     dev_fisher_matrix_sum.memset();
-    dev_dbt_vector_sum.memset()
+    dev_dbt_vector_sum.memset();
 
     isFisherInverted = false;
 }
