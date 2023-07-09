@@ -44,7 +44,7 @@ void _saveChunkResults(
             int ndim = one_chunk->N_Q_MATRICES;
 
             one_chunk->dev_dbt_vector.asyncDwn(tempdata.get(), 3 * ndim);
-            one_chunk->dev_fisher.asyncDwn(tempdata.get(), ndim * ndim, 3 * ndim);
+            one_chunk->dev_fisher.asyncDwn(tempdata.get() + 3 * ndim, ndim * ndim);
             MyCuStream::syncMainStream();
 
             double *pk = tempdata.get(), *nk = pk + ndim, *tk = nk + ndim,
