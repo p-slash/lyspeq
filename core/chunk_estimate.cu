@@ -633,7 +633,7 @@ void Chunk::oneQSOiteration(
 
         cublas_helper.daxpy(
             cublas_helper.getOnePtr(), dev_dbt_vector.get(),
-            dev_dbt_sum_vector, N_Q_MATRICES);
+            dev_dbt_sum_vector, 3 * N_Q_MATRICES);
 
         _fisher_axpy<<<
             num_blocks, THREADS_PER_BLOCK
