@@ -13,6 +13,8 @@
 #include "omp.h"
 #endif
 
+#include "mathtools/discrete_interpolation.hpp"
+
 
 int TOTAL_KZ_BINS = 35 * 13, N_LOOPS = 450000;
 const double SPEED_OF_LIGHT = 299792.458, LYA_REST = 1215.67;
@@ -72,8 +74,9 @@ protected:
     const int DATA_SIZE = 350;
 
     std::unique_ptr<double[]> fisher_matrix, d_vector;
-    std::unique_ptr<double[]> vmatrix, zmatrix, lambda;
+    std::unique_ptr<double[]> vmatrix, zmatrix, lambda, qmatrix;
     std::unique_ptr<PoissonRNG> pgenerator;
+    std::unique_ptr<DiscreteInterpolation1D> interp1d;
 public:
     DummyChunk() {
         pgenerator = std::make_unique<PoissonRNG>(123);
@@ -83,6 +86,7 @@ public:
         lambda = std::make_unique<double[]>(DATA_SIZE);
         vmatrix = std::make_unique<double[]>(DATA_SIZE * DATA_SIZE);
         zmatrix = std::make_unique<double[]>(DATA_SIZE * DATA_SIZE);
+        qmatrix = std::make_unique<double[]>(DATA_SIZE * DATA_SIZE);
 
         for (int i = 0; i < N_Q_MATRICES; ++i)
             d_vector[i] = pgenerator->generate();
@@ -90,6 +94,16 @@ public:
             fisher_matrix[i] = pgenerator->generate();
         for (int i = 0; i < DATA_SIZE; ++i)
             lambda[i] = (3800. + 0.8 * i) / LYA_REST;
+
+        double vmax = SPEED_OF_LIGHT * log(lambda[DATA_SIZE - 1] / lambda[0]),
+               dv = 10.;
+        int narr = vmax / dv + 1;
+        auto yarr = std::make_unique<double[]>(narr);
+        for (int i = 0; i < narr; ++i)
+            yarr[i] = 10. * exp(-i * dv / 100.);
+
+        interp1d = std::make_unique<DiscreteInterpolation1D>(
+            0, dv, yarr.get(), narr);
     }
 
     void setVZMatrices_noomp() {
@@ -117,6 +131,25 @@ public:
 
                 vmatrix[idx] = SPEED_OF_LIGHT * log(lj / li);
                 zmatrix[idx] = sqrt(li * lj) - 1.;
+            }
+        }
+    }
+
+    void setQiMatrix_noomp() {
+        for (int i = 0; i < DATA_SIZE; ++i) {
+            for (int j = i; j < DATA_SIZE; ++j) {
+                int idx = j + i * DATA_SIZE;
+                qmatrix[idx] = zmatrix[idx] * interp1d->evaluate(vmatrix[idx]);
+            }
+        }
+    }
+
+    void setQiMatrix_omp() {
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < DATA_SIZE; ++i) {
+            for (int j = i; j < DATA_SIZE; ++j) {
+                int idx = j + i * DATA_SIZE;
+                qmatrix[idx] = zmatrix[idx] * interp1d->evaluate(vmatrix[idx]);
             }
         }
     }
@@ -204,8 +237,32 @@ void time_vzsetting() {
     mytime::time_spent_on_func[1] += t2 - t1;
 }
 
+void time_setqi() {
+    DummyChunk dumdum;
+
+    double t1 = mytime::timer.getTime(), t2;
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        dumdum.setQiMatrix_noomp();
+
+    t2 = mytime::timer.getTime();
+    mytime::time_spent_on_func[0] += t2 - t1;
+
+    t1 = mytime::timer.getTime();
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        dumdum.setQiMatrix_omp();
+
+    t2 = mytime::timer.getTime();
+    mytime::time_spent_on_func[1] += t2 - t1;
+}
+
 
 int main(int argc, char *argv[]) {
+    #if !defined(ENABLE_OMP)
+    #error "testOMPTiming needs --enable-openmp to compile."
+    #endif
+
     int number_lapse = 10;
     if (argc == 2)
         number_lapse = atoi(argv[1]);
@@ -226,6 +283,9 @@ int main(int argc, char *argv[]) {
         time_addboot();
 
     mytime::printfBootstrapTimeSpentDetails();
+    printf(
+        "NOTE: addBoot does not use OpenMP. Enabling or disabling OpenMP "
+        "will not change performance.\n");
 
     if (argc == 1)
         number_lapse = 1;
@@ -236,6 +296,18 @@ int main(int argc, char *argv[]) {
         time_vzsetting();
 
     mytime::printfBootstrapTimeSpentDetails("setVZMatrices");
+    printf("NOTE: enabling or disabling OpenMP can improve performance.\n");
+
+    if (argc == 1)
+        number_lapse = 1;
+
+    printf("Doing %d lapses with %d loops each.\n", number_lapse, N_LOOPS);
+
+    for (int i = 0; i < number_lapse; ++i)
+        time_setqi();
+
+    mytime::printfBootstrapTimeSpentDetails("setQiMatrix");
+    printf("NOTE: enabling or disabling OpenMP can improve performance.\n");
 
     return 0;
 }
