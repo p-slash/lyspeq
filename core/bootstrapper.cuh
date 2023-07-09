@@ -182,7 +182,7 @@ private:
                 bins::TOTAL_KZ_BINS);
         }
 
-        cblas_dscal(bins::TOTAL_KZ_BINS, 1. / nboots, temppower.get(), 1);
+        cblas_dscal(bins::TOTAL_KZ_BINS, 1. / nboots, tempdata.get(), 1);
 
         for (int jj = 0; jj < nboots; ++jj) {
             double *x = allpowers.get() + jj * bins::TOTAL_KZ_BINS;
