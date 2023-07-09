@@ -298,7 +298,7 @@ int main(int argc, char *argv[]) {
     if (argc == 1)
         number_lapse = 1;
 
-    resetTime()
+    mytime::resetTime()
     printf(
         "Timing setVZMatrices...\nDoing %d lapses with %d loops each.\n",
         number_lapse, N_LOOPS);
@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) {
     mytime::printfBootstrapTimeSpentDetails("setVZMatrices");
     printf("NOTE: enabling or disabling OpenMP can improve performance.\n");
 
-    resetTime()
+    mytime::resetTime()
     printf(
         "Timing setQiMatrix...\nDoing %d lapses with %d loops each.\n",
         number_lapse, N_LOOPS);
