@@ -9,7 +9,6 @@
 #include "cblas.h"
 #endif
 
-
 const int TOTAL_KZ_BINS = 35 * 13, N_LOOPS = 450000;
 
 
@@ -29,8 +28,7 @@ private:
 };
 
 
-namespace mytime
-{
+namespace mytime {
     static double time_spent_on_addboot[] = {0, 0}, time_spent_on_pgenerate = 0;
 
     void printfBootstrapTimeSpentDetails()
@@ -73,7 +71,6 @@ public:
         pgenerator = std::make_unique<PoissonRNG>(123);
         fisher_matrix = std::make_unique<double[]>(N_Q_MATRICES * N_Q_MATRICES),
         d_vector = std::make_unique<double[]>(N_Q_MATRICES);
-        int nruns = (N_Q_MATRICES + 1) * N_Q_MATRICES;
 
         for (int i = 0; i < N_Q_MATRICES; ++i)
             d_vector[i] = pgenerator->generate();
@@ -101,14 +98,14 @@ public:
     }
 
     void addboot2(int p, double *temppower, double* tempfisher) {
-        for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
-        {
-            int idx_fji_0 = TOTAL_KZ_BINS * (i_kz + fisher_index_start);
+        double *outfisher =
+            tempfisher + (TOTAL_KZ_BINS + 1) * fisher_index_start;
 
-            cblas_daxpy(
-                N_Q_MATRICES,
-                p, fisher_matrix.get() + i_kz * N_Q_MATRICES, 1,
-                tempfisher + idx_fji_0, 1);
+        for (int i = 0; i < N_Q_MATRICES; ++i) {
+            for (int j = i; j < N_Q_MATRICES; ++j) {
+                outfisher[j + i * TOTAL_KZ_BINS] +=
+                    p * fisher_matrix[j + i * N_Q_MATRICES];
+            } 
         }
 
         cblas_daxpy(
