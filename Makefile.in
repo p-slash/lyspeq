@@ -74,6 +74,12 @@ myfitsread: myfitsread.o
 test-fftconvolve: test-fftconvolve.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
+testBootstrapTime: testBootstrapTime.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+testOMPTiming: testOMPTiming.cpp discrete_interpolation.o
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
 .PHONY: install uninstall clean
 
 install: LyaPowerEstimate CreateSQLookUpTable
@@ -88,7 +94,7 @@ uninstall:
 clean:
 	$(RM) $(OBJECTS) $(bin_OBJ) $(test_objects) $(srcdir)/tests/output/*
 	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests testSQCMatrices
-	$(RM) test_cuda_helper testPointRef myfitsread test-fftconvolve
+	$(RM) test_cuda_helper testPointRef myfitsread test-fftconvolve testBootstrapTime testOMPTiming
 
 deepclean: clean
 	$(RM) $(DEPDIR)/*

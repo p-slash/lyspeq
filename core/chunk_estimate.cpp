@@ -589,15 +589,12 @@ void Chunk::oneQSOiteration(
 
         computePSbeforeFvector();
 
-        for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
-        {
-            int idx_fji_0 =
-                (bins::TOTAL_KZ_BINS + 1) * (i_kz + fisher_index_start);
-            int ncopy = N_Q_MATRICES - i_kz;
-            mxhelp::vector_add(
-                fisher_sum + idx_fji_0,
-                fisher_matrix.get() + i_kz * (N_Q_MATRICES + 1),
-                ncopy);
+        double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
+
+        for (int i = 0; i < N_Q_MATRICES; ++i) {
+            for (int j = i; j < N_Q_MATRICES; ++j) {
+                outfisher[j + i * bins::TOTAL_KZ_BINS] += fisher_matrix[j + i * N_Q_MATRICES];
+            } 
         }
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
@@ -620,16 +617,13 @@ void Chunk::oneQSOiteration(
 }
 
 void Chunk::addBoot(int p, double *temppower, double* tempfisher) {
-    for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
-    {
-        int idx_fji_0 =
-            (bins::TOTAL_KZ_BINS + 1) * (i_kz + fisher_index_start);
-        int ncopy = N_Q_MATRICES - i_kz;
+    double *outfisher = tempfisher + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
 
-        cblas_daxpy(
-            ncopy,
-            p, fisher_matrix.get() + i_kz * (N_Q_MATRICES + 1), 1,
-            tempfisher + idx_fji_0, 1);
+    for (int i = 0; i < N_Q_MATRICES; ++i) {
+        for (int j = i; j < N_Q_MATRICES; ++j) {
+            outfisher[j + i * bins::TOTAL_KZ_BINS] +=
+                p * fisher_matrix[j + i * N_Q_MATRICES];
+        } 
     }
 
     cblas_daxpy(
