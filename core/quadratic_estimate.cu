@@ -92,6 +92,9 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
 
     powerspectra_fits              = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
+    dev_fisher_matrix_sum.realloc(bins::FISHER_SIZE);
+    dev_dbt_vector_sum.realloc(3 * bins::TOTAL_KZ_BINS);
+
     isFisherInverted = false;
     if (specifics::USE_PRECOMPUTED_FISHER)
         _readPrecomputedFisher(config.get("PrecomputedFisher").c_str());
@@ -419,8 +422,8 @@ void OneDQuadraticPowerEstimate::iterate()
         for (auto &one_qso : local_queue) {
             one_qso->oneQSOiteration(
                 powerspectra_fits.get(), 
-                dbt_estimate_sum_before_fisher_vector,
-                fisher_matrix_sum.get()
+                dev_dbt_vector_sum.get(),
+                dev_fisher_matrix_sum.get()
             );
 
             ++prog_tracker;
@@ -429,8 +432,19 @@ void OneDQuadraticPowerEstimate::iterate()
         LOG::LOGGER.DEB("All done.\n");
 
         // Scale and copy first before summing across PEs
-        cblas_dscal(bins::FISHER_SIZE, 0.5, fisher_matrix_sum.get(), 1);
+        double alpha_half = 0.5;
+        cublasDscal(
+            cublas_helper.blas_handle, bins::FISHER_SIZE, &alpha_half,
+            dev_fisher_matrix_sum.get(), 1);
+        dev_fisher_matrix_sum.syncDownload(
+            fisher_matrix_sum.get(), bins::FISHER_SIZE);
+        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+            dev_dbt_vector_sum.asyncDwn(
+                dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
+                bins::TOTAL_KZ_BINS, dbt_i * bins::TOTAL_KZ_BINS);
+
         mxhelp::copyUpperToLower(fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
+        MyCuStream::syncMainStream();
 
         // Save bootstrap files only if MPI is enabled.
         #if defined(ENABLE_MPI)
@@ -711,11 +725,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 
 void OneDQuadraticPowerEstimate::initializeIteration()
 {
-    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-        std::fill_n(dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
-            bins::TOTAL_KZ_BINS, 0);
-
-    std::fill_n(fisher_matrix_sum.get(), bins::FISHER_SIZE, 0);
+    dev_fisher_matrix_sum.memset();
+    dev_dbt_vector_sum.memset()
 
     isFisherInverted = false;
 }

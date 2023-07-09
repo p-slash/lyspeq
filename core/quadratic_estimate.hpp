@@ -5,6 +5,7 @@
 #include <string>
 #include <memory>
 
+#include "mathtools/cuda_helper.cuh"
 #include "io/config_file.hpp"
 
 // This umbrella class manages the quadratic estimator by 
@@ -41,6 +42,7 @@ class OneDQuadraticPowerEstimate
 
     // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
     std::unique_ptr<double[]> fisher_matrix_sum, inverse_fisher_matrix_sum;
+    MyCuPtr<double> dev_fisher_matrix_sum, dev_dbt_vector_sum;
 
     bool isFisherInverted;
 

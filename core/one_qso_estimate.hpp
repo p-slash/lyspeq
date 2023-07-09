@@ -30,9 +30,9 @@ public:
     static double getComputeTimeEst(std::string fname_qso, int &zbin);
 
     // Pass fit values for the power spectrum for numerical stability
-    void oneQSOiteration(const double *ps_estimate, 
-        std::vector<std::unique_ptr<double[]>> &dbt_sum_vector, 
-        double *fisher_sum);
+    void oneQSOiteration(
+        const double *ps_estimate,
+        double *dev_dbt_sum_vector, double *dev_fisher_sum);
 };
 
 #endif
