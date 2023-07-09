@@ -675,14 +675,14 @@ void Chunk::addBoot(double p, double *temppower, double* tempfisher) {
         (N_Q_MATRICES + threads_per_block.y - 1) / threads_per_block.y
     );
 
+    cublas_helper.daxpy(
+        &p, dev_dbt_vector.get(), temppower + fisher_index_start,
+        N_Q_MATRICES);
+
     _fisher_axpy<<<
         num_blocks, threads_per_block
     >>>(N_Q_MATRICES, bins::TOTAL_KZ_BINS, dev_fisher.get(), p,
         tempfisher + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start);
-
-    cublas_helper.daxpy(
-        &p, dev_dbt_vector.get(), temppower + fisher_index_start,
-        N_Q_MATRICES);
 }
 
 void Chunk::_initIteration() {
