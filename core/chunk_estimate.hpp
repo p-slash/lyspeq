@@ -90,12 +90,6 @@ public:
     int fisher_index_start, N_Q_MATRICES;
     int ZBIN, ZBIN_LOW, ZBIN_UPP;
 
-    // Initialized to 0
-    // 3 TOTAL_KZ_BINS sized vectors
-    std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
-    // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
-    std::unique_ptr<double[]> fisher_matrix;
-
     MyCuPtr<double> dev_fisher, dev_dbt_vector;
 
     Chunk(const qio::QSOFile &qmaster, int i1, int i2);
@@ -116,8 +110,7 @@ public:
     // Pass fit values for the power spectrum for numerical stability
     void oneQSOiteration(
         const double *ps_estimate,
-        std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
-        double *fisher_sum);
+        double *dev_dbt_sum_vector, double *dev_fisher_sum);
 
     void fprintfMatrices(const char *fname_base);
     double getMinMemUsage();
