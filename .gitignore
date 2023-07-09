@@ -17,6 +17,8 @@ testPointRef
 testSQCMatrices
 myfitsread
 test-fftconvolve
+testBootstrapTime
+testOMPTiming
 TODO
 Makefile
 config.status

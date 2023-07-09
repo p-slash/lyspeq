@@ -10,6 +10,7 @@
 #include <fitsio.h>
 
 #include "core/global_numbers.hpp"
+#include "io/io_helper_functions.hpp"
 #include "mathtools/matrix_helper.hpp"
 
 namespace qio
@@ -39,13 +40,17 @@ class BQFile
     } header;
 
 public:
-    BQFile(const std::string &fname_qso);
+    BQFile(const std::string &fname_qso) {
+        qso_file = ioh::open_file(fname_qso.c_str(), "rb");
+    };
+
     BQFile(BQFile &&rhs) = default;
     BQFile(const BQFile &rhs) = delete;
-    ~BQFile();
+    ~BQFile() { fclose(qso_file); };
 
-    void readParameters(int &data_number, double &z, int &fwhm_resolution, 
-        double &sig2noi, double &dv_kms);
+    void readParameters(
+        int &data_number, double &z, double &dec, double &ra,
+        int &fwhm_resolution,  double &sig2noi, double &dv_kms);
 
     void readData(double *lambda, double *fluxfluctuations, double *noise);
 };
@@ -80,11 +85,14 @@ public:
 
     int getNumberSpectra() const {return no_spectra;};
 
-    void readParameters(long &thid, int &N, double &z, int &fwhm_resolution, 
-        double &sig2noi, double &dv_kms, double &dlambda, int &oversampling);
+    void readParameters(
+        long &thid, int &N, double &z, double &dec, double &ra,
+        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
+        int &oversampling);
 
     void readData(double *lambda, double *delta, double *noise);
-    std::unique_ptr<mxhelp::Resolution> readAllocResolutionMatrix(int oversampling, double dlambda);
+    std::unique_ptr<mxhelp::Resolution> readAllocResolutionMatrix(
+        int oversampling, double dlambda);
 };
 
 class QSOFile
@@ -101,7 +109,7 @@ class QSOFile
 
 public:
     std::string fname;
-    double z_qso, snr, dv_kms, dlambda;
+    double z_qso, snr, dv_kms, dlambda, ra, dec;
     long id;
     int R_fwhm, oversampling;
     std::unique_ptr<mxhelp::Resolution> Rmat;
@@ -112,8 +120,13 @@ public:
     QSOFile(QSOFile &&rhs) = delete;
     QSOFile(const QSOFile &rhs) = delete;
 
-    void closeFile();
-    ~QSOFile();
+    void closeFile() { pfile.reset(); bqfile.reset(); };
+    ~QSOFile() {
+        closeFile();
+        delete [] wave_head;
+        delete [] delta_head;
+        delete [] noise_head;
+    };
 
     int size() const { return arr_size; };
     int realSize() const { return arr_size-num_masked_pixels; };
