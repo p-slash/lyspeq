@@ -172,21 +172,22 @@ private:
         LOG::LOGGER.STD("Calculating bootstrap covariance.\n");
         std::fill_n(tempdata.get(), bins::FISHER_SIZE + bins::TOTAL_KZ_BINS, 0);
 
-        double *tempfisher = tempdata.get() + bins::TOTAL_KZ_BINS;
+        double *temppower = tempdata.get(), 
+               *tempfisher = temppower + bins::TOTAL_KZ_BINS;
 
         // Calculate mean power, store into temppower
         for (int jj = 0; jj < nboots; ++jj) {
             mxhelp::vector_add(
-                tempdata.get(),
+                temppower,
                 allpowers.get() + jj * bins::TOTAL_KZ_BINS,
                 bins::TOTAL_KZ_BINS);
         }
 
-        cblas_dscal(bins::TOTAL_KZ_BINS, 1. / nboots, tempdata.get(), 1);
+        cblas_dscal(bins::TOTAL_KZ_BINS, 1. / nboots, temppower, 1);
 
         for (int jj = 0; jj < nboots; ++jj) {
             double *x = allpowers.get() + jj * bins::TOTAL_KZ_BINS;
-            mxhelp::vector_sub(x, temppower.get(), bins::TOTAL_KZ_BINS);
+            mxhelp::vector_sub(x, temppower, bins::TOTAL_KZ_BINS);
             cblas_dsyr(
                 CblasRowMajor, CblasUpper,
                 bins::TOTAL_KZ_BINS, 1, x, 1,
