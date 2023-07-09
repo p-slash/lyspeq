@@ -77,7 +77,7 @@ test-fftconvolve: test-fftconvolve.o $(OBJECTS)
 testBootstrapTime: testBootstrapTime.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-testOMPTiming: testOMPTiming.cpp
+testOMPTiming: testOMPTiming.cpp discrete_interpolation.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 .PHONY: install uninstall clean
