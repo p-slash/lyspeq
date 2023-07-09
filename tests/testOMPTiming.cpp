@@ -277,7 +277,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    printf("Doing %d lapses with %d loops each.\n", number_lapse, N_LOOPS);
+    printf(
+        "Timing addBoot...\nDoing %d lapses with %d loops each.\n",
+        number_lapse, N_LOOPS);
+    fflush(stdout);
 
     for (int i = 0; i < number_lapse; ++i)
         time_addboot();
@@ -290,7 +293,10 @@ int main(int argc, char *argv[]) {
     if (argc == 1)
         number_lapse = 1;
 
-    printf("Doing %d lapses with %d loops each.\n", number_lapse, N_LOOPS);
+    printf(
+        "Timing setVZMatrices...\nDoing %d lapses with %d loops each.\n",
+        number_lapse, N_LOOPS);
+    fflush(stdout);
 
     for (int i = 0; i < number_lapse; ++i)
         time_vzsetting();
@@ -301,7 +307,10 @@ int main(int argc, char *argv[]) {
     if (argc == 1)
         number_lapse = 1;
 
-    printf("Doing %d lapses with %d loops each.\n", number_lapse, N_LOOPS);
+    printf(
+        "Timing setQiMatrix...\nDoing %d lapses with %d loops each.\n",
+        number_lapse, N_LOOPS);
+    fflush(stdout);
 
     for (int i = 0; i < number_lapse; ++i)
         time_setqi();
