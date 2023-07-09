@@ -158,7 +158,7 @@ void time_poisson() {
 
 
 int main(int argc, char *argv[]) {
-    int number_lapse = 10;
+    int number_lapse = 400;
     if (argc == 2)
         number_lapse = atoi(argv[1]);
 
