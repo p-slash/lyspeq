@@ -48,6 +48,11 @@ namespace mytime {
         fflush(stdout);
     }
 
+    void resetTime() {
+        time_spent_on_func[0] = 0;
+        time_spent_on_func[1] = 0;
+    }
+
     class Timer
     {
         using steady_c  = std::chrono::steady_clock;
@@ -293,6 +298,7 @@ int main(int argc, char *argv[]) {
     if (argc == 1)
         number_lapse = 1;
 
+    resetTime()
     printf(
         "Timing setVZMatrices...\nDoing %d lapses with %d loops each.\n",
         number_lapse, N_LOOPS);
@@ -304,9 +310,7 @@ int main(int argc, char *argv[]) {
     mytime::printfBootstrapTimeSpentDetails("setVZMatrices");
     printf("NOTE: enabling or disabling OpenMP can improve performance.\n");
 
-    if (argc == 1)
-        number_lapse = 1;
-
+    resetTime()
     printf(
         "Timing setQiMatrix...\nDoing %d lapses with %d loops each.\n",
         number_lapse, N_LOOPS);
