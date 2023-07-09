@@ -1,5 +1,4 @@
 #include "io/qso_file.hpp"
-#include "io/io_helper_functions.hpp"
 
 #include <cmath>
 #include <algorithm>
@@ -42,9 +41,9 @@ double _getMediandlambda(const double *wave, int size)
 // int R_fwhm;
 // double *wave, *delta, *noise;
 // mxhelp::Resolution *Rmat;
-QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b) :
-PB(p_or_b), wave_head(NULL), delta_head(NULL), noise_head(NULL),
-arr_size(0), shift(0), num_masked_pixels(0), fname(fname_qso)
+QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
+        : PB(p_or_b), wave_head(NULL), delta_head(NULL), noise_head(NULL),
+          arr_size(0), shift(0), num_masked_pixels(0), fname(fname_qso)
 {
     if (PB == Picca)
         pfile = std::make_unique<PiccaFile>(fname);
@@ -57,10 +56,10 @@ arr_size(0), shift(0), num_masked_pixels(0), fname(fname_qso)
 }
 
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
-: PB(qmaster.PB), shift(0), num_masked_pixels(0), fname(qmaster.fname), 
-z_qso(qmaster.z_qso), snr(qmaster.snr), id(qmaster.id),
-R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
-// dv_kms(qmaster.dv_kms), dlambda(qmaster.dlambda),
+        : PB(qmaster.PB), shift(0), num_masked_pixels(0), fname(qmaster.fname), 
+          z_qso(qmaster.z_qso), snr(qmaster.snr), id(qmaster.id),
+          ra(qmaster.ra), dec(qmaster.dec),
+          R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
 {
     arr_size = i2-i1;
 
@@ -80,26 +79,15 @@ R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
     recalcDvDLam();
 }
 
-void QSOFile::closeFile()
-{
-    pfile.reset();
-    bqfile.reset();
-}
-
-QSOFile::~QSOFile()
-{
-    closeFile();
-    delete [] wave_head;
-    delete [] delta_head;
-    delete [] noise_head;
-}
-
 void QSOFile::readParameters()
 {
     if (pfile)
-        pfile->readParameters(id, arr_size, z_qso, R_fwhm, snr, dv_kms, dlambda, oversampling);
+        pfile->readParameters(
+            id, arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms, dlambda,
+            oversampling);
     else
-        bqfile->readParameters(arr_size, z_qso, R_fwhm, snr, dv_kms);
+        bqfile->readParameters(
+            arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms);
 }
 
 void QSOFile::readData()
@@ -216,29 +204,22 @@ void QSOFile::recalcDvDLam()
 // ============================================================================
 // Binary QSO file
 // ============================================================================
-BQFile::BQFile(const std::string &fname_qso)
-{
-    qso_file = ioh::open_file(fname_qso.c_str(), "rb");
-}
-
-BQFile::~BQFile()
-{
-    fclose(qso_file);
-}
-
-void BQFile::readParameters(int &data_number, double &z, int &fwhm_resolution, 
-    double &sig2noi, double &dv_kms)
-{
+void BQFile::readParameters(
+        int &data_number, double &z, double &dec, double &ra,
+        int &fwhm_resolution, double &sig2noi, double &dv_kms
+) {
     rewind(qso_file);
 
     if (fread(&header, sizeof(qso_io_header), 1, qso_file) != 1)
         throw std::runtime_error("fread error in header BQFile!");
 
-    data_number      = header.data_size;
-    z                = header.redshift;
-    fwhm_resolution  = header.spectrograph_resolution_fwhm;
-    sig2noi          = header.signal_to_noise;
-    dv_kms           = header.pixel_width;
+    data_number = header.data_size;
+    z = header.redshift;
+    dec = header.declination;
+    ra = header.right_ascension;
+    fwhm_resolution = header.spectrograph_resolution_fwhm;
+    sig2noi = header.signal_to_noise;
+    dv_kms = header.pixel_width;
 }
 
 void BQFile::readData(double *lambda, double *fluxfluctuations, double *noise)
@@ -382,9 +363,11 @@ bool PiccaFile::_isColumnName(const std::string &key)
         [key](const std::string &elem) { return elem == key; });
 }
 
-void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resolution, 
-    double &sig2noi, double &dv_kms, double &dlambda, int &oversampling)
-{
+void PiccaFile::readParameters(
+        long &thid, int &N, double &z, double &dec, double &ra,
+        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
+        int &oversampling
+) {
     curr_elem_per_row = -1;
 
     // This is not ndiags in integer, but length in bytes that includes other columns
@@ -401,6 +384,8 @@ void PiccaFile::readParameters(long &thid, int &N, double &z, int &fwhm_resoluti
 
 
     fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
+    fits_read_key(fits_file, TDOUBLE, "RA", &ra, NULL, &status);
+    fits_read_key(fits_file, TDOUBLE, "DEC", &dec, NULL, &status);
 
     double r_kms;
     fits_read_key(fits_file, TDOUBLE, "MEANRESO", &r_kms, NULL, &status);

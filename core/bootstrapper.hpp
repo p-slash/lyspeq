@@ -30,6 +30,22 @@ private:
 };
 
 
+namespace mytime
+{
+    static double time_spent_on_oneboot_loop = 0, time_spent_on_oneboot_mpi = 0,
+                  time_spent_on_oneboot_solve = 0;
+
+    void printfBootstrapTimeSpentDetails()
+    {
+        LOG::LOGGER.STD(
+            "Total time spent in loop is %.2f mins.\n"
+            "Total time spent in MPI is %.2f mins.\n"
+            "Total time spent in solve is %.2f mins.\n",
+            time_spent_on_oneboot_loop, time_spent_on_oneboot_mpi,
+            time_spent_on_oneboot_solve);
+    }
+}
+
 class PoissonBootstrapper {
 public:
     PoissonBootstrapper(int num_boots) {
@@ -65,6 +81,8 @@ public:
     void run(
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
+        _prerun(local_queue);
+
         LOG::LOGGER.STD(
             "Generating %u bootstrap realizations.\n"
             "Realizations per batch is %u.\n", nboots, nboots_per_batch);
@@ -75,6 +93,8 @@ public:
 
         if (process::this_pe != 0)
             return;
+
+        mytime::printfBootstrapTimeSpentDetails();
 
         _calcuate_covariance();
 
@@ -142,6 +162,8 @@ private:
             int ibatch, Progress &prog_tracker,
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
+        double t1 = mytime::timer.getTime(), t2;
+
         std::fill_n(temppower.get(), nboots_per_batch * bins::TOTAL_KZ_BINS, 0);
         std::fill_n(tempfisher.get(), nboots_per_batch * bins::FISHER_SIZE, 0);
 
@@ -152,6 +174,9 @@ private:
             _one_boot(jj, local_queue);
             ++prog_tracker;
         }
+
+        t2 = mytime::timer.getTime();
+        mytime::time_spent_on_oneboot_loop += t2 - t1;
 
         #if defined(ENABLE_MPI)
         MPI_Reduce(
@@ -177,15 +202,22 @@ private:
         if (process::this_pe != 0)
             return;
 
+        t1 = mytime::timer.getTime();
+        mytime::time_spent_on_oneboot_mpi += t1 - t2;
+
         for (int jj = 0; jj < nboots_per_batch; ++jj) {
             mxhelp::LAPACKE_solve_safe(
                 tempfisher.get() + jj * bins::FISHER_SIZE,
                 bins::TOTAL_KZ_BINS,
                 apk + jj * bins::TOTAL_KZ_BINS);
         }
+
+        t2 = mytime::timer.getTime();
+        mytime::time_spent_on_oneboot_solve += t2 - t1;
     }
 
     void _calcuate_covariance() {
+        LOG::LOGGER.STD("Calculating bootstrap covariance.\n");
         std::fill_n(temppower.get(), bins::TOTAL_KZ_BINS, 0);
         std::fill_n(tempfisher.get(), bins::FISHER_SIZE, 0);
 

@@ -49,7 +49,8 @@ void _saveChunkResults(
                 pk, nk, tk,
                 one_chunk->fisher_matrix.get(), ndim,
                 one_chunk->fisher_index_start,
-                one_chunk->qFile->id, one_chunk->qFile->z_qso);
+                one_chunk->qFile->id, one_chunk->qFile->z_qso,
+                one_chunk->qFile->ra, one_chunk->qFile->dec);
         }
     }
 }

@@ -154,7 +154,7 @@ void Chunk::_setNQandFisherIndex()
 // Find number of Qj matrices to preload.
 void Chunk::_setStoredMatrices()
 {
-    double size_m1 = (double)sizeof(double) * DATA_SIZE_2 / 1048576.; // in MB
+    double size_m1 = process::getMemoryMB(DATA_SIZE_2);
 
     int n_spec_mat = 3 + i_kz_vector.size() + (!specifics::TURN_OFF_SFID);
     double remain_mem = process::MEMORY_ALLOC,
@@ -165,7 +165,7 @@ void Chunk::_setStoredMatrices()
         needed_mem += qFile->Rmat->getBufMemUsage();
     if (on_oversampling) {
         double ncols = (double) qFile->Rmat->getNCols();
-        needed_mem += sizeof(double) * ncols * (3 * ncols+1) / 1048576;
+        needed_mem += process::getMemoryMB(ncols * (3 * ncols + 1));
     }
 
     // Need at least 3 matrices as temp one for sfid
@@ -186,18 +186,21 @@ Chunk::~Chunk()
 
 double Chunk::getMinMemUsage()
 {
-    double minmem = (double)sizeof(double) * size() * 3 / 1048576.; // in MB
-    minmem +=
-        (double)sizeof(double) * (N_Q_MATRICES + 1) * N_Q_MATRICES / 1048576.;
-
-    if (specifics::USE_RESOLUTION_MATRIX)
-        minmem += qFile->Rmat->getMinMemUsage();
+    double minmem = process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
+    if (qFile) {
+        minmem += process::getMemoryMB(size() * 3);    
+        if (specifics::USE_RESOLUTION_MATRIX)
+            minmem += qFile->Rmat->getMinMemUsage();
+    }
 
     return minmem;
 }
 
 void Chunk::releaseFile() {
-    double released_mem = (double)sizeof(double) * size() * 3 / 1048576.;
+    if (!qFile)
+        return;
+
+    double released_mem = process::getMemoryMB(size() * 3);
     if (specifics::USE_RESOLUTION_MATRIX)
         released_mem += qFile->Rmat->getMinMemUsage();
     process::updateMemory(released_mem);
@@ -586,15 +589,12 @@ void Chunk::oneQSOiteration(
 
         computePSbeforeFvector();
 
-        for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
-        {
-            int idx_fji_0 =
-                (bins::TOTAL_KZ_BINS + 1) * (i_kz + fisher_index_start);
-            int ncopy = N_Q_MATRICES - i_kz;
-            mxhelp::vector_add(
-                fisher_sum + idx_fji_0,
-                fisher_matrix.get() + i_kz * (N_Q_MATRICES + 1),
-                ncopy);
+        double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
+
+        for (int i = 0; i < N_Q_MATRICES; ++i) {
+            for (int j = i; j < N_Q_MATRICES; ++j) {
+                outfisher[j + i * bins::TOTAL_KZ_BINS] += fisher_matrix[j + i * N_Q_MATRICES];
+            } 
         }
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
@@ -617,16 +617,13 @@ void Chunk::oneQSOiteration(
 }
 
 void Chunk::addBoot(int p, double *temppower, double* tempfisher) {
-    for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz)
-    {
-        int idx_fji_0 =
-            (bins::TOTAL_KZ_BINS + 1) * (i_kz + fisher_index_start);
-        int ncopy = N_Q_MATRICES - i_kz;
+    double *outfisher = tempfisher + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
 
-        cblas_daxpy(
-            ncopy,
-            p, fisher_matrix.get() + i_kz * (N_Q_MATRICES + 1), 1,
-            tempfisher + idx_fji_0, 1);
+    for (int i = 0; i < N_Q_MATRICES; ++i) {
+        for (int j = i; j < N_Q_MATRICES; ++j) {
+            outfisher[j + i * bins::TOTAL_KZ_BINS] +=
+                p * fisher_matrix[j + i * N_Q_MATRICES];
+        } 
     }
 
     cblas_daxpy(
