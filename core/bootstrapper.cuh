@@ -83,7 +83,7 @@ public:
         std::string buffer(process::FNAME_BASE);
         buffer += std::string("_bootstrap_covariance.txt");
         mxhelp::fprintfMatrix(
-            buffer.c_str(), tempfisher.get(),
+            buffer.c_str(), tempdata.get() + bins::TOTAL_KZ_BINS,
             bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     }
 
@@ -170,13 +170,14 @@ private:
 
     void _calcuate_covariance() {
         LOG::LOGGER.STD("Calculating bootstrap covariance.\n");
-        std::fill_n(temppower.get(), bins::TOTAL_KZ_BINS, 0);
-        std::fill_n(tempfisher.get(), bins::FISHER_SIZE, 0);
+        std::fill_n(tempdata.get(), bins::FISHER_SIZE + bins::TOTAL_KZ_BINS, 0);
+
+        double *tempfisher = tempdata.get() + bins::TOTAL_KZ_BINS;
 
         // Calculate mean power, store into temppower
         for (int jj = 0; jj < nboots; ++jj) {
             mxhelp::vector_add(
-                temppower.get(),
+                tempdata.get(),
                 allpowers.get() + jj * bins::TOTAL_KZ_BINS,
                 bins::TOTAL_KZ_BINS);
         }
@@ -189,11 +190,11 @@ private:
             cblas_dsyr(
                 CblasRowMajor, CblasUpper,
                 bins::TOTAL_KZ_BINS, 1, x, 1,
-                tempfisher.get(), bins::TOTAL_KZ_BINS);
+                tempfisher, bins::TOTAL_KZ_BINS);
         }
 
-        cblas_dscal(bins::FISHER_SIZE, 1. / (nboots - 1), tempfisher.get(), 1);
-        mxhelp::copyUpperToLower(tempfisher.get(), bins::TOTAL_KZ_BINS);
+        cblas_dscal(bins::FISHER_SIZE, 1. / (nboots - 1), tempfisher, 1);
+        mxhelp::copyUpperToLower(tempfisher, bins::TOTAL_KZ_BINS);
     }
 };
 
