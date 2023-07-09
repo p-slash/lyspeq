@@ -34,20 +34,24 @@ int _NewDegreesOfFreedom = 0;
 void _saveChunkResults(
         std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
 ) {
+    auto tempdata = std::make_unique<double[]>(
+        bins::FISHER_SIZE + 3 * bins::TOTAL_KZ_BINS);
     // Create FITS file
     ioh::BootstrapChunksFile bfile(process::FNAME_BASE, process::this_pe);
     // For each chunk to a different extention
     for (auto &one_qso : local_queue) {
         for (auto &one_chunk : one_qso->chunks) {
-            double *pk = one_chunk->dbt_estimate_before_fisher_vector[0].get();
-            double *nk = one_chunk->dbt_estimate_before_fisher_vector[1].get();
-            double *tk = one_chunk->dbt_estimate_before_fisher_vector[2].get();
-
             int ndim = one_chunk->N_Q_MATRICES;
 
+            one_chunk->dev_dbt_vector.asyncDwn(tempdata.get(), 3 * ndim);
+            one_chunk->dev_fisher.asyncDwn(tempdata.get(), ndim * ndim, 3 * ndim);
+            MyCuStream::syncMainStream();
+
+            double *pk = tempdata.get(), *nk = pk + ndim, *tk = nk + ndim,
+                   *fisher = tk + ndim;
+
             bfile.writeChunk(
-                pk, nk, tk,
-                one_chunk->fisher_matrix.get(), ndim,
+                pk, nk, tk, fisher, ndim,
                 one_chunk->fisher_index_start,
                 one_chunk->qFile->id, one_chunk->qFile->z_qso,
                 one_chunk->qFile->ra, one_chunk->qFile->dec);
