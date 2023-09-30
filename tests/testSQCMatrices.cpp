@@ -215,7 +215,8 @@ int main(int argc, char *argv[])
     r+=toqso.test_setFiducialSignalMatrix();
     r+=toqso.test_setQiMatrix();
 
-    LOG::LOGGER.STD("SQ matrices work!\n");
+    if (r == 0)
+        LOG::LOGGER.STD("SQ matrices work!\n");
 
     #if defined(ENABLE_MPI)
     MPI_Finalize();
