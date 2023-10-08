@@ -79,6 +79,26 @@ namespace mxhelp
             cblas_dcopy(i, A+i, N, A+N*i, 1);
     }
 
+    void transpose_copy(const double *A, double *B, int N) {
+        #define BLOCK_SIZE 32
+
+        #pragma omp parallel for collapse(2)
+        for (int i = 0; i < N; i += BLOCK_SIZE) {
+            for (int j = 0; j < N; j += BLOCK_SIZE) {
+                // transpose the block beginning at [i,j]
+                int kmax = std::min(i + BLOCK_SIZE, N),
+                    lmax = std::min(j + BLOCK_SIZE, N);
+
+                #pragma omp simd collapse(2)
+                for (int k = i; k < kmax; ++k)
+                    for (int l = j; l < lmax; ++l)
+                        B[k + l * N] = A[l + k * N];
+            }
+        }
+
+        #undef BLOCK_SIZE
+    }
+
     // v always starts at 0, ends at N-1-abs(d)
     void getDiagonal(const double *A, int N, int d, double *v)
     {
