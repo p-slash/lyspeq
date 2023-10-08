@@ -167,7 +167,9 @@ namespace bins
     // Given the redshift z, returns binning weight. 1 for top-hats, interpolation for triangular
     // zm: Bin number to consider
     void setRedshiftBinningFunction(int zm);
-    extern double (*redshiftBinningFunction)(double z, int zm);
+    // redshiftBinningFunction takes z array and assumes it is sorted.
+    extern void (*redshiftBinningFunction)(
+        const double *z, int N, int zm, double *out, int &low, int &up);
 
     inline
     int getFisherMatrixIndex(int kn, int zm)

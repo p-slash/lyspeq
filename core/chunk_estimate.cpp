@@ -160,13 +160,18 @@ void Chunk::_setStoredMatrices()
     double remain_mem = process::MEMORY_ALLOC,
            needed_mem = n_spec_mat * size_m1;
 
+    // _temp_zbin_row memory usage
+    #if defined(ENABLE_OMP)
+        needed_mem += process::getMemoryMB(_matrix_n * omp_get_max_threads());
+    #else
+        needed_mem += process::getMemoryMB(_matrix_n);
+    #endif
+
     // Resolution matrix needs another temp storage.
     if (specifics::USE_RESOLUTION_MATRIX)
         needed_mem += qFile->Rmat->getBufMemUsage();
-    if (on_oversampling) {
-        double ncols = (double) qFile->Rmat->getNCols();
-        needed_mem += process::getMemoryMB(ncols * (3 * ncols + 1));
-    }
+    if (on_oversampling)
+        needed_mem += process::getMemoryMB(_matrix_n * (3 * _matrix_n + 1));
 
     // Need at least 3 matrices as temp one for sfid
     if (remain_mem < needed_mem) {
@@ -294,6 +299,7 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
     mytime::time_spent_on_set_sfid += t;
 }
 
+
 void Chunk::_setQiMatrix(double *qi, int i_kz)
 {
     ++mytime::number_of_times_called_setq;
@@ -306,14 +312,31 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
     shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
 
-    #pragma omp parallel for simd collapse(2)
+    #pragma omp parallel for simd
     for (int i = 0; i < _matrix_n; ++i) {
-        for (int j = i; j < _matrix_n; ++j) {
-            int idx = j + i * _matrix_n;
-            inter_mat[idx] =
-                bins::redshiftBinningFunction(_zmatrix[idx], zm)
-                * interp_deriv_kn->evaluate(_vmatrix[idx]);
-        }
+        int idx = i * (1 + _matrix_n), tsize = _matrix_n - i, low, up;
+        double *ptr = inter_mat + idx;
+
+        #if defined(ENABLE_OMP) 
+        double *_temp_zbin_row_t = _temp_zbin_row + _matrix_n * omp_get_thread_num();
+        #else
+        double *_temp_zbin_row_t = _temp_zbin_row;
+        #endif
+
+        bins::redshiftBinningFunction(
+            _zmatrix + idx, tsize, zm,
+            _temp_zbin_row_t, low, up);
+        // printf("%d-%d-%.1e \n", low, up, _temp_zbin_row_t[low]);
+
+        std::fill(ptr, ptr + low, 0);
+        interp_deriv_kn->evaluateVector(
+            _vmatrix + idx + low, up - low,
+            ptr + low);
+
+        for (int j = low; j < up; ++j)
+            ptr[j] *= _temp_zbin_row_t[j];
+
+        std::fill(ptr + up, ptr + tsize, 0);
     }
 
     t_interp = mytime::timer.getTime() - t;
@@ -650,18 +673,17 @@ void Chunk::_allocateMatrices()
     // Create a temp highres lambda array
     if (on_oversampling)
     {
-        int ncols = qFile->Rmat->getNCols();
-        _finer_lambda = new double[ncols];
+        _finer_lambda = new double[_matrix_n];
 
         double fine_dlambda =
             qFile->dlambda / LYA_REST / specifics::OVERSAMPLING_FACTOR;
         int disp = qFile->Rmat->getNElemPerRow()/2;
-        for (int i = 0; i < ncols; ++i)
+        for (int i = 0; i < _matrix_n; ++i)
             _finer_lambda[i] = qFile->wave()[0] + (i - disp)*fine_dlambda;
 
         _matrix_lambda = _finer_lambda;
 
-        long highsize = (long)(ncols) * (long)(ncols);
+        long highsize = (long)(_matrix_n) * (long)(_matrix_n);
         _finer_matrix = new double[highsize];
         _vmatrix = new double[highsize];
         _zmatrix = new double[highsize];
@@ -682,6 +704,12 @@ void Chunk::_allocateMatrices()
     // to those in process:sq_private_table
     process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, 
         interp_derivative_matrix);
+
+    #if defined(ENABLE_OMP)
+        _temp_zbin_row = new double[_matrix_n * omp_get_max_threads()];
+    #else
+        _temp_zbin_row = new double[_matrix_n];
+    #endif
 }
 
 void Chunk::_freeMatrices()
@@ -700,6 +728,8 @@ void Chunk::_freeMatrices()
 
     if (specifics::USE_RESOLUTION_MATRIX)
         qFile->Rmat->freeBuffer();
+
+    delete [] _temp_zbin_row;
 
     if (on_oversampling)
     {

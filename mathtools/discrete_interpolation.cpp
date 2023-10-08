@@ -41,6 +41,24 @@ double DiscreteInterpolation1D::evaluate(double x)
     return y1 * (1 - dn) + y2 * dn;
 }
 
+void DiscreteInterpolation1D::evaluateVector(const double *xarr, int size, double *out)
+{
+    auto idx = std::make_unique<int[]>(size);
+
+    for (int i = 0; i < size; ++i) {
+        out[i] = (xarr[i] - x1) / dx;
+        idx[i] = std::clamp(int(out[i]), 0, N - 2);
+        out[i] -= idx[i];
+    }
+
+    for (int i = 0; i < size; ++i)
+    {
+        int n = idx[i];
+        // out[i] = y[n] * (1 - out[i]) + y[n + 1] * out[i];
+        out[i] = (y[n + 1] - y[n]) * out[i] + y[n];
+    }
+}
+
 bool DiscreteInterpolation1D::operator==(const DiscreteInterpolation1D &rhs) const
 {
     bool result = true;
