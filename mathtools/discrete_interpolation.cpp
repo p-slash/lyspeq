@@ -54,7 +54,8 @@ void DiscreteInterpolation1D::evaluateVector(const double *xarr, int size, doubl
     for (int i = 0; i < size; ++i)
     {
         int n = idx[i];
-        out[i] = y[n] * (1 - out[i]) + y[n + 1] * out[i];
+        // out[i] = y[n] * (1 - out[i]) + y[n + 1] * out[i];
+        out[i] = (y[n + 1] - y[n]) * out[i] + y[n];
     }
 }
 
