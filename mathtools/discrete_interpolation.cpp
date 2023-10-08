@@ -51,6 +51,7 @@ void DiscreteInterpolation1D::evaluateVector(const double *xarr, int size, doubl
         out[i] -= idx[i];
     }
 
+    #pragma omp simd
     for (int i = 0; i < size; ++i)
     {
         int n = idx[i];

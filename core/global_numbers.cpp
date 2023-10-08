@@ -375,7 +375,6 @@ namespace bins
     }
 
     // binning functio for zm=0
-    inline
     void zBinTriangular1(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
@@ -392,7 +391,6 @@ namespace bins
     }
 
     // binning function for last zm
-    inline
     void zBinTriangular2(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
@@ -409,7 +407,6 @@ namespace bins
     }
 
     // binning functio for non-boundary zm
-    inline
     void zBinTriangular(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         double zc = ZBIN_CENTERS[zm];
@@ -421,7 +418,6 @@ namespace bins
             out[i] = 1 - fabs(z[i] - zc) / Z_BIN_WIDTH;
     }
 
-    inline
     void zBinTopHat(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         double zc = ZBIN_CENTERS[zm];
