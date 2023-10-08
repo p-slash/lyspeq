@@ -22,6 +22,7 @@ public:
     { return ! (*this==rhs); };
 
     double evaluate(double x);
+    void evaluateVector(const double *xarr, int size, double *out);
 };
 
 // Stores a copy of z array

@@ -2,6 +2,7 @@
 #include "io/config_file.hpp"
 #include "io/logger.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept> // std::invalid_argument
 
@@ -375,48 +376,65 @@ namespace bins
 
     // binning functio for zm=0
     inline
-    double zBinTriangular1(double z, int zm)
+    void zBinTriangular1(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
-        double x=z-ZBIN_CENTERS[0], r = 1-fabs(x)/Z_BIN_WIDTH;
-        if (r<0) return 0;
-        if (x<0) return 1;
+        double zc = ZBIN_CENTERS[0];
 
-        return r;
+        low = std::lower_bound(z, z + N, zc) - z;
+        up = std::upper_bound(z, z + N, zc + Z_BIN_WIDTH) - z;
+
+        std::fill(out, out + low, 1);
+        for (int i = low; i < up; ++i)
+            out[i] = 1 - (z[i] - zc) / Z_BIN_WIDTH;
+        // std::fill(out + up, out + N, 0);
+        low = 0;
     }
 
     // binning function for last zm
     inline
-    double zBinTriangular2(double z, int zm)
+    void zBinTriangular2(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
-        double x=z-ZBIN_CENTERS[NUMBER_OF_Z_BINS-1], r = 1-fabs(x)/Z_BIN_WIDTH;
-        if (r<0) return 0;
-        if (x>0) return 1;
+        double zc = ZBIN_CENTERS[NUMBER_OF_Z_BINS - 1];
 
-        return r;
+        low = std::lower_bound(z, z + N, zc - Z_BIN_WIDTH) - z;
+        up = std::upper_bound(z, z + N, zc) - z;
+
+        // std::fill(out, out + low, 0);
+        for (int i = low; i < up; ++i)
+            out[i] = 1 - (zc - z[i]) / Z_BIN_WIDTH;
+        std::fill(out + up, out + N, 1);
+        up = N;
     }
 
     // binning functio for non-boundary zm
     inline
-    double zBinTriangular(double z, int zm)
+    void zBinTriangular(const double *z, int N, int zm, double *out, int &low, int &up)
     {
-        double x=z-ZBIN_CENTERS[zm], r = 1-fabs(x)/Z_BIN_WIDTH;
-        if (r<0) return 0;
+        double zc = ZBIN_CENTERS[zm];
+        low = std::lower_bound(z, z + N, zc - Z_BIN_WIDTH) - z;
+        up = std::upper_bound(z, z + N, zc + Z_BIN_WIDTH) - z;
 
-        return r;
+        // std::fill_n(out, N, 0);
+        for (int i = low; i < up; ++i)
+            out[i] = 1 - fabs(z[i] - zc) / Z_BIN_WIDTH;
     }
 
-    // Assumes z always in bin, because it's cut in OneQSO.
     inline
-    double zBinTopHat(double z, int zm)
+    void zBinTopHat(const double *z, int N, int zm, double *out, int &low, int &up)
     {
-        double zz __attribute__((unused))  = z;
-        int zmm __attribute__((unused)) = zm;
-        return 1;
+        double zc = ZBIN_CENTERS[zm];
+        low = std::lower_bound(z, z + N, zc - Z_BIN_WIDTH / 2) - z;
+        up = std::upper_bound(z, z + N, zc + Z_BIN_WIDTH / 2) - z;
+
+        std::fill_n(out, N, 0);
+        for (int i = low; i < up; ++i)
+            out[i] = 1;
     }
 
-    double (*redshiftBinningFunction)(double z, int zm) = &zBinTopHat;
+    void (*redshiftBinningFunction)(
+        const double *z, int N, int zm, double *out, int &low, int &up) = &zBinTopHat;
 
     void setRedshiftBinningFunction(int zm)
     {
