@@ -154,20 +154,24 @@ void Chunk::_setNQandFisherIndex()
 // Find number of Qj matrices to preload.
 void Chunk::_setStoredMatrices()
 {
-    // currently does not account for _temp_zbin_row
     double size_m1 = process::getMemoryMB(DATA_SIZE_2);
 
     int n_spec_mat = 3 + i_kz_vector.size() + (!specifics::TURN_OFF_SFID);
     double remain_mem = process::MEMORY_ALLOC,
            needed_mem = n_spec_mat * size_m1;
 
+    // _temp_zbin_row memory usage
+    #if defined(ENABLE_OMP)
+        needed_mem += process::getMemoryMB(_matrix_n * omp_get_max_threads());
+    #else
+        needed_mem += process::getMemoryMB(_matrix_n);
+    #endif
+
     // Resolution matrix needs another temp storage.
     if (specifics::USE_RESOLUTION_MATRIX)
         needed_mem += qFile->Rmat->getBufMemUsage();
-    if (on_oversampling) {
-        double ncols = (double) qFile->Rmat->getNCols();
-        needed_mem += process::getMemoryMB(ncols * (3 * ncols + 1));
-    }
+    if (on_oversampling)
+        needed_mem += process::getMemoryMB(_matrix_n * (3 * _matrix_n + 1));
 
     // Need at least 3 matrices as temp one for sfid
     if (remain_mem < needed_mem) {
@@ -669,18 +673,17 @@ void Chunk::_allocateMatrices()
     // Create a temp highres lambda array
     if (on_oversampling)
     {
-        int ncols = qFile->Rmat->getNCols();
-        _finer_lambda = new double[ncols];
+        _finer_lambda = new double[_matrix_n];
 
         double fine_dlambda =
             qFile->dlambda / LYA_REST / specifics::OVERSAMPLING_FACTOR;
         int disp = qFile->Rmat->getNElemPerRow()/2;
-        for (int i = 0; i < ncols; ++i)
+        for (int i = 0; i < _matrix_n; ++i)
             _finer_lambda[i] = qFile->wave()[0] + (i - disp)*fine_dlambda;
 
         _matrix_lambda = _finer_lambda;
 
-        long highsize = (long)(ncols) * (long)(ncols);
+        long highsize = (long)(_matrix_n) * (long)(_matrix_n);
         _finer_matrix = new double[highsize];
         _vmatrix = new double[highsize];
         _zmatrix = new double[highsize];
