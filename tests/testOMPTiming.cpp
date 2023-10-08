@@ -117,25 +117,23 @@ public:
             for (int j = i; j < DATA_SIZE; ++j)
             {
                 double li = lambda[i], lj = lambda[j];
-                int idx = j + i * DATA_SIZE;
 
-                vmatrix[idx] = SPEED_OF_LIGHT * log(lj / li);
-                zmatrix[idx] = sqrt(li * lj) - 1.;
+                vmatrix[j + i * DATA_SIZE] = SPEED_OF_LIGHT * log(lj / li);
+                zmatrix[j + i * DATA_SIZE] = sqrt(li * lj) - 1.;
             }
         }
     }
 
     void setVZMatrices_omp() {
-        #pragma omp parallel for simd collapse(2)
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i < DATA_SIZE; ++i)
         {
             for (int j = i; j < DATA_SIZE; ++j)
             {
                 double li = lambda[i], lj = lambda[j];
-                int idx = j + i * DATA_SIZE;
 
-                vmatrix[idx] = SPEED_OF_LIGHT * log(lj / li);
-                zmatrix[idx] = sqrt(li * lj) - 1.;
+                vmatrix[j + i * DATA_SIZE] = SPEED_OF_LIGHT * log(lj / li);
+                zmatrix[j + i * DATA_SIZE] = sqrt(li * lj) - 1.;
             }
         }
     }
@@ -150,7 +148,7 @@ public:
     }
 
     void setQiMatrix_omp() {
-        #pragma omp parallel for simd collapse(2)
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i < DATA_SIZE; ++i) {
             for (int j = i; j < DATA_SIZE; ++j) {
                 int idx = j + i * DATA_SIZE;
@@ -180,8 +178,9 @@ public:
         double *outfisher =
             tempfisher + (TOTAL_KZ_BINS + 1) * fisher_index_start;
 
-        #pragma omp parallel for simd collapse(2)
+        #pragma omp parallel for
         for (int i = 0; i < N_Q_MATRICES; ++i) {
+            #pragma omp simd
             for (int j = i; j < N_Q_MATRICES; ++j) {
                 outfisher[j + i * TOTAL_KZ_BINS] +=
                     p * fisher_matrix[j + i * N_Q_MATRICES];
@@ -282,6 +281,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    printf("OMP num threads %d.\n", omp_get_max_threads());
     printf(
         "Timing addBoot...\nDoing %d lapses with %d loops each.\n",
         number_lapse, N_LOOPS);
@@ -321,6 +321,11 @@ int main(int argc, char *argv[]) {
 
     mytime::printfBootstrapTimeSpentDetails("setQiMatrix");
     printf("NOTE: enabling or disabling OpenMP can improve performance.\n");
+
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < 5; i++)
+        for (int j = i; j < 5; j++)
+            printf("%d %d %d\n", i, j, omp_get_thread_num());
 
     return 0;
 }

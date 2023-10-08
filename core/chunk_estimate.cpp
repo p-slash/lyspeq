@@ -259,16 +259,15 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 void Chunk::_setVZMatrices() {
     LOG::LOGGER.DEB("Setting v & z matrices\n");
 
-    #pragma omp parallel for
+    #pragma omp parallel for collapse(2)
     for (int i = 0; i < _matrix_n; ++i)
     {
         for (int j = i; j < _matrix_n; ++j)
         {
             double li = _matrix_lambda[i], lj = _matrix_lambda[j];
-            int idx = j + i * _matrix_n;
 
-            _vmatrix[idx] = SPEED_OF_LIGHT * log(lj / li);
-            _zmatrix[idx] = sqrt(li * lj) - 1.;
+            _vmatrix[j + i * _matrix_n] = SPEED_OF_LIGHT * log(lj / li);
+            _zmatrix[j + i * _matrix_n] = sqrt(li * lj) - 1.;
         }
     }
 }
@@ -280,7 +279,7 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
     double t = mytime::timer.getTime();
     double *inter_mat = (on_oversampling) ? _finer_matrix : sm;
 
-    #pragma omp parallel for
+    #pragma omp parallel for collapse(2)
     for (int i = 0; i < _matrix_n; ++i) {
         for (int j = i; j < _matrix_n; ++j) {
             int idx = j + i * _matrix_n;
@@ -505,7 +504,7 @@ void Chunk::_getWeightedMatrix(double *m)
     mytime::time_spent_set_modqs += t;
 }
 
-void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
+void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
 {
     double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx],
@@ -523,7 +522,7 @@ void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
 
         double *Q_jkz_matrix = _getStoredQikz(jdx);
 
-        f_ikz[diff_ji] = cblas_ddot(DATA_SIZE_2, Qw_ikz_matrix, 1, Q_jkz_matrix, 1);
+        f_ikz[diff_ji] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, Q_jkz_matrix, 1);
     }
 
     t = mytime::timer.getTime() - t;
@@ -646,7 +645,6 @@ void Chunk::oneQSOiteration(
 
         double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
 
-        #pragma omp parallel for simd collapse(2)
         for (int i = 0; i < N_Q_MATRICES; ++i) {
             for (int j = i; j < N_Q_MATRICES; ++j) {
                 outfisher[j + i * bins::TOTAL_KZ_BINS] += fisher_matrix[j + i * N_Q_MATRICES];
@@ -675,7 +673,6 @@ void Chunk::oneQSOiteration(
 void Chunk::addBoot(int p, double *temppower, double* tempfisher) {
     double *outfisher = tempfisher + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
 
-    #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < N_Q_MATRICES; ++i) {
         for (int j = i; j < N_Q_MATRICES; ++j) {
             outfisher[j + i * bins::TOTAL_KZ_BINS] +=
