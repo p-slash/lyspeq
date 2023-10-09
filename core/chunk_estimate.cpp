@@ -265,10 +265,9 @@ void Chunk::_setVZMatrices() {
         for (int j = i; j < _matrix_n; ++j)
         {
             double li = _matrix_lambda[i], lj = _matrix_lambda[j];
-            int idx = j + i * _matrix_n;
 
-            _vmatrix[idx] = SPEED_OF_LIGHT * log(lj / li);
-            _zmatrix[idx] = sqrt(li * lj) - 1.;
+            _vmatrix[j + i * _matrix_n] = SPEED_OF_LIGHT * log(lj / li);
+            _zmatrix[j + i * _matrix_n] = sqrt(li * lj) - 1.;
         }
     }
 }
@@ -312,7 +311,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
     shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
 
-    #pragma omp parallel for simd
+    #pragma omp parallel for schedule(static, 1)
     for (int i = 0; i < _matrix_n; ++i) {
         int idx = i * (1 + _matrix_n), tsize = _matrix_n - i, low, up;
         double *ptr = inter_mat + idx;
@@ -326,13 +325,13 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
         bins::redshiftBinningFunction(
             _zmatrix + idx, tsize, zm,
             _temp_zbin_row_t, low, up);
-        // printf("%d-%d-%.1e \n", low, up, _temp_zbin_row_t[low]);
 
         std::fill(ptr, ptr + low, 0);
         interp_deriv_kn->evaluateVector(
             _vmatrix + idx + low, up - low,
             ptr + low);
 
+        #pragma omp simd
         for (int j = low; j < up; ++j)
             ptr[j] *= _temp_zbin_row_t[j];
 
@@ -482,75 +481,56 @@ void Chunk::invertCovarianceMatrix()
 
 void Chunk::_getWeightedMatrix(double *m)
 {
-    double t = mytime::timer.getTime();
-
     //C-1 . Q
-    // std::fill_n(temp_matrix[1], DATA_SIZE_2, 0);
     cblas_dsymm(
         CblasRowMajor, CblasLeft, CblasUpper,
         size(), size(), 1., inverse_covariance_matrix, size(),
-        m, size(), 0, temp_matrix[1], size());
+        m, size(), 0, temp_matrix[0], size());
 
-    //C-1 . Q . C-1
-    // std::fill_n(m, DATA_SIZE_2, 0);
-    cblas_dsymm(
-        CblasRowMajor, CblasRight, CblasUpper,
-        size(), size(), 1., inverse_covariance_matrix, size(),
-        temp_matrix[1], size(), 0, m, size());
-
-    t = mytime::timer.getTime() - t;
-
-    mytime::time_spent_set_modqs += t;
+    std::copy(temp_matrix[0], temp_matrix[0] + DATA_SIZE_2, m);
 }
 
-void Chunk::_getFisherMatrix(const double *Qw_ikz_matrix, int idx)
+void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
 {
-    double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx],
-        idx_fji_0 = N_Q_MATRICES * i_kz;
+        idx_fji_0 = (1 + N_Q_MATRICES) * i_kz;
+    double *f_ikz = fisher_matrix.get() + idx_fji_0;
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
-        int j_kz = i_kz_vector[jdx];
-        #ifdef FISHER_OPTIMIZATION
-        int diff_ji = j_kz - i_kz;
+        int diff_ji = i_kz_vector[jdx] - i_kz;
 
+        #ifdef FISHER_OPTIMIZATION
         if ((diff_ji != 0) && (diff_ji != 1) && (diff_ji != bins::NUMBER_OF_K_BANDS))
             continue;
         #endif
 
         double *Q_jkz_matrix = _getStoredQikz(jdx);
 
-        fisher_matrix[j_kz + idx_fji_0] =
-            mxhelp::trace_dsymm(Qw_ikz_matrix, Q_jkz_matrix, size());
+        f_ikz[diff_ji] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, Q_jkz_matrix, 1);
     }
-
-    t = mytime::timer.getTime() - t;
-
-    mytime::time_spent_set_fisher += t;
 }
 
 void Chunk::computePSbeforeFvector()
 {
     LOG::LOGGER.DEB("PS before Fisher\n");
 
-    double
-        *Q_ikz_matrix = temp_matrix[0],
-        *dk0 = dbt_estimate_before_fisher_vector[0].get(),
-        *nk0 = dbt_estimate_before_fisher_vector[1].get(),
-        *tk0 = dbt_estimate_before_fisher_vector[2].get();
+    double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
+           *nk0 = dbt_estimate_before_fisher_vector[1].get(),
+           *tk0 = dbt_estimate_before_fisher_vector[2].get(),
+           *Q_ikz_matrix;
 
+    // C-1 . flux
     cblas_dsymv(
         CblasRowMajor, CblasUpper, size(), 1.,
         inverse_covariance_matrix, 
         size(), qFile->delta(), 1, 0, weighted_data_vector, 1);
 
+    double t = mytime::timer.getTime();
+
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
-
-        // Set derivative matrix ikz
-        double *ptr = _getStoredQikz(idx);
-        std::copy(ptr, ptr + DATA_SIZE_2, Q_ikz_matrix);
+        Q_ikz_matrix = _getStoredQikz(idx);
 
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
@@ -558,21 +538,61 @@ void Chunk::computePSbeforeFvector()
             weighted_data_vector, 
             Q_ikz_matrix, temp_vector, size());
 
-        // Get weighted derivative matrix ikz: C-1 Qi C-1
+        // Transform q matrices to weighted matrices inplace
+        // Get weighted derivative matrix ikz: C-1 Qi
         _getWeightedMatrix(Q_ikz_matrix);
+    }
+
+    mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
+
+    // N C-1
+    double *weighted_noise_matrix = temp_matrix[0];
+    std::fill_n(weighted_noise_matrix, DATA_SIZE_2, 0);
+    for (int i = 0; i < size(); ++i)
+        cblas_daxpy(
+            size(), qFile->noise()[i],
+            inverse_covariance_matrix + i * size(), 1,
+            weighted_noise_matrix + i * size(), 1);
+
+    for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
+        int i_kz = i_kz_vector[idx];
+        Q_ikz_matrix = _getStoredQikz(idx);
 
         // Get Noise contribution: Tr(C-1 Qi C-1 N)
-        nk0[i_kz] = mxhelp::trace_ddiagmv(Q_ikz_matrix, qFile->noise(), size());
-
-        // Set Fiducial Signal Matrix
-        // Tr(C-1 Qi C-1 Sfid)
-        if (!specifics::TURN_OFF_SFID)
-            tk0[i_kz] = mxhelp::trace_dsymm(Q_ikz_matrix, stored_sfid, size());
-
-        // Do not compute fisher matrix if it is precomputed
-        if (!specifics::USE_PRECOMPUTED_FISHER)
-            _getFisherMatrix(Q_ikz_matrix, idx);
+        nk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_noise_matrix, 1);
     }
+
+    // Fiducial matrix, Sfid C-1
+    if (!specifics::TURN_OFF_SFID) {
+        double *weighted_sfid_matrix = temp_matrix[0];
+        cblas_dsymm(
+            CblasRowMajor, CblasLeft, CblasUpper,
+            size(), size(), 1., stored_sfid, size(),
+            inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
+
+        for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
+            int i_kz = i_kz_vector[idx];
+            Q_ikz_matrix = _getStoredQikz(idx);
+
+            tk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_sfid_matrix, 1);
+        }
+    }
+
+    // Do not compute fisher matrix if it is precomputed
+    if (specifics::USE_PRECOMPUTED_FISHER)
+        return;
+
+    t = mytime::timer.getTime();
+
+    double *Q_ikz_matrix_T = temp_matrix[0];
+    for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
+        Q_ikz_matrix = _getStoredQikz(idx);
+        mxhelp::transpose_copy(Q_ikz_matrix, Q_ikz_matrix_T, size());
+
+        _getFisherMatrix(Q_ikz_matrix_T, idx);
+    }
+
+    mytime::time_spent_set_fisher += mytime::timer.getTime() - t;
 }
 
 void Chunk::oneQSOiteration(
