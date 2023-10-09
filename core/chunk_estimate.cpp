@@ -581,9 +581,9 @@ void Chunk::computePSbeforeFvector()
     if (!specifics::TURN_OFF_SFID) {
         double *weighted_sfid_matrix = temp_matrix[0];
         cblas_dsymm(
-            CblasRowMajor, CblasRight, CblasUpper,
-            size(), size(), 1., inverse_covariance_matrix, size(),
-            stored_sfid, size(), 0, weighted_sfid_matrix, size());
+            CblasRowMajor, CblasLeft, CblasUpper,
+            size(), size(), 1., stored_sfid, size(),
+            inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
 
         for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
             int i_kz = i_kz_vector[idx];

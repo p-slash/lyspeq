@@ -73,31 +73,37 @@ double _integrated_window_fn_v(double x, double R, double a)
 
 namespace mxhelp
 {
-    void copyUpperToLower(double *A, int N)
-    {
-        for (int i = 1; i < N; ++i)
-            cblas_dcopy(i, A+i, N, A+N*i, 1);
+    #define BLOCK_SIZE 32
+    void copyUpperToLower(double *A, int N) {
+        #pragma omp parallel for collapse(2)
+        for (int i = 0; i < N; i += BLOCK_SIZE) {
+            for (int j = i; j < N; j += BLOCK_SIZE) {
+                int kmax = std::min(i + BLOCK_SIZE, N),
+                    lmax = std::min(j + BLOCK_SIZE, N);
+
+                for (int k = i; k < kmax; ++k)
+                    #pragma omp simd
+                    for (int l = std::max(k, j); l < lmax; ++l)
+                        A[k + l * N] = A[l + k * N];
+            }
+        }
     }
 
     void transpose_copy(const double *A, double *B, int N) {
-        #define BLOCK_SIZE 32
-
         #pragma omp parallel for collapse(2)
         for (int i = 0; i < N; i += BLOCK_SIZE) {
             for (int j = 0; j < N; j += BLOCK_SIZE) {
-                // transpose the block beginning at [i,j]
                 int kmax = std::min(i + BLOCK_SIZE, N),
                     lmax = std::min(j + BLOCK_SIZE, N);
 
                 #pragma omp simd collapse(2)
-                for (int k = i; k < kmax; ++k)
-                    for (int l = j; l < lmax; ++l)
+                for (int l = j; l < lmax; ++l)
+                    for (int k = i; k < kmax; ++k)
                         B[k + l * N] = A[l + k * N];
             }
         }
-
-        #undef BLOCK_SIZE
     }
+    #undef BLOCK_SIZE
 
     // v always starts at 0, ends at N-1-abs(d)
     void getDiagonal(const double *A, int N, int d, double *v)
