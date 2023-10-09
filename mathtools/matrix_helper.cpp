@@ -581,20 +581,16 @@ namespace mxhelp
 
         for (int d = 0; d < ndiags; ++d)
         {
-            int off = offsets[d], 
-                nmult = ndim - abs(off),
-                A1 = std::max(0, off),
-                B1 = std::max(0, -off);
-
-            const double
-                *Aslice = A + A1 * ndim,
-                *dia_slice = _getDiagonal(d);
-            double *Bslice = B + B1 * ndim;
+            int off = offsets[d],
+                poff = std::max(0, off),
+                moff = std::max(0, -off);
 
             #pragma omp parallel for simd collapse(2)
-            for (int i = 0; i < nmult; ++i)
-                for (int j = 0; j < ndim; ++j)
-                    Bslice[j + i * ndim] += dia_slice[i] * Aslice[j + i * ndim];
+            for (int i = 0; i < ndim - abs(off); ++i)
+                for (int j = 0; j < ndim; ++j){
+                    B[j + (i + moff) * ndim] += 
+                        values[poff + d * ndim + i] * A[j + (i + poff) * ndim];
+                }
         }
     }
 
@@ -603,18 +599,16 @@ namespace mxhelp
 
         for (int d = 0; d < ndiags; ++d)
         {
-            int off = -offsets[d], 
-                nmult = ndim - abs(off),
-                A1 = std::max(0, -off),
-                B1 = std::max(0, off);
-
-            const double *Aslice = A + A1, *dia_slice = _getDiagonal(d);
-            double *Bslice = B + B1;
+            int off = offsets[d],
+                moff = std::max(0, -off),
+                poff = std::max(0, off);
 
             #pragma omp parallel for simd collapse(2)
             for (int i = 0; i < ndim; ++i)
-                for (int j = 0; j < nmult; ++j)
-                    Bslice[j + i * ndim] += dia_slice[j] * Aslice[j + i * ndim];
+                for (int j = 0; j < ndim - abs(off); ++j) {
+                    B[j + i * ndim + moff] +=
+                        values[j + poff + d * ndim] * A[j + i * ndim + poff];
+                }
         }
     }
 
@@ -675,15 +669,21 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
         {
             double *bsub = B + i * ncols;
-            const double
-                *Asub = A + i * ncols*oversampling,
-                *rrow = matrix() + i * nelem_per_row;
+            const double *Asub = A + i * ncols * oversampling;
 
             cblas_dgemv(
                 CblasRowMajor, CblasTrans,
                 nelem_per_row, ncols, 1., Asub, ncols, 
-                rrow, 1, 0, bsub, 1);
+                _getRow(i), 1, 0, bsub, 1);
         }
+
+        // std::fill_n(B, nrows * ncols, 0);
+        // #pragma omp parallel for simd collapse(3)
+        // for (int i = 0; i < nrows; ++i)
+        //     for (int j = 0; j < nelem_per_row; ++j)
+        //         for (int k = 0; k < ncols; ++k)
+        //             B[k + i * ncols] += 
+        //                 A[k + (j + i * oversampling) * ncols] * values[j + i * nelem_per_row];
     }
 
     // A . R^T = B
@@ -694,13 +694,11 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
         {
             double *bsub = B + i;
-            const double
-                *Asub = A + i * oversampling,
-                *rrow = matrix() + i * nelem_per_row;
+            const double *Asub = A + i * oversampling;
 
             cblas_dgemv(CblasRowMajor, CblasNoTrans,
                 nrows, nelem_per_row, 1., Asub, ncols, 
-                rrow, 1, 0, bsub, nrows);
+                _getRow(i), 1, 0, bsub, nrows);
         }
     }
 

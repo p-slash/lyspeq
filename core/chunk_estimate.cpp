@@ -259,7 +259,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 void Chunk::_setVZMatrices() {
     LOG::LOGGER.DEB("Setting v & z matrices\n");
 
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < _matrix_n; ++i)
     {
         for (int j = i; j < _matrix_n; ++j)
@@ -279,7 +279,7 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
     double t = mytime::timer.getTime();
     double *inter_mat = (on_oversampling) ? _finer_matrix : sm;
 
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < _matrix_n; ++i) {
         for (int j = i; j < _matrix_n; ++j) {
             int idx = j + i * _matrix_n;
@@ -311,7 +311,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
     shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
 
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 1)
     for (int i = 0; i < _matrix_n; ++i) {
         int idx = i * (1 + _matrix_n), tsize = _matrix_n - i, low, up;
         double *ptr = inter_mat + idx;
@@ -325,7 +325,6 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
         bins::redshiftBinningFunction(
             _zmatrix + idx, tsize, zm,
             _temp_zbin_row_t, low, up);
-        // printf("%d-%d-%.1e \n", low, up, _temp_zbin_row_t[low]);
 
         std::fill(ptr, ptr + low, 0);
         interp_deriv_kn->evaluateVector(

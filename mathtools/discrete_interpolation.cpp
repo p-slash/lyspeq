@@ -45,6 +45,7 @@ void DiscreteInterpolation1D::evaluateVector(const double *xarr, int size, doubl
 {
     auto idx = std::make_unique<int[]>(size);
 
+    #pragma omp simd
     for (int i = 0; i < size; ++i) {
         out[i] = (xarr[i] - x1) / dx;
         idx[i] = std::clamp(int(out[i]), 0, N - 2);
