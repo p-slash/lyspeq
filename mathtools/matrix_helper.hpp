@@ -16,6 +16,8 @@ namespace mxhelp
     // A is NxN
     void copyUpperToLower(double *A, int N);
 
+    void transpose_copy(const double *A, double *B, int N);
+
     // v always starts at 0, ends at N-1-abs(d)
     // A is NxN
     void getDiagonal(const double *A, int N, int d, double *v);
@@ -29,14 +31,6 @@ namespace mxhelp
     // Trace of A.B
     // Both are assumed to general and square NxN
     double trace_dgemm(const double *A, const double *B, int N);
-
-    // Trace of A.B
-    // Assumes A and B square matrices NxN, and at least one to be symmetric.
-    // No stride or whatsoever. Continous allocation
-    // Uses CBLAS dot product.
-    inline
-    double trace_dsymm(const double *A, const double *B, int N)
-    {return cblas_ddot(N*N, A, 1, B, 1);}
 
     // Trace of A.B
     // Assumes A square matrix, B is diagonal. 

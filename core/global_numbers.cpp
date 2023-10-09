@@ -375,7 +375,6 @@ namespace bins
     }
 
     // binning functio for zm=0
-    inline
     void zBinTriangular1(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
@@ -385,6 +384,7 @@ namespace bins
         up = std::upper_bound(z, z + N, zc + Z_BIN_WIDTH) - z;
 
         std::fill(out, out + low, 1);
+        #pragma omp simd
         for (int i = low; i < up; ++i)
             out[i] = 1 - (z[i] - zc) / Z_BIN_WIDTH;
         // std::fill(out + up, out + N, 0);
@@ -392,7 +392,6 @@ namespace bins
     }
 
     // binning function for last zm
-    inline
     void zBinTriangular2(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
@@ -402,6 +401,7 @@ namespace bins
         up = std::upper_bound(z, z + N, zc) - z;
 
         // std::fill(out, out + low, 0);
+        #pragma omp simd
         for (int i = low; i < up; ++i)
             out[i] = 1 - (zc - z[i]) / Z_BIN_WIDTH;
         std::fill(out + up, out + N, 1);
@@ -409,7 +409,6 @@ namespace bins
     }
 
     // binning functio for non-boundary zm
-    inline
     void zBinTriangular(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         double zc = ZBIN_CENTERS[zm];
@@ -417,11 +416,11 @@ namespace bins
         up = std::upper_bound(z, z + N, zc + Z_BIN_WIDTH) - z;
 
         // std::fill_n(out, N, 0);
+        #pragma omp simd
         for (int i = low; i < up; ++i)
             out[i] = 1 - fabs(z[i] - zc) / Z_BIN_WIDTH;
     }
 
-    inline
     void zBinTopHat(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         double zc = ZBIN_CENTERS[zm];
@@ -429,6 +428,7 @@ namespace bins
         up = std::upper_bound(z, z + N, zc + Z_BIN_WIDTH / 2) - z;
 
         std::fill_n(out, N, 0);
+        #pragma omp simd
         for (int i = low; i < up; ++i)
             out[i] = 1;
     }

@@ -15,9 +15,25 @@
 
 #include "mathtools/discrete_interpolation.hpp"
 
-
 int TOTAL_KZ_BINS = 35 * 13, N_LOOPS = 450000;
 const double SPEED_OF_LIGHT = 299792.458, LYA_REST = 1215.67;
+
+
+inline
+bool isClose(double a, double b, double relerr=1e-5, double abserr=1e-8)
+{
+    double mag = std::max(fabs(a),fabs(b));
+    return fabs(a-b) < (abserr + relerr * mag);
+}
+
+
+bool allClose(const double *a, const double *b, int size)
+{
+    bool result = true;
+    for (int i = 0; i < size; ++i)
+        result &= isClose(a[i], b[i]);
+    return result;
+}
 
 
 class PoissonRNG {
@@ -117,25 +133,23 @@ public:
             for (int j = i; j < DATA_SIZE; ++j)
             {
                 double li = lambda[i], lj = lambda[j];
-                int idx = j + i * DATA_SIZE;
 
-                vmatrix[idx] = SPEED_OF_LIGHT * log(lj / li);
-                zmatrix[idx] = sqrt(li * lj) - 1.;
+                vmatrix[j + i * DATA_SIZE] = SPEED_OF_LIGHT * log(lj / li);
+                zmatrix[j + i * DATA_SIZE] = sqrt(li * lj) - 1.;
             }
         }
     }
 
     void setVZMatrices_omp() {
-        #pragma omp parallel for simd collapse(2)
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i < DATA_SIZE; ++i)
         {
             for (int j = i; j < DATA_SIZE; ++j)
             {
                 double li = lambda[i], lj = lambda[j];
-                int idx = j + i * DATA_SIZE;
 
-                vmatrix[idx] = SPEED_OF_LIGHT * log(lj / li);
-                zmatrix[idx] = sqrt(li * lj) - 1.;
+                vmatrix[j + i * DATA_SIZE] = SPEED_OF_LIGHT * log(lj / li);
+                zmatrix[j + i * DATA_SIZE] = sqrt(li * lj) - 1.;
             }
         }
     }
@@ -150,7 +164,7 @@ public:
     }
 
     void setQiMatrix_omp() {
-        #pragma omp parallel for simd collapse(2)
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i < DATA_SIZE; ++i) {
             for (int j = i; j < DATA_SIZE; ++j) {
                 int idx = j + i * DATA_SIZE;
@@ -180,8 +194,9 @@ public:
         double *outfisher =
             tempfisher + (TOTAL_KZ_BINS + 1) * fisher_index_start;
 
-        #pragma omp parallel for simd collapse(2)
+        #pragma omp parallel for
         for (int i = 0; i < N_Q_MATRICES; ++i) {
+            #pragma omp simd
             for (int j = i; j < N_Q_MATRICES; ++j) {
                 outfisher[j + i * TOTAL_KZ_BINS] +=
                     p * fisher_matrix[j + i * N_Q_MATRICES];
@@ -263,6 +278,192 @@ void time_setqi() {
 }
 
 
+void transpose_copy_base(const double *A, double *B, int N) {
+    for (int i = 0; i < N; ++i)
+        cblas_dcopy(N, A + i * N, 1, B + i, N);
+}
+
+
+void transpose_copy_block_lk(const double *A, double *B, int N) {
+    #define BLOCK_SIZE 32
+
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < N; i += BLOCK_SIZE) {
+        for (int j = 0; j < N; j += BLOCK_SIZE) {
+            // transpose the block beginning at [i,j]
+            int kmax = std::min(i + BLOCK_SIZE, N),
+                lmax = std::min(j + BLOCK_SIZE, N);
+
+            #pragma omp simd collapse(2)
+            for (int l = j; l < lmax; ++l)
+                for (int k = i; k < kmax; ++k)
+                    B[k + l * N] = A[l + k * N];
+        }
+    }
+
+    #undef BLOCK_SIZE
+}
+
+void transpose_copy_block_kl(const double *A, double *B, int N) {
+    #define BLOCK_SIZE 32
+
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < N; i += BLOCK_SIZE) {
+        for (int j = 0; j < N; j += BLOCK_SIZE) {
+            // transpose the block beginning at [i,j]
+            int kmax = std::min(i + BLOCK_SIZE, N),
+                lmax = std::min(j + BLOCK_SIZE, N);
+
+            #pragma omp simd collapse(2)
+            for (int k = i; k < kmax; ++k)
+                for (int l = j; l < lmax; ++l)
+                    B[k + l * N] = A[l + k * N];
+        }
+    }
+
+    #undef BLOCK_SIZE
+}
+
+void transpose_copy_block_mem(const double *A, double *B, int N) {
+    #define BLOCK_SIZE 32
+
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < N; i += BLOCK_SIZE) {
+        for (int j = 0; j < N; j += BLOCK_SIZE) {
+            // transpose the block beginning at [i,j]
+            int kmax = std::min(i + BLOCK_SIZE, N) - i,
+                lmax = std::min(j + BLOCK_SIZE, N) - j;
+            double block[BLOCK_SIZE * BLOCK_SIZE];
+
+            #pragma omp simd collapse(2)
+            for (int k = 0; k < kmax; ++k)
+                for (int l = 0; l < lmax; ++l)
+                    block[l + k * BLOCK_SIZE] = A[l + j + (k + i) * N];
+
+            #pragma omp simd collapse(2)
+            for (int l = 0; l < lmax; ++l)
+                for (int k = 0; k < kmax; ++k)
+                    B[k + i + (l + j) * N] = block[l + k * BLOCK_SIZE];
+        }
+    }
+
+    #undef BLOCK_SIZE
+}
+
+void copyUpperToLower_base(double *A, int N) {
+    for (int i = 1; i < N; ++i)
+        cblas_dcopy(i, A+i, N, A+N*i, 1);
+}
+
+
+void copyUpperToLower(double *A, int N)
+{
+    #define BLOCK_SIZE 32
+
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < N; i += BLOCK_SIZE) {
+        for (int j = i; j < N; j += BLOCK_SIZE) {
+            int kmax = std::min(i + BLOCK_SIZE, N),
+                lmax = std::min(j + BLOCK_SIZE, N);
+
+            // #pragma omp simd collapse(2)
+            for (int k = i; k < kmax; ++k)
+                #pragma omp simd
+                for (int l = std::max(k, j); l < lmax; ++l)
+                    A[k + l * N] = A[l + k * N];
+        }
+    }
+
+    #undef BLOCK_SIZE
+}
+
+
+void time_transpose_copy() {
+    #define NDIM 1000
+    auto A = std::make_unique<double[]>(NDIM * NDIM),
+         B = std::make_unique<double[]>(NDIM * NDIM),
+         T = std::make_unique<double[]>(NDIM * NDIM);
+
+    for (int i = 0; i < NDIM * NDIM; ++i)
+        A[i] = i;
+
+    // ------
+    double t1 = mytime::timer.getTime(), t2, difft;
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        transpose_copy_base(A.get(), T.get(), NDIM);
+
+    t2 = mytime::timer.getTime();
+    difft = t2 - t1;
+    printf("transpose_copy_base: %.2f s\n", difft * 60.);
+
+    // ------
+    t1 = mytime::timer.getTime();
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        transpose_copy_block_lk(A.get(), B.get(), NDIM);
+
+    t2 = mytime::timer.getTime();
+    difft = t2 - t1;
+    if (not allClose(B.get(), T.get(), NDIM * NDIM))
+        printf("Error. ");
+    printf("transpose_copy_block_lk: %.2f s\n", difft * 60.);
+
+    // ------
+    t1 = mytime::timer.getTime();
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        transpose_copy_block_kl(A.get(), B.get(), NDIM);
+
+    t2 = mytime::timer.getTime();
+    difft = t2 - t1;
+    if (not allClose(B.get(), T.get(), NDIM * NDIM))
+        printf("Error. ");
+    printf("transpose_copy_block_kl: %.2f s\n", difft * 60.);
+
+    // ------
+    t1 = mytime::timer.getTime();
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        transpose_copy_block_mem(A.get(), B.get(), NDIM);
+
+    t2 = mytime::timer.getTime();
+    difft = t2 - t1;
+    if (not allClose(B.get(), T.get(), NDIM * NDIM))
+        printf("Error. ");
+    printf("transpose_copy_block_mem: %.2f s\n", difft * 60.);
+
+    for (int i = 0; i < NDIM * NDIM; ++i)
+        A[i] = i;
+    for (int i = 0; i < NDIM * NDIM; ++i)
+        B[i] = i;
+    for (int i = 0; i < NDIM * NDIM; ++i)
+        T[i] = i;
+
+    // ------
+    t1 = mytime::timer.getTime();
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        copyUpperToLower_base(T.get(), NDIM);
+
+    t2 = mytime::timer.getTime();
+    difft = t2 - t1;
+    printf("copyUpperToLower_base: %.2f s\n", difft * 60.);
+
+    // ------
+    t1 = mytime::timer.getTime();
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        copyUpperToLower(B.get(), NDIM);
+
+    t2 = mytime::timer.getTime();
+    difft = t2 - t1;
+    if (not allClose(B.get(), T.get(), NDIM * NDIM))
+        printf("Error. ");
+    printf("copyUpperToLower: %.2f s\n", difft * 60.);
+}
+
+
 int main(int argc, char *argv[]) {
     #if !defined(ENABLE_OMP)
     #error "testOMPTiming needs --enable-openmp to compile."
@@ -281,6 +482,12 @@ int main(int argc, char *argv[]) {
                number_lapse, N_LOOPS);
         return 1;
     }
+
+    printf("OMP num threads %d.\n", omp_get_max_threads());
+    printf(
+        "Timing transpose_copy...\nDoing %d loops each.\n", N_LOOPS);
+    time_transpose_copy();
+    fflush(stdout);
 
     printf(
         "Timing addBoot...\nDoing %d lapses with %d loops each.\n",
@@ -321,6 +528,11 @@ int main(int argc, char *argv[]) {
 
     mytime::printfBootstrapTimeSpentDetails("setQiMatrix");
     printf("NOTE: enabling or disabling OpenMP can improve performance.\n");
+
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < 5; i++)
+        for (int j = i; j < 5; j++)
+            printf("%d %d %d\n", i, j, omp_get_thread_num());
 
     return 0;
 }
