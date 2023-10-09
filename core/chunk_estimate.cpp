@@ -481,31 +481,17 @@ void Chunk::invertCovarianceMatrix()
 
 void Chunk::_getWeightedMatrix(double *m)
 {
-    double t = mytime::timer.getTime();
-
     //C-1 . Q
-    // std::fill_n(temp_matrix[1], DATA_SIZE_2, 0);
     cblas_dsymm(
         CblasRowMajor, CblasLeft, CblasUpper,
         size(), size(), 1., inverse_covariance_matrix, size(),
         m, size(), 0, temp_matrix[0], size());
 
     std::copy(temp_matrix[0], temp_matrix[0] + DATA_SIZE_2, m);
-    // //C-1 . Q . C-1
-    // // std::fill_n(m, DATA_SIZE_2, 0);
-    // cblas_dsymm(
-    //     CblasRowMajor, CblasRight, CblasUpper,
-    //     size(), size(), 1., inverse_covariance_matrix, size(),
-    //     temp_matrix[1], size(), 0, m, size());
-
-    t = mytime::timer.getTime() - t;
-
-    mytime::time_spent_set_modqs += t;
 }
 
 void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
 {
-    double t = mytime::timer.getTime();
     int i_kz = i_kz_vector[idx],
         idx_fji_0 = (1 + N_Q_MATRICES) * i_kz;
     double *f_ikz = fisher_matrix.get() + idx_fji_0;
@@ -523,10 +509,6 @@ void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
 
         f_ikz[diff_ji] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, Q_jkz_matrix, 1);
     }
-
-    t = mytime::timer.getTime() - t;
-
-    mytime::time_spent_set_fisher += t;
 }
 
 void Chunk::computePSbeforeFvector()
@@ -544,6 +526,8 @@ void Chunk::computePSbeforeFvector()
         inverse_covariance_matrix, 
         size(), qFile->delta(), 1, 0, weighted_data_vector, 1);
 
+    double t = mytime::timer.getTime();
+
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         int i_kz = i_kz_vector[idx];
         Q_ikz_matrix = _getStoredQikz(idx);
@@ -558,6 +542,8 @@ void Chunk::computePSbeforeFvector()
         // Get weighted derivative matrix ikz: C-1 Qi
         _getWeightedMatrix(Q_ikz_matrix);
     }
+
+    mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
 
     // N C-1
     double *weighted_noise_matrix = temp_matrix[0];
@@ -596,6 +582,8 @@ void Chunk::computePSbeforeFvector()
     if (specifics::USE_PRECOMPUTED_FISHER)
         return;
 
+    t = mytime::timer.getTime();
+
     double *Q_ikz_matrix_T = temp_matrix[0];
     for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
         Q_ikz_matrix = _getStoredQikz(idx);
@@ -603,6 +591,8 @@ void Chunk::computePSbeforeFvector()
 
         _getFisherMatrix(Q_ikz_matrix_T, idx);
     }
+
+    mytime::time_spent_set_fisher += mytime::timer.getTime() - t;
 }
 
 void Chunk::oneQSOiteration(
