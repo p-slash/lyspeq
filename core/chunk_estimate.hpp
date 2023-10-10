@@ -35,7 +35,6 @@ protected:
     int DATA_SIZE_2;
 
     int _matrix_n, RES_INDEX;
-    std::vector<int> i_kz_vector;
     bool isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // Will have finer spacing when rmat is oversampled
@@ -49,7 +48,8 @@ protected:
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
     double *covariance_matrix, *stored_sfid;
-    double *temp_matrix[2], *stored_qj;
+    double *temp_matrix[2];
+    std::vector<std::pair<int, double*>> stored_ikz_qi;
     // DATA_SIZE sized vectors. 
     double *temp_vector, *weighted_data_vector;
 
@@ -60,8 +60,6 @@ protected:
     void _findRedshiftBin();
     void _setNQandFisherIndex();
     void _setStoredMatrices();
-    double* _getStoredQikz(int idx) const
-    { return stored_qj + (i_kz_vector.size()-idx-1) * DATA_SIZE_2; };
 
     void _allocateMatrices();
     void _freeMatrices();
