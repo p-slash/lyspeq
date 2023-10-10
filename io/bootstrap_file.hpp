@@ -33,7 +33,6 @@ private:
 #if defined(ENABLE_MPI)
 // Saves results to outdir/bootresults.dat
 // Fisher matrix is compressed, only saved upper 2Nk diagonals.
-// This is the 3 diagonal when FISHER_OPTIMIZATION is on.
 class BootstrapFile
 {
     MPI_File bootfile;

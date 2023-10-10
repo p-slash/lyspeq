@@ -83,13 +83,13 @@ ioh::BootstrapFile::BootstrapFile(const std::string &base, int nk, int nz, int t
         MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &bootfile);
 
     nkzbins = nk*nz;
-    #ifdef FISHER_OPTIMIZATION
-    ndiags  = 3;
-    cf_size = 3*nkzbins-nkbins-1;
-    #else
+    // #ifdef FISHER_OPTIMIZATION
+    // ndiags  = 3;  // 2*nkbins
+    // cf_size = 3*nkzbins-nkbins-1;
+    // #else
     ndiags  = 2*nkbins;
     cf_size = nkzbins*ndiags - (ndiags*(ndiags-1))/2;
-    #endif
+    // #endif
     elems_count = cf_size+nkzbins;
 
     if (pe == 0)
@@ -127,9 +127,9 @@ void ioh::BootstrapFile::writeBoot(const double *pk, const double *fisher)
     double *v = data_buffer+nkzbins;
     for (int d = 0; d < ndiags; ++d)
     {
-        #ifdef FISHER_OPTIMIZATION
-        if (d == 2) d = nkbins;
-        #endif
+        // #ifdef FISHER_OPTIMIZATION
+        // if (d == 2) d = nkbins;
+        // #endif
         mxhelp::getDiagonal(fisher, nkzbins, d, v);
         v += nkzbins-d;
     }
@@ -143,52 +143,3 @@ void ioh::BootstrapFile::writeBoot(const double *pk, const double *fisher)
         throw std::runtime_error("Bootstrap write one results.");
 }
 #endif
-
-
-// void ioh::BootstrapFile::writeBoot(int thingid, double *pk, double *fisher)
-// {
-//     double *v = comp_fisher;
-//     for (int d = 0; d < NDIAGS; ++d)
-//     {
-//         #ifdef FISHER_OPTIMIZATION
-//         if (d == 2) d = nkbins;
-//         #endif
-//         mxhelp::getDiagonal(fisher, nkzbins, d, v);
-//         v += nkzbins-d;
-//     }
-
-//     int r = fwrite(&thingid, sizeof(int), 1, bootfile);
-//     r+=fwrite(comp_fisher, sizeof(double), CF_SIZE, bootfile);
-//     r+=fwrite(pk, sizeof(double), nkzbins, bootfile);
-
-//     if (r != 1+CF_SIZE+nkzbins)
-//         throw std::runtime_error("Bootstrap write one results.");
-// }
-
-// MPI_Datatype etype;
-
-// MPI_Aint pkindex, fisherindex;
-// MPI_Type_extent(MPI_INT, &pkindex);
-// MPI_Type_extent(MPI_DOUBLE, &fisherindex);
-// int blocklengths[] = {1, nkzbins, FISHER_SIZE};
-// MPI_Datatype types[] = {MPI_INT, MPI_DOUBLE, MPI_DOUBLE};
-// MPI_Aint offsets[] = { 0, pkindex,  nkzbins*fisherindex + pkindex};
-
-// MPI_Type_create_struct(3, blocklengths, offsets, types, &etype);
-// MPI_Type_commit(&etype);
-
-// MPI_File_open(MPI_COMM_WORLD, fname.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh);
-// // thing id (int), pk (double*N), Fisher (double*N*N) 
-// MPI_Offset offset = sizeof(int) + (nkzbins+FISHER_SIZE)*sizeof(double);
-// int nprevious_sp = 0;
-// for (int peno = 0; peno < process::this_pe; ++peno)
-//     nprevious_sp += nospecs_perpe[peno];
-// offset *= nprevious_sp;
-
-// MPI_File_set_view(fh, disp, etype, etype, "native", MPI_INFO_NULL);
-
-
-
-
-
-
