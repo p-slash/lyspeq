@@ -160,13 +160,6 @@ void Chunk::_setStoredMatrices()
     double remain_mem = process::MEMORY_ALLOC,
            needed_mem = n_spec_mat * size_m1;
 
-    // _temp_zbin_row memory usage
-    #if defined(ENABLE_OMP)
-        needed_mem += process::getMemoryMB(_matrix_n * omp_get_max_threads());
-    #else
-        needed_mem += process::getMemoryMB(_matrix_n);
-    #endif
-
     // Resolution matrix needs another temp storage.
     if (specifics::USE_RESOLUTION_MATRIX)
         needed_mem += qFile->Rmat->getBufMemUsage();
@@ -270,6 +263,9 @@ void Chunk::_setVZMatrices() {
             _zmatrix[j + i * _matrix_n] = sqrt(li * lj) - 1.;
         }
     }
+
+    for (int i = 0; i < _matrix_n; ++i)
+        _matrix_lambda[i] -= 1;
 }
 
 void Chunk::_setFiducialSignalMatrix(double *sm)
@@ -311,31 +307,24 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
     shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
 
-    #pragma omp parallel for schedule(static, 1)
-    for (int i = 0; i < _matrix_n; ++i) {
-        int idx = i * (1 + _matrix_n), tsize = _matrix_n - i, low, up;
-        double *ptr = inter_mat + idx;
+    int low, up;
+    bins::redshiftBinningFunction(
+        _matrix_lambda, _matrix_n, zm,
+        inter_mat, low, up);
 
-        #if defined(ENABLE_OMP) 
-        double *_temp_zbin_row_t = _temp_zbin_row + _matrix_n * omp_get_thread_num();
-        #else
-        double *_temp_zbin_row_t = _temp_zbin_row;
-        #endif
+    std::fill_n(inter_mat, _matrix_n * _matrix_n, 0);
+
+    #pragma omp parallel for schedule(static, 1)
+    for (int i = low; i < up; ++i) {
+        int idx = i * (1 + _matrix_n), l1, u1;
 
         bins::redshiftBinningFunction(
-            _zmatrix + idx, tsize, zm,
-            _temp_zbin_row_t, low, up);
-
-        std::fill(ptr, ptr + low, 0);
-        interp_deriv_kn->evaluateVector(
-            _vmatrix + idx + low, up - low,
-            ptr + low);
+            _zmatrix + idx, _matrix_n - i, zm,
+            inter_mat + idx, l1, u1);
 
         #pragma omp simd
-        for (int j = low; j < up; ++j)
-            ptr[j] *= _temp_zbin_row_t[j];
-
-        std::fill(ptr + up, ptr + tsize, 0);
+        for (int j = 0; j < u1; ++j)
+            inter_mat[j + idx] *= interp_deriv_kn->evaluate(_vmatrix[j + idx]);
     }
 
     t_interp = mytime::timer.getTime() - t;
@@ -590,6 +579,7 @@ void Chunk::oneQSOiteration(
     _allocateMatrices();
 
     _setVZMatrices();
+
     // Preload last nqj_eff matrices
     // 0 is the last matrix
     // i_kz = N_Q_MATRICES - j_kz - 1
@@ -597,6 +587,9 @@ void Chunk::oneQSOiteration(
 
     for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
         _setQiMatrix(Q_ikz_matrix, i_kz);
+
+    for (int i = 0; i < _matrix_n; ++i)
+        _matrix_lambda[i] += 1;
 
     // Preload fiducial signal matrix if memory allows
     if (!specifics::TURN_OFF_SFID)
@@ -703,12 +696,6 @@ void Chunk::_allocateMatrices()
     // to those in process:sq_private_table
     process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, 
         interp_derivative_matrix);
-
-    #if defined(ENABLE_OMP)
-        _temp_zbin_row = new double[_matrix_n * omp_get_max_threads()];
-    #else
-        _temp_zbin_row = new double[_matrix_n];
-    #endif
 }
 
 void Chunk::_freeMatrices()
@@ -728,8 +715,6 @@ void Chunk::_freeMatrices()
 
     if (specifics::USE_RESOLUTION_MATRIX)
         qFile->Rmat->freeBuffer();
-
-    delete [] _temp_zbin_row;
 
     if (on_oversampling)
     {
