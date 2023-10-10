@@ -63,14 +63,14 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     // Set up number of matrices, index for Fisher matrix
     _setNQandFisherIndex();
 
-    i_kz_vector.reserve(N_Q_MATRICES);
+    stored_ikz_qi.reserve(N_Q_MATRICES);
     int _kncut = _getMaxKindex(MY_PI / qFile->dv_kms);
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int kn, zm;
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
         if (kn < _kncut)
-            i_kz_vector.push_back(i_kz);
+            stored_ikz_qi.push_back(std::make_pair(i_kz, nullptr));
     }
 
     _setStoredMatrices();
@@ -156,7 +156,7 @@ void Chunk::_setStoredMatrices()
 {
     double size_m1 = process::getMemoryMB(DATA_SIZE_2);
 
-    int n_spec_mat = 3 + i_kz_vector.size() + (!specifics::TURN_OFF_SFID);
+    int n_spec_mat = 3 + stored_ikz_qi.size() + (!specifics::TURN_OFF_SFID);
     double remain_mem = process::MEMORY_ALLOC,
            needed_mem = n_spec_mat * size_m1;
 
@@ -178,7 +178,7 @@ void Chunk::_setStoredMatrices()
         LOG::LOGGER.ERR("===============\n""Not all matrices are stored: %s\n"
             "#required:%d.\n""ND: %d, M1: %.1f MB. "
             "Avail mem after R & SQ subtracted: %.1lf MB\n""===============\n", 
-            qFile->fname.c_str(), i_kz_vector.size(), size(), size_m1, 
+            qFile->fname.c_str(), stored_ikz_qi.size(), size(), size_m1, 
             remain_mem);
         throw std::runtime_error("Not all matrices are stored.\n");
     }
@@ -362,15 +362,11 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
         std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
 
     const double *alpha = ps_estimate + fisher_index_start;
-    for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
-        int i_kz = i_kz_vector[idx];
-        double *Q_ikz_matrix = _getStoredQikz(idx);
-
+    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
         cblas_daxpy(
             DATA_SIZE_2, alpha[i_kz], 
             Q_ikz_matrix, 1, covariance_matrix, 1
         );
-    }
 
     // add noise matrix diagonally
     // but smooth before adding
@@ -492,22 +488,19 @@ void Chunk::_getWeightedMatrix(double *m)
 
 void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
 {
-    int i_kz = i_kz_vector[idx];
+    int i_kz = stored_ikz_qi[idx].first;
     int idx_fji_0 = N_Q_MATRICES * i_kz;
 
     // Now compute Fisher Matrix
-    for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
-        int j_kz = i_kz_vector[jdx];
-
+    for (auto jq = stored_ikz_qi.begin() + idx; jq != stored_ikz_qi.end(); ++jq)
+    {
         #ifdef FISHER_OPTIMIZATION
-        if ((j_kz - i_kz) > 2 * bins::NUMBER_OF_K_BANDS)
+        if ((jq->first - i_kz > 2 * bins::NUMBER_OF_K_BANDS))
             continue;
         #endif
 
-        double *Q_jkz_matrix = _getStoredQikz(jdx);
-
-        fisher_matrix[j_kz + idx_fji_0] = 
-            cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, Q_jkz_matrix, 1);
+        fisher_matrix[jq->first + idx_fji_0] = 
+            cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, jq->second, 1);
     }
 }
 
@@ -528,16 +521,12 @@ void Chunk::computePSbeforeFvector()
 
     double t = mytime::timer.getTime();
 
-    for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
-        int i_kz = i_kz_vector[idx];
-        Q_ikz_matrix = _getStoredQikz(idx);
-
+    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
         dk0[i_kz] = mxhelp::my_cblas_dsymvdot(
             weighted_data_vector, 
             Q_ikz_matrix, temp_vector, size());
-
         // Transform q matrices to weighted matrices inplace
         // Get weighted derivative matrix ikz: C-1 Qi
         _getWeightedMatrix(Q_ikz_matrix);
@@ -554,13 +543,9 @@ void Chunk::computePSbeforeFvector()
             inverse_covariance_matrix + i * size(), 1,
             weighted_noise_matrix + i * size(), 1);
 
-    for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
-        int i_kz = i_kz_vector[idx];
-        Q_ikz_matrix = _getStoredQikz(idx);
-
-        // Get Noise contribution: Tr(C-1 Qi C-1 N)
+    // Get Noise contribution: Tr(C-1 Qi C-1 N)
+    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
         nk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_noise_matrix, 1);
-    }
 
     // Fiducial matrix, Sfid C-1
     if (!specifics::TURN_OFF_SFID) {
@@ -570,12 +555,8 @@ void Chunk::computePSbeforeFvector()
             size(), size(), 1., stored_sfid, size(),
             inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
 
-        for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
-            int i_kz = i_kz_vector[idx];
-            Q_ikz_matrix = _getStoredQikz(idx);
-
+        for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
             tk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_sfid_matrix, 1);
-        }
     }
 
     // Do not compute fisher matrix if it is precomputed
@@ -585,11 +566,10 @@ void Chunk::computePSbeforeFvector()
     t = mytime::timer.getTime();
 
     double *Q_ikz_matrix_T = temp_matrix[0];
-    for (int idx = 0; idx < i_kz_vector.size(); ++idx) {
-        Q_ikz_matrix = _getStoredQikz(idx);
+    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
         mxhelp::transpose_copy(Q_ikz_matrix, Q_ikz_matrix_T, size());
 
-        _getFisherMatrix(Q_ikz_matrix_T, idx);
+        _getFisherMatrix(Q_ikz_matrix_T, i_kz);
     }
 
     mytime::time_spent_set_fisher += mytime::timer.getTime() - t;
@@ -615,10 +595,8 @@ void Chunk::oneQSOiteration(
     // i_kz = N_Q_MATRICES - j_kz - 1
     LOG::LOGGER.DEB("Setting qi matrices\n");
 
-    for (int jdx = 0; jdx < i_kz_vector.size(); ++jdx) {
-        int j_kz = i_kz_vector[jdx];
-        _setQiMatrix(stored_qj + jdx * DATA_SIZE_2, N_Q_MATRICES - j_kz - 1);
-    }
+    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
+        _setQiMatrix(Q_ikz_matrix, i_kz);
 
     // Preload fiducial signal matrix if memory allows
     if (!specifics::TURN_OFF_SFID)
@@ -685,7 +663,8 @@ void Chunk::_allocateMatrices()
     temp_vector = new double[size()];
     weighted_data_vector = new double[size()];
     
-    stored_qj = new double[i_kz_vector.size()*DATA_SIZE_2];
+    for (auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
+        Q_ikz_matrix = new double[DATA_SIZE_2];
 
     if (!specifics::TURN_OFF_SFID)
         stored_sfid = new double[DATA_SIZE_2];
@@ -741,7 +720,8 @@ void Chunk::_freeMatrices()
 
     delete [] temp_vector;
     delete [] weighted_data_vector;
-    delete [] stored_qj;
+    for (auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
+        delete [] Q_ikz_matrix;
 
     if (!specifics::TURN_OFF_SFID)
         delete [] stored_sfid;
