@@ -242,7 +242,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
         N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 
         #ifdef FISHER_OPTIMIZATION
-        const int N_M_COMBO = 3;
+        const int N_M_COMBO = 2 * bins::NUMBER_OF_K_BANDS;
         #else
         const int N_M_COMBO = N_Q_MATRICES + 1;
         #endif
@@ -492,22 +492,22 @@ void Chunk::_getWeightedMatrix(double *m)
 
 void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
 {
-    int i_kz = i_kz_vector[idx],
-        idx_fji_0 = (1 + N_Q_MATRICES) * i_kz;
-    double *f_ikz = fisher_matrix.get() + idx_fji_0;
+    int i_kz = i_kz_vector[idx];
+    int idx_fji_0 = N_Q_MATRICES * i_kz;
 
     // Now compute Fisher Matrix
     for (int jdx = idx; jdx < i_kz_vector.size(); ++jdx) {
-        int diff_ji = i_kz_vector[jdx] - i_kz;
+        int j_kz = i_kz_vector[jdx];
 
         #ifdef FISHER_OPTIMIZATION
-        if ((diff_ji != 0) && (diff_ji != 1) && (diff_ji != bins::NUMBER_OF_K_BANDS))
+        if ((j_kz - i_kz) > 2 * bins::NUMBER_OF_K_BANDS)
             continue;
         #endif
 
         double *Q_jkz_matrix = _getStoredQikz(jdx);
 
-        f_ikz[diff_ji] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, Q_jkz_matrix, 1);
+        fisher_matrix[j_kz + idx_fji_0] = 
+            cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, Q_jkz_matrix, 1);
     }
 }
 
