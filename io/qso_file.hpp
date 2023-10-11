@@ -90,7 +90,7 @@ public:
         int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
         int &oversampling);
 
-    void readData(double *lambda, double *delta, double *noise);
+    void readData(double *lambda, double *delta, double *ivar);
     std::unique_ptr<mxhelp::Resolution> readAllocResolutionMatrix(
         int oversampling, double dlambda);
 };
@@ -101,7 +101,7 @@ class QSOFile
     std::unique_ptr<PiccaFile> pfile;
     std::unique_ptr<BQFile> bqfile;
 
-    double *wave_head, *delta_head, *noise_head;
+    double *wave_head, *delta_head, *ivar_head, *noise_head;
     int arr_size, shift, num_masked_pixels;
     // count num_masked_pixels after cutting
     void _cutMaskedBoundary(double sigma_cut=1e6);
@@ -109,7 +109,7 @@ class QSOFile
 
 public:
     std::string fname;
-    double z_qso, snr, dv_kms, dlambda, ra, dec;
+    double z_qso, snr, dv_kms, dlambda, ra, dec, R_kms;
     long id;
     int R_fwhm, oversampling;
     std::unique_ptr<mxhelp::Resolution> Rmat;
@@ -125,6 +125,7 @@ public:
         closeFile();
         delete [] wave_head;
         delete [] delta_head;
+        delete [] ivar_head;
         delete [] noise_head;
     };
 
@@ -132,6 +133,7 @@ public:
     int realSize() const { return arr_size-num_masked_pixels; };
     double* wave() const  { return wave_head+shift; };
     double* delta() const { return delta_head+shift; };
+    double* ivar() const { return ivar_head+shift; };
     double* noise() const { return noise_head+shift; };
 
     void recalcDvDLam();

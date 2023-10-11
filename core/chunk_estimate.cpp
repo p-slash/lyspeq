@@ -186,7 +186,7 @@ double Chunk::getMinMemUsage()
 {
     double minmem = process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
     if (qFile) {
-        minmem += process::getMemoryMB(size() * 3);    
+        minmem += process::getMemoryMB(size() * 4);    
         if (specifics::USE_RESOLUTION_MATRIX)
             minmem += qFile->Rmat->getMinMemUsage();
     }
@@ -695,8 +695,8 @@ void Chunk::_allocateMatrices()
     // i.e., no caching of SQ files
     // If all tables are cached, then this function simply points 
     // to those in process:sq_private_table
-    process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, 
-        interp_derivative_matrix);
+    process::sq_private_table->readSQforR(
+        RES_INDEX, interp2d_signal_matrix, interp_derivative_matrix);
 }
 
 void Chunk::_freeMatrices()

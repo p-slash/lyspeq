@@ -61,9 +61,14 @@ public:
     SQLookupTable(SQLookupTable &&rhs) = delete;
     SQLookupTable(const SQLookupTable &rhs) = delete;
 
-    void readSQforR(int r_index, shared_interp_2d &s,
+    void readSQforR(
+        int r_index, shared_interp_2d &s,
         std::vector<shared_interp_1d>  &q, 
         bool alloc=false);
+    void computeFFT(
+        int spec_res, double dv,
+        shared_interp_2d &s,
+        std::vector<shared_interp_1d>  &q);
 
     void readTables();
     // runs with omp parallel

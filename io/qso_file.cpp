@@ -65,10 +65,12 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 
     wave_head  = new double[arr_size];
     delta_head = new double[arr_size];
+    ivar_head = new double[arr_size];
     noise_head = new double[arr_size];
 
     std::copy(qmaster.wave()+i1, qmaster.wave()+i2, wave());
     std::copy(qmaster.delta()+i1, qmaster.delta()+i2, delta());
+    std::copy(qmaster.ivar()+i1, qmaster.ivar()+i2, ivar());
     std::copy(qmaster.noise()+i1, qmaster.noise()+i2, noise());
 
     _cutMaskedBoundary();
@@ -85,9 +87,11 @@ void QSOFile::readParameters()
         pfile->readParameters(
             id, arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms, dlambda,
             oversampling);
-    else
+    else {
         bqfile->readParameters(
             arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms);
+        R_kms = SPEED_OF_LIGHT / R_fwhm / ONE_SIGMA_2_FWHM;
+    }
 }
 
 void QSOFile::readData()
@@ -98,11 +102,24 @@ void QSOFile::readData()
     wave_head  = new double[arr_size];
     delta_head = new double[arr_size];
     noise_head = new double[arr_size];
+    ivar_head = new double[arr_size];
 
-    if (pfile)
-        pfile->readData(wave(), delta(), noise());
-    else
+    if (pfile) {
+        pfile->readData(wave(), delta(), ivar());
+        std::transform(ivar(), ivar() + arr_size, noise(),
+            [](double ld) {
+                return 1. / sqrt(ld + std::numeric_limits<double>::epsilon());
+            }
+        );
+    }
+    else {
         bqfile->readData(wave(), delta(), noise());
+        std::transform(noise(), noise() + arr_size, ivar(),
+            [](double ld) {
+                return 1. / (ld * ld + std::numeric_limits<double>::epsilon());
+            }
+        );
+    }
 
     // _zeroMaskedFlux();
 
@@ -172,13 +189,7 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 {
     if (wave_head == NULL)
     {
-        wave_head  = new double[size()];
-        delta_head = new double[size()];
-        noise_head = new double[size()];
-        if (pfile)
-            pfile->readData(wave(), delta(), noise());
-        else
-            bqfile->readData(wave(), delta(), noise());
+        readData();
         _cutMaskedBoundary();
     }
 
@@ -199,6 +210,47 @@ void QSOFile::recalcDvDLam()
 {
     dlambda = _getMediandlambda(wave(), size());
     dv_kms  = _getMediandv(wave(), size());
+
+    if (!Rmat)
+        return;
+
+    int nmeancols = Rmat->getNElemPerRow();
+    std::vector<double> meanreso(nmeancols);
+    double total_invweight = 1. / std::accumulate(ivar(), ivar() + size(), double(0.)),
+           lambda_eff = cblas_ddot(size(), ivar(), 1, wave(), 1) * total_invweight,
+           dl_r;
+
+    if (!Rmat->isDiaMatrix()) {
+        dl_r = dlambda / specifics::OVERSAMPLING_FACTOR;
+        cblas_dgemv(
+            CblasRowMajor, CblasTrans, size(), nmeancols, total_invweight,
+            Rmat->matrix(), nmeancols, ivar(), 1, 0, meanreso.data(), 1);
+    }
+    else {
+        dl_r = dlambda;
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, nmeancols, size(), total_invweight,
+            Rmat->matrix(), size(), ivar(), 1, 0, meanreso.data(), 1);
+        // std::reverse(meanreso.begin(), meanreso.end());
+    }
+
+    int central_idx = nmeancols / 2, norm = 0;
+    R_kms = 0;
+
+    for (int i = central_idx - 2; i < central_idx + 3; ++i)
+    {
+        if (i == central_idx) continue;
+
+        double r = log(meanreso[central_idx] / meanreso[i]);
+
+        if (r <= 0) continue;
+
+        ++norm;
+        R_kms += fabs(i - central_idx) / sqrt(r); 
+    }
+
+    R_kms /= sqrt(2.) * norm;
+    R_kms *= SPEED_OF_LIGHT * dl_r / lambda_eff;
 }
 
 // ============================================================================
@@ -424,7 +476,7 @@ int PiccaFile::_getColNo(char *tmplt)
     return colnum;
 }
 
-void PiccaFile::readData(double *lambda, double *delta, double *noise)
+void PiccaFile::readData(double *lambda, double *delta, double *ivar)
 {
     int nonull, colnum;
 
@@ -463,14 +515,10 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     // Read inverse variance
     char ivartmp[]="IVAR";
     colnum = _getColNo(ivartmp);
-    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, noise, &nonull, 
+    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, ivar, &nonull, 
         &status);
 
     _checkStatus();
-
-    std::for_each(noise, noise+curr_N, [](double &ld)
-        { ld = 1./sqrt(ld+std::numeric_limits<double>::epsilon()); }
-    );
 }
 
 std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix(int oversampling, double dlambda)

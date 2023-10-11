@@ -352,12 +352,13 @@ shared_interp_1d SQLookupTable::_allocReadQFile(int kn, int r_index)
         N_V_POINTS);
 }
 
-void SQLookupTable::readSQforR(int r_index, shared_interp_2d &s,
-        std::vector<shared_interp_1d> &q, bool alloc)
-{
+void SQLookupTable::readSQforR(
+        int r_index, shared_interp_2d &s,
+        std::vector<shared_interp_1d> &q, bool alloc
+) {
     // Skip this section if fiducial signal matrix is turned off.
     if (!specifics::TURN_OFF_SFID)
-    {       
+    {
         if (alloc || interp2d_signal_matrices.empty())
             s = _allocReadSFile(r_index);
         else
@@ -373,6 +374,14 @@ void SQLookupTable::readSQforR(int r_index, shared_interp_2d &s,
         else
             q.push_back(getDerivativeMatrixInterp(kn, r_index));
     }
+}
+
+void SQLookupTable::computeFFT(
+        int spec_res, double dv,
+        shared_interp_2d &s,
+        std::vector<shared_interp_1d>  &q
+) {
+    
 }
 
 shared_interp_1d SQLookupTable::getDerivativeMatrixInterp(int kn, 
