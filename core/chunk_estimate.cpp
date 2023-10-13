@@ -342,7 +342,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     std::fill_n(inter_mat, _matrix_n * _matrix_n, 0);
 
     #pragma omp parallel for schedule(static, 1)
-    for (int i = low; i < up; ++i) {
+    for (int i = 0; i < up; ++i) {
         int idx = i * (1 + _matrix_n), l1, u1;
 
         bins::redshiftBinningFunction(
@@ -350,7 +350,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
             inter_mat + idx, l1, u1);
 
         #pragma omp simd
-        for (int j = 0; j < u1; ++j)
+        for (int j = l1; j < u1; ++j)
             inter_mat[j + idx] *= interp_deriv_kn->evaluate(_vmatrix[j + idx]);
     }
 
