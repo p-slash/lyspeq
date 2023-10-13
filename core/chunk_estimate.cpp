@@ -222,25 +222,52 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
             return 0;
 
         int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
-        double res = std::pow(qtemp.size()/100., 3);
+        double one_matrix_mult = std::pow(qtemp.size() / 100., 3),
+               one_fisher_elem = std::pow(qtemp.size() / 100., 2);
+
+        int fidxlocal = bins::getFisherMatrixIndex(0, ZBIN_LOW);
 
         #if defined(TRIANGLE_Z_BINNING_FN)
-        // If we need to distribute low end to a lefter bin
-        if ((z1 < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
+        if ((z1 < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0)) {
             ++N_Q_MATRICES;
-        // If we need to distribute high end to righter bin
+            fidxlocal -= bins::NUMBER_OF_K_BANDS;
+        }
+
         if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
             ++N_Q_MATRICES;
         #endif
         N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 
+        int _kncut = _getMaxKindex(MY_PI / qtemp.dv_kms), real_nq_mat = 0;
+        for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
+            int kn, zm;
+            bins::getFisherMatrixBinNoFromIndex(i_kz + fidxlocal, kn, zm);
+
+            if (kn < _kncut) ++real_nq_mat;
+        }
+
         #ifdef FISHER_OPTIMIZATION
         const int N_M_COMBO = 3;
         #else
-        const int N_M_COMBO = N_Q_MATRICES + 1;
+        const int N_M_COMBO = real_nq_mat + 1;
         #endif
 
-        return res * N_Q_MATRICES * N_M_COMBO;
+        double res = real_nq_mat * (one_matrix_mult + one_fisher_elem * N_M_COMBO);
+
+        if (specifics::USE_RESOLUTION_MATRIX) {
+            const int ndiags = 11;
+            double extra_ctime = ndiags * one_fisher_elem * real_nq_mat;
+
+            int osamp = specifics::OVERSAMPLING_FACTOR;
+            if (osamp > 0)
+                extra_ctime *= osamp * (osamp + 1);
+            else
+                extra_ctime *= 2;
+
+            res += extra_ctime;
+        }
+
+        return res;
     }
     catch (std::exception& e)
     {
@@ -315,7 +342,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     std::fill_n(inter_mat, _matrix_n * _matrix_n, 0);
 
     #pragma omp parallel for schedule(static, 1)
-    for (int i = low; i < up; ++i) {
+    for (int i = 0; i < up; ++i) {
         int idx = i * (1 + _matrix_n), l1, u1;
 
         bins::redshiftBinningFunction(
@@ -323,7 +350,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
             inter_mat + idx, l1, u1);
 
         #pragma omp simd
-        for (int j = 0; j < u1; ++j)
+        for (int j = l1; j < u1; ++j)
             inter_mat[j + idx] *= interp_deriv_kn->evaluate(_vmatrix[j + idx]);
     }
 
