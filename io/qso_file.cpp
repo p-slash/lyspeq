@@ -214,7 +214,7 @@ void QSOFile::recalcDvDLam()
     dlambda = _getMediandlambda(wave(), size());
     dv_kms  = _getMediandv(wave(), size());
 
-    calcRkmsFromRMat();
+    // calcRkmsFromRMat();
 }
 
 
@@ -224,7 +224,7 @@ void QSOFile::calcRkmsFromRMat() {
 
     int nmeancols = Rmat->getNElemPerRow();
     std::vector<double> meanreso(nmeancols);
-    double total_invweight = 1. / std::accumulate(ivar(), ivar() + size(), double(0.)),
+    double total_invweight = 1. / std::reduce(ivar(), ivar() + size()),
            lambda_eff = cblas_ddot(size(), ivar(), 1, wave(), 1) * total_invweight,
            dl_reso;
 
@@ -257,66 +257,73 @@ void QSOFile::calcRkmsFromRMat() {
         R_kms += fabs(i - central_idx) / sqrt(r); 
     }
 
-    R_kms /= sqrt(2.) * norm;
-    R_kms = sqrt(R_kms * R_kms - 1. / 12.);
-    R_kms *= SPEED_OF_LIGHT * dl_reso / lambda_eff;
+    R_kms /= sqrt(2.) * norm;  // in pixels
+    R_kms *= dl_reso;  // in A
+    R_kms = sqrt(R_kms * R_kms - dlambda * dlambda / 12.);  // Remove top-hat
+    R_kms *= SPEED_OF_LIGHT / lambda_eff;  // in km/s
 }
 
 
-void QSOFile::calcAverageWindowFunctionFromRMat() {
-    int NPADDED_SIZE = 1536;
-    double total_invweight = 1. / std::accumulate(ivar(), ivar() + size(), double(0.)),
+void QSOFile::calcAverageWindowFunctionFromRMat(
+        std::vector<double> &k_A, std::vector<double> &window2
+) {
+    int npadded_size = exp2(round(0.2 + log2(size())));
+    double total_invweight = 1. / std::reduce(ivar(), ivar() + size()),
            dl_reso, length_A;
 
-    if (Rmat->isDiaMatrix())
+    if (Rmat->isDiaMatrix()) {
         dl_reso = dlambda;
+        npadded_size *= 2;
+    }
     else {
         dl_reso = dlambda / specifics::OVERSAMPLING_FACTOR;
-        NPADDED_SIZE = 1024 * specifics::OVERSAMPLING_FACTOR;
+        npadded_size *= specifics::OVERSAMPLING_FACTOR;
     }
 
-    length_A = dl_reso * NPADDED_SIZE;
-    static auto window2 = std::make_unique<double[]>(NPADDED_SIZE);
+    length_A = dl_reso * npadded_size;
+    RealField transformer(npadded_size, length_A);
+    int npadded_size_k = transformer.size_k();
 
-    RealField transformer(NPADDED_SIZE, length_A);
+    window2.resize(npadded_size_k);
+    k_A.resize(npadded_size_k);
+    std::fill(window2.begin(), window2.end(), 0);
 
     int ncols = Rmat->getNElemPerRow();
     if (Rmat->isDiaMatrix()) {
         for (int i = 0; i < size(); ++i) {
-            std::fill_n(transformer.field_x, NPADDED_SIZE, 0);
+            std::fill_n(transformer.field_x, npadded_size, 0);
             cblas_dcopy(
                 ncols, Rmat->matrix() + i, size(),
                 transformer.field_x, 1);
 
             transformer.rawFFTX2K();
 
-            for (int j = 0; j < NPADDED_SIZE; ++j)
+            for (int j = 0; j < npadded_size_k; ++j)
                 window2[j] += ivar()[i] * std::norm(transformer.field_k[j]);
         }
     }
     else {
         for (int i = 0; i < size(); ++i) {
-            std::fill_n(transformer.field_x, NPADDED_SIZE, 0);
+            std::fill_n(transformer.field_x, npadded_size, 0);
             cblas_dcopy(
                 ncols, Rmat->matrix() + i * ncols, 1,
                 transformer.field_x, 1);
 
             transformer.rawFFTX2K();
 
-            for (int j = 0; j < NPADDED_SIZE; ++j)
+            for (int j = 0; j < npadded_size_k; ++j)
                 window2[j] += ivar()[i] * std::norm(transformer.field_k[j]);
         }
     }
 
-    double alpha = total_invweight * dl_reso * dl_reso;
-    cblas_dscal(size(), alpha, window2.get(), 1);
+    // no dl_reso to account for since resolution matrix is multiplied by
+    // dlambda anyway
+    cblas_dscal(npadded_size_k, total_invweight, window2.data(), 1);
 
     // karray in wavelength
-    static auto karr_in = std::make_unique<double[]>(NPADDED_SIZE);
-
     double k_fund_skm = 2 * MY_PI / length_A;
-    for (int i = 0; i < transformer.size_k(); ++i)
-        karr_in[i] = i * k_fund_skm;
+    for (int i = 0; i < npadded_size_k; ++i)
+        k_A[i] = i * k_fund_skm;
 }
 
 

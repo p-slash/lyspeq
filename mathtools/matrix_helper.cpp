@@ -1,11 +1,12 @@
 #include "mathtools/matrix_helper.hpp"
 #include "mathtools/real_field.hpp"
 
+#include <cmath>
 #include <stdexcept>
 #include <algorithm>
 #include <limits>
+#include <numeric>
 #include <utility>
-#include <cmath>
 
 #include <gsl/gsl_interp.h>
 
@@ -853,10 +854,12 @@ namespace mxhelp
     {
         if (!is_dia_matrix) return;
 
-        int noff = dia_matrix->ndiags/2, nelem_per_row = 2*noff*osamp + 1;
+        int noff = dia_matrix->ndiags / 2,
+            nelem_per_row = 2 * noff * osamp + 1;
         // Using the following simple scaling yields biased results
         // double rescalor = (double) dia_matrix->ndiags / (double) nelem_per_row;
-        osamp_matrix = std::make_unique<OversampledMatrix>(ncols, nelem_per_row, osamp, dlambda);
+        osamp_matrix = std::make_unique<OversampledMatrix>(
+            ncols, nelem_per_row, osamp, dlambda);
 
         double *newrow;
         std::vector<double> row, win, wout;
@@ -865,11 +868,12 @@ namespace mxhelp
         wout.reserve(nelem_per_row);
 
         for (int i = 0; i < dia_matrix->ndiags; ++i)
-            win.push_back(i-noff);
+            win.push_back((i - noff) * dlambda);
         for (int i = 0; i < nelem_per_row; ++i)
-            wout.push_back(i*1./osamp-noff);
+            wout.push_back((i * 1. / osamp - noff) * dlambda);
 
-        gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, dia_matrix->ndiags);
+        gsl_interp *interp_cubic = gsl_interp_alloc(
+            gsl_interp_cspline, dia_matrix->ndiags);
         gsl_interp_accel *acc = gsl_interp_accel_alloc();
 
         // ncols == nrows for dia matrix
@@ -877,30 +881,29 @@ namespace mxhelp
         {
             dia_matrix->getRow(i, row);
 
-            newrow = osamp_matrix->matrix()+i*nelem_per_row;
+            newrow = osamp_matrix->matrix() + i * nelem_per_row;
 
             // interpolate log, shift before log
-            double _shift = *std::min_element(row.begin(), row.end())
+            double _shift =
+                *std::min_element(row.begin(), row.end())
                 - nonzero_min_element(row.begin(), row.end());
 
-            std::for_each(row.begin(), row.end(),
-                [_shift](double &f) { f = log(f-_shift); }
+            std::for_each(
+                row.begin(), row.end(),
+                [_shift](double &f) { f = log(f - _shift); }
             );
 
-            gsl_interp_init(interp_cubic, win.data(), row.data(), dia_matrix->ndiags);
+            gsl_interp_init(
+                interp_cubic, win.data(), row.data(), dia_matrix->ndiags);
 
-            // Paranoid that std::transform lambda is problematic
-            double sum=0;
             for (int jj = 0; jj < nelem_per_row; ++jj)
-            {
-                newrow[jj] = _shift + exp(gsl_interp_eval(
-                    interp_cubic, win.data(), row.data(), wout[jj], acc));
-                sum += newrow[jj];
-            }
+                newrow[jj] = 
+                    _shift + exp(gsl_interp_eval(
+                        interp_cubic, win.data(), row.data(), wout[jj], acc
+                ));
 
-            std::for_each(newrow, newrow+nelem_per_row,
-                [sum](double &X) { X/=sum; }
-            );
+            double isum = 1. / std::reduce(newrow, newrow + nelem_per_row);
+            cblas_dscal(nelem_per_row, isum, newrow, 1);
 
             gsl_interp_accel_reset(acc);
         }
