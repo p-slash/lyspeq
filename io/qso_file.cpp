@@ -6,6 +6,9 @@
 #include <limits>
 #include <stdexcept>
 
+#include "mathtools/real_field.hpp"
+
+
 namespace qio
 {
 double _calcdv(double w2, double w1) { return log(w2/w1)*SPEED_OF_LIGHT; }
@@ -211,6 +214,11 @@ void QSOFile::recalcDvDLam()
     dlambda = _getMediandlambda(wave(), size());
     dv_kms  = _getMediandv(wave(), size());
 
+    calcRkmsFromRMat();
+}
+
+
+void QSOFile::calcRkmsFromRMat() {
     if (!Rmat)
         return;
 
@@ -218,16 +226,16 @@ void QSOFile::recalcDvDLam()
     std::vector<double> meanreso(nmeancols);
     double total_invweight = 1. / std::accumulate(ivar(), ivar() + size(), double(0.)),
            lambda_eff = cblas_ddot(size(), ivar(), 1, wave(), 1) * total_invweight,
-           dl_r;
+           dl_reso;
 
     if (!Rmat->isDiaMatrix()) {
-        dl_r = dlambda / specifics::OVERSAMPLING_FACTOR;
+        dl_reso = dlambda / specifics::OVERSAMPLING_FACTOR;
         cblas_dgemv(
             CblasRowMajor, CblasTrans, size(), nmeancols, total_invweight,
             Rmat->matrix(), nmeancols, ivar(), 1, 0, meanreso.data(), 1);
     }
     else {
-        dl_r = dlambda;
+        dl_reso = dlambda;
         cblas_dgemv(
             CblasRowMajor, CblasNoTrans, nmeancols, size(), total_invweight,
             Rmat->matrix(), size(), ivar(), 1, 0, meanreso.data(), 1);
@@ -250,8 +258,67 @@ void QSOFile::recalcDvDLam()
     }
 
     R_kms /= sqrt(2.) * norm;
-    R_kms *= SPEED_OF_LIGHT * dl_r / lambda_eff;
+    R_kms = sqrt(R_kms * R_kms - 1. / 12.);
+    R_kms *= SPEED_OF_LIGHT * dl_reso / lambda_eff;
 }
+
+
+void QSOFile::calcAverageWindowFunctionFromRMat() {
+    int NPADDED_SIZE = 1536;
+    double total_invweight = 1. / std::accumulate(ivar(), ivar() + size(), double(0.)),
+           dl_reso, length_A;
+
+    if (Rmat->isDiaMatrix())
+        dl_reso = dlambda;
+    else {
+        dl_reso = dlambda / specifics::OVERSAMPLING_FACTOR;
+        NPADDED_SIZE = 1024 * specifics::OVERSAMPLING_FACTOR;
+    }
+
+    length_A = dl_reso * NPADDED_SIZE;
+    static auto window2 = std::make_unique<double[]>(NPADDED_SIZE);
+
+    RealField transformer(NPADDED_SIZE, length_A);
+
+    int ncols = Rmat->getNElemPerRow();
+    if (Rmat->isDiaMatrix()) {
+        for (int i = 0; i < size(); ++i) {
+            std::fill_n(transformer.field_x, NPADDED_SIZE, 0);
+            cblas_dcopy(
+                ncols, Rmat->matrix() + i, size(),
+                transformer.field_x, 1);
+
+            transformer.rawFFTX2K();
+
+            for (int j = 0; j < NPADDED_SIZE; ++j)
+                window2[j] += ivar()[i] * std::norm(transformer.field_k[j]);
+        }
+    }
+    else {
+        for (int i = 0; i < size(); ++i) {
+            std::fill_n(transformer.field_x, NPADDED_SIZE, 0);
+            cblas_dcopy(
+                ncols, Rmat->matrix() + i * ncols, 1,
+                transformer.field_x, 1);
+
+            transformer.rawFFTX2K();
+
+            for (int j = 0; j < NPADDED_SIZE; ++j)
+                window2[j] += ivar()[i] * std::norm(transformer.field_k[j]);
+        }
+    }
+
+    double alpha = total_invweight * dl_reso * dl_reso;
+    cblas_dscal(size(), alpha, window2.get(), 1);
+
+    // karray in wavelength
+    static auto karr_in = std::make_unique<double[]>(NPADDED_SIZE);
+
+    double k_fund_skm = 2 * MY_PI / length_A;
+    for (int i = 0; i < transformer.size_k(); ++i)
+        karr_in[i] = i * k_fund_skm;
+}
+
 
 // ============================================================================
 // Binary QSO file

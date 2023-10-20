@@ -137,6 +137,8 @@ public:
     double* noise() const { return noise_head+shift; };
 
     void recalcDvDLam();
+    void calcRkmsFromRMat();
+    void calcAverageWindowFunctionFromRMat();
     void readParameters();
     void readData();
 

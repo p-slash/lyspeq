@@ -83,6 +83,10 @@ void RealField::fftX2K()
     current_space = K_SPACE;
 } 
 
+void RealField::rawFFTX2K() {
+    fftw_execute(p_x2k);
+}
+
 void RealField::fftK2X()
 {
     assert(current_space == K_SPACE);

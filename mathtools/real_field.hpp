@@ -37,8 +37,10 @@ public:
     RealField(const RealField &rf);
     ~RealField();
 
+    int size_k() const { return size_complex; };
     void setFFTWSpace(FFTW_CURRENT_SPACE which_space);
-    
+
+    void rawFFTX2K();
     void fftX2K();
     void fftK2X();
 
