@@ -2,6 +2,8 @@
 #define REALFIELD_H
 
 #include <complex>
+#include <vector>
+
 #include <fftw3.h>
 
 enum FFTW_CURRENT_SPACE
@@ -13,7 +15,6 @@ enum FFTW_CURRENT_SPACE
 // this file containes an object to use real fields with fftw
 // which should make it easy to track and operate on multiple
 // real fields.
- 
 
 class RealField
 {
@@ -53,6 +54,44 @@ public:
     void deconvolveSinc(double m); //, double downsampling=-1);
 
     //void applyGaussSmoothing(double r);
+};
+
+
+class RealFieldR2R {
+    int N;
+    double length, norm;
+
+    fftw_plan p_r2r;
+
+public:
+    std::vector<double> field_x;
+
+    RealFieldR2R(int data_size, double dx, unsigned flags=FFTW_MEASURE) {
+        resize(data_size, dx, flags);
+    };
+
+    void resize(int data_size, double dx, unsigned flags=FFTW_MEASURE) {
+        N = 2 * (data_size - 1);
+        length = N * dx;
+        norm = dx;
+        field_x.resize(data_size);
+        
+        p_r2r = fftw_plan_r2r_1d(
+            data_size, field_x.data(), field_x.data(),
+            FFTW_REDFT00, flags);
+    }
+
+    void fftX2K() {
+        fftw_execute(p_r2r);
+        for (double &f : field_x)
+            f *= norm;
+    };
+
+    void fftK2X() {
+        fftw_execute(p_r2r);
+        for (double &f : field_x)
+            f /= length;
+    };
 };
 
 

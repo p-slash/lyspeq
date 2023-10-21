@@ -21,8 +21,9 @@ void RealField::construct(double *data)
         FFTW_MEASURE);
 }
 
-RealField::RealField(int data_size, double length1, double *data) : size_real(data_size), 
-    length(length1), current_space(X_SPACE)
+RealField::RealField(
+        int data_size, double length1, double *data
+) : size_real(data_size), length(length1), current_space(X_SPACE)
 {
     size_complex = size_real / 2 + 1;
 
@@ -131,6 +132,8 @@ void RealField::deconvolveSinc(double m)//, double downsampling)
 
     fftK2X();
 }
+
+
 
 // void RealField::applyGaussSmoothing(double r)
 // {

@@ -265,16 +265,15 @@ void QSOFile::calcRkmsFromRMat() {
 
 
 void QSOFile::calcAverageWindowFunctionFromRMat(
-        std::vector<double> &k_A, std::vector<double> &window2
+        std::vector<double> &k_A, std::vector<double> &window2,
+        double &dl_reso
 ) {
-    int npadded_size = exp2(round(0.2 + log2(size())));
+    int npadded_size = exp2(3 + round(log2(size())));
     double total_invweight = 1. / std::reduce(ivar(), ivar() + size()),
-           dl_reso, length_A;
+           length_A;
 
-    if (Rmat->isDiaMatrix()) {
+    if (Rmat->isDiaMatrix())
         dl_reso = dlambda;
-        npadded_size *= 2;
-    }
     else {
         dl_reso = dlambda / specifics::OVERSAMPLING_FACTOR;
         npadded_size *= specifics::OVERSAMPLING_FACTOR;

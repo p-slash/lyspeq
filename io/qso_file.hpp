@@ -139,7 +139,8 @@ public:
     void recalcDvDLam();
     void calcRkmsFromRMat();
     void calcAverageWindowFunctionFromRMat(
-        std::vector<double> &k_A, std::vector<double> &window2);
+        std::vector<double> &k_A, std::vector<double> &window2,
+        double &dl_reso);
     void readParameters();
     void readData();
 
