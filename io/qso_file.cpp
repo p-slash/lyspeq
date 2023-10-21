@@ -6,8 +6,6 @@
 #include <limits>
 #include <stdexcept>
 
-#include "mathtools/real_field.hpp"
-
 
 namespace qio
 {
@@ -264,13 +262,10 @@ void QSOFile::calcRkmsFromRMat() {
 }
 
 
-void QSOFile::calcAverageWindowFunctionFromRMat(
-        std::vector<double> &k_A, std::vector<double> &window2,
-        double &dl_reso
-) {
+void QSOFile::calcAverageWindowFunctionFromRMat(RealField &rf) {
     int npadded_size = exp2(3 + round(log2(size())));
     double total_invweight = 1. / std::reduce(ivar(), ivar() + size()),
-           length_A;
+           dl_reso, length_A;
 
     if (Rmat->isDiaMatrix())
         dl_reso = dlambda;
@@ -280,49 +275,41 @@ void QSOFile::calcAverageWindowFunctionFromRMat(
     }
 
     length_A = dl_reso * npadded_size;
-    RealField transformer(npadded_size, length_A);
-    int npadded_size_k = transformer.size_k();
-
-    window2.resize(npadded_size_k);
-    k_A.resize(npadded_size_k);
-    std::fill(window2.begin(), window2.end(), 0);
+    rf.resize(npadded_size, dl_reso);
+    std::vector<double> total_window_k(rf.size_k());
 
     int ncols = Rmat->getNElemPerRow();
     if (Rmat->isDiaMatrix()) {
         for (int i = 0; i < size(); ++i) {
-            std::fill_n(transformer.field_x, npadded_size, 0);
+            rf.zero_field_x();
             cblas_dcopy(
                 ncols, Rmat->matrix() + i, size(),
-                transformer.field_x, 1);
+                rf.field_x.data(), 1);
 
-            transformer.rawFFTX2K();
+            rf.rawFFTX2K();
 
-            for (int j = 0; j < npadded_size_k; ++j)
-                window2[j] += ivar()[i] * std::norm(transformer.field_k[j]);
+            for (int j = 0; j < rf.size_k(); ++j)
+                total_window_k[j] += ivar()[i] * std::norm(rf.field_k[j]);
         }
     }
     else {
         for (int i = 0; i < size(); ++i) {
-            std::fill_n(transformer.field_x, npadded_size, 0);
+            rf.zero_field_x();
             cblas_dcopy(
                 ncols, Rmat->matrix() + i * ncols, 1,
-                transformer.field_x, 1);
+                rf.field_x.data(), 1);
 
-            transformer.rawFFTX2K();
+            rf.rawFFTX2K();
 
-            for (int j = 0; j < npadded_size_k; ++j)
-                window2[j] += ivar()[i] * std::norm(transformer.field_k[j]);
+            for (int j = 0; j < rf.size_k(); ++j)
+                total_window_k[j] += ivar()[i] * std::norm(rf.field_k[j]);
         }
     }
 
     // no dl_reso to account for since resolution matrix is multiplied by
     // dlambda anyway
-    cblas_dscal(npadded_size_k, total_invweight, window2.data(), 1);
-
-    // karray in wavelength
-    double k_fund_skm = 2 * MY_PI / length_A;
-    for (int i = 0; i < npadded_size_k; ++i)
-        k_A[i] = i * k_fund_skm;
+    cblas_dscal(rf.size_k(), total_invweight, total_window_k.data(), 1);
+    std::copy(total_window_k.begin(), total_window_k.end(), rf.field_k.begin());
 }
 
 

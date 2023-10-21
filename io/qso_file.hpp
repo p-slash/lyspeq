@@ -12,6 +12,7 @@
 #include "core/global_numbers.hpp"
 #include "io/io_helper_functions.hpp"
 #include "mathtools/matrix_helper.hpp"
+#include "mathtools/real_field.hpp"
 
 namespace qio
 {
@@ -138,9 +139,7 @@ public:
 
     void recalcDvDLam();
     void calcRkmsFromRMat();
-    void calcAverageWindowFunctionFromRMat(
-        std::vector<double> &k_A, std::vector<double> &window2,
-        double &dl_reso);
+    void calcAverageWindowFunctionFromRMat(RealField &rf);
     void readParameters();
     void readData();
 

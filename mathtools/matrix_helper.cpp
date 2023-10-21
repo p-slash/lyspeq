@@ -449,29 +449,29 @@ namespace mxhelp
     void DiaMatrix::deconvolve(double m) //bool byCol
     {
         const int HALF_PAD_NO = 5;
-        int input_size = ndiags+2*HALF_PAD_NO;
-        std::unique_ptr<double[]> row = std::make_unique<double[]>(input_size);
+        int input_size = ndiags + 2 * HALF_PAD_NO;
+        RealField deconvolver(input_size, 1);
         std::vector<int> indices(ndiags);
 
         // if (byCol)  transpose();
-
-        RealField deconvolver(input_size, 1, row.get());
 
         for (int i = 0; i < ndim; ++i)
         {
             _getRowIndices(i, indices);
             for (int p = 0; p < ndiags; ++p)
-                row[p+HALF_PAD_NO] = values[indices[p]];
+                deconvolver.field_x[p + HALF_PAD_NO] = values[indices[p]];
 
             // Set padded regions to zero
-            for (int p = 0; p < HALF_PAD_NO; ++p)
-            { row[p] = 0;  row[p+ndiags+HALF_PAD_NO] = 0; }
+            for (int p = 0; p < HALF_PAD_NO; ++p) {
+                deconvolver.field_x[p] = 0;
+                deconvolver.field_x[p + ndiags + HALF_PAD_NO] = 0;
+            }
 
             // deconvolve sinc^-2 factor using fftw
             deconvolver.deconvolveSinc(m);
 
             for (int p = 0; p < ndiags; ++p)
-                values[indices[p]] = row[p+HALF_PAD_NO];
+                values[indices[p]] = deconvolver.field_x[p + HALF_PAD_NO];
         }
 
         // if (byCol)  transpose();

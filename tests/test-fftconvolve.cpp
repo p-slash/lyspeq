@@ -22,6 +22,36 @@ void write2VectorsToFile(
 }
 
 
+void write2VectorsToFile(
+        const char *fname,
+        const std::vector<double> &x,
+        const std::vector<std::complex<double>> &y
+) {
+    FILE *toWrite;
+        
+    toWrite = fopen(fname, "w");
+
+    for (int i = 0; i < x.size(); ++i)
+        fprintf(toWrite, "%.14le %.14e\n", x[i], y[i]);
+
+    fclose(toWrite);
+}
+
+void writeArrayToFile(
+        const char *fname,
+        const double *x, int N
+) {
+    FILE *toWrite;
+        
+    toWrite = fopen(fname, "w");
+
+    for (int i = 0; i < N; ++i)
+        fprintf(toWrite, "%.14le\n", x[i]);
+
+    fclose(toWrite);
+}
+
+
 int main(int argc, char *argv[])
 {
     if (argc<2)
@@ -42,28 +72,23 @@ int main(int argc, char *argv[])
     qFile.recalcDvDLam();  // meansnr: 0.67616031758204
     printf("Rkms: %.2f\n", qFile.R_kms);  // 47.5047929893881
 
-    std::vector<double> k_A, window2, lambda_vec;
-    double dl_reso;
+    RealField r2c(1024, 1);
 
-    qFile.calcAverageWindowFunctionFromRMat(k_A, window2, dl_reso);
+    qFile.calcAverageWindowFunctionFromRMat(r2c);
 
     std::string window_fname = std::string(SRCDIR) + "/tests/output/window2_k_dia.txt";
-    write2VectorsToFile(window_fname.c_str(), k_A, window2);
-    for (int i = 0; i < window2.size(); i += 20)
-        printf("%.5e  %.5e\n", k_A[i], window2[i]);
+    write2VectorsToFile(window_fname.c_str(), r2c.k, r2c.field_k);
+    for (int i = 0; i < r2c.size_k(); i += 20)
+        printf("%.5e  %.5e\n", r2c.k[i], r2c.field_k[i]);
 
-    RealFieldR2R r2r(k_A.size(), dl_reso);
     std::transform(
-        window2.begin(), window2.end(),
-        r2r.field_x.begin(),
-        [](double d) { return sqrt(d); });
-    r2r.fftK2X();
-    lambda_vec.resize(k_A.size());
-    for (int i = 0; i < k_A.size(); ++i)
-        lambda_vec[i] = i * dl_reso;
-    window_fname = std::string(SRCDIR) + "/tests/output/window2_x_dia.txt";
-    write2VectorsToFile(window_fname.c_str(), lambda_vec, r2r.field_x);
+        r2c.field_k.begin(), r2c.field_k.end(),
+        r2c.field_k.begin(),
+        [](std::complex<double> d) { return sqrt(d); });
+    r2c.fftK2X();
 
+    window_fname = std::string(SRCDIR) + "/tests/output/window2_x_dia.txt";
+    write2VectorsToFile(window_fname.c_str(), r2c.x, r2c.field_x);
 
 
 
@@ -74,23 +99,19 @@ int main(int argc, char *argv[])
     // qFile.Rmat->fprintfMatrix("debugoutput-oversampled-resomat.txt");
 
 
-    qFile.calcAverageWindowFunctionFromRMat(k_A, window2, dl_reso);
+    qFile.calcAverageWindowFunctionFromRMat(r2c);
     window_fname = std::string(SRCDIR) + "/tests/output/window2_k_osamp.txt";
-    write2VectorsToFile(window_fname.c_str(), k_A, window2);
-    for (int i = 0; i < window2.size(); i += 20)
-        printf("%.5e  %.5e\n", k_A[i], window2[i]);
+    write2VectorsToFile(window_fname.c_str(), r2c.k, r2c.field_k);
+    for (int i = 0; i < r2c.size_k(); i += 20)
+        printf("%.5e  %.5e\n", r2c.k[i], r2c.field_k[i]);
 
-    r2r.resize(k_A.size(), dl_reso);
     std::transform(
-        window2.begin(), window2.end(),
-        r2r.field_x.begin(),
-        [](double d) { return sqrt(d); });
-    r2r.fftK2X();
-    lambda_vec.resize(k_A.size());
-    for (int i = 0; i < k_A.size(); ++i)
-        lambda_vec[i] = i * dl_reso;
+        r2c.field_k.begin(), r2c.field_k.end(),
+        r2c.field_k.begin(),
+        [](std::complex<double> d) { return sqrt(d); });
+    r2c.fftK2X();
     window_fname = std::string(SRCDIR) + "/tests/output/window2_x_osamp.txt";
-    write2VectorsToFile(window_fname.c_str(), lambda_vec, r2r.field_x);
+    write2VectorsToFile(window_fname.c_str(), r2c.x, r2c.field_x);
     return 0;
 }
 
