@@ -57,6 +57,7 @@ public:
 };
 
 
+// R2R transforms are not numerically as accurate
 class RealFieldR2R {
     int N;
     double length, norm;
@@ -69,6 +70,14 @@ public:
     RealFieldR2R(int data_size, double dx, unsigned flags=FFTW_MEASURE) {
         resize(data_size, dx, flags);
     };
+
+    ~RealFieldR2R() {
+        fftw_destroy_plan(p_r2r);
+    }
+
+    void zero() {
+        std::fill(field_x.begin(), field_x.end(), 0);
+    }
 
     void resize(int data_size, double dx, unsigned flags=FFTW_MEASURE) {
         N = 2 * (data_size - 1);
