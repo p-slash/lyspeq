@@ -195,19 +195,19 @@ namespace fidcosmo
     FiducialCurvature: double
     FiducialRedshiftPower: double
     FiducialRedshiftCurvature: double
-    FiducialLorentzianLambda: double
+    FiducialLorentzianK1: double
     */
     void readFiducialCosmo(ConfigFile &config)
     {
         // Baseline Power Spectrum
         std::string FNAME_FID_POWER = config.get("FiducialPowerFile");
         // Fiducial Palanque fit function parameters
-        pd13::FIDUCIAL_PD13_PARAMS.A      = config.getDouble("FiducialAmplitude");
-        pd13::FIDUCIAL_PD13_PARAMS.n      = config.getDouble("FiducialSlope");
-        pd13::FIDUCIAL_PD13_PARAMS.alpha  = config.getDouble("FiducialCurvature");
-        pd13::FIDUCIAL_PD13_PARAMS.B      = config.getDouble("FiducialRedshiftPower");
-        pd13::FIDUCIAL_PD13_PARAMS.beta   = config.getDouble("FiducialRedshiftCurvature");
-        pd13::FIDUCIAL_PD13_PARAMS.lambda = config.getDouble("FiducialLorentzianLambda");
+        pd13::FIDUCIAL_PD13_PARAMS.A = config.getDouble("FiducialAmplitude");
+        pd13::FIDUCIAL_PD13_PARAMS.n = config.getDouble("FiducialSlope");
+        pd13::FIDUCIAL_PD13_PARAMS.alpha = config.getDouble("FiducialCurvature");
+        pd13::FIDUCIAL_PD13_PARAMS.B = config.getDouble("FiducialRedshiftPower");
+        pd13::FIDUCIAL_PD13_PARAMS.beta = config.getDouble("FiducialRedshiftCurvature");
+        pd13::FIDUCIAL_PD13_PARAMS.k1 = config.getDouble("FiducialLorentzianK1");
 
         if (!FNAME_FID_POWER.empty())
             setFiducialPowerFromFile(FNAME_FID_POWER);
@@ -269,24 +269,29 @@ namespace fidcosmo
         // K_0 in s km^-1
         const double K_0 = 0.009, Z_0 = 3.0;
 
-        pd13_fit_params FIDUCIAL_PD13_PARAMS = {6.621420e-02, -2.685349e+00, -2.232763e-01, 3.591244e+00, -1.768045e-01, 3.598261e+02};
+        pd13_fit_params FIDUCIAL_PD13_PARAMS = {
+            6.621420e-02, -2.685349e+00, -2.232763e-01,
+            3.591244e+00, -1.768045e-01, 0.05271736191
+        };
 
         double Palanque_Delabrouille_etal_2013_fit(double k, double z, void *params)
         {
             pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
 
-            double  q0 = k / K_0 + 1E-10, x0 = (1. + z) / (1. + Z_0);
+            double q0 = k / K_0 + 1E-16, x0 = (1. + z) / (1. + Z_0),
+                   q1 = k / pfp->k1;
 
-            return    (pfp->A * MY_PI / K_0)
+            return  pfp->A * MY_PI / K_0
                     * pow(q0, 2. + pfp->n + pfp->alpha * log(q0) + pfp->beta  * log(x0)) 
-                    * pow(x0,   pfp->B) / (1. + pfp->lambda * k * k);
+                    * pow(x0,   pfp->B) / (1. + q1 * q1);
         }
 
-        double Palanque_Delabrouille_etal_2013_fit_growth_factor(double z_ij, double k_kn, double z_zm, void *params)
-        {
+        double Palanque_Delabrouille_etal_2013_fit_growth_factor(
+                double z_ij, double k_kn, double z_zm, void *params
+        ) {
             pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
 
-            double  q0 = k_kn / K_0 + 1E-10, xm = (1. + z_ij) / (1. + z_zm);
+            double  q0 = k_kn / K_0 + 1E-16, xm = (1. + z_ij) / (1. + z_zm);
 
             return  pow(xm, pfp->B + pfp->beta  * log(q0));
         }
@@ -296,16 +301,19 @@ namespace fidcosmo
 // Signal and Derivative Integrands and Window Function
 inline double sinc(double x)
 {
-    if (fabs(x) < 1E-6)     return 1.;
+    if (x == 0)
+        return 1.;
 
     return sin(x) / x;
 }
 
-inline double spectral_response_window_fn(double k, struct spectrograph_windowfn_params *spec_params)
-{
+inline double spectral_response_window_fn(
+        double k, struct spectrograph_windowfn_params *spec_params
+) {
     double R = spec_params->spectrograph_res, dv_kms = spec_params->pixel_width;
 
-    return sinc(k * dv_kms / 2.) * exp(-k*k * R*R / 2.);
+    double kr = k * R;
+    return sinc(k * dv_kms / 2.) * exp(-kr * kr / 2.);
 }
 
 double signal_matrix_integrand(double k, void *params)
@@ -314,7 +322,8 @@ double signal_matrix_integrand(double k, void *params)
 
     double result = spectral_response_window_fn(k, sqip->spec_window_params);
 
-    return result * result * fidcosmo::fiducialPowerSpectrum(k, sqip->spec_window_params->z_ij, sqip->fiducial_pd_params) / MY_PI;
+    return result * result * fidcosmo::fiducialPowerSpectrum(
+        k, sqip->spec_window_params->z_ij, sqip->fiducial_pd_params) / MY_PI;
 }
 
 double q_matrix_integrand(double k, void *params)

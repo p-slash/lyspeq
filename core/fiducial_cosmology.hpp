@@ -46,7 +46,7 @@ namespace fidcosmo
     FiducialCurvature: double
     FiducialRedshiftPower: double
     FiducialRedshiftCurvature: double
-    FiducialLorentzianLambda: double
+    FiducialLorentzianK1: double
     */
     void readFiducialCosmo(ConfigFile &config);
 
@@ -71,7 +71,7 @@ namespace fidcosmo
             double B;
             double beta;
 
-            double lambda;
+            double k1;
         } pd13_fit_params;
     
         // Default parameters are fit parameters if not specified in config file.
@@ -99,4 +99,6 @@ struct sq_integrand_params
 double q_matrix_integrand(double k, void *params);
 double signal_matrix_integrand(double k, void *params);
 
+double new_q_matrix_integrand(double k, void *params);
+double new_signal_matrix_integrand(double k, void *params);
 #endif

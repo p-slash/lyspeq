@@ -320,7 +320,7 @@ void OneDQuadraticPowerEstimate::_readScriptOutput(const char *fname, void *itsf
 
         fr = fscanf(tmp_fit_file, "%le %le %le %le %le %le\n",
                 &iteration_fits->A, &iteration_fits->n, &iteration_fits->alpha,
-                &iteration_fits->B, &iteration_fits->beta, &iteration_fits->lambda);
+                &iteration_fits->B, &iteration_fits->beta, &iteration_fits->k1);
 
         if (fr != 6)
             throw std::runtime_error("Reading fit parameters from tmp_fit_file!");
@@ -641,7 +641,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
     config.writeConfig(toWrite);
 
     fprintf(toWrite, "# Fiducial Power Spectrum\n"
-        "# Pfid(k, z) = (A*pi/k0) * q^(2+n+alpha*ln(q)+beta*ln(x)) * x^B / (1 + lambda * k^2)\n"
+        "# Pfid(k, z) = (A*pi/k0) * q^(2+n+alpha*ln(q)+beta*ln(x)) * x^B / (1 + (k/k1)^2)\n"
         "# k0=0.009 s km^-1, z0=3.0 and q=k/k0, x=(1+z)/(1+z0)\n"
         "# Parameters set by config file:\n");
     fprintf(toWrite, "# A      = %15e\n"
@@ -649,10 +649,10 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
         "# alpha  = %15e\n"
         "# B      = %15e\n"
         "# beta   = %15e\n"
-        "# lambda = %15e\n", 
+        "# k1     = %15e\n", 
         fidpd13::FIDUCIAL_PD13_PARAMS.A, fidpd13::FIDUCIAL_PD13_PARAMS.n, 
         fidpd13::FIDUCIAL_PD13_PARAMS.alpha, fidpd13::FIDUCIAL_PD13_PARAMS.B, 
-        fidpd13::FIDUCIAL_PD13_PARAMS.beta, fidpd13::FIDUCIAL_PD13_PARAMS.lambda);
+        fidpd13::FIDUCIAL_PD13_PARAMS.beta, fidpd13::FIDUCIAL_PD13_PARAMS.k1);
     fprintf(toWrite, "# -----------------------------------------------------------------\n"
         "# File Template\n"
         "# Nz Nk\n"
