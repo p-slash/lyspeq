@@ -43,9 +43,13 @@ def readQMLEResults(fname):
 
 
 def testMaxDiffArrays(a1, a2):
-    p = np.allclose(a1, a2, atol=ABS_ERR, rtol=REL_ERR)
-    max_diff = np.max(np.abs(a1 - a2))
-    rel_diff = np.max(2 * np.abs(a1 - a2) / (a1 + a2))
+    diff = np.abs(a1 - a2)
+    mag = np.maximum(np.abs(a1), np.abs(a2))
+    budget = ABS_ERR + REL_ERR * mag
+    offset = diff - budget
+    p = np.all(offset < 0)
+    max_diff = np.max(diff)
+    rel_diff = np.max(diff / mag)
 
     print(
         f"\tMaximum absolute error is {max_diff:.1e}.\n"
@@ -89,6 +93,8 @@ if __name__ == '__main__':
         print("\tFile:", drv_comp_file)
         true_deriv_table = readSQTable(drv_true_file)
         comp_deriv_table = readSQTable(drv_comp_file)
+        # print("True: ", true_deriv_table)
+        # print("Resu: ", comp_deriv_table)
         ERR_CODE += testMaxDiffArrays(true_deriv_table, comp_deriv_table)
 
     del true_deriv_table, comp_deriv_table
