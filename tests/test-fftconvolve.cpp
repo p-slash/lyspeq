@@ -70,7 +70,8 @@ int main(int argc, char *argv[])
 
     qFile.readAllocResolutionMatrix();
     qFile.recalcDvDLam();  // meansnr: 0.67616031758204
-    printf("Rkms: %.2f\n", qFile.R_kms);  // 47.5047929893881
+    qFile.calcRkmsFromRMat();
+    printf("Rkms: %.5e\n", qFile.R_kms);  // 47.5047929893881
 
     RealField r2c(1024, 1);
 
@@ -95,7 +96,8 @@ int main(int argc, char *argv[])
     // Ivar: [0.51403648, 0.03894964, 0.54754096, 0.89146243, 0.98388764]
     qFile.Rmat->oversample(specifics::OVERSAMPLING_FACTOR, qFile.dlambda);
     qFile.recalcDvDLam();
-    printf("Rkms: %.2f\n", qFile.R_kms);  // 47.5047929893881
+    qFile.calcRkmsFromRMat();
+    printf("Rkms: %.5e\n", qFile.R_kms);  // 47.5047929893881
     // qFile.Rmat->fprintfMatrix("debugoutput-oversampled-resomat.txt");
 
 
