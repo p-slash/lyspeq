@@ -8,39 +8,52 @@ const double MY_PI = 3.14159265359;
 
 RealField::RealField(int data_size, double dx1) : p_x2k(nullptr), p_k2x(nullptr)
 {
+    size_real = -1;
+    dx = -1.;
     resize(data_size, dx1);
 }
 
 
 void RealField::resize(int data_size, double dx1) {
+    bool new_data = size_real != data_size;
     size_real = data_size;
     size_complex = size_real / 2 + 1;
+
+    if (new_data) {
+        x.resize(size_real);
+        k.resize(size_complex);
+        field_x.resize(size_real);
+        field_k.resize(size_complex);
+
+        if (p_x2k != nullptr) {
+            fftw_destroy_plan(p_x2k);
+            fftw_destroy_plan(p_k2x);
+        }
+
+        p_x2k = fftw_plan_dft_r2c_1d(
+            size_real, field_x.data(),
+            reinterpret_cast<fftw_complex*>(field_k.data()), FFTW_MEASURE);
+        p_k2x = fftw_plan_dft_c2r_1d(
+            size_real, reinterpret_cast<fftw_complex*>(field_k.data()),
+            field_x.data(), FFTW_MEASURE);
+    }
+
+    if ((fabs(dx1 - dx) > 1e-12) || new_data)
+        reStep(dx1);
+}
+
+
+void RealField::reStep(double dx1) {
     dx = dx1;
     length = dx * size_real;
     double k_fund = 2 * MY_PI / length;
-
-    x.resize(size_real);
-    k.resize(size_complex);
-    field_x.resize(size_real);
-    field_k.resize(size_complex);
 
     for (int i = 0; i < size_real; ++i)
         x[i] = i * dx;
     for (int i = 0; i < size_complex; ++i)
         k[i] = i * k_fund;
-
-    if (p_x2k != nullptr) {
-        fftw_destroy_plan(p_x2k);
-        fftw_destroy_plan(p_k2x);
-    }
-
-    p_x2k = fftw_plan_dft_r2c_1d(
-        size_real, field_x.data(),
-        reinterpret_cast<fftw_complex*>(field_k.data()), FFTW_MEASURE);
-    p_k2x = fftw_plan_dft_c2r_1d(
-        size_real, reinterpret_cast<fftw_complex*>(field_k.data()),
-        field_x.data(), FFTW_MEASURE);
 }
+
 
 RealField::RealField(const RealField &rf) {
     p_x2k = nullptr;

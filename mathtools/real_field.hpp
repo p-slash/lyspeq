@@ -30,6 +30,7 @@ public:
     ~RealField();
 
     void resize(int data_size, double dx1);
+    void reStep(double dx1);
     void zero_field_x() {
         std::fill(field_x.begin(), field_x.end(), 0);
     }

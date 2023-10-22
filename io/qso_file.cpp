@@ -240,42 +240,48 @@ void QSOFile::calcRkmsFromRMat() {
         // std::reverse(meanreso.begin(), meanreso.end());
     }
 
-    int central_idx = nmeancols / 2, norm = 0;
-    R_kms = 0;
+    const int RF_SIZE = 4096, N_EST = 16;
+    static RealField rf(RF_SIZE, dl_reso);
+    rf.reStep(dl_reso);
 
-    for (int i = central_idx - 2; i < central_idx + 3; ++i)
-    {
-        if (i == central_idx) continue;
-
-        double r = log(meanreso[central_idx] / meanreso[i]);
-
-        if (r <= 0) continue;
-
-        ++norm;
-        R_kms += fabs(i - central_idx) / sqrt(r); 
+    rf.zero_field_x();
+    std::copy(meanreso.begin(), meanreso.end(), rf.field_x.begin());
+    rf.rawFFTX2K();
+    double lst_xy = 0., lst_xx = 0.;
+    for (int i = 1; i < N_EST; ++i){
+        double k2R2 = -2. * log(std::abs(rf.field_k[i])),
+               k2 = rf.k[i] * rf.k[i];
+        // printf("k2, k2R2, W: %.5e  %.5e  %.5e\n", k2, k2R2, rf.field_k[i]);
+        lst_xy += k2R2 * k2;
+        lst_xx += k2 * k2;
     }
 
-    R_kms /= sqrt(2.) * norm;  // in pixels
-    R_kms *= dl_reso;  // in A
-    R_kms = sqrt(R_kms * R_kms - dlambda * dlambda / 12.);  // Remove top-hat
-    R_kms *= SPEED_OF_LIGHT / lambda_eff;  // in km/s
+    double R_A = sqrt(lst_xy / lst_xx - dlambda * dlambda / 12.);
+    R_kms = R_A * SPEED_OF_LIGHT / lambda_eff;  // in km/s
+}
+
+
+void QSOFile::setRealField(RealField & rf) {
+    double dl_reso;
+    int npadded_size = exp2(3 + round(log2(size())));
+    if (Rmat) {
+        if (Rmat->isDiaMatrix())
+            dl_reso = dlambda;
+        else {
+            dl_reso = dlambda / specifics::OVERSAMPLING_FACTOR;
+            npadded_size *= specifics::OVERSAMPLING_FACTOR;
+        }
+    }
+    else
+        dl_reso = dlambda;
+
+    rf.resize(npadded_size, dl_reso);
 }
 
 
 void QSOFile::calcAverageWindowFunctionFromRMat(RealField &rf) {
-    int npadded_size = exp2(3 + round(log2(size())));
-    double total_invweight = 1. / std::reduce(ivar(), ivar() + size()),
-           dl_reso, length_A;
+    double total_invweight = 1. / std::reduce(ivar(), ivar() + size());
 
-    if (Rmat->isDiaMatrix())
-        dl_reso = dlambda;
-    else {
-        dl_reso = dlambda / specifics::OVERSAMPLING_FACTOR;
-        npadded_size *= specifics::OVERSAMPLING_FACTOR;
-    }
-
-    length_A = dl_reso * npadded_size;
-    rf.resize(npadded_size, dl_reso);
     std::vector<double> total_window_k(rf.size_k());
 
     int ncols = Rmat->getNElemPerRow();
