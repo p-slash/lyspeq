@@ -2,6 +2,7 @@
 #define FIDUCIAL_COSMOLOGY_H
 
 #include <string>
+#include "mathtools/discrete_interpolation.hpp"
 #include "io/config_file.hpp"
 
 namespace conv
@@ -99,6 +100,13 @@ struct sq_integrand_params
 double q_matrix_integrand(double k, void *params);
 double signal_matrix_integrand(double k, void *params);
 
+
+struct new_q_integrand_params
+{
+    DiscreteInterpolation1D *interpLnW2;
+    double lnW2kc;
+};
+
 double new_q_matrix_integrand(double k, void *params);
-double new_signal_matrix_integrand(double k, void *params);
+// double new_signal_matrix_integrand(double k, void *params);
 #endif

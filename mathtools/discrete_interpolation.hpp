@@ -15,7 +15,7 @@ class DiscreteInterpolation1D
 
 public:
     DiscreteInterpolation1D(
-        double x_start, double delta_x, const double *y_arr, int Nsize);
+        double x_start, double delta_x, int Nsize, const double *y_arr=nullptr);
     ~DiscreteInterpolation1D() { delete [] y; };
     bool operator==(const DiscreteInterpolation1D &rhs) const;
     bool operator!=(const DiscreteInterpolation1D &rhs) const
@@ -23,6 +23,7 @@ public:
 
     double evaluate(double x);
     void evaluateVector(const double *xarr, int size, double *out);
+    double* get() const { return y; }
 };
 
 // Stores a copy of z array

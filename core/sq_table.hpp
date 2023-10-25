@@ -37,21 +37,13 @@ class SQLookupTable
     
     std::string DIR, S_BASE, Q_BASE;
 
-    // Temporary arrays. They are not stored after construction!
-    double *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY,
-           *signal_array, *derivative_array;
-
     std::vector<shared_interp_2d> interp2d_signal_matrices;
     std::vector<shared_interp_1d> interp_derivative_matrices;
 
     double itp_v1, itp_dv, itp_z1, itp_dz; 
 
     int getIndex4DerivativeInterpolation(int kn, int r_index) const;
-
     void allocateSignalAndDerivArrays();
-    void allocateVAndZArrays();
-    void deallocateSignalAndDerivArrays();
-    void deallocateVAndZArrays();
 
     shared_interp_1d _allocReadQFile(int kn, int r_index);
     shared_interp_2d _allocReadSFile(int r_index);
@@ -65,9 +57,8 @@ public:
         int r_index, shared_interp_2d &s,
         std::vector<shared_interp_1d>  &q, 
         bool alloc=false);
-    void computeFFT(
-        int spec_res, double dv,
-        shared_interp_2d &s,
+    void computeDerivativeMatrices(
+        DiscreteInterpolation1D *interpLnW2,
         std::vector<shared_interp_1d>  &q);
 
     void readTables();

@@ -299,15 +299,16 @@ namespace fidcosmo
 }
 
 // Signal and Derivative Integrands and Window Function
-inline double sinc(double x)
-{
+inline
+double sinc(double x) {
     if (x == 0)
         return 1.;
 
     return sin(x) / x;
 }
 
-inline double spectral_response_window_fn(
+inline
+double spectral_response_window_fn(
         double k, struct spectrograph_windowfn_params *spec_params
 ) {
     double R = spec_params->spectrograph_res, dv_kms = spec_params->pixel_width;
@@ -335,6 +336,25 @@ double q_matrix_integrand(double k, void *params)
 }
 
 
+double new_q_matrix_integrand(double k, void *params) {
+    struct new_q_integrand_params *qpar = (struct new_q_integrand_params*) params;
+    double lnW2kc = qpar->lnW2kc, lnW2k = qpar->interpLnW2->evaluate(k);
+
+    return exp(lnW2k - lnW2kc) / MY_PI;
+}
+
+
+// double new_signal_matrix_integrand(double k, void *params) {
+//     struct sq_integrand_params *sqip = (struct sq_integrand_params*) params;
+//     double
+//         R = sqip->spec_window_params->spectrograph_res,
+//         Pk = fidcosmo::fiducialPowerSpectrum(
+//             k, sqip->spec_window_params->z_ij, sqip->fiducial_pd_params);
+
+//     double x = - (k - kcenter) * (k + kcenter) * R * R,
+//            y = kcenter / k;
+//     return exp(x) * y * y / MY_PI;
+// }
 
 
 

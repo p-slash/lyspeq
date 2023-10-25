@@ -20,12 +20,13 @@ bool allClose(const double *a, const double *b, int size)
 }
 
 DiscreteInterpolation1D::DiscreteInterpolation1D(
-        double x_start, double delta_x, const double *y_arr, int Nsize
+        double x_start, double delta_x, int Nsize, const double *y_arr
 ) : x1(x_start), dx(delta_x), N(Nsize)
 {
     x2 = x1 + dx * (N - 1);
     y = new double[N];
-    std::copy(y_arr, y_arr + N, y);
+    if (y_arr != nullptr)
+        std::copy(y_arr, y_arr + N, y);
 }
 
 double DiscreteInterpolation1D::evaluate(double x)
