@@ -68,7 +68,7 @@ namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX,
-           USE_PRECOMPUTED_FISHER;
+           USE_PRECOMPUTED_FISHER, USE_FFT_FOR_SQ;
     int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
         CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1, NUMBER_OF_BOOTS = 0;
     double RESOMAT_DECONVOLUTION_M = 0;
@@ -95,18 +95,19 @@ namespace specifics
         LOG::LOGGER.STD("###############################################\n");
         LOG::LOGGER.STD("Reading specifics from config.\n");
         config.addDefaults(specifics_default_parameters);
-        int sfid_off, usmoothlogs, use_picca_file, use_reso_mat;
+        int usmoothlogs, use_picca_file;
         double  temp_chisq;
 
         use_picca_file = config.getInteger("InputIsPicca", -1);
-        use_reso_mat = config.getInteger("UseResoMatrix", -1);
+        USE_RESOLUTION_MATRIX = config.getInteger("UseResoMatrix", -1) > 0;
         RESOMAT_DECONVOLUTION_M = config.getDouble("ResoMatDeconvolutionM");
         OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat", -1);
+        USE_FFT_FOR_SQ = config.getInteger("UseFftMeanResolution", -1) > 0;
         NUMBER_OF_CHUNKS = config.getInteger("DynamicChunkNumber", 1);
         NUMBER_OF_BOOTS = config.getInteger("NumberOfBoots");
 
         // Turns off the signal matrix
-        sfid_off = config.getInteger("TurnOffBaseline", -1);
+        TURN_OFF_SFID = config.getInteger("TurnOffBaseline", -1) > 0;
         // Smooth lnk, lnP
         usmoothlogs = config.getInteger("SmoothLnkLnP", 1);
         temp_chisq = config.getDouble("ChiSqConvergence");
@@ -121,9 +122,7 @@ namespace specifics
         // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
         // TODO: Test access here
 
-        TURN_OFF_SFID        = sfid_off > 0;
         SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
-        USE_RESOLUTION_MATRIX= use_reso_mat > 0;
         std::string precomp_fisher_str = config.get("PrecomputedFisher");
         USE_PRECOMPUTED_FISHER   = !precomp_fisher_str.empty();
 
@@ -134,6 +133,10 @@ namespace specifics
             throw std::invalid_argument(
                 "Resolution matrix is only supported with picca files."
                 " Add 'InputIsPicca 1' to config file if so.");
+
+        if (USE_FFT_FOR_SQ && OVERSAMPLING_FACTOR > 0)
+            throw std::invalid_argument(
+                "Oversampling is not supported with FFTs");
 
         if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
 

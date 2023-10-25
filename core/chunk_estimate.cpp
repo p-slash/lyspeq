@@ -17,6 +17,8 @@
 #include "omp.h"
 #endif
 
+RealField rf_for_reso(4096, 1.);
+
 void _check_isnan(double *mat, int size, std::string msg)
 {
     #ifdef CHECK_NAN
@@ -99,13 +101,20 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
     else
     {
         // Find the resolution index for the look up table
-        RES_INDEX = process::sq_private_table->findSpecResIndex(qFile->R_fwhm, qFile->dv_kms);
+        RES_INDEX = process::sq_private_table->findSpecResIndex(
+            qFile->R_fwhm, qFile->dv_kms);
+        _matrix_n = size();
 
-        if (RES_INDEX == -1) throw std::out_of_range("SPECRES not found in tables!");
+        if (RES_INDEX == -1)
+            throw std::out_of_range("SPECRES not found in tables!");
+    }
+
+    if (specifics::USE_FFT_FOR_SQ) {
+        RES_INDEX = -2;
         _matrix_n = size();
     }
 
-    DATA_SIZE_2 = size()*size();
+    DATA_SIZE_2 = size() * size();
 }
 
 void Chunk::_findRedshiftBin()
@@ -161,7 +170,7 @@ void Chunk::_setStoredMatrices()
            needed_mem = n_spec_mat * size_m1;
 
     // Resolution matrix needs another temp storage.
-    if (specifics::USE_RESOLUTION_MATRIX)
+    if (specifics::USE_RESOLUTION_MATRIX)  // && !specifics::USE_FFT_FOR_SQ
         needed_mem += qFile->Rmat->getBufMemUsage();
     if (on_oversampling)
         needed_mem += process::getMemoryMB(_matrix_n * (3 * _matrix_n + 1));
@@ -357,7 +366,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     t_interp = mytime::timer.getTime() - t;
     mxhelp::copyUpperToLower(inter_mat, _matrix_n);
 
-    if (specifics::USE_RESOLUTION_MATRIX)
+    if (specifics::USE_RESOLUTION_MATRIX && !specifics::USE_FFT_FOR_SQ)
         qFile->Rmat->sandwich(qi, inter_mat);
 
     t = mytime::timer.getTime() - t; 
@@ -717,14 +726,39 @@ void Chunk::_allocateMatrices()
         _zmatrix = temp_matrix[1];
     }
 
+    if (specifics::USE_FFT_FOR_SQ)
+    {
+        qFile->setRealField(rf_for_reso);
+        qFile->calcAverageWindowFunctionFromRMat(rf_for_reso);
+        auto interpLnW2 = std::make_unique<DiscreteInterpolation1D>(
+            0, rf_for_reso.k[1] - rf_for_reso.k[0], rf_for_reso.size_k(),
+            rf_for_reso.field_x.data());
+        process::sq_private_table->computeDerivativeMatrices(
+            interpLnW2.get(), interp_derivative_matrix);
+    }
     // This function allocates new signal & deriv matrices 
     // if process::SAVE_ALL_SQ_FILES=false 
     // i.e., no caching of SQ files
     // If all tables are cached, then this function simply points 
     // to those in process:sq_private_table
-    process::sq_private_table->readSQforR(
-        RES_INDEX, interp2d_signal_matrix, interp_derivative_matrix);
+    else
+        process::sq_private_table->readSQforR(
+            RES_INDEX, interp2d_signal_matrix, interp_derivative_matrix);
 }
+
+// void Chunk::getInterpolatorsSQ() {
+//     static RealField rf(2048, 1);
+//     qFile->setRealField(rf);
+
+//     if (qFile->Rmat)
+//         qFile->calcAverageWindowFunctionFromRMat(rf);
+//     else {
+//         for (int i = 0; i < rf.size_k(); ++i)
+//         {
+            
+//         }
+//     }
+// }
 
 void Chunk::_freeMatrices()
 {

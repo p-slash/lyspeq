@@ -74,7 +74,7 @@ namespace specifics
 {
     extern bool
         TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
-        USE_PRECOMPUTED_FISHER;
+        USE_PRECOMPUTED_FISHER, USE_FFT_FOR_SQ;
     extern double CHISQ_CONVERGENCE_EPS;
     extern int
         CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
@@ -85,6 +85,7 @@ namespace specifics
     const config_map specifics_default_parameters ({
         {"InputIsPicca", "-1"}, {"UseResoMatrix", "-1"},
         {"ResoMatDeconvolutionM", "-1"}, {"OversampleRmat", "-1"},
+        {"UseFftMeanResolution", "-1"},
         {"DynamicChunkNumber", "1"}, {"TurnOffBaseline", "-1"},
         {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "1e-2"},
         {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
@@ -103,6 +104,9 @@ namespace specifics
     OversampleRmat: int
         Oversample the resolution matrix by this factor per row. Off when <= 0
         and by default.
+    UseFftMeanResolution: int
+        Use FFT of the weighted mean resolution in derivative matrix construction
+        per chunk.
     DynamicChunkNumber: int
         Dynamiccaly chunk spectra into this number when > 1. Off by default.
     TurnOffBaseline: int

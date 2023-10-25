@@ -315,7 +315,12 @@ void QSOFile::calcAverageWindowFunctionFromRMat(RealField &rf) {
     // no dl_reso to account for since resolution matrix is multiplied by
     // dlambda anyway
     cblas_dscal(rf.size_k(), total_invweight, total_window_k.data(), 1);
-    std::copy(total_window_k.begin(), total_window_k.end(), rf.field_k.begin());
+    std::transform(
+        total_window_k.begin(), total_window_k.end(), rf.field_x.begin(),
+        [](double w2) { return log(w2); }
+    );
+
+    // std::copy(total_window_k.begin(), total_window_k.end(), rf.field_k.begin());
 }
 
 
