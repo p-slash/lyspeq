@@ -404,7 +404,7 @@ void SQLookupTable::readSQforR(
 }
 
 void SQLookupTable::computeDerivativeMatrices(
-        int r_index,
+        int r_index, double conv_skm2iA,
         DiscreteInterpolation1D *interpLnW2,
         shared_interp_2d &s,
         std::vector<shared_interp_1d>  &q
@@ -431,15 +431,16 @@ void SQLookupTable::computeDerivativeMatrices(
         shared_interp_1d qkn = std::make_shared<DiscreteInterpolation1D>(
             0, itp_dv, N_V_POINTS);
         double *derivative_array = qkn->get();
-        kcenter = bins::KBAND_CENTERS[kn];
+        kcenter = conv_skm2iA * bins::KBAND_CENTERS[kn];
         integration_parameters.lnW2kc = interpLnW2->evaluate(kcenter);
 
         for (int nv = 0; nv < N_V_POINTS; ++nv)
             derivative_array[nv] = q_integrator.evaluate(
-                bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1], 
-                LINEAR_V_ARRAY[nv], 0);
+                conv_skm2iA * bins::KBAND_EDGES[kn],
+                conv_skm2iA * bins::KBAND_EDGES[kn + 1], 
+                LINEAR_V_ARRAY[nv] / conv_skm2iA, 0);
 
-        kcenter = exp(integration_parameters.lnW2kc);
+        kcenter = exp(integration_parameters.lnW2kc) / conv_skm2iA;
         cblas_dscal(N_V_POINTS, kcenter, derivative_array, 1);
         q.push_back(qkn);
     }

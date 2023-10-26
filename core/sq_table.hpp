@@ -62,7 +62,7 @@ public:
         std::vector<shared_interp_1d>  &q, 
         bool alloc=false);
     void computeDerivativeMatrices(
-        int r_index,
+        int r_index, double conv_skm2iA,
         DiscreteInterpolation1D *interpLnW2,
         shared_interp_2d &s,
         std::vector<shared_interp_1d>  &q);
