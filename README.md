@@ -175,38 +175,38 @@ If your files have flux fluctuations, set the following to 1. This overrides all
 
 Other params
 ====
-+ `InputIsPicca`: int
++ `InputIsPicca` (int):
     If > 0, input file format is from picca. Off by default.
-+ `UseResoMatrix`: int
++ `UseResoMatrix` (int):
     If > 0, reads and uses the resolution matrix picca files.
     Off by default.
-+ `ResoMatDeconvolutionM`: double
++ `ResoMatDeconvolutionM` (double):
     Deconvolve the resolution matrix by this factor in terms of pixel.
     For example, 1.0 deconvolves one top hat. Off by default and when
     <= 0.
-+ `OversampleRmat`: int
++ `OversampleRmat` (int):
     Oversample the resolution matrix by this factor per row. Off when <= 0
     and by default.
-+ `UseFftMeanResolution`: int
++ `UseFftMeanResolution` (int):
     Use FFT of the weighted mean resolution in derivative matrix construction
     per chunk.
-+ `DynamicChunkNumber`: int
++ `DynamicChunkNumber` (int):
     Dynamiccaly chunk spectra into this number when > 1. Off by default.
-+ `TurnOffBaseline`: int
++ `TurnOffBaseline` (int):
     Turns off the fiducial signal matrix if > 0. Fid is on by default.
-+ `SmoothLnkLnP`: int
++ `SmoothLnkLnP` (int):
     Smooth the ln k and ln P values when iterating. On by default
     and when > 0.
-+ `ChiSqConvergence`: int
++ `ChiSqConvergence` (int):
     Criteria for chi square convergance. Valid when > 0. Default is 1e-2
-+ `ContinuumLogLambdaMargOrder`: int
++ `ContinuumLogLambdaMargOrder` (int):
     Polynomial order for log lambda cont marginalization. Default 1.
-+ `ContinuumLambdaMargOrder`: int
++ `ContinuumLambdaMargOrder` (int):
     Polynomial order for lambda cont marginalization. Default -1.
-+ `PrecomputedFisher`: string
++ `PrecomputedFisher` (str):
     File to precomputed Fisher matrix. If present, Fisher matrix is not
     calculated for spectra. Off by default.
-+ `NumberOfBoots`: int
++ `NumberOfBoots` (int):
     Number of bootstrap realizations.
 
 Quasar Spectrum File
