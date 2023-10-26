@@ -418,7 +418,7 @@ void SQLookupTable::computeDerivativeMatrices(
     {
         shared_interp_1d qkn = std::make_shared<DiscreteInterpolation1D>(
             0, itp_dv, N_V_POINTS);
-        double *derivative_array = qkn.get()->get();
+        double *derivative_array = qkn->get();
         kcenter = bins::KBAND_CENTERS[kn];
         integration_parameters.lnW2kc = interpLnW2->evaluate(kcenter);
 

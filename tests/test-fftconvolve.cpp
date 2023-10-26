@@ -75,17 +75,21 @@ int main(int argc, char *argv[])
 
     RealField r2c(1024, 1);
 
+    qFile.setRealField(r2c);
     qFile.calcAverageWindowFunctionFromRMat(r2c);
 
     std::string window_fname = std::string(SRCDIR) + "/tests/output/window2_k_dia.txt";
-    write2VectorsToFile(window_fname.c_str(), r2c.k, r2c.field_k);
+    write2VectorsToFile(window_fname.c_str(), r2c.k, r2c.field_x);
     for (int i = 0; i < r2c.size_k(); i += 20)
-        printf("%.5e  %.5e\n", r2c.k[i], r2c.field_k[i]);
+        printf("%.5e  %.5e\n", r2c.k[i], r2c.field_x[i]);
 
+    std::vector<std::complex<double>> temp(r2c.size_k());
     std::transform(
-        r2c.field_k.begin(), r2c.field_k.end(),
-        r2c.field_k.begin(),
-        [](std::complex<double> d) { return sqrt(d); });
+        r2c.field_x.begin(), r2c.field_x.end(),
+        temp.begin(),
+        [](double d) { return exp(d / 2); });
+    r2c.zero_field_x();
+    std::copy(temp.begin(), temp.end(), r2c.field_k.begin());
     r2c.fftK2X();
 
     window_fname = std::string(SRCDIR) + "/tests/output/window2_x_dia.txt";
@@ -101,16 +105,21 @@ int main(int argc, char *argv[])
     // qFile.Rmat->fprintfMatrix("debugoutput-oversampled-resomat.txt");
 
 
+    qFile.setRealField(r2c);
     qFile.calcAverageWindowFunctionFromRMat(r2c);
     window_fname = std::string(SRCDIR) + "/tests/output/window2_k_osamp.txt";
-    write2VectorsToFile(window_fname.c_str(), r2c.k, r2c.field_k);
+    write2VectorsToFile(window_fname.c_str(), r2c.k, r2c.field_x);
     for (int i = 0; i < r2c.size_k(); i += 20)
-        printf("%.5e  %.5e\n", r2c.k[i], r2c.field_k[i]);
+        printf("%.5e  %.5e\n", r2c.k[i], r2c.field_x[i]);
 
+    temp.resize(r2c.size_k());
+    std::fill(temp.begin(), temp.end(), 0);
     std::transform(
-        r2c.field_k.begin(), r2c.field_k.end(),
-        r2c.field_k.begin(),
-        [](std::complex<double> d) { return sqrt(d); });
+        r2c.field_x.begin(), r2c.field_x.end(),
+        temp.begin(),
+        [](double d) { return exp(d / 2); });
+    r2c.zero_field_x();
+    std::copy(temp.begin(), temp.end(), r2c.field_k.begin());
     r2c.fftK2X();
     window_fname = std::string(SRCDIR) + "/tests/output/window2_x_osamp.txt";
     write2VectorsToFile(window_fname.c_str(), r2c.x, r2c.field_x);
