@@ -9,14 +9,17 @@
 // Out of bound values are extrapolated
 class DiscreteInterpolation1D
 {
+    bool _alloc;
     double x1, x2, dx;
     double *y;
     int N;
 
 public:
     DiscreteInterpolation1D(
-        double x_start, double delta_x, int Nsize, const double *y_arr=nullptr);
-    ~DiscreteInterpolation1D() { delete [] y; };
+        double x_start, double delta_x, int Nsize,
+        double *y_arr=nullptr, bool alloc=true);
+    ~DiscreteInterpolation1D() { if (_alloc) delete [] y; };
+    void resetPointer(double x_start, double delta_x, int Nsize, double *y_arr);
     bool operator==(const DiscreteInterpolation1D &rhs) const;
     bool operator!=(const DiscreteInterpolation1D &rhs) const
     { return ! (*this==rhs); };

@@ -338,9 +338,9 @@ double q_matrix_integrand(double k, void *params)
 
 double new_q_matrix_integrand(double k, void *params) {
     struct new_q_integrand_params *qpar = (struct new_q_integrand_params*) params;
-    double lnW2kc = qpar->lnW2kc, lnW2k = qpar->interpLnW2->evaluate(k);
+    double delta_lnW2k = qpar->interpLnW2->evaluate(k) - qpar->lnW2kc;
 
-    return exp(lnW2k - lnW2kc) / MY_PI;
+    return exp(delta_lnW2k) / MY_PI;
 }
 
 

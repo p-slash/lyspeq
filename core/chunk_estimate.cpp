@@ -18,6 +18,8 @@
 #endif
 
 RealField rf_for_reso(4096, 1.);
+// alloc=false, so this is a wrapper around a pointer
+DiscreteInterpolation1D interpLnW2(0, 1., 1, nullptr, false);
 
 void _check_isnan(double *mat, int size, std::string msg)
 {
@@ -109,10 +111,11 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
             throw std::out_of_range("SPECRES not found in tables!");
     }
 
-    if (specifics::USE_FFT_FOR_SQ) {
-        RES_INDEX = -2;
-        _matrix_n = size();
-    }
+    // Might be needed for general case. Currently signal is from SQ table
+    // if (specifics::USE_FFT_FOR_SQ) {
+    //     RES_INDEX = -2;
+    //     _matrix_n = size();
+    // }
 
     DATA_SIZE_2 = size() * size();
 }
@@ -728,13 +731,16 @@ void Chunk::_allocateMatrices()
 
     if (specifics::USE_FFT_FOR_SQ)
     {
+        // rf_for_reso and interpLnW2 are defined for this file at the top.
         qFile->setRealField(rf_for_reso);
         qFile->calcAverageWindowFunctionFromRMat(rf_for_reso);
-        auto interpLnW2 = std::make_unique<DiscreteInterpolation1D>(
+        // alloc=false, so this is a wrapper around a pointer.
+        interpLnW2.resetPointer(
             0, rf_for_reso.k[1] - rf_for_reso.k[0], rf_for_reso.size_k(),
             rf_for_reso.field_x.data());
         process::sq_private_table->computeDerivativeMatrices(
-            interpLnW2.get(), interp_derivative_matrix);
+            RES_INDEX, &interpLnW2,
+            interp2d_signal_matrix, interp_derivative_matrix);
     }
     // This function allocates new signal & deriv matrices 
     // if process::SAVE_ALL_SQ_FILES=false 

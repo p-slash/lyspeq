@@ -404,15 +404,27 @@ void SQLookupTable::readSQforR(
 }
 
 void SQLookupTable::computeDerivativeMatrices(
+        int r_index,
         DiscreteInterpolation1D *interpLnW2,
+        shared_interp_2d &s,
         std::vector<shared_interp_1d>  &q
 ) {
+    // signal matrix can be calculated as well in the future.
+    if (!specifics::TURN_OFF_SFID)
+    {
+        if (interp2d_signal_matrices.empty())
+            s = _allocReadSFile(r_index);
+        else
+            s = getSignalMatrixInterp(r_index);
+    }
+
     q.clear();
     double kcenter = 0, itp_dv = LINEAR_V_ARRAY[1] - LINEAR_V_ARRAY[0];
-    struct new_q_integrand_params integration_parameters = { interpLnW2, 0. };
-
-    FourierIntegrator q_integrator(
+    static struct new_q_integrand_params integration_parameters = { nullptr, 0. };
+    static FourierIntegrator q_integrator(
         GSL_INTEG_COSINE, new_q_matrix_integrand, &integration_parameters);
+
+    integration_parameters.interpLnW2 = interpLnW2;
 
     for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
     {
@@ -423,32 +435,14 @@ void SQLookupTable::computeDerivativeMatrices(
         integration_parameters.lnW2kc = interpLnW2->evaluate(kcenter);
 
         for (int nv = 0; nv < N_V_POINTS; ++nv)
-        {
             derivative_array[nv] = q_integrator.evaluate(
                 bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1], 
                 LINEAR_V_ARRAY[nv], 0);
-        }
 
         kcenter = exp(integration_parameters.lnW2kc);
         cblas_dscal(N_V_POINTS, kcenter, derivative_array, 1);
         q.push_back(qkn);
     }
-}
-
-shared_interp_1d SQLookupTable::getDerivativeMatrixInterp(int kn, 
-    int r_index) const
-{
-    return interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)];
-}
-
-shared_interp_2d SQLookupTable::getSignalMatrixInterp(int r_index) const
-{
-    return interp2d_signal_matrices[r_index];
-}
-
-int SQLookupTable::getIndex4DerivativeInterpolation(int kn, int r_index) const
-{
-    return kn + bins::NUMBER_OF_K_BANDS * r_index;
 }
 
 int SQLookupTable::findSpecResIndex(int spec_res, double dv) const
