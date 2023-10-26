@@ -209,7 +209,6 @@ Other params
 + `NumberOfBoots`: int
     Number of bootstrap realizations.
 
-
 Quasar Spectrum File
 ====
 ## Binary format
