@@ -7,22 +7,24 @@
 
 namespace sqhelper
 {
-std::string QTableFileNameConvention(const std::string &OUTPUT_DIR, 
-    const std::string &OUTPUT_FILEBASE_Q, int r, double dv, double k1, double k2)
-{
+std::string QTableFileNameConvention(
+        const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_Q,
+        int r, double dv, double k1, double k2
+) {
     std::ostringstream qt_fname;
 
     qt_fname << OUTPUT_DIR << "/" << OUTPUT_FILEBASE_Q  << "_R" << r 
         << std::fixed << std::setprecision(1) << "_dv" << dv
-        << std::scientific << std::setprecision(1) << "_k" << k1 << "_" << k2
+        << std::scientific << std::setprecision(5) << "_k" << k1 << "_" << k2
         << ".dat";
 
     return qt_fname.str();
 }
 
-std::string STableFileNameConvention(const std::string &OUTPUT_DIR, 
-    const std::string &OUTPUT_FILEBASE_S, int r, double dv)
-{
+std::string STableFileNameConvention(
+        const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_S,
+        int r, double dv
+) {
     std::ostringstream st_fname;
     st_fname << OUTPUT_DIR << "/" << OUTPUT_FILEBASE_S << "_R" << r 
         << std::fixed << std::setprecision(1) << "_dv" << dv << ".dat";
