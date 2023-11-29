@@ -58,8 +58,8 @@ namespace mytime {
     void printfBootstrapTimeSpentDetails(const char funcname[]="addBoot")
     {
         printf(
-            "Total time spent in %s (no omp) is %.2f mins.\n"
-            "Total time spent in %s (w/ omp) is %.2f mins.\n",
+            "Total time spent in %s (no omp) is %.2f s.\n"
+            "Total time spent in %s (w/ omp) is %.2f s.\n",
             funcname, time_spent_on_func[0], funcname, time_spent_on_func[1]);
         fflush(stdout);
     }
@@ -72,7 +72,7 @@ namespace mytime {
     class Timer
     {
         using steady_c  = std::chrono::steady_clock;
-        using minutes_t = std::chrono::duration<double, std::ratio<60>>;
+        using minutes_t = std::chrono::duration<double, std::ratio<1>>;
 
         std::chrono::time_point<steady_c> m0;
     public:
@@ -141,7 +141,7 @@ public:
     }
 
     void setVZMatrices_omp() {
-        #pragma omp parallel for collapse(2)
+        #pragma omp parallel for simd collapse(2)
         for (int i = 0; i < DATA_SIZE; ++i)
         {
             for (int j = i; j < DATA_SIZE; ++j)
@@ -164,7 +164,7 @@ public:
     }
 
     void setQiMatrix_omp() {
-        #pragma omp parallel for collapse(2)
+        #pragma omp parallel for simd collapse(2)
         for (int i = 0; i < DATA_SIZE; ++i) {
             for (int j = i; j < DATA_SIZE; ++j) {
                 int idx = j + i * DATA_SIZE;
@@ -194,9 +194,8 @@ public:
         double *outfisher =
             tempfisher + (TOTAL_KZ_BINS + 1) * fisher_index_start;
 
-        #pragma omp parallel for
+        #pragma omp parallel for simd collapse(2)
         for (int i = 0; i < N_Q_MATRICES; ++i) {
-            #pragma omp simd
             for (int j = i; j < N_Q_MATRICES; ++j) {
                 outfisher[j + i * TOTAL_KZ_BINS] +=
                     p * fisher_matrix[j + i * N_Q_MATRICES];
@@ -395,7 +394,7 @@ void time_transpose_copy() {
 
     t2 = mytime::timer.getTime();
     difft = t2 - t1;
-    printf("transpose_copy_base: %.2f s\n", difft * 60.);
+    printf("transpose_copy_base: %.2f s\n", difft);
 
     // ------
     t1 = mytime::timer.getTime();
@@ -407,7 +406,7 @@ void time_transpose_copy() {
     difft = t2 - t1;
     if (not allClose(B.get(), T.get(), NDIM * NDIM))
         printf("Error. ");
-    printf("transpose_copy_block_lk: %.2f s\n", difft * 60.);
+    printf("transpose_copy_block_lk: %.2f s\n", difft);
 
     // ------
     t1 = mytime::timer.getTime();
@@ -419,7 +418,7 @@ void time_transpose_copy() {
     difft = t2 - t1;
     if (not allClose(B.get(), T.get(), NDIM * NDIM))
         printf("Error. ");
-    printf("transpose_copy_block_kl: %.2f s\n", difft * 60.);
+    printf("transpose_copy_block_kl: %.2f s\n", difft);
 
     // ------
     t1 = mytime::timer.getTime();
@@ -431,7 +430,7 @@ void time_transpose_copy() {
     difft = t2 - t1;
     if (not allClose(B.get(), T.get(), NDIM * NDIM))
         printf("Error. ");
-    printf("transpose_copy_block_mem: %.2f s\n", difft * 60.);
+    printf("transpose_copy_block_mem: %.2f s\n", difft);
 
     for (int i = 0; i < NDIM * NDIM; ++i)
         A[i] = i;
@@ -448,7 +447,7 @@ void time_transpose_copy() {
 
     t2 = mytime::timer.getTime();
     difft = t2 - t1;
-    printf("copyUpperToLower_base: %.2f s\n", difft * 60.);
+    printf("copyUpperToLower_base: %.2f s\n", difft);
 
     // ------
     t1 = mytime::timer.getTime();
@@ -460,7 +459,7 @@ void time_transpose_copy() {
     difft = t2 - t1;
     if (not allClose(B.get(), T.get(), NDIM * NDIM))
         printf("Error. ");
-    printf("copyUpperToLower: %.2f s\n", difft * 60.);
+    printf("copyUpperToLower: %.2f s\n", difft);
 }
 
 
