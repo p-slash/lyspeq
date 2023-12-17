@@ -405,6 +405,10 @@ void OneDQuadraticPowerEstimate::iterate()
     total_time_1it  = mytime::timer.getTime() - total_time_1it;
     LOG::LOGGER.STD("Local files are read in %.1f minutes.\n", total_time_1it);
 
+    std::vector<double> time_all_pes;
+    if (process::this_pe == 0)
+        time_all_pes.resize(process::total_pes);
+
     for (int iteration = 0; iteration < NUMBER_OF_ITERATIONS; iteration++)
     {
         LOG::LOGGER.STD("Iteration number %d of %d.\n", iteration+1, NUMBER_OF_ITERATIONS);
@@ -434,6 +438,11 @@ void OneDQuadraticPowerEstimate::iterate()
 
         // Save bootstrap files only if MPI is enabled.
         #if defined(ENABLE_MPI)
+        double timenow =  mytime::timer.getTime() - total_time_1it;
+        MPI_Gather(
+            &timenow, 1, MPI_DOUBLE, time_all_pes.data(), 1, MPI_DOUBLE,
+            0, MPI_COMM_WORLD);
+
         // Save PE estimates to a file
         if (process::SAVE_EACH_PE_RESULT)
             _savePEResult();
@@ -469,7 +478,9 @@ void OneDQuadraticPowerEstimate::iterate()
             total_time_1it = mytime::timer.getTime() - total_time_1it;
             total_time    += total_time_1it;
             if (process::this_pe == 0)
-                iterationOutput(iteration, total_time_1it, total_time);
+                iterationOutput(
+                    iteration, total_time_1it, total_time, time_all_pes
+                );
             throw e;
         }
 
@@ -478,7 +489,9 @@ void OneDQuadraticPowerEstimate::iterate()
         total_time    += total_time_1it;
 
         if (process::this_pe == 0)
-            iterationOutput(iteration, total_time_1it, total_time);
+            iterationOutput(
+                iteration, total_time_1it, total_time, time_all_pes
+            );
 
         #if defined(ENABLE_MPI)
         MPI_Barrier(MPI_COMM_WORLD);
@@ -752,8 +765,9 @@ double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
     return fidcosmo::fiducialPowerSpectrum(k, z, &fidpd13::FIDUCIAL_PD13_PARAMS);
 }
 
-void OneDQuadraticPowerEstimate::iterationOutput(int it, double t1, double tot)
-{
+void OneDQuadraticPowerEstimate::iterationOutput(
+        int it, double t1, double tot, std::vector<double> &times_all_pes
+) {
     std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
     printfSpectra();
 
@@ -762,21 +776,59 @@ void OneDQuadraticPowerEstimate::iterationOutput(int it, double t1, double tot)
 
     buffer.str(process::FNAME_BASE);
     buffer << "_it" << it+1 << "_fisher_matrix.txt";
-    mxhelp::fprintfMatrix(buffer.str().c_str(), fisher_matrix_sum.get(),
+    mxhelp::fprintfMatrix(
+        buffer.str().c_str(), fisher_matrix_sum.get(),
         bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
 
     buffer.str(process::FNAME_BASE);
     buffer << "_it" << it+1 << "_inversefisher_matrix.txt";
-    mxhelp::fprintfMatrix(buffer.str().c_str(), inverse_fisher_matrix_sum.get(),
+    mxhelp::fprintfMatrix(
+        buffer.str().c_str(), inverse_fisher_matrix_sum.get(),
         bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    LOG::LOGGER.STD("Fisher matrix and inverse are saved as %s.\n",
+    LOG::LOGGER.STD(
+        "Fisher matrix and inverse are saved as %s.\n",
         buffer.str().c_str());
 
-    LOG::LOGGER.STD("This iteration took %.1f minutes."
+    LOG::LOGGER.STD(
+        "----------------------------------\n"
+        "This iteration took %.1f minutes."
         " Elapsed time so far is %.1f minutes.\n", t1, tot);
     LOG::LOGGER.TIME("| %2d | %9.3e | %9.3e | ", it, t1, tot);
 
     mytime::printfTimeSpentDetails();
+
+    if (process::total_pes == 1)
+        return
+
+    // Obtain some statistics for off-balance
+    double ave_balance = std::accumulate(
+        times_all_pes.begin(), 
+        times_all_pes.end(),
+        0.) / process::total_pes;
+
+    std::for_each(
+        times_all_pes.begin(), times_all_pes.end(), 
+        [ave_balance](double &t) { t = t / ave_balance - 1; }
+    );
+
+    // find min and max offset
+    auto minmax_off = std::minmax_element(times_all_pes.begin(), times_all_pes.end());
+    double max_diff_offset = *minmax_off.second - *minmax_off.first;
+
+    // convert to absolute values and find find median
+    std::for_each(
+        times_all_pes.begin(), times_all_pes.end(), 
+        [](double &t) { t = fabs(t); }
+    );
+    std::sort(times_all_pes.begin(), times_all_pes.end());
+    double med_offset = times_all_pes[times_all_pes.size()/2];
+
+    LOG::LOGGER.STD(
+        "Measured load balancing offsets:\n"
+        "Absolute median offset: %.1e\n"
+        "High-Low offset difference: %.1e\n"
+        "----------------------------------\n",
+        med_offset, max_diff_offset);
 }
 
 void OneDQuadraticPowerEstimate::_readPrecomputedFisher(const std::string &fname)
