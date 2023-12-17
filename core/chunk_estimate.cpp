@@ -222,9 +222,9 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
             return 0;
 
         int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
-        // These constants are calculated on MacBookPro
-        const double asymm = 5.5, asymv = 1.4, adot = 2.0;
-        double one_dsymm = asymm * std::pow(qtemp.size() / 100., 3),
+        // NERSC Perlmutter scaling relation for -c 2
+        const double agemm = 20., asymv = 0.5, adot = 1.0;
+        double one_dgemm = agemm * std::pow(qtemp.size() / 100., 3),
                one_dsymv = asymv * std::pow(qtemp.size() / 100., 2),
                one_ddot = adot * std::pow(qtemp.size() / 100., 2);
 
@@ -257,12 +257,12 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
         #endif
 
         double res = (
-            real_nq_mat * (one_dsymm + one_ddot * N_M_COMBO)
+            real_nq_mat * (one_dgemm + one_ddot * N_M_COMBO)
             + (real_nq_mat + 1) * one_dsymv // dsymv contributions
         );
 
         if (!specifics::TURN_OFF_SFID)
-            res += one_dsymm + real_nq_mat * one_ddot;
+            res += one_dgemm + real_nq_mat * one_ddot;
 
         if (specifics::USE_RESOLUTION_MATRIX) {
             const int ndiags = 11;
@@ -504,9 +504,15 @@ void Chunk::invertCovarianceMatrix()
 void Chunk::_getWeightedMatrix(double *m)
 {
     //C-1 . Q
-    cblas_dsymm(
-        CblasRowMajor, CblasLeft, CblasUpper,
-        size(), size(), 1., inverse_covariance_matrix, size(),
+    // cblas_dsymm(
+    //     CblasRowMajor, CblasLeft, CblasUpper,
+    //     size(), size(), 1., inverse_covariance_matrix, size(),
+    //     m, size(), 0, temp_matrix[0], size());
+
+    // NERSC Perlmutter has faster dgemm
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasNoTrans,
+        size(), size(), size(), 1., inverse_covariance_matrix, size(),
         m, size(), 0, temp_matrix[0], size());
 
     std::copy(temp_matrix[0], temp_matrix[0] + DATA_SIZE_2, m);
@@ -577,9 +583,14 @@ void Chunk::computePSbeforeFvector()
     // Fiducial matrix, Sfid C-1
     if (!specifics::TURN_OFF_SFID) {
         double *weighted_sfid_matrix = temp_matrix[0];
-        cblas_dsymm(
-            CblasRowMajor, CblasLeft, CblasUpper,
-            size(), size(), 1., stored_sfid, size(),
+        // cblas_dsymm(
+        //     CblasRowMajor, CblasLeft, CblasUpper,
+        //     size(), size(), 1., stored_sfid, size(),
+        //     inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
+        // NERSC Perlmutter has faster dgemm
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            size(), size(), size(), 1., stored_sfid, size(),
             inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
 
         for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
