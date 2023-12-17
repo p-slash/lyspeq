@@ -89,6 +89,24 @@ double timeDsymm(int ndim) {
 }
 
 
+double timeDgemm(int ndim) {
+    auto A = getRandomSymmMatrix(ndim);
+    auto B = getRandomSymmMatrix(ndim);
+    auto C = std::make_unique<double[]>(ndim * ndim);
+
+    double t1 = mytime::timer.getTime(), t2 = 0;
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        cblas_dgemm(
+            CblasRowMajor, CblasLeft,
+            ndim, ndim, 1., A.get(), ndim,
+            B.get(), ndim, 0, C.get(), ndim);
+
+    t2 = mytime::timer.getTime();
+    return (t2 - t1) / N_LOOPS / std::pow(ndim / 100., 3);
+}
+
+
 double timeDsymv(int ndim) {
     auto A = getRandomSymmMatrix(ndim);
     auto B = std::make_unique<double[]>(ndim);
@@ -146,31 +164,36 @@ int main(int argc, char *argv[]) {
         750, 800, 850
     };
 
-    std::vector<double> times_dsymm, times_dsmyv, times_ddot;
+    std::vector<double> times_dsymm, times_dgemm, times_dsmyv, times_ddot;
 
     for (const int ndim : ndims) {
         times_dsymm.push_back(timeDsymm(ndim));
+        times_dgemm.push_back(timeDgemm(ndim));
         times_dsmyv.push_back(timeDsymv(ndim));
         times_ddot.push_back(timeDdot(ndim));
     }
 
-    double mean_dsymm = 0., mean_dsymv = 0., mean_ddot = 0.;
+    double mean_dsymm = 0., mean_dgemm = 0., mean_dsymv = 0., mean_ddot = 0.;
 
     for (int i = 0; i < ndims.size(); ++i)
     {
         mean_dsymm += times_dsymm[i];
+        mean_dgemm += times_dgemm[i];
         mean_dsymv += times_dsmyv[i];
         mean_ddot += times_ddot[i];
     }
 
     mean_dsymm /= ndims.size();
+    mean_dgemm /= ndims.size();
     mean_dsymv /= ndims.size();
     mean_ddot /= ndims.size();
 
-    printf("Ndim,dsymm,dsymv,ddot\n");
+    printf("Ndim,dsymm,dgemm,dsymv,ddot\n");
     for (int i = 0; i < ndims.size(); ++i)
-        printf("%d,%.3e,%.3e,%.3e\n",
-               ndims[i], times_dsymm[i], times_dsmyv[i], times_ddot[i]);
+        printf("%d,%.3e,%.3e,%.3e,%.3e\n",
+               ndims[i], times_dsymm[i], times_dgemm[i],
+               times_dsmyv[i], times_ddot[i]);
     printf("--------------\n");
-    printf(",%.3e,%.3e,%.3e\n", mean_dsymm, mean_dsymv, mean_ddot);
+    printf(",%.3e,%.3e,%.3e,%.3e\n",
+           mean_dsymm, mean_dgemm, mean_dsymv, mean_ddot);
 }
