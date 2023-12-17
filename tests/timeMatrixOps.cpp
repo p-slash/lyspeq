@@ -98,8 +98,8 @@ double timeDgemm(int ndim) {
 
     for (int i = 0; i < N_LOOPS; ++i)
         cblas_dgemm(
-            CblasRowMajor, CblasLeft,
-            ndim, ndim, 1., A.get(), ndim,
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            ndim, ndim, ndim, 1., A.get(), ndim,
             B.get(), ndim, 0, C.get(), ndim);
 
     t2 = mytime::timer.getTime();
