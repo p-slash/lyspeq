@@ -222,8 +222,11 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
             return 0;
 
         int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
-        double one_matrix_mult = std::pow(qtemp.size() / 100., 3),
-               one_fisher_elem = std::pow(qtemp.size() / 100., 2);
+        // These constants are calculated on MacBookPro
+        const double asymm = 5.5, asymv = 1.4, adot = 2.0;
+        double one_dsymm = asymm * std::pow(qtemp.size() / 100., 3),
+               one_dsymv = asymv * std::pow(qtemp.size() / 100., 2),
+               one_ddot = adot * std::pow(qtemp.size() / 100., 2);
 
         int fidxlocal = bins::getFisherMatrixIndex(0, ZBIN_LOW);
 
@@ -246,17 +249,24 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
             if (kn < _kncut) ++real_nq_mat;
         }
 
+        // +1 for noise matrix dot product
         #ifdef FISHER_OPTIMIZATION
-        const int N_M_COMBO = 3;
+        const int N_M_COMBO = 3 + 1;
         #else
-        const int N_M_COMBO = real_nq_mat + 1;
+        const int N_M_COMBO = real_nq_mat + 1 + 1;
         #endif
 
-        double res = real_nq_mat * (one_matrix_mult + one_fisher_elem * N_M_COMBO);
+        double res = (
+            real_nq_mat * (one_dsymm + one_ddot * N_M_COMBO)
+            + (real_nq_mat + 1) * one_dsymv // dsymv contributions
+        );
+
+        if (!specifics::TURN_OFF_SFID)
+            res += one_dsymm + real_nq_mat * one_ddot;
 
         if (specifics::USE_RESOLUTION_MATRIX) {
             const int ndiags = 11;
-            double extra_ctime = ndiags * one_fisher_elem * real_nq_mat;
+            double extra_ctime = ndiags * one_ddot * real_nq_mat;
 
             int osamp = specifics::OVERSAMPLING_FACTOR;
             if (osamp > 0)

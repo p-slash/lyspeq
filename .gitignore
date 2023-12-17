@@ -19,6 +19,7 @@ myfitsread
 test-fftconvolve
 testBootstrapTime
 testOMPTiming
+timeMatrixOps
 TODO
 Makefile
 config.status
