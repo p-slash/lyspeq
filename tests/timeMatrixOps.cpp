@@ -175,7 +175,9 @@ int main(int argc, char *argv[]) {
 
     double mean_dsymm = 0., mean_dgemm = 0., mean_dsymv = 0., mean_ddot = 0.;
 
-    for (int i = 0; i < ndims.size(); ++i)
+    // for (int i = 0; i < ndims.size(); ++i)
+    int i1 = 3, i2 = 9, nsample = i2 - i1;
+    for (int i = i1; i < i2; ++i)
     {
         mean_dsymm += times_dsymm[i];
         mean_dgemm += times_dgemm[i];
@@ -183,10 +185,10 @@ int main(int argc, char *argv[]) {
         mean_ddot += times_ddot[i];
     }
 
-    mean_dsymm /= ndims.size();
-    mean_dgemm /= ndims.size();
-    mean_dsymv /= ndims.size();
-    mean_ddot /= ndims.size();
+    mean_dsymm /= nsample;
+    mean_dgemm /= nsample;
+    mean_dsymv /= nsample;
+    mean_ddot /= nsample;
 
     printf("Ndim,dsymm,dgemm,dsymv,ddot\n");
     for (int i = 0; i < ndims.size(); ++i)
@@ -194,6 +196,9 @@ int main(int argc, char *argv[]) {
                ndims[i], times_dsymm[i], times_dgemm[i],
                times_dsmyv[i], times_ddot[i]);
     printf("--------------\n");
-    printf(",%.3e,%.3e,%.3e,%.3e\n",
+    printf("Ave,%.3e,%.3e,%.3e,%.3e\n",
            mean_dsymm, mean_dgemm, mean_dsymv, mean_ddot);
+    printf("Rat,%.3f,%.3f,%.3f,%.3f\n",
+           mean_dsymm / mean_ddot, mean_dgemm / mean_ddot,
+           mean_dsymv / mean_ddot, mean_ddot / mean_ddot);
 }
