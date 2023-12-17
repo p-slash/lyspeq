@@ -80,6 +80,9 @@ testBootstrapTime: testBootstrapTime.cpp
 testOMPTiming: testOMPTiming.cpp discrete_interpolation.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
+timeMatrixOps: timeMatrixOps.cpp matrix_helper.o real_field.o
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
 .PHONY: install uninstall clean
 
 install: LyaPowerEstimate CreateSQLookUpTable
