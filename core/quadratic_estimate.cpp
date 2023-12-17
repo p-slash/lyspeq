@@ -798,7 +798,7 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     mytime::printfTimeSpentDetails();
 
     if (process::total_pes == 1)
-        return
+        return;
 
     // Obtain some statistics for off-balance
     double ave_balance = std::accumulate(
