@@ -481,10 +481,7 @@ void OneDQuadraticPowerEstimate::iterate()
             LOG::LOGGER.ERR("ERROR while inverting Fisher matrix: %s.\n", e.what());
             total_time_1it = mytime::timer.getTime() - total_time_1it;
             total_time    += total_time_1it;
-            if (process::this_pe == 0)
-                iterationOutput(
-                    iteration, total_time_1it, total_time, time_all_pes
-                );
+            iterationOutput(iteration, total_time_1it, total_time, time_all_pes);
             throw e;
         }
 
@@ -492,10 +489,7 @@ void OneDQuadraticPowerEstimate::iterate()
         total_time_1it = mytime::timer.getTime() - total_time_1it;
         total_time    += total_time_1it;
 
-        if (process::this_pe == 0)
-            iterationOutput(
-                iteration, total_time_1it, total_time, time_all_pes
-            );
+        iterationOutput(iteration, total_time_1it, total_time, time_all_pes);
 
         #if defined(ENABLE_MPI)
         MPI_Barrier(MPI_COMM_WORLD);
@@ -772,6 +766,9 @@ double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
 void OneDQuadraticPowerEstimate::iterationOutput(
         int it, double t1, double tot, std::vector<double> &times_all_pes
 ) {
+    if (process::this_pe != 0)
+        return;
+
     std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
     printfSpectra();
 
