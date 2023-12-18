@@ -222,8 +222,11 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
             return 0;
 
         int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
-        double one_matrix_mult = std::pow(qtemp.size() / 100., 3),
-               one_fisher_elem = std::pow(qtemp.size() / 100., 2);
+        // NERSC Perlmutter scaling relation for -c 2
+        const double agemm = 20., asymv = 0.5, adot = 1.0;
+        double one_dgemm = agemm * std::pow(qtemp.size() / 100., 3),
+               one_dsymv = asymv * std::pow(qtemp.size() / 100., 2),
+               one_ddot = adot * std::pow(qtemp.size() / 100., 2);
 
         int fidxlocal = bins::getFisherMatrixIndex(0, ZBIN_LOW);
 
@@ -246,17 +249,24 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
             if (kn < _kncut) ++real_nq_mat;
         }
 
+        // +1 for noise matrix dot product
         #ifdef FISHER_OPTIMIZATION
-        const int N_M_COMBO = 2 * bins::NUMBER_OF_K_BANDS;
+        const int N_M_COMBO = 2 * bins::NUMBER_OF_K_BANDS + 1;
         #else
-        const int N_M_COMBO = real_nq_mat + 1;
+        const int N_M_COMBO = real_nq_mat + 1 + 1;
         #endif
 
-        double res = real_nq_mat * (one_matrix_mult + one_fisher_elem * N_M_COMBO);
+        double res = (
+            real_nq_mat * (one_dgemm + one_ddot * N_M_COMBO)
+            + (real_nq_mat + 1) * one_dsymv // dsymv contributions
+        );
+
+        if (!specifics::TURN_OFF_SFID)
+            res += one_dgemm + real_nq_mat * one_ddot;
 
         if (specifics::USE_RESOLUTION_MATRIX) {
             const int ndiags = 11;
-            double extra_ctime = ndiags * one_fisher_elem * real_nq_mat;
+            double extra_ctime = ndiags * one_ddot * real_nq_mat;
 
             int osamp = specifics::OVERSAMPLING_FACTOR;
             if (osamp > 0)
@@ -494,9 +504,15 @@ void Chunk::invertCovarianceMatrix()
 void Chunk::_getWeightedMatrix(double *m)
 {
     //C-1 . Q
-    cblas_dsymm(
-        CblasRowMajor, CblasLeft, CblasUpper,
-        size(), size(), 1., inverse_covariance_matrix, size(),
+    // cblas_dsymm(
+    //     CblasRowMajor, CblasLeft, CblasUpper,
+    //     size(), size(), 1., inverse_covariance_matrix, size(),
+    //     m, size(), 0, temp_matrix[0], size());
+
+    // NERSC Perlmutter has faster dgemm
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasNoTrans,
+        size(), size(), size(), 1., inverse_covariance_matrix, size(),
         m, size(), 0, temp_matrix[0], size());
 
     std::copy(temp_matrix[0], temp_matrix[0] + DATA_SIZE_2, m);
@@ -566,9 +582,14 @@ void Chunk::computePSbeforeFvector()
     // Fiducial matrix, Sfid C-1
     if (!specifics::TURN_OFF_SFID) {
         double *weighted_sfid_matrix = temp_matrix[0];
-        cblas_dsymm(
-            CblasRowMajor, CblasLeft, CblasUpper,
-            size(), size(), 1., stored_sfid, size(),
+        // cblas_dsymm(
+        //     CblasRowMajor, CblasLeft, CblasUpper,
+        //     size(), size(), 1., stored_sfid, size(),
+        //     inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
+        // NERSC Perlmutter has faster dgemm
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            size(), size(), size(), 1., stored_sfid, size(),
             inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
 
         for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)

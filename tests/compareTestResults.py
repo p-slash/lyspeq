@@ -18,12 +18,12 @@ class bcolors:
 
 def readSQTable(fname):
     file  = open(fname, mode='rb')
-    header_fmt  = 'iiddiddd'
+    header_fmt  = 'iidddiddd'
     header_size = struct.calcsize(header_fmt)
 
     d = file.read(header_size)
 
-    nv, nz, Lv, Lz, R, dv, k1, k2 = struct.unpack(header_fmt, d)
+    nv, nz, Lv, z1, Lz, R, dv, k1, k2 = struct.unpack(header_fmt, d)
 
     size = nv if nz==0 else nv*nz
 
