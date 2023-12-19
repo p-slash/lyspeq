@@ -62,6 +62,7 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 
     // Set up number of matrices, index for Fisher matrix
     _setNQandFisherIndex();
+    process::updateMemory(-getMinMemUsage());
 
     stored_ikz_qi.reserve(N_Q_MATRICES);
     int _kncut = _getMaxKindex(MY_PI / qFile->dv_kms);
@@ -82,8 +83,6 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
             std::make_unique<double[]>(N_Q_MATRICES));
 
     fisher_matrix = std::make_unique<double[]>(N_Q_MATRICES * N_Q_MATRICES);
-
-    process::updateMemory(-getMinMemUsage());
 }
 
 void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
@@ -173,7 +172,7 @@ void Chunk::_setStoredMatrices()
             "Avail mem after R & SQ subtracted: %.1lf MB\n""===============\n", 
             qFile->fname.c_str(), stored_ikz_qi.size(), size(), size_m1, 
             remain_mem);
-        throw std::runtime_error("Not all matrices are stored.\n");
+        throw std::runtime_error("Not all matrices are stored.");
     }
 }
 
