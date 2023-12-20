@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "core/one_qso_estimate.hpp"
 #include "core/global_numbers.hpp"
 
@@ -122,18 +124,20 @@ void OneQSOEstimate::oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
         double *fisher_sum
 ) {
-    for (auto chunk = chunks.begin(); chunk != chunks.end();) {
+    for (auto &chunk : chunks) {
         try {
-            (*chunk)->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
+            chunk->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
         }
         catch (std::exception& e) {
-            LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
-            chunk = chunks.erase(chunk);
-            continue;
+            LOG::LOGGER.ERR("%sSkipping %s.\n", e.what(), fname_qso.c_str());
+            chunk.reset();
         }
-
-        ++chunk;
     }
+
+    chunks.erase(std::remove_if(
+        chunks.begin(), chunks.end(), [](const auto &x) { return !x; }),
+        chunks.end()
+    );
 }
 
 
