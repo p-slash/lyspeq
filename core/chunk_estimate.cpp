@@ -17,17 +17,16 @@
 #include "omp.h"
 #endif
 
-void _check_isnan(double *mat, int size, std::string msg)
+
+#ifdef CHECK_NAN
+void CHECK_ISNAN(double *mat, int size, std::string msg)
 {
-    #ifdef CHECK_NAN
     if (std::any_of(mat, mat+size, [](double x) {return std::isnan(x);}))
         throw std::runtime_error(msg);
-    #else
-        double *tmat __attribute__((unused)) = mat;
-        int tsize __attribute__((unused)) = size;
-        std::string tmsg __attribute__((unused)) = msg;
-    #endif
 }
+#else
+#define CHECK_ISNAN(X, Y, Z)
+#endif
 
 inline
 int _getMaxKindex(double knyq)
@@ -49,6 +48,10 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
     conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), size());
+
+    CHECK_ISNAN(qFile->wave(), size(), "NAN qFile->wave");
+    CHECK_ISNAN(qFile->delta(), size(), "NAN qFile->delta");
+    CHECK_ISNAN(qFile->noise(), size(), "NAN qFile->noise");
 
     // Keep noise as error squared (variance)
     std::for_each(
@@ -325,6 +328,8 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
     if (specifics::USE_RESOLUTION_MATRIX)
         qFile->Rmat->sandwich(sm, inter_mat);
 
+    CHECK_ISNAN(sm, DATA_SIZE_2, "NAN sfid");
+
     t = mytime::timer.getTime() - t;
 
     mytime::time_spent_on_set_sfid += t;
@@ -402,6 +407,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     );
 
     isCovInverted = false;
+    CHECK_ISNAN(covariance_matrix, DATA_SIZE_2, "NAN covariance");
 
     // When compiled with debugging feature
     // save matrices to files, break
