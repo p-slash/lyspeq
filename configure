@@ -21,8 +21,7 @@ function print_config_help()
     echo "--enable-openmp : Enables OpenMP"
     echo "--enable-tbb : Enables TBB"
     echo "--use-tophat-zbin : Uses tophat redshift binning function instead. Default is triangle."
-    echo "--debug adds -g flag."
-    echo "--enable-nancheck performs NaN check for arrays."
+    echo "--debug adds -g flag, enables DEB level logging & performs NaN check for arrays."
     echo "GSL_DIR=[directory] : GSL directory"
     echo "FFTW_ROOT=[directory] : FFTW directory"
     echo "CFITSIO_DIR=[directory] : cfitsio directory"
@@ -60,9 +59,8 @@ function set_config_options()
             --use-tophat-zbin )
                 binz_fn="-DTOPHAT_Z_BINNING_FN";;
             --debug )
-                OPT=-g;;
-            --enable-nancheck )
-                ENABLE_NANCHECK="-DCHECK_NAN";;
+                OPT=-g
+                ENABLE_DEBUG="-DDEBUG";;
             CXX=* )
                 CXX="${i#*=}";;
             GSL_DIR=* )
@@ -534,7 +532,7 @@ ENABLE_OMP=""
 binz_fn="-DTRIANGLE_Z_BINNING_FN"
 ENABLE_FISHER_OPTIMIZATION=""
 USE_MKL_CBLAS=""
-ENABLE_NANCHECK=""
+ENABLE_DEBUG=""
 debug=""
 exec="./"
 
@@ -574,7 +572,7 @@ fi
 
 update_makefile_vars "" "" "${suffix_libs}"
 
-MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_OMP} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_NANCHECK} ${binz_fn}"
+MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_OMP} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_DEBUG} ${binz_fn}"
 MORECPPFLAGS=$(echo $MORECPPFLAGS | sed 's/ *$//')
 
 # Save makefile

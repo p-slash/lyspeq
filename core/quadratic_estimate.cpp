@@ -422,7 +422,7 @@ void OneDQuadraticPowerEstimate::iterate()
         initializeIteration();
 
         // Calculation for each spectrum
-        LOG::LOGGER.DEB("Running on local queue size %zu\n", local_queue.size());
+        DEBUG_LOG("Running on local queue size %zu\n", local_queue.size());
         Progress prog_tracker(local_queue.size());
         for (auto &one_qso : local_queue) {
             one_qso->oneQSOiteration(
@@ -432,9 +432,10 @@ void OneDQuadraticPowerEstimate::iterate()
             );
 
             ++prog_tracker;
+            DEBUG_LOG("One done.\n");
         }
 
-        LOG::LOGGER.DEB("All done.\n");
+        DEBUG_LOG("All done.\n");
 
         // Scale and copy first before summing across PEs
         cblas_dscal(bins::FISHER_SIZE, 0.5, fisher_matrix_sum.get(), 1);
@@ -451,7 +452,7 @@ void OneDQuadraticPowerEstimate::iterate()
         if (process::SAVE_EACH_PE_RESULT)
             _savePEResult();
 
-        LOG::LOGGER.DEB("MPI All reduce.\n");
+        DEBUG_LOG("MPI All reduce.\n");
         if (!specifics::USE_PRECOMPUTED_FISHER)
             MPI_Allreduce(
                 MPI_IN_PLACE,
