@@ -202,13 +202,10 @@ namespace mxhelp
         lapack_int LIN = N, info;
         std::vector<int> empty_indx;
 
-        for (int i_kz = 0; i_kz < N; ++i_kz)
-        {
-            double *ptr = S + (N + 1) * i_kz;
-            if (fabs(*ptr) < 1e-6)
-            {
+        for (int i_kz = 0; i_kz < N; ++i_kz) {
+            if (S[(N + 1) * i_kz] == 0) {
                 empty_indx.push_back(i_kz);
-                *ptr = 1;
+                S[(N + 1) * i_kz] = 1.;
             }
         }
 
