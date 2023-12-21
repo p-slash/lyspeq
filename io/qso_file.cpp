@@ -61,7 +61,7 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
           ra(qmaster.ra), dec(qmaster.dec),
           R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
 {
-    arr_size = i2-i1;
+    arr_size = i2 - i1;
 
     wave_head  = new double[arr_size];
     delta_head = new double[arr_size];
@@ -380,7 +380,7 @@ void PiccaFile::readParameters(
     else if (_isHeaderKey("THING_ID"))
         fits_read_key(fits_file, TLONG, "THING_ID", &thid, NULL, &status);
     else
-        throw std::runtime_error("Header must have TARGETID  or THING_ID!\n");
+        throw std::runtime_error("Header must have TARGETID  or THING_ID!");
 
 
     fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
@@ -446,7 +446,7 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
             &status);
     }
     else
-        throw std::runtime_error("Wavelength must be in LOGLAM or LAMBDA!\n");
+        throw std::runtime_error("Wavelength must be in LOGLAM or LAMBDA!");
 
     // Read deltas
     char deltmp[]="DELTA", deltmpblind[]="DELTA_BLIND";
@@ -455,7 +455,7 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     else if (_isColumnName(deltmpblind))
         colnum = _getColNo(deltmpblind);
     else
-        throw std::runtime_error("Deltas must be in DELTA or DELTA_BLIND!\n");
+        throw std::runtime_error("Deltas must be in DELTA or DELTA_BLIND!");
 
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, delta, &nonull, 
         &status);
@@ -469,7 +469,7 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     _checkStatus();
 
     std::for_each(noise, noise+curr_N, [](double &ld)
-        { ld = 1./sqrt(ld+std::numeric_limits<double>::epsilon()); }
+        { ld = 1. / (sqrt(ld) + std::numeric_limits<double>::epsilon()); }
     );
 }
 

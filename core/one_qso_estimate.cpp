@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "core/one_qso_estimate.hpp"
 #include "core/global_numbers.hpp"
 
@@ -64,15 +66,18 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
             auto _chunk = std::make_unique<Chunk>(qFile, indices[nc], indices[nc+1]);
             if (_chunk->realSize() < MIN_PIXELS_IN_CHUNK)
             {
-                LOG::LOGGER.ERR("Skipping chunk %d of %s. Realsize %d/%d\n",
-                    nc, fname_qso.c_str(), _chunk->realSize(), _chunk->size());
+                LOG::LOGGER.ERR(
+                    "Skipping chunk %d/%d of %s. Realsize %d/%d\n",
+                    nc, nchunks, fname_qso.c_str(),
+                    _chunk->realSize(), _chunk->size());
                 continue;
             }
             chunks.push_back(std::move(_chunk));
         }
         catch (std::exception& e)
         {
-            LOG::LOGGER.ERR("%s. Skipping chunk %d of %s.\n", e.what(), nc,
+            LOG::LOGGER.ERR(
+                "%sSkipping chunk %d/%d of %s.\n", e.what(), nc, nchunks,
                 fname_qso.c_str());
         }
     }
@@ -119,18 +124,20 @@ void OneQSOEstimate::oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
         double *fisher_sum
 ) {
-    for (auto chunk = chunks.begin(); chunk != chunks.end();) {
+    for (auto &chunk : chunks) {
         try {
-            (*chunk)->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
+            chunk->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
         }
         catch (std::exception& e) {
-            LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
-            chunk = chunks.erase(chunk);
-            continue;
+            LOG::LOGGER.ERR("%sSkipping %s.\n", e.what(), fname_qso.c_str());
+            chunk.reset();
         }
-
-        ++chunk;
     }
+
+    chunks.erase(std::remove_if(
+        chunks.begin(), chunks.end(), [](const auto &x) { return !x; }),
+        chunks.end()
+    );
 }
 
 
