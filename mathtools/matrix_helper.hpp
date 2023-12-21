@@ -80,11 +80,13 @@ namespace mxhelp
         int ndim, ndiags;
 
         DiaMatrix(int nm, int ndia);
-        ~DiaMatrix();
+        ~DiaMatrix() { delete [] values; freeBuffer(); };
         DiaMatrix(DiaMatrix &&rhs) = delete;
         DiaMatrix(const DiaMatrix &rhs) = delete;
 
         double* matrix() const { return values; };
+        int getSize() const { return size; };
+
         void getRow(int i, double *row);
         void getRow(int i, std::vector<double> &row);
         // Swap diagonals
@@ -111,15 +113,15 @@ namespace mxhelp
         void sandwich(double *inplace);
 
         double getMinMemUsage();
-        double getBufMemUsage();
+        double getBufMemUsage() { return (double)sizeof(double) * ndim * ndim / 1048576.; };
     };
 
     class OversampledMatrix
     {
         double *values, *sandwich_buffer;
-        int nvals;
+        int size;
 
-        double* _getRow(int i);
+        double* _getRow(int i) { return values + i * nelem_per_row; };
     public:
         int nrows, ncols;
         int nelem_per_row, oversampling;
@@ -130,12 +132,13 @@ namespace mxhelp
         // osamp : Oversampling coefficient.
         // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
         OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda);
-        ~OversampledMatrix();
+        ~OversampledMatrix() { delete [] values; freeBuffer(); };
         OversampledMatrix(OversampledMatrix &&rhs) = delete;
         OversampledMatrix(const OversampledMatrix &rhs) = delete;
 
         double* matrix() const { return values; };
         int getNCols() const { return ncols; };
+        int getSize() const { return size; };
 
         // R . A = B
         // A should be ncols x ncols symmetric matrix. 
@@ -150,8 +153,8 @@ namespace mxhelp
         void sandwichHighRes(double *B, const double *temp_highres_mat);
 
         void freeBuffer();
-        double getMinMemUsage();
-        double getBufMemUsage();
+        double getMinMemUsage() { return (double)sizeof(double) * size / 1048576.; };
+        double getBufMemUsage() { return (double)sizeof(double) * nrows * ncols / 1048576.; };
 
         void fprintfMatrix(const char *fname);
     };
@@ -178,14 +181,25 @@ namespace mxhelp
 
         int getNCols() const { return ncols; };
         bool isDiaMatrix() const { return is_dia_matrix; };
-        double* matrix() const;
+        double* matrix() const {
+            if (is_dia_matrix)
+                return dia_matrix->matrix();
+            else
+                return osamp_matrix->matrix();
+        };
+        int getSize() const {
+            if (is_dia_matrix)
+                return dia_matrix->getSize();
+            else
+                return osamp_matrix->getSize();
+        };
         int getNElemPerRow() const;
 
         void cutBoundary(int i1, int i2);
 
-        void transpose();
-        void orderTranspose();
-        void deconvolve(double m);
+        void transpose() { if (is_dia_matrix) dia_matrix->transpose(); };
+        void orderTranspose() {  if (is_dia_matrix) dia_matrix->orderTranspose(); };
+        void deconvolve(double m) { if (is_dia_matrix) dia_matrix->deconvolve(m); };
         void oversample(int osamp, double dlambda);
 
         // B = R . Temp . R^T
