@@ -18,12 +18,13 @@
 #endif
 
 
-#ifdef CHECK_NAN
+#ifdef DEBUG
 void CHECK_ISNAN(double *mat, int size, std::string msg)
 {
     if (std::any_of(mat, mat+size, [](double x) {return std::isnan(x);}))
         throw std::runtime_error(std::string("NAN in ") + msg);
-    LOG::LOGGER.DEB(msg.c_str());
+    std::string line = std::string("No nans in ") + msg + '\n';
+    DEBUG_LOG(line.c_str());
 }
 #else
 #define CHECK_ISNAN(X, Y, Z)
@@ -49,10 +50,6 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
     conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), size());
-
-    CHECK_ISNAN(qFile->wave(), size(), "qFile->wave");
-    CHECK_ISNAN(qFile->delta(), size(), "qFile->delta");
-    CHECK_ISNAN(qFile->noise(), size(), "qFile->noise");
 
     // Keep noise as error squared (variance)
     std::for_each(
@@ -98,7 +95,6 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
     {
         RES_INDEX = 0;
         _matrix_n = qFile->Rmat->getNCols();
-        CHECK_ISNAN(qFile->Rmat->matrix(), qFile->Rmat->getSize(), "Rmat");
     }
     else
     {
@@ -291,7 +287,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 }
 
 void Chunk::_setVZMatrices() {
-    LOG::LOGGER.DEB("Setting v & z matrices\n");
+    DEBUG_LOG("Setting v & z matrices\n");
 
     #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < _matrix_n; ++i)
@@ -385,7 +381,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 
 void Chunk::setCovarianceMatrix(const double *ps_estimate)
 {
-    LOG::LOGGER.DEB("Setting cov matrix\n");
+    DEBUG_LOG("Setting cov matrix\n");
 
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
@@ -466,19 +462,19 @@ void Chunk::_addMarginalizations()
         temp_v += size();
     }
 
-    LOG::LOGGER.DEB("nvecs %d\n", specifics::CONT_NVECS);
+    DEBUG_LOG("nvecs %d\n", specifics::CONT_NVECS);
 
     // Roll back to initial position
     temp_v = temp_matrix[0];
     static auto svals = std::make_unique<double[]>(specifics::CONT_NVECS);
     // SVD to get orthogonal marg vectors
     mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
-    LOG::LOGGER.DEB("SVD'ed\n");
+    DEBUG_LOG("SVD'ed\n");
 
     // Remove each 
     for (int i = 0; i < specifics::CONT_NVECS; ++i, temp_v += size())
     {
-        LOG::LOGGER.DEB("i: %d, s: %.2e\n", i, svals[i]);
+        DEBUG_LOG("i: %d, s: %.2e\n", i, svals[i]);
         // skip if this vector is degenerate
         if (svals[i] < 1e-6)  continue;
 
@@ -490,7 +486,7 @@ void Chunk::_addMarginalizations()
 // Then swap the pointer with covariance matrix
 void Chunk::invertCovarianceMatrix()
 {
-    LOG::LOGGER.DEB("Inverting cov matrix\n");
+    DEBUG_LOG("Inverting cov matrix\n");
 
     double t = mytime::timer.getTime();
 
@@ -546,7 +542,7 @@ void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
 
 void Chunk::computePSbeforeFvector()
 {
-    LOG::LOGGER.DEB("PS before Fisher\n");
+    DEBUG_LOG("PS before Fisher\n");
 
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
            *nk0 = dbt_estimate_before_fisher_vector[1].get(),
@@ -625,12 +621,21 @@ void Chunk::oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
         double *fisher_sum
 ) {
-    LOG::LOGGER.DEB("File %s\n", qFile->fname.c_str());
-    LOG::LOGGER.DEB("TargetID %ld\n", qFile->id);
-    LOG::LOGGER.DEB("Size %d\n", size());
-    LOG::LOGGER.DEB("ncols: %d\n", _matrix_n);
-    LOG::LOGGER.DEB("fisher_index_start: %d\n", fisher_index_start);
-    LOG::LOGGER.DEB("Allocating matrices\n");
+    DEBUG_LOG("File %s\n", qFile->fname.c_str());
+    DEBUG_LOG("TargetID %ld\n", qFile->id);
+    DEBUG_LOG("Size %d\n", size());
+    DEBUG_LOG("ncols: %d\n", _matrix_n);
+    DEBUG_LOG("fisher_index_start: %d\n", fisher_index_start);
+
+    CHECK_ISNAN(qFile->wave(), size(), "qFile->wave");
+    CHECK_ISNAN(qFile->delta(), size(), "qFile->delta");
+    CHECK_ISNAN(qFile->noise(), size(), "qFile->noise");
+
+    if (qFile->Rmat) {
+        CHECK_ISNAN(qFile->Rmat->matrix(), qFile->Rmat->getSize(), "Rmat");
+    }
+
+    DEBUG_LOG("Allocating matrices\n");
 
     _allocateMatrices();
 
@@ -639,7 +644,7 @@ void Chunk::oneQSOiteration(
     // Preload last nqj_eff matrices
     // 0 is the last matrix
     // i_kz = N_Q_MATRICES - j_kz - 1
-    LOG::LOGGER.DEB("Setting qi matrices\n");
+    DEBUG_LOG("Setting qi matrices\n");
 
     for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
         _setQiMatrix(Q_ikz_matrix, i_kz);
