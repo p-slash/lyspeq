@@ -527,16 +527,19 @@ void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
     int idx_fji_0 = N_Q_MATRICES * i_kz;
 
     // Now compute Fisher Matrix
-    for (auto jq = stored_ikz_qi.begin() + idx; jq != stored_ikz_qi.end(); ++jq)
+    // In some cases, the loop structure below results in seg fault.
+    // for (auto jq = stored_ikz_qi.begin() + idx; jq != stored_ikz_qi.end(); ++jq)
+    for (int jdx = idx; jdx < stored_ikz_qi.size(); ++jdx)
     {
+        const auto &jq = stored_ikz_qi[jdx];
         #ifdef FISHER_OPTIMIZATION
-        int diff_ji = jq->first - i_kz;
+        int diff_ji = jq.first - i_kz;
         if ((diff_ji != 0) && (diff_ji != 1) && (diff_ji != bins::NUMBER_OF_K_BANDS))
             continue;
         #endif
 
-        fisher_matrix[jq->first + idx_fji_0] = 
-            cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, jq->second, 1);
+        fisher_matrix[jq.first + idx_fji_0] = 
+            cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, jq.second, 1);
     }
 }
 
@@ -626,6 +629,7 @@ void Chunk::oneQSOiteration(
     DEBUG_LOG("Size %d\n", size());
     DEBUG_LOG("ncols: %d\n", _matrix_n);
     DEBUG_LOG("fisher_index_start: %d\n", fisher_index_start);
+    DEBUG_LOG("N_Q_MATRICES: %d\n", N_Q_MATRICES);
 
     CHECK_ISNAN(qFile->wave(), size(), "qFile->wave");
     CHECK_ISNAN(qFile->delta(), size(), "qFile->delta");

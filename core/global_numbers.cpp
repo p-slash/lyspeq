@@ -19,7 +19,7 @@ namespace process
     void updateMemory(double deltamem)
     {
         MEMORY_ALLOC += deltamem;
-        if (MEMORY_ALLOC < 10)
+        if (MEMORY_ALLOC < 100)
             LOG::LOGGER.ERR("Remaining memory is less than 10 MB!\n");
     }
 
