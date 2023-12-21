@@ -49,4 +49,11 @@ namespace LOG
 
     extern Logger LOGGER;
 }
+
+#ifdef DEBUG
+#define DEBUG_LOG LOG::LOGGER.DEB
+#else
+#define DEBUG_LOG(...)
+#endif
+
 #endif

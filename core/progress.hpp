@@ -16,7 +16,6 @@ public:
     };
 
     Progress& operator++() {
-        LOG::LOGGER.DEB("One done.\n");
         ++pcounter;
         int curr_progress = (100 * pcounter) / size;
 
