@@ -97,6 +97,7 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
     {
         RES_INDEX = 0;
         _matrix_n = qFile->Rmat->getNCols();
+        CHECK_ISNAN(qFile->Rmat->matrix(), qFile->Rmat->getSize(), "NAN Rmat");
     }
     else
     {
