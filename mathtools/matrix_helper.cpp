@@ -305,12 +305,6 @@ namespace mxhelp
             offsets[j] = i;
     }
 
-    DiaMatrix::~DiaMatrix()
-    {
-        delete [] values;
-        freeBuffer();
-    }
-
     void DiaMatrix::orderTranspose()
     {
         double *newmat = new double[size];
@@ -630,14 +624,6 @@ namespace mxhelp
         return diasize + offsize;
     }
 
-    double DiaMatrix::getBufMemUsage()
-    {
-        // Convert to MB by division of 1048576
-        double bufsize = (double)sizeof(double) * ndim * ndim / 1048576.;
-
-        return bufsize;
-    }
-
     // class OversampledMatrix
     OversampledMatrix::OversampledMatrix(
             int n1, int nelem_prow, int osamp, double dlambda
@@ -645,20 +631,9 @@ namespace mxhelp
         oversampling(osamp)
     {
         ncols = nrows*oversampling + nelem_per_row-1;
-        nvals = nrows*nelem_per_row;
+        size = nrows*nelem_per_row;
         fine_dlambda = dlambda/oversampling;
-        values  = new double[nvals];
-    }
-
-    OversampledMatrix::~OversampledMatrix()
-    {
-        delete [] values;
-        freeBuffer();
-    }
-
-    double* OversampledMatrix::_getRow(int i)
-    {
-        return matrix()+i*nelem_per_row;
+        values  = new double[size];
     }
 
     // R . A = B
@@ -709,18 +684,6 @@ namespace mxhelp
 
         multiplyLeft(temp_highres_mat, sandwich_buffer);
         multiplyRight(sandwich_buffer, B);
-    }
-
-    double OversampledMatrix::getMinMemUsage()
-    {
-        // Convert to MB by division of 1048576
-        return (double)sizeof(double) * nvals / 1048576.;
-    }
-
-    double OversampledMatrix::getBufMemUsage()
-    {
-        // Convert to MB by division of 1048576
-        return (double)sizeof(double) * nrows * ncols / 1048576.;
     }
 
     void OversampledMatrix::fprintfMatrix(const char *fname)
@@ -822,25 +785,6 @@ namespace mxhelp
         }
     }
 
-    void Resolution::transpose()
-    {
-        if (is_dia_matrix) dia_matrix->transpose();
-    }
-
-    void Resolution::orderTranspose()
-    {
-        if (is_dia_matrix)
-            dia_matrix->orderTranspose();
-    }
-
-    double* Resolution::matrix() const
-    {
-        if (is_dia_matrix)
-            return dia_matrix->matrix();
-        else
-            return osamp_matrix->matrix();
-    }
-
     int Resolution::getNElemPerRow() const
     {
         if (is_dia_matrix)
@@ -912,11 +856,6 @@ namespace mxhelp
         gsl_interp_free(interp_cubic);
         gsl_interp_accel_free(acc);
         dia_matrix.reset();
-    }
-
-    void Resolution::deconvolve(double m)
-    {
-        if (is_dia_matrix) dia_matrix->deconvolve(m);
     }
 
     void Resolution::sandwich(double *B, const double *temp_highres_mat)
