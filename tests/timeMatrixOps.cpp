@@ -18,7 +18,7 @@
 
 
 
-int TOTAL_KZ_BINS = 35 * 13, N_LOOPS = 1000;
+int N_Q_MATRICES = 250, N_LOOPS = 1000;
 
 std::mt19937_64 rng_engine;
 std::normal_distribution<double> distribution;
@@ -67,6 +67,14 @@ std::unique_ptr<double[]> getRandomSymmMatrix(int ndim) {
             A[j + ndim * i] = distribution(rng_engine);
 
     mxhelp::copyUpperToLower(A.get(), ndim);
+    return A;
+}
+
+
+std::unique_ptr<double[]> getRandomVector(int size) {
+    auto A = std::make_unique<double[]>(size);
+    for (int i = 0; i < size; ++i)
+        A[i] = distribution(rng_engine);
     return A;
 }
 
@@ -143,37 +151,54 @@ double timeDdot(int ndim) {
 }
 
 
+double timeDgemv(int ndim) {
+    int ndim2 = ndim * ndim;
+    auto A = getRandomVector(ndim2 * N_Q_MATRICES);
+    auto B = getRandomVector(ndim2);
+    auto C = std::make_unique<double[]>(N_Q_MATRICES);
+
+    double t1 = mytime::timer.getTime(), t2 = 0;
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, N_Q_MATRICES, ndim2, 1.0,
+            A.get(), ndim2, B.get(), 1, 0, C.get(), 1);
+
+    t2 = mytime::timer.getTime();
+    return (t2 - t1) / N_LOOPS / std::pow(ndim / 100., 2) / N_Q_MATRICES;
+}
+
+
 int main(int argc, char *argv[]) {
-    int number_lapse = 400;
     if (argc == 2)
-        number_lapse = atoi(argv[1]);
-    else if (argc == 3) {
-        number_lapse = atoi(argv[1]);
-        N_LOOPS = atoi(argv[2]);
-    }
-    else if (argc > 3)
+        N_LOOPS = atoi(argv[1]);
+    else if (argc > 2)
     {
-        printf("Extra arguments! Usage lapse (default: %d) loops (%d)\n",
-               number_lapse, N_LOOPS);
+        printf("Extra arguments! Usage loops (%d)\n", N_LOOPS);
         return 1;
     }
 
     rng_engine.seed(0);
     std::vector<int> ndims = {
-        100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700,
-        750, 800, 850
+        100, 150, 200,
+        250, 300, 350, 400, 450, 500, 550, 600,
+        650, 700, 750, 800, 850
     };
 
-    std::vector<double> times_dsymm, times_dgemm, times_dsmyv, times_ddot;
+    std::vector<double>
+        times_dsymm, times_dgemm, times_dsmyv, times_ddot, times_dgemvdot;
 
     for (const int ndim : ndims) {
-        times_dsymm.push_back(timeDsymm(ndim));
+        times_dgemvdot.push_back(timeDgemv(ndim));
         times_dgemm.push_back(timeDgemm(ndim));
+        times_dsymm.push_back(timeDsymm(ndim));
         times_dsmyv.push_back(timeDsymv(ndim));
         times_ddot.push_back(timeDdot(ndim));
     }
 
-    double mean_dsymm = 0., mean_dgemm = 0., mean_dsymv = 0., mean_ddot = 0.;
+    double
+        mean_dsymm = 0., mean_dgemm = 0., mean_dsymv = 0., mean_ddot = 0.,
+        mean_dgemvdot = 0.;
 
     // for (int i = 0; i < ndims.size(); ++i)
     int i1 = 3, i2 = 9, nsample = i2 - i1;
@@ -183,22 +208,25 @@ int main(int argc, char *argv[]) {
         mean_dgemm += times_dgemm[i];
         mean_dsymv += times_dsmyv[i];
         mean_ddot += times_ddot[i];
+        mean_dgemvdot += times_dgemvdot[i];
     }
 
     mean_dsymm /= nsample;
     mean_dgemm /= nsample;
     mean_dsymv /= nsample;
     mean_ddot /= nsample;
+    mean_dgemvdot /= nsample;
 
-    printf("Ndim,dsymm,dgemm,dsymv,ddot\n");
+    printf("Ndim,dsymm,dgemm,dsymv,ddot,dgemvdot\n");
     for (int i = 0; i < ndims.size(); ++i)
-        printf("%d,%.3e,%.3e,%.3e,%.3e\n",
+        printf("%d,%.3e,%.3e,%.3e,%.3e,%.3e\n",
                ndims[i], times_dsymm[i], times_dgemm[i],
-               times_dsmyv[i], times_ddot[i]);
+               times_dsmyv[i], times_ddot[i], times_dgemvdot[i]);
     printf("--------------\n");
-    printf("Ave,%.3e,%.3e,%.3e,%.3e\n",
-           mean_dsymm, mean_dgemm, mean_dsymv, mean_ddot);
-    printf("Rat,%.3f,%.3f,%.3f,%.3f\n",
+    printf("Ave,%.3e,%.3e,%.3e,%.3e,%.3e\n",
+           mean_dsymm, mean_dgemm, mean_dsymv, mean_ddot, mean_dgemvdot);
+    printf("Rat,%.3f,%.3f,%.3f,%.3f,,%.3f\n",
            mean_dsymm / mean_ddot, mean_dgemm / mean_ddot,
-           mean_dsymv / mean_ddot, mean_ddot / mean_ddot);
+           mean_dsymv / mean_ddot, mean_ddot / mean_ddot,
+           mean_dgemvdot / mean_ddot);
 }
