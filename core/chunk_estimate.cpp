@@ -521,26 +521,39 @@ void Chunk::_getWeightedMatrix(double *m)
     std::copy(temp_matrix[0], temp_matrix[0] + DATA_SIZE_2, m);
 }
 
+void Chunk::_dotQi(const double *m, double *out, int idx) {
+    static std::vector<double> y;
+    y.resize(stored_ikz_qi.size());
+
+    cblas_dgemv(
+        CblasRowMajor, CblasNoTrans, stored_ikz_qi.size() - idx, DATA_SIZE_2, 1.0,
+        stored_ikz_qi[idx].second, DATA_SIZE_2, m, 1, 0, y.data(), 1);
+
+    for (int i = 0; i < y.size() - idx; ++i)
+        out[stored_ikz_qi[i].first] = y[i];
+}
+
 void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
 {
     int i_kz = stored_ikz_qi[idx].first;
     int idx_fji_0 = N_Q_MATRICES * i_kz;
 
-    // Now compute Fisher Matrix
     // In some cases, the loop structure below results in seg fault.
     // for (auto jq = stored_ikz_qi.begin() + idx; jq != stored_ikz_qi.end(); ++jq)
+    #ifndef FISHER_OPTIMIZATION
+    _dotQi(Q_ikz_matrix_T, fisher_matrix.get() + idx_fji_0 + idx, idx);
+    #else
     for (int jdx = idx; jdx < stored_ikz_qi.size(); ++jdx)
     {
         const auto &jq = stored_ikz_qi[jdx];
-        #ifdef FISHER_OPTIMIZATION
         int diff_ji = jq.first - i_kz;
         if ((diff_ji != 0) && (diff_ji != 1) && (diff_ji != bins::NUMBER_OF_K_BANDS))
             continue;
-        #endif
 
         fisher_matrix[jq.first + idx_fji_0] = 
             cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, jq.second, 1);
     }
+    #endif
 }
 
 void Chunk::computePSbeforeFvector()
@@ -583,8 +596,7 @@ void Chunk::computePSbeforeFvector()
             weighted_noise_matrix + i * size(), 1);
 
     // Get Noise contribution: Tr(C-1 Qi C-1 N)
-    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        nk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_noise_matrix, 1);
+    _dotQi(weighted_noise_matrix, nk0);
 
     // Fiducial matrix, Sfid C-1
     if (!specifics::TURN_OFF_SFID) {
@@ -599,8 +611,7 @@ void Chunk::computePSbeforeFvector()
             size(), size(), size(), 1., stored_sfid, size(),
             inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
 
-        for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-            tk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_sfid_matrix, 1);
+        _dotQi(weighted_sfid_matrix, tk0);
     }
 
     // Do not compute fisher matrix if it is precomputed
@@ -721,8 +732,9 @@ void Chunk::_allocateMatrices()
     temp_vector = new double[size()];
     weighted_data_vector = new double[size()];
     
-    for (auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        Q_ikz_matrix = new double[DATA_SIZE_2];
+    stored_ikz_qi[0].second = new double[DATA_SIZE_2 * stored_ikz_qi.size()];
+    for (int i = 1; i < stored_ikz_qi.size(); ++i)
+        stored_ikz_qi[i].second = stored_ikz_qi[i - 1].second + DATA_SIZE_2;
 
     if (!specifics::TURN_OFF_SFID)
         stored_sfid = new double[DATA_SIZE_2];
@@ -772,8 +784,9 @@ void Chunk::_freeMatrices()
 
     delete [] temp_vector;
     delete [] weighted_data_vector;
+    delete [] stored_ikz_qi[0].second;
     for (auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        delete [] Q_ikz_matrix;
+        Q_ikz_matrix = nullptr;
 
     if (!specifics::TURN_OFF_SFID)
         delete [] stored_sfid;

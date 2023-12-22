@@ -20,7 +20,7 @@ namespace process
     {
         MEMORY_ALLOC += deltamem;
         if (MEMORY_ALLOC < 100)
-            LOG::LOGGER.ERR("Remaining memory is less than 10 MB!\n");
+            LOG::LOGGER.ERR("Remaining memory is less than 100 MB!\n");
     }
 
     void readProcess(ConfigFile &config)
