@@ -80,7 +80,7 @@ public:
             "Number of valid bootstraps %d of %d. Ratio %.2f%%\n",
             ii, nboots, success_ratio);
         if (success_ratio < 90.)
-            LOG::LOGGER.ERR("WARNING: Low success ratio!\n")
+            LOG::LOGGER.ERR("WARNING: Low success ratio!\n");
 
         mytime::printfBootstrapTimeSpentDetails();
 
@@ -159,26 +159,25 @@ private:
         #endif
 
         bool valid = true;
-        if (process::this_pe != 0) {
-            MPI_Bcast(&valid, 1, MPI_BOOL, 0, MPI_COMM_WORLD);
-            return valid;
+        if (process::this_pe == 0) {
+            t1 = mytime::timer.getTime();
+            mytime::time_spent_on_oneboot_mpi += t1 - t2;
+
+            try {
+                mxhelp::LAPACKE_solve_safe(
+                    tempfisher.get(), bins::TOTAL_KZ_BINS,
+                    allpowers.get() + jj * bins::TOTAL_KZ_BINS);
+            } catch (std::exception& e) {
+                valid = false;
+            }
+
+            t2 = mytime::timer.getTime();
+            mytime::time_spent_on_oneboot_solve += t2 - t1;
         }
 
-        t1 = mytime::timer.getTime();
-        mytime::time_spent_on_oneboot_mpi += t1 - t2;
-
-        try {
-            mxhelp::LAPACKE_solve_safe(
-                tempfisher.get(), bins::TOTAL_KZ_BINS,
-                allpowers.get() + jj * bins::TOTAL_KZ_BINS);
-        } catch (std::exception& e) {
-            valid = false;
-        }
-
-        t2 = mytime::timer.getTime();
-        mytime::time_spent_on_oneboot_solve += t2 - t1;
-
-        MPI_Bcast(&valid, 1, MPI_BOOL, 0, MPI_COMM_WORLD);
+        #if defined(ENABLE_MPI)
+        MPI_Bcast(&valid, 1, MPI_CXX_BOOL, 0, MPI_COMM_WORLD);
+        #endif
         return valid;
     }
 
