@@ -116,12 +116,12 @@ private:
         std::fill_n(temppower.get(), bins::TOTAL_KZ_BINS, 0);
         std::fill_n(tempfisher.get(), bins::FISHER_SIZE, 0);
 
-        for (auto &one_qso : local_queue) {
+        for (const auto &one_qso : local_queue) {
             int p = pgenerator->generate();
             if (p == 0)
                 continue;
 
-            for (auto &one_chunk : one_qso->chunks)
+            for (const auto &one_chunk : one_qso->chunks)
                 one_chunk->addBoot(p, temppower.get(), tempfisher.get());
         }
 
