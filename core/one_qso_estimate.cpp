@@ -59,19 +59,12 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
 
     // create chunk objects
     chunks.reserve(nchunks);
+
     for (int nc = 0; nc < nchunks; ++nc)
     {
         try
         {
             auto _chunk = std::make_unique<Chunk>(qFile, indices[nc], indices[nc+1]);
-            if (_chunk->realSize() < MIN_PIXELS_IN_CHUNK)
-            {
-                LOG::LOGGER.ERR(
-                    "Skipping chunk %d/%d of %s. Realsize %d/%d\n",
-                    nc, nchunks, fname_qso.c_str(),
-                    _chunk->realSize(), _chunk->size());
-                continue;
-            }
             chunks.push_back(std::move(_chunk));
         }
         catch (std::exception& e)
@@ -114,7 +107,9 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
+        LOG::LOGGER.ERR(
+            "OneQSOEstimate::getComputeTimeEst::%s. Skipping %s.\n",
+            e.what(), fname_qso.c_str());
         return 0;
     }
 }
@@ -129,7 +124,9 @@ void OneQSOEstimate::oneQSOiteration(
             chunk->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
         }
         catch (std::exception& e) {
-            LOG::LOGGER.ERR("%sSkipping %s.\n", e.what(), fname_qso.c_str());
+            LOG::LOGGER.ERR(
+                "OneQSOEstimate::oneQSOiteration::%sSkipping %s.\n",
+                e.what(), fname_qso.c_str());
             chunk.reset();
         }
     }
