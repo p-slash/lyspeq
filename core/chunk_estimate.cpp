@@ -11,6 +11,7 @@
 #include <algorithm> // std::for_each & transform & lower(upper)_bound
 #include <cstdio>
 #include <cstdlib>
+#include <sstream>
 #include <stdexcept>
 
 #if defined(ENABLE_OMP)
@@ -90,6 +91,15 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 {
     qFile = std::make_unique<qio::QSOFile>(qmaster, i1, i2);
 
+    if (qFile->realSize() < MIN_PIXELS_IN_CHUNK)
+    {
+        std::ostringstream err_msg;
+        err_msg << "Short chunk with realsize "
+            << qFile->realSize() << '/'  << qFile->size() << '.';
+
+        throw std::runtime_error(err_msg.str());
+    }
+
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
     {
@@ -105,7 +115,7 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         _matrix_n = size();
     }
 
-    DATA_SIZE_2 = size()*size();
+    DATA_SIZE_2 = size() * size();
 }
 
 void Chunk::_findRedshiftBin()
@@ -281,7 +291,9 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), qmaster.fname.c_str());
+        LOG::LOGGER.ERR(
+            "Chunk::getComputeTimeEst::%s. Skipping %s.\n",
+            e.what(), qmaster.fname.c_str());
         return 0;
     }
 }
