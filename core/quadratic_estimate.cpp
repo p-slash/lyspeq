@@ -643,11 +643,7 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 
 void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fname)
 {
-    FILE *toWrite;
-    int i_kz, kn, zm;
-    double z, k1, k2, kc, Pfid, ThetaP, ErrorP, dk, bk, tk;
-
-    toWrite = ioh::open_file(fname, "w");
+    FILE *toWrite = ioh::open_file(fname, "w");
 
     specifics::printBuildSpecifics(toWrite);
     config.writeConfig(toWrite);
@@ -684,37 +680,50 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
         "# d      : Power estimate before noise (b) and fiducial power (t) subtracted [km s^-1]\n"
         "# b      : Noise estimate [km s^-1]\n"
         "# t      : Fiducial power estimate [km s^-1]\n"
+        "# Fd     : d before Fisher\n"
+        "# Fb     : b before Fisher\n"
+        "# Ft     : t before Fisher\n"
         "# -----------------------------------------------------------------\n");
 
     fprintf(toWrite, "# %d %d\n# ", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
 
-    for (zm = 0; zm <= bins::NUMBER_OF_Z_BINS+1; ++zm)
-        fprintf(toWrite, "%d ", Z_BIN_COUNTS[zm]);
+    for (int i = 0; i <= bins::NUMBER_OF_Z_BINS + 1; ++i)
+        fprintf(toWrite, "%d ", Z_BIN_COUNTS[i]);
 
     fprintf(toWrite, "\n");
-    fprintf(toWrite, "%5s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n", 
-        "z", "k1", "k2", "kc", "Pfid", "ThetaP", "Pest", "ErrorP", "d", "b", "t");
+    fprintf(
+        toWrite,
+        "%5s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n", 
+        "z", "k1", "k2", "kc", "Pfid", "ThetaP", "Pest", "ErrorP",
+        "d", "b", "t", "Fd", "Fb", "Ft");
 
-    for (i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
+    int kn = 0, zm = 0;
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
-        
-        z  = bins::ZBIN_CENTERS[zm];
-        
-        k1 = bins::KBAND_EDGES[kn];
-        k2 = bins::KBAND_EDGES[kn+1];
-        kc = bins::KBAND_CENTERS[kn];
+        double
+            z = bins::ZBIN_CENTERS[zm],
+            k1 = bins::KBAND_EDGES[kn],
+            k2 = bins::KBAND_EDGES[kn + 1],
+            kc = bins::KBAND_CENTERS[kn],
 
-        Pfid = powerSpectrumFiducial(kn, zm);
-        ThetaP = current_power_estimate_vector[i_kz];
-        ErrorP = sqrt(inverse_fisher_matrix_sum[(1+bins::TOTAL_KZ_BINS)*i_kz]);
+            Pfid = powerSpectrumFiducial(kn, zm),
+            ThetaP = current_power_estimate_vector[i_kz],
+            ErrorP = sqrt(inverse_fisher_matrix_sum[(1 + bins::TOTAL_KZ_BINS) * i_kz]),
 
-        dk = dbt_estimate_fisher_weighted_vector[0][i_kz];
-        bk = dbt_estimate_fisher_weighted_vector[1][i_kz];
-        tk = dbt_estimate_fisher_weighted_vector[2][i_kz];
+            dk = dbt_estimate_fisher_weighted_vector[0][i_kz],
+            bk = dbt_estimate_fisher_weighted_vector[1][i_kz],
+            tk = dbt_estimate_fisher_weighted_vector[2][i_kz],
 
-        fprintf(toWrite, "%5.3lf %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e\n", 
-            z,  k1,  k2,  kc,  Pfid,ThetaP, Pfid+ThetaP, ErrorP, dk, bk, tk);
+            Fdk = dbt_estimate_sum_before_fisher_vector[0][i_kz],
+            Fbk = dbt_estimate_sum_before_fisher_vector[1][i_kz],
+            Ftk = dbt_estimate_sum_before_fisher_vector[2][i_kz];
+
+        fprintf(
+            toWrite,
+            "%5.3lf %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e\n", 
+            z, k1, k2, kc, Pfid, ThetaP, Pfid + ThetaP, ErrorP,
+            dk, bk, tk, Fdk, Fbk, Ftk);
     }
 
     fclose(toWrite);
@@ -724,7 +733,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
 void OneDQuadraticPowerEstimate::initializeIteration()
 {
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-        std::fill_n(dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
+        std::fill_n(
+            dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
             bins::TOTAL_KZ_BINS, 0);
 
     std::fill_n(fisher_matrix_sum.get(), bins::FISHER_SIZE, 0);
