@@ -561,8 +561,7 @@ void Chunk::computePSbeforeFvector()
 
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
            *nk0 = dbt_estimate_before_fisher_vector[1].get(),
-           *tk0 = dbt_estimate_before_fisher_vector[2].get(),
-           *Q_ikz_matrix;
+           *tk0 = dbt_estimate_before_fisher_vector[2].get();
 
     // C-1 . flux
     cblas_dsymv(
