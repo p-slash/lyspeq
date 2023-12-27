@@ -65,13 +65,22 @@ public:
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
         Progress prog_tracker(nboots);
 
+        int ii = 0;
         for (int jj = 0; jj < nboots; ++jj) {
-            _one_boot(jj, local_queue);
+            bool valid = _one_boot(ii, local_queue);
             ++prog_tracker;
+            if (valid) ++ii;
         }
 
         if (process::this_pe != 0)
             return;
+
+        double success_ratio = (100. * ii) / nboots;
+        LOG::LOGGER.STD(
+            "Number of valid bootstraps %d of %d. Ratio %.2f%%\n",
+            ii, nboots, success_ratio);
+        if (success_ratio < 90.)
+            LOG::LOGGER.ERR("WARNING: Low success ratio!\n");
 
         mytime::printfBootstrapTimeSpentDetails();
 
@@ -108,7 +117,7 @@ private:
         }
     }
 
-    void _one_boot(
+    bool _one_boot(
             int jj, std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         double t1 = mytime::timer.getTime(), t2;
@@ -149,18 +158,27 @@ private:
         }
         #endif
 
-        if (process::this_pe != 0)
-            return;
+        bool valid = true;
+        if (process::this_pe == 0) {
+            t1 = mytime::timer.getTime();
+            mytime::time_spent_on_oneboot_mpi += t1 - t2;
 
-        t1 = mytime::timer.getTime();
-        mytime::time_spent_on_oneboot_mpi += t1 - t2;
+            try {
+                mxhelp::LAPACKE_solve_safe(
+                    tempfisher.get(), bins::TOTAL_KZ_BINS,
+                    allpowers.get() + jj * bins::TOTAL_KZ_BINS);
+            } catch (std::exception& e) {
+                valid = false;
+            }
 
-        mxhelp::LAPACKE_solve_safe(
-            tempfisher.get(), bins::TOTAL_KZ_BINS,
-            allpowers.get() + jj * bins::TOTAL_KZ_BINS);
+            t2 = mytime::timer.getTime();
+            mytime::time_spent_on_oneboot_solve += t2 - t1;
+        }
 
-        t2 = mytime::timer.getTime();
-        mytime::time_spent_on_oneboot_solve += t2 - t1;
+        #if defined(ENABLE_MPI)
+        MPI_Bcast(&valid, 1, MPI_CXX_BOOL, 0, MPI_COMM_WORLD);
+        #endif
+        return valid;
     }
 
     void _calcuate_covariance() {

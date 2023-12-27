@@ -20,7 +20,7 @@ namespace process
     {
         MEMORY_ALLOC += deltamem;
         if (MEMORY_ALLOC < 100)
-            LOG::LOGGER.ERR("Remaining memory is less than 10 MB!\n");
+            LOG::LOGGER.ERR("Remaining memory is less than 100 MB!\n");
     }
 
     void readProcess(ConfigFile &config)
@@ -386,7 +386,7 @@ namespace bins
         std::fill(out, out + low, 1);
         #pragma omp simd
         for (int i = low; i < up; ++i)
-            out[i] = 1 - (z[i] - zc) / Z_BIN_WIDTH;
+            out[i] = 1. - (z[i] - zc) / Z_BIN_WIDTH;
         // std::fill(out + up, out + N, 0);
         low = 0;
     }
@@ -403,7 +403,7 @@ namespace bins
         // std::fill(out, out + low, 0);
         #pragma omp simd
         for (int i = low; i < up; ++i)
-            out[i] = 1 - (zc - z[i]) / Z_BIN_WIDTH;
+            out[i] = 1. - (zc - z[i]) / Z_BIN_WIDTH;
         std::fill(out + up, out + N, 1);
         up = N;
     }
@@ -418,7 +418,7 @@ namespace bins
         // std::fill_n(out, N, 0);
         #pragma omp simd
         for (int i = low; i < up; ++i)
-            out[i] = 1 - fabs(z[i] - zc) / Z_BIN_WIDTH;
+            out[i] = 1. - fabs(z[i] - zc) / Z_BIN_WIDTH;
     }
 
     void zBinTopHat(const double *z, int N, int zm, double *out, int &low, int &up)
