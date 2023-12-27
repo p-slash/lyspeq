@@ -57,8 +57,8 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
 
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         : PB(qmaster.PB), shift(0), num_masked_pixels(0), fname(qmaster.fname), 
-          z_qso(qmaster.z_qso), snr(qmaster.snr), id(qmaster.id),
-          ra(qmaster.ra), dec(qmaster.dec),
+          z_qso(qmaster.z_qso), snr(qmaster.snr),
+          ra(qmaster.ra), dec(qmaster.dec), id(qmaster.id),
           R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
 {
     arr_size = i2 - i1;

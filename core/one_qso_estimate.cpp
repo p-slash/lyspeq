@@ -52,7 +52,13 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
     // Boundary cut
     qFile.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-    if (qFile.realSize() < MIN_PIXELS_IN_CHUNK)   return;
+    if (qFile.realSize() < MIN_PIXELS_IN_CHUNK) {
+        LOG::LOGGER.ERR(
+            "OneQSOEstimate::OneQSOEstimate::Short file in %s.\n",
+            fname_qso.c_str());
+
+        return;
+    }
 
     // decide nchunk with lambda points array[nchunks+1]
     int nchunks = _decideNChunks(qFile.size(), indices);
@@ -70,8 +76,8 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
         catch (std::exception& e)
         {
             LOG::LOGGER.ERR(
-                "%sSkipping chunk %d/%d of %s.\n", e.what(), nc, nchunks,
-                fname_qso.c_str());
+                "OneQSOEstimate::OneQSOEstimate::%s Skipping chunk %d/%d of %s.\n",
+                e.what(), nc, nchunks, fname_qso.c_str());
         }
     }
 }
@@ -125,7 +131,7 @@ void OneQSOEstimate::oneQSOiteration(
         }
         catch (std::exception& e) {
             LOG::LOGGER.ERR(
-                "OneQSOEstimate::oneQSOiteration::%sSkipping %s.\n",
+                "OneQSOEstimate::oneQSOiteration::%s Skipping %s.\n",
                 e.what(), fname_qso.c_str());
             chunk.reset();
         }
