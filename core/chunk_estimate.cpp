@@ -67,7 +67,7 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     process::updateMemory(-getMinMemUsage());
 
     stored_ikz_qi.reserve(N_Q_MATRICES);
-    int _kncut = _getMaxKindex(MY_PI / qFile->dv_kms);
+    int _kncut = _getMaxKindex(0.85 * MY_PI / qFile->dv_kms);
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int kn, zm;
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
