@@ -66,9 +66,7 @@ namespace mxhelp
     int stableInvertSym(double *S, int N, int &dof, double &damp);
 
     // S is symmetric. Only upper addressed
-    void LAPACKE_solve_safe(double *S, int N, double *b);
-    void LAPACKE_solve_damped(double *S, int N, double *b, double damp=0.005);
-    void LAPACKE_solve_stable(double *S, int N, double *b);
+    void LAPACKE_stableSymSolve(double *S, int N, double *b);
 
     // Return orthogonal vector in rows of A.
     // A is assumed to have n vectors in its rows.
