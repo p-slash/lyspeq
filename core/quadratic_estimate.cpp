@@ -265,15 +265,24 @@ std::vector<std::string> OneDQuadraticPowerEstimate::_loadBalancing(
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 {
-    double t = mytime::timer.getTime();
+    double t = mytime::timer.getTime(), damp = 0;
+    int status = 0;
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
 
     std::copy(
         fisher_matrix_sum.get(), fisher_matrix_sum.get() + bins::FISHER_SIZE,
         inverse_fisher_matrix_sum.get());
-    _NewDegreesOfFreedom = mxhelp::LAPACKE_InvertMatrixLU_safe(
-        inverse_fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
+
+    status = mxhelp::stableInvertSym(
+        inverse_fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS,
+        _NewDegreesOfFreedom, damp);
+
+    if (status != 0) {
+        LOG::LOGGER.STD(
+            "* Fisher matrix is damped by adding %.2e to the diagonal.\n",
+            damp);
+    }
 
     isFisherInverted = true;
 

@@ -140,10 +140,8 @@ namespace mxhelp
         return cblas_ddot(N, v, 1, temp_vector, 1);
     }
 
-    void LAPACKErrorHandle(const char *base, int info)
-    {
-        if (info != 0)
-        {
+    void LAPACKErrorHandle(const char *base, int info) {
+        if (info != 0) {
             std::string err_msg(base);
             if (info < 0)   err_msg += ": Illegal value.";
             else            err_msg += ": Singular.";
@@ -155,23 +153,36 @@ namespace mxhelp
 
     void LAPACKE_InvertMatrixLU(double *A, int N)
     {
-        lapack_int *ipiv = new lapack_int[N];
+        static std::vector<lapack_int> ipiv;
+        ipiv.resize(N);
         lapack_int LIN = N, info;
 
         // Factorize A
         // the LU factorization of a general m-by-n matrix.
-        info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN,
-            ipiv);
+        info = LAPACKE_dgetrf(
+            LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, ipiv.data());
 
         LAPACKErrorHandle("ERROR in LU decomposition.", info);
 
-        info = LAPACKE_dgetri(LAPACK_ROW_MAJOR, LIN, A, LIN,
-            ipiv);
+        info = LAPACKE_dgetri(
+            LAPACK_ROW_MAJOR, LIN, A, LIN, ipiv.data());
         LAPACKErrorHandle("ERROR in LU invert.", info);
 
-        delete [] ipiv;
         // dpotrf(CblasUpper, N, A, N); 
         // the Cholesky factorization of a symmetric positive-definite matrix
+    }
+
+    std::vector<int> _setEmptyIndices(double *S, int N) {
+        std::vector<int> empty_indx;
+
+        for (int i = 0; i < N; ++i) {
+            if (S[(N + 1) * i] == 0) {
+                empty_indx.push_back(i);
+                S[(N + 1) * i] = 1.;
+            }
+        }
+
+        return empty_indx;
     }
 
     int LAPACKE_InvertMatrixLU_safe(double *A, int N)
@@ -179,35 +190,97 @@ namespace mxhelp
         // find empty diagonals
         // assert all elements on that row and col are zero
         // replace with 1, then invert, then replace with zero
-        std::vector<int> empty_indx;
-        for (int i_kz = 0; i_kz < N; ++i_kz)
-        {
-            double *ptr = A + (N + 1) * i_kz;
-            if (*ptr == 0)
-            {
-                empty_indx.push_back(i_kz);
-                *ptr = 1;
-            }
-        }
+        std::vector<int> empty_indx = _setEmptyIndices(A, N);
 
         LAPACKE_InvertMatrixLU(A, N);
 
-        for (const auto &i_kz : empty_indx)
-            A[(N + 1) * i_kz] = 0;
+        for (const auto &i : empty_indx)
+            A[(N + 1) * i] = 0;
 
         return N - empty_indx.size();
     }
 
+    void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp) {
+        int size = N * N;
+        auto _Amat = std::make_unique<double[]>(size),
+             _Bmat = std::make_unique<double[]>(size);
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            N, N, N, 1., S, N,
+            S, N, 0, _Amat.get(), N);
+
+        // Scaling damping
+        // cblas_dscal(N, 1. + damp, _Amat.get(), N + 1);
+
+        // Additive damping
+        for (int i = 0; i < size; i += N + 1)
+            _Amat[i] += damp;
+
+        LAPACKE_InvertMatrixLU(_Amat.get(), N);
+
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            N, N, N, 0.5, _Amat.get(), N,
+            S, N, 0, _Bmat.get(), N);
+
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            N, N, N, 0.5, S, N,
+            _Amat.get(), N, 1, _Bmat.get(), N);
+
+        std::copy_n(_Bmat.get(), size, S);
+    }
+
+    double LAPACKE_RcondSvd(const double *A, int N, double *smin, double *smax) {
+        int size = N * N;
+        auto B = std::make_unique<double[]>(size),
+             svals = std::make_unique<double[]>(N),
+             superb = std::make_unique<double[]>(N - 1);
+
+        lapack_int LIN = N, info = 0;
+        std::copy_n(A, size, B.get());
+
+        info = LAPACKE_dgesvd(
+            LAPACK_ROW_MAJOR, 'N', 'N', LIN, LIN, B.get(), LIN, svals.get(), 
+            NULL, LIN, NULL, LIN, superb.get());
+        LAPACKErrorHandle("ERROR in SVD.", info);
+
+        if (smin != nullptr)
+            *smin = svals[N - 1];
+        if (smax != nullptr)
+            *smax = svals[0];
+
+        return svals[N - 1] / svals[0];
+    }
+
+    int stableInvertSym(double *S, int N, int &dof, double &damp) {
+        int warn = 0;
+        std::vector<int> empty_indx = _setEmptyIndices(S, N);
+        dof = N - empty_indx.size();
+        damp = 0;
+
+        double rcond = 0, smin = 0, smax = 0;
+        rcond = LAPACKE_RcondSvd(S, N, &smin, &smax);
+
+        const double target_rcond = 5e-5;
+        if (rcond < target_rcond) {
+            warn = 1;
+            damp = target_rcond * smax - smin;
+
+            LAPACKE_InvertSymMatrixLU_damped(S, N, damp);
+        } else {
+            LAPACKE_InvertMatrixLU(S, N);
+        }
+
+        for (const auto &i : empty_indx)
+            S[(N + 1) * i] = 0;
+
+        return warn;
+    }
+
     void LAPACKE_solve_safe(double *S, int N, double *b) {
         lapack_int LIN = N, info;
-        std::vector<int> empty_indx;
-
-        for (int i_kz = 0; i_kz < N; ++i_kz) {
-            if (S[(N + 1) * i_kz] == 0) {
-                empty_indx.push_back(i_kz);
-                S[(N + 1) * i_kz] = 1.;
-            }
-        }
+        std::vector<int> empty_indx = _setEmptyIndices(S, N);
 
         info = LAPACKE_dposv(
             LAPACK_ROW_MAJOR, 'U',
@@ -218,6 +291,11 @@ namespace mxhelp
 
         for (const auto &i_kz : empty_indx)
             S[(N + 1) * i_kz] = 0;
+    }
+
+
+    void LAPACKE_solve_damped(double *S, int N, double *b, double damp) {
+
     }
 
     void LAPACKE_svd(double *A, double *svals, int m, int n)
