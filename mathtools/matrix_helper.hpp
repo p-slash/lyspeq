@@ -53,13 +53,22 @@ namespace mxhelp
     // LAPACKE functions
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
+    void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp);
+    double LAPACKE_RcondSvd(
+            const double *A, int N, double *smin=nullptr, double *smax=nullptr
+    );
 
     // Replace zero diagonals with one, then invert
     // Return new number of degrees of freedom
     int LAPACKE_InvertMatrixLU_safe(double *A, int N);
+    // S is symmetric
+    // returns warning code (1 if damping used). DOF and damp as well
+    int stableInvertSym(double *S, int N, int &dof, double &damp);
 
     // S is symmetric. Only upper addressed
     void LAPACKE_solve_safe(double *S, int N, double *b);
+    void LAPACKE_solve_damped(double *S, int N, double *b, double damp=0.005);
+    void LAPACKE_solve_stable(double *S, int N, double *b);
 
     // Return orthogonal vector in rows of A.
     // A is assumed to have n vectors in its rows.
