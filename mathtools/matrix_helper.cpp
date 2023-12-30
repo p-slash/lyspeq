@@ -301,6 +301,18 @@ namespace mxhelp
     }
 
 
+    void LAPACKE_safeSolveCho(double *S, int N, double *b) {
+        std::vector<int> empty_indx = _setEmptyIndices(S, N);
+
+        lapack_int LIN = N, info = 0;
+        info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', LIN, 1, S, LIN, b, 1);
+
+        LAPACKErrorHandle("ERROR in safeSolveCho.", info);
+        for (const auto &i : empty_indx)
+            b[i] = 0;
+    }
+
+
     void LAPACKE_solve_damped(const double *S, int N, double *b, double damp) {
         auto _Amat = std::make_unique<double[]>(N * N),
              _Ab = std::make_unique<double[]>(N);
