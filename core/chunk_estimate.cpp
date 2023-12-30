@@ -132,31 +132,21 @@ void Chunk::_findRedshiftBin()
 
 // For a top hat redshift bin, only access 1 redshift bin for each pixel
 // For triangular z bins, access 2 redshift bins for each pixel
-void Chunk::_setNQandFisherIndex()
-{   
-    #if defined(TOPHAT_Z_BINNING_FN)
-    N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
-    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
+void Chunk::_setNQandFisherIndex() {   
+    N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
+    fisher_index_start = bins::getFisherMatrixIndex(0, ZBIN_LOW);
 
-    #elif defined(TRIANGLE_Z_BINNING_FN)
-    // Assuming low and end points stay within their respective bins
-    N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
-    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
-
+    if (bins::Z_BINNING_METHOD == bins::TriangleBinningMethod) {
     // If we need to distribute low end to a lefter bin
-    if ((LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
-    {
-        ++N_Q_MATRICES;
-        fisher_index_start -= bins::NUMBER_OF_K_BANDS;
+        if ((LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
+        {
+            ++N_Q_MATRICES;
+            fisher_index_start -= bins::NUMBER_OF_K_BANDS;
+        }
+        // If we need to distribute high end to righter bin
+        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
+            ++N_Q_MATRICES;
     }
-    // If we need to distribute high end to righter bin
-    if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
-    {
-        ++N_Q_MATRICES;
-    }
-    #else
-    #error "DEFINE A Z BINNING FUNCTION!"
-    #endif
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 }

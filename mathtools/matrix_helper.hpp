@@ -65,6 +65,7 @@ namespace mxhelp
     // returns warning code (1 if damping used). DOF and damp as well
     int stableInvertSym(double *S, int N, int &dof, double &damp);
 
+    void LAPACKE_safeSolveCho(double *S, int N, double *b);
     // S is symmetric. Only upper addressed
     void LAPACKE_stableSymSolve(double *S, int N, double *b);
 

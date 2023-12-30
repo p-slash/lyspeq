@@ -129,6 +129,7 @@ namespace specifics
 
 namespace bins
 {
+    enum BinningMethod { TophatBinningMethod, TriangleBinningMethod };
     // Binning numbers
     // One last bin is created when LAST_K_EDGE is set in config to absorb high k power such as alias effect.
     // This last bin is calculated into covariance matrix, smooth power spectrum fitting or convergence test.
@@ -137,6 +138,7 @@ namespace bins
         NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, FISHER_SIZE, TOTAL_KZ_BINS;
     extern std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     extern double Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE;
+    extern BinningMethod Z_BINNING_METHOD;
 
     const config_map bins_default_parameters ({{"K0", "0"}, {"LastKEdge", "-1"}});
     /* This function reads following keys from config file:
