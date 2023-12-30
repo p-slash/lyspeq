@@ -160,13 +160,13 @@ private:
 
         bool valid = true;
         if (process::this_pe == 0) {
-            mxhelp::copyUpperToLower(tempfisher.get(), bins::TOTAL_KZ_BINS);
+            // mxhelp::copyUpperToLower(tempfisher.get(), bins::TOTAL_KZ_BINS);
 
             t1 = mytime::timer.getTime();
             mytime::time_spent_on_oneboot_mpi += t1 - t2;
 
             try {
-                mxhelp::LAPACKE_stableSymSolve(
+                mxhelp::LAPACKE_safeSolveCho(
                     tempfisher.get(), bins::TOTAL_KZ_BINS,
                     allpowers.get() + jj * bins::TOTAL_KZ_BINS);
             } catch (std::exception& e) {
