@@ -356,6 +356,12 @@ double new_q_matrix_integrand(double k, void *params) {
 //     return exp(x) * y * y / MY_PI;
 // }
 
+double exactDerivMatrixNoWindow(double k1, double k2, double v) {
+    double Dk = k2 - k1, Kt = (k1 + k2) / 2;
+
+    return Dk / MY_PI * sinc(Dk * v / 2) * cos(Kt * v);
+}
+
 
 
 

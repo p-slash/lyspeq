@@ -81,7 +81,7 @@ void DiscreteInterpolation1D::evaluateVector(const double *xarr, int size, doubl
 bool DiscreteInterpolation1D::operator==(const DiscreteInterpolation1D &rhs) const
 {
     bool result = true;
-    result &= isClose(x1, rhs.x1) & isClose(x2, rhs.x2) & isClose(dx, rhs.dx);
+    result &= isClose(x1, rhs.x1) && isClose(x2, rhs.x2) && isClose(dx, rhs.dx);
     result &= N == rhs.N;
     result &= allClose(y, rhs.y, N);
     return result;
@@ -126,9 +126,9 @@ double DiscreteInterpolation2D::evaluate(double x, double y)
 bool DiscreteInterpolation2D::operator==(const DiscreteInterpolation2D &rhs) const
 {
     bool result = true;
-    result &= isClose(x1, rhs.x1) & isClose(x2, rhs.x2) & isClose(dx, rhs.dx);
-    result &= isClose(y1, rhs.y1) & isClose(y2, rhs.y2) & isClose(dy, rhs.dy);
-    result &= (Nx == rhs.Nx) & (Ny == rhs.Ny);
+    result &= isClose(x1, rhs.x1) && isClose(x2, rhs.x2) && isClose(dx, rhs.dx);
+    result &= isClose(y1, rhs.y1) && isClose(y2, rhs.y2) && isClose(dy, rhs.dy);
+    result &= (Nx == rhs.Nx) && (Ny == rhs.Ny);
     result &= allClose(z, rhs.z, size);
     return result;
 }

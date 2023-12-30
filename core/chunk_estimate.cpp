@@ -11,6 +11,7 @@
 #include <algorithm> // std::for_each & transform & lower(upper)_bound
 #include <cstdio>
 #include <cstdlib>
+#include <sstream>
 #include <stdexcept>
 
 #if defined(ENABLE_OMP)
@@ -71,7 +72,7 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     process::updateMemory(-getMinMemUsage());
 
     stored_ikz_qi.reserve(N_Q_MATRICES);
-    int _kncut = _getMaxKindex(MY_PI / qFile->dv_kms);
+    int _kncut = _getMaxKindex(0.85 * MY_PI / qFile->dv_kms);
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int kn, zm;
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
@@ -94,6 +95,15 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 {
     qFile = std::make_unique<qio::QSOFile>(qmaster, i1, i2);
+
+    if (qFile->realSize() < MIN_PIXELS_IN_CHUNK)
+    {
+        std::ostringstream err_msg;
+        err_msg << "Short chunk with realsize "
+            << qFile->realSize() << '/'  << qFile->size() << '.';
+
+        throw std::runtime_error(err_msg.str());
+    }
 
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
@@ -135,31 +145,21 @@ void Chunk::_findRedshiftBin()
 
 // For a top hat redshift bin, only access 1 redshift bin for each pixel
 // For triangular z bins, access 2 redshift bins for each pixel
-void Chunk::_setNQandFisherIndex()
-{   
-    #if defined(TOPHAT_Z_BINNING_FN)
-    N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
-    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
+void Chunk::_setNQandFisherIndex() {   
+    N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
+    fisher_index_start = bins::getFisherMatrixIndex(0, ZBIN_LOW);
 
-    #elif defined(TRIANGLE_Z_BINNING_FN)
-    // Assuming low and end points stay within their respective bins
-    N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
-    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
-
+    if (bins::Z_BINNING_METHOD == bins::TriangleBinningMethod) {
     // If we need to distribute low end to a lefter bin
-    if ((LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
-    {
-        ++N_Q_MATRICES;
-        fisher_index_start -= bins::NUMBER_OF_K_BANDS;
+        if ((LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
+        {
+            ++N_Q_MATRICES;
+            fisher_index_start -= bins::NUMBER_OF_K_BANDS;
+        }
+        // If we need to distribute high end to righter bin
+        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
+            ++N_Q_MATRICES;
     }
-    // If we need to distribute high end to righter bin
-    if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
-    {
-        ++N_Q_MATRICES;
-    }
-    #else
-    #error "DEFINE A Z BINNING FUNCTION!"
-    #endif
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 }
@@ -294,7 +294,9 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), qmaster.fname.c_str());
+        LOG::LOGGER.ERR(
+            "Chunk::getComputeTimeEst::%s. Skipping %s.\n",
+            e.what(), qmaster.fname.c_str());
         return 0;
     }
 }
@@ -540,16 +542,19 @@ void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
     int idx_fji_0 = N_Q_MATRICES * i_kz;
 
     // Now compute Fisher Matrix
-    for (auto jq = stored_ikz_qi.begin() + idx; jq != stored_ikz_qi.end(); ++jq)
+    // In some cases, the loop structure below results in seg fault.
+    // for (auto jq = stored_ikz_qi.begin() + idx; jq != stored_ikz_qi.end(); ++jq)
+    for (int jdx = idx; jdx < stored_ikz_qi.size(); ++jdx)
     {
+        const auto &jq = stored_ikz_qi[jdx];
         #ifdef FISHER_OPTIMIZATION
-        int diff_ji = jq->first - i_kz;
+        int diff_ji = jq.first - i_kz;
         if ((diff_ji != 0) && (diff_ji != 1) && (diff_ji != bins::NUMBER_OF_K_BANDS))
             continue;
         #endif
 
-        fisher_matrix[jq->first + idx_fji_0] = 
-            cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, jq->second, 1);
+        fisher_matrix[jq.first + idx_fji_0] = 
+            cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, jq.second, 1);
     }
 }
 
@@ -559,8 +564,7 @@ void Chunk::computePSbeforeFvector()
 
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
            *nk0 = dbt_estimate_before_fisher_vector[1].get(),
-           *tk0 = dbt_estimate_before_fisher_vector[2].get(),
-           *Q_ikz_matrix;
+           *tk0 = dbt_estimate_before_fisher_vector[2].get();
 
     // C-1 . flux
     cblas_dsymv(
@@ -639,6 +643,7 @@ void Chunk::oneQSOiteration(
     DEBUG_LOG("Size %d\n", size());
     DEBUG_LOG("ncols: %d\n", _matrix_n);
     DEBUG_LOG("fisher_index_start: %d\n", fisher_index_start);
+    DEBUG_LOG("N_Q_MATRICES: %d\n", N_Q_MATRICES);
 
     CHECK_ISNAN(qFile->wave(), size(), "qFile->wave");
     CHECK_ISNAN(qFile->delta(), size(), "qFile->delta");
