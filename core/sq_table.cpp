@@ -374,7 +374,7 @@ shared_interp_1d SQLookupTable::_allocReadQFile(int kn, int r_index)
     itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
 
     return std::make_shared<DiscreteInterpolation1D>(
-        itp_v1, itp_dv, derivative_array.get(), N_V_POINTS);
+        itp_v1, itp_dv, N_V_POINTS, derivative_array.get());
 }
 
 void SQLookupTable::readSQforR(
