@@ -109,7 +109,7 @@ void QSOFile::readData()
         pfile->readData(wave(), delta(), ivar());
         std::transform(ivar(), ivar() + arr_size, noise(),
             [](double ld) {
-                return 1. / (sqrt(ld) + std::numeric_limits<double>::epsilon());
+                return 1. / (sqrt(ld) + DOUBLE_EPSILON);
             }
         );
     }
@@ -117,7 +117,7 @@ void QSOFile::readData()
         bqfile->readData(wave(), delta(), noise());
         std::transform(noise(), noise() + arr_size, ivar(),
             [](double ld) {
-                return 1. / (ld * ld + std::numeric_limits<double>::epsilon());
+                return 1. / (ld * ld + DOUBLE_EPSILON);
             }
         );
     }

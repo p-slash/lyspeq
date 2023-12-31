@@ -274,7 +274,7 @@ namespace fidcosmo
         {
             pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
 
-            double q0 = k / K_0 + 1E-16, x0 = (1. + z) / (1. + Z_0);
+            double q0 = k / K_0 + DOUBLE_EPSILON, x0 = (1. + z) / (1. + Z_0);
 
             return  pfp->A * MY_PI / K_0
                     * pow(q0, 2. + pfp->n + pfp->alpha * log(q0) + pfp->beta  * log(x0)) 
@@ -286,9 +286,9 @@ namespace fidcosmo
         ) {
             pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
 
-            double  q0 = k_kn / K_0 + 1E-16, xm = (1. + z_ij) / (1. + z_zm);
+            double q0 = k_kn / K_0 + DOUBLE_EPSILON, xm = (1. + z_ij) / (1. + z_zm);
 
-            return  pow(xm, pfp->B + pfp->beta  * log(q0));
+            return pow(xm, pfp->B + pfp->beta  * log(q0));
         }
     }
 }

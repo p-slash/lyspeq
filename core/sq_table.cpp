@@ -5,7 +5,6 @@
 #include <algorithm> // std::copy
 #include <stdexcept>
 
-#include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
 #include "mathtools/matrix_helper.hpp"
 #include "mathtools/fourier_integrator.hpp"
