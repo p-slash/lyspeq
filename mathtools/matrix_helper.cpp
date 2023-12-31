@@ -1,11 +1,12 @@
 #include "mathtools/matrix_helper.hpp"
 #include "mathtools/real_field.hpp"
 
+#include <cmath>
 #include <stdexcept>
 #include <algorithm>
 #include <limits>
+#include <numeric>
 #include <utility>
-#include <cmath>
 
 #include <gsl/gsl_interp.h>
 
@@ -26,7 +27,7 @@
 const double
 MY_SQRT_2 = 1.41421356237,
 MY_SQRT_PI = 1.77245385091,
-MY_EPSILON_D = std::numeric_limits<double>::epsilon();
+MY_EPSILON_D = 1e-15;
 
 // cblas_dcopy(N, sour, isour, tar, itar); 
 template<class InputIt>
@@ -574,29 +575,29 @@ namespace mxhelp
     void DiaMatrix::deconvolve(double m) //bool byCol
     {
         const int HALF_PAD_NO = 5;
-        int input_size = ndiags+2*HALF_PAD_NO;
-        std::unique_ptr<double[]> row = std::make_unique<double[]>(input_size);
+        int input_size = ndiags + 2 * HALF_PAD_NO;
+        RealField deconvolver(input_size, 1);
         std::vector<int> indices(ndiags);
 
         // if (byCol)  transpose();
-
-        RealField deconvolver(input_size, 1, row.get());
 
         for (int i = 0; i < ndim; ++i)
         {
             _getRowIndices(i, indices);
             for (int p = 0; p < ndiags; ++p)
-                row[p+HALF_PAD_NO] = values[indices[p]];
+                deconvolver.field_x[p + HALF_PAD_NO] = values[indices[p]];
 
             // Set padded regions to zero
-            for (int p = 0; p < HALF_PAD_NO; ++p)
-            { row[p] = 0;  row[p+ndiags+HALF_PAD_NO] = 0; }
+            for (int p = 0; p < HALF_PAD_NO; ++p) {
+                deconvolver.field_x[p] = 0;
+                deconvolver.field_x[p + ndiags + HALF_PAD_NO] = 0;
+            }
 
             // deconvolve sinc^-2 factor using fftw
             deconvolver.deconvolveSinc(m);
 
             for (int p = 0; p < ndiags; ++p)
-                values[indices[p]] = row[p+HALF_PAD_NO];
+                values[indices[p]] = deconvolver.field_x[p + HALF_PAD_NO];
         }
 
         // if (byCol)  transpose();
@@ -929,10 +930,12 @@ namespace mxhelp
     {
         if (!is_dia_matrix) return;
 
-        int noff = dia_matrix->ndiags/2, nelem_per_row = 2*noff*osamp + 1;
+        int noff = dia_matrix->ndiags / 2,
+            nelem_per_row = 2 * noff * osamp + 1;
         // Using the following simple scaling yields biased results
         // double rescalor = (double) dia_matrix->ndiags / (double) nelem_per_row;
-        osamp_matrix = std::make_unique<OversampledMatrix>(ncols, nelem_per_row, osamp, dlambda);
+        osamp_matrix = std::make_unique<OversampledMatrix>(
+            ncols, nelem_per_row, osamp, dlambda);
 
         double *newrow;
         std::vector<double> row, win, wout;
@@ -941,11 +944,12 @@ namespace mxhelp
         wout.reserve(nelem_per_row);
 
         for (int i = 0; i < dia_matrix->ndiags; ++i)
-            win.push_back(i-noff);
+            win.push_back((i - noff) * dlambda);
         for (int i = 0; i < nelem_per_row; ++i)
-            wout.push_back(i*1./osamp-noff);
+            wout.push_back((i * 1. / osamp - noff) * dlambda);
 
-        gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, dia_matrix->ndiags);
+        gsl_interp *interp_cubic = gsl_interp_alloc(
+            gsl_interp_cspline, dia_matrix->ndiags);
         gsl_interp_accel *acc = gsl_interp_accel_alloc();
 
         // ncols == nrows for dia matrix
@@ -953,30 +957,29 @@ namespace mxhelp
         {
             dia_matrix->getRow(i, row);
 
-            newrow = osamp_matrix->matrix()+i*nelem_per_row;
+            newrow = osamp_matrix->matrix() + i * nelem_per_row;
 
             // interpolate log, shift before log
-            double _shift = *std::min_element(row.begin(), row.end())
+            double _shift =
+                *std::min_element(row.begin(), row.end())
                 - nonzero_min_element(row.begin(), row.end());
 
-            std::for_each(row.begin(), row.end(),
-                [_shift](double &f) { f = log(f-_shift); }
+            std::for_each(
+                row.begin(), row.end(),
+                [_shift](double &f) { f = log(f - _shift); }
             );
 
-            gsl_interp_init(interp_cubic, win.data(), row.data(), dia_matrix->ndiags);
+            gsl_interp_init(
+                interp_cubic, win.data(), row.data(), dia_matrix->ndiags);
 
-            // Paranoid that std::transform lambda is problematic
-            double sum=0;
             for (int jj = 0; jj < nelem_per_row; ++jj)
-            {
-                newrow[jj] = _shift + exp(gsl_interp_eval(
-                    interp_cubic, win.data(), row.data(), wout[jj], acc));
-                sum += newrow[jj];
-            }
+                newrow[jj] = 
+                    _shift + exp(gsl_interp_eval(
+                        interp_cubic, win.data(), row.data(), wout[jj], acc
+                ));
 
-            std::for_each(newrow, newrow+nelem_per_row,
-                [sum](double &X) { X/=sum; }
-            );
+            double isum = 1. / std::reduce(newrow, newrow + nelem_per_row);
+            cblas_dscal(nelem_per_row, isum, newrow, 1);
 
             gsl_interp_accel_reset(acc);
         }
