@@ -469,7 +469,7 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     _checkStatus();
 
     std::for_each(noise, noise+curr_N, [](double &ld)
-        { ld = 1. / (sqrt(ld) + std::numeric_limits<double>::epsilon()); }
+        { ld = 1. / (sqrt(ld) + DOUBLE_EPSILON); }
     );
 }
 
