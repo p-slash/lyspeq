@@ -144,7 +144,9 @@ namespace bins
     extern double Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE;
     extern BinningMethod Z_BINNING_METHOD;
 
-    const config_map bins_default_parameters ({{"K0", "0"}, {"LastKEdge", "-1"}});
+    const config_map bins_default_parameters ({
+        {"K0", "0"}, {"LastKEdge", "-1"}, {"RedshiftBinningMethod", "1"}
+    });
     /* This function reads following keys from config file:
     K0: double
         First edge for the k bins. 0 by default.
@@ -160,6 +162,7 @@ namespace bins
         Number of log bins.
     LastKEdge: double
         The last k edge will be this by adding a k bin if the value is valid.
+    RedshiftBinningMethod: int
     FirstRedshiftBinCenter: double
     RedshiftBinWidth: double
     NumberOfRedshiftBins: double

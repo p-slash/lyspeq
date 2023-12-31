@@ -30,21 +30,18 @@ namespace process
 
         config.addDefaults(process_default_parameters);
 
-        int save_pe_res = config.getInteger("SaveEachProcessResult"),
-            save_chunk_res = config.getInteger("SaveEachChunkResult"),
-            cache_all_sq = config.getInteger("CacheAllSQTables");
         MEMORY_ALLOC = config.getDouble("AllocatedMemoryMB");
 
-        SAVE_EACH_PE_RESULT = save_pe_res > 0;
-        SAVE_EACH_CHUNK_RESULT = save_chunk_res > 0;
-        SAVE_ALL_SQ_FILES = cache_all_sq > 0;
-        FNAME_BASE = config.get("OutputDir") + '/'
-            + config.get("OutputFileBase");
+        SAVE_EACH_PE_RESULT = config.getInteger("SaveEachProcessResult") > 0;
+        SAVE_EACH_CHUNK_RESULT = config.getInteger("SaveEachChunkResult") > 0;
+        SAVE_ALL_SQ_FILES = config.getInteger("CacheAllSQTables") > 0;
+        FNAME_BASE = config.get("OutputDir") + '/' + config.get("OutputFileBase");
         TMP_FOLDER = config.get("TemporaryFolder");
 
         #if !defined(ENABLE_MPI)
         if (SAVE_EACH_PE_RESULT)
-            throw std::invalid_argument("Bootstrap saving only supported when compiled with MPI.");
+            throw std::invalid_argument(
+                "Bootstrap saving only supported when compiled with MPI.");
         #endif
 
         LOG::LOGGER.STD("Fname base is set to %s.\n",
@@ -95,22 +92,16 @@ namespace specifics
         LOG::LOGGER.STD("###############################################\n");
         LOG::LOGGER.STD("Reading specifics from config.\n");
         config.addDefaults(specifics_default_parameters);
-        int usmoothlogs, use_picca_file;
-        double  temp_chisq;
 
-        use_picca_file = config.getInteger("InputIsPicca", -1);
-        USE_RESOLUTION_MATRIX = config.getInteger("UseResoMatrix", -1) > 0;
         RESOMAT_DECONVOLUTION_M = config.getDouble("ResoMatDeconvolutionM");
         OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat", -1);
         USE_FFT_FOR_SQ = config.getInteger("UseFftMeanResolution", -1) > 0;
         NUMBER_OF_CHUNKS = config.getInteger("DynamicChunkNumber", 1);
         NUMBER_OF_BOOTS = config.getInteger("NumberOfBoots");
 
-        // Turns off the signal matrix
-        TURN_OFF_SFID = config.getInteger("TurnOffBaseline", -1) > 0;
-        // Smooth lnk, lnP
-        usmoothlogs = config.getInteger("SmoothLnkLnP", 1);
-        temp_chisq = config.getDouble("ChiSqConvergence");
+        double temp_chisq = config.getDouble("ChiSqConvergence");
+        if (temp_chisq > 0)
+            CHISQ_CONVERGENCE_EPS = temp_chisq;
 
         // Continuum marginalization order. Pass <=0 to turn off
         CONT_LOGLAM_MARG_ORDER = config.getInteger(
@@ -122,11 +113,13 @@ namespace specifics
         // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
         // TODO: Test access here
 
-        SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
+        TURN_OFF_SFID = config.getInteger("TurnOffBaseline", -1) > 0;
+        SMOOTH_LOGK_LOGP = config.getInteger("SmoothLnkLnP", 1) > 0;
+        USE_RESOLUTION_MATRIX = config.getInteger("UseResoMatrix", -1) > 0;
         std::string precomp_fisher_str = config.get("PrecomputedFisher");
-        USE_PRECOMPUTED_FISHER   = !precomp_fisher_str.empty();
+        USE_PRECOMPUTED_FISHER = !precomp_fisher_str.empty();
 
-        if (use_picca_file>0)
+        if (config.getInteger("InputIsPicca", -1) > 0)
             INPUT_QSO_FILE = qio::Picca;
 
         if (INPUT_QSO_FILE != qio::Picca && USE_RESOLUTION_MATRIX)
@@ -137,8 +130,6 @@ namespace specifics
         if (USE_FFT_FOR_SQ && OVERSAMPLING_FACTOR > 0)
             throw std::invalid_argument(
                 "Oversampling is not supported with FFTs");
-
-        if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
 
         calcNvecs();
 
@@ -278,7 +269,7 @@ namespace bins
 
         config.addDefaults(bins_default_parameters);
 
-        int N_KLIN_BIN, N_KLOG_BIN, z_bin_key;
+        int N_KLIN_BIN, N_KLOG_BIN;
         double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, klast=-1;
 
         K_0 = config.getDouble("K0");
@@ -291,7 +282,6 @@ namespace bins
         Z_0 = config.getDouble("FirstRedshiftBinCenter");
         Z_BIN_WIDTH = config.getDouble("RedshiftBinWidth");
         NUMBER_OF_Z_BINS = config.getInteger("NumberOfRedshiftBins");
-        z_bin_key = config.getInteger("RedshiftBinningMethod", 1);
 
         if (N_KLIN_BIN > 0 && !(LIN_K_SPACING > 0))
             throw std::invalid_argument(
@@ -314,7 +304,7 @@ namespace bins
         if (NUMBER_OF_Z_BINS <= 0)
             throw std::invalid_argument("NumberOfRedshiftBins must be > 0.");
 
-        switch (z_bin_key) {
+        switch (config.getInteger("RedshiftBinningMethod", 1)) {
         case 0:
             Z_BINNING_METHOD = TophatBinningMethod;
             break;
@@ -324,7 +314,6 @@ namespace bins
         default:
             LOG::LOGGER.STD(
                 "Invalid RedshiftBinningMethod argument. Fallback to 1.\n");
-            z_bin_key = 1;
             Z_BINNING_METHOD = TriangleBinningMethod;
         }
 
