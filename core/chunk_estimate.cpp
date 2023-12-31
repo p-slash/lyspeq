@@ -690,21 +690,6 @@ void Chunk::oneQSOiteration(
     _freeMatrices();
 }
 
-void Chunk::addBoot(int p, double *temppower, double* tempfisher) {
-    double *outfisher = tempfisher + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
-
-    for (int i = 0; i < N_Q_MATRICES; ++i) {
-        for (int j = i; j < N_Q_MATRICES; ++j) {
-            outfisher[j + i * bins::TOTAL_KZ_BINS] +=
-                p * fisher_matrix[j + i * N_Q_MATRICES];
-        } 
-    }
-
-    cblas_daxpy(
-        N_Q_MATRICES,
-        p, dbt_estimate_before_fisher_vector[0].get(), 1,
-        temppower + fisher_index_start, 1);
-}
 
 void Chunk::_allocateMatrices()
 {
