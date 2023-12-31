@@ -742,8 +742,7 @@ void Chunk::_allocateMatrices()
         stored_sfid = new double[DATA_SIZE_2];
 
     // Create a temp highres lambda array
-    if (on_oversampling)
-    {
+    if (on_oversampling) {
         _finer_lambda = new double[_matrix_n];
 
         double fine_dlambda =
@@ -758,9 +757,7 @@ void Chunk::_allocateMatrices()
         _finer_matrix = new double[highsize];
         _vmatrix = new double[highsize];
         _zmatrix = new double[highsize];
-    }
-    else
-    {
+    } else {
         _matrix_lambda = qFile->wave();
         _finer_lambda  = NULL;
         _finer_matrix  = NULL;
@@ -768,8 +765,7 @@ void Chunk::_allocateMatrices()
         _zmatrix = temp_matrix[1];
     }
 
-    if (specifics::USE_FFT_FOR_SQ)
-    {
+    if (specifics::USE_FFT_FOR_SQ) {
         // rf_for_reso and interpLnW2 are defined for this file at the top.
         qFile->setRealField(rf_for_reso);
         qFile->calcAverageWindowFunctionFromRMat(rf_for_reso);
@@ -778,7 +774,7 @@ void Chunk::_allocateMatrices()
             0, rf_for_reso.k[1] - rf_for_reso.k[0], rf_for_reso.size_k(),
             rf_for_reso.field_x.data());
         process::sq_private_table->computeDerivativeMatrices(
-            RES_INDEX, &interpLnW2,
+            RES_INDEX, 1., &interpLnW2,
             interp2d_signal_matrix, interp_derivative_matrix);
     }
     // This function allocates new signal & deriv matrices 

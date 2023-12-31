@@ -109,7 +109,7 @@ void QSOFile::readData()
         pfile->readData(wave(), delta(), ivar());
         std::transform(ivar(), ivar() + arr_size, noise(),
             [](double ld) {
-                return 1. / sqrt(ld + std::numeric_limits<double>::epsilon());
+                return 1. / (sqrt(ld) + std::numeric_limits<double>::epsilon());
             }
         );
     }
@@ -589,10 +589,6 @@ void PiccaFile::readData(double *lambda, double *delta, double *ivar)
         &status);
 
     _checkStatus();
-
-    std::for_each(noise, noise+curr_N, [](double &ld)
-        { ld = 1. / (sqrt(ld) + std::numeric_limits<double>::epsilon()); }
-    );
 }
 
 std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix(int oversampling, double dlambda)
