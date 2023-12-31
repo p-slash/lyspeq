@@ -60,7 +60,9 @@ public:
     void run(
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
-        _prerun(local_queue);
+        // Get thetas to prepare.
+        for (auto one_qso = local_queue.begin(); one_qso != local_queue.end(); ++one_qso)
+            (*one_qso)->collapseBootstrap();
 
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
         Progress prog_tracker(nboots);
@@ -98,25 +100,6 @@ private:
     std::unique_ptr<double[]> temppower, tempfisher, allpowers;
     std::unique_ptr<PoissonRNG> pgenerator;
 
-    void _prerun(
-            std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
-    ) {
-        // Get thetas to prepare.
-        for (auto &one_qso : local_queue) {
-            for (auto &one_chunk : one_qso->chunks) {
-                one_chunk->releaseFile();
-
-                int ndim = one_chunk->N_Q_MATRICES;
-                double *pk = one_chunk->dbt_estimate_before_fisher_vector[0].get();
-                double *nk = one_chunk->dbt_estimate_before_fisher_vector[1].get();
-                double *tk = one_chunk->dbt_estimate_before_fisher_vector[2].get();
-
-                mxhelp::vector_sub(pk, nk, ndim);
-                mxhelp::vector_sub(pk, tk, ndim);
-            }
-        }
-    }
-
     bool _one_boot(
             int jj, std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
@@ -130,8 +113,7 @@ private:
             if (p == 0)
                 continue;
 
-            for (const auto &one_chunk : one_qso->chunks)
-                one_chunk->addBoot(p, temppower.get(), tempfisher.get());
+            one_qso->addBoot(p, temppower.get(), tempfisher.get());
         }
 
         t2 = mytime::timer.getTime();
