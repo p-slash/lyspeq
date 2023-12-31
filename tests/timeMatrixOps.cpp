@@ -147,21 +147,21 @@ double timeDgemv(int ndim) {
 }
 
 
-double timeDmydsymv(int ndim) {
-    auto A = getRandomSymmMatrix(ndim);
-    auto B = std::make_unique<double[]>(ndim);
+// double timeDmydsymv(int ndim) {
+//     auto A = getRandomSymmMatrix(ndim);
+//     auto B = std::make_unique<double[]>(ndim);
 
-    for (int i = 0; i < ndim; ++i)
-        B[i] = distribution(rng_engine);
+//     for (int i = 0; i < ndim; ++i)
+//         B[i] = distribution(rng_engine);
 
-    double t1 = mytime::timer.getTime(), t2 = 0;
+//     double t1 = mytime::timer.getTime(), t2 = 0;
 
-    for (int i = 0; i < N_LOOPS; ++i)
-        double sum = mxhelp::my_cblas_dsymvdot(B.get(), A.get(), ndim);
+//     for (int i = 0; i < N_LOOPS; ++i)
+//         double sum = mxhelp::my_cblas_dsymvdot(B.get(), A.get(), ndim);
 
-    t2 = mytime::timer.getTime();
-    return (t2 - t1) / N_LOOPS / std::pow(ndim / 100., 2);
-}
+//     t2 = mytime::timer.getTime();
+//     return (t2 - t1) / N_LOOPS / std::pow(ndim / 100., 2);
+// }
 
 
 double timeDmydgemv(int ndim) {
@@ -216,12 +216,12 @@ int main(int argc, char *argv[]) {
     };
 
     std::map<std::string, func_vector_pair> times{
-        // {"dsymm", std::make_pair(&timeDsymm, std::vector<double>())},
-        // {"dgemm", std::make_pair(&timeDgemm, std::vector<double>())},
+        {"dsymm", std::make_pair(&timeDsymm, std::vector<double>())},
+        {"dgemm", std::make_pair(&timeDgemm, std::vector<double>())},
         {"dsymv", std::make_pair(&timeDsymv, std::vector<double>())},
         {"dgemv", std::make_pair(&timeDgemv, std::vector<double>())},
-        {"mygot", std::make_pair(&timeDmydgemv, std::vector<double>())},
-        {"mysyt", std::make_pair(&timeDmydsymv, std::vector<double>())},
+        // {"mygot", std::make_pair(&timeDmydgemv, std::vector<double>())},
+        // {"mysyt", std::make_pair(&timeDmydsymv, std::vector<double>())},
         {"ddot", std::make_pair(&timeDdot, std::vector<double>())},
     };
 
