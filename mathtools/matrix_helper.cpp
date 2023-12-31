@@ -144,6 +144,22 @@ namespace mxhelp
         return cblas_ddot(N, v, 1, temp_vector, 1);
     }
 
+
+    // Slow!
+    double my_cblas_dsymvdot(const double *v, const double *S, int N) {
+        double sum = 0;
+
+        #pragma omp parallel for schedule(static, 1) reduction(+:sum)
+        for (int i = 0; i < N; ++i)
+        {
+            sum += S[i + i * N] * v[i] * v[i];
+            for (int j = i; j < N; ++j)
+                sum += 2 * S[j + i * N] * v[i] * v[j];
+        }
+
+        return sum;
+    }
+
     void LAPACKErrorHandle(const char *base, int info) {
         if (info != 0) {
             std::string err_msg(base);
