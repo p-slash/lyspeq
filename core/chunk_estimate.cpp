@@ -223,9 +223,9 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 
         int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
         // NERSC Perlmutter scaling relation for -c 2
-        const double agemm = 20., asymv = 0.5, adot = 1.0;
+        const double agemm = 18., agemv = 0.55, adot = 1.0;
         double one_dgemm = agemm * std::pow(qtemp.size() / 100., 3),
-               one_dsymv = asymv * std::pow(qtemp.size() / 100., 2),
+               one_dgemv = agemv * std::pow(qtemp.size() / 100., 2),
                one_ddot = adot * std::pow(qtemp.size() / 100., 2);
 
         int fidxlocal = bins::getFisherMatrixIndex(0, ZBIN_LOW);
@@ -258,7 +258,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 
         double res = (
             real_nq_mat * (one_dgemm + one_ddot * N_M_COMBO)
-            + (real_nq_mat + 1) * one_dsymv // dsymv contributions
+            + (real_nq_mat + 1) * one_dgemv // dgemv contributions
         );
 
         if (!specifics::TURN_OFF_SFID)
