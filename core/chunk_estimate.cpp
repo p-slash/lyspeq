@@ -439,7 +439,9 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
-    cblas_dsymv(CblasRowMajor, CblasUpper, size, 1., cinv, size, v, 1, 0, y, 1);
+    cblas_dgemv(
+        CblasRowMajor, CblasNoTrans, size, size, 1.,
+        cinv, size, v, 1, 0, y, 1);
     double norm = cblas_ddot(size, v, 1, y, 1);
     cblas_dger(CblasRowMajor, size, size, -1. / norm, y, 1, y, 1, cinv, size);
 }
@@ -532,17 +534,17 @@ void Chunk::computePSbeforeFvector()
            *tk0 = dbt_estimate_before_fisher_vector[2].get();
 
     // C-1 . flux
-    cblas_dsymv(
-        CblasRowMajor, CblasUpper, size(), 1.,
-        inverse_covariance_matrix, 
-        size(), qFile->delta(), 1, 0, weighted_data_vector, 1);
+    cblas_dgemv(
+        CblasRowMajor, CblasNoTrans, size(), size(), 1.,
+        inverse_covariance_matrix, size(), qFile->delta(), 1,
+        0, weighted_data_vector, 1);
 
     double t = mytime::timer.getTime();
 
     for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        dk0[i_kz] = mxhelp::my_cblas_dsymvdot(
+        dk0[i_kz] = mxhelp::my_cblas_dgemvdot(
             weighted_data_vector, 
             Q_ikz_matrix, temp_vector, size());
         // Transform q matrices to weighted matrices inplace
