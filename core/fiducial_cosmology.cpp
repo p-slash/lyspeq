@@ -37,40 +37,34 @@ namespace conv
         config.addDefaults(conversion_default_parameters);
 
         // If 1, uses mean of each chunk as F-bar
-        int uchunkmean = config.getInteger("UseChunksMeanFlux");
+        FLUX_TO_DELTAF_BY_CHUNKS = config.getInteger("UseChunksMeanFlux") > 0;
         // If 1, input is delta_f
-        int udeltaf = config.getInteger("InputIsDeltaFlux");
-
-        FLUX_TO_DELTAF_BY_CHUNKS  = uchunkmean > 0;
-        INPUT_IS_DELTA_FLUX       = udeltaf > 0;
+        INPUT_IS_DELTA_FLUX = config.getInteger("InputIsDeltaFlux") > 0;
 
         // File to interpolate for F-bar
         std::string FNAME_MEAN_FLUX = config.get("MeanFluxFile");
 
         // resolve conflict: Input delta flux overrides all
         // Then, chunk means.
-        if (INPUT_IS_DELTA_FLUX && FLUX_TO_DELTAF_BY_CHUNKS)
-        {
-            LOG::LOGGER.ERR("Both input delta flux and conversion"
-                " using chunk's mean flux is turned on. "
+        if (INPUT_IS_DELTA_FLUX && FLUX_TO_DELTAF_BY_CHUNKS) {
+            LOG::LOGGER.ERR(
+                "Both input delta flux and conversion "
+                "using chunk's mean flux is turned on. "
                 "Assuming input is flux fluctuations delta_f.\n");
             FLUX_TO_DELTAF_BY_CHUNKS = false;
         }
 
         setMeanFlux();
 
-        if (!FNAME_MEAN_FLUX.empty())
-        {
-            if (FLUX_TO_DELTAF_BY_CHUNKS)
-            {
-                LOG::LOGGER.ERR("Both mean flux file and using"
-                    " chunk's mean flux is turned on. "
+        if (!FNAME_MEAN_FLUX.empty()) {
+            if (FLUX_TO_DELTAF_BY_CHUNKS) {
+                LOG::LOGGER.ERR(
+                    "Both mean flux file and using chunk's mean flux is turned on. "
                     "Using chunk's mean flux.\n");
             }
-            else if (INPUT_IS_DELTA_FLUX)
-            {
-                LOG::LOGGER.ERR("Both input delta flux and conversion using "
-                    "mean flux file is turned on. "
+            else if (INPUT_IS_DELTA_FLUX) {
+                LOG::LOGGER.ERR(
+                    "Both input delta flux and conversion using mean flux file is turned on. "
                     "Assuming input is flux fluctuations delta_f.\n");
             }
             else
@@ -181,8 +175,10 @@ namespace fidcosmo
         double Palanque_Delabrouille_etal_2013_fit_growth_factor(double, double, double, void*);
     }
 
-    double (*fiducialPowerSpectrum)(double, double, void*)             = &pd13::Palanque_Delabrouille_etal_2013_fit;
-    double (*fiducialPowerGrowthFactor)(double, double, double, void*) = &pd13::Palanque_Delabrouille_etal_2013_fit_growth_factor;
+    double (*fiducialPowerSpectrum)(double, double, void*) =
+        &pd13::Palanque_Delabrouille_etal_2013_fit;
+    double (*fiducialPowerGrowthFactor)(double, double, double, void*) =
+        &pd13::Palanque_Delabrouille_etal_2013_fit_growth_factor;
     
     double FID_LOWEST_K = 0, FID_HIGHEST_K = 10.;
     std::unique_ptr<Interpolation2D> interp2d_fiducial_power;
@@ -195,7 +191,7 @@ namespace fidcosmo
     FiducialCurvature: double
     FiducialRedshiftPower: double
     FiducialRedshiftCurvature: double
-    FiducialLorentzianK1: double
+    FiducialLorentzianLambda: double
     */
     void readFiducialCosmo(ConfigFile &config)
     {
@@ -207,7 +203,7 @@ namespace fidcosmo
         pd13::FIDUCIAL_PD13_PARAMS.alpha = config.getDouble("FiducialCurvature");
         pd13::FIDUCIAL_PD13_PARAMS.B = config.getDouble("FiducialRedshiftPower");
         pd13::FIDUCIAL_PD13_PARAMS.beta = config.getDouble("FiducialRedshiftCurvature");
-        pd13::FIDUCIAL_PD13_PARAMS.k1 = config.getDouble("FiducialLorentzianK1");
+        pd13::FIDUCIAL_PD13_PARAMS.lambda = config.getDouble("FiducialLorentzianLambda");
 
         if (!FNAME_FID_POWER.empty())
             setFiducialPowerFromFile(FNAME_FID_POWER);
@@ -271,19 +267,18 @@ namespace fidcosmo
 
         pd13_fit_params FIDUCIAL_PD13_PARAMS = {
             6.621420e-02, -2.685349e+00, -2.232763e-01,
-            3.591244e+00, -1.768045e-01, 0.05271736191
+            3.591244e+00, -1.768045e-01, 3.598261e+02
         };
 
         double Palanque_Delabrouille_etal_2013_fit(double k, double z, void *params)
         {
             pd13_fit_params *pfp = (pd13::pd13_fit_params *) params;
 
-            double q0 = k / K_0 + 1E-16, x0 = (1. + z) / (1. + Z_0),
-                   q1 = k / pfp->k1;
+            double q0 = k / K_0 + 1E-16, x0 = (1. + z) / (1. + Z_0);
 
             return  pfp->A * MY_PI / K_0
                     * pow(q0, 2. + pfp->n + pfp->alpha * log(q0) + pfp->beta  * log(x0)) 
-                    * pow(x0,   pfp->B) / (1. + q1 * q1);
+                    * pow(x0,   pfp->B) / (1. + pfp->lambda * k * k);
         }
 
         double Palanque_Delabrouille_etal_2013_fit_growth_factor(

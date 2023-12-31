@@ -47,7 +47,7 @@ namespace fidcosmo
     FiducialCurvature: double
     FiducialRedshiftPower: double
     FiducialRedshiftCurvature: double
-    FiducialLorentzianK1: double
+    FiducialLorentzianLambda: double
     */
     void readFiducialCosmo(ConfigFile &config);
 
@@ -72,7 +72,7 @@ namespace fidcosmo
             double B;
             double beta;
 
-            double k1;
+            double lambda;
         } pd13_fit_params;
     
         // Default parameters are fit parameters if not specified in config file.

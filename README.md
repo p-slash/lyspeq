@@ -104,7 +104,7 @@ Fiducial Palanque fit function parameters when used.
     FiducialCurvature           -0.1
     FiducialRedshiftPower        0
     FiducialRedshiftCurvature    0
-    FiducialLorentzianK1         1e100
+    FiducialLorentzianLambda     0
     
 Lookup tables are generated with the following parameters. The resulting velocity spacing will be VelocityLength/(NumberVPoints+1).
 
