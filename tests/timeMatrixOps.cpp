@@ -127,6 +127,26 @@ double timeDsymv(int ndim) {
 }
 
 
+double timeDgemv(int ndim) {
+    auto A = getRandomSymmMatrix(ndim);
+    auto B = std::make_unique<double[]>(ndim);
+    auto C = std::make_unique<double[]>(ndim);
+
+    for (int i = 0; i < ndim; ++i)
+        B[i] = distribution(rng_engine);
+
+    double t1 = mytime::timer.getTime(), t2 = 0;
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, ndim, ndim, 1.,
+            A.get(), ndim, B.get(), 1, 0, C.get(), 1);
+
+    t2 = mytime::timer.getTime();
+    return (t2 - t1) / N_LOOPS / std::pow(ndim / 100., 2);
+}
+
+
 double timeDdot(int ndim) {
     auto A = getRandomSymmMatrix(ndim);
     auto B = getRandomSymmMatrix(ndim);
@@ -144,17 +164,11 @@ double timeDdot(int ndim) {
 
 
 int main(int argc, char *argv[]) {
-    int number_lapse = 400;
     if (argc == 2)
-        number_lapse = atoi(argv[1]);
-    else if (argc == 3) {
-        number_lapse = atoi(argv[1]);
-        N_LOOPS = atoi(argv[2]);
-    }
-    else if (argc > 3)
-    {
-        printf("Extra arguments! Usage lapse (default: %d) loops (%d)\n",
-               number_lapse, N_LOOPS);
+        N_LOOPS = atoi(argv[1]);
+    else if (argc > 2) {
+        printf("Extra arguments! Usage loops (default: %d)\n",
+               N_LOOPS);
         return 1;
     }
 
@@ -164,41 +178,41 @@ int main(int argc, char *argv[]) {
         750, 800, 850
     };
 
-    std::vector<double> times_dsymm, times_dgemm, times_dsmyv, times_ddot;
+    std::vector<double>
+        times_dsymm, times_dgemm, times_dsymv, times_dgemv, times_ddot;
 
     for (const int ndim : ndims) {
         times_dsymm.push_back(timeDsymm(ndim));
         times_dgemm.push_back(timeDgemm(ndim));
-        times_dsmyv.push_back(timeDsymv(ndim));
+        times_dsymv.push_back(timeDsymv(ndim));
+        times_dgemv.push_back(timeDgemv(ndim));
         times_ddot.push_back(timeDdot(ndim));
     }
 
-    double mean_dsymm = 0., mean_dgemm = 0., mean_dsymv = 0., mean_ddot = 0.;
+    double mean_dsymm = 0, mean_dgemm = 0, mean_dsymv = 0,
+           mean_dgemv = 0, mean_ddot = 0;
 
     // for (int i = 0; i < ndims.size(); ++i)
     int i1 = 3, i2 = 9, nsample = i2 - i1;
     for (int i = i1; i < i2; ++i)
     {
-        mean_dsymm += times_dsymm[i];
-        mean_dgemm += times_dgemm[i];
-        mean_dsymv += times_dsmyv[i];
-        mean_ddot += times_ddot[i];
+        mean_dsymm += times_dsymm[i] / nsample;
+        mean_dgemm += times_dgemm[i] / nsample;
+        mean_dsymv += times_dsymv[i] / nsample;
+        mean_dgemv += times_dgemv[i] / nsample;
+        mean_ddot += times_ddot[i] / nsample;
     }
 
-    mean_dsymm /= nsample;
-    mean_dgemm /= nsample;
-    mean_dsymv /= nsample;
-    mean_ddot /= nsample;
-
-    printf("Ndim,dsymm,dgemm,dsymv,ddot\n");
+    printf("Ndim,dsymm,dgemm,dsymv,dgemv,ddot\n");
     for (int i = 0; i < ndims.size(); ++i)
-        printf("%d,%.3e,%.3e,%.3e,%.3e\n",
+        printf("%d,%.3e,%.3e,%.3e,%.3e,%.3e\n",
                ndims[i], times_dsymm[i], times_dgemm[i],
-               times_dsmyv[i], times_ddot[i]);
+               times_dsymv[i], times_dgemv[i], times_ddot[i]);
     printf("--------------\n");
-    printf("Ave,%.3e,%.3e,%.3e,%.3e\n",
-           mean_dsymm, mean_dgemm, mean_dsymv, mean_ddot);
-    printf("Rat,%.3f,%.3f,%.3f,%.3f\n",
+    printf("Ave,%.3e,%.3e,%.3e,%.3e,%.3e\n",
+           mean_dsymm, mean_dgemm, mean_dsymv, mean_dgemv, mean_ddot);
+    printf("Rat,%.3f,%.3f,%.3f,%.3f,%.3f\n",
            mean_dsymm / mean_ddot, mean_dgemm / mean_ddot,
-           mean_dsymv / mean_ddot, mean_ddot / mean_ddot);
+           mean_dsymv / mean_ddot, mean_dgemv / mean_ddot,
+           mean_ddot / mean_ddot);
 }

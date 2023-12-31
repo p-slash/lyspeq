@@ -200,17 +200,17 @@ int test_trace_ddiagmv_2()
     return 1;
 }
 
-int test_my_cblas_dsymvdot()
+int test_my_cblas_dgemvdot()
 {
     const double truth = 1832.;
     auto temp_vector = std::make_unique<double[]>(NA);
-    double result = mxhelp::my_cblas_dsymvdot(
+    double result = mxhelp::my_cblas_dgemvdot(
         vector_cblas_dsymv_b_1, sym_matrix_A,
         temp_vector.get(), NA);
 
     if (isClose(result, truth))
         return 0;
-    fprintf(stderr, "ERROR my_cblas_dsymvdot.\n");
+    fprintf(stderr, "ERROR my_cblas_dgemvdot.\n");
     printValues(truth, result);
     return 1;
 }
@@ -628,7 +628,7 @@ int main()
     r += test_getDiagonal();
     r += test_trace_ddiagmv_1();
     r += test_trace_ddiagmv_2();
-    r += test_my_cblas_dsymvdot();
+    r += test_my_cblas_dgemvdot();
     r += test_LAPACKE_InvertMatrixLU_1();
     r += test_LAPACKE_InvertMatrixLU_2();
     r += test_OversampledMatrix_multiplications();

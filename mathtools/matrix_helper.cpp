@@ -134,11 +134,12 @@ namespace mxhelp
         return result;
     }
 
-    double my_cblas_dsymvdot(const double *v, const double *S,
-        double *temp_vector, int N)
-    {
-        cblas_dsymv(CblasRowMajor, CblasUpper, N, 1., S, N, v, 1, 0,
-            temp_vector, 1);
+    double my_cblas_dgemvdot(
+            const double *v, const double *A, double *temp_vector, int N
+    ) {
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, N, N, 1.,
+            A, N, v, 1, 0, temp_vector, 1);
 
         return cblas_ddot(N, v, 1, temp_vector, 1);
     }
