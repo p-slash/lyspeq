@@ -54,8 +54,12 @@ namespace mxhelp
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
     void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp);
+
+    // Return condition number
+    // if sjump != nullptr, finds the adjacent ratio of s values larger than 8
+    // fromthe right side
     double LAPACKE_RcondSvd(
-            const double *A, int N, double *smin=nullptr, double *smax=nullptr
+            const double *A, int N, double *sjump=nullptr
     );
 
     // Replace zero diagonals with one, then invert
