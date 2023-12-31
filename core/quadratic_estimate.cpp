@@ -592,7 +592,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
 
     r  = sqrt(r / _NewDegreesOfFreedom);
 
-    rfull = sqrt(fabs(mxhelp::my_cblas_dsymvdot(
+    rfull = sqrt(fabs(mxhelp::my_cblas_dgemvdot(
         previous_power_estimate_vector.get(),
         fisher_matrix_sum.get(), temp_vector.get(), bins::TOTAL_KZ_BINS)
     ) / _NewDegreesOfFreedom);
