@@ -41,9 +41,9 @@ namespace mxhelp
     double trace_ddiagmv(const double *A, const double *B, int N)
     {return cblas_ddot(N, A, N+1, B, 1);}
 
-    // vT . S . v
-    // Assumes S is square symmetric matrix NxN
-    double my_cblas_dsymvdot(const double *v, const double *S,
+    // vT . A . v
+    double my_cblas_dgemvdot(
+        const double *v, const double *A,
         double *temp_vector, int N);
 
     void printfMatrix(const double *A, int N1, int N2);

@@ -70,7 +70,6 @@ protected:
     void _setQiMatrix(double *qi, int i_kz);
     void _addMarginalizations();
     void _getWeightedMatrix(double *m);
-    void _getFisherMatrix(const double *Q_ikz_matrix_T, int idx);
 
     friend class TestOneQSOEstimate;
 
