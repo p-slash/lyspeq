@@ -523,28 +523,6 @@ void Chunk::_getWeightedMatrix(double *m)
     std::copy(temp_matrix[0], temp_matrix[0] + DATA_SIZE_2, m);
 }
 
-void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
-{
-    int i_kz = stored_ikz_qi[idx].first;
-    int idx_fji_0 = N_Q_MATRICES * i_kz;
-
-    // Now compute Fisher Matrix
-    // In some cases, the loop structure below results in seg fault.
-    // for (auto jq = stored_ikz_qi.begin() + idx; jq != stored_ikz_qi.end(); ++jq)
-    for (int jdx = idx; jdx < stored_ikz_qi.size(); ++jdx)
-    {
-        const auto &jq = stored_ikz_qi[jdx];
-        #ifdef FISHER_OPTIMIZATION
-        int diff_ji = jq.first - i_kz;
-        if ((diff_ji != 0) && (diff_ji != 1) && (diff_ji != bins::NUMBER_OF_K_BANDS))
-            continue;
-        #endif
-
-        fisher_matrix[jq.first + idx_fji_0] = 
-            cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, jq.second, 1);
-    }
-}
-
 void Chunk::computePSbeforeFvector()
 {
     DEBUG_LOG("PS before Fisher\n");
@@ -611,10 +589,24 @@ void Chunk::computePSbeforeFvector()
     t = mytime::timer.getTime();
 
     double *Q_ikz_matrix_T = temp_matrix[0];
-    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
-        mxhelp::transpose_copy(Q_ikz_matrix, Q_ikz_matrix_T, size());
+    for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt) {
+        const auto &[i_kz, Q_ikz_matrix] = *iqt;
 
-        _getFisherMatrix(Q_ikz_matrix_T, i_kz);
+        mxhelp::transpose_copy(Q_ikz_matrix, Q_ikz_matrix_T, size());
+        int idx_fji_0 = N_Q_MATRICES * i_kz;
+
+        for (auto jqt = iqt; jqt != stored_ikz_qi.end(); ++jqt) {
+            const auto &[j_kz, Q_jkz_matrix] = *jqt;
+            
+            #ifdef FISHER_OPTIMIZATION
+            int diff_ji = j_kz - i_kz;
+            if ((diff_ji != 0) && (diff_ji != 1) && (diff_ji != bins::NUMBER_OF_K_BANDS))
+                continue;
+            #endif
+
+            fisher_matrix[j_kz + idx_fji_0] = 
+                cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, Q_jkz_matrix, 1);
+        }
     }
 
     mytime::time_spent_set_fisher += mytime::timer.getTime() - t;
