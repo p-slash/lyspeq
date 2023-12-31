@@ -124,7 +124,7 @@ public:
             yarr[i] = 10. * exp(-i * dv / 100.);
 
         interp1d = std::make_unique<DiscreteInterpolation1D>(
-            0, dv, yarr.get(), narr);
+            0, dv, narr, yarr.get());
     }
 
     void setVZMatrices_noomp() {

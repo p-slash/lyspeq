@@ -1,5 +1,6 @@
 #include "discrete_interpolation.hpp"
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 // inlines solve duplicate symbol error in tests/test_utils.cpp
@@ -20,12 +21,28 @@ bool allClose(const double *a, const double *b, int size)
 }
 
 DiscreteInterpolation1D::DiscreteInterpolation1D(
-        double x_start, double delta_x, const double *y_arr, int Nsize
-) : x1(x_start), dx(delta_x), N(Nsize)
+        double x_start, double delta_x, int Nsize, double *y_arr, bool alloc
+) : x1(x_start), dx(delta_x), N(Nsize), _alloc(alloc)
 {
     x2 = x1 + dx * (N - 1);
-    y = new double[N];
-    std::copy(y_arr, y_arr + N, y);
+    if (_alloc) {
+        y = new double[N];
+        if (y_arr != nullptr)
+            std::copy(y_arr, y_arr + N, y);
+    }
+    else
+        y = y_arr;
+}
+
+
+void DiscreteInterpolation1D::resetPointer(
+        double x_start, double delta_x, int Nsize, double *y_arr
+) {
+    assert(!_alloc);
+    x1 = x_start;
+    dx = delta_x;
+    N = Nsize;
+    y = y_arr;
 }
 
 double DiscreteInterpolation1D::evaluate(double x)
