@@ -27,7 +27,7 @@
 const double
 MY_SQRT_2 = 1.41421356237,
 MY_SQRT_PI = 1.77245385091,
-MY_EPSILON_D = std::numeric_limits<double>::epsilon();
+MY_EPSILON_D = 1e-15;
 
 // cblas_dcopy(N, sour, isour, tar, itar); 
 template<class InputIt>
