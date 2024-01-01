@@ -20,6 +20,8 @@ protected:
     // Emplace_back with vector<OneQSOEstimate> leaks memory!!
     std::vector<int> indices;
 
+    int istart, ndim;
+    std::unique_ptr<double[]> fisher_matrix, theta_vector;
 public:
     std::vector<std::unique_ptr<Chunk>> chunks;
 
@@ -30,9 +32,13 @@ public:
     static double getComputeTimeEst(std::string fname_qso, int &zbin);
 
     // Pass fit values for the power spectrum for numerical stability
-    void oneQSOiteration(const double *ps_estimate, 
+    void oneQSOiteration(
+        const double *ps_estimate, 
         std::vector<std::unique_ptr<double[]>> &dbt_sum_vector, 
         double *fisher_sum);
+
+    void collapseBootstrap();
+    void addBoot(int p, double *temppower, double* tempfisher);
 };
 
 #endif

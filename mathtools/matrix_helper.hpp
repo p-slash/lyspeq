@@ -41,9 +41,9 @@ namespace mxhelp
     double trace_ddiagmv(const double *A, const double *B, int N)
     {return cblas_ddot(N, A, N+1, B, 1);}
 
-    // vT . S . v
-    // Assumes S is square symmetric matrix NxN
-    double my_cblas_dsymvdot(const double *v, const double *S,
+    // vT . A . v
+    double my_cblas_dgemvdot(
+        const double *v, const double *A,
         double *temp_vector, int N);
 
     void printfMatrix(const double *A, int N1, int N2);
@@ -54,8 +54,12 @@ namespace mxhelp
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
     void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp);
+
+    // Return condition number
+    // if sjump != nullptr, finds the adjacent ratio of s values larger than 8
+    // fromthe right side
     double LAPACKE_RcondSvd(
-            const double *A, int N, double *smin=nullptr, double *smax=nullptr
+            const double *A, int N, double *sjump=nullptr
     );
 
     // Replace zero diagonals with one, then invert

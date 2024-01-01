@@ -74,8 +74,6 @@ double _integrated_window_fn_v(double x, double R, double a)
 
 namespace mxhelp
 {
-    const double TARGET_RCOND = 5e-5;
-
     #define BLOCK_SIZE 32
     void copyUpperToLower(double *A, int N) {
         #pragma omp parallel for collapse(2)
@@ -134,13 +132,30 @@ namespace mxhelp
         return result;
     }
 
-    double my_cblas_dsymvdot(const double *v, const double *S,
-        double *temp_vector, int N)
-    {
-        cblas_dsymv(CblasRowMajor, CblasUpper, N, 1., S, N, v, 1, 0,
-            temp_vector, 1);
+    double my_cblas_dgemvdot(
+            const double *v, const double *A, double *temp_vector, int N
+    ) {
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, N, N, 1.,
+            A, N, v, 1, 0, temp_vector, 1);
 
         return cblas_ddot(N, v, 1, temp_vector, 1);
+    }
+
+
+    // Slow!
+    double my_cblas_dsymvdot(const double *v, const double *S, int N) {
+        double sum = 0;
+
+        #pragma omp parallel for schedule(static, 1) reduction(+:sum)
+        for (int i = 0; i < N; ++i)
+        {
+            sum += S[i + i * N] * v[i] * v[i];
+            for (int j = i; j < N; ++j)
+                sum += 2 * S[j + i * N] * v[i] * v[j];
+        }
+
+        return sum;
     }
 
     void LAPACKErrorHandle(const char *base, int info) {
@@ -232,7 +247,7 @@ namespace mxhelp
         std::copy_n(_Bmat.get(), size, S);
     }
 
-    double LAPACKE_RcondSvd(const double *A, int N, double *smin, double *smax) {
+    double LAPACKE_RcondSvd(const double *A, int N, double *sjump) {
         int size = N * N;
         auto B = std::make_unique<double[]>(size),
              svals = std::make_unique<double[]>(N),
@@ -246,13 +261,21 @@ namespace mxhelp
             NULL, LIN, NULL, LIN, superb.get());
         LAPACKErrorHandle("ERROR in SVD.", info);
 
-        if (smin != nullptr)
-            *smin = svals[N - 1];
-        if (smax != nullptr)
-            *smax = svals[0];
+        if (sjump == nullptr)
+            return svals[N - 1] / svals[0];
+
+        *sjump = 0;
+        for (int i = N - 1; i > 0; --i)
+        {
+            if ((svals[i - 1] / svals[i]) > 8.)
+                *sjump = svals[i];
+            else
+                break;
+        }
 
         return svals[N - 1] / svals[0];
     }
+
 
     int stableInvertSym(double *S, int N, int &dof, double &damp) {
         int warn = 0;
@@ -260,13 +283,11 @@ namespace mxhelp
         dof = N - empty_indx.size();
         damp = 0;
 
-        double rcond = 0, smin = 0, smax = 0;
-        rcond = LAPACKE_RcondSvd(S, N, &smin, &smax);
+        double rcond = 0;
+        rcond = LAPACKE_RcondSvd(S, N, &damp);
 
-        if (rcond < TARGET_RCOND) {
+        if (damp != 0) {
             warn = 1;
-            damp = TARGET_RCOND * smax - smin;
-
             LAPACKE_InvertSymMatrixLU_damped(S, N, damp);
         } else {
             LAPACKE_InvertMatrixLU(S, N);
@@ -340,16 +361,13 @@ namespace mxhelp
     void LAPACKE_stableSymSolve(double *S, int N, double *b) {
         std::vector<int> empty_indx = _setEmptyIndices(S, N);
 
-        double rcond = 0, smin = 0, smax = 0;
-        rcond = LAPACKE_RcondSvd(S, N, &smin, &smax);
+        double rcond = 0, sjump = 0;
+        rcond = LAPACKE_RcondSvd(S, N, &sjump);
 
-        if (rcond < TARGET_RCOND) {
-            double damp = TARGET_RCOND * smax - smin;
-
-            LAPACKE_solve_damped(S, N, b, damp);
-        } else {
+        if (sjump != 0)
+            LAPACKE_solve_damped(S, N, b, sjump);
+        else
             LAPACKE_solve(S, N, b);
-        }
 
         for (const auto &i : empty_indx)
             b[i] = 0;
