@@ -42,8 +42,8 @@ double _getMediandlambda(const double *wave, int size)
 // double *wave, *delta, *noise;
 // mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
-        : PB(p_or_b), wave_head(NULL), delta_head(NULL), noise_head(NULL),
-          arr_size(0), shift(0), num_masked_pixels(0), fname(fname_qso)
+        : PB(p_or_b), wave_head(nullptr), delta_head(nullptr), noise_head(nullptr),
+          arr_size(0), _fullsize(0), shift(0), num_masked_pixels(0), fname(fname_qso)
 {
     if (PB == Picca)
         pfile = std::make_unique<PiccaFile>(fname);
@@ -62,10 +62,12 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
           R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
 {
     arr_size = i2 - i1;
+    _fullsize = arr_size;
 
     wave_head  = new double[arr_size];
     delta_head = new double[arr_size];
     noise_head = new double[arr_size];
+    process::updateMemory(-process::getMemoryMB(_fullsize * 3));
 
     std::copy(qmaster.wave()+i1, qmaster.wave()+i2, wave());
     std::copy(qmaster.delta()+i1, qmaster.delta()+i2, delta());
@@ -73,9 +75,11 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 
     _cutMaskedBoundary();
 
-    if (qmaster.Rmat)
+    if (qmaster.Rmat) {
         Rmat = std::make_unique<mxhelp::Resolution>(
             qmaster.Rmat.get(), i1+shift, i1+shift+arr_size);
+        process::updateMemory(-Rmat->getMinMemUsage());
+    }
     recalcDvDLam();
 }
 
@@ -88,6 +92,7 @@ void QSOFile::readParameters()
     else
         bqfile->readParameters(
             arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms);
+    _fullsize = arr_size;
 }
 
 void QSOFile::readData()
@@ -98,6 +103,7 @@ void QSOFile::readData()
     wave_head  = new double[arr_size];
     delta_head = new double[arr_size];
     noise_head = new double[arr_size];
+    process::updateMemory(-process::getMemoryMB(_fullsize * 3));
 
     if (pfile)
         pfile->readData(wave(), delta(), noise());
@@ -164,21 +170,27 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
     _cutMaskedBoundary();
 
-    if (Rmat)
+    if (Rmat) {
+        process::updateMemory(Rmat->getMinMemUsage());
         Rmat->cutBoundary(shift, shift+arr_size);
+        process::updateMemory(-Rmat->getMinMemUsage());
+    }
 }
 
 void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 {
-    if (wave_head == NULL)
+    if (wave_head == nullptr)
     {
         wave_head  = new double[size()];
         delta_head = new double[size()];
         noise_head = new double[size()];
+        process::updateMemory(-process::getMemoryMB(size() * 3));
+
         if (pfile)
             pfile->readData(wave(), delta(), noise());
         else
             bqfile->readData(wave(), delta(), noise());
+
         _cutMaskedBoundary();
     }
 
@@ -189,8 +201,10 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 
 void QSOFile::readAllocResolutionMatrix()
 {
-    if (pfile)
+    if (pfile) {
         Rmat = pfile->readAllocResolutionMatrix(oversampling, dlambda);
+        process::updateMemory(-Rmat->getMinMemUsage());
+    }
     else
         throw std::runtime_error("Cannot read resolution matrix from Binary file!");
 }

@@ -179,30 +179,18 @@ void Chunk::_setStoredMatrices()
 
 Chunk::~Chunk()
 {
-    process::updateMemory(getMinMemUsage());
+    process::updateMemory(
+        process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES)
+    );
 }
 
 double Chunk::getMinMemUsage()
 {
     double minmem = process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
-    if (qFile) {
-        minmem += process::getMemoryMB(size() * 3);    
-        if (specifics::USE_RESOLUTION_MATRIX)
-            minmem += qFile->Rmat->getMinMemUsage();
-    }
+    if (qFile)
+        minmem += qFile->getMinMemUsage();
 
     return minmem;
-}
-
-void Chunk::releaseFile() {
-    if (!qFile)
-        return;
-
-    double released_mem = process::getMemoryMB(size() * 3);
-    if (specifics::USE_RESOLUTION_MATRIX)
-        released_mem += qFile->Rmat->getMinMemUsage();
-    process::updateMemory(released_mem);
-    qFile.reset();
 }
 
 double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
