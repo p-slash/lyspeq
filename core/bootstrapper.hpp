@@ -60,18 +60,29 @@ public:
     void run(
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
-        _prerun(local_queue);
+        // Get thetas to prepare.
+        for (auto one_qso = local_queue.begin(); one_qso != local_queue.end(); ++one_qso)
+            (*one_qso)->collapseBootstrap();
 
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
         Progress prog_tracker(nboots);
 
+        int ii = 0;
         for (int jj = 0; jj < nboots; ++jj) {
-            _one_boot(jj, local_queue);
+            bool valid = _one_boot(ii, local_queue);
             ++prog_tracker;
+            if (valid) ++ii;
         }
 
         if (process::this_pe != 0)
             return;
+
+        double success_ratio = (100. * ii) / nboots;
+        LOG::LOGGER.STD(
+            "Number of valid bootstraps %d of %d. Ratio %.2f%%\n",
+            ii, nboots, success_ratio);
+        if (success_ratio < 90.)
+            LOG::LOGGER.ERR("WARNING: Low success ratio!\n");
 
         mytime::printfBootstrapTimeSpentDetails();
 
@@ -89,26 +100,7 @@ private:
     std::unique_ptr<double[]> temppower, tempfisher, allpowers;
     std::unique_ptr<PoissonRNG> pgenerator;
 
-    void _prerun(
-            std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
-    ) {
-        // Get thetas to prepare.
-        for (auto &one_qso : local_queue) {
-            for (auto &one_chunk : one_qso->chunks) {
-                one_chunk->releaseFile();
-
-                int ndim = one_chunk->N_Q_MATRICES;
-                double *pk = one_chunk->dbt_estimate_before_fisher_vector[0].get();
-                double *nk = one_chunk->dbt_estimate_before_fisher_vector[1].get();
-                double *tk = one_chunk->dbt_estimate_before_fisher_vector[2].get();
-
-                mxhelp::vector_sub(pk, nk, ndim);
-                mxhelp::vector_sub(pk, tk, ndim);
-            }
-        }
-    }
-
-    void _one_boot(
+    bool _one_boot(
             int jj, std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         double t1 = mytime::timer.getTime(), t2;
@@ -116,13 +108,12 @@ private:
         std::fill_n(temppower.get(), bins::TOTAL_KZ_BINS, 0);
         std::fill_n(tempfisher.get(), bins::FISHER_SIZE, 0);
 
-        for (auto &one_qso : local_queue) {
+        for (const auto &one_qso : local_queue) {
             int p = pgenerator->generate();
             if (p == 0)
                 continue;
 
-            for (auto &one_chunk : one_qso->chunks)
-                one_chunk->addBoot(p, temppower.get(), tempfisher.get());
+            one_qso->addBoot(p, temppower.get(), tempfisher.get());
         }
 
         t2 = mytime::timer.getTime();
@@ -149,18 +140,29 @@ private:
         }
         #endif
 
-        if (process::this_pe != 0)
-            return;
+        bool valid = true;
+        if (process::this_pe == 0) {
+            // mxhelp::copyUpperToLower(tempfisher.get(), bins::TOTAL_KZ_BINS);
 
-        t1 = mytime::timer.getTime();
-        mytime::time_spent_on_oneboot_mpi += t1 - t2;
+            t1 = mytime::timer.getTime();
+            mytime::time_spent_on_oneboot_mpi += t1 - t2;
 
-        mxhelp::LAPACKE_solve_safe(
-            tempfisher.get(), bins::TOTAL_KZ_BINS,
-            allpowers.get() + jj * bins::TOTAL_KZ_BINS);
+            try {
+                mxhelp::LAPACKE_safeSolveCho(
+                    tempfisher.get(), bins::TOTAL_KZ_BINS,
+                    allpowers.get() + jj * bins::TOTAL_KZ_BINS);
+            } catch (std::exception& e) {
+                valid = false;
+            }
 
-        t2 = mytime::timer.getTime();
-        mytime::time_spent_on_oneboot_solve += t2 - t1;
+            t2 = mytime::timer.getTime();
+            mytime::time_spent_on_oneboot_solve += t2 - t1;
+        }
+
+        #if defined(ENABLE_MPI)
+        MPI_Bcast(&valid, 1, MPI_CXX_BOOL, 0, MPI_COMM_WORLD);
+        #endif
+        return valid;
     }
 
     void _calcuate_covariance() {
