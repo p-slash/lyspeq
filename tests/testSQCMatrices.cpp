@@ -69,7 +69,7 @@ int TestOneQSOEstimate::test_setFiducialSignalMatrix()
 
 int TestOneQSOEstimate::test_setQiMatrix()
 {
-    chunks[0]->_setQiMatrix(chunks[0]->temp_matrix[0], 0);
+    chunks[0]->_setQiMatrix(chunks[0]->stored_ikz_qi[0].second, 0);
 
     const std::string
     fname_q0_matrix = std::string(SRCDIR) + "/tests/truth/q0_matrix.txt";
@@ -83,10 +83,10 @@ int TestOneQSOEstimate::test_setQiMatrix()
     assert(ncols == ndim);
     assert(chunks[0]->qFile->size() == ndim);
 
-    if (not allClose(A.data(), chunks[0]->temp_matrix[0], ndim))
+    if (not allClose(A.data(), chunks[0]->stored_ikz_qi[0].second, ndim))
     {
         fprintf(stderr, "ERROR Chunk::_setQiMatrix.\n");
-        // printMatrices(A.data(), chunks[0]->temp_matrix[0], ndim, ndim);
+        printMatrices(A.data(), chunks[0]->stored_ikz_qi[0].second, 50, ndim);
         return 1;
     }
 
@@ -215,7 +215,8 @@ int main(int argc, char *argv[])
     r+=toqso.test_setFiducialSignalMatrix();
     r+=toqso.test_setQiMatrix();
 
-    LOG::LOGGER.STD("SQ matrices work!\n");
+    if (r == 0)
+        LOG::LOGGER.STD("SQ matrices work!\n");
 
     #if defined(ENABLE_MPI)
     MPI_Finalize();

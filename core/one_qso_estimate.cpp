@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "core/one_qso_estimate.hpp"
 #include "core/global_numbers.hpp"
 
@@ -50,30 +52,32 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
     // Boundary cut
     qFile.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-    if (qFile.realSize() < MIN_PIXELS_IN_CHUNK)   return;
+    if (qFile.realSize() < MIN_PIXELS_IN_CHUNK) {
+        LOG::LOGGER.ERR(
+            "OneQSOEstimate::OneQSOEstimate::Short file in %s.\n",
+            fname_qso.c_str());
+
+        return;
+    }
 
     // decide nchunk with lambda points array[nchunks+1]
     int nchunks = _decideNChunks(qFile.size(), indices);
 
     // create chunk objects
     chunks.reserve(nchunks);
+
     for (int nc = 0; nc < nchunks; ++nc)
     {
         try
         {
             auto _chunk = std::make_unique<Chunk>(qFile, indices[nc], indices[nc+1]);
-            if (_chunk->realSize() < MIN_PIXELS_IN_CHUNK)
-            {
-                LOG::LOGGER.ERR("Skipping chunk %d of %s. Realsize %d/%d\n",
-                    nc, fname_qso.c_str(), _chunk->realSize(), _chunk->size());
-                continue;
-            }
             chunks.push_back(std::move(_chunk));
         }
         catch (std::exception& e)
         {
-            LOG::LOGGER.ERR("%s. Skipping chunk %d of %s.\n", e.what(), nc,
-                fname_qso.c_str());
+            LOG::LOGGER.ERR(
+                "OneQSOEstimate::OneQSOEstimate::%s Skipping chunk %d/%d of %s.\n",
+                e.what(), nc, nchunks, fname_qso.c_str());
         }
     }
 }
@@ -109,7 +113,9 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
+        LOG::LOGGER.ERR(
+            "OneQSOEstimate::getComputeTimeEst::%s. Skipping %s.\n",
+            e.what(), fname_qso.c_str());
         return 0;
     }
 }
@@ -119,22 +125,73 @@ void OneQSOEstimate::oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
         double *fisher_sum
 ) {
-    for (auto chunk = chunks.begin(); chunk != chunks.end();) {
+    for (auto &chunk : chunks) {
         try {
-            (*chunk)->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
+            chunk->oneQSOiteration(ps_estimate, dbt_sum_vector, fisher_sum);
         }
         catch (std::exception& e) {
-            LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), fname_qso.c_str());
-            chunk = chunks.erase(chunk);
-            continue;
+            LOG::LOGGER.ERR(
+                "OneQSOEstimate::oneQSOiteration::%s Skipping %s.\n",
+                e.what(), fname_qso.c_str());
+            chunk.reset();
         }
-
-        ++chunk;
     }
+
+    chunks.erase(std::remove_if(
+        chunks.begin(), chunks.end(), [](const auto &x) { return !x; }),
+        chunks.end()
+    );
 }
 
 
+void OneQSOEstimate::collapseBootstrap() {
+    int fisher_index_end = 0;
 
+    istart = bins::TOTAL_KZ_BINS;
+    for (const auto &chunk : chunks) {
+        istart = std::min(istart, chunk->fisher_index_start);
+        fisher_index_end = std::max(
+            fisher_index_end, chunk->fisher_index_start + chunk->N_Q_MATRICES);
+    }
+
+    ndim = fisher_index_end - istart;
+
+    theta_vector = std::make_unique<double[]>(ndim);
+    fisher_matrix = std::make_unique<double[]>(ndim * ndim);
+
+    for (const auto &chunk : chunks) {
+        int offset = chunk->fisher_index_start - istart;
+        double *pk = chunk->dbt_estimate_before_fisher_vector[0].get();
+        double *nk = chunk->dbt_estimate_before_fisher_vector[1].get();
+        double *tk = chunk->dbt_estimate_before_fisher_vector[2].get();
+
+        cblas_daxpy(chunk->N_Q_MATRICES, -1, nk, 1, pk, 1);
+        cblas_daxpy(chunk->N_Q_MATRICES, -1, tk, 1, pk, 1);
+        cblas_daxpy(chunk->N_Q_MATRICES, 1, pk, 1, theta_vector.get() + offset, 1);
+
+        for (int i = 0; i < chunk->N_Q_MATRICES; ++i) {
+            for (int j = i; j < chunk->N_Q_MATRICES; ++j) {
+                fisher_matrix[j + i * ndim + (ndim + 1) * offset] +=
+                    chunk->fisher_matrix[j + i * chunk->N_Q_MATRICES];
+            } 
+        }
+    }
+
+    chunks.clear();
+}
+
+
+void OneQSOEstimate::addBoot(int p, double *temppower, double* tempfisher) {
+    double *outfisher = tempfisher + (bins::TOTAL_KZ_BINS + 1) * istart;
+
+    for (int i = 0; i < ndim; ++i) {
+        for (int j = i; j < ndim; ++j) {
+            outfisher[j + i * bins::TOTAL_KZ_BINS] += p * fisher_matrix[j + i * ndim];
+        } 
+    }
+
+    cblas_daxpy(ndim, p, theta_vector.get(), 1, temppower + istart, 1);
+}
 
 
 

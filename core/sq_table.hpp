@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 
+#include "core/global_numbers.hpp"
 #include "mathtools/discrete_interpolation.hpp"
 #include "io/config_file.hpp"
 
@@ -37,21 +38,16 @@ class SQLookupTable
     
     std::string DIR, S_BASE, Q_BASE;
 
-    // Temporary arrays. They are not stored after construction!
-    double *LINEAR_V_ARRAY, *LINEAR_Z_ARRAY,
-           *signal_array, *derivative_array;
-
     std::vector<shared_interp_2d> interp2d_signal_matrices;
     std::vector<shared_interp_1d> interp_derivative_matrices;
 
     double itp_v1, itp_dv, itp_z1, itp_dz; 
 
-    int getIndex4DerivativeInterpolation(int kn, int r_index) const;
-
+    inline
+    int getIndex4DerivativeInterpolation(int kn, int r_index) const {
+        return kn + bins::NUMBER_OF_K_BANDS * r_index;
+    }
     void allocateSignalAndDerivArrays();
-    void allocateVAndZArrays();
-    void deallocateSignalAndDerivArrays();
-    void deallocateVAndZArrays();
 
     shared_interp_1d _allocReadQFile(int kn, int r_index);
     shared_interp_2d _allocReadSFile(int r_index);
@@ -61,7 +57,8 @@ public:
     SQLookupTable(SQLookupTable &&rhs) = delete;
     SQLookupTable(const SQLookupTable &rhs) = delete;
 
-    void readSQforR(int r_index, shared_interp_2d &s,
+    void readSQforR(
+        int r_index, shared_interp_2d &s,
         std::vector<shared_interp_1d>  &q, 
         bool alloc=false);
 
@@ -71,8 +68,15 @@ public:
 
     int findSpecResIndex(int spec_res, double dv) const;
 
-    shared_interp_1d getDerivativeMatrixInterp(int kn, int r_index) const;
-    shared_interp_2d getSignalMatrixInterp(int r_index) const;
+    inline
+    shared_interp_1d getDerivativeMatrixInterp(int kn, int r_index) const {
+        return interp_derivative_matrices[getIndex4DerivativeInterpolation(kn ,r_index)];
+    }
+
+    inline
+    shared_interp_2d getSignalMatrixInterp(int r_index) const {
+        return interp2d_signal_matrices[r_index];
+    }
 
     double getOneSetMemUsage();
     double getMaxMemUsage();

@@ -2,6 +2,7 @@
 #include "io/config_file.hpp"
 #include "io/logger.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept> // std::invalid_argument
 
@@ -18,8 +19,8 @@ namespace process
     void updateMemory(double deltamem)
     {
         MEMORY_ALLOC += deltamem;
-        if (MEMORY_ALLOC < 10)
-            LOG::LOGGER.ERR("Remaining memory is less than 10 MB!\n");
+        if (MEMORY_ALLOC < 100)
+            LOG::LOGGER.ERR("Remaining memory is less than 100 MB!\n");
     }
 
     void readProcess(ConfigFile &config)
@@ -29,21 +30,18 @@ namespace process
 
         config.addDefaults(process_default_parameters);
 
-        int save_pe_res = config.getInteger("SaveEachProcessResult"),
-            save_chunk_res = config.getInteger("SaveEachChunkResult"),
-            cache_all_sq = config.getInteger("CacheAllSQTables");
         MEMORY_ALLOC = config.getDouble("AllocatedMemoryMB");
 
-        SAVE_EACH_PE_RESULT = save_pe_res > 0;
-        SAVE_EACH_CHUNK_RESULT = save_chunk_res > 0;
-        SAVE_ALL_SQ_FILES = cache_all_sq > 0;
-        FNAME_BASE = config.get("OutputDir") + '/'
-            + config.get("OutputFileBase");
+        SAVE_EACH_PE_RESULT = config.getInteger("SaveEachProcessResult") > 0;
+        SAVE_EACH_CHUNK_RESULT = config.getInteger("SaveEachChunkResult") > 0;
+        SAVE_ALL_SQ_FILES = config.getInteger("CacheAllSQTables") > 0;
+        FNAME_BASE = config.get("OutputDir") + '/' + config.get("OutputFileBase");
         TMP_FOLDER = config.get("TemporaryFolder");
 
         #if !defined(ENABLE_MPI)
         if (SAVE_EACH_PE_RESULT)
-            throw std::invalid_argument("Bootstrap saving only supported when compiled with MPI.");
+            throw std::invalid_argument(
+                "Bootstrap saving only supported when compiled with MPI.");
         #endif
 
         LOG::LOGGER.STD("Fname base is set to %s.\n",
@@ -94,21 +92,15 @@ namespace specifics
         LOG::LOGGER.STD("###############################################\n");
         LOG::LOGGER.STD("Reading specifics from config.\n");
         config.addDefaults(specifics_default_parameters);
-        int sfid_off, usmoothlogs, use_picca_file, use_reso_mat;
-        double  temp_chisq;
 
-        use_picca_file = config.getInteger("InputIsPicca", -1);
-        use_reso_mat = config.getInteger("UseResoMatrix", -1);
         RESOMAT_DECONVOLUTION_M = config.getDouble("ResoMatDeconvolutionM");
         OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat", -1);
         NUMBER_OF_CHUNKS = config.getInteger("DynamicChunkNumber", 1);
         NUMBER_OF_BOOTS = config.getInteger("NumberOfBoots");
 
-        // Turns off the signal matrix
-        sfid_off = config.getInteger("TurnOffBaseline", -1);
-        // Smooth lnk, lnP
-        usmoothlogs = config.getInteger("SmoothLnkLnP", 1);
-        temp_chisq = config.getDouble("ChiSqConvergence");
+        double temp_chisq = config.getDouble("ChiSqConvergence");
+        if (temp_chisq > 0)
+            CHISQ_CONVERGENCE_EPS = temp_chisq;
 
         // Continuum marginalization order. Pass <=0 to turn off
         CONT_LOGLAM_MARG_ORDER = config.getInteger(
@@ -120,21 +112,19 @@ namespace specifics
         // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
         // TODO: Test access here
 
-        TURN_OFF_SFID        = sfid_off > 0;
-        SMOOTH_LOGK_LOGP     = usmoothlogs > 0;
-        USE_RESOLUTION_MATRIX= use_reso_mat > 0;
+        TURN_OFF_SFID = config.getInteger("TurnOffBaseline", -1) > 0;
+        SMOOTH_LOGK_LOGP = config.getInteger("SmoothLnkLnP", 1) > 0;
+        USE_RESOLUTION_MATRIX = config.getInteger("UseResoMatrix", -1) > 0;
         std::string precomp_fisher_str = config.get("PrecomputedFisher");
-        USE_PRECOMPUTED_FISHER   = !precomp_fisher_str.empty();
+        USE_PRECOMPUTED_FISHER = !precomp_fisher_str.empty();
 
-        if (use_picca_file>0)
+        if (config.getInteger("InputIsPicca", -1) > 0)
             INPUT_QSO_FILE = qio::Picca;
 
         if (INPUT_QSO_FILE != qio::Picca && USE_RESOLUTION_MATRIX)
             throw std::invalid_argument(
                 "Resolution matrix is only supported with picca files."
                 " Add 'InputIsPicca 1' to config file if so.");
-
-        if (temp_chisq > 0) CHISQ_CONVERGENCE_EPS = temp_chisq;
 
         calcNvecs();
 
@@ -164,14 +154,6 @@ namespace specifics
         #undef booltostr
     }
 
-    #if defined(TOPHAT_Z_BINNING_FN)
-    const std::string BINNING_SHAPE = "Top Hat";
-    #elif defined(TRIANGLE_Z_BINNING_FN)
-    const std::string BINNING_SHAPE = "Triangular";
-    #else
-    const std::string BINNING_SHAPE = "ERROR NOT DEFINED";
-    #endif
-
     #if defined(FISHER_OPTIMIZATION)
     const std::string FISHER_TXT = "ON";
     #else
@@ -188,7 +170,6 @@ namespace specifics
         std::string("# You are using lyspeq version " __LYSPEQ_VERSION__ ".\n")
         + std::string("# This version is build by the following options:\n")
         + "# Fisher optimization: " + FISHER_TXT + "\n"
-        + "# Redshift binning shape: " + BINNING_SHAPE + "\n"
         + "# Redshift growth scaling: " + RGP_TEXT + "\n";
 
     void printBuildSpecifics(FILE *toWrite)
@@ -202,13 +183,22 @@ namespace specifics
 
 namespace bins
 {
+    std::unordered_map<BinningMethod, std::string>
+        BINNING_METHOD_TEXT_MAP({
+            {TophatBinningMethod, "TopHat"},
+            {TriangleBinningMethod, "Triangular"}
+        });
+
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
         FISHER_SIZE;
     std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE;
+    BinningMethod Z_BINNING_METHOD = TriangleBinningMethod;
 
-    void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0)
-    {
+    void setUpBins(
+            double k0, int nlin, double dklin, int nlog, double dklog,
+            double klast, double z0
+    ) {
         // Construct k edges
         NUMBER_OF_K_BANDS = nlin + nlog;
 
@@ -289,16 +279,16 @@ namespace bins
         NUMBER_OF_Z_BINS = config.getInteger("NumberOfRedshiftBins");
 
         if (N_KLIN_BIN > 0 && !(LIN_K_SPACING > 0))
-            throw std::invalid_argument("NumberOfLinearBins > 0, so "
-                "LinearKBinWidth must be > 0.");
+            throw std::invalid_argument(
+                "NumberOfLinearBins > 0, so LinearKBinWidth must be > 0.");
 
         if (N_KLOG_BIN > 0 && !(LOG_K_SPACING > 0))
-            throw std::invalid_argument("NumberOfLog10Bins > 0, so "
-                "Log10KBinWidth must be > 0.");
+            throw std::invalid_argument(
+                "NumberOfLog10Bins > 0, so Log10KBinWidth must be > 0.");
 
         if (N_KLIN_BIN <= 0 && N_KLOG_BIN <= 0)
-            throw std::invalid_argument("At least NumberOfLinearBins or "
-                "NumberOfLog10Bins must be present.");
+            throw std::invalid_argument(
+                "At least NumberOfLinearBins or NumberOfLog10Bins must be present.");
 
         if (Z_0 <= 0)
             throw std::invalid_argument("FirstRedshiftBinCenter must be > 0.");
@@ -309,8 +299,22 @@ namespace bins
         if (NUMBER_OF_Z_BINS <= 0)
             throw std::invalid_argument("NumberOfRedshiftBins must be > 0.");
 
+        switch (config.getInteger("RedshiftBinningMethod", 1)) {
+        case 0:
+            Z_BINNING_METHOD = TophatBinningMethod;
+            break;
+        case 1:
+            Z_BINNING_METHOD = TriangleBinningMethod;
+            break;
+        default:
+            LOG::LOGGER.STD(
+                "Invalid RedshiftBinningMethod argument. Fallback to 1.\n");
+            Z_BINNING_METHOD = TriangleBinningMethod;
+        }
+
         // Redshift and wavenumber bins are constructed
-        bins::setUpBins(K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN,
+        bins::setUpBins(
+            K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN,
             LOG_K_SPACING, klast, Z_0);
 
         LOG::LOGGER.STD("K0 %.3e\n", K_0);
@@ -320,6 +324,9 @@ namespace bins
         LOG::LOGGER.STD("NumberOfLog10Bins %d\n", N_KLOG_BIN);
         LOG::LOGGER.STD("LastKEdge %.3e\n", klast);
 
+        LOG::LOGGER.STD(
+            "RedshiftBinningMethod %s\n",
+            BINNING_METHOD_TEXT_MAP[Z_BINNING_METHOD].c_str());
         LOG::LOGGER.STD("FirstRedshiftBinCenter %.3e\n", Z_0);
         LOG::LOGGER.STD("RedshiftBinWidth %.3e\n", Z_BIN_WIDTH);
         LOG::LOGGER.STD("NumberOfRedshiftBins %d\n\n", NUMBER_OF_Z_BINS);
@@ -374,63 +381,82 @@ namespace bins
     }
 
     // binning functio for zm=0
-    inline
-    double zBinTriangular1(double z, int zm)
+    void zBinTriangular1(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
-        double x=z-ZBIN_CENTERS[0], r = 1-fabs(x)/Z_BIN_WIDTH;
-        if (r<0) return 0;
-        if (x<0) return 1;
+        double zc = ZBIN_CENTERS[0];
 
-        return r;
+        low = std::lower_bound(z, z + N, zc) - z;
+        up = std::upper_bound(z, z + N, zc + Z_BIN_WIDTH) - z;
+
+        std::fill(out, out + low, 1);
+        #pragma omp simd
+        for (int i = low; i < up; ++i)
+            out[i] = 1. - (z[i] - zc) / Z_BIN_WIDTH;
+        // std::fill(out + up, out + N, 0);
+        low = 0;
     }
 
     // binning function for last zm
-    inline
-    double zBinTriangular2(double z, int zm)
+    void zBinTriangular2(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
-        double x=z-ZBIN_CENTERS[NUMBER_OF_Z_BINS-1], r = 1-fabs(x)/Z_BIN_WIDTH;
-        if (r<0) return 0;
-        if (x>0) return 1;
+        double zc = ZBIN_CENTERS[NUMBER_OF_Z_BINS - 1];
 
-        return r;
+        low = std::lower_bound(z, z + N, zc - Z_BIN_WIDTH) - z;
+        up = std::upper_bound(z, z + N, zc) - z;
+
+        // std::fill(out, out + low, 0);
+        #pragma omp simd
+        for (int i = low; i < up; ++i)
+            out[i] = 1. - (zc - z[i]) / Z_BIN_WIDTH;
+        std::fill(out + up, out + N, 1);
+        up = N;
     }
 
     // binning functio for non-boundary zm
-    inline
-    double zBinTriangular(double z, int zm)
+    void zBinTriangular(const double *z, int N, int zm, double *out, int &low, int &up)
     {
-        double x=z-ZBIN_CENTERS[zm], r = 1-fabs(x)/Z_BIN_WIDTH;
-        if (r<0) return 0;
+        double zc = ZBIN_CENTERS[zm];
+        low = std::lower_bound(z, z + N, zc - Z_BIN_WIDTH) - z;
+        up = std::upper_bound(z, z + N, zc + Z_BIN_WIDTH) - z;
 
-        return r;
+        // std::fill_n(out, N, 0);
+        #pragma omp simd
+        for (int i = low; i < up; ++i)
+            out[i] = 1. - fabs(z[i] - zc) / Z_BIN_WIDTH;
     }
 
-    // Assumes z always in bin, because it's cut in OneQSO.
-    inline
-    double zBinTopHat(double z, int zm)
+    void zBinTopHat(const double *z, int N, int zm, double *out, int &low, int &up)
     {
-        double zz __attribute__((unused))  = z;
-        int zmm __attribute__((unused)) = zm;
-        return 1;
+        double zc = ZBIN_CENTERS[zm];
+        low = std::lower_bound(z, z + N, zc - Z_BIN_WIDTH / 2) - z;
+        up = std::upper_bound(z, z + N, zc + Z_BIN_WIDTH / 2) - z;
+
+        std::fill_n(out, N, 0);
+        #pragma omp simd
+        for (int i = low; i < up; ++i)
+            out[i] = 1;
     }
 
-    double (*redshiftBinningFunction)(double z, int zm) = &zBinTopHat;
+    void (*redshiftBinningFunction)(
+        const double *z, int N, int zm, double *out, int &low, int &up) = &zBinTopHat;
 
     void setRedshiftBinningFunction(int zm)
     {
-        #if defined(TOPHAT_Z_BINNING_FN)
-        redshiftBinningFunction = &zBinTopHat;
-
-        #elif defined(TRIANGLE_Z_BINNING_FN)
-        if (zm == 0)
-            redshiftBinningFunction = &zBinTriangular1;
-        else if (zm == NUMBER_OF_Z_BINS-1)
-            redshiftBinningFunction = &zBinTriangular2;
-        else
-            redshiftBinningFunction = &zBinTriangular;
-        #endif
+        switch (Z_BINNING_METHOD) {
+        case TophatBinningMethod:
+            redshiftBinningFunction = &zBinTopHat;
+            break;
+        case TriangleBinningMethod:
+            if (zm == 0)
+                redshiftBinningFunction = &zBinTriangular1;
+            else if (zm == NUMBER_OF_Z_BINS - 1)
+                redshiftBinningFunction = &zBinTriangular2;
+            else
+                redshiftBinningFunction = &zBinTriangular;
+            break;
+        }
     }
 
     // Given the redshift z, returns binning weight. 1 for top-hats, interpolation for triangular

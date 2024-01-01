@@ -51,7 +51,8 @@ public:
     PoissonBootstrapper(int num_boots) {
         pgenerator = std::make_unique<PoissonRNG>(process::this_pe);
 
-        nboots_per_batch = std::min(num_boots, _calculate_nboots_per_batch());
+        nboots_per_batch = std::max(
+            1, std::min(num_boots, _calculate_nboots_per_batch()));
         #if defined(ENABLE_MPI)
         MPI_Allreduce(
             MPI_IN_PLACE,
@@ -81,18 +82,28 @@ public:
     void run(
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
-        _prerun(local_queue);
+        // Get thetas to prepare.
+        for (auto one_qso = local_queue.begin(); one_qso != local_queue.end(); ++one_qso)
+            (*one_qso)->collapseBootstrap();
 
         LOG::LOGGER.STD(
             "Generating %u bootstrap realizations.\n"
             "Realizations per batch is %u.\n", nboots, nboots_per_batch);
         Progress prog_tracker(nboots);
 
+        int ii = 0;
         for (int ibatch = 0; ibatch < nbatches; ++ibatch)
-            _batch_boot(ibatch, prog_tracker, local_queue);
+            ii += _batch_boot(ibatch, prog_tracker, local_queue);
 
         if (process::this_pe != 0)
             return;
+
+        double success_ratio = (100. * ii) / nboots;
+        LOG::LOGGER.STD(
+            "Number of valid bootstraps %d of %d. Ratio %.2f%%\n",
+            ii, nboots, success_ratio);
+        if (success_ratio < 90.)
+            LOG::LOGGER.ERR("WARNING: Low success ratio!\n");
 
         mytime::printfBootstrapTimeSpentDetails();
 
@@ -111,35 +122,11 @@ private:
     std::unique_ptr<PoissonRNG> pgenerator;
 
     int _calculate_nboots_per_batch() {
-        double size_one_batch =
-            (double) sizeof(double)
-            * (bins::FISHER_SIZE + bins::TOTAL_KZ_BINS)
-            / 1048576.;
-
-        double size_all_powers =
-            (double) sizeof(double) * nboots * bins::TOTAL_KZ_BINS / 1048576.;
+        double size_one_batch = process::getMemoryMB(bins::FISHER_SIZE + bins::TOTAL_KZ_BINS),
+               size_all_powers = process::getMemoryMB(nboots * bins::TOTAL_KZ_BINS);
 
         process::updateMemory(-size_all_powers / process::total_pes);
         return (0.9 * process::MEMORY_ALLOC) / size_one_batch;
-    }
-
-    void _prerun(
-            std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
-    ) {
-        // Get thetas to prepare.
-        for (auto &one_qso : local_queue) {
-            for (auto &one_chunk : one_qso->chunks) {
-                one_chunk->releaseFile();
-
-                int ndim = one_chunk->N_Q_MATRICES;
-                double *pk = one_chunk->dbt_estimate_before_fisher_vector[0].get();
-                double *nk = one_chunk->dbt_estimate_before_fisher_vector[1].get();
-                double *tk = one_chunk->dbt_estimate_before_fisher_vector[2].get();
-
-                mxhelp::vector_sub(pk, nk, ndim);
-                mxhelp::vector_sub(pk, tk, ndim);
-            }
-        }
     }
 
     void _one_boot(
@@ -148,17 +135,16 @@ private:
         double *tpk = temppower.get() + jj * bins::TOTAL_KZ_BINS,
                *tfm = tempfisher.get() + jj * bins::FISHER_SIZE;
 
-        for (auto &one_qso : local_queue) {
+        for (const auto &one_qso : local_queue) {
             int p = pgenerator->generate();
             if (p == 0)
                 continue;
 
-            for (auto &one_chunk : one_qso->chunks)
-                one_chunk->addBoot(p, tpk, tfm);
+            one_qso->addBoot(p, tpk, tfm);
         }
     }
 
-    void _batch_boot(
+    int _batch_boot(
             int ibatch, Progress &prog_tracker,
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
@@ -199,21 +185,34 @@ private:
         }
         #endif
 
-        if (process::this_pe != 0)
-            return;
+        int ii = 0;
+        if (process::this_pe == 0) {
+            // mxhelp::copyUpperToLower(tempfisher.get(), bins::TOTAL_KZ_BINS);
 
-        t1 = mytime::timer.getTime();
-        mytime::time_spent_on_oneboot_mpi += t1 - t2;
+            t1 = mytime::timer.getTime();
+            mytime::time_spent_on_oneboot_mpi += t1 - t2;
 
-        for (int jj = 0; jj < nboots_per_batch; ++jj) {
-            mxhelp::LAPACKE_solve_safe(
-                tempfisher.get() + jj * bins::FISHER_SIZE,
-                bins::TOTAL_KZ_BINS,
-                apk + jj * bins::TOTAL_KZ_BINS);
+            for (int jj = 0; jj < nboots_per_batch; ++jj) {
+                bool valid = true;
+                try {
+                    mxhelp::LAPACKE_safeSolveCho(
+                        tempfisher.get() + jj * bins::FISHER_SIZE,
+                        bins::TOTAL_KZ_BINS,
+                        apk + jj * bins::TOTAL_KZ_BINS);
+                } catch (std::exception& e) {
+                    valid = false;
+                }
+
+                if (valid)  ++ii;
+
+                t2 = mytime::timer.getTime();
+                mytime::time_spent_on_oneboot_solve += t2 - t1;
+            }
         }
-
-        t2 = mytime::timer.getTime();
-        mytime::time_spent_on_oneboot_solve += t2 - t1;
+        #if defined(ENABLE_MPI)
+        MPI_Bcast(&ii, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        #endif
+        return ii;
     }
 
     void _calcuate_covariance() {
