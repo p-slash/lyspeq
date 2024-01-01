@@ -1,5 +1,6 @@
 #include "discrete_interpolation.hpp"
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 // inlines solve duplicate symbol error in tests/test_utils.cpp
@@ -20,12 +21,28 @@ bool allClose(const double *a, const double *b, int size)
 }
 
 DiscreteInterpolation1D::DiscreteInterpolation1D(
-        double x_start, double delta_x, const double *y_arr, int Nsize
-) : x1(x_start), dx(delta_x), N(Nsize)
+        double x_start, double delta_x, int Nsize, double *y_arr, bool alloc
+) : x1(x_start), dx(delta_x), N(Nsize), _alloc(alloc)
 {
     x2 = x1 + dx * (N - 1);
-    y = new double[N];
-    std::copy(y_arr, y_arr + N, y);
+    if (_alloc) {
+        y = new double[N];
+        if (y_arr != nullptr)
+            std::copy(y_arr, y_arr + N, y);
+    }
+    else
+        y = y_arr;
+}
+
+
+void DiscreteInterpolation1D::resetPointer(
+        double x_start, double delta_x, int Nsize, double *y_arr
+) {
+    assert(!_alloc);
+    x1 = x_start;
+    dx = delta_x;
+    N = Nsize;
+    y = y_arr;
 }
 
 double DiscreteInterpolation1D::evaluate(double x)
@@ -64,7 +81,7 @@ void DiscreteInterpolation1D::evaluateVector(const double *xarr, int size, doubl
 bool DiscreteInterpolation1D::operator==(const DiscreteInterpolation1D &rhs) const
 {
     bool result = true;
-    result &= isClose(x1, rhs.x1) & isClose(x2, rhs.x2) & isClose(dx, rhs.dx);
+    result &= isClose(x1, rhs.x1) && isClose(x2, rhs.x2) && isClose(dx, rhs.dx);
     result &= N == rhs.N;
     result &= allClose(y, rhs.y, N);
     return result;
@@ -109,9 +126,9 @@ double DiscreteInterpolation2D::evaluate(double x, double y)
 bool DiscreteInterpolation2D::operator==(const DiscreteInterpolation2D &rhs) const
 {
     bool result = true;
-    result &= isClose(x1, rhs.x1) & isClose(x2, rhs.x2) & isClose(dx, rhs.dx);
-    result &= isClose(y1, rhs.y1) & isClose(y2, rhs.y2) & isClose(dy, rhs.dy);
-    result &= (Nx == rhs.Nx) & (Ny == rhs.Ny);
+    result &= isClose(x1, rhs.x1) && isClose(x2, rhs.x2) && isClose(dx, rhs.dx);
+    result &= isClose(y1, rhs.y1) && isClose(y2, rhs.y2) && isClose(dy, rhs.dy);
+    result &= (Nx == rhs.Nx) && (Ny == rhs.Ny);
     result &= allClose(z, rhs.z, size);
     return result;
 }

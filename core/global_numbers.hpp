@@ -9,7 +9,7 @@
 
 #include "io/config_file.hpp"
 
-#define __LYSPEQ_VERSION__ "4.4.2"
+#define __LYSPEQ_VERSION__ "4.4.4"
 
 // Debugging flags. Comment out to turn off
 // #define DEBUG_MATRIX_OUT
@@ -18,7 +18,8 @@ const double
 SPEED_OF_LIGHT = 299792.458,
 LYA_REST = 1215.67,
 MY_PI = 3.14159265359,
-ONE_SIGMA_2_FWHM = 2.35482004503;
+ONE_SIGMA_2_FWHM = 2.35482004503,
+DOUBLE_EPSILON = 1e-15;
 
 namespace qio
 {
@@ -129,6 +130,7 @@ namespace specifics
 
 namespace bins
 {
+    enum BinningMethod { TophatBinningMethod, TriangleBinningMethod };
     // Binning numbers
     // One last bin is created when LAST_K_EDGE is set in config to absorb high k power such as alias effect.
     // This last bin is calculated into covariance matrix, smooth power spectrum fitting or convergence test.
@@ -137,8 +139,11 @@ namespace bins
         NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, FISHER_SIZE, TOTAL_KZ_BINS;
     extern std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     extern double Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE;
+    extern BinningMethod Z_BINNING_METHOD;
 
-    const config_map bins_default_parameters ({{"K0", "0"}, {"LastKEdge", "-1"}});
+    const config_map bins_default_parameters ({
+        {"K0", "0"}, {"LastKEdge", "-1"}, {"RedshiftBinningMethod", "1"}
+    });
     /* This function reads following keys from config file:
     K0: double
         First edge for the k bins. 0 by default.
@@ -154,6 +159,7 @@ namespace bins
         Number of log bins.
     LastKEdge: double
         The last k edge will be this by adding a k bin if the value is valid.
+    RedshiftBinningMethod: int
     FirstRedshiftBinCenter: double
     RedshiftBinWidth: double
     NumberOfRedshiftBins: double

@@ -1,11 +1,12 @@
 #include "mathtools/matrix_helper.hpp"
 #include "mathtools/real_field.hpp"
 
+#include <cmath>
 #include <stdexcept>
 #include <algorithm>
 #include <limits>
+#include <numeric>
 #include <utility>
-#include <cmath>
 
 #include <gsl/gsl_interp.h>
 
@@ -26,7 +27,7 @@
 const double
 MY_SQRT_2 = 1.41421356237,
 MY_SQRT_PI = 1.77245385091,
-MY_EPSILON_D = std::numeric_limits<double>::epsilon();
+MY_EPSILON_D = 1e-15;
 
 // cblas_dcopy(N, sour, isour, tar, itar); 
 template<class InputIt>
@@ -131,19 +132,34 @@ namespace mxhelp
         return result;
     }
 
-    double my_cblas_dsymvdot(const double *v, const double *S,
-        double *temp_vector, int N)
-    {
-        cblas_dsymv(CblasRowMajor, CblasUpper, N, 1., S, N, v, 1, 0,
-            temp_vector, 1);
+    double my_cblas_dgemvdot(
+            const double *v, const double *A, double *temp_vector, int N
+    ) {
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, N, N, 1.,
+            A, N, v, 1, 0, temp_vector, 1);
 
         return cblas_ddot(N, v, 1, temp_vector, 1);
     }
 
-    void LAPACKErrorHandle(const char *base, int info)
-    {
-        if (info != 0)
+
+    // Slow!
+    double my_cblas_dsymvdot(const double *v, const double *S, int N) {
+        double sum = 0;
+
+        #pragma omp parallel for schedule(static, 1) reduction(+:sum)
+        for (int i = 0; i < N; ++i)
         {
+            sum += S[i + i * N] * v[i] * v[i];
+            for (int j = i; j < N; ++j)
+                sum += 2 * S[j + i * N] * v[i] * v[j];
+        }
+
+        return sum;
+    }
+
+    void LAPACKErrorHandle(const char *base, int info) {
+        if (info != 0) {
             std::string err_msg(base);
             if (info < 0)   err_msg += ": Illegal value.";
             else            err_msg += ": Singular.";
@@ -153,25 +169,36 @@ namespace mxhelp
         }
     }
 
-    void LAPACKE_InvertMatrixLU(double *A, int N)
-    {
-        lapack_int *ipiv = new lapack_int[N];
-        lapack_int LIN = N, info;
+    void LAPACKE_InvertMatrixLU(double *A, int N) {
+        static std::vector<lapack_int> ipiv;
+        ipiv.resize(N);
+        lapack_int LIN = N, info = 0;
 
         // Factorize A
         // the LU factorization of a general m-by-n matrix.
-        info = LAPACKE_dgetrf(LAPACK_ROW_MAJOR, LIN, LIN, A, LIN,
-            ipiv);
-
+        info = LAPACKE_dgetrf(
+            LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, ipiv.data());
         LAPACKErrorHandle("ERROR in LU decomposition.", info);
 
-        info = LAPACKE_dgetri(LAPACK_ROW_MAJOR, LIN, A, LIN,
-            ipiv);
+        info = LAPACKE_dgetri(
+            LAPACK_ROW_MAJOR, LIN, A, LIN, ipiv.data());
         LAPACKErrorHandle("ERROR in LU invert.", info);
 
-        delete [] ipiv;
         // dpotrf(CblasUpper, N, A, N); 
         // the Cholesky factorization of a symmetric positive-definite matrix
+    }
+
+    std::vector<int> _setEmptyIndices(double *S, int N) {
+        std::vector<int> empty_indx;
+
+        for (int i = 0; i < N; ++i) {
+            if (S[(N + 1) * i] == 0) {
+                empty_indx.push_back(i);
+                S[(N + 1) * i] = 1.;
+            }
+        }
+
+        return empty_indx;
     }
 
     int LAPACKE_InvertMatrixLU_safe(double *A, int N)
@@ -179,55 +206,179 @@ namespace mxhelp
         // find empty diagonals
         // assert all elements on that row and col are zero
         // replace with 1, then invert, then replace with zero
-        std::vector<int> empty_indx;
-        for (int i_kz = 0; i_kz < N; ++i_kz)
-        {
-            double *ptr = A + (N + 1) * i_kz;
-            if (*ptr == 0)
-            {
-                empty_indx.push_back(i_kz);
-                *ptr = 1;
-            }
-        }
+        std::vector<int> empty_indx = _setEmptyIndices(A, N);
 
         LAPACKE_InvertMatrixLU(A, N);
 
-        for (const auto &i_kz : empty_indx)
-            A[(N + 1) * i_kz] = 0;
+        for (const auto &i : empty_indx)
+            A[(N + 1) * i] = 0;
 
         return N - empty_indx.size();
     }
 
-    void LAPACKE_solve_safe(double *S, int N, double *b) {
-        lapack_int LIN = N, info;
-        std::vector<int> empty_indx;
+    void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp) {
+        int size = N * N;
+        auto _Amat = std::make_unique<double[]>(size),
+             _Bmat = std::make_unique<double[]>(size);
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            N, N, N, 1., S, N,
+            S, N, 0, _Amat.get(), N);
 
-        for (int i_kz = 0; i_kz < N; ++i_kz)
+        // Scaling damping
+        // cblas_dscal(N, 1. + damp, _Amat.get(), N + 1);
+
+        // Additive damping
+        for (int i = 0; i < size; i += N + 1)
+            _Amat[i] += damp;
+
+        LAPACKE_InvertMatrixLU(_Amat.get(), N);
+
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            N, N, N, 0.5, _Amat.get(), N,
+            S, N, 0, _Bmat.get(), N);
+
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            N, N, N, 0.5, S, N,
+            _Amat.get(), N, 1, _Bmat.get(), N);
+
+        std::copy_n(_Bmat.get(), size, S);
+    }
+
+    double LAPACKE_RcondSvd(const double *A, int N, double *sjump) {
+        int size = N * N;
+        auto B = std::make_unique<double[]>(size),
+             svals = std::make_unique<double[]>(N),
+             superb = std::make_unique<double[]>(N - 1);
+
+        lapack_int LIN = N, info = 0;
+        std::copy_n(A, size, B.get());
+
+        info = LAPACKE_dgesvd(
+            LAPACK_ROW_MAJOR, 'N', 'N', LIN, LIN, B.get(), LIN, svals.get(), 
+            NULL, LIN, NULL, LIN, superb.get());
+        LAPACKErrorHandle("ERROR in SVD.", info);
+
+        if (sjump == nullptr)
+            return svals[N - 1] / svals[0];
+
+        *sjump = 0;
+        for (int i = N - 1; i > 0; --i)
         {
-            double *ptr = S + (N + 1) * i_kz;
-            if (fabs(*ptr) < 1e-6)
-            {
-                empty_indx.push_back(i_kz);
-                *ptr = 1;
-            }
+            if ((svals[i - 1] / svals[i]) > 8.)
+                *sjump = svals[i];
+            else
+                break;
         }
 
-        info = LAPACKE_dposv(
-            LAPACK_ROW_MAJOR, 'U',
-            LIN, 1, S, LIN,
-            b, 1);
+        return svals[N - 1] / svals[0];
+    }
+
+
+    int stableInvertSym(double *S, int N, int &dof, double &damp) {
+        int warn = 0;
+        std::vector<int> empty_indx = _setEmptyIndices(S, N);
+        dof = N - empty_indx.size();
+        damp = 0;
+
+        double rcond = 0;
+        rcond = LAPACKE_RcondSvd(S, N, &damp);
+
+        if (damp != 0) {
+            warn = 1;
+            LAPACKE_InvertSymMatrixLU_damped(S, N, damp);
+        } else {
+            LAPACKE_InvertMatrixLU(S, N);
+        }
+
+        for (const auto &i : empty_indx)
+            S[(N + 1) * i] = 0;
+
+        return warn;
+    }
+
+
+    void LAPACKE_solve(double *A, int N, double *b) {
+        static std::vector<lapack_int> ipiv;
+        ipiv.resize(N);
+
+        lapack_int LIN = N, info = 0;
+        info = LAPACKE_dgesv(
+            LAPACK_ROW_MAJOR, LIN, 1, A, LIN, ipiv.data(), b, 1);
+        // info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', LIN, 1, S, LIN,b, 1);
 
         LAPACKErrorHandle("ERROR in solve_safe.", info);
+    }
 
-        for (const auto &i_kz : empty_indx)
-            S[(N + 1) * i_kz] = 0;
+
+    void LAPACKE_solve_safe(double *S, int N, double *b) {
+        std::vector<int> empty_indx = _setEmptyIndices(S, N);
+
+        LAPACKE_solve(S, N, b);
+
+        for (const auto &i : empty_indx)
+            b[i] = 0;
+    }
+
+
+    void LAPACKE_safeSolveCho(double *S, int N, double *b) {
+        std::vector<int> empty_indx = _setEmptyIndices(S, N);
+
+        lapack_int LIN = N, info = 0;
+        info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', LIN, 1, S, LIN, b, 1);
+
+        LAPACKErrorHandle("ERROR in safeSolveCho.", info);
+        for (const auto &i : empty_indx)
+            b[i] = 0;
+    }
+
+
+    void LAPACKE_solve_damped(const double *S, int N, double *b, double damp) {
+        auto _Amat = std::make_unique<double[]>(N * N),
+             _Ab = std::make_unique<double[]>(N);
+
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans,
+            N, N, 1., S, N, 
+            b, 1, 0, _Ab.get(), 1);
+        std::copy_n(_Ab.get(), N, b);
+
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            N, N, N, 1., S, N,
+            S, N, 0, _Amat.get(), N);
+
+        // Additive damping
+        for (int i = 0; i < N; ++i)
+            _Amat[i * (N + 1)] += damp;
+
+        LAPACKE_solve(_Amat.get(), N, b);
+    }
+
+
+    void LAPACKE_stableSymSolve(double *S, int N, double *b) {
+        std::vector<int> empty_indx = _setEmptyIndices(S, N);
+
+        double rcond = 0, sjump = 0;
+        rcond = LAPACKE_RcondSvd(S, N, &sjump);
+
+        if (sjump != 0)
+            LAPACKE_solve_damped(S, N, b, sjump);
+        else
+            LAPACKE_solve(S, N, b);
+
+        for (const auto &i : empty_indx)
+            b[i] = 0;
     }
 
     void LAPACKE_svd(double *A, double *svals, int m, int n)
     {
         auto superb = std::make_unique<double[]>(n-1);
         lapack_int M = m, N = n, info;
-        info = LAPACKE_dgesvd(LAPACK_COL_MAJOR, 'O', 'N', M, N, A, M, svals, 
+        info = LAPACKE_dgesvd(
+            LAPACK_COL_MAJOR, 'O', 'N', M, N, A, M, svals, 
             NULL, M, NULL, N, superb.get());
         LAPACKErrorHandle("ERROR in SVD.", info);
     }
@@ -442,29 +593,29 @@ namespace mxhelp
     void DiaMatrix::deconvolve(double m) //bool byCol
     {
         const int HALF_PAD_NO = 5;
-        int input_size = ndiags+2*HALF_PAD_NO;
-        std::unique_ptr<double[]> row = std::make_unique<double[]>(input_size);
+        int input_size = ndiags + 2 * HALF_PAD_NO;
+        RealField deconvolver(input_size, 1);
         std::vector<int> indices(ndiags);
 
         // if (byCol)  transpose();
-
-        RealField deconvolver(input_size, 1, row.get());
 
         for (int i = 0; i < ndim; ++i)
         {
             _getRowIndices(i, indices);
             for (int p = 0; p < ndiags; ++p)
-                row[p+HALF_PAD_NO] = values[indices[p]];
+                deconvolver.field_x[p + HALF_PAD_NO] = values[indices[p]];
 
             // Set padded regions to zero
-            for (int p = 0; p < HALF_PAD_NO; ++p)
-            { row[p] = 0;  row[p+ndiags+HALF_PAD_NO] = 0; }
+            for (int p = 0; p < HALF_PAD_NO; ++p) {
+                deconvolver.field_x[p] = 0;
+                deconvolver.field_x[p + ndiags + HALF_PAD_NO] = 0;
+            }
 
             // deconvolve sinc^-2 factor using fftw
             deconvolver.deconvolveSinc(m);
 
             for (int p = 0; p < ndiags; ++p)
-                values[indices[p]] = row[p+HALF_PAD_NO];
+                values[indices[p]] = deconvolver.field_x[p + HALF_PAD_NO];
         }
 
         // if (byCol)  transpose();
@@ -797,10 +948,12 @@ namespace mxhelp
     {
         if (!is_dia_matrix) return;
 
-        int noff = dia_matrix->ndiags/2, nelem_per_row = 2*noff*osamp + 1;
+        int noff = dia_matrix->ndiags / 2,
+            nelem_per_row = 2 * noff * osamp + 1;
         // Using the following simple scaling yields biased results
         // double rescalor = (double) dia_matrix->ndiags / (double) nelem_per_row;
-        osamp_matrix = std::make_unique<OversampledMatrix>(ncols, nelem_per_row, osamp, dlambda);
+        osamp_matrix = std::make_unique<OversampledMatrix>(
+            ncols, nelem_per_row, osamp, dlambda);
 
         double *newrow;
         std::vector<double> row, win, wout;
@@ -809,11 +962,12 @@ namespace mxhelp
         wout.reserve(nelem_per_row);
 
         for (int i = 0; i < dia_matrix->ndiags; ++i)
-            win.push_back(i-noff);
+            win.push_back((i - noff) * dlambda);
         for (int i = 0; i < nelem_per_row; ++i)
-            wout.push_back(i*1./osamp-noff);
+            wout.push_back((i * 1. / osamp - noff) * dlambda);
 
-        gsl_interp *interp_cubic = gsl_interp_alloc(gsl_interp_cspline, dia_matrix->ndiags);
+        gsl_interp *interp_cubic = gsl_interp_alloc(
+            gsl_interp_cspline, dia_matrix->ndiags);
         gsl_interp_accel *acc = gsl_interp_accel_alloc();
 
         // ncols == nrows for dia matrix
@@ -821,30 +975,29 @@ namespace mxhelp
         {
             dia_matrix->getRow(i, row);
 
-            newrow = osamp_matrix->matrix()+i*nelem_per_row;
+            newrow = osamp_matrix->matrix() + i * nelem_per_row;
 
             // interpolate log, shift before log
-            double _shift = *std::min_element(row.begin(), row.end())
+            double _shift =
+                *std::min_element(row.begin(), row.end())
                 - nonzero_min_element(row.begin(), row.end());
 
-            std::for_each(row.begin(), row.end(),
-                [_shift](double &f) { f = log(f-_shift); }
+            std::for_each(
+                row.begin(), row.end(),
+                [_shift](double &f) { f = log(f - _shift); }
             );
 
-            gsl_interp_init(interp_cubic, win.data(), row.data(), dia_matrix->ndiags);
+            gsl_interp_init(
+                interp_cubic, win.data(), row.data(), dia_matrix->ndiags);
 
-            // Paranoid that std::transform lambda is problematic
-            double sum=0;
             for (int jj = 0; jj < nelem_per_row; ++jj)
-            {
-                newrow[jj] = _shift + exp(gsl_interp_eval(
-                    interp_cubic, win.data(), row.data(), wout[jj], acc));
-                sum += newrow[jj];
-            }
+                newrow[jj] = 
+                    _shift + exp(gsl_interp_eval(
+                        interp_cubic, win.data(), row.data(), wout[jj], acc
+                ));
 
-            std::for_each(newrow, newrow+nelem_per_row,
-                [sum](double &X) { X/=sum; }
-            );
+            double isum = 1. / std::reduce(newrow, newrow + nelem_per_row);
+            cblas_dscal(nelem_per_row, isum, newrow, 1);
 
             gsl_interp_accel_reset(acc);
         }
