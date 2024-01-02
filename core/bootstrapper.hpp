@@ -173,9 +173,9 @@ private:
         if (process::this_pe == 0)
             cblas_dgemm(
                 CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                nboots, bins::FISHER_SIZE, bins::FISHER_SIZE, 1., temppower.data(),
-                bins::FISHER_SIZE, invfisher, bins::FISHER_SIZE,
-                0, allpowers.data(), bins::FISHER_SIZE);
+                nboots, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, 0.5, temppower.data(),
+                bins::TOTAL_KZ_BINS, invfisher, bins::TOTAL_KZ_BINS,
+                0, allpowers.data(), bins::TOTAL_KZ_BINS);
 
         t2 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_solve += t2 - t1;
