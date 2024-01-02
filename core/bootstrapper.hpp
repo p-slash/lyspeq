@@ -54,7 +54,7 @@ namespace mytime
 class PoissonBootstrapper {
 public:
     PoissonBootstrapper(int num_boots, double *ifisher)
-            : nboots(num_boots), remaining_boots(num_boots), invfisher(nullptr)
+            : nboots(num_boots), remaining_boots(num_boots), invfisher(ifisher)
     {
         process::updateMemory(-getMinMemUsage());
         pgenerator = std::make_unique<PoissonRNG>(process::this_pe);
@@ -62,7 +62,6 @@ public:
         if (specifics::FAST_BOOTSTRAP) {
             temppower.resize(nboots * bins::TOTAL_KZ_BINS);
             pcoeff.resize(nboots);
-            invfisher = ifisher;
         } else
             temppower.resize(bins::TOTAL_KZ_BINS);
 
@@ -288,7 +287,7 @@ private:
 
 
     unsigned int _findOutliers(
-            const std::vector<double> &mean, const double *fisher
+            const std::vector<double> &mean, const double *invcov
     ) {
         auto v = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
              y = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
@@ -305,7 +304,7 @@ private:
                 v[i] = x[i] - mean[i];
 
             double chi2 = mxhelp::my_cblas_dgemvdot(
-                v.get(), fisher, y.get(), bins::TOTAL_KZ_BINS);
+                v.get(), invcov, y.get(), bins::TOTAL_KZ_BINS) / 4;
 
             if (fabs(chi2) > maxChi2)
                 outlier[jj] = true;
@@ -319,10 +318,6 @@ private:
 
     void _iterateOutlier() {
         LOG::LOGGER.STD("Calculating bootstrap covariance.\n");
-        int status = 0;
-        double damp = 0;
-
-        auto iifisher = std::make_unique<double[]>(bins::FISHER_SIZE);
 
         for (int n = 0; n < 5; ++n) {
             LOG::LOGGER.STD("  Iteration %d...", n + 1);
@@ -330,21 +325,8 @@ private:
             // Calculate mean power, store into temppower
             _calcuateMean(temppower);
 
-            // Calculate the covariance matrix into tempfisher
-            _calcuateCovariance(tempfisher);
-
-            // Invert covariance to get the Fisher matrix
-            std::copy(tempfisher.begin(), tempfisher.end(), iifisher.get());
-            status = mxhelp::stableInvertSym(
-                iifisher.get(), bins::TOTAL_KZ_BINS,
-                bins::NewDegreesOfFreedom, damp);
-            if (status != 0)
-                LOG::LOGGER.STD(
-                    "Inv Fisher matrix is damped by adding %.2e I...",
-                    damp);
-
             // Find outliers
-            unsigned int new_remains = _findOutliers(temppower, iifisher.get());
+            unsigned int new_remains = _findOutliers(temppower, invfisher);
 
             LOG::LOGGER.STD("Removed outliers. Remaining %d.\n", new_remains);
             if (new_remains == remaining_boots)
@@ -352,6 +334,9 @@ private:
 
             remaining_boots = new_remains;
         }
+
+        // Calculate the covariance matrix into tempfisher
+        _calcuateCovariance(tempfisher);
     }
 };
 
