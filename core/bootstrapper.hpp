@@ -110,6 +110,7 @@ public:
         _calcuate_covariance();
 
         if (specifics::FAST_BOOTSTRAP) {
+            allpowers.resize(bins::FISHER_SIZE);
             cblas_dgemm(
                 CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
