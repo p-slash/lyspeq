@@ -139,7 +139,8 @@ namespace bins
     // This last bin is calculated into covariance matrix, smooth power spectrum fitting or convergence test.
     // TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS
     extern int
-        NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, FISHER_SIZE, TOTAL_KZ_BINS;
+        NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, FISHER_SIZE, TOTAL_KZ_BINS,
+        NewDegreesOfFreedom;
     extern std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     extern double Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE;
     extern BinningMethod Z_BINNING_METHOD;
