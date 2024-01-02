@@ -51,8 +51,13 @@ public:
     PoissonBootstrapper(int num_boots) {
         pgenerator = std::make_unique<PoissonRNG>(process::this_pe);
 
-        nboots_per_batch = std::max(
-            1, std::min(num_boots, _calculate_nboots_per_batch()));
+        process::updateMemory(
+            -1.05 * process::getMemoryMB(num_boots * bins::TOTAL_KZ_BINS)
+            / process::total_pes);
+
+        nboots_per_batch = std::min(process::getMemoryFillingNumber(
+            bins::FISHER_SIZE + bins::TOTAL_KZ_BINS), num_boots);
+
         #if defined(ENABLE_MPI)
         MPI_Allreduce(
             MPI_IN_PLACE,
@@ -65,7 +70,7 @@ public:
             throw std::runtime_error("Not enough memory to bootstrap.\n");
 
         nbatches = num_boots / nboots_per_batch;
-        if (num_boots % nboots_per_batch != 0)
+        if ((num_boots % nboots_per_batch) > 0.4 * nboots_per_batch)
             ++nbatches;
         nboots = nboots_per_batch * nbatches;
 
@@ -120,14 +125,6 @@ private:
     int nboots, nboots_per_batch, nbatches;
     std::unique_ptr<double[]> temppower, tempfisher, allpowers;
     std::unique_ptr<PoissonRNG> pgenerator;
-
-    int _calculate_nboots_per_batch() {
-        double size_one_batch = process::getMemoryMB(bins::FISHER_SIZE + bins::TOTAL_KZ_BINS),
-               size_all_powers = process::getMemoryMB(nboots * bins::TOTAL_KZ_BINS);
-
-        process::updateMemory(-size_all_powers / process::total_pes);
-        return (0.9 * process::MEMORY_ALLOC) / size_one_batch;
-    }
 
     void _one_boot(
             int jj, std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
@@ -204,10 +201,10 @@ private:
                 }
 
                 if (valid)  ++ii;
-
-                t2 = mytime::timer.getTime();
-                mytime::time_spent_on_oneboot_solve += t2 - t1;
             }
+
+            t2 = mytime::timer.getTime();
+                mytime::time_spent_on_oneboot_solve += t2 - t1;
         }
         #if defined(ENABLE_MPI)
         MPI_Bcast(&ii, 1, MPI_INT, 0, MPI_COMM_WORLD);

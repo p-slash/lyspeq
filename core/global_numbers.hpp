@@ -46,6 +46,10 @@ namespace process
         return (double)sizeof(double) * n / 1048576.;
     };
 
+    inline int getMemoryFillingNumber(int nelem_per_block) {
+        return (0.95 * MEMORY_ALLOC) / getMemoryMB(nelem_per_block);
+    }
+
     void updateMemory(double deltamem);
 
     /* This function reads following keys from config file:
