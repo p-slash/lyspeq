@@ -293,8 +293,7 @@ private:
              y = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
         unsigned int new_remains = 0;
-        double
-            maxChi2 = bins::TOTAL_KZ_BINS + 5. * sqrt(2. * bins::TOTAL_KZ_BINS);
+        double maxChi2 = 8. * sqrt(2. * bins::TOTAL_KZ_BINS);
 
         for (unsigned int jj = 0; jj < nboots; ++jj) {
             if (outlier[jj]) continue;
@@ -304,7 +303,8 @@ private:
                 v[i] = x[i] - mean[i];
 
             double chi2 = mxhelp::my_cblas_dgemvdot(
-                v.get(), invcov, y.get(), bins::TOTAL_KZ_BINS) / 4;
+                v.get(), invcov, y.get(), bins::TOTAL_KZ_BINS) / 4
+                - bins::TOTAL_KZ_BINS;
 
             if (fabs(chi2) > maxChi2)
                 outlier[jj] = true;
