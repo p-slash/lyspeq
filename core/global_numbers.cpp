@@ -154,7 +154,7 @@ namespace specifics
         LOG::LOGGER.STD("ContinuumLambdaMargOrder is set to %d.\n",
             CONT_LAM_MARG_ORDER);
         LOG::LOGGER.STD("NumberOfBoots is set to %d.\n", NUMBER_OF_BOOTS);
-        LOG::LOGGER.STD("FastBootstrap is set to %d.\n\n", booltostr(FAST_BOOTSTRAP));
+        LOG::LOGGER.STD("FastBootstrap is set to %s.\n\n", booltostr(FAST_BOOTSTRAP));
         #undef booltostr
     }
 
