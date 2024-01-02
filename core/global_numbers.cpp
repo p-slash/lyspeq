@@ -18,9 +18,10 @@ namespace process
 
     void updateMemory(double deltamem)
     {
-        MEMORY_ALLOC += deltamem;
+        MEMORY_ALLOC = std::max(0., MEMORY_ALLOC + deltamem);
         if (MEMORY_ALLOC < 100)
-            LOG::LOGGER.ERR("Remaining memory is less than 100 MB!\n");
+            LOG::LOGGER.ERR(
+                "WARNING! Remaining memory is low (%.1f MB).\n", MEMORY_ALLOC);
     }
 
     void readProcess(ConfigFile &config)
