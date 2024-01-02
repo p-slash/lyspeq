@@ -194,7 +194,7 @@ namespace bins
         });
 
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
-        FISHER_SIZE;
+        FISHER_SIZE, NewDegreesOfFreedom;
     std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE;
     BinningMethod Z_BINNING_METHOD = TriangleBinningMethod;
@@ -212,6 +212,7 @@ namespace bins
             ++NUMBER_OF_K_BANDS;
 
         TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
+        NewDegreesOfFreedom = TOTAL_KZ_BINS;
         FISHER_SIZE = TOTAL_KZ_BINS * TOTAL_KZ_BINS;
 
         KBAND_EDGES.reserve(NUMBER_OF_K_BANDS + 1);

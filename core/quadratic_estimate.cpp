@@ -28,9 +28,6 @@
 #include "core/mpi_merge_sort.cpp"
 #endif
 
-// This variable is set in inverse fisher matrix
-int _NewDegreesOfFreedom = 0;
-
 
 void medianStats(
         std::vector<double> &v, double &med_offset, double &max_diff_offset
@@ -276,7 +273,7 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
     status = mxhelp::stableInvertSym(
         inverse_fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS,
-        _NewDegreesOfFreedom, damp);
+        bins::NewDegreesOfFreedom, damp);
 
     if (status != 0) {
         LOG::LOGGER.STD(
@@ -566,7 +563,7 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         if (r > specifics::CHISQ_CONVERGENCE_EPS)
             bool_converged = false;
 
-        abs_mean += r / _NewDegreesOfFreedom;
+        abs_mean += r / bins::NewDegreesOfFreedom;
         abs_max   = std::max(r, abs_max);
     }
 
@@ -591,12 +588,12 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         r += (t*t) / e;
     }
 
-    r  = sqrt(r / _NewDegreesOfFreedom);
+    r  = sqrt(r / bins::NewDegreesOfFreedom);
 
     rfull = sqrt(fabs(mxhelp::my_cblas_dgemvdot(
         previous_power_estimate_vector.get(),
         fisher_matrix_sum.get(), temp_vector.get(), bins::TOTAL_KZ_BINS)
-    ) / _NewDegreesOfFreedom);
+    ) / bins::NewDegreesOfFreedom);
     
     LOG::LOGGER.TIME("%9.3e | %9.3e |\n", r, abs_mean);
     LOG::LOGGER.STD("Chi^2/dof convergence test:\nDiagonal: %.3f. Full Fisher: %.3f.\n"
