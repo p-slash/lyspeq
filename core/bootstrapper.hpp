@@ -107,6 +107,7 @@ public:
 
         mytime::printfBootstrapTimeSpentDetails();
 
+        nboots = ii;
         _calcuate_covariance();
 
         if (specifics::FAST_BOOTSTRAP) {
