@@ -206,8 +206,10 @@ Other params
 + `PrecomputedFisher` (str):
     File to precomputed Fisher matrix. If present, Fisher matrix is not
     calculated for spectra. Off by default.
-+ `NumberOfBoots` (int):
++ `NumberOfBoots` (int, default: 20000):
     Number of bootstrap realizations.
++ `FastBootstrap` (int, default: 1, True):
+        Fast bootstrap method. Does not recalculates the Fisher matrix.
 
 Quasar Spectrum File
 ====
