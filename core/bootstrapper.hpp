@@ -51,6 +51,7 @@ public:
     PoissonBootstrapper(int num_boots, double *ifisher)
             : nboots(num_boots), invfisher(nullptr)
     {
+        process::updateMemory(-getMinMemUsage());
         pgenerator = std::make_unique<PoissonRNG>(process::this_pe);
 
         if (specifics::FAST_BOOTSTRAP) {
@@ -62,8 +63,6 @@ public:
         tempfisher.resize(bins::FISHER_SIZE);
         if (process::this_pe == 0)
             allpowers.resize(nboots * bins::TOTAL_KZ_BINS);
-
-        process::updateMemory(-getMinMemUsage());
     }
     ~PoissonBootstrapper() { process::updateMemory(getMinMemUsage()); }
 
