@@ -181,19 +181,5 @@ void OneQSOEstimate::collapseBootstrap() {
 }
 
 
-void OneQSOEstimate::addBoot(int p, double *temppower, double* tempfisher) {
-    double *outfisher = tempfisher + (bins::TOTAL_KZ_BINS + 1) * istart;
-
-    for (int i = 0; i < ndim; ++i) {
-        for (int j = i; j < ndim; ++j) {
-            outfisher[j + i * bins::TOTAL_KZ_BINS] += p * fisher_matrix[j + i * ndim];
-        } 
-    }
-
-    cblas_daxpy(ndim, p, theta_vector.get(), 1, temppower + istart, 1);
-}
-
-
-
 
 
