@@ -252,13 +252,15 @@ private:
                damp;
 
         std::vector<bool> outlier(nboots, false);
-        auto iifisher = std::make_unique<double[]>(bins::FISHER_SIZE);
-        std::fill(tempfisher.begin(), tempfisher.end(), 0);
+        auto iifisher = std::make_unique<double[]>(bins::FISHER_SIZE),
+             v = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
+             y = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
         for (int n = 0; n < 5; ++n) {
             LOG::LOGGER.STD("  Iteration %d...", n + 1);
-            std::fill(temppower.begin(), temppower.begin() + bins::TOTAL_KZ_BINS, 0);
+
             // Calculate mean power, store into temppower
+            std::fill(temppower.begin(), temppower.begin() + bins::TOTAL_KZ_BINS, 0);
             for (int jj = 0; jj < nboots; ++jj) {
                 if (outlier[jj]) continue;
 
@@ -267,43 +269,48 @@ private:
                     allpowers.data() + jj * bins::TOTAL_KZ_BINS,
                     bins::TOTAL_KZ_BINS);
             }
-
             cblas_dscal(bins::TOTAL_KZ_BINS, 1. / remaining_boots, temppower.data(), 1);
 
+            // Calculate the covariance matrix into tempfisher
+            std::fill(tempfisher.begin(), tempfisher.end(), 0);
             for (int jj = 0; jj < nboots; ++jj) {
                 if (outlier[jj]) continue;
 
                 double *x = allpowers.data() + jj * bins::TOTAL_KZ_BINS;
-                mxhelp::vector_sub(x, temppower.data(), bins::TOTAL_KZ_BINS);
+                for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
+                    v[i] = x[i] - temppower[i];
+
                 cblas_dsyr(
                     CblasRowMajor, CblasUpper,
-                    bins::TOTAL_KZ_BINS, 1, x, 1,
+                    bins::TOTAL_KZ_BINS, 1, v.get(), 1,
                     tempfisher.data(), bins::TOTAL_KZ_BINS);
             }
-
             cblas_dscal(
                 bins::FISHER_SIZE, 1. / (remaining_boots - 1),
                 tempfisher.data(), 1);
             mxhelp::copyUpperToLower(tempfisher.data(), bins::TOTAL_KZ_BINS);
-            std::copy(tempfisher.begin(), tempfisher.end(), iifisher.get());
 
+            // Invert covariance to get the Fisher matrix
+            std::copy(tempfisher.begin(), tempfisher.end(), iifisher.get());
             status = mxhelp::stableInvertSym(
                 iifisher.get(), bins::TOTAL_KZ_BINS,
                 bins::NewDegreesOfFreedom, damp);
-
-            if (status != 0) {
+            if (status != 0)
                 LOG::LOGGER.STD(
                     "Inv Fisher matrix is damped by adding %.2e I...",
                     damp);
-            }
 
+            // Find outliers
             int new_remains = 0;
             for (int jj = 0; jj < nboots; ++jj) {
                 if (outlier[jj]) continue;
 
+                double *x = allpowers.data() + jj * bins::TOTAL_KZ_BINS;
+                for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
+                    v[i] = x[i] - temppower[i];
+
                 double chi2 = mxhelp::my_cblas_dgemvdot(
-                    allpowers.data() + jj * bins::TOTAL_KZ_BINS,
-                    iifisher.get(), temppower.data(), bins::TOTAL_KZ_BINS);
+                    v.get(), iifisher.get(), y.get(), bins::TOTAL_KZ_BINS);
 
                 if (fabs(chi2) > maxChi2)
                     outlier[jj] = true;
