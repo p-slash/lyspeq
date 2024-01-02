@@ -54,7 +54,7 @@ namespace mytime
 class PoissonBootstrapper {
 public:
     PoissonBootstrapper(int num_boots, double *ifisher)
-            : nboots(num_boots), invfisher(nullptr)
+            : nboots(num_boots), remaining_boots(num_boots), invfisher(nullptr)
     {
         process::updateMemory(-getMinMemUsage());
         pgenerator = std::make_unique<PoissonRNG>(process::this_pe);
@@ -69,6 +69,8 @@ public:
         tempfisher.resize(bins::FISHER_SIZE);
         if (process::this_pe == 0)
             allpowers.resize(nboots * bins::TOTAL_KZ_BINS);
+
+        outlier.resize(nboots, false);
     }
     ~PoissonBootstrapper() { process::updateMemory(getMinMemUsage()); }
 
@@ -81,34 +83,34 @@ public:
 
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
 
-        int ii = 0;
         if (specifics::FAST_BOOTSTRAP) {
             _fastBootstrap(local_queue);
-            ii = nboots;
         }
         else {
             Progress prog_tracker(nboots);
-            for (int jj = 0; jj < nboots; ++jj) {
-                bool valid = _one_boot(ii, local_queue);
+            int ii = 0;
+            for (unsigned int jj = 0; jj < nboots; ++jj) {
+                bool valid = _oneBoot(ii, local_queue);
                 ++prog_tracker;
                 if (valid) ++ii;
             }
+
+            remaining_boots = ii;
         }
 
         if (process::this_pe != 0)
             return;
 
-        double success_ratio = (100. * ii) / nboots;
+        double success_ratio = (100. * remaining_boots) / nboots;
         LOG::LOGGER.STD(
             "Number of valid bootstraps %d of %d. Ratio %.2f%%\n",
-            ii, nboots, success_ratio);
+            remaining_boots, nboots, success_ratio);
         if (success_ratio < 90.)
             LOG::LOGGER.ERR("WARNING: Low success ratio!\n");
 
         mytime::printfBootstrapTimeSpentDetails();
 
-        nboots = ii;
-        _calcuate_covariance();
+        _iterateOutlier();
 
         if (specifics::FAST_BOOTSTRAP) {
             allpowers.resize(bins::FISHER_SIZE);
@@ -135,10 +137,11 @@ public:
     }
 
 private:
-    unsigned int nboots;
-    std::vector<double> temppower, tempfisher, allpowers, pcoeff;
-    std::unique_ptr<PoissonRNG> pgenerator;
+    unsigned int nboots, remaining_boots;
     double *invfisher;
+    std::unique_ptr<PoissonRNG> pgenerator;
+    std::vector<double> temppower, tempfisher, allpowers, pcoeff;
+    std::vector<bool> outlier;
 
     double getMinMemUsage() {
         double memfull = process::getMemoryMB(nboots * bins::TOTAL_KZ_BINS);
@@ -181,7 +184,7 @@ private:
         mytime::time_spent_on_oneboot_mpi += t1 - t2;
     }
 
-    bool _one_boot(
+    bool _oneBoot(
             int jj, std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         double t1 = mytime::timer.getTime(), t2;
@@ -245,50 +248,90 @@ private:
         return valid;
     }
 
-    void _calcuate_covariance() {
-        LOG::LOGGER.STD("Calculating bootstrap covariance.\n");
-        int remaining_boots = nboots, status = 0;
-        double maxChi2 = bins::TOTAL_KZ_BINS + 3.5 * sqrt(2. * bins::TOTAL_KZ_BINS),
-               damp;
+    void _calcuateMean(std::vector<double> &mean) {
+        std::fill(mean.begin(), mean.begin() + bins::TOTAL_KZ_BINS, 0);
+        for (unsigned int jj = 0; jj < nboots; ++jj) {
+            if (outlier[jj]) continue;
 
-        std::vector<bool> outlier(nboots, false);
-        auto iifisher = std::make_unique<double[]>(bins::FISHER_SIZE),
-             v = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
+            mxhelp::vector_add(
+                mean.data(),
+                allpowers.data() + jj * bins::TOTAL_KZ_BINS,
+                bins::TOTAL_KZ_BINS);
+        }
+        cblas_dscal(bins::TOTAL_KZ_BINS, 1. / remaining_boots, mean.data(), 1);
+    }
+
+
+    void _calcuateCovariance(std::vector<double> &cov) {
+        auto v = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+
+        std::fill(cov.begin(), cov.end(), 0);
+        for (unsigned int jj = 0; jj < nboots; ++jj) {
+            if (outlier[jj]) continue;
+
+            double *x = allpowers.data() + jj * bins::TOTAL_KZ_BINS;
+            for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
+                v[i] = x[i] - temppower[i];
+
+            cblas_dsyr(
+                CblasRowMajor, CblasUpper,
+                bins::TOTAL_KZ_BINS, 1, v.get(), 1,
+                cov.data(), bins::TOTAL_KZ_BINS);
+        }
+
+        cblas_dscal(
+            bins::FISHER_SIZE, 1. / (remaining_boots - 1),
+            cov.data(), 1);
+
+        mxhelp::copyUpperToLower(cov.data(), bins::TOTAL_KZ_BINS);
+    }
+
+
+    unsigned int _findOutliers(
+            const std::vector<double> &mean, const double *fisher
+    ) {
+        auto v = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
              y = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+
+        unsigned int new_remains = 0;
+        double
+            maxChi2 = bins::TOTAL_KZ_BINS + 5. * sqrt(2. * bins::TOTAL_KZ_BINS);
+
+        for (unsigned int jj = 0; jj < nboots; ++jj) {
+            if (outlier[jj]) continue;
+
+            double *x = allpowers.data() + jj * bins::TOTAL_KZ_BINS;
+            for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
+                v[i] = x[i] - mean[i];
+
+            double chi2 = mxhelp::my_cblas_dgemvdot(
+                v.get(), fisher, y.get(), bins::TOTAL_KZ_BINS);
+
+            if (fabs(chi2) > maxChi2)
+                outlier[jj] = true;
+            else
+                ++new_remains;
+        }
+
+        return new_remains;
+    }
+
+
+    void _iterateOutlier() {
+        LOG::LOGGER.STD("Calculating bootstrap covariance.\n");
+        int status = 0;
+        double damp = 0;
+
+        auto iifisher = std::make_unique<double[]>(bins::FISHER_SIZE);
 
         for (int n = 0; n < 5; ++n) {
             LOG::LOGGER.STD("  Iteration %d...", n + 1);
 
             // Calculate mean power, store into temppower
-            std::fill(temppower.begin(), temppower.begin() + bins::TOTAL_KZ_BINS, 0);
-            for (int jj = 0; jj < nboots; ++jj) {
-                if (outlier[jj]) continue;
-
-                mxhelp::vector_add(
-                    temppower.data(),
-                    allpowers.data() + jj * bins::TOTAL_KZ_BINS,
-                    bins::TOTAL_KZ_BINS);
-            }
-            cblas_dscal(bins::TOTAL_KZ_BINS, 1. / remaining_boots, temppower.data(), 1);
+            _calcuateMean(temppower);
 
             // Calculate the covariance matrix into tempfisher
-            std::fill(tempfisher.begin(), tempfisher.end(), 0);
-            for (int jj = 0; jj < nboots; ++jj) {
-                if (outlier[jj]) continue;
-
-                double *x = allpowers.data() + jj * bins::TOTAL_KZ_BINS;
-                for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
-                    v[i] = x[i] - temppower[i];
-
-                cblas_dsyr(
-                    CblasRowMajor, CblasUpper,
-                    bins::TOTAL_KZ_BINS, 1, v.get(), 1,
-                    tempfisher.data(), bins::TOTAL_KZ_BINS);
-            }
-            cblas_dscal(
-                bins::FISHER_SIZE, 1. / (remaining_boots - 1),
-                tempfisher.data(), 1);
-            mxhelp::copyUpperToLower(tempfisher.data(), bins::TOTAL_KZ_BINS);
+            _calcuateCovariance(tempfisher);
 
             // Invert covariance to get the Fisher matrix
             std::copy(tempfisher.begin(), tempfisher.end(), iifisher.get());
@@ -301,22 +344,7 @@ private:
                     damp);
 
             // Find outliers
-            int new_remains = 0;
-            for (int jj = 0; jj < nboots; ++jj) {
-                if (outlier[jj]) continue;
-
-                double *x = allpowers.data() + jj * bins::TOTAL_KZ_BINS;
-                for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
-                    v[i] = x[i] - temppower[i];
-
-                double chi2 = mxhelp::my_cblas_dgemvdot(
-                    v.get(), iifisher.get(), y.get(), bins::TOTAL_KZ_BINS);
-
-                if (fabs(chi2) > maxChi2)
-                    outlier[jj] = true;
-                else
-                    ++new_remains;
-            }
+            unsigned int new_remains = _findOutliers(temppower, iifisher.get());
 
             LOG::LOGGER.STD("Removed outliers. Remaining %d.\n", new_remains);
             if (new_remains == remaining_boots)
