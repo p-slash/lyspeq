@@ -538,7 +538,8 @@ void OneDQuadraticPowerEstimate::iterate()
         _saveChunkResults(local_queue);
 
     if (specifics::NUMBER_OF_BOOTS > 0) {
-        PoissonBootstrapper pbooter(specifics::NUMBER_OF_BOOTS);
+        PoissonBootstrapper pbooter(
+            specifics::NUMBER_OF_BOOTS, inverse_fisher_matrix_sum.get());
         pbooter.run(local_queue);
     }
 }
