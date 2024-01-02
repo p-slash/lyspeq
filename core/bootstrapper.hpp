@@ -281,6 +281,9 @@ private:
                     tempfisher.data(), bins::TOTAL_KZ_BINS);
             }
 
+            cblas_dscal(
+                bins::FISHER_SIZE, 1. / (remaining_boots - 1),
+                tempfisher.data(), 1);
             mxhelp::copyUpperToLower(tempfisher.data(), bins::TOTAL_KZ_BINS);
             std::copy(tempfisher.begin(), tempfisher.end(), iifisher.get());
 
@@ -290,7 +293,7 @@ private:
 
             if (status != 0) {
                 LOG::LOGGER.STD(
-                    "* Inv Fisher matrix is damped by adding %.2e to the diagonal.\n",
+                    "Inv Fisher matrix is damped by adding %.2e I...",
                     damp);
             }
 
@@ -298,10 +301,9 @@ private:
             for (int jj = 0; jj < nboots; ++jj) {
                 if (outlier[jj]) continue;
 
-                double *x = allpowers.data() + jj * bins::TOTAL_KZ_BINS;
-
                 double chi2 = mxhelp::my_cblas_dgemvdot(
-                    x, iifisher.get(), temppower.data(), bins::TOTAL_KZ_BINS);
+                    allpowers.data() + jj * bins::TOTAL_KZ_BINS,
+                    iifisher.get(), temppower.data(), bins::TOTAL_KZ_BINS);
 
                 if (fabs(chi2) > maxChi2)
                     outlier[jj] = true;
@@ -309,16 +311,12 @@ private:
                     ++new_remains;
             }
 
-            LOG::LOGGER.STD("Removed outliers. Remaining %d.\n", remaining_boots);
+            LOG::LOGGER.STD("Removed outliers. Remaining %d.\n", new_remains);
             if (new_remains == remaining_boots)
                 break;
 
             remaining_boots = new_remains;
-        } 
-
-        cblas_dscal(
-            bins::FISHER_SIZE, 1. / (remaining_boots - 1),
-            tempfisher.data(), 1);
+        }
     }
 };
 
