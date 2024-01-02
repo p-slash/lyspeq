@@ -50,8 +50,11 @@ public:
         cblas_daxpy(ndim, p, theta_vector.get(), 1, temppower + istart, 1);
     }
 
-    void addBootPowerOnly(int p, double *temppower) {
-        cblas_daxpy(ndim, p, theta_vector.get(), 1, temppower + istart, 1);
+    void addBootPowerOnly(int nboots, double *pcoeff, double *temppower) {
+        // cblas_daxpy(ndim, p, theta_vector.get(), 1, temppower + istart, 1);
+        cblas_dger(
+            CblasRowMajor, nboots, ndim, 1, pcoeff, 1, theta_vector.get(), 1,
+            temppower + istart, bins::TOTAL_KZ_BINS);
     };
 };
 

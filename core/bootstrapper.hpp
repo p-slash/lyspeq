@@ -24,6 +24,11 @@ public:
         return p_dist(rng_engine);
     }
 
+    void fill_vector(std::vector<double> &v) {
+        for (auto it = v.begin(); it != v.end(); ++it)
+            (*it) = generate();
+    }
+
 private:
     std::mt19937_64 rng_engine;
     std::poisson_distribution<unsigned int> p_dist;
@@ -56,6 +61,7 @@ public:
 
         if (specifics::FAST_BOOTSTRAP) {
             temppower.resize(nboots * bins::TOTAL_KZ_BINS);
+            pcoeff.resize(nboots);
             invfisher = ifisher;
         } else
             temppower.resize(bins::TOTAL_KZ_BINS);
@@ -103,6 +109,22 @@ public:
 
         _calcuate_covariance();
 
+        if (specifics::FAST_BOOTSTRAP) {
+            cblas_dgemm(
+                CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
+                0.5, invfisher,
+                bins::TOTAL_KZ_BINS, tempfisher.data(), bins::TOTAL_KZ_BINS,
+                0, allpowers.data(), bins::TOTAL_KZ_BINS);
+
+            cblas_dgemm(
+                CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
+                0.5, allpowers.data(),
+                bins::TOTAL_KZ_BINS, invfisher, bins::TOTAL_KZ_BINS,
+                0, tempfisher.data(), bins::TOTAL_KZ_BINS);
+        }
+
         std::string buffer(process::FNAME_BASE);
         buffer += std::string("_bootstrap_covariance.txt");
         mxhelp::fprintfMatrix(
@@ -112,7 +134,7 @@ public:
 
 private:
     unsigned int nboots;
-    std::vector<double> temppower, tempfisher, allpowers;
+    std::vector<double> temppower, tempfisher, allpowers, pcoeff;
     std::unique_ptr<PoissonRNG> pgenerator;
     double *invfisher;
 
@@ -124,7 +146,7 @@ private:
         );
 
         if (specifics::FAST_BOOTSTRAP)
-            needed_mem += memfull;
+            needed_mem += memfull + process::getMemoryMB(nboots);
         else
             needed_mem += process::getMemoryMB(bins::TOTAL_KZ_BINS);
         return needed_mem;
@@ -136,16 +158,10 @@ private:
         double t1 = mytime::timer.getTime(), t2 = 0;
         std::fill(temppower.begin(), temppower.end(), 0);
 
-        Progress prog_tracker(nboots);
-        for (int jj = 0; jj < nboots; ++jj)
-        {
-            for (const auto &one_qso : local_queue) {
-                int p = pgenerator->generate();
-                if (p == 0)
-                    continue;
-
-                one_qso->addBootPowerOnly(p, temppower.data() + jj * bins::TOTAL_KZ_BINS);
-            }
+        Progress prog_tracker(local_queue.size());
+        for (const auto &one_qso : local_queue) {
+            pgenerator->fill_vector(pcoeff);
+            one_qso->addBootPowerOnly(nboots, pcoeff.data(), temppower.data());
             ++prog_tracker;
         }
 
@@ -153,32 +169,14 @@ private:
         mytime::time_spent_on_oneboot_loop += t2 - t1;
 
         #if defined(ENABLE_MPI)
-        if (process::this_pe != 0) {
-            MPI_Reduce(
-                temppower.data(),
-                nullptr, temppower.size(),
-                MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        }
-        else {
-            MPI_Reduce(
-                MPI_IN_PLACE,
-                temppower.data(), temppower.size(),
-                MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        }
+        MPI_Reduce(
+            temppower.data(),
+            allpowers.data(), temppower.size(),
+            MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         #endif
 
         t1 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_mpi += t1 - t2;
-
-        if (process::this_pe == 0)
-            cblas_dgemm(
-                CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                nboots, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, 0.5, temppower.data(),
-                bins::TOTAL_KZ_BINS, invfisher, bins::TOTAL_KZ_BINS,
-                0, allpowers.data(), bins::TOTAL_KZ_BINS);
-
-        t2 = mytime::timer.getTime();
-        mytime::time_spent_on_oneboot_solve += t2 - t1;
     }
 
     bool _one_boot(
