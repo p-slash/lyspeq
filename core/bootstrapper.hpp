@@ -12,6 +12,7 @@
 #include "core/global_numbers.hpp"
 #include "core/progress.hpp"
 #include "mathtools/matrix_helper.hpp"
+#include "mathtools/stats.hpp"
 
 
 class PoissonRNG {
@@ -24,7 +25,7 @@ public:
         return p_dist(rng_engine);
     }
 
-    void fill_vector(std::vector<double> &v) {
+    void fillVector(std::vector<double> &v) {
         for (auto it = v.begin(); it != v.end(); ++it)
             (*it) = generate();
     }
@@ -109,30 +110,8 @@ public:
 
         mytime::printfBootstrapTimeSpentDetails();
 
-        _iterateOutlier();
-
-        if (specifics::FAST_BOOTSTRAP) {
-            allpowers.resize(bins::FISHER_SIZE);
-            cblas_dgemm(
-                CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
-                0.5, invfisher,
-                bins::TOTAL_KZ_BINS, tempfisher.data(), bins::TOTAL_KZ_BINS,
-                0, allpowers.data(), bins::TOTAL_KZ_BINS);
-
-            cblas_dgemm(
-                CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
-                0.5, allpowers.data(),
-                bins::TOTAL_KZ_BINS, invfisher, bins::TOTAL_KZ_BINS,
-                0, tempfisher.data(), bins::TOTAL_KZ_BINS);
-        }
-
-        std::string buffer(process::FNAME_BASE);
-        buffer += std::string("_bootstrap_covariance.txt");
-        mxhelp::fprintfMatrix(
-            buffer.c_str(), tempfisher.data(),
-            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+        _meanBootstrap();
+        _medianBootstrap();
     }
 
 private:
@@ -164,7 +143,7 @@ private:
 
         Progress prog_tracker(local_queue.size());
         for (const auto &one_qso : local_queue) {
-            pgenerator->fill_vector(pcoeff);
+            pgenerator->fillVector(pcoeff);
             one_qso->addBootPowerOnly(nboots, pcoeff.data(), temppower.data());
             ++prog_tracker;
         }
@@ -247,6 +226,25 @@ private:
         return valid;
     }
 
+
+    void _sandwichInvFisher() {
+        auto m = std::make_unique<double[]>(bins::FISHER_SIZE);
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
+            0.5, invfisher,
+            bins::TOTAL_KZ_BINS, tempfisher.data(), bins::TOTAL_KZ_BINS,
+            0, m.get(), bins::TOTAL_KZ_BINS);
+
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
+            0.5, m.get(),
+            bins::TOTAL_KZ_BINS, invfisher, bins::TOTAL_KZ_BINS,
+            0, tempfisher.data(), bins::TOTAL_KZ_BINS);
+    }
+
+
     void _calcuateMean(std::vector<double> &mean) {
         std::fill(mean.begin(), mean.begin() + bins::TOTAL_KZ_BINS, 0);
         for (unsigned int jj = 0; jj < nboots; ++jj) {
@@ -261,7 +259,45 @@ private:
     }
 
 
-    void _calcuateCovariance(std::vector<double> &cov) {
+    void _calcuateMedian(std::vector<double> &median) {
+        median.resize(bins::TOTAL_KZ_BINS);
+
+        for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i) {
+            cblas_dcopy(
+                nboots, allpowers.data() + i, bins::TOTAL_KZ_BINS,
+                pcoeff.data(), 1);
+            median[i] = stats::medianOfUnsortedVector(pcoeff);
+        }
+    }
+
+
+    void _calcuateMadCovariance(
+            const double *median, std::vector<double> &mad_cov
+    ) {
+        mad_cov.resize(bins::FISHER_SIZE);
+
+        for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i) {
+            const double *x = allpowers.data() + i;
+
+            for (int j = i; j < bins::TOTAL_KZ_BINS; ++j) {
+                const double *y = allpowers.data() + j;
+
+                for (unsigned int k = 0; k < nboots; k += bins::TOTAL_KZ_BINS)
+                    pcoeff[k] = (x[k] - median[i]) * (y[k] - median[j]);
+
+                mad_cov[j + i * bins::TOTAL_KZ_BINS] =
+                    2.19810276 * stats::medianOfUnsortedVector(pcoeff);
+            }
+        }
+
+        mxhelp::copyUpperToLower(mad_cov.data(), bins::TOTAL_KZ_BINS);
+
+        if (specifics::FAST_BOOTSTRAP)
+            _sandwichInvFisher();
+    }
+
+
+    void _calcuateCovariance(const double *mean, std::vector<double> &cov) {
         auto v = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
         std::fill(cov.begin(), cov.end(), 0);
@@ -270,7 +306,7 @@ private:
 
             double *x = allpowers.data() + jj * bins::TOTAL_KZ_BINS;
             for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
-                v[i] = x[i] - temppower[i];
+                v[i] = x[i] - mean[i];
 
             cblas_dsyr(
                 CblasRowMajor, CblasUpper,
@@ -283,6 +319,9 @@ private:
             cov.data(), 1);
 
         mxhelp::copyUpperToLower(cov.data(), bins::TOTAL_KZ_BINS);
+
+        if (specifics::FAST_BOOTSTRAP)
+            _sandwichInvFisher();
     }
 
 
@@ -316,27 +355,54 @@ private:
     }
 
 
-    void _iterateOutlier() {
-        LOG::LOGGER.STD("Calculating bootstrap covariance.\n");
+    void _medianBootstrap() {
+        LOG::LOGGER.STD("Calculating median bootstrap covariance.\n");
+        _calcuateMedian(temppower);
+        _calcuateMadCovariance(temppower.data(), tempfisher);
+        _saveData("median");
+    }
+
+    void _meanBootstrap() {
+        LOG::LOGGER.STD("Calculating mean bootstrap covariance.\n");
+        // Calculate mean power, store into temppower
+        _calcuateMean(temppower);
+        // Calculate the covariance matrix into tempfisher
+        _calcuateCovariance(temppower.data(), tempfisher);
+        _saveData("mean");
 
         for (int n = 0; n < 5; ++n) {
             LOG::LOGGER.STD("  Iteration %d...", n + 1);
 
-            // Calculate mean power, store into temppower
-            _calcuateMean(temppower);
-
             // Find outliers
-            unsigned int new_remains = _findOutliers(temppower, invfisher);
+            unsigned int new_remains = _findOutliers(temppower, tempfisher.data());
 
             LOG::LOGGER.STD("Removed outliers. Remaining %d.\n", new_remains);
             if (new_remains == remaining_boots)
                 break;
 
             remaining_boots = new_remains;
-        }
 
-        // Calculate the covariance matrix into tempfisher
-        _calcuateCovariance(tempfisher);
+            _calcuateMean(temppower);
+            _calcuateCovariance(temppower.data(), tempfisher);
+        }
+        
+        _saveData("mean_pruned");
+    }
+
+
+    void _saveData(const std::string &t) {
+        std::string buffer = 
+            process::FNAME_BASE + std::string("_bootstrap_") + t
+            + std::string(".txt");
+        mxhelp::fprintfMatrix(
+            buffer.c_str(), temppower.data(),
+            1, bins::TOTAL_KZ_BINS);
+
+        buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
+                 + std::string("_covariance.txt");
+        mxhelp::fprintfMatrix(
+            buffer.c_str(), tempfisher.data(),
+            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     }
 };
 
