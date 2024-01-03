@@ -1,4 +1,5 @@
 #include "mathtools/smoother.hpp"
+#include "mathtools/stats.hpp"
 #include "io/logger.hpp"
 
 #include <cmath>
@@ -14,19 +15,6 @@
 std::unique_ptr<Smoother> process::noise_smoother;
 
 
-double _medianOfSortedArray(double *sorted_arr, int size) {
-    int jj = size / 2;
-    double median = sorted_arr[jj];
-
-    if (size % 2 == 0) {
-        median += sorted_arr[jj - 1];
-        median /= 2;
-    }
-
-    return median;
-}
-
-
 double _getMedianBelowThreshold(
         double *sorted_arr, int size, int &newsize, double thres=1e3
 ) {
@@ -37,7 +25,7 @@ double _getMedianBelowThreshold(
     if (newsize == 0)
         return sorted_arr[0];
 
-    return _medianOfSortedArray(sorted_arr, newsize);
+    return stats::medianOfSortedArray(sorted_arr, newsize);
 }
 
 
@@ -52,7 +40,7 @@ void _findMedianStatistics(
     std::sort(arr, arr + newsize);
 
     // The constant factor makes it unbiased
-    mad = 1.4826 * _medianOfSortedArray(arr, newsize);
+    mad = 1.4826 * stats::medianOfSortedArray(arr, newsize);
 }
 
 

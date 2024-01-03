@@ -29,28 +29,6 @@
 #endif
 
 
-void medianStats(
-        std::vector<double> &v, double &med_offset, double &max_diff_offset
-) {
-    // Obtain some statistics
-    // convert to off-balance
-    double ave_balance = std::accumulate(
-        v.begin(), v.end(), 0.) / process::total_pes;
-
-    std::for_each(
-        v.begin(), v.end(), [ave_balance](double &t) { t = t / ave_balance - 1; }
-    );
-
-    // find min and max offset
-    auto minmax_off = std::minmax_element(v.begin(), v.end());
-    max_diff_offset = *minmax_off.second - *minmax_off.first;
-
-    // convert to absolute values and find find median
-    std::for_each(v.begin(), v.end(), [](double &t) { t = fabs(t); });
-    std::sort(v.begin(), v.end());
-    med_offset = v[v.size() / 2];
-}
-
 void _saveChunkResults(
         std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
 ) {
@@ -248,7 +226,7 @@ std::vector<std::string> OneDQuadraticPowerEstimate::_loadBalancing(
         );
 
     double med_offset, max_diff_offset;
-    medianStats(bucket_time, med_offset, max_diff_offset);
+    stats::medianOffBalanceStats(bucket_time, med_offset, max_diff_offset);
 
     load_balance_time = mytime::timer.getTime() - load_balance_time;
     LOG::LOGGER.STD(
@@ -822,7 +800,7 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     }
 
     double med_offset, max_diff_offset;
-    medianStats(times_all_pes, med_offset, max_diff_offset);
+    stats::medianOffBalanceStats(times_all_pes, med_offset, max_diff_offset);
 
     LOG::LOGGER.STD(
         "Measured load balancing offsets:\n"
