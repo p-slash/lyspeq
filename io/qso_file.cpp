@@ -1,4 +1,5 @@
 #include "io/qso_file.hpp"
+#include "mathtools/stats.hpp"
 
 #include <cmath>
 #include <algorithm>
@@ -8,29 +9,22 @@
 
 namespace qio
 {
-double _calcdv(double w2, double w1) { return log(w2/w1)*SPEED_OF_LIGHT; }
-double _getMediandv(const double *wave, int size)
-{
-    static std::vector<double> temp_arr;
-    temp_arr.clear();
-    temp_arr.reserve(size);
+static std::vector<double> temp_arr;
 
-    std::adjacent_difference(wave, wave+size, std::back_inserter(temp_arr), _calcdv);
-    std::sort(temp_arr.begin()+1, temp_arr.end());
+double _getMediandv(const double *wave, int size) {
+    temp_arr.resize(size - 1);
+    for (int i = 0; i < size - 1; ++i)
+        temp_arr[i] = log(wave[i + 1] / wave[i]) * SPEED_OF_LIGHT;
 
-    return temp_arr[1+(size-1)/2];
+    return stats::medianOfUnsortedVector(temp_arr);
 }
 
-double _getMediandlambda(const double *wave, int size)
-{
-    static std::vector<double> temp_arr;
-    temp_arr.clear();
-    temp_arr.reserve(size);
+double _getMediandlambda(const double *wave, int size) {
+    temp_arr.resize(size - 1);
+    for (int i = 0; i < size - 1; ++i)
+        temp_arr[i] = wave[i + 1] - wave[i];
 
-    std::adjacent_difference(wave, wave+size,  std::back_inserter(temp_arr));
-    std::sort(temp_arr.begin()+1, temp_arr.end());
-
-    return temp_arr[1+(size-1)/2];
+    return stats::medianOfUnsortedVector(temp_arr);
 }
 
 // ============================================================================
