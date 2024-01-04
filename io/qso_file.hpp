@@ -103,7 +103,8 @@ class QSOFile
     std::unique_ptr<BQFile> bqfile;
 
     double *wave_head, *delta_head, *ivar_head, *noise_head;
-    int arr_size, shift, num_masked_pixels;
+    int arr_size, _fullsize, shift, num_masked_pixels;
+
     // count num_masked_pixels after cutting
     void _cutMaskedBoundary(double sigma_cut=1e6);
     void _countMaskedPixels(double sigma_cut=1e6);
@@ -120,9 +121,9 @@ public:
     QSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     QSOFile(QSOFile &&rhs) = delete;
     QSOFile(const QSOFile &rhs) = delete;
-
-    void closeFile() { pfile.reset(); bqfile.reset(); };
     ~QSOFile() {
+        process::updateMemory(getMinMemUsage());
+
         closeFile();
         delete [] wave_head;
         delete [] delta_head;
@@ -130,12 +131,23 @@ public:
         delete [] noise_head;
     };
 
+    void closeFile() { pfile.reset(); bqfile.reset(); };
+
     int size() const { return arr_size; };
     int realSize() const { return arr_size-num_masked_pixels; };
     double* wave() const  { return wave_head+shift; };
     double* delta() const { return delta_head+shift; };
     double* ivar() const { return ivar_head+shift; };
     double* noise() const { return noise_head+shift; };
+
+    double getMinMemUsage() {
+        double mem = 0;
+        if (wave_head != nullptr)
+            mem += process::getMemoryMB(_fullsize * 4);
+        if (Rmat)
+            mem += Rmat->getMinMemUsage();
+        return mem;
+    }
 
     void recalcDvDLam();
     void setRealField(RealField &rf);

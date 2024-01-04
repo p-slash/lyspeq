@@ -1,4 +1,5 @@
 #include "io/qso_file.hpp"
+#include "mathtools/stats.hpp"
 
 #include <cmath>
 #include <algorithm>
@@ -9,29 +10,22 @@
 
 namespace qio
 {
-double _calcdv(double w2, double w1) { return log(w2/w1)*SPEED_OF_LIGHT; }
-double _getMediandv(const double *wave, int size)
-{
-    static std::vector<double> temp_arr;
-    temp_arr.clear();
-    temp_arr.reserve(size);
+static std::vector<double> temp_arr;
 
-    std::adjacent_difference(wave, wave+size, std::back_inserter(temp_arr), _calcdv);
-    std::sort(temp_arr.begin()+1, temp_arr.end());
+double _getMediandv(const double *wave, int size) {
+    temp_arr.resize(size - 1);
+    for (int i = 0; i < size - 1; ++i)
+        temp_arr[i] = log(wave[i + 1] / wave[i]) * SPEED_OF_LIGHT;
 
-    return temp_arr[1+(size-1)/2];
+    return stats::medianOfUnsortedVector(temp_arr);
 }
 
-double _getMediandlambda(const double *wave, int size)
-{
-    static std::vector<double> temp_arr;
-    temp_arr.clear();
-    temp_arr.reserve(size);
+double _getMediandlambda(const double *wave, int size) {
+    temp_arr.resize(size - 1);
+    for (int i = 0; i < size - 1; ++i)
+        temp_arr[i] = wave[i + 1] - wave[i];
 
-    std::adjacent_difference(wave, wave+size,  std::back_inserter(temp_arr));
-    std::sort(temp_arr.begin()+1, temp_arr.end());
-
-    return temp_arr[1+(size-1)/2];
+    return stats::medianOfUnsortedVector(temp_arr);
 }
 
 // ============================================================================
@@ -43,8 +37,8 @@ double _getMediandlambda(const double *wave, int size)
 // double *wave, *delta, *noise;
 // mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
-        : PB(p_or_b), wave_head(NULL), delta_head(NULL), noise_head(NULL),
-          arr_size(0), shift(0), num_masked_pixels(0), fname(fname_qso)
+        : PB(p_or_b), wave_head(nullptr), delta_head(nullptr), noise_head(nullptr),
+          arr_size(0), _fullsize(0), shift(0), num_masked_pixels(0), fname(fname_qso)
 {
     if (PB == Picca)
         pfile = std::make_unique<PiccaFile>(fname);
@@ -63,11 +57,13 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
           R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
 {
     arr_size = i2 - i1;
+    _fullsize = arr_size;
 
     wave_head  = new double[arr_size];
     delta_head = new double[arr_size];
     ivar_head = new double[arr_size];
     noise_head = new double[arr_size];
+    process::updateMemory(-process::getMemoryMB(_fullsize * 3));
 
     std::copy(qmaster.wave()+i1, qmaster.wave()+i2, wave());
     std::copy(qmaster.delta()+i1, qmaster.delta()+i2, delta());
@@ -76,9 +72,11 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 
     _cutMaskedBoundary();
 
-    if (qmaster.Rmat)
+    if (qmaster.Rmat) {
         Rmat = std::make_unique<mxhelp::Resolution>(
             qmaster.Rmat.get(), i1+shift, i1+shift+arr_size);
+        process::updateMemory(-Rmat->getMinMemUsage());
+    }
     recalcDvDLam();
 }
 
@@ -93,6 +91,8 @@ void QSOFile::readParameters()
             arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms);
         R_kms = SPEED_OF_LIGHT / R_fwhm / ONE_SIGMA_2_FWHM;
     }
+
+    _fullsize = arr_size;
 }
 
 void QSOFile::readData()
@@ -104,6 +104,7 @@ void QSOFile::readData()
     delta_head = new double[arr_size];
     noise_head = new double[arr_size];
     ivar_head = new double[arr_size];
+    process::updateMemory(-process::getMemoryMB(_fullsize * 4));
 
     if (pfile) {
         pfile->readData(wave(), delta(), ivar());
@@ -182,14 +183,16 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
     _cutMaskedBoundary();
 
-    if (Rmat)
+    if (Rmat) {
+        process::updateMemory(Rmat->getMinMemUsage());
         Rmat->cutBoundary(shift, shift+arr_size);
+        process::updateMemory(-Rmat->getMinMemUsage());
+    }
 }
 
 void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 {
-    if (wave_head == NULL)
-    {
+    if (wave_head == nullptr) {
         readData();
         _cutMaskedBoundary();
     }
@@ -201,8 +204,10 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 
 void QSOFile::readAllocResolutionMatrix()
 {
-    if (pfile)
+    if (pfile) {
         Rmat = pfile->readAllocResolutionMatrix(oversampling, dlambda);
+        process::updateMemory(-Rmat->getMinMemUsage());
+    }
     else
         throw std::runtime_error("Cannot read resolution matrix from Binary file!");
 }
