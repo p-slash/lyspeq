@@ -189,8 +189,8 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
     }
 
     zmin = wave()[0] / LYA_REST - 1;
-    zmax = wave()[size()-1] / LYA_REST - 1;
-    zmed = wave()[size()/2] / LYA_REST - 1;
+    zmax = wave()[size() - 1] / LYA_REST - 1;
+    zmed = stats::medianOfSortedArray(wave(), size()) / LYA_REST - 1;
 }
 
 void QSOFile::readAllocResolutionMatrix()
