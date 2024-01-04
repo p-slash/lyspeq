@@ -5,7 +5,7 @@
 #include <numeric>
 
 
-double stats::medianOfSortedArray(double *sorted_arr, int size) {
+double stats::medianOfSortedArray(const double *sorted_arr, int size) {
     int jj = size / 2;
     double median = sorted_arr[jj];
 
