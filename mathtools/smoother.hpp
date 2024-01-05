@@ -5,15 +5,15 @@
 #include "io/config_file.hpp"
 
 const config_map smoother_default_parameters ({
-        {"SmoothNoiseWeights", "-1"} });
+        {"SmoothNoiseWeights", "-1"}, {"SmoothResolutionMatrix", "-1"}});
 
 class Smoother
 {
-    static const int HWSIZE = 25, KS = 2*HWSIZE+1;
+    static const int HWSIZE = 25, KS = 2 * HWSIZE + 1;
 
     int sigmapix;
     double gaussian_kernel[KS];
-    bool useMedianNoise, isSmoothingOn;
+    bool use_mean, is_smoothing_on, is_smoothing_on_rmat;
 
 public:
     /* This function reads following keys from config file:
@@ -26,11 +26,14 @@ public:
     Smoother(const Smoother &rhs) = delete;
 
     void smoothNoise(const double *n2, double *out, int size);
+    void smooth1D(double *inplace, int size, int ndim=1);
+    bool isSmoothingOn() const { return is_smoothing_on; }
+    bool isSmoothingOnRmat() const { return is_smoothing_on_rmat; }
 };
 
 namespace process
 {
-    extern std::unique_ptr<Smoother> noise_smoother;
+    extern std::unique_ptr<Smoother> smoother;
 }
 
 #endif
