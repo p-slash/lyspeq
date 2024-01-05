@@ -194,18 +194,17 @@ namespace mxhelp
         int getNCols() const { return ncols; };
         bool isDiaMatrix() const { return is_dia_matrix; };
         double* matrix() const {
-            if (is_dia_matrix)
-                return dia_matrix->matrix();
-            else
-                return osamp_matrix->matrix();
-        };
+            if (is_dia_matrix) return dia_matrix->matrix();
+            else               return osamp_matrix->matrix();
+        }
         int getSize() const {
-            if (is_dia_matrix)
-                return dia_matrix->getSize();
-            else
-                return osamp_matrix->getSize();
-        };
-        int getNElemPerRow() const;
+            if (is_dia_matrix) return dia_matrix->getSize();
+            else               return osamp_matrix->getSize();
+        }
+        int getNElemPerRow() const {
+            if (is_dia_matrix) return dia_matrix->ndiags;
+            else               return osamp_matrix->nelem_per_row;
+        }
 
         void cutBoundary(int i1, int i2);
 
