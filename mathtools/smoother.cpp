@@ -97,14 +97,13 @@ void Smoother::smooth1D(double *inplace, int size, int ndim) {
 
     if (use_mean) {
         std::fill_n(inplace, size, mean);
-        return;
+    } else {
+        padArray(inplace, size, HWSIZE, tempvector);
+
+        // Convolve
+        for (int i = 0; i < size; ++i)
+            inplace[i] = cblas_ddot(KS, gaussian_kernel, 1, tempvector.data() + i, 1);
     }
-
-    padArray(inplace, size, HWSIZE, tempvector);
-
-    // Convolve
-    for (int i = 0; i < size; ++i)
-        inplace[i] = cblas_ddot(KS, gaussian_kernel, 1, tempvector.data() + i, 1);
 
     if (ndim > 1)
         Smoother::smooth1D(inplace + size, size, ndim - 1);
