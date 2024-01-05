@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    process::noise_smoother = std::make_unique<Smoother>(config);
+    process::smoother = std::make_unique<Smoother>(config);
 
     try
     {

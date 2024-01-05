@@ -936,13 +936,6 @@ namespace mxhelp
         }
     }
 
-    int Resolution::getNElemPerRow() const
-    {
-        if (is_dia_matrix)
-            return dia_matrix->ndiags;
-        else
-            return osamp_matrix->nelem_per_row;
-    }
 
     void Resolution::oversample(int osamp, double dlambda)
     {

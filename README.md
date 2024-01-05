@@ -177,9 +177,14 @@ Other params
 ====
 + `InputIsPicca` (int):
     If > 0, input file format is from picca. Off by default.
++ `SmoothNoiseWeights` (int):
+    If > 0, smooths pipeline noise by this Gaussian sigma pixel. Smoothing kernel
+    half window size is 25 pixels. If == 0, sets every value to the median.
 + `UseResoMatrix` (int):
     If > 0, reads and uses the resolution matrix picca files.
     Off by default.
++ `SmoothResolutionMatrix` (int, default: -1, False):
+    If > 0, uses `SmoothNoiseWeights` value to smooth diagonal resolution matrices.
 + `ResoMatDeconvolutionM` (double):
     Deconvolve the resolution matrix by this factor in terms of pixel.
     For example, 1.0 deconvolves one top hat. Off by default and when

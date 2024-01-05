@@ -388,11 +388,12 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     // add noise matrix diagonally
     // but smooth before adding
-    process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
-    cblas_daxpy(
-        size(), 1., temp_vector, 1,
-        covariance_matrix, size() + 1
-    );
+    if (process::smoother->isSmoothingOn()) {
+        process::smoother->smoothNoise(qFile->noise(), temp_vector, size());
+        cblas_daxpy(size(), 1., temp_vector, 1, covariance_matrix, size() + 1);
+    } else {
+        cblas_daxpy(size(), 1., qFile->noise(), 1, covariance_matrix, size() + 1);
+    }
 
     isCovInverted = false;
     CHECK_ISNAN(covariance_matrix, DATA_SIZE_2, "CovMat");
