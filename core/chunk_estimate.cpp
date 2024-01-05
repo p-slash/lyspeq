@@ -239,7 +239,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 
         // +1 for noise matrix dot product
         #ifdef FISHER_OPTIMIZATION
-        const int N_M_COMBO = 3 + 1;
+        const int N_M_COMBO = 11 + 1;
         #else
         const int N_M_COMBO = real_nq_mat + 1 + 1;
         #endif
@@ -591,7 +591,7 @@ void Chunk::computePSbeforeFvector()
             
             #ifdef FISHER_OPTIMIZATION
             int diff_ji = j_kz - i_kz;
-            if ((diff_ji != 0) && (diff_ji != 1) && (diff_ji != bins::NUMBER_OF_K_BANDS))
+            if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
                 continue;
             #endif
 
