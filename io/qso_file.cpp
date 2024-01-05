@@ -45,7 +45,6 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
         bqfile = std::make_unique<BQFile>(fname);
 
     dlambda=-1;
-    oversampling=-1;
     id = 0;
 }
 
@@ -53,7 +52,7 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         : PB(qmaster.PB), shift(0), num_masked_pixels(0), fname(qmaster.fname), 
           z_qso(qmaster.z_qso), snr(qmaster.snr),
           ra(qmaster.ra), dec(qmaster.dec), id(qmaster.id),
-          R_fwhm(qmaster.R_fwhm), oversampling(qmaster.oversampling)
+          R_fwhm(qmaster.R_fwhm)
 {
     arr_size = i2 - i1;
     _fullsize = arr_size;
@@ -81,8 +80,7 @@ void QSOFile::readParameters()
 {
     if (pfile)
         pfile->readParameters(
-            id, arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms, dlambda,
-            oversampling);
+            id, arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms, dlambda);
     else
         bqfile->readParameters(
             arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms);
@@ -196,7 +194,7 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 void QSOFile::readAllocResolutionMatrix()
 {
     if (pfile) {
-        Rmat = pfile->readAllocResolutionMatrix(oversampling, dlambda);
+        Rmat = pfile->readAllocResolutionMatrix();
         process::updateMemory(-Rmat->getMinMemUsage());
     }
     else
@@ -373,8 +371,7 @@ bool PiccaFile::_isColumnName(const std::string &key)
 
 void PiccaFile::readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
-        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
-        int &oversampling
+        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda
 ) {
     curr_elem_per_row = -1;
 
@@ -416,11 +413,6 @@ void PiccaFile::readParameters(
         fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
     else
         dlambda = -1;
-
-    if (_isHeaderKey("OVERSAMP"))
-        fits_read_key(fits_file, TINT, "OVERSAMP", &oversampling, NULL, &status);
-    else
-        oversampling = -1;
 }
 
 int PiccaFile::_getColNo(char *tmplt)
@@ -481,48 +473,27 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     );
 }
 
-std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix(int oversampling, double dlambda)
-{
+std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix() {
     std::unique_ptr<mxhelp::Resolution> Rmat;
     int nonull, naxis, colnum;
     long naxes[2];
-    char resotmp[]="RESOMAT";
+    char resotmp[] = "RESOMAT";
     colnum = _getColNo(resotmp);
     fits_read_tdim(fits_file, colnum, curr_N, &naxis, &naxes[0], &status);
     _checkStatus();
 
     curr_elem_per_row = naxes[0];
-    if (oversampling == -1) // matrix is in dia format
-        Rmat = std::make_unique<mxhelp::Resolution>(curr_N, curr_elem_per_row);
-    else
-        Rmat = std::make_unique<mxhelp::Resolution>(curr_N, curr_elem_per_row, oversampling, dlambda);
+    Rmat = std::make_unique<mxhelp::Resolution>(curr_N, curr_elem_per_row);
 
-    if ((curr_elem_per_row < 1) || (curr_elem_per_row-1)%(2*oversampling) != 0)
-        throw std::runtime_error("Resolution matrix is not properly formatted.");
-
-    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N*curr_elem_per_row, 0, 
+    fits_read_col(
+        fits_file, TDOUBLE, colnum, 1, 1, curr_N * curr_elem_per_row, 0, 
         Rmat->matrix(), &nonull, &status);
     _checkStatus();
 
-    if (oversampling == -1)
-        Rmat->orderTranspose();
+    Rmat->orderTranspose();
 
     return Rmat;
 }
-
-// void PiccaFile::_move(int index)
-// {
-//     int hdutype;
-//     if (index >= no_spectra)
-//         throw std::runtime_error("Trying go beyond # HDU in fits file.");
-
-//     if (index > 0 && curr_spec_index != index)
-//     {
-//         fits_movabs_hdu(fits_file, index, &hdutype, &status);
-//         curr_spec_index = index;
-//     }
-// }
-
 }
 
 
