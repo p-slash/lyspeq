@@ -5,6 +5,7 @@
 #include <string>
 #include <memory>
 
+#include "mathtools/stats.hpp"
 #include "io/config_file.hpp"
 
 // This umbrella class manages the quadratic estimator by 

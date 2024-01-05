@@ -18,9 +18,10 @@ namespace process
 
     void updateMemory(double deltamem)
     {
-        MEMORY_ALLOC += deltamem;
+        MEMORY_ALLOC = std::max(0., MEMORY_ALLOC + deltamem);
         if (MEMORY_ALLOC < 100)
-            LOG::LOGGER.ERR("Remaining memory is less than 100 MB!\n");
+            LOG::LOGGER.ERR(
+                "WARNING! Remaining memory is low (%.1f MB).\n", MEMORY_ALLOC);
     }
 
     void readProcess(ConfigFile &config)
@@ -64,8 +65,8 @@ namespace process
 namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
-    bool   TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX,
-           USE_PRECOMPUTED_FISHER;
+    bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX,
+         USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP;
     int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
         CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1, NUMBER_OF_BOOTS = 0;
     double RESOMAT_DECONVOLUTION_M = 0;
@@ -117,6 +118,7 @@ namespace specifics
         USE_RESOLUTION_MATRIX = config.getInteger("UseResoMatrix", -1) > 0;
         std::string precomp_fisher_str = config.get("PrecomputedFisher");
         USE_PRECOMPUTED_FISHER = !precomp_fisher_str.empty();
+        FAST_BOOTSTRAP = config.getInteger("FastBootstrap") > 0;
 
         if (config.getInteger("InputIsPicca", -1) > 0)
             INPUT_QSO_FILE = qio::Picca;
@@ -149,8 +151,10 @@ namespace specifics
             booltostr(USE_PRECOMPUTED_FISHER), precomp_fisher_str.c_str());
         LOG::LOGGER.STD("ContinuumLogLambdaMargOrder is set to %d.\n",
             CONT_LOGLAM_MARG_ORDER);
-        LOG::LOGGER.STD("ContinuumLambdaMargOrder is set to %d.\n\n",
+        LOG::LOGGER.STD("ContinuumLambdaMargOrder is set to %d.\n",
             CONT_LAM_MARG_ORDER);
+        LOG::LOGGER.STD("NumberOfBoots is set to %d.\n", NUMBER_OF_BOOTS);
+        LOG::LOGGER.STD("FastBootstrap is set to %s.\n\n", booltostr(FAST_BOOTSTRAP));
         #undef booltostr
     }
 
@@ -190,7 +194,7 @@ namespace bins
         });
 
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
-        FISHER_SIZE;
+        FISHER_SIZE, NewDegreesOfFreedom;
     std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE;
     BinningMethod Z_BINNING_METHOD = TriangleBinningMethod;
@@ -208,6 +212,7 @@ namespace bins
             ++NUMBER_OF_K_BANDS;
 
         TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS;
+        NewDegreesOfFreedom = TOTAL_KZ_BINS;
         FISHER_SIZE = TOTAL_KZ_BINS * TOTAL_KZ_BINS;
 
         KBAND_EDGES.reserve(NUMBER_OF_K_BANDS + 1);

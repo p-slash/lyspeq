@@ -179,30 +179,18 @@ void Chunk::_setStoredMatrices()
 
 Chunk::~Chunk()
 {
-    process::updateMemory(getMinMemUsage());
+    process::updateMemory(
+        process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES)
+    );
 }
 
 double Chunk::getMinMemUsage()
 {
     double minmem = process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
-    if (qFile) {
-        minmem += process::getMemoryMB(size() * 3);    
-        if (specifics::USE_RESOLUTION_MATRIX)
-            minmem += qFile->Rmat->getMinMemUsage();
-    }
+    if (qFile)
+        minmem += qFile->getMinMemUsage();
 
     return minmem;
-}
-
-void Chunk::releaseFile() {
-    if (!qFile)
-        return;
-
-    double released_mem = process::getMemoryMB(size() * 3);
-    if (specifics::USE_RESOLUTION_MATRIX)
-        released_mem += qFile->Rmat->getMinMemUsage();
-    process::updateMemory(released_mem);
-    qFile.reset();
 }
 
 double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
@@ -400,11 +388,12 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     // add noise matrix diagonally
     // but smooth before adding
-    process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
-    cblas_daxpy(
-        size(), 1., temp_vector, 1,
-        covariance_matrix, size() + 1
-    );
+    if (process::smoother->isSmoothingOn()) {
+        process::smoother->smoothNoise(qFile->noise(), temp_vector, size());
+        cblas_daxpy(size(), 1., temp_vector, 1, covariance_matrix, size() + 1);
+    } else {
+        cblas_daxpy(size(), 1., qFile->noise(), 1, covariance_matrix, size() + 1);
+    }
 
     isCovInverted = false;
     CHECK_ISNAN(covariance_matrix, DATA_SIZE_2, "CovMat");
