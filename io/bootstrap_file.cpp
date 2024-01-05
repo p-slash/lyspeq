@@ -123,9 +123,6 @@ void ioh::BootstrapFile::writeBoot(const double *pk, const double *fisher)
     double *v = data_buffer+nkzbins;
     for (int d = 0; d < ndiags; ++d)
     {
-        // #ifdef FISHER_OPTIMIZATION
-        // if (d == 2) d = nkbins;
-        // #endif
         mxhelp::getDiagonal(fisher, nkzbins, d, v);
         v += nkzbins-d;
     }
