@@ -82,14 +82,10 @@ ioh::BootstrapFile::BootstrapFile(const std::string &base, int nk, int nz, int t
     r += MPI_File_open(MPI_COMM_WORLD, out_fname.c_str(), 
         MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &bootfile);
 
-    nkzbins = nk*nz;
-    // #ifdef FISHER_OPTIMIZATION
-    // ndiags  = 3;  // 2*nkbins
-    // cf_size = 3*nkzbins-nkbins-1;
-    // #else
-    ndiags  = 2*nkbins;
+    nkzbins = nk * nz;
+    ndiags  = 3 * nkbins;
     cf_size = nkzbins*ndiags - (ndiags*(ndiags-1))/2;
-    // #endif
+
     elems_count = cf_size+nkzbins;
 
     if (pe == 0)
