@@ -445,7 +445,8 @@ namespace bins
     }
 
     void (*redshiftBinningFunction)(
-        const double *z, int N, int zm, double *out, int &low, int &up) = &zBinTopHat;
+        const double *z, int N, int zm, double *out, int &low, int &up
+    ) = &zBinTopHat;
 
     void setRedshiftBinningFunction(int zm)
     {
@@ -454,7 +455,9 @@ namespace bins
             redshiftBinningFunction = &zBinTopHat;
             break;
         case TriangleBinningMethod:
-            if (zm == 0)
+            if (NUMBER_OF_Z_BINS == 1)
+                redshiftBinningFunction = &zBinTopHat;
+            else if (zm == 0)
                 redshiftBinningFunction = &zBinTriangular1;
             else if (zm == NUMBER_OF_Z_BINS - 1)
                 redshiftBinningFunction = &zBinTriangular2;
