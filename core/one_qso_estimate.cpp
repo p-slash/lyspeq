@@ -6,10 +6,13 @@
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
+#include "mathtools/smoother.hpp"
+
 #include <stdexcept>
 
 const int
 MAX_PIXELS_IN_FOREST = 700;
+
 
 int _decideNChunks(int size, std::vector<int> &indices)
 {
@@ -40,7 +43,12 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
     {
         qFile.readAllocResolutionMatrix();
 
-        if (specifics::RESOMAT_DECONVOLUTION_M>0)
+        if (process::smoother->isSmoothingOnRmat())
+            process::smoother->smooth1D(
+                qFile.Rmat->matrix(), qFile.Rmat->getNCols(),
+                qFile.Rmat->getNElemPerRow());
+
+        if (specifics::RESOMAT_DECONVOLUTION_M > 0)
             qFile.Rmat->deconvolve(specifics::RESOMAT_DECONVOLUTION_M);
 
         if (specifics::OVERSAMPLING_FACTOR > 0)
@@ -179,20 +187,6 @@ void OneQSOEstimate::collapseBootstrap() {
 
     chunks.clear();
 }
-
-
-void OneQSOEstimate::addBoot(int p, double *temppower, double* tempfisher) {
-    double *outfisher = tempfisher + (bins::TOTAL_KZ_BINS + 1) * istart;
-
-    for (int i = 0; i < ndim; ++i) {
-        for (int j = i; j < ndim; ++j) {
-            outfisher[j + i * bins::TOTAL_KZ_BINS] += p * fisher_matrix[j + i * ndim];
-        } 
-    }
-
-    cblas_daxpy(ndim, p, theta_vector.get(), 1, temppower + istart, 1);
-}
-
 
 
 

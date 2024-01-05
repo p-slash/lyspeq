@@ -17,7 +17,8 @@ VPATH=$(srcdir):$(DIRS)
 SOURCES=fiducial_cosmology.cpp global_numbers.cpp matrix_helper.cpp one_qso_estimate.cpp \
 quadratic_estimate.cpp sq_table.cpp discrete_interpolation.cpp fourier_integrator.cpp \
 interpolation.cpp interpolation_2d.cpp config_file.cpp io_helper_functions.cpp qso_file.cpp \
-sq_lookup_table_file.cpp logger.cpp real_field.cpp chunk_estimate.cpp smoother.cpp bootstrap_file.cpp
+sq_lookup_table_file.cpp logger.cpp real_field.cpp chunk_estimate.cpp smoother.cpp bootstrap_file.cpp \
+stats.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o testSQCMatrices.o \

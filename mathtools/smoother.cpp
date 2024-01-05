@@ -1,8 +1,10 @@
 #include "mathtools/smoother.hpp"
+#include "mathtools/stats.hpp"
 #include "io/logger.hpp"
 
 #include <cmath>
 #include <algorithm> // std::for_each
+#include <numeric>  // std::accumulate
 #include <vector>
 
 #ifdef USE_MKL_CBLAS
@@ -11,19 +13,17 @@
 #include "cblas.h"
 #endif
 
-std::unique_ptr<Smoother> process::noise_smoother;
+std::unique_ptr<Smoother> process::smoother;
 
 
-double _medianOfSortedArray(double *sorted_arr, int size) {
-    int jj = size / 2;
-    double median = sorted_arr[jj];
+void padArray(
+        const double *arr, int size, int hwsize, std::vector<double> &out
+) {
+    out.resize(size + 2 * hwsize, 0);
 
-    if (size % 2 == 0) {
-        median += sorted_arr[jj - 1];
-        median /= 2;
-    }
-
-    return median;
+    std::copy_n(arr, size, out.begin() + hwsize);
+    std::fill_n(out.begin(), hwsize, arr[0]);
+    std::fill_n(out.begin() + size, hwsize, arr[size - 1]);
 }
 
 
@@ -37,22 +37,24 @@ double _getMedianBelowThreshold(
     if (newsize == 0)
         return sorted_arr[0];
 
-    return _medianOfSortedArray(sorted_arr, newsize);
+    return stats::medianOfSortedArray(sorted_arr, newsize);
 }
 
 
 void _findMedianStatistics(
-        double *arr, int size, double &median, double &mad, double thres=1e3
+        double *arr, int size, double &median, double &mean, double &mad,
+        double thres=1e3
 ) {
     int newsize;
     std::sort(arr, arr + size);
     median = _getMedianBelowThreshold(arr, size, newsize, thres);
+    mean = std::accumulate(arr, arr + newsize, 0.) / newsize;
 
     std::for_each(arr, arr + newsize, [median](double &f) { f = fabs(f - median); });
     std::sort(arr, arr + newsize);
 
     // The constant factor makes it unbiased
-    mad = 1.4826 * _medianOfSortedArray(arr, newsize);
+    mad = 1.4826 * stats::medianOfSortedArray(arr, newsize);
 }
 
 
@@ -65,79 +67,84 @@ Smoother::Smoother(ConfigFile &config)
     sigmapix = config.getInteger("SmoothNoiseWeights");
     LOG::LOGGER.STD("SmoothNoiseWeights is set to %d.\n\n", sigmapix);
  
-    isSmoothingOn  = (sigmapix >= 0);
-    useMedianNoise = (sigmapix == 0);
+    is_smoothing_on = (sigmapix >= 0);
+    use_mean = (sigmapix == 0);
+    is_smoothing_on_rmat =
+        (config.getInteger("SmoothResolutionMatrix") > 0) && is_smoothing_on;
 
-    if (!isSmoothingOn || useMedianNoise)
+    if (!is_smoothing_on || use_mean)
         return;
 
-    double sum=0, *g = &gaussian_kernel[0];
-    for (int i = -HWSIZE; i < HWSIZE+1; ++i, ++g)
-    {
-        *g = exp(-pow(i*1./sigmapix, 2)/2);
+    double sum = 0, *g = &gaussian_kernel[0];
+    for (int i = -HWSIZE; i < HWSIZE + 1; ++i, ++g) {
+        *g = exp(-pow(i * 1. / sigmapix, 2) / 2);
         sum += *g;
     }
 
-    std::for_each(&gaussian_kernel[0], &gaussian_kernel[0]+KS, 
+    std::for_each(
+        &gaussian_kernel[0], &gaussian_kernel[0] + KS, 
         [sum](double &x) { x /= sum; });
 }
 
-void Smoother::smoothNoise(const double *n2, double *out, int size)
-{
-    if (!isSmoothingOn)
-    {
-        std::copy(&n2[0], &n2[0] + size, &out[0]); 
-        return;
+
+void Smoother::smooth1D(double *inplace, int size, int ndim) {
+    std::vector<double> tempvector(size + 2 * HWSIZE, 0);
+    double median __attribute__((unused)), mad __attribute__((unused)),
+           mean;
+
+    std::copy_n(inplace, size, tempvector.begin());
+    _findMedianStatistics(tempvector.data(), size, median, mean, mad);
+
+    if (use_mean) {
+        std::fill_n(inplace, size, mean);
+    } else {
+        padArray(inplace, size, HWSIZE, tempvector);
+
+        // Convolve
+        for (int i = 0; i < size; ++i)
+            inplace[i] = cblas_ddot(KS, gaussian_kernel, 1, tempvector.data() + i, 1);
     }
 
-    double median, mad;
+    if (ndim > 1)
+        Smoother::smooth1D(inplace + size, size, ndim - 1);
+}
 
-    // convert square of noise to noise
-    std::transform(n2, n2 + size, out, [](double x2) { return sqrt(x2); });
-    _findMedianStatistics(out, size, median, mad);
 
-    if (useMedianNoise)
-    {
-        std::fill_n(out, size, median*median);
-        return;
-    }
+void Smoother::smoothNoise(const double *n2, double *out, int size) {
+    double median, mad, mean;
+
+    std::copy_n(n2, size, out);
+    _findMedianStatistics(out, size, median, mean, mad);
 
     // Isolate masked pixels as they have high noise
+    // n->0 should be smoothed
     std::vector<int> mask_idx;
-    std::vector<double> padded_noise(size + 2 * HWSIZE, 0);
-
     for (int i = 0; i < size; ++i)
-    {
-        double n = sqrt(n2[i]);
-        // n->0 should be smoothed
-        if ((n - median) > 3.5 * mad)
-        {
+        if ((n2[i] - median) > 3.5 * mad)
             mask_idx.push_back(i);
-            padded_noise[i + HWSIZE] = median;
-        }
-        else
-            padded_noise[i + HWSIZE] = n;
-    }
 
-    // Replace their values with median noise
-    // for (auto it = mask_idx.begin(); it != mask_idx.end(); ++it)
-    //     padded_noise[*it+HWSIZE] = median;
-    // Pad array by the edge values
-    for (int i = 0; i < HWSIZE; ++i)
-        padded_noise[i] = padded_noise[HWSIZE];
-    for (int i = 0; i < HWSIZE; ++i)
-        padded_noise[i + HWSIZE + size] = padded_noise[HWSIZE + size - 1];
+    if (use_mean) {
+        std::fill_n(out, size, mean);
+    } else {
+        std::vector<double> tempvector;
+        padArray(n2, size, HWSIZE, tempvector);
 
-    // Convolve
-    // std::fill_n(out, size, 0);
-    for (int i = 0; i < size; ++i)
-    {
-        out[i] = cblas_ddot(KS, gaussian_kernel, 1, padded_noise.data() + i, 1);
-        out[i] *= out[i];
+        if (mask_idx.front() == 0)
+            std::fill_n(tempvector.begin(), HWSIZE, mean);
+
+        for (const auto &idx : mask_idx)
+            tempvector[idx + HWSIZE] = mean;
+
+        if (mask_idx.back() == size - 1)
+            std::fill_n(tempvector.end() - HWSIZE, HWSIZE, mean);
+
+        // Convolve
+        // std::fill_n(out, size, 0);
+        for (int i = 0; i < size; ++i)
+            out[i] = cblas_ddot(KS, gaussian_kernel, 1, tempvector.data() + i, 1);
     }
 
     // Restore original noise for masked pixels
     for (const auto &idx : mask_idx)
         out[idx] = n2[idx];
 }
-

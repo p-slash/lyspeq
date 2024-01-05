@@ -172,10 +172,10 @@ double timeDmydgemv(int ndim) {
     for (int i = 0; i < ndim; ++i)
         B[i] = distribution(rng_engine);
 
-    double t1 = mytime::timer.getTime(), t2 = 0;
+    double t1 = mytime::timer.getTime(), t2 = 0, sum = 0;
 
     for (int i = 0; i < N_LOOPS; ++i)
-        double sum = mxhelp::my_cblas_dgemvdot(B.get(), A.get(), C.get(), ndim);
+        sum = mxhelp::my_cblas_dgemvdot(B.get(), A.get(), C.get(), ndim);
 
     t2 = mytime::timer.getTime();
     return (t2 - t1) / N_LOOPS / std::pow(ndim / 100., 2);
@@ -196,6 +196,56 @@ double timeDdot(int ndim) {
     t2 = mytime::timer.getTime();
     return (t2 - t1) / N_LOOPS / std::pow(ndim / 100., 2);
 }
+
+
+void timeOsampLeft(int ndim, int oversampling=3) {
+    const int ndiags = 11;
+    int noff = ndiags / 2, nelem_per_row = 2 * noff * oversampling + 1;
+    int ncols = ndim * oversampling + nelem_per_row - 1;
+    auto A = getRandomSymmMatrix(ncols);
+    auto R = std::make_unique<double[]>(ndim * nelem_per_row);
+    auto B = std::make_unique<double[]>(ndim * ncols);
+    for (int i = 0; i < ndim * nelem_per_row; ++i)
+        R[i] = i * 1. / ndim;
+ 
+    double t1 = mytime::timer.getTime(), t2 = 0;
+    for (int loop = 0; loop < N_LOOPS; ++loop) {
+
+        for (int i = 0; i < ndim; ++i) {
+            double *bsub = B.get() + i * ncols;
+            const double *Asub = A.get() + i * ncols * oversampling;
+
+            cblas_dgemm(
+                CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                1, ncols, nelem_per_row, 1., R.get() + i * nelem_per_row, nelem_per_row,
+                Asub, ncols, 0, bsub, ncols);
+        }
+
+    }
+    t2 = mytime::timer.getTime();
+    double tgemm = (t2 - t1) / N_LOOPS;
+    printf("Osamp gemm: %.3e", tgemm);
+
+
+    t1 = mytime::timer.getTime();
+    for (int loop = 0; loop < N_LOOPS; ++loop) {
+
+        for (int i = 0; i < ndim; ++i) {
+            double *bsub = B.get() + i * ncols;
+            const double *Asub = A.get() + i * ncols * oversampling;
+
+            cblas_dgemv(
+                CblasRowMajor, CblasTrans,
+                nelem_per_row, ncols, 1., Asub, ncols, 
+                R.get() + i * nelem_per_row, 1, 0, bsub, 1);
+        }
+
+    }
+    t2 = mytime::timer.getTime();
+    double tgemv = (t2 - t1) / N_LOOPS;
+    printf("\tOsamp gemv: %.3e\tRatio %.3f\n", tgemv, tgemm / tgemv);
+}
+
 
 typedef double (*timeFunc)(int ndim);
 typedef std::pair<timeFunc, std::vector<double>> func_vector_pair;
@@ -260,4 +310,7 @@ int main(int argc, char *argv[]) {
     for (const auto &[key, mean] : mean_times)
         printf(",%.3f", mean / mean_times["ddot"]);
     printf("\n");
+
+    for (const int ndim : ndims)
+        timeOsampLeft(ndim);
 }
