@@ -33,6 +33,23 @@ double stats::medianOfUnsortedVector(std::vector<double> &v) {
 }
 
 
+double stats::meanBelowThreshold(const double *x, int size, int incx, double t) {
+    double sum = 0;
+    int c = 0;
+
+    for (int i = 0; i < size; i += incx) {
+        if (x[i] > t) continue;
+
+        sum += x[i];
+        ++c;
+    }
+
+    if (c == 0) return 0;
+
+    return sum / c;
+}
+
+
 void stats::medianOffBalanceStats(
         std::vector<double> &v, double &med_offset, double &max_diff_offset
 ) {

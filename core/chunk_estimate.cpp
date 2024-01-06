@@ -4,6 +4,7 @@
 #include "core/sq_table.hpp"
 
 #include "mathtools/smoother.hpp"
+#include "mathtools/stats.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
 
@@ -388,12 +389,13 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     // add noise matrix diagonally
     // but smooth before adding
+    double *nvec = qFile->noise();
     if (process::smoother->isSmoothingOn()) {
         process::smoother->smoothNoise(qFile->noise(), temp_vector, size());
-        cblas_daxpy(size(), 1., temp_vector, 1, covariance_matrix, size() + 1);
-    } else {
-        cblas_daxpy(size(), 1., qFile->noise(), 1, covariance_matrix, size() + 1);
+        nvec = temp_vector;
     }
+
+    cblas_daxpy(size(), 1., nvec, 1, covariance_matrix, size() + 1);
 
     isCovInverted = false;
     CHECK_ISNAN(covariance_matrix, DATA_SIZE_2, "CovMat");
@@ -481,9 +483,28 @@ void Chunk::invertCovarianceMatrix()
 {
     DEBUG_LOG("Inverting cov matrix\n");
 
-    double t = mytime::timer.getTime();
+    double t = mytime::timer.getTime(), damp = 0;
 
-    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, size());
+    if (!specifics::TURN_OFF_SFID) {
+        double mean_maindiag = stats::meanBelowThreshold(
+                    covariance_matrix, size(), size() + 1),
+               mean_1diag = cblas_dasum(
+                    size() - 1, covariance_matrix + 1, size() + 1) / (size() - 1);
+
+        // Approximately, main diagonal should be greater than
+        // 1.35 x first diagonal for numerical stability.
+        // More accurate treatment would use eigenvalue decomp and target cond.
+        damp = 1.35 * mean_1diag - mean_maindiag;
+    }
+
+    if (damp > 0) {
+        LOG::LOGGER.ERR(
+            "WARNING::Chunk::invertCovarianceMatrix::"
+            "Covariance matrix is damped by adding %.3e to the diagonal. "
+            "Filename: %s\n", damp, qFile->fname.c_str());
+        mxhelp::LAPACKE_InvertSymMatrixLU_damped(covariance_matrix, size(), damp);
+    } else 
+        mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, size());
 
     inverse_covariance_matrix = covariance_matrix;
 
