@@ -239,12 +239,9 @@ namespace mxhelp
             N, N, N, 0.5, _Amat.get(), N,
             S, N, 0, _Bmat.get(), N);
 
-        cblas_dgemm(
-            CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            N, N, N, 0.5, S, N,
-            _Amat.get(), N, 1, _Bmat.get(), N);
+        transpose_copy(_Bmat.get(), S, N);
 
-        std::copy_n(_Bmat.get(), size, S);
+        cblas_daxpy(N, 1, _Bmat.get(), 1, S, 1);
     }
 
     double LAPACKE_RcondSvd(const double *A, int N, double *sjump) {
