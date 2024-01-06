@@ -477,6 +477,17 @@ void Chunk::_addMarginalizations()
     }
 }
 
+
+double _getDiagonalRatioDamp(double *S, int N, double target=1.30) {
+    // Approximately, main diagonal should be greater than
+    // 1.3 x first diagonal for numerical stability.
+    // More accurate treatment would use eigenvalue decomp and target cond.
+    double mean_maindiag = stats::meanBelowThreshold(S, N, N + 1),
+           mean_1diag = cblas_dasum(N - 1, S + 1, N + 1) / (N - 1);
+
+    return target * mean_1diag - mean_maindiag;
+}
+
 // Calculate the inverse into temp_matrix[0]
 // Then swap the pointer with covariance matrix
 void Chunk::invertCovarianceMatrix()
@@ -485,24 +496,31 @@ void Chunk::invertCovarianceMatrix()
 
     double t = mytime::timer.getTime(), damp = 0;
 
-    if (!specifics::TURN_OFF_SFID) {
-        double mean_maindiag = stats::meanBelowThreshold(
-                    covariance_matrix, size(), size() + 1),
-               mean_1diag = cblas_dasum(
-                    size() - 1, covariance_matrix + 1, size() + 1) / (size() - 1);
-
-        // Approximately, main diagonal should be greater than
-        // 1.35 x first diagonal for numerical stability.
-        // More accurate treatment would use eigenvalue decomp and target cond.
-        damp = 1.35 * mean_1diag - mean_maindiag;
-    }
+    if (!specifics::TURN_OFF_SFID)
+        damp = _getDiagonalRatioDamp(covariance_matrix, size());
 
     if (damp > 0) {
+        for (int i = 0; i < size(); ++i)
+            temp_vector[i] = sqrt(covariance_matrix[i * (size() + 1)]);
+
+        #pragma omp parallel for collapse(2)
+        for (int i = 0; i < size(); ++i)
+            for (int j = 0; j < size(); ++j)
+                covariance_matrix[j + i * size()] /= temp_vector[i] * temp_vector[j];
+
+        damp = _getDiagonalRatioDamp(covariance_matrix, size());
+
         LOG::LOGGER.ERR(
             "WARNING::Chunk::invertCovarianceMatrix::"
             "Covariance matrix is damped by adding %.3e to the diagonal. "
             "Filename: %s\n", damp, qFile->fname.c_str());
         mxhelp::LAPACKE_InvertSymMatrixLU_damped(covariance_matrix, size(), damp);
+
+        #pragma omp parallel for collapse(2)
+        for (int i = 0; i < size(); ++i)
+            for (int j = 0; j < size(); ++j)
+                covariance_matrix[j + i * size()] /= temp_vector[i] * temp_vector[j];
+
     } else 
         mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, size());
 
