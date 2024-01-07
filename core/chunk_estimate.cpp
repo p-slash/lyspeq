@@ -436,44 +436,66 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
     cblas_dger(CblasRowMajor, size, size, -1. / norm, y, 1, y, 1, cinv, size);
 }
 
-void Chunk::_addMarginalizations()
-{
-    double *temp_v = temp_matrix[0], *temp_y = temp_matrix[1];
+void Chunk::_addMarginalizations() {
+    DEBUG_LOG("Adding marginalizations...\n");
+    static auto svals = std::make_unique<double[]>(specifics::CONT_NVECS);
+    double *marg_mat = temp_matrix[0];
 
-    // Zeroth order
-    std::fill_n(temp_v, size(), 1. / sqrt(size()));
-    temp_v += size();
-    // Log lambda polynomials
-    for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
-    {
-        _getUnitVectorLogLam(qFile->wave(), size(), cmo, temp_v);
-        temp_v += size();
-    }
-    // Lambda polynomials
-    for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
-    {
-        _getUnitVectorLam(qFile->wave(), size(), cmo, temp_v);
-        temp_v += size();
+    std::fill_n(marg_mat, size(), 1. / sqrt(size()));  // Zeroth order
+    marg_mat += size();
+
+    for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo) {
+        _getUnitVectorLogLam(qFile->wave(), size(), cmo, marg_mat);
+        marg_mat += size();
     }
 
-    DEBUG_LOG("nvecs %d\n", specifics::CONT_NVECS);
+    for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo) {
+        _getUnitVectorLam(qFile->wave(), size(), cmo, marg_mat);
+        marg_mat += size();
+    }
 
     // Roll back to initial position
-    temp_v = temp_matrix[0];
-    static auto svals = std::make_unique<double[]>(specifics::CONT_NVECS);
+    marg_mat = temp_matrix[0];
+
+    #ifdef DEBUG
+    DEBUG_LOG("Mags before:");
+    for (int i = 0; i < specifics::CONT_NVECS; ++i) {
+        double tt = mxhelp::my_cblas_dgemvdot(
+            marg_mat + i * size(), inverse_covariance_matrix,
+            temp_vector, size());
+        DEBUG_LOG("  %.3e", tt);
+    } DEBUG_LOG("\n");
+    std::copy_n(marg_mat, size() * specifics::CONT_NVECS, temp_matrix[1]);
+    #endif
+
     // SVD to get orthogonal marg vectors
-    mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
-    DEBUG_LOG("SVD'ed\n");
+    mxhelp::LAPACKE_svd(marg_mat, svals.get(), size(), specifics::CONT_NVECS);
 
-    // Remove each 
-    for (int i = 0; i < specifics::CONT_NVECS; ++i, temp_v += size())
-    {
-        DEBUG_LOG("i: %d, s: %.2e\n", i, svals[i]);
-        // skip if this vector is degenerate
-        if (svals[i] < 1e-6)  continue;
-
-        _remShermanMorrison(temp_v, size(), temp_y, inverse_covariance_matrix);
+    int nvecs_to_use = specifics::CONT_NVECS;
+    while (nvecs_to_use > 0) {
+        if ((svals[nvecs_to_use - 1] / svals[0]) > DOUBLE_EPSILON)
+            break;
+        --nvecs_to_use;
     }
+
+    for (int i = 0; i < nvecs_to_use; ++i)
+        _remShermanMorrison(
+            marg_mat + i * size(), size(),
+            temp_vector, inverse_covariance_matrix);
+
+    #ifdef DEBUG
+    DEBUG_LOG("SVD:");
+    for (int i = 0; i < specifics::CONT_NVECS; ++i)
+        DEBUG_LOG("  %.3e", svals[i]);
+    DEBUG_LOG("\nUsing first %d/%d vectors.\nMags after:",
+              nvecs_to_use, specifics::CONT_NVECS);
+    for (int i = 0; i < specifics::CONT_NVECS; ++i) {
+        double tt = mxhelp::my_cblas_dgemvdot(
+            temp_matrix[1] + i * size(), inverse_covariance_matrix,
+            temp_vector, size());
+        DEBUG_LOG("  %.3e", tt);
+    } DEBUG_LOG("\n");
+    #endif
 }
 
 // Calculate the inverse into temp_matrix[0]
