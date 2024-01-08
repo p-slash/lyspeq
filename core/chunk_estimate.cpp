@@ -11,6 +11,7 @@
 #include <algorithm> // std::for_each & transform & lower(upper)_bound
 #include <cstdio>
 #include <cstdlib>
+#include <sstream>
 #include <stdexcept>
 
 #if defined(ENABLE_OMP)
@@ -66,7 +67,7 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     process::updateMemory(-getMinMemUsage());
 
     stored_ikz_qi.reserve(N_Q_MATRICES);
-    int _kncut = _getMaxKindex(MY_PI / qFile->dv_kms);
+    int _kncut = _getMaxKindex(0.85 * MY_PI / qFile->dv_kms);
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int kn, zm;
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
@@ -90,6 +91,15 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 {
     qFile = std::make_unique<qio::QSOFile>(qmaster, i1, i2);
 
+    if (qFile->realSize() < MIN_PIXELS_IN_CHUNK)
+    {
+        std::ostringstream err_msg;
+        err_msg << "Short chunk with realsize "
+            << qFile->realSize() << '/'  << qFile->size() << '.';
+
+        throw std::runtime_error(err_msg.str());
+    }
+
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
     {
@@ -105,7 +115,7 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         _matrix_n = size();
     }
 
-    DATA_SIZE_2 = size()*size();
+    DATA_SIZE_2 = size() * size();
 }
 
 void Chunk::_findRedshiftBin()
@@ -122,31 +132,21 @@ void Chunk::_findRedshiftBin()
 
 // For a top hat redshift bin, only access 1 redshift bin for each pixel
 // For triangular z bins, access 2 redshift bins for each pixel
-void Chunk::_setNQandFisherIndex()
-{   
-    #if defined(TOPHAT_Z_BINNING_FN)
-    N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
-    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
+void Chunk::_setNQandFisherIndex() {   
+    N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
+    fisher_index_start = bins::getFisherMatrixIndex(0, ZBIN_LOW);
 
-    #elif defined(TRIANGLE_Z_BINNING_FN)
-    // Assuming low and end points stay within their respective bins
-    N_Q_MATRICES        = ZBIN_UPP - ZBIN_LOW + 1;
-    fisher_index_start  = bins::getFisherMatrixIndex(0, ZBIN_LOW);
-
+    if (bins::Z_BINNING_METHOD == bins::TriangleBinningMethod) {
     // If we need to distribute low end to a lefter bin
-    if ((LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
-    {
-        ++N_Q_MATRICES;
-        fisher_index_start -= bins::NUMBER_OF_K_BANDS;
+        if ((LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
+        {
+            ++N_Q_MATRICES;
+            fisher_index_start -= bins::NUMBER_OF_K_BANDS;
+        }
+        // If we need to distribute high end to righter bin
+        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
+            ++N_Q_MATRICES;
     }
-    // If we need to distribute high end to righter bin
-    if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
-    {
-        ++N_Q_MATRICES;
-    }
-    #else
-    #error "DEFINE A Z BINNING FUNCTION!"
-    #endif
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 }
@@ -179,30 +179,18 @@ void Chunk::_setStoredMatrices()
 
 Chunk::~Chunk()
 {
-    process::updateMemory(getMinMemUsage());
+    process::updateMemory(
+        process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES)
+    );
 }
 
 double Chunk::getMinMemUsage()
 {
     double minmem = process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
-    if (qFile) {
-        minmem += process::getMemoryMB(size() * 3);    
-        if (specifics::USE_RESOLUTION_MATRIX)
-            minmem += qFile->Rmat->getMinMemUsage();
-    }
+    if (qFile)
+        minmem += qFile->getMinMemUsage();
 
     return minmem;
-}
-
-void Chunk::releaseFile() {
-    if (!qFile)
-        return;
-
-    double released_mem = process::getMemoryMB(size() * 3);
-    if (specifics::USE_RESOLUTION_MATRIX)
-        released_mem += qFile->Rmat->getMinMemUsage();
-    process::updateMemory(released_mem);
-    qFile.reset();
 }
 
 double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
@@ -223,9 +211,9 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 
         int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
         // NERSC Perlmutter scaling relation for -c 2
-        const double agemm = 20., asymv = 0.5, adot = 1.0;
+        const double agemm = 18., agemv = 0.55, adot = 1.0;
         double one_dgemm = agemm * std::pow(qtemp.size() / 100., 3),
-               one_dsymv = asymv * std::pow(qtemp.size() / 100., 2),
+               one_dgemv = agemv * std::pow(qtemp.size() / 100., 2),
                one_ddot = adot * std::pow(qtemp.size() / 100., 2);
 
         int fidxlocal = bins::getFisherMatrixIndex(0, ZBIN_LOW);
@@ -251,14 +239,14 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 
         // +1 for noise matrix dot product
         #ifdef FISHER_OPTIMIZATION
-        const int N_M_COMBO = 3 + 1;
+        const int N_M_COMBO = 11 + 1;
         #else
         const int N_M_COMBO = real_nq_mat + 1 + 1;
         #endif
 
         double res = (
             real_nq_mat * (one_dgemm + one_ddot * N_M_COMBO)
-            + (real_nq_mat + 1) * one_dsymv // dsymv contributions
+            + (real_nq_mat + 1) * one_dgemv // dgemv contributions
         );
 
         if (!specifics::TURN_OFF_SFID)
@@ -281,7 +269,9 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("%s. Skipping %s.\n", e.what(), qmaster.fname.c_str());
+        LOG::LOGGER.ERR(
+            "Chunk::getComputeTimeEst::%s. Skipping %s.\n",
+            e.what(), qmaster.fname.c_str());
         return 0;
     }
 }
@@ -398,11 +388,13 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     // add noise matrix diagonally
     // but smooth before adding
-    process::noise_smoother->smoothNoise(qFile->noise(), temp_vector, size());
-    cblas_daxpy(
-        size(), 1., temp_vector, 1,
-        covariance_matrix, size() + 1
-    );
+    double *nvec = qFile->noise();
+    if (process::smoother->isSmoothingOn()) {
+        process::smoother->smoothNoise(qFile->noise(), temp_vector, size());
+        nvec = temp_vector;
+    }
+
+    cblas_daxpy(size(), 1., nvec, 1, covariance_matrix, size() + 1);
 
     isCovInverted = false;
     CHECK_ISNAN(covariance_matrix, DATA_SIZE_2, "CovMat");
@@ -437,49 +429,73 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
-    cblas_dsymv(CblasRowMajor, CblasUpper, size, 1., cinv, size, v, 1, 0, y, 1);
+    cblas_dgemv(
+        CblasRowMajor, CblasNoTrans, size, size, 1.,
+        cinv, size, v, 1, 0, y, 1);
     double norm = cblas_ddot(size, v, 1, y, 1);
     cblas_dger(CblasRowMajor, size, size, -1. / norm, y, 1, y, 1, cinv, size);
 }
 
-void Chunk::_addMarginalizations()
-{
-    double *temp_v = temp_matrix[0], *temp_y = temp_matrix[1];
+void Chunk::_addMarginalizations() {
+    DEBUG_LOG("Adding marginalizations...\n");
+    static auto svals = std::make_unique<double[]>(specifics::CONT_NVECS);
+    double *marg_mat = temp_matrix[0];
 
-    // Zeroth order
-    std::fill_n(temp_v, size(), 1. / sqrt(size()));
-    temp_v += size();
-    // Log lambda polynomials
-    for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo)
-    {
-        _getUnitVectorLogLam(qFile->wave(), size(), cmo, temp_v);
-        temp_v += size();
-    }
-    // Lambda polynomials
-    for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo)
-    {
-        _getUnitVectorLam(qFile->wave(), size(), cmo, temp_v);
-        temp_v += size();
+    std::fill_n(marg_mat, size(), 1. / sqrt(size()));  // Zeroth order
+    marg_mat += size();
+
+    for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo) {
+        _getUnitVectorLogLam(qFile->wave(), size(), cmo, marg_mat);
+        marg_mat += size();
     }
 
-    DEBUG_LOG("nvecs %d\n", specifics::CONT_NVECS);
+    for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo) {
+        _getUnitVectorLam(qFile->wave(), size(), cmo, marg_mat);
+        marg_mat += size();
+    }
 
     // Roll back to initial position
-    temp_v = temp_matrix[0];
-    static auto svals = std::make_unique<double[]>(specifics::CONT_NVECS);
+    marg_mat = temp_matrix[0];
+
+    #ifdef DEBUG
+    DEBUG_LOG("Mags before:");
+    for (int i = 0; i < specifics::CONT_NVECS; ++i) {
+        double tt = mxhelp::my_cblas_dgemvdot(
+            marg_mat + i * size(), inverse_covariance_matrix,
+            temp_vector, size());
+        DEBUG_LOG("  %.3e", tt);
+    } DEBUG_LOG("\n");
+    std::copy_n(marg_mat, size() * specifics::CONT_NVECS, temp_matrix[1]);
+    #endif
+
     // SVD to get orthogonal marg vectors
-    mxhelp::LAPACKE_svd(temp_v, svals.get(), size(), specifics::CONT_NVECS);
-    DEBUG_LOG("SVD'ed\n");
+    mxhelp::LAPACKE_svd(marg_mat, svals.get(), size(), specifics::CONT_NVECS);
 
-    // Remove each 
-    for (int i = 0; i < specifics::CONT_NVECS; ++i, temp_v += size())
-    {
-        DEBUG_LOG("i: %d, s: %.2e\n", i, svals[i]);
-        // skip if this vector is degenerate
-        if (svals[i] < 1e-6)  continue;
-
-        _remShermanMorrison(temp_v, size(), temp_y, inverse_covariance_matrix);
+    int nvecs_to_use = specifics::CONT_NVECS;
+    while (nvecs_to_use > 0) {
+        if ((svals[nvecs_to_use - 1] / svals[0]) > DOUBLE_EPSILON)
+            break;
+        --nvecs_to_use;
     }
+
+    for (int i = 0; i < nvecs_to_use; ++i)
+        _remShermanMorrison(
+            marg_mat + i * size(), size(),
+            temp_vector, inverse_covariance_matrix);
+
+    #ifdef DEBUG
+    DEBUG_LOG("SVD:");
+    for (int i = 0; i < specifics::CONT_NVECS; ++i)
+        DEBUG_LOG("  %.3e", svals[i]);
+    DEBUG_LOG("\nUsing first %d/%d vectors.\nMags after:",
+              nvecs_to_use, specifics::CONT_NVECS);
+    for (int i = 0; i < specifics::CONT_NVECS; ++i) {
+        double tt = mxhelp::my_cblas_dgemvdot(
+            temp_matrix[1] + i * size(), inverse_covariance_matrix,
+            temp_vector, size());
+        DEBUG_LOG("  %.3e", tt);
+    } DEBUG_LOG("\n");
+    #endif
 }
 
 // Calculate the inverse into temp_matrix[0]
@@ -521,6 +537,7 @@ void Chunk::_getWeightedMatrix(double *m)
     std::copy(temp_matrix[0], temp_matrix[0] + DATA_SIZE_2, m);
 }
 
+
 void Chunk::_dotQi(const double *m, double *out, int idx) {
     static std::vector<double> y;
     y.resize(stored_ikz_qi.size());
@@ -533,50 +550,26 @@ void Chunk::_dotQi(const double *m, double *out, int idx) {
         out[stored_ikz_qi[i].first] = y[i];
 }
 
-void Chunk::_getFisherMatrix(const double *Q_ikz_matrix_T, int idx)
-{
-    int i_kz = stored_ikz_qi[idx].first;
-    int idx_fji_0 = N_Q_MATRICES * i_kz;
-
-    // In some cases, the loop structure below results in seg fault.
-    // for (auto jq = stored_ikz_qi.begin() + idx; jq != stored_ikz_qi.end(); ++jq)
-    #ifndef FISHER_OPTIMIZATION
-    _dotQi(Q_ikz_matrix_T, fisher_matrix.get() + idx_fji_0 + idx, idx);
-    #else
-    for (int jdx = idx; jdx < stored_ikz_qi.size(); ++jdx)
-    {
-        const auto &jq = stored_ikz_qi[jdx];
-        int diff_ji = jq.first - i_kz;
-        if ((diff_ji != 0) && (diff_ji != 1) && (diff_ji != bins::NUMBER_OF_K_BANDS))
-            continue;
-
-        fisher_matrix[jq.first + idx_fji_0] = 
-            cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, jq.second, 1);
-    }
-    #endif
-}
-
 void Chunk::computePSbeforeFvector()
 {
     DEBUG_LOG("PS before Fisher\n");
 
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
            *nk0 = dbt_estimate_before_fisher_vector[1].get(),
-           *tk0 = dbt_estimate_before_fisher_vector[2].get(),
-           *Q_ikz_matrix;
+           *tk0 = dbt_estimate_before_fisher_vector[2].get();
 
     // C-1 . flux
-    cblas_dsymv(
-        CblasRowMajor, CblasUpper, size(), 1.,
-        inverse_covariance_matrix, 
-        size(), qFile->delta(), 1, 0, weighted_data_vector, 1);
+    cblas_dgemv(
+        CblasRowMajor, CblasNoTrans, size(), size(), 1.,
+        inverse_covariance_matrix, size(), qFile->delta(), 1,
+        0, weighted_data_vector, 1);
 
     double t = mytime::timer.getTime();
 
     for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        dk0[i_kz] = mxhelp::my_cblas_dsymvdot(
+        dk0[i_kz] = mxhelp::my_cblas_dgemvdot(
             weighted_data_vector, 
             Q_ikz_matrix, temp_vector, size());
         // Transform q matrices to weighted matrices inplace
@@ -621,10 +614,27 @@ void Chunk::computePSbeforeFvector()
     t = mytime::timer.getTime();
 
     double *Q_ikz_matrix_T = temp_matrix[0];
-    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
-        mxhelp::transpose_copy(Q_ikz_matrix, Q_ikz_matrix_T, size());
+    for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt) {
+        const auto &[i_kz, Q_ikz_matrix] = *iqt;
 
-        _getFisherMatrix(Q_ikz_matrix_T, i_kz);
+        mxhelp::transpose_copy(Q_ikz_matrix, Q_ikz_matrix_T, size());
+        int idx_fji_0 = N_Q_MATRICES * i_kz,
+            idx = std::distance(stored_ikz_qi.begin(), iqt);
+
+        #ifndef FISHER_OPTIMIZATION
+        _dotQi(Q_ikz_matrix_T, fisher_matrix.get() + idx_fji_0 + idx, idx);
+        #else
+        for (auto jqt = iqt; jqt != stored_ikz_qi.end(); ++jqt) {
+            const auto &[j_kz, Q_jkz_matrix] = *jqt;
+            
+            int diff_ji = j_kz - i_kz;
+            if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
+                continue;
+
+            fisher_matrix[j_kz + idx_fji_0] = 
+                cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, Q_jkz_matrix, 1);
+        }
+        #endif
     }
 
     mytime::time_spent_set_fisher += mytime::timer.getTime() - t;
@@ -706,21 +716,6 @@ void Chunk::oneQSOiteration(
     _freeMatrices();
 }
 
-void Chunk::addBoot(int p, double *temppower, double* tempfisher) {
-    double *outfisher = tempfisher + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
-
-    for (int i = 0; i < N_Q_MATRICES; ++i) {
-        for (int j = i; j < N_Q_MATRICES; ++j) {
-            outfisher[j + i * bins::TOTAL_KZ_BINS] +=
-                p * fisher_matrix[j + i * N_Q_MATRICES];
-        } 
-    }
-
-    cblas_daxpy(
-        N_Q_MATRICES,
-        p, dbt_estimate_before_fisher_vector[0].get(), 1,
-        temppower + fisher_index_start, 1);
-}
 
 void Chunk::_allocateMatrices()
 {

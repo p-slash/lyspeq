@@ -20,7 +20,6 @@ function print_config_help()
     echo "--enable-fisher-optimization : Approximates Fisher matrix by computing only the band elements."
     echo "--enable-openmp : Enables OpenMP"
     echo "--enable-tbb : Enables TBB"
-    echo "--use-tophat-zbin : Uses tophat redshift binning function instead. Default is triangle."
     echo "--debug adds -g flag, enables DEB level logging & performs NaN check for arrays."
     echo "GSL_DIR=[directory] : GSL directory"
     echo "FFTW_ROOT=[directory] : FFTW directory"
@@ -56,8 +55,6 @@ function set_config_options()
                 ENABLE_OMP="-DENABLE_OMP";;
             --enable-tbb )
                 CPPFLAGS_OMP="-tbb";;
-            --use-tophat-zbin )
-                binz_fn="-DTOPHAT_Z_BINNING_FN";;
             --debug )
                 OPT=-g
                 ENABLE_DEBUG="-DDEBUG";;
@@ -529,7 +526,6 @@ MORECPPFLAGS=""
 OPT="-O3"
 ENABLE_MPI=""
 ENABLE_OMP=""
-binz_fn="-DTRIANGLE_Z_BINNING_FN"
 ENABLE_FISHER_OPTIMIZATION=""
 USE_MKL_CBLAS=""
 ENABLE_DEBUG=""
@@ -572,7 +568,7 @@ fi
 
 update_makefile_vars "" "" "${suffix_libs}"
 
-MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_OMP} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_DEBUG} ${binz_fn}"
+MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_OMP} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_DEBUG}"
 MORECPPFLAGS=$(echo $MORECPPFLAGS | sed 's/ *$//')
 
 # Save makefile

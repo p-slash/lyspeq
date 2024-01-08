@@ -1,4 +1,5 @@
 #include <chrono>
+#include <map>
 #include <memory>
 #include <random>
 #include <string>
@@ -15,7 +16,6 @@
 #endif
 
 #include "mathtools/matrix_helper.hpp"
-
 
 
 int N_Q_MATRICES = 250, N_LOOPS = 1000;
@@ -135,6 +135,61 @@ double timeDsymv(int ndim) {
 }
 
 
+double timeDgemv(int ndim) {
+    auto A = getRandomSymmMatrix(ndim);
+    auto B = std::make_unique<double[]>(ndim);
+    auto C = std::make_unique<double[]>(ndim);
+
+    for (int i = 0; i < ndim; ++i)
+        B[i] = distribution(rng_engine);
+
+    double t1 = mytime::timer.getTime(), t2 = 0;
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, ndim, ndim, 1.,
+            A.get(), ndim, B.get(), 1, 0, C.get(), 1);
+
+    t2 = mytime::timer.getTime();
+    return (t2 - t1) / N_LOOPS / std::pow(ndim / 100., 2);
+}
+
+
+// double timeDmydsymv(int ndim) {
+//     auto A = getRandomSymmMatrix(ndim);
+//     auto B = std::make_unique<double[]>(ndim);
+
+//     for (int i = 0; i < ndim; ++i)
+//         B[i] = distribution(rng_engine);
+
+//     double t1 = mytime::timer.getTime(), t2 = 0;
+
+//     for (int i = 0; i < N_LOOPS; ++i)
+//         double sum = mxhelp::my_cblas_dsymvdot(B.get(), A.get(), ndim);
+
+//     t2 = mytime::timer.getTime();
+//     return (t2 - t1) / N_LOOPS / std::pow(ndim / 100., 2);
+// }
+
+
+double timeDmydgemv(int ndim) {
+    auto A = getRandomSymmMatrix(ndim);
+    auto B = std::make_unique<double[]>(ndim);
+    auto C = std::make_unique<double[]>(ndim);
+
+    for (int i = 0; i < ndim; ++i)
+        B[i] = distribution(rng_engine);
+
+    double t1 = mytime::timer.getTime(), t2 = 0, sum = 0;
+
+    for (int i = 0; i < N_LOOPS; ++i)
+        sum = mxhelp::my_cblas_dgemvdot(B.get(), A.get(), C.get(), ndim);
+
+    t2 = mytime::timer.getTime();
+    return (t2 - t1) / N_LOOPS / std::pow(ndim / 100., 2);
+}
+
+
 double timeDdot(int ndim) {
     auto A = getRandomSymmMatrix(ndim);
     auto B = getRandomSymmMatrix(ndim);
@@ -151,7 +206,7 @@ double timeDdot(int ndim) {
 }
 
 
-double timeDgemv(int ndim) {
+double timeDgemvdot(int ndim) {
     int ndim2 = ndim * ndim;
     auto A = getRandomVector(ndim2 * N_Q_MATRICES);
     auto B = getRandomVector(ndim2);
@@ -169,64 +224,121 @@ double timeDgemv(int ndim) {
 }
 
 
+void timeOsampLeft(int ndim, int oversampling=3) {
+    const int ndiags = 11;
+    int noff = ndiags / 2, nelem_per_row = 2 * noff * oversampling + 1;
+    int ncols = ndim * oversampling + nelem_per_row - 1;
+    auto A = getRandomSymmMatrix(ncols);
+    auto R = std::make_unique<double[]>(ndim * nelem_per_row);
+    auto B = std::make_unique<double[]>(ndim * ncols);
+    for (int i = 0; i < ndim * nelem_per_row; ++i)
+        R[i] = i * 1. / ndim;
+ 
+    double t1 = mytime::timer.getTime(), t2 = 0;
+    for (int loop = 0; loop < N_LOOPS; ++loop) {
+
+        for (int i = 0; i < ndim; ++i) {
+            double *bsub = B.get() + i * ncols;
+            const double *Asub = A.get() + i * ncols * oversampling;
+
+            cblas_dgemm(
+                CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                1, ncols, nelem_per_row, 1., R.get() + i * nelem_per_row, nelem_per_row,
+                Asub, ncols, 0, bsub, ncols);
+        }
+
+    }
+    t2 = mytime::timer.getTime();
+    double tgemm = (t2 - t1) / N_LOOPS;
+    printf("Osamp gemm: %.3e", tgemm);
+
+
+    t1 = mytime::timer.getTime();
+    for (int loop = 0; loop < N_LOOPS; ++loop) {
+
+        for (int i = 0; i < ndim; ++i) {
+            double *bsub = B.get() + i * ncols;
+            const double *Asub = A.get() + i * ncols * oversampling;
+
+            cblas_dgemv(
+                CblasRowMajor, CblasTrans,
+                nelem_per_row, ncols, 1., Asub, ncols, 
+                R.get() + i * nelem_per_row, 1, 0, bsub, 1);
+        }
+
+    }
+    t2 = mytime::timer.getTime();
+    double tgemv = (t2 - t1) / N_LOOPS;
+    printf("\tOsamp gemv: %.3e\tRatio %.3f\n", tgemv, tgemm / tgemv);
+}
+
+
+typedef double (*timeFunc)(int ndim);
+typedef std::pair<timeFunc, std::vector<double>> func_vector_pair;
+
+
 int main(int argc, char *argv[]) {
     if (argc == 2)
         N_LOOPS = atoi(argv[1]);
-    else if (argc > 2)
-    {
-        printf("Extra arguments! Usage loops (%d)\n", N_LOOPS);
+    else if (argc > 2) {
+        printf("Extra arguments! Usage loops (default: %d)\n",
+               N_LOOPS);
         return 1;
     }
 
     rng_engine.seed(0);
     std::vector<int> ndims = {
-        100, 150, 200,
-        250, 300, 350, 400, 450, 500, 550, 600,
-        650, 700, 750, 800, 850
+        100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700,
+        // 750, 800, 850
     };
 
-    std::vector<double>
-        times_dsymm, times_dgemm, times_dsmyv, times_ddot, times_dgemvdot;
+    std::map<std::string, func_vector_pair> times{
+        {"dsymm", std::make_pair(&timeDsymm, std::vector<double>())},
+        {"dgemm", std::make_pair(&timeDgemm, std::vector<double>())},
+        {"dsymv", std::make_pair(&timeDsymv, std::vector<double>())},
+        {"dgemv", std::make_pair(&timeDgemv, std::vector<double>())},
+        // {"mygot", std::make_pair(&timeDmydgemv, std::vector<double>())},
+        // {"mysyt", std::make_pair(&timeDmydsymv, std::vector<double>())},
+        {"ddot", std::make_pair(&timeDdot, std::vector<double>())},
+        {"dgemvdot", std::make_pair(&timeDgemvdot, std::vector<double>())}
+    };
+
+    std::map<std::string, double> mean_times;
 
     for (const int ndim : ndims) {
-        times_dgemvdot.push_back(timeDgemv(ndim));
-        times_dgemm.push_back(timeDgemm(ndim));
-        times_dsymm.push_back(timeDsymm(ndim));
-        times_dsmyv.push_back(timeDsymv(ndim));
-        times_ddot.push_back(timeDdot(ndim));
+        for (auto &[key, pair] : times)
+            pair.second.push_back(pair.first(ndim));
     }
 
-    double
-        mean_dsymm = 0., mean_dgemm = 0., mean_dsymv = 0., mean_ddot = 0.,
-        mean_dgemvdot = 0.;
+    
+    for (const auto &[key, pair] : times)
+        mean_times[key] = 0;
 
-    // for (int i = 0; i < ndims.size(); ++i)
     int i1 = 3, i2 = 9, nsample = i2 - i1;
     for (int i = i1; i < i2; ++i)
-    {
-        mean_dsymm += times_dsymm[i];
-        mean_dgemm += times_dgemm[i];
-        mean_dsymv += times_dsmyv[i];
-        mean_ddot += times_ddot[i];
-        mean_dgemvdot += times_dgemvdot[i];
+        for (auto &[key, mean] : mean_times)
+            mean += times[key].second[i] / nsample;
+
+    printf("Ndim");
+    for (const auto &[key, pair] : times)
+        printf(",%s", key.c_str());
+    printf("\n");
+
+
+    for (int i = 0; i < ndims.size(); ++i) {
+        printf("%d", ndims[i]);
+        for (const auto &[key, pair] : times)
+            printf(",%.3e", pair.second[i]);
+        printf("\n");
     }
+    printf("--------------\nAve");
+    for (const auto &[key, mean] : mean_times)
+        printf(",%.3e", mean);
+    printf("\nRat");
+    for (const auto &[key, mean] : mean_times)
+        printf(",%.3f", mean / mean_times["ddot"]);
+    printf("\n");
 
-    mean_dsymm /= nsample;
-    mean_dgemm /= nsample;
-    mean_dsymv /= nsample;
-    mean_ddot /= nsample;
-    mean_dgemvdot /= nsample;
-
-    printf("Ndim,dsymm,dgemm,dsymv,ddot,dgemvdot\n");
-    for (int i = 0; i < ndims.size(); ++i)
-        printf("%d,%.3e,%.3e,%.3e,%.3e,%.3e\n",
-               ndims[i], times_dsymm[i], times_dgemm[i],
-               times_dsmyv[i], times_ddot[i], times_dgemvdot[i]);
-    printf("--------------\n");
-    printf("Ave,%.3e,%.3e,%.3e,%.3e,%.3e\n",
-           mean_dsymm, mean_dgemm, mean_dsymv, mean_ddot, mean_dgemvdot);
-    printf("Rat,%.3f,%.3f,%.3f,%.3f,,%.3f\n",
-           mean_dsymm / mean_ddot, mean_dgemm / mean_ddot,
-           mean_dsymv / mean_ddot, mean_ddot / mean_ddot,
-           mean_dgemvdot / mean_ddot);
+    for (const int ndim : ndims)
+        timeOsampLeft(ndim);
 }

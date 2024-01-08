@@ -71,7 +71,6 @@ protected:
     void _addMarginalizations();
     void _getWeightedMatrix(double *m);
     void _dotQi(const double *m, double *out, int idx=0);
-    void _getFisherMatrix(const double *Q_ikz_matrix_T, int idx);
 
     friend class TestOneQSOEstimate;
 
@@ -109,8 +108,7 @@ public:
 
     void fprintfMatrices(const char *fname_base);
     double getMinMemUsage();
-    void releaseFile();
-    void addBoot(int p, double *temppower, double* tempfisher);
+    void releaseFile() { qFile.reset(); };
 };
 
 #endif

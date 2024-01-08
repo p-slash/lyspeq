@@ -177,9 +177,14 @@ Other params
 ====
 + `InputIsPicca` (int):
     If > 0, input file format is from picca. Off by default.
++ `SmoothNoiseWeights` (int):
+    If > 0, smooths pipeline noise by this Gaussian sigma pixel. Smoothing kernel
+    half window size is 25 pixels. If == 0, sets every value to the median.
 + `UseResoMatrix` (int):
     If > 0, reads and uses the resolution matrix picca files.
     Off by default.
++ `SmoothResolutionMatrix` (int, default: -1, False):
+    If > 0, uses `SmoothNoiseWeights` value to smooth diagonal resolution matrices.
 + `ResoMatDeconvolutionM` (double):
     Deconvolve the resolution matrix by this factor in terms of pixel.
     For example, 1.0 deconvolves one top hat. Off by default and when
@@ -206,8 +211,10 @@ Other params
 + `PrecomputedFisher` (str):
     File to precomputed Fisher matrix. If present, Fisher matrix is not
     calculated for spectra. Off by default.
-+ `NumberOfBoots` (int):
++ `NumberOfBoots` (int, default: 20000):
     Number of bootstrap realizations.
++ `FastBootstrap` (int, default: 1, True):
+        Fast bootstrap method. Does not recalculates the Fisher matrix.
 
 Quasar Spectrum File
 ====
@@ -245,7 +252,7 @@ When using this format, construct the file list using HDU numbers of each chunk.
 
 Bootstrap file output
 ===
-When `SaveEachProcessResult 1` is passed in the config file, individual results from each process will be saved into files `OutputDir`. All results will be saved to `bootresults.dat`. This file is in binary format. It starts with two integers for `Nk, Nz` and another integer for `ndiags`. Each result is then a double array of size `cf_size+N` in which `Pk` is the first `N=Nk*Nz` element, and `CompressedFisherMatrix` is in the remaining part. Only the upper diagonals (starting with the main) of the Fisher matrix is saved in order to save space. Note this `Pk` value is before multiplication by fisher inverse. Normally, `cf_size = TOTAL_KZ_BINS*ndiags - (ndiags*(ndiags-1))/2` and `ndiags=2*NUMBER_OF_K_BANDS`. When compiled with `FISHER_OPTIMIZATION` option, `ndiags=3` and `cf_size = 3*TOTAL_KZ_BINS-NUMBER_OF_K_BANDS-1`. This Fisher matrix is multiplied by 0.5.
+When `SaveEachProcessResult 1` is passed in the config file, individual results from each process will be saved into files `OutputDir`. All results will be saved to `bootresults.dat`. This file is in binary format. It starts with two integers for `Nk, Nz` and another integer for `ndiags`. Each result is then a double array of size `cf_size+N` in which `Pk` is the first `N=Nk*Nz` element, and `CompressedFisherMatrix` is in the remaining part. Only the upper diagonals (starting with the main) of the Fisher matrix is saved in order to save space. Note this `Pk` value is before multiplication by fisher inverse. `cf_size = TOTAL_KZ_BINS*ndiags - (ndiags*(ndiags-1))/2` and `ndiags=3*NUMBER_OF_K_BANDS`. This Fisher matrix is multiplied by 0.5.
 
 When `SaveEachChunkResult 1` is passed in the config file, individual results from each **chunk** will be saved to FITS files. Each process will have its own file. Each chunk is written to image extensions. All dk, nk, tk and fisher matrix is saved for only valid bins for each chunk. This is given by 'ISTART' key in header. 'NQDIM' key gives the dimension. Fisher matrix is **not** multiplied by 0.5 and only the upper triangle is saved. Sample code to add chunk fisher to total fisher after converting to NQDIM x NQDIM:
 
