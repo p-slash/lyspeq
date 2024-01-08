@@ -132,12 +132,12 @@ namespace mxhelp
         return result;
     }
 
-    double my_cblas_dgemvdot(
-            const double *v, const double *A, double *temp_vector, int N
+    double my_cblas_dsymvdot(
+            const double *v, const double *S, double *temp_vector, int N
     ) {
-        cblas_dgemv(
-            CblasRowMajor, CblasNoTrans, N, N, 1.,
-            A, N, v, 1, 0, temp_vector, 1);
+        cblas_dsymv(
+            CblasRowMajor, CblasUpper, N, 1.,
+            S, N, v, 1, 0, temp_vector, 1);
 
         return cblas_ddot(N, v, 1, temp_vector, 1);
     }
@@ -336,9 +336,9 @@ namespace mxhelp
         auto _Amat = std::make_unique<double[]>(N * N),
              _Ab = std::make_unique<double[]>(N);
 
-        cblas_dgemv(
-            CblasRowMajor, CblasNoTrans,
-            N, N, 1., S, N, 
+        cblas_dsymv(
+            CblasRowMajor, CblasUpper,
+            N, 1., S, N, 
             b, 1, 0, _Ab.get(), 1);
         std::copy_n(_Ab.get(), N, b);
 
