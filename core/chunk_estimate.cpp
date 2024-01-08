@@ -211,9 +211,9 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 
         int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
         // NERSC Perlmutter scaling relation for -c 2
-        const double agemm = 18., agemv = 0.55, adot = 1.0;
+        const double agemm = 19., asymv = 0.45, adot = 1.0;
         double one_dgemm = agemm * std::pow(qtemp.size() / 100., 3),
-               one_dgemv = agemv * std::pow(qtemp.size() / 100., 2),
+               one_dsymv = asymv * std::pow(qtemp.size() / 100., 2),
                one_ddot = adot * std::pow(qtemp.size() / 100., 2);
 
         int fidxlocal = bins::getFisherMatrixIndex(0, ZBIN_LOW);
@@ -246,7 +246,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 
         double res = (
             real_nq_mat * (one_dgemm + one_ddot * N_M_COMBO)
-            + (real_nq_mat + 1) * one_dgemv // dgemv contributions
+            + (real_nq_mat + 1) * one_dsymv // dsymv contributions
         );
 
         if (!specifics::TURN_OFF_SFID)
@@ -429,8 +429,8 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
 
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
 {
-    cblas_dgemv(
-        CblasRowMajor, CblasNoTrans, size, size, 1.,
+    cblas_dsymv(
+        CblasRowMajor, CblasUpper, size, 1.,
         cinv, size, v, 1, 0, y, 1);
     double norm = cblas_ddot(size, v, 1, y, 1);
     cblas_dger(CblasRowMajor, size, size, -1. / norm, y, 1, y, 1, cinv, size);
@@ -460,7 +460,7 @@ void Chunk::_addMarginalizations() {
     #ifdef DEBUG
     DEBUG_LOG("Mags before:");
     for (int i = 0; i < specifics::CONT_NVECS; ++i) {
-        double tt = mxhelp::my_cblas_dgemvdot(
+        double tt = mxhelp::my_cblas_dsymvdot(
             marg_mat + i * size(), inverse_covariance_matrix,
             temp_vector, size());
         DEBUG_LOG("  %.3e", tt);
@@ -490,7 +490,7 @@ void Chunk::_addMarginalizations() {
     DEBUG_LOG("\nUsing first %d/%d vectors.\nMags after:",
               nvecs_to_use, specifics::CONT_NVECS);
     for (int i = 0; i < specifics::CONT_NVECS; ++i) {
-        double tt = mxhelp::my_cblas_dgemvdot(
+        double tt = mxhelp::my_cblas_dsymvdot(
             temp_matrix[1] + i * size(), inverse_covariance_matrix,
             temp_vector, size());
         DEBUG_LOG("  %.3e", tt);
@@ -559,8 +559,8 @@ void Chunk::computePSbeforeFvector()
            *tk0 = dbt_estimate_before_fisher_vector[2].get();
 
     // C-1 . flux
-    cblas_dgemv(
-        CblasRowMajor, CblasNoTrans, size(), size(), 1.,
+    cblas_dsymv(
+        CblasRowMajor, CblasUpper, size(), 1.,
         inverse_covariance_matrix, size(), qFile->delta(), 1,
         0, weighted_data_vector, 1);
 
@@ -569,7 +569,7 @@ void Chunk::computePSbeforeFvector()
     for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        dk0[i_kz] = mxhelp::my_cblas_dgemvdot(
+        dk0[i_kz] = mxhelp::my_cblas_dsymvdot(
             weighted_data_vector, 
             Q_ikz_matrix, temp_vector, size());
         // Transform q matrices to weighted matrices inplace

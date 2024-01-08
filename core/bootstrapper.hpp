@@ -341,7 +341,7 @@ private:
             for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
                 v[i] = x[i] - mean[i];
 
-            double chi2 = mxhelp::my_cblas_dgemvdot(
+            double chi2 = mxhelp::my_cblas_dsymvdot(
                 v.get(), invcov, y.get(), bins::TOTAL_KZ_BINS) / 4
                 - bins::TOTAL_KZ_BINS;
 

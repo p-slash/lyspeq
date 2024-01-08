@@ -42,8 +42,8 @@ namespace mxhelp
     {return cblas_ddot(N, A, N+1, B, 1);}
 
     // vT . A . v
-    double my_cblas_dgemvdot(
-        const double *v, const double *A,
+    double my_cblas_dsymvdot(
+        const double *v, const double *S,
         double *temp_vector, int N);
 
     void printfMatrix(const double *A, int N1, int N2);
