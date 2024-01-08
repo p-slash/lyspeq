@@ -21,12 +21,15 @@ namespace mxhelp
     // v always starts at 0, ends at N-1-abs(d)
     // A is NxN
     void getDiagonal(const double *A, int N, int d, double *v);
-    inline
-    void vector_add(double *target, const double *source, int size)
-    {cblas_daxpy(size, 1, source, 1, target, 1);}
-    inline
-    void vector_sub(double *target, const double *source, int size)
-    {cblas_daxpy(size, -1, source, 1, target, 1);}
+
+    inline void vector_multiply(
+            int N, const double *x, int incx, const double *y, int incy,
+            double *out
+    ) {
+        #pragma omp parallel for
+        for (int i = 0; i < N; ++i)
+            out[i] = x[i * incx] * y[i * incy];
+    }
 
     // Trace of A.B
     // Both are assumed to general and square NxN
