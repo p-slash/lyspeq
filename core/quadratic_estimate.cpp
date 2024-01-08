@@ -287,14 +287,12 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
         dbt_estimate_fisher_weighted_vector[0].get(), 
         dbt_estimate_fisher_weighted_vector[0].get() + bins::TOTAL_KZ_BINS, 
         current_power_estimate_vector.get());
-    mxhelp::vector_sub(
-        current_power_estimate_vector.get(), 
-        dbt_estimate_fisher_weighted_vector[1].get(), 
-        bins::TOTAL_KZ_BINS);
-    mxhelp::vector_sub(
-        current_power_estimate_vector.get(), 
-        dbt_estimate_fisher_weighted_vector[2].get(), 
-        bins::TOTAL_KZ_BINS);
+    cblas_daxpy(
+        bins::TOTAL_KZ_BINS, -1, dbt_estimate_fisher_weighted_vector[1].get(), 1,
+        current_power_estimate_vector.get(), 1);
+    cblas_daxpy(
+        bins::TOTAL_KZ_BINS, -1, dbt_estimate_fisher_weighted_vector[2].get(), 1,
+        current_power_estimate_vector.get(), 1);
 }
 
 void OneDQuadraticPowerEstimate::_readScriptOutput(const char *fname, void *itsfits)
@@ -550,9 +548,10 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         "Old test: Iteration converges when this is less than %.1e\n", 
         abs_mean, abs_max, specifics::CHISQ_CONVERGENCE_EPS);
     
-    // Perform a chi-square test as well    
-    mxhelp::vector_sub(previous_power_estimate_vector.get(), 
-        current_power_estimate_vector.get(), bins::TOTAL_KZ_BINS);
+    // Perform a chi-square test as well   
+    cblas_daxpy(
+        bins::TOTAL_KZ_BINS, -1, current_power_estimate_vector.get(), 1,
+        previous_power_estimate_vector.get(), 1);
 
     r = 0;
 
@@ -831,14 +830,12 @@ void OneDQuadraticPowerEstimate::_savePEResult()
         dbt_estimate_sum_before_fisher_vector[0].get() + bins::TOTAL_KZ_BINS, 
         tmppower.get());
 
-    mxhelp::vector_sub(
-        tmppower.get(),
-        dbt_estimate_sum_before_fisher_vector[1].get(),
-        bins::TOTAL_KZ_BINS);
-    mxhelp::vector_sub(
-        tmppower.get(),
-        dbt_estimate_sum_before_fisher_vector[2].get(),
-        bins::TOTAL_KZ_BINS);
+    cblas_daxpy(
+        bins::TOTAL_KZ_BINS, -1, dbt_estimate_fisher_weighted_vector[1].get(), 1,
+        tmppower.get(), 1);
+    cblas_daxpy(
+        bins::TOTAL_KZ_BINS, -1, dbt_estimate_fisher_weighted_vector[2].get(), 1,
+        tmppower.get(), 1);
 
     try
     {
