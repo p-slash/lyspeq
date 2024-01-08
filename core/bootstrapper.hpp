@@ -250,10 +250,10 @@ private:
         for (unsigned int jj = 0; jj < nboots; ++jj) {
             if (outlier[jj]) continue;
 
-            mxhelp::vector_add(
-                mean.data(),
-                allpowers.data() + jj * bins::TOTAL_KZ_BINS,
-                bins::TOTAL_KZ_BINS);
+            cblas_daxpy(
+                bins::TOTAL_KZ_BINS,
+                1, allpowers.data() + jj * bins::TOTAL_KZ_BINS, 1,
+                mean.data(), 1);
         }
         cblas_dscal(bins::TOTAL_KZ_BINS, 1. / remaining_boots, mean.data(), 1);
     }
@@ -276,14 +276,21 @@ private:
     ) {
         mad_cov.resize(bins::FISHER_SIZE);
 
+        // Subtract median from allpowers
+        for (unsigned int n = 0; n < nboots; ++n)
+            cblas_daxpy(
+                bins::TOTAL_KZ_BINS, -1, median, 1,
+                allpowers.data() + n * bins::TOTAL_KZ_BINS, 1);
+
         for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i) {
             const double *x = allpowers.data() + i;
 
             for (int j = i; j < bins::TOTAL_KZ_BINS; ++j) {
                 const double *y = allpowers.data() + j;
 
-                for (unsigned int k = 0; k < nboots; k += bins::TOTAL_KZ_BINS)
-                    pcoeff[k] = (x[k] - median[i]) * (y[k] - median[j]);
+                mxhelp::vector_multiply(
+                    nboots, x, bins::TOTAL_KZ_BINS, y, bins::TOTAL_KZ_BINS,
+                    pcoeff.data());
 
                 mad_cov[j + i * bins::TOTAL_KZ_BINS] =
                     2.19810276 * stats::medianOfUnsortedVector(pcoeff);
