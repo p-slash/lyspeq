@@ -34,7 +34,9 @@ void CHECK_ISNAN(double *mat, int size, std::string msg)
 inline
 int _getMaxKindex(double knyq)
 {
-    auto it = std::lower_bound(bins::KBAND_CENTERS.begin(), bins::KBAND_CENTERS.end(), knyq);
+    auto it = std::lower_bound(
+        bins::KBAND_CENTERS.begin(), bins::KBAND_CENTERS.end(),
+        0.85 * knyq);
     return std::distance(bins::KBAND_CENTERS.begin(), it);
 }
 
@@ -67,7 +69,7 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     process::updateMemory(-getMinMemUsage());
 
     stored_ikz_qi.reserve(N_Q_MATRICES);
-    int _kncut = _getMaxKindex(0.85 * MY_PI / qFile->dv_kms);
+    int _kncut = _getMaxKindex(MY_PI / qFile->dv_kms);
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int kn, zm;
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
@@ -242,7 +244,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
         #ifdef FISHER_OPTIMIZATION
         const int N_M_COMBO = 11 + 1;
         #else
-        const int N_M_COMBO = real_nq_mat + 1 + 1;
+        int N_M_COMBO = real_nq_mat + 1 + 1;
         #endif
 
         double res = (
