@@ -466,28 +466,6 @@ namespace bins
             break;
         }
     }
-
-    // Given the redshift z, returns binning weight. 1 for top-hats, interpolation for triangular
-    // zm: Bin number to consider
-    // zc: Central bin number for triangular bins. Binning weights depend on being to the left 
-    // or to the right of this number.
-    // extern inline 
-
-    // double redshiftBinningFunction(double z, int zm)
-    // {
-    //     #if defined(TOPHAT_Z_BINNING_FN)
-    //     if (zm == findRedshiftBin(z)) return 1;
-    //     else                          return 0;
-
-    //     #elif defined(TRIANGLE_Z_BINNING_FN)
-    //     double x=z-ZBIN_CENTERS[zm], r = 1-fabs(x)/Z_BIN_WIDTH;
-    //     if (r<0) return 0;
-    //     if (zm==0 && x<0) return 1;
-    //     if (zm==(NUMBER_OF_Z_BINS-1) && x>0) return 1;
-    //     return r;
-    //     #endif
-    // }
-
 }
 
 namespace mytime
