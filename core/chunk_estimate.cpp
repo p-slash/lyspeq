@@ -137,7 +137,7 @@ void Chunk::_setNQandFisherIndex() {
     fisher_index_start = bins::getFisherMatrixIndex(0, ZBIN_LOW);
 
     if (bins::Z_BINNING_METHOD == bins::TriangleBinningMethod) {
-    // If we need to distribute low end to a lefter bin
+        // If we need to distribute low end to a lefter bin
         if ((LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
         {
             ++N_Q_MATRICES;
@@ -218,15 +218,16 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
 
         int fidxlocal = bins::getFisherMatrixIndex(0, ZBIN_LOW);
 
-        #if defined(TRIANGLE_Z_BINNING_FN)
-        if ((z1 < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0)) {
-            ++N_Q_MATRICES;
-            fidxlocal -= bins::NUMBER_OF_K_BANDS;
+        if (bins::Z_BINNING_METHOD == bins::TriangleBinningMethod) {
+            if ((z1 < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0)) {
+                ++N_Q_MATRICES;
+                fidxlocal -= bins::NUMBER_OF_K_BANDS;
+            }
+
+            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
+                ++N_Q_MATRICES;
         }
 
-        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
-            ++N_Q_MATRICES;
-        #endif
         N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
 
         int _kncut = _getMaxKindex(MY_PI / qtemp.dv_kms), real_nq_mat = 0;
