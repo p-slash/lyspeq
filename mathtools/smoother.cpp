@@ -58,6 +58,24 @@ void _findMedianStatistics(
 }
 
 
+void _fillMaskedRegion(
+        const std::vector<int> &mask_idx, int HWSIZE, double mean, int size,
+        std::vector<double> &v
+) {
+    if (mask_idx.empty())
+        return;
+
+    if (mask_idx.front() == 0)
+        std::fill_n(v.begin(), HWSIZE, mean);
+
+    for (const int &idx : mask_idx)
+        v[idx + HWSIZE] = mean;
+
+    if (mask_idx.back() == size - 1)
+        std::fill_n(v.end() - HWSIZE, HWSIZE, mean);
+}
+
+
 Smoother::Smoother(ConfigFile &config)
 {
     LOG::LOGGER.STD("###############################################\n");
@@ -111,6 +129,7 @@ void Smoother::smooth1D(double *inplace, int size, int ndim) {
 
 
 void Smoother::smoothNoise(const double *n2, double *out, int size) {
+    DEBUG_LOG("Smoothing noise.\n");
     double median, mad, mean;
 
     std::copy_n(n2, size, out);
@@ -129,14 +148,7 @@ void Smoother::smoothNoise(const double *n2, double *out, int size) {
         std::vector<double> tempvector;
         padArray(n2, size, HWSIZE, tempvector);
 
-        if (mask_idx.front() == 0)
-            std::fill_n(tempvector.begin(), HWSIZE, mean);
-
-        for (const int &idx : mask_idx)
-            tempvector[idx + HWSIZE] = mean;
-
-        if (mask_idx.back() == size - 1)
-            std::fill_n(tempvector.end() - HWSIZE, HWSIZE, mean);
+        _fillMaskedRegion(mask_idx, HWSIZE, mean, size, tempvector);
 
         // Convolve
         // std::fill_n(out, size, 0);
