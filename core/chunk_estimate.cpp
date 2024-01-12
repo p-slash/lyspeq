@@ -556,15 +556,15 @@ void Chunk::computePSbeforeFvector()
 
     double t = mytime::timer.getTime();
 
-    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
+    for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt) {
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
-        dk0[i_kz] = mxhelp::my_cblas_dsymvdot(
+        dk0[iqt->first] = mxhelp::my_cblas_dsymvdot(
             weighted_data_vector, 
-            Q_ikz_matrix, temp_vector, size());
+            iqt->second, temp_vector, size());
         // Transform q matrices to weighted matrices inplace
         // Get weighted derivative matrix ikz: C-1 Qi
-        _getWeightedMatrix(Q_ikz_matrix);
+        _getWeightedMatrix(iqt->second);
     }
 
     mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
@@ -607,22 +607,18 @@ void Chunk::computePSbeforeFvector()
 
     double *Q_ikz_matrix_T = temp_matrix[0];
     for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt) {
-        const auto &[i_kz, Q_ikz_matrix] = *iqt;
-
-        mxhelp::transpose_copy(Q_ikz_matrix, Q_ikz_matrix_T, size());
-        int idx_fji_0 = N_Q_MATRICES * i_kz;
+        mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size());
+        int idx_fji_0 = N_Q_MATRICES * iqt->first;
 
         for (auto jqt = iqt; jqt != stored_ikz_qi.end(); ++jqt) {
-            const auto &[j_kz, Q_jkz_matrix] = *jqt;
-            
             #ifdef FISHER_OPTIMIZATION
-            int diff_ji = j_kz - i_kz;
+            int diff_ji = jqt->first - iqt->first;
             if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
                 continue;
             #endif
 
-            fisher_matrix[j_kz + idx_fji_0] = 
-                cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, Q_jkz_matrix, 1);
+            fisher_matrix[jqt->first + idx_fji_0] = 
+                cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, jqt->second, 1);
         }
     }
 
@@ -660,8 +656,8 @@ void Chunk::oneQSOiteration(
     // i_kz = N_Q_MATRICES - j_kz - 1
     DEBUG_LOG("Setting qi matrices\n");
 
-    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        _setQiMatrix(Q_ikz_matrix, i_kz);
+    for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
+        _setQiMatrix(iqt->second, iqt->first);
 
     for (int i = 0; i < _matrix_n; ++i)
         _matrix_lambda[i] += 1;
@@ -714,8 +710,8 @@ void Chunk::_allocateMatrices()
     temp_vector = new double[size()];
     weighted_data_vector = new double[size()];
     
-    for (auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        Q_ikz_matrix = new double[DATA_SIZE_2];
+    for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
+        iqt->second = new double[DATA_SIZE_2];
 
     if (!specifics::TURN_OFF_SFID)
         stored_sfid = new double[DATA_SIZE_2];
@@ -723,15 +719,13 @@ void Chunk::_allocateMatrices()
     // Create a temp highres lambda array
     if (on_oversampling)
     {
-        _finer_lambda = new double[_matrix_n];
+        _matrix_lambda = new double[_matrix_n];
 
         double fine_dlambda =
             qFile->dlambda / LYA_REST / specifics::OVERSAMPLING_FACTOR;
-        int disp = qFile->Rmat->getNElemPerRow()/2;
+        int disp = qFile->Rmat->getNElemPerRow() / 2;
         for (int i = 0; i < _matrix_n; ++i)
-            _finer_lambda[i] = qFile->wave()[0] + (i - disp)*fine_dlambda;
-
-        _matrix_lambda = _finer_lambda;
+            _matrix_lambda[i] = qFile->wave()[0] + (i - disp) * fine_dlambda;
 
         long highsize = (long)(_matrix_n) * (long)(_matrix_n);
         _finer_matrix = new double[highsize];
@@ -741,8 +735,7 @@ void Chunk::_allocateMatrices()
     else
     {
         _matrix_lambda = qFile->wave();
-        _finer_lambda  = NULL;
-        _finer_matrix  = NULL;
+        _finer_matrix = nullptr;
         _vmatrix = temp_matrix[0];
         _zmatrix = temp_matrix[1];
     }
@@ -765,8 +758,8 @@ void Chunk::_freeMatrices()
 
     delete [] temp_vector;
     delete [] weighted_data_vector;
-    for (auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        delete [] Q_ikz_matrix;
+    for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
+        delete [] iqt->second;
 
     if (!specifics::TURN_OFF_SFID)
         delete [] stored_sfid;
@@ -777,7 +770,7 @@ void Chunk::_freeMatrices()
     if (on_oversampling)
     {
         delete [] _finer_matrix;
-        delete [] _finer_lambda;
+        delete [] _matrix_lambda;
         delete [] _vmatrix;
         delete [] _zmatrix;
     }
