@@ -43,7 +43,7 @@ protected:
     // Uninitialized arrays
     // Oversampled resomat specifics
     bool on_oversampling;
-    double *_finer_lambda, *_finer_matrix, *_vmatrix, *_zmatrix;
+    double *_finer_matrix, *_vmatrix, *_zmatrix;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
