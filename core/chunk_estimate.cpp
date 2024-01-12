@@ -378,14 +378,13 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
-        std::copy(stored_sfid, stored_sfid + DATA_SIZE_2, covariance_matrix);
+        std::copy_n(stored_sfid, DATA_SIZE_2, covariance_matrix);
     else
         std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
 
-    const double *alpha = ps_estimate + fisher_index_start;
     for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
         cblas_daxpy(
-            DATA_SIZE_2, alpha[i_kz], 
+            DATA_SIZE_2, ps_estimate[fisher_index_start + i_kz], 
             Q_ikz_matrix, 1, covariance_matrix, 1
         );
 
