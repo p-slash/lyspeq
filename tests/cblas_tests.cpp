@@ -387,6 +387,15 @@ int test_OversampledMatrix_multiplications()
         r += 1;
     }
 
+    ovrmat.sandwichHighRes(mtrxB2.data(), oversample_multiplier_A);
+    if (not allClose(truth_oversample_right_multiplication, mtrxB2.data(), mtrxB2.size()))
+    {
+        fprintf(stderr, "ERROR OversampledMatrix::sandwich.\n");
+        printMatrices(truth_oversample_right_multiplication,
+            mtrxB2.data(), NrowsOversamp, NrowsOversamp);
+        r += 1;
+    }
+
     return r;
 }
 
@@ -590,6 +599,37 @@ int test_DiaMatrix_getRow()
     return r;
 }
 
+int test_DiaMatrix_orderTranspose() {
+    int r = 0;
+    std::vector<double> testrow(NdiagDiag);
+
+    mxhelp::DiaMatrix diarmat(NrowsDiag, NdiagDiag);
+    const double diamatrix_diagonals_oT[] = {
+        0, 0, 1, 2, 9,
+        0, 4, 8, 4, 1,
+        5, 1, 1, 1, 1,
+        2, 7, 3, 7, 2,
+        7, 2, 7, 1, 7,
+        7, 4, 4, 4, 0,
+        4, 3, 4, 0, 0};
+
+    std::copy_n(
+        diamatrix_diagonals_oT,
+        NrowsDiag * NdiagDiag,
+        diarmat.matrix()
+    );
+
+    diarmat.orderTranspose();
+    if (not allClose(diamatrix_diagonals, diarmat.matrix(), diarmat.getSize()))
+    {
+        fprintf(stderr, "ERROR DiaMatrix::orderTranspose().\n");
+        printMatrices(diamatrix_diagonals, diarmat.matrix(), NdiagDiag, NrowsDiag);
+        r += 1;
+    }
+    return r;
+    return 0;
+}
+
 int test_Resolution_osamp()
 {
     const int
@@ -651,6 +691,7 @@ int main()
     r += test_DiaMatrix_multipyLeft();
     r += test_DiaMatrix_multiplyRightT();
     r += test_DiaMatrix_getRow();
+    r += test_DiaMatrix_orderTranspose();
     r += test_LAPACKE_SVD();
     r += test_Resolution_osamp();
 
