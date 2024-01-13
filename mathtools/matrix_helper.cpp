@@ -789,24 +789,14 @@ namespace mxhelp
     // B should be nrows x ncols, will be initialized to zero
     void OversampledMatrix::multiplyLeft(const double* A, double *B)
     {
+        std::fill_n(B, nrows * ncols, 0);
+        #pragma omp parallel for
         for (int i = 0; i < nrows; ++i)
-        {
-            double *bsub = B + i * ncols;
-            const double *Asub = A + i * ncols * oversampling;
-
-            cblas_dgemv(
-                CblasRowMajor, CblasTrans,
-                nelem_per_row, ncols, 1., Asub, ncols, 
-                _getRow(i), 1, 0, bsub, 1);
-        }
-
-        // std::fill_n(B, nrows * ncols, 0);
-        // #pragma omp parallel for simd collapse(3)
-        // for (int i = 0; i < nrows; ++i)
-        //     for (int j = 0; j < nelem_per_row; ++j)
-        //         for (int k = 0; k < ncols; ++k)
-        //             B[k + i * ncols] += 
-        //                 A[k + (j + i * oversampling) * ncols] * values[j + i * nelem_per_row];
+            for (int j = 0; j < nelem_per_row; ++j)
+                for (int k = 0; k < ncols; ++k)
+                    B[k + i * ncols] += 
+                        A[k + j * ncols + i * oversampling * ncols]
+                        * values[j + i * nelem_per_row];
     }
 
     // A . R^T = B
@@ -814,15 +804,16 @@ namespace mxhelp
     // B should be nrows x nrows, will be initialized to zero
     void OversampledMatrix::multiplyRight(const double* A, double *B)
     {
+        std::fill_n(B, nrows * nrows, 0);
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i < nrows; ++i)
-        {
-            double *bsub = B + i;
-            const double *Asub = A + i * oversampling;
+            for (int j = 0; j < nrows; ++j)
+                for (int k = 0; k < nelem_per_row; ++k)
+                    B[j + i * nrows] += 
+                        A[k + j * oversampling + i * ncols]
+                        * values[k + j * nelem_per_row];
 
-            cblas_dgemv(CblasRowMajor, CblasNoTrans,
-                nrows, nelem_per_row, 1., Asub, ncols, 
-                _getRow(i), 1, 0, bsub, nrows);
-        }
+        // copyUpperToLower(B, nrows);
     }
 
     void OversampledMatrix::sandwichHighRes(double *B, const double *temp_highres_mat)

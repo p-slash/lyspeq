@@ -175,7 +175,7 @@ double timeDmydgemv(int ndim) {
     double t1 = mytime::timer.getTime(), t2 = 0, sum = 0;
 
     for (int i = 0; i < N_LOOPS; ++i)
-        sum = mxhelp::my_cblas_dgemvdot(B.get(), A.get(), C.get(), ndim);
+        sum = mxhelp::my_cblas_dsymvdot(B.get(), A.get(), C.get(), ndim);
 
     t2 = mytime::timer.getTime();
     return (t2 - t1) / N_LOOPS / std::pow(ndim / 100., 2);
@@ -211,20 +211,18 @@ void timeOsampLeft(int ndim, int oversampling=3) {
     double t1 = mytime::timer.getTime(), t2 = 0;
     for (int loop = 0; loop < N_LOOPS; ++loop) {
 
-        for (int i = 0; i < ndim; ++i) {
-            double *bsub = B.get() + i * ncols;
-            const double *Asub = A.get() + i * ncols * oversampling;
-
-            cblas_dgemm(
-                CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                1, ncols, nelem_per_row, 1., R.get() + i * nelem_per_row, nelem_per_row,
-                Asub, ncols, 0, bsub, ncols);
-        }
-
+        std::fill_n(B.get(), ndim * ncols, 0);
+        #pragma omp parallel for
+        for (int i = 0; i < ndim; ++i)
+            for (int j = 0; j < nelem_per_row; ++j)
+                for (int k = 0; k < ncols; ++k)
+                    B[k + i * ncols] += 
+                        A[k + j * ncols + i * oversampling * ncols]
+                        * R[j + i * nelem_per_row];
     }
     t2 = mytime::timer.getTime();
     double tgemm = (t2 - t1) / N_LOOPS;
-    printf("Osamp gemm: %.3e", tgemm);
+    printf("%d:: Osamp loops: %.3e", ndim, tgemm);
 
 
     t1 = mytime::timer.getTime();
