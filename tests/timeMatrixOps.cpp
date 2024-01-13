@@ -202,27 +202,20 @@ void timeOsampLeft(int ndim, int oversampling=3) {
     const int ndiags = 11;
     int noff = ndiags / 2, nelem_per_row = 2 * noff * oversampling + 1;
     int ncols = ndim * oversampling + nelem_per_row - 1;
+
     auto A = getRandomSymmMatrix(ncols);
-    auto R = std::make_unique<double[]>(ndim * nelem_per_row);
+    auto R = mxhelp::OversampledMatrix(ndim, nelem_per_row, oversampling, 1.);
     auto B = std::make_unique<double[]>(ndim * ncols);
     for (int i = 0; i < ndim * nelem_per_row; ++i)
-        R[i] = i * 1. / ndim;
+        R.matrix()[i] = i * 1. / ndim;
  
-    double t1 = mytime::timer.getTime(), t2 = 0;
-    for (int loop = 0; loop < N_LOOPS; ++loop) {
+    double t1 = mytime::timer.getTime(), t2 = 0, tloops = 0, tgemv = 0;
+    for (int loop = 0; loop < N_LOOPS; ++loop)
+        R.multiplyLeft(A.get(), B.get());
 
-        std::fill_n(B.get(), ndim * ncols, 0);
-        #pragma omp parallel for
-        for (int i = 0; i < ndim; ++i)
-            for (int j = 0; j < nelem_per_row; ++j)
-                for (int k = 0; k < ncols; ++k)
-                    B[k + i * ncols] += 
-                        A[k + j * ncols + i * oversampling * ncols]
-                        * R[j + i * nelem_per_row];
-    }
     t2 = mytime::timer.getTime();
-    double tgemm = (t2 - t1) / N_LOOPS;
-    printf("%d:: Osamp loops: %.3e", ndim, tgemm);
+    tloops = (t2 - t1) / N_LOOPS;
+    printf("%d::multiplyLft:: Osamp loops: %.3e", ndim, tloops);
 
 
     t1 = mytime::timer.getTime();
@@ -235,13 +228,39 @@ void timeOsampLeft(int ndim, int oversampling=3) {
             cblas_dgemv(
                 CblasRowMajor, CblasTrans,
                 nelem_per_row, ncols, 1., Asub, ncols, 
-                R.get() + i * nelem_per_row, 1, 0, bsub, 1);
+                R.matrix() + i * nelem_per_row, 1, 0, bsub, 1);
         }
 
     }
     t2 = mytime::timer.getTime();
-    double tgemv = (t2 - t1) / N_LOOPS;
-    printf("\tOsamp gemv: %.3e\tRatio %.3f\n", tgemv, tgemm / tgemv);
+    tgemv = (t2 - t1) / N_LOOPS;
+    printf("\tOsamp gemv: %.3e\tRatio %.3f\n", tgemv, tloops / tgemv);
+
+    t1 = mytime::timer.getTime();
+    for (int loop = 0; loop < N_LOOPS; ++loop)
+        R.multiplyRight(A.get(), B.get());
+
+    t2 = mytime::timer.getTime();
+    tloops = (t2 - t1) / N_LOOPS;
+    printf("%d::multiplyRgt:: Osamp loops: %.3e", ndim, tloops);
+
+    t1 = mytime::timer.getTime();
+    for (int loop = 0; loop < N_LOOPS; ++loop) {
+
+        for (int i = 0; i < ndim; ++i) {
+            double *bsub = B.get() + i;
+            const double *Asub = A.get() + i * oversampling;
+
+            cblas_dgemv(
+                CblasRowMajor, CblasNoTrans,
+                nelem_per_row, ncols, 1., Asub, ncols, 
+                R.matrix() + i * nelem_per_row, 1, 0, bsub, ndim);
+        }
+
+    }
+    t2 = mytime::timer.getTime();
+    tgemv = (t2 - t1) / N_LOOPS;
+    printf("\tOsamp gemv: %.3e\tRatio %.3f\n--------\n", tgemv, tloops / tgemv);
 }
 
 
