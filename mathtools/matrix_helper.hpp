@@ -16,7 +16,7 @@ namespace mxhelp
     // A is NxN
     void copyUpperToLower(double *A, int N);
 
-    void transpose_copy(const double *A, double *B, int N);
+    void transpose_copy(const double *A, double *B, int M, int N);
 
     // v always starts at 0, ends at N-1-abs(d)
     // A is NxN

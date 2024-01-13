@@ -90,17 +90,17 @@ namespace mxhelp
         }
     }
 
-    void transpose_copy(const double *A, double *B, int N) {
+    void transpose_copy(const double *A, double *B, int M, int N) {
         #pragma omp parallel for collapse(2)
-        for (int i = 0; i < N; i += BLOCK_SIZE) {
+        for (int i = 0; i < M; i += BLOCK_SIZE) {
             for (int j = 0; j < N; j += BLOCK_SIZE) {
-                int kmax = std::min(i + BLOCK_SIZE, N),
+                int kmax = std::min(i + BLOCK_SIZE, M),
                     lmax = std::min(j + BLOCK_SIZE, N);
 
                 #pragma omp simd collapse(2)
                 for (int l = j; l < lmax; ++l)
                     for (int k = i; k < kmax; ++k)
-                        B[k + l * N] = A[l + k * N];
+                        B[k + l * M] = A[l + k * N];
             }
         }
     }
@@ -239,7 +239,7 @@ namespace mxhelp
             N, N, N, 0.5, _Amat.get(), N,
             S, N, 0, _Bmat.get(), N);
 
-        transpose_copy(_Bmat.get(), S, N);
+        transpose_copy(_Bmat.get(), S, N, N);
 
         cblas_daxpy(N, 1, _Bmat.get(), 1, S, 1);
     }
@@ -457,11 +457,8 @@ namespace mxhelp
     {
         double *newmat = new double[size];
 
-        for (int d = 0; d < ndiags; ++d)
-            cblas_dcopy(ndim, matrix()+d, ndiags,
-                newmat+d*ndim, 1);
+        transpose_copy(matrix(), newmat, ndim, ndiags);
 
-        // values = std::move(newmat);
         delete [] values;
         values = newmat;
     }
@@ -790,22 +787,12 @@ namespace mxhelp
     // B should be nrows x ncols, will be initialized to zero
     void OversampledMatrix::multiplyLeft(const double* A, double *B)
     {
-        std::fill_n(B, nrows * ncols, 0);
-        #pragma omp parallel for collapse(2)
+        #pragma omp parallel for
         for (int i = 0; i < nrows; ++i)
-            for (int j = 0; j < ncols; ++j)
-                for (int k = 0; k < nelem_per_row; ++k)
-                    B[j + i * ncols] +=
-                        A[k + i * oversampling + j * ncols]
-                        * values[k + i * nelem_per_row];
-
-        // #pragma omp parallel for
-        // for (int i = 0; i < nrows; ++i)
-        //     for (int j = 0; j < nelem_per_row; ++j)
-        //         for (int k = 0; k < ncols; ++k)
-        //             B[k + i * ncols] +=
-        //                 A[k + j * ncols + i * oversampling * ncols]
-        //                 * values[j + i * nelem_per_row];
+            cblas_dgemv(
+                CblasRowMajor, CblasTrans,
+                nelem_per_row, ncols, 1., A + i * oversampling * ncols, ncols, 
+                values + i * nelem_per_row, 1, 0, B + i * ncols, 1);
     }
 
     // A . R^T = B
@@ -831,7 +818,7 @@ namespace mxhelp
         if (sandwich_buffer == NULL)
             sandwich_buffer = new double[nrows*ncols];
  
-        multiplyLeft(temp_highres_mat, sandwich_buffer);
+        multiplyLeft(A, sandwich_buffer);
         multiplyRight(sandwich_buffer, B);
     }
 
