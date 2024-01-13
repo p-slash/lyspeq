@@ -162,6 +162,7 @@ namespace mxhelp
         // A . R^T = B
         // A should be nrows x ncols matrix. 
         // B should be nrows x nrows, will be initialized to zero
+        // Assumes B will be symmetric
         void multiplyRight(const double* A, double *B);
 
         // B = R . Temp . R^T

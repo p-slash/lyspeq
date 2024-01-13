@@ -794,7 +794,7 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
             for (int j = 0; j < nelem_per_row; ++j)
                 for (int k = 0; k < ncols; ++k)
-                    B[k + i * ncols] += 
+                    B[k + i * ncols] +=
                         A[k + j * ncols + i * oversampling * ncols]
                         * values[j + i * nelem_per_row];
     }
@@ -802,18 +802,19 @@ namespace mxhelp
     // A . R^T = B
     // A should be nrows x ncols matrix. 
     // B should be nrows x nrows, will be initialized to zero
+    // Assumes B will be symmetric
     void OversampledMatrix::multiplyRight(const double* A, double *B)
     {
         std::fill_n(B, nrows * nrows, 0);
         #pragma omp parallel for collapse(2)
         for (int i = 0; i < nrows; ++i)
-            for (int j = 0; j < nrows; ++j)
+            for (int j = i; j < nrows; ++j)
                 for (int k = 0; k < nelem_per_row; ++k)
-                    B[j + i * nrows] += 
+                    B[j + i * nrows] +=
                         A[k + j * oversampling + i * ncols]
                         * values[k + j * nelem_per_row];
 
-        // copyUpperToLower(B, nrows);
+        copyUpperToLower(B, nrows);
     }
 
     void OversampledMatrix::sandwichHighRes(double *B, const double *temp_highres_mat)
