@@ -606,7 +606,7 @@ void Chunk::computePSbeforeFvector()
 
     double *Q_ikz_matrix_T = temp_matrix[0];
     for (auto iqt = stored_ikz_qi.cbegin(); iqt != stored_ikz_qi.cend(); ++iqt) {
-        mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size());
+        mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size(), size());
         int idx_fji_0 = N_Q_MATRICES * iqt->first;
 
         for (auto jqt = iqt; jqt != stored_ikz_qi.cend(); ++jqt) {
