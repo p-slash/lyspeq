@@ -784,6 +784,7 @@ namespace mxhelp
         values  = new double[size];
     }
 
+
     // R . A = B
     // A should be ncols x ncols symmetric matrix. 
     // B should be nrows x ncols, will be initialized to zero
@@ -811,8 +812,8 @@ namespace mxhelp
             for (int j = i; j < nrows; ++j)
                 for (int k = 0; k < nelem_per_row; ++k)
                     B[j + i * nrows] +=
-                        A[k + j * oversampling + i * ncols]
-                        * values[k + j * nelem_per_row];
+                            A[k + j * oversampling + i * ncols]
+                            * values[k + j * nelem_per_row];
 
         copyUpperToLower(B, nrows);
     }
