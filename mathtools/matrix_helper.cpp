@@ -791,13 +791,21 @@ namespace mxhelp
     void OversampledMatrix::multiplyLeft(const double* A, double *B)
     {
         std::fill_n(B, nrows * ncols, 0);
-        #pragma omp parallel for
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i < nrows; ++i)
-            for (int j = 0; j < nelem_per_row; ++j)
-                for (int k = 0; k < ncols; ++k)
-                    B[k + i * ncols] +=
-                        A[k + j * ncols + i * oversampling * ncols]
-                        * values[j + i * nelem_per_row];
+            for (int j = 0; j < ncols; ++j)
+                for (int k = 0; k < nelem_per_row; ++k)
+                    B[j + i * ncols] +=
+                        A[k + i * oversampling + j * ncols]
+                        * values[k + i * nelem_per_row];
+
+        // #pragma omp parallel for
+        // for (int i = 0; i < nrows; ++i)
+        //     for (int j = 0; j < nelem_per_row; ++j)
+        //         for (int k = 0; k < ncols; ++k)
+        //             B[k + i * ncols] +=
+        //                 A[k + j * ncols + i * oversampling * ncols]
+        //                 * values[j + i * nelem_per_row];
     }
 
     // A . R^T = B
@@ -812,17 +820,17 @@ namespace mxhelp
             for (int j = i; j < nrows; ++j)
                 for (int k = 0; k < nelem_per_row; ++k)
                     B[j + i * nrows] +=
-                            A[k + j * oversampling + i * ncols]
-                            * values[k + j * nelem_per_row];
+                        A[k + j * oversampling + i * ncols]
+                        * values[k + j * nelem_per_row];
 
         copyUpperToLower(B, nrows);
     }
 
-    void OversampledMatrix::sandwichHighRes(double *B, const double *temp_highres_mat)
+    void OversampledMatrix::sandwichHighRes(double *B, const double *A)
     {
         if (sandwich_buffer == NULL)
             sandwich_buffer = new double[nrows*ncols];
-
+ 
         multiplyLeft(temp_highres_mat, sandwich_buffer);
         multiplyRight(sandwich_buffer, B);
     }
