@@ -571,6 +571,7 @@ void Chunk::computePSbeforeFvector()
     // N C-1
     double *weighted_noise_matrix = temp_matrix[0];
     std::fill_n(weighted_noise_matrix, DATA_SIZE_2, 0);
+    #pragma omp parallel for
     for (int i = 0; i < size(); ++i)
         cblas_daxpy(
             size(), qFile->noise()[i],
@@ -578,6 +579,7 @@ void Chunk::computePSbeforeFvector()
             weighted_noise_matrix + i * size(), 1);
 
     // Get Noise contribution: Tr(C-1 Qi C-1 N)
+    #pragma omp parallel for
     for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
         nk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_noise_matrix, 1);
 
@@ -594,6 +596,7 @@ void Chunk::computePSbeforeFvector()
             size(), size(), size(), 1., stored_sfid, size(),
             inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
 
+        #pragma omp parallel for
         for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
             tk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_sfid_matrix, 1);
     }
@@ -604,11 +607,19 @@ void Chunk::computePSbeforeFvector()
 
     t = mytime::timer.getTime();
 
-    double *Q_ikz_matrix_T = temp_matrix[0];
+    #pragma omp parallel for num_threads(2) schedule(static, 1)
     for (auto iqt = stored_ikz_qi.cbegin(); iqt != stored_ikz_qi.cend(); ++iqt) {
-        mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size(), size());
         int idx_fji_0 = N_Q_MATRICES * iqt->first;
 
+        #if defined(ENABLE_OMP)
+        double *Q_ikz_matrix_T = temp_matrix[omp_get_thread_num()];
+        #else
+        double *Q_ikz_matrix_T = temp_matrix[0];
+        #endif
+
+        mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size(), size());
+
+        #pragma omp parallel for
         for (auto jqt = iqt; jqt != stored_ikz_qi.cend(); ++jqt) {
             #ifdef FISHER_OPTIMIZATION
             int diff_ji = jqt->first - iqt->first;
