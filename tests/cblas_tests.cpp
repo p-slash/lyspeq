@@ -387,7 +387,7 @@ int test_OversampledMatrix_multiplications()
         r += 1;
     }
 
-    ovrmat.sandwichHighRes(mtrxB2.data(), oversample_multiplier_A);
+    ovrmat.sandwich(oversample_multiplier_A, mtrxB2.data());
     if (not allClose(truth_oversample_right_multiplication, mtrxB2.data(), mtrxB2.size()))
     {
         fprintf(stderr, "ERROR OversampledMatrix::sandwich.\n");

@@ -1,5 +1,6 @@
 #include "core/chunk_estimate.hpp"
 #include "core/global_numbers.hpp"
+#include "core/omp_manager.hpp"
 #include "core/fiducial_cosmology.hpp"
 #include "core/sq_table.hpp"
 
@@ -13,10 +14,6 @@
 #include <cstdlib>
 #include <sstream>
 #include <stdexcept>
-
-#if defined(ENABLE_OMP)
-#include "omp.h"
-#endif
 
 
 #ifdef DEBUG
@@ -317,7 +314,7 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
     mxhelp::copyUpperToLower(inter_mat, _matrix_n);
 
     if (specifics::USE_RESOLUTION_MATRIX)
-        qFile->Rmat->sandwich(sm, inter_mat);
+        qFile->Rmat->sandwich(inter_mat, sm);
 
     CHECK_ISNAN(sm, DATA_SIZE_2, "Sfid");
 
@@ -363,7 +360,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     mxhelp::copyUpperToLower(inter_mat, _matrix_n);
 
     if (specifics::USE_RESOLUTION_MATRIX)
-        qFile->Rmat->sandwich(qi, inter_mat);
+        qFile->Rmat->sandwich(inter_mat, qi);
 
     t = mytime::timer.getTime() - t; 
 
@@ -610,12 +607,7 @@ void Chunk::computePSbeforeFvector()
     #pragma omp parallel for num_threads(2) schedule(static, 1)
     for (auto iqt = stored_ikz_qi.cbegin(); iqt != stored_ikz_qi.cend(); ++iqt) {
         int idx_fji_0 = N_Q_MATRICES * iqt->first;
-
-        #if defined(ENABLE_OMP)
-        double *Q_ikz_matrix_T = temp_matrix[omp_get_thread_num()];
-        #else
-        double *Q_ikz_matrix_T = temp_matrix[0];
-        #endif
+        double *Q_ikz_matrix_T = temp_matrix[myomp::getThreadNum()];
 
         mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size(), size());
 

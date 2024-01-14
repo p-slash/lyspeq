@@ -10,6 +10,8 @@
 #include "cblas.h"
 #endif
 
+#include "core/omp_manager.hpp"
+
 namespace mxhelp
 {
     // Copy upper triangle of matrix A to its lower triangle
@@ -165,12 +167,14 @@ namespace mxhelp
         // Assumes B will be symmetric
         void multiplyRight(const double* A, double *B);
 
-        // B = R . Temp . R^T
-        void sandwichHighRes(double *B, const double *temp_highres_mat);
+        // B = R . S . R^T, S is symmetric
+        void sandwich(const double *S, double *B);
 
         void freeBuffer();
         double getMinMemUsage() { return (double)sizeof(double) * size / 1048576.; };
-        double getBufMemUsage() { return (double)sizeof(double) * nrows * ncols / 1048576.; };
+        double getBufMemUsage() {
+            return (double)sizeof(double) * nrows * myomp::getMaxNumThreads() / 1048576.;
+        };
 
         void fprintfMatrix(const char *fname);
     };
@@ -217,8 +221,8 @@ namespace mxhelp
         void deconvolve(double m) { if (is_dia_matrix) dia_matrix->deconvolve(m); };
         void oversample(int osamp, double dlambda);
 
-        // B = R . Temp . R^T
-        void sandwich(double *B, const double *temp_highres_mat);
+        // B = R . S . R^T, S is symmetric
+        void sandwich(const double *S, double *B);
 
         void freeBuffer();
         double getMinMemUsage();
