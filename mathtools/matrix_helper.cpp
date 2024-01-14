@@ -212,14 +212,16 @@ namespace mxhelp
         return N - empty_indx.size();
     }
 
-    void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp) {
+    void LAPACKE_InvertSymMatrixLU_damped(
+            std::unique_ptr<double[]> &S, int N, double damp
+    ) {
         int size = N * N;
         auto _Amat = std::make_unique<double[]>(size),
              _Bmat = std::make_unique<double[]>(size);
         cblas_dgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            N, N, N, 1., S, N,
-            S, N, 0, _Amat.get(), N);
+            N, N, N, 1., S.get(), N,
+            S.get(), N, 0, _Amat.get(), N);
 
         // Scaling damping
         // cblas_dscal(N, 1. + damp, _Amat.get(), N + 1);
@@ -232,12 +234,10 @@ namespace mxhelp
 
         cblas_dgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            N, N, N, 0.5, _Amat.get(), N,
-            S, N, 0, _Bmat.get(), N);
+            N, N, N, 1., _Amat.get(), N,
+            S.get(), N, 0, _Bmat.get(), N);
 
-        transpose_copy(_Bmat.get(), S, N, N);
-
-        cblas_daxpy(size, 1, _Bmat.get(), 1, S, 1);
+        _Bmat.swap(S);
     }
 
     double LAPACKE_RcondSvd(const double *A, int N, double *sjump) {
@@ -270,20 +270,22 @@ namespace mxhelp
     }
 
 
-    int stableInvertSym(double *S, int N, int &dof, double &damp) {
+    int stableInvertSym(
+            std::unique_ptr<double[]> &S, int N, int &dof, double &damp
+    ) {
         int warn = 0;
-        std::vector<int> empty_indx = _setEmptyIndices(S, N);
+        std::vector<int> empty_indx = _setEmptyIndices(S.get(), N);
         dof = N - empty_indx.size();
         damp = 0;
 
         double rcond = 0;
-        rcond = LAPACKE_RcondSvd(S, N, &damp);
+        rcond = LAPACKE_RcondSvd(S.get(), N, &damp);
 
         if (damp != 0) {
             warn = 1;
             LAPACKE_InvertSymMatrixLU_damped(S, N, damp);
         } else {
-            LAPACKE_InvertMatrixLU(S, N);
+            LAPACKE_InvertMatrixLU(S.get(), N);
         }
 
         for (const auto &i : empty_indx)
