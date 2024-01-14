@@ -1,5 +1,6 @@
 #include "core/chunk_estimate.hpp"
 #include "core/global_numbers.hpp"
+#include "core/omp_manager.hpp"
 #include "core/fiducial_cosmology.hpp"
 #include "core/sq_table.hpp"
 
@@ -13,10 +14,6 @@
 #include <cstdlib>
 #include <sstream>
 #include <stdexcept>
-
-#if defined(ENABLE_OMP)
-#include "omp.h"
-#endif
 
 
 #ifdef DEBUG
@@ -317,7 +314,7 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
     mxhelp::copyUpperToLower(inter_mat, _matrix_n);
 
     if (specifics::USE_RESOLUTION_MATRIX)
-        qFile->Rmat->sandwich(sm, inter_mat);
+        qFile->Rmat->sandwich(inter_mat, sm);
 
     CHECK_ISNAN(sm, DATA_SIZE_2, "Sfid");
 
@@ -363,7 +360,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     mxhelp::copyUpperToLower(inter_mat, _matrix_n);
 
     if (specifics::USE_RESOLUTION_MATRIX)
-        qFile->Rmat->sandwich(qi, inter_mat);
+        qFile->Rmat->sandwich(inter_mat, qi);
 
     t = mytime::timer.getTime() - t; 
 
@@ -571,6 +568,7 @@ void Chunk::computePSbeforeFvector()
     // N C-1
     double *weighted_noise_matrix = temp_matrix[0];
     std::fill_n(weighted_noise_matrix, DATA_SIZE_2, 0);
+    #pragma omp parallel for
     for (int i = 0; i < size(); ++i)
         cblas_daxpy(
             size(), qFile->noise()[i],
@@ -578,6 +576,7 @@ void Chunk::computePSbeforeFvector()
             weighted_noise_matrix + i * size(), 1);
 
     // Get Noise contribution: Tr(C-1 Qi C-1 N)
+    #pragma omp parallel for
     for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
         nk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_noise_matrix, 1);
 
@@ -594,6 +593,7 @@ void Chunk::computePSbeforeFvector()
             size(), size(), size(), 1., stored_sfid, size(),
             inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
 
+        #pragma omp parallel for
         for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
             tk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_sfid_matrix, 1);
     }
@@ -604,11 +604,15 @@ void Chunk::computePSbeforeFvector()
 
     t = mytime::timer.getTime();
 
+    // I am not sure if we can parallize the outer loop here.
+    // need to limit num_threads=2, but will that mess up inner loops?
     double *Q_ikz_matrix_T = temp_matrix[0];
     for (auto iqt = stored_ikz_qi.cbegin(); iqt != stored_ikz_qi.cend(); ++iqt) {
-        mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size());
         int idx_fji_0 = N_Q_MATRICES * iqt->first;
 
+        mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size(), size());
+
+        #pragma omp parallel for
         for (auto jqt = iqt; jqt != stored_ikz_qi.cend(); ++jqt) {
             #ifdef FISHER_OPTIMIZATION
             int diff_ji = jqt->first - iqt->first;
