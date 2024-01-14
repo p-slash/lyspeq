@@ -20,10 +20,6 @@
 #include "lapacke.h"
 #endif
 
-#if defined(ENABLE_OMP)
-#include "omp.h"
-#endif
-
 const double
 MY_SQRT_2 = 1.41421356237,
 MY_SQRT_PI = 1.77245385091,
@@ -436,7 +432,7 @@ namespace mxhelp
 
     // class DiaMatrix
     DiaMatrix::DiaMatrix(int nm, int ndia)
-        : sandwich_buffer(NULL), ndim(nm), ndiags(ndia)
+        : sandwich_buffer(nullptr), ndim(nm), ndiags(ndia)
     {
         // e.g. ndim=724, ndiags=11
         // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
@@ -617,10 +613,10 @@ namespace mxhelp
 
     void DiaMatrix::freeBuffer()
     {
-        if (sandwich_buffer != NULL)
+        if (sandwich_buffer != nullptr)
         {
             delete [] sandwich_buffer;
-            sandwich_buffer = NULL;
+            sandwich_buffer = nullptr;
         }
     }
 
@@ -753,7 +749,7 @@ namespace mxhelp
 
     void DiaMatrix::sandwich(double *inplace)
     {
-        if (sandwich_buffer == NULL)
+        if (sandwich_buffer == nullptr)
             sandwich_buffer = new double[ndim*ndim];
 
         multiplyLeft(inplace, sandwich_buffer);
@@ -772,7 +768,7 @@ namespace mxhelp
     // class OversampledMatrix
     OversampledMatrix::OversampledMatrix(
             int n1, int nelem_prow, int osamp, double dlambda
-    ) : sandwich_buffer(NULL), nrows(n1), nelem_per_row(nelem_prow),
+    ) : sandwich_buffer(nullptr), nrows(n1), nelem_per_row(nelem_prow),
         oversampling(osamp)
     {
         ncols = nrows*oversampling + nelem_per_row-1;
@@ -791,36 +787,56 @@ namespace mxhelp
         for (int i = 0; i < nrows; ++i)
             cblas_dgemv(
                 CblasRowMajor, CblasTrans,
-                nelem_per_row, ncols, 1., A + i * oversampling * ncols, ncols, 
-                values + i * nelem_per_row, 1, 0, B + i * ncols, 1);
+                nelem_per_row, ncols, 1.,
+                A + i * oversampling * ncols, ncols, 
+                values + i * nelem_per_row, 1,
+                0, B + i * ncols, 1);
     }
 
     // A . R^T = B
     // A should be nrows x ncols matrix. 
     // B should be nrows x nrows, will be initialized to zero
     // Assumes B will be symmetric
-    void OversampledMatrix::multiplyRight(const double* A, double *B)
-    {
-        std::fill_n(B, nrows * nrows, 0);
-        #pragma omp parallel for collapse(2)
+    void OversampledMatrix::multiplyRight(const double* A, double *B) {
+        #pragma omp parallel for
         for (int i = 0; i < nrows; ++i)
-            for (int j = i; j < nrows; ++j)
-                for (int k = 0; k < nelem_per_row; ++k)
-                    B[j + i * nrows] +=
-                        A[k + j * oversampling + i * ncols]
-                        * values[k + j * nelem_per_row];
+            cblas_dgemv(
+                CblasRowMajor, CblasNoTrans,
+                nrows - i, nelem_per_row, 1.,
+                A + i * (oversampling + ncols), ncols, 
+                values + i * nelem_per_row, 1,
+                0, B + i * (nrows + 1), 1);
 
         copyUpperToLower(B, nrows);
     }
 
-    void OversampledMatrix::sandwichHighRes(double *B, const double *A)
+    void OversampledMatrix::sandwich(const double *S, double *B)
     {
-        if (sandwich_buffer == NULL)
-            sandwich_buffer = new double[nrows*ncols];
+        if (sandwich_buffer == nullptr)
+            sandwich_buffer = new double[myomp::getMaxNumThreads() * ncols];
  
-        multiplyLeft(A, sandwich_buffer);
-        multiplyRight(sandwich_buffer, B);
+        #pragma omp parallel for schedule(static, 1)
+        for (int i = 0; i < nrows; ++i) {
+            const double *As = S + i * oversampling * (ncols + 1);
+            const double *row = values + i * nelem_per_row;
+            double *v = sandwich_buffer + myomp::getThreadNum() * ncols;
+
+            cblas_dgemv(
+                CblasRowMajor, CblasTrans,
+                nelem_per_row, ncols - i * oversampling, 1.,
+                As, ncols, 
+                row, 1,
+                0, v, 1);
+
+            for (int j = 0; j < nrows - i; ++j)
+                B[j + i * (nrows + 1)] = cblas_ddot(
+                    nelem_per_row, v + j * oversampling, 1,
+                    row + j * nelem_per_row, 1);
+        }
+
+        copyUpperToLower(B, nrows);
     }
+
 
     void OversampledMatrix::fprintfMatrix(const char *fname)
     {
@@ -842,10 +858,10 @@ namespace mxhelp
 
     void OversampledMatrix::freeBuffer()
     {
-        if (sandwich_buffer != NULL)
+        if (sandwich_buffer != nullptr)
         {
             delete [] sandwich_buffer;
-            sandwich_buffer = NULL;
+            sandwich_buffer = nullptr;
         }
     }
 
@@ -989,15 +1005,15 @@ namespace mxhelp
         dia_matrix.reset();
     }
 
-    void Resolution::sandwich(double *B, const double *temp_highres_mat)
+    void Resolution::sandwich(const double *S, double *B)
     {
         if (is_dia_matrix)
         {
-            const double *tmat __attribute__((unused)) = temp_highres_mat;
+            const double *tmat __attribute__((unused)) = S;
             dia_matrix->sandwich(B);
         }
         else
-            osamp_matrix->sandwichHighRes(B, temp_highres_mat);
+            osamp_matrix->sandwich(S, B);
     }
 
     void Resolution::freeBuffer()
