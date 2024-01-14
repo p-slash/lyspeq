@@ -241,7 +241,7 @@ namespace mxhelp
 
         transpose_copy(_Bmat.get(), S, N, N);
 
-        cblas_daxpy(N, 1, _Bmat.get(), 1, S, 1);
+        cblas_daxpy(size, 1, _Bmat.get(), 1, S, 1);
     }
 
     double LAPACKE_RcondSvd(const double *A, int N, double *sjump) {
