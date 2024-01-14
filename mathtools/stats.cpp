@@ -20,16 +20,13 @@ double stats::medianOfSortedArray(const double *sorted_arr, int size) {
 
 double stats::medianOfUnsortedVector(std::vector<double> &v) {
     std::sort(v.begin(), v.end());
+    return stats::medianOfSortedArray(v.data(), v.size());
+}
 
-    int jj = v.size() / 2;
-    double median = v[jj];
 
-    if (v.size() % 2 == 0) {
-        median += v[jj - 1];
-        median /= 2;
-    }
-
-    return median;
+double stats::medianOfUnsortedVector(double *v, int size) {
+    std::sort(v, v + size);
+    return stats::medianOfSortedArray(v, size);
 }
 
 
