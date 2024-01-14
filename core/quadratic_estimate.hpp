@@ -40,8 +40,10 @@ class OneDQuadraticPowerEstimate
     std::vector<double> precomputed_fisher;
     void _readPrecomputedFisher(const std::string &fname);
 
-    // 2 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
-    std::unique_ptr<double[]> fisher_matrix_sum, inverse_fisher_matrix_sum;
+    // 3 TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrices
+    std::unique_ptr<double[]>
+        fisher_matrix_sum, inverse_fisher_matrix_sum,
+        solver_invfisher_matrix;
 
     bool isFisherInverted;
 
