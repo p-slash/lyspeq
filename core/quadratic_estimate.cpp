@@ -82,13 +82,17 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
     }
 
     temp_vector = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
-
     previous_power_estimate_vector = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
-    current_power_estimate_vector  = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
-    fisher_matrix_sum              = std::make_unique<double[]>(bins::FISHER_SIZE);
-    inverse_fisher_matrix_sum      = std::make_unique<double[]>(bins::FISHER_SIZE);
+    current_power_estimate_vector = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+    powerspectra_fits = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+    
+    fisher_matrix_sum = std::make_unique<double[]>(bins::FISHER_SIZE);
+    inverse_fisher_matrix_sum = std::make_unique<double[]>(bins::FISHER_SIZE);
+    solver_invfisher_matrix = std::make_unique<double[]>(bins::FISHER_SIZE);
 
-    powerspectra_fits              = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+    process::updateMemory(
+        -process::getMemoryMB(3 * bins::FISHER_SIZE + 16 * bins::TOTAL_KZ_BINS)
+    );
 
     isFisherInverted = false;
     if (specifics::USE_PRECOMPUTED_FISHER)
@@ -245,18 +249,38 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
 
-    std::copy(
-        fisher_matrix_sum.get(), fisher_matrix_sum.get() + bins::FISHER_SIZE,
-        inverse_fisher_matrix_sum.get());
+    std::copy_n(
+        fisher_matrix_sum.get(), bins::FISHER_SIZE,
+        solver_invfisher_matrix.get());
 
     status = mxhelp::stableInvertSym(
-        inverse_fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS,
+        solver_invfisher_matrix, bins::TOTAL_KZ_BINS,
         bins::NewDegreesOfFreedom, damp);
 
     if (status != 0) {
         LOG::LOGGER.STD(
             "* Fisher matrix is damped by adding %.2e to the diagonal.\n",
             damp);
+
+        static auto _temp_fmat = std::make_unique<double[]>(bins::FISHER_SIZE);
+
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, 1.,
+            solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS,
+            fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS,
+            0, _temp_fmat.get(), bins::TOTAL_KZ_BINS);
+
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasTrans,
+            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, 1.,
+            _temp_fmat.get(), bins::TOTAL_KZ_BINS,
+            solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS,
+            0, inverse_fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
+    } else {
+        std::copy_n(
+            solver_invfisher_matrix.get(), bins::FISHER_SIZE,
+            inverse_fisher_matrix_sum.get());
     }
 
     isFisherInverted = true;
@@ -277,8 +301,8 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
     {
         cblas_dsymv(
-            CblasRowMajor, CblasUpper,bins::TOTAL_KZ_BINS, 0.5, 
-            inverse_fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS,
+            CblasRowMajor, CblasUpper, bins::TOTAL_KZ_BINS, 0.5, 
+            solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS,
             dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 1,
             0, dbt_estimate_fisher_weighted_vector[dbt_i].get(), 1);
     }
@@ -387,6 +411,7 @@ void OneDQuadraticPowerEstimate::iterate()
 
     if (specifics::INPUT_QSO_FILE == qio::Picca)
         qio::PiccaFile::clearCache();
+    local_fpaths.clear();
 
     total_time_1it  = mytime::timer.getTime() - total_time_1it;
     LOG::LOGGER.STD("Local files are read in %.1f minutes.\n", total_time_1it);
@@ -780,6 +805,12 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     buffer << "_it" << it+1 << "_inversefisher_matrix.txt";
     mxhelp::fprintfMatrix(
         buffer.str().c_str(), inverse_fisher_matrix_sum.get(),
+        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+
+    buffer.str(process::FNAME_BASE);
+    buffer << "_it" << it+1 << "_solver_invfishermatrix.txt";
+    mxhelp::fprintfMatrix(
+        buffer.str().c_str(), solver_invfisher_matrix.get(),
         bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     LOG::LOGGER.STD(
         "Fisher matrix and inverse are saved as %s.\n",
