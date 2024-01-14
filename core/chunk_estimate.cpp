@@ -604,10 +604,11 @@ void Chunk::computePSbeforeFvector()
 
     t = mytime::timer.getTime();
 
-    #pragma omp parallel for num_threads(2) schedule(static, 1)
+    // I am not sure if we can parallize the outer loop here.
+    // need to limit num_threads=2, but will that mess up inner loops?
+    double *Q_ikz_matrix_T = temp_matrix[0];
     for (auto iqt = stored_ikz_qi.cbegin(); iqt != stored_ikz_qi.cend(); ++iqt) {
         int idx_fji_0 = N_Q_MATRICES * iqt->first;
-        double *Q_ikz_matrix_T = temp_matrix[myomp::getThreadNum()];
 
         mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size(), size());
 
