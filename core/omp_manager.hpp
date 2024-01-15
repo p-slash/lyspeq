@@ -6,25 +6,19 @@
 
 namespace myomp {
     inline const extern bool OMP_ENABLED = true;
-    inline int getThreadNum() {
-        return omp_get_thread_num();
-    }
-
-    inline int getMaxNumThreads() {
-        return omp_get_max_threads();
-    }
+    inline int getThreadNum() { return omp_get_thread_num(); }
+    inline int getNumThreads() { return omp_get_num_threads(); }
+    inline int getMaxNumThreads() { return omp_get_max_threads(); }
+    inline void setNumThreads(int n) { omp_set_num_threads(n); }
 }
 
 #else
 namespace myomp {
     inline const extern bool OMP_ENABLED = false;
-    inline int getThreadNum() const {
-        return 0;
-    }
-
-    inline int getMaxNumThreads() const {
-        return 1;
-    }
+    inline int getThreadNum() const { return 0; }
+    inline int getNumThreads() { return 1; }
+    inline int getMaxNumThreads() const { return 1; }
+    inline void setNumThreads(int n) {};
 }
 #endif
 
