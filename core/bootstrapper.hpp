@@ -139,6 +139,11 @@ private:
     void _fastBootstrap(
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
+        /* After this function call,
+            - On main task: pcoeff and temppower memories are swapped, such that
+            pcoeff is size of nboot * Nkz and temppower is size of Nkz
+            - On other tasks, pcoeff and temppower are released.
+        */
         double t1 = mytime::timer.getTime(), t2 = 0;
         // std::fill_n(temppower.get(), nboots * bins::TOTAL_KZ_BINS, 0);
 
@@ -164,8 +169,7 @@ private:
         #endif
 
         if (process::this_pe == 0) {
-            temppower.reset();
-            temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+            temppower.swap(pcoeff);
         } else {
             temppower.reset();
             pcoeff.reset();
@@ -277,34 +281,35 @@ private:
 
 
     void _calcuateMedian(double *median) {
+        #pragma omp parallel for
         for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i) {
-            cblas_dcopy(
-                nboots, allpowers.get() + i, bins::TOTAL_KZ_BINS,
-                pcoeff.get(), 1);
-            median[i] = stats::medianOfUnsortedVector(pcoeff.get(), nboots);
+            double *buf = pcoeff.get() + nboots * myomp::getThreadNum();
+
+            std::copy_n(allpowers.get() + i * nboots, nboots, buf);
+            median[i] = stats::medianOfUnsortedVector(buf, nboots);
         }
     }
 
 
     void _calcuateMadCovariance(const double *median, double *mad_cov) {
         // Subtract median from allpowers
-        #pragma omp parallel for 
-        for (unsigned int n = 0; n < nboots; ++n)
-            for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
-                allpowers[i + n * bins::TOTAL_KZ_BINS] -= median[i];
+        #pragma omp parallel for collapse(2)
+        for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
+            for (unsigned int n = 0; n < nboots; ++n)
+                allpowers[n + i * nboots] -= median[i];
 
+        #pragma omp parallel for schedule(static, 1)
         for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i) {
-            const double *x = allpowers.get() + i;
+            const double *x = allpowers.get() + i * nboots;
+            double *buf = pcoeff.get() + nboots * myomp::getThreadNum();
 
             for (int j = i; j < bins::TOTAL_KZ_BINS; ++j) {
-                const double *y = allpowers.get() + j;
+                const double *y = allpowers.get() + j * nboots;
 
-                mxhelp::vector_multiply(
-                    nboots, x, bins::TOTAL_KZ_BINS, y, bins::TOTAL_KZ_BINS,
-                    pcoeff.get());
+                mxhelp::vector_multiply(nboots, x, y, buf);
 
                 mad_cov[j + i * bins::TOTAL_KZ_BINS] =
-                    stats::medianOfUnsortedVector(pcoeff.get(), nboots);
+                    stats::medianOfUnsortedVector(buf, nboots);
                 // 2.19810276
             }
         }
@@ -376,8 +381,14 @@ private:
 
     void _medianBootstrap() {
         LOG::LOGGER.STD("Calculating median bootstrap covariance.\n");
+
+        mxhelp::transpose_copy(
+            allpowers.get(), pcoeff.get(), nboots, bins::TOTAL_KZ_BINS);
+        allpowers.swap(pcoeff);
+
         _calcuateMedian(temppower.get());
         _calcuateMadCovariance(temppower.get(), tempfisher.get());
+
         _saveData("median");
     }
 

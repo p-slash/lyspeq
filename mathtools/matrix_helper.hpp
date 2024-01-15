@@ -33,6 +33,14 @@ namespace mxhelp
             out[i] = x[i * incx] * y[i * incy];
     }
 
+    inline void vector_multiply(
+            int N, const double *x, const double *y, double *out
+    ) {
+        #pragma omp parallel for
+        for (int i = 0; i < N; ++i)
+            out[i] = x[i] * y[i];
+    }
+
     // Trace of A.B
     // Both are assumed to general and square NxN
     double trace_dgemm(const double *A, const double *B, int N);
