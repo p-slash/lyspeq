@@ -5,21 +5,6 @@
 
 #include "core/bootstrapper.hpp"
 #include "core/global_numbers.hpp"
-#include "core/fiducial_cosmology.hpp"
-#include "core/one_qso_estimate.hpp"
-#include "core/omp_manager.hpp"
-#include "core/progress.hpp"
-#include "core/sq_table.hpp"
-
-#include "mathtools/discrete_interpolation.hpp"
-#include "mathtools/matrix_helper.hpp"
-#include "mathtools/smoother.hpp"
-#include "mathtools/stats.hpp"
-
-#include "io/bootstrap_file.hpp"
-#include "io/io_helper_functions.hpp"
-#include "io/logger.hpp"
-#include "io/qso_file.hpp"
 
 
 inline void usage() {
