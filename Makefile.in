@@ -21,6 +21,7 @@ sq_lookup_table_file.cpp logger.cpp real_field.cpp chunk_estimate.cpp smoother.c
 stats.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
+lboot_OBJ=$(filter-out quadratic_estimate.o, $(OBJECTS))
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o lyspeqBootStats.o \
 cblas_tests.o testPointRef.o testSQCMatrices.o test-fftconvolve.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
@@ -56,7 +57,7 @@ LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-lyspeqBootStats: lyspeqBootStats.o $(OBJECTS[@]/quadratic_estimate.o)
+lyspeqBootStats: lyspeqBootStats.o $(lboot_OBJ)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 test_utils.o: test_utils.cpp
