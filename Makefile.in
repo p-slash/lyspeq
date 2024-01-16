@@ -21,8 +21,8 @@ sq_lookup_table_file.cpp logger.cpp real_field.cpp chunk_estimate.cpp smoother.c
 stats.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
-bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o testSQCMatrices.o \
-test-fftconvolve.o
+bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o lyspeqBootStats.o \
+cblas_tests.o testPointRef.o testSQCMatrices.o test-fftconvolve.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
 sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
 discrete_interpolation.o interpolation.o interpolation_2d.o
@@ -34,7 +34,7 @@ CPPFLAGS+=-I$(srcdir) -std=c++17 -DHAVE_INLINE $(MORECPPFLAGS)
 CPPFLAGS+=-MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
-core: LyaPowerEstimate CreateSQLookUpTable
+core: LyaPowerEstimate CreateSQLookUpTable lyspeqBootStats
 
 test: core cblas_tests testSQCMatrices
 	mkdir -p $(srcdir)/tests/output
@@ -54,6 +54,9 @@ LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+lyspeqBootStats: lyspeqBootStats.o $(OBJECTS[@]/quadratic_estimate.o)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 test_utils.o: test_utils.cpp
@@ -88,18 +91,18 @@ timeMatrixOps: timeMatrixOps.cpp matrix_helper.o real_field.o
 
 .PHONY: install uninstall clean
 
-install: LyaPowerEstimate CreateSQLookUpTable
+install: LyaPowerEstimate CreateSQLookUpTable lyspeqBootStats
 	mkdir -p $(bindir)
-	cp LyaPowerEstimate CreateSQLookUpTable $(srcdir)/py/lorentzian_fit.py $(srcdir)/py/smbivspline.py $(bindir)
+	cp LyaPowerEstimate CreateSQLookUpTable lyspeqBootStats $(srcdir)/py/lorentzian_fit.py $(srcdir)/py/smbivspline.py $(bindir)
 	chmod a+x $(bindir)/lorentzian_fit.py $(bindir)/smbivspline.py
 
 uninstall:
 	$(RM) $(bindir)/lorentzian_fit.py
-	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable
+	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable $(bindir)/lyspeqBootStats
 
 clean:
 	$(RM) $(OBJECTS) $(bin_OBJ) $(test_objects) $(srcdir)/tests/output/*
-	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests testSQCMatrices
+	$(RM) LyaPowerEstimate CreateSQLookUpTable lyspeqBootStats cblas_tests testSQCMatrices
 	$(RM) test_cuda_helper testPointRef myfitsread testReadingBootRealizations test-fftconvolve testBootstrapTime testOMPTiming
 
 deepclean: clean

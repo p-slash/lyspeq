@@ -3,7 +3,24 @@
 #include <cmath>
 #include <string>
 
+#include "core/bootstrapper.hpp"
 #include "core/global_numbers.hpp"
+#include "core/fiducial_cosmology.hpp"
+#include "core/one_qso_estimate.hpp"
+#include "core/omp_manager.hpp"
+#include "core/progress.hpp"
+#include "core/sq_table.hpp"
+
+#include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/matrix_helper.hpp"
+#include "mathtools/smoother.hpp"
+#include "mathtools/stats.hpp"
+
+#include "io/bootstrap_file.hpp"
+#include "io/io_helper_functions.hpp"
+#include "io/logger.hpp"
+#include "io/qso_file.hpp"
+
 
 inline void usage() {
     fprintf(stdout, "Usage: lyspeqBootStats FNAME_BOOT FNAME_BASE.\n");
@@ -20,7 +37,7 @@ int main(int argc, char *argv[]) {
     process::this_pe = 0;
     process::total_pes = 1;
 
-    if (argc < 3) {
+    if (argc < 3 || argc > 4) {
         fprintf(stderr, "Missing arguments!\n");
         usage();
         return 1;
@@ -28,129 +45,10 @@ int main(int argc, char *argv[]) {
     if (printUse(argv)) return 0;
 
     const std::string FNAME_BOOT = argv[1];
+    process::FNAME_BASE = argv[2];
 
-    ConfigFile config = ConfigFile();
-
-    // Let all PEs to read config at the same time.
-    try {
-        config.readFile(FNAME_CONFIG);
-        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
-        specifics::printBuildSpecifics();
-        mytime::writeTimeLogHeader();
-    } catch (std::exception& e) {
-        fprintf(stderr, "Error while reading config file: %s\n", e.what());
-        return 1;
-    }
-
-    try
-    {
-        process::readProcess(config);
-        bins::readBins(config);
-        specifics::readSpecifics(config);
-        conv::readConversion(config);
-        fidcosmo::readFiducialCosmo(config);
-    }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR("Error while parsing config file: %s\n",
-            e.what());
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-        return 1;
-    }
-
-    #if defined(ENABLE_MPI)
-    try
-    {
-        if (process::SAVE_EACH_PE_RESULT)
-            ioh::boot_saver = std::make_unique<ioh::BootstrapFile>(process::FNAME_BASE,
-                bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS, process::this_pe);
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR("Error while openning BootstrapFile: %s\n",
-            e.what());
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-
-        return 1;
-    }
-    #endif
-
-    try
-    {
-        // Allocate and read look up tables
-        process::sq_private_table = std::make_unique<SQLookupTable>(config);
-
-        // Readjust allocated memory wrt save tables
-        if (process::SAVE_ALL_SQ_FILES || specifics::USE_RESOLUTION_MATRIX)
-        {
-            process::sq_private_table->readTables();
-            process::updateMemory(-process::sq_private_table->getMaxMemUsage());
-        }
-        else
-            process::updateMemory(-process::sq_private_table->getOneSetMemUsage());
-    }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-
-        return 1;
-    }
-
-    process::smoother = std::make_unique<Smoother>(config);
-
-    try
-    {
-        qps = std::make_unique<OneDQuadraticPowerEstimate>(config);
-        config.checkUnusedKeys();
-    }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR("Error while Quadratic Estimator contructed: %s\n", e.what());
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-
-        return 1;
-    }
-
-    try
-    {
-        qps->iterate();
-    }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR("Error while Iteration: %s\n", e.what());
-        qps->printfSpectra();
-
-        std::string buf = process::FNAME_BASE + "_error_dump_quadratic_power_estimate_detailed.dat";
-        qps->writeDetailedSpectrumEstimates(buf.c_str());
-        
-        buf = process::FNAME_BASE + "_error_dump_fisher_matrix.dat";
-        qps->writeFisherMatrix(buf.c_str());
-
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-
-        return 1;
-    }
-
-    qps.reset();
-
-    #if defined(ENABLE_MPI)
-    // Make sure bootsaver is deleted before
-    // MPI finalized
-    ioh::boot_saver.reset();
-    MPI_Finalize();
-    #endif
+    PoissonBootstrapper pbooter(FNAME_BOOT);
+    pbooter.run();
 
     return 0;
 }

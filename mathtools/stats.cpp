@@ -49,3 +49,16 @@ void stats::medianOffBalanceStats(
     std::for_each(v.begin(), v.end(), [](double &t) { t = fabs(t); });
     med_offset = stats::medianOfUnsortedVector(v);
 }
+
+
+std::vector<double> stats::getCdfs(double *v, int size, int nsigma) {
+    std::sort(v, v + size);
+    std::vector<double> result(2 * nsigma + 1);
+
+    for (int s = -nsigma; s <= nsigma; s++) {
+        double pdf = 0.5 * (1. + erf(s / sqrt(2.)));
+        result[s + nsigma] = v[int(pdf)];
+    }
+
+    return result;
+}

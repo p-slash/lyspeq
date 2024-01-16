@@ -24,8 +24,8 @@ void ioh::checkFitsStatus(int status) {
 
 
 void ioh::saveBootstrapRealizations(
-        const std::string &base, const double *allpowers, double *invfisher,
-        int nboots, int nk, int nz, bool fastbootstrap, const char *comment
+        const std::string &base, const double *allpowers, const double *invfisher,
+        unsigned int nboots, int nk, int nz, bool fastbootstrap, const char *comment
 ) {
     int status = 0, bitpix = DOUBLE_IMG;
     long naxis = 2, size = nboots * nk * nz, naxes[2] = { nk * nz, nboots };
@@ -39,7 +39,7 @@ void ioh::saveBootstrapRealizations(
     ioh::checkFitsStatus(status);
 
     fits_update_key_str(fits_file, "EXTNAME", "REALIZATIONS", nullptr, &status);
-    fits_write_key(fits_file, TINT, "NBOOTS", &nboots, nullptr, &status);
+    fits_write_key(fits_file, TUINT, "NBOOTS", &nboots, nullptr, &status);
     fits_write_key(fits_file, TINT, "NK", &nk, nullptr, &status);
     fits_write_key(fits_file, TINT, "NZ", &nz, nullptr, &status);
     fits_write_key(
@@ -87,6 +87,52 @@ void ioh::saveBootstrapRealizations(
     ioh::checkFitsStatus(status);
 }
 
+
+void ioh::readBootstrapRealizations(
+        const std::string &fname,
+        std::unique_ptr<double[]> &allpowers,
+        std::unique_ptr<double[]> &invfisher,
+        unsigned int &nboots, int &nk, int &nz, bool &fastbootstrap
+) {
+    fitsfile *fits_file = nullptr;
+    int status = 0, nfound, fboot;
+    long naxes[2];
+    double nullval = 0.;
+
+    fits_open_file(&fits_file, fname.c_str(), READONLY, &status);
+    ioh::checkFitsStatus(status);
+
+    char extname[] = "REALIZATIONS";
+    fits_movnam_hdu(fits_file, IMAGE_HDU, extname, 0, &status);
+    ioh::checkFitsStatus(status);
+
+    fits_read_keys_lng(fits_file, "NAXIS", 1, 2, naxes, &nfound, &status);
+    fits_read_key(fits_file, TUINT, "NBOOTS", &nboots, nullptr, &status);
+    fits_read_key(fits_file, TINT, "NK", &nk, nullptr, &status);
+    fits_read_key(fits_file, TINT, "NZ", &nz, nullptr, &status);
+    fits_read_key(
+        fits_file, TLOGICAL, "FASTBOOT", &fboot, nullptr, &status);
+    ioh::checkFitsStatus(status);
+    fastbootstrap = fboot == 1;
+
+    long size = naxes[0] * naxes[1];
+    allpowers = std::make_unique<double[]>(size);
+    fits_read_img(
+        fits_file, TDOUBLE, 1, size, &nullval, allpowers.get(), nullptr, &status);
+
+
+    char extname2[] = "SOLV_INVF";
+    fits_movnam_hdu(fits_file, IMAGE_HDU, extname2, 0, &status);
+    fits_read_keys_lng(fits_file, "NAXIS", 1, 2, naxes, &nfound, &status);
+
+    size = naxes[0] * naxes[1];
+    invfisher = std::make_unique<double[]>(size);
+    fits_read_img(
+        fits_file, TDOUBLE, 1, size, &nullval, invfisher.get(), nullptr, &status);
+
+    ioh::checkFitsStatus(status);
+    fits_close_file(fits_file, &status);
+}
 
 ioh::BootstrapChunksFile::BootstrapChunksFile(
         const std::string &base, int thispe
