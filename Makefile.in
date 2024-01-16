@@ -22,12 +22,11 @@ stats.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o cblas_tests.o testPointRef.o testSQCMatrices.o \
-test-fftconvolve.o myfitsread.o
+test-fftconvolve.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
 sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
 discrete_interpolation.o interpolation.o interpolation_2d.o
-test_objects=test_utils.o testPointRef.o myfitsread.o \
-test-fftconvolve.o
+test_objects=test_utils.o testPointRef.o test-fftconvolve.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
@@ -69,7 +68,10 @@ testSQCMatrices: testSQCMatrices.o test_utils.o $(OBJECTS)
 testPointRef: testPointRef.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-myfitsread: myfitsread.o
+myfitsread: myfitsread.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+testReadingBootRealizations: testReadingBootRealizations.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 test-fftconvolve: test-fftconvolve.o $(OBJECTS)
@@ -98,7 +100,7 @@ uninstall:
 clean:
 	$(RM) $(OBJECTS) $(bin_OBJ) $(test_objects) $(srcdir)/tests/output/*
 	$(RM) LyaPowerEstimate CreateSQLookUpTable cblas_tests testSQCMatrices
-	$(RM) test_cuda_helper testPointRef myfitsread test-fftconvolve testBootstrapTime testOMPTiming
+	$(RM) test_cuda_helper testPointRef myfitsread testReadingBootRealizations test-fftconvolve testBootstrapTime testOMPTiming
 
 deepclean: clean
 	$(RM) $(DEPDIR)/*

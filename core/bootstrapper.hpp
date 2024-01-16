@@ -14,6 +14,7 @@
 #include "core/progress.hpp"
 #include "mathtools/matrix_helper.hpp"
 #include "mathtools/stats.hpp"
+#include "io/bootstrap_file.hpp"
 
 
 class PoissonRNG {
@@ -84,10 +85,14 @@ public:
 
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
 
+        std::string comment;
         if (specifics::FAST_BOOTSTRAP) {
+            comment = "FastBootstrap method. Realizations are not normalized. "
+                      "Apply y = 0.5 gemv(SOLV_INVF, x)";
             _fastBootstrap(local_queue);
         }
         else {
+            comment = "Complete bootstrap method. Realizations are normalized.";
             Progress prog_tracker(nboots);
             int ii = 0;
             for (unsigned int jj = 0; jj < nboots; ++jj) {
@@ -110,6 +115,11 @@ public:
             LOG::LOGGER.ERR("WARNING: Low success ratio!\n");
 
         mytime::printfBootstrapTimeSpentDetails();
+
+        ioh::saveBootstrapRealizations(
+            process::FNAME_BASE, allpowers.get(), invfisher,
+            nboots, bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS,
+            specifics::FAST_BOOTSTRAP, comment.c_str());
 
         _meanBootstrap();
         _medianBootstrap();

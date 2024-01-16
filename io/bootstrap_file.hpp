@@ -1,8 +1,8 @@
 #ifndef BOOTSTRAP_FILE_H
 #define BOOTSTRAP_FILE_H
 
-#include <string>
 #include <memory>
+#include <string>
 
 #include <fitsio.h>
 
@@ -11,6 +11,13 @@
 #endif
 
 namespace ioh {
+void checkFitsStatus(int status);
+void saveBootstrapRealizations(
+    const std::string &base, const double *allpowers, double *invfisher,
+    int nboots, int nk, int nz, bool fastbootstrap,
+    const char *comment=nullptr
+);
+
 class BootstrapChunksFile
 {
 public:
@@ -25,8 +32,6 @@ public:
 private:
     int status;
     fitsfile *fits_file;
-
-    void _checkStatus();
 };
 
 

@@ -19,7 +19,6 @@
 #include "mathtools/matrix_helper.hpp"
 
 #include "io/io_helper_functions.hpp"
-#include "io/bootstrap_file.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
@@ -537,7 +536,7 @@ void OneDQuadraticPowerEstimate::iterate()
 
     if (specifics::NUMBER_OF_BOOTS > 0) {
         PoissonBootstrapper pbooter(
-            specifics::NUMBER_OF_BOOTS, inverse_fisher_matrix_sum.get());
+            specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
         pbooter.run(local_queue);
     }
 }
