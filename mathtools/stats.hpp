@@ -10,6 +10,7 @@ namespace stats {
     void medianOffBalanceStats(
         std::vector<double> &v, double &med_offset, double &max_diff_offset
     );
+    std::vector<double> getCdfs(double *v, int size, int nsigma=2);
 }
 
 #endif

@@ -12,12 +12,14 @@ tests/input/*log*.txt
 tests/input/*_Fp.bin
 LyaPowerEstimate
 CreateSQLookUpTable
+lyspeqBootStats
 cblas_tests
 testPointRef
 testSQCMatrices
 myfitsread
 test-fftconvolve
 testBootstrapTime
+testReadingBootRealizations
 testOMPTiming
 timeMatrixOps
 TODO

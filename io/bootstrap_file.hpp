@@ -13,9 +13,16 @@
 namespace ioh {
 void checkFitsStatus(int status);
 void saveBootstrapRealizations(
-    const std::string &base, const double *allpowers, double *invfisher,
-    int nboots, int nk, int nz, bool fastbootstrap,
+    const std::string &base, const double *allpowers, const double *invfisher,
+    unsigned int nboots, int nk, int nz, bool fastbootstrap,
     const char *comment=nullptr
+);
+
+void readBootstrapRealizations(
+    const std::string &fname,
+    std::unique_ptr<double[]> &allpowers,
+    std::unique_ptr<double[]> &invfisher,
+    unsigned int &nboots, int &nk, int &nz, bool &fastbootstrap
 );
 
 class BootstrapChunksFile
