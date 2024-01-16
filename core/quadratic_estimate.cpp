@@ -19,7 +19,6 @@
 #include "mathtools/matrix_helper.hpp"
 
 #include "io/io_helper_functions.hpp"
-#include "io/bootstrap_file.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
@@ -537,7 +536,7 @@ void OneDQuadraticPowerEstimate::iterate()
 
     if (specifics::NUMBER_OF_BOOTS > 0) {
         PoissonBootstrapper pbooter(
-            specifics::NUMBER_OF_BOOTS, inverse_fisher_matrix_sum.get());
+            specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
         pbooter.run(local_queue);
     }
 }
@@ -568,9 +567,11 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         abs_max   = std::max(r, abs_max);
     }
 
-    LOG::LOGGER.STD("Mean relative change is %.1e.\n"
+    LOG::LOGGER.STD(
+        "Mean relative change is %.1e.\n"
         "Maximum relative change is %.1e.\n"
-        "Old test: Iteration converges when this is less than %.1e\n", 
+        "Old test: Iteration converges when this is less than %.1e\n"
+        "----------------------------------\n", 
         abs_mean, abs_max, specifics::CHISQ_CONVERGENCE_EPS);
     
     // Perform a chi-square test as well   

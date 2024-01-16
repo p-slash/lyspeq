@@ -1,6 +1,7 @@
 #ifndef BOOTSTRAPPER_H
 #define BOOTSTRAPPER_H
 
+#include <algorithm>
 #include <memory>
 #include <random>
 #include <string>
@@ -14,6 +15,7 @@
 #include "core/progress.hpp"
 #include "mathtools/matrix_helper.hpp"
 #include "mathtools/stats.hpp"
+#include "io/bootstrap_file.hpp"
 
 
 class PoissonRNG {
@@ -73,7 +75,35 @@ public:
 
         outlier = std::make_unique<bool[]>(nboots);
     }
+
+    PoissonBootstrapper(const std::string &fname) {
+        if (process::this_pe != 0)
+            return;
+
+        if (process::total_pes > 1)
+            LOG::LOGGER.ERR("No need for MPI.\n");
+
+        ioh::readBootstrapRealizations(
+            fname, allpowers, slvF,
+            nboots, bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS,
+            specifics::FAST_BOOTSTRAP
+        );
+
+        remaining_boots = nboots;
+        bins::TOTAL_KZ_BINS = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_Z_BINS;
+        bins::FISHER_SIZE = bins::TOTAL_KZ_BINS * bins::TOTAL_KZ_BINS;
+
+        pcoeff = std::make_unique<double[]>(nboots * bins::TOTAL_KZ_BINS);
+        tempfisher = std::make_unique<double[]>(bins::FISHER_SIZE);
+        temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+        outlier = std::make_unique<bool[]>(nboots);
+
+        invfisher = slvF.get();
+    }
+
     ~PoissonBootstrapper() { process::updateMemory(getMinMemUsage()); }
+
+    void run() { _meanBootstrap(); _medianBootstrap(); }
 
     void run(
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
@@ -84,10 +114,14 @@ public:
 
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
 
+        std::string comment;
         if (specifics::FAST_BOOTSTRAP) {
+            comment = "FastBootstrap method. Realizations are not normalized. "
+                      "Apply y = 0.5 gemv(SOLV_INVF, x)";
             _fastBootstrap(local_queue);
         }
         else {
+            comment = "Complete bootstrap method. Realizations are normalized.";
             Progress prog_tracker(nboots);
             int ii = 0;
             for (unsigned int jj = 0; jj < nboots; ++jj) {
@@ -111,15 +145,21 @@ public:
 
         mytime::printfBootstrapTimeSpentDetails();
 
-        _meanBootstrap();
-        _medianBootstrap();
+        std::string out_fname = ioh::saveBootstrapRealizations(
+            process::FNAME_BASE, allpowers.get(), invfisher,
+            nboots, bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS,
+            specifics::FAST_BOOTSTRAP, comment.c_str());
+        LOG::LOGGER.STD(
+            "Bootstrap realizations saved as %s.\n", out_fname.c_str() + 1);
+
+        run();
     }
 
 private:
     unsigned int nboots, remaining_boots;
     double *invfisher;
     std::unique_ptr<PoissonRNG> pgenerator;
-    std::unique_ptr<double[]> temppower, tempfisher, allpowers, pcoeff;
+    std::unique_ptr<double[]> temppower, tempfisher, allpowers, pcoeff, slvF;
     std::unique_ptr<bool[]> outlier;
 
     double getMinMemUsage() {
@@ -137,7 +177,7 @@ private:
     }
 
     void _fastBootstrap(
-            std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
+            const std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         /* After this function call,
             - On main task: pcoeff and temppower memories are swapped, such that
@@ -180,7 +220,7 @@ private:
     }
 
     bool _oneBoot(
-            int jj, std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
+            int jj, const std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         double t1 = mytime::timer.getTime(), t2;
 
@@ -267,6 +307,8 @@ private:
 
 
     void _calcuateMean(double *mean) {
+        double t1 = mytime::timer.getTime(), t2 = 0;
+
         std::fill_n(mean, bins::TOTAL_KZ_BINS, 0);
         for (unsigned int jj = 0; jj < nboots; ++jj) {
             if (outlier[jj]) continue;
@@ -277,10 +319,15 @@ private:
                 mean, 1);
         }
         cblas_dscal(bins::TOTAL_KZ_BINS, 1. / remaining_boots, mean, 1);
+
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("  Total time spent in mean is %.2f mins, ", t2 - t1);
     }
 
 
     void _calcuateMedian(double *median) {
+        double t1 = mytime::timer.getTime(), t2 = 0;
+
         #pragma omp parallel for
         for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i) {
             double *buf = pcoeff.get() + nboots * myomp::getThreadNum();
@@ -288,10 +335,15 @@ private:
             std::copy_n(allpowers.get() + i * nboots, nboots, buf);
             median[i] = stats::medianOfUnsortedVector(buf, nboots);
         }
+
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("  Total time spent in median is %.2f mins, ", t2 - t1);
     }
 
 
     void _calcuateMadCovariance(const double *median, double *mad_cov) {
+        double t1 = mytime::timer.getTime(), t2 = 0;
+
         // Subtract median from allpowers
         #pragma omp parallel for collapse(2)
         for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
@@ -318,10 +370,14 @@ private:
 
         if (specifics::FAST_BOOTSTRAP)
             _sandwichInvFisher();
+
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("MAD covariance is %.2f mins.\n", t2 - t1);
     }
 
 
     void _calcuateCovariance(const double *mean, double *cov) {
+        double t1 = mytime::timer.getTime(), t2 = 0;
         auto v = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
         std::fill_n(cov, bins::FISHER_SIZE, 0);
@@ -346,12 +402,16 @@ private:
 
         if (specifics::FAST_BOOTSTRAP)
             _sandwichInvFisher();
+
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("covariance is %.2f mins.\n", t2 - t1);
     }
 
 
     unsigned int _findOutliers(
             const double *mean, const double *invcov
     ) {
+        double t1 = mytime::timer.getTime(), t2 = 0;
         auto v = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
              y = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
@@ -359,22 +419,26 @@ private:
         double maxChi2 = 8. * sqrt(2. * bins::TOTAL_KZ_BINS);
 
         for (unsigned int jj = 0; jj < nboots; ++jj) {
-            if (outlier[jj]) continue;
-
             double *x = allpowers.get() + jj * bins::TOTAL_KZ_BINS;
             for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
                 v[i] = x[i] - mean[i];
 
-            double chi2 = mxhelp::my_cblas_dsymvdot(
+            pcoeff[jj] = mxhelp::my_cblas_dsymvdot(
                 v.get(), invcov, y.get(), bins::TOTAL_KZ_BINS) / 4
                 - bins::TOTAL_KZ_BINS;
 
-            if (fabs(chi2) > maxChi2)
-                outlier[jj] = true;
-            else
-                ++new_remains;
+            outlier[jj] = fabs(pcoeff[jj]) > maxChi2;
+            if (!outlier[jj])  ++new_remains;
         }
 
+        auto chi2s = stats::getCdfs(pcoeff.get(), nboots);
+        LOG::LOGGER.STD("Max chi2: %.3e :: Chi2s:", maxChi2);
+        for (auto i = chi2s.cbegin(); i != chi2s.cend(); ++i)
+            LOG::LOGGER.STD("   %.3e", *i);
+
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD(
+            "\n    Time spent in finding outliers is %.2f mins. ", t2 - t1);
         return new_remains;
     }
 
@@ -406,7 +470,7 @@ private:
             // Find outliers
             unsigned int new_remains = _findOutliers(temppower.get(), tempfisher.get());
 
-            LOG::LOGGER.STD("Removed outliers. Remaining %d.\n", new_remains);
+            LOG::LOGGER.STD("Removed outliers. Remaining %d.\n  ", new_remains);
             if (new_remains == remaining_boots)
                 break;
 
