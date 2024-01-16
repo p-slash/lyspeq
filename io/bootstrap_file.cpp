@@ -1,10 +1,91 @@
 #include "io/bootstrap_file.hpp"
 #include "mathtools/matrix_helper.hpp"
 
-#include <string>
 #include <algorithm>
 #include <stdexcept>
-#include <memory>
+
+/* void _createEmptyHdu(fitsfile *fits_file) {
+    int status = 0, bitpix = SHORT_IMG, naxis = 0;
+    long *naxes = nullptr;
+    fits_create_img(fits_file, bitpix, naxis, naxes, &status);
+    ioh::checkFitsStatus(status);
+} */
+
+void ioh::checkFitsStatus(int status) {
+    if (status == 0)
+        return;
+
+    char fits_msg[80];
+    fits_get_errstatus(status, fits_msg);
+    std::string error_msg = std::string("FITS ERROR ") + std::string(fits_msg);
+
+    throw std::runtime_error(error_msg);
+}
+
+
+void ioh::saveBootstrapRealizations(
+        const std::string &base, const double *allpowers, double *invfisher,
+        int nboots, int nk, int nz, bool fastbootstrap, const char *comment
+) {
+    int status = 0, bitpix = DOUBLE_IMG;
+    long naxis = 2, size = nboots * nk * nz, naxes[2] = { nk * nz, nboots };
+    fitsfile *fits_file = nullptr;
+    std::string out_fname = "!" + base + "-bootstrap-realizations.fits";
+
+    fits_create_file(&fits_file, out_fname.c_str(), &status);
+    ioh::checkFitsStatus(status);
+
+    fits_create_img(fits_file, bitpix, naxis, naxes, &status);
+    ioh::checkFitsStatus(status);
+
+    fits_update_key_str(fits_file, "EXTNAME", "REALIZATIONS", nullptr, &status);
+    fits_write_key(fits_file, TINT, "NBOOTS", &nboots, nullptr, &status);
+    fits_write_key(fits_file, TINT, "NK", &nk, nullptr, &status);
+    fits_write_key(fits_file, TINT, "NZ", &nz, nullptr, &status);
+    fits_write_key(
+        fits_file, TLOGICAL, "FASTBOOT", &fastbootstrap, nullptr, &status);
+    if (comment != nullptr)
+        fits_write_comment(fits_file, comment, &status);
+
+    fits_write_img(fits_file, TDOUBLE, 1, size, (void *) allpowers, &status);
+    ioh::checkFitsStatus(status);
+
+    // Write inverse fisher solver
+    size = naxes[0] * naxes[0];
+    naxes[1] = naxes[0];
+    fits_create_img(fits_file, bitpix, naxis, naxes, &status);
+    ioh::checkFitsStatus(status);
+
+    fits_update_key_str(fits_file, "EXTNAME", "SOLV_INVF", nullptr, &status);
+    fits_write_key(fits_file, TINT, "NK", &nk, nullptr, &status);
+    fits_write_key(fits_file, TINT, "NZ", &nz, nullptr, &status);
+    /*
+    fits_write_key(
+        fits_file, TDOUBLE, "RTCORNER", &invfisher[naxes[0] - 1],
+        "Row 0, last column real value.", &status);
+    double pivotF = 9e9;
+    fits_write_key(
+        fits_file, TDOUBLE, "RTPIVOT", &pivotF,
+        "Pivot value to find orientation.", &status);
+    invfisher[naxes[0] - 1] = pivotF;
+    */
+    fits_write_key(
+        fits_file, TLOGICAL, "FASTBOOT", &fastbootstrap, nullptr, &status);
+    fits_write_comment(
+        fits_file,
+        "Inverse Fisher solver matrix. "
+        "Not necessarily equal to the inverse Fisher "
+        "or symmetric.",
+        &status);
+    if (comment != nullptr)
+        fits_write_comment(fits_file, comment, &status);
+
+    fits_write_img(fits_file, TDOUBLE, 1, size, (void *) invfisher, &status);
+    ioh::checkFitsStatus(status);
+
+    fits_close_file(fits_file, &status);
+    ioh::checkFitsStatus(status);
+}
 
 
 ioh::BootstrapChunksFile::BootstrapChunksFile(
@@ -14,7 +95,7 @@ ioh::BootstrapChunksFile::BootstrapChunksFile(
     std::string out_fname =
         "!" + base + "-bootchunks-" + std::to_string(thispe) + ".fits";
     fits_create_file(&fits_file, out_fname.c_str(), &status);
-    _checkStatus();
+    ioh::checkFitsStatus(status);
 }
 
 
@@ -42,7 +123,7 @@ void ioh::BootstrapChunksFile::writeChunk(
 
     long naxes[1] = {cf_size};
     fits_create_img(fits_file, bitpix, naxis, naxes, &status);
-    _checkStatus();
+    ioh::checkFitsStatus(status);
 
     fits_write_key(fits_file, TLONG, "TARGETID", &id, nullptr, &status);
     fits_write_key(fits_file, TDOUBLE, "ZQSO", &z_qso, nullptr, &status);
@@ -54,19 +135,7 @@ void ioh::BootstrapChunksFile::writeChunk(
 
     fits_write_img(
         fits_file, TDOUBLE, 1, cf_size, (void *) data_buffer, &status);
-    _checkStatus();
-}
-
-
-void ioh::BootstrapChunksFile::_checkStatus() {
-    if (status == 0)
-        return;
-
-    char fits_msg[50];
-    fits_get_errstatus(status, fits_msg);
-    std::string error_msg = std::string("FITS ERROR ") + std::string(fits_msg);
-
-    throw std::runtime_error(error_msg);
+    ioh::checkFitsStatus(status);
 }
 
 
