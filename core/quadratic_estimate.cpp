@@ -567,9 +567,11 @@ bool OneDQuadraticPowerEstimate::hasConverged()
         abs_max   = std::max(r, abs_max);
     }
 
-    LOG::LOGGER.STD("Mean relative change is %.1e.\n"
+    LOG::LOGGER.STD(
+        "Mean relative change is %.1e.\n"
         "Maximum relative change is %.1e.\n"
-        "Old test: Iteration converges when this is less than %.1e\n", 
+        "Old test: Iteration converges when this is less than %.1e\n"
+        "----------------------------------\n", 
         abs_mean, abs_max, specifics::CHISQ_CONVERGENCE_EPS);
     
     // Perform a chi-square test as well   

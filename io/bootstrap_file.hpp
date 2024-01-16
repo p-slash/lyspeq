@@ -12,7 +12,7 @@
 
 namespace ioh {
 void checkFitsStatus(int status);
-void saveBootstrapRealizations(
+std::string saveBootstrapRealizations(
     const std::string &base, const double *allpowers, const double *invfisher,
     unsigned int nboots, int nk, int nz, bool fastbootstrap,
     const char *comment=nullptr

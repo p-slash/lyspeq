@@ -145,10 +145,12 @@ public:
 
         mytime::printfBootstrapTimeSpentDetails();
 
-        ioh::saveBootstrapRealizations(
+        std::string out_fname = ioh::saveBootstrapRealizations(
             process::FNAME_BASE, allpowers.get(), invfisher,
             nboots, bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS,
             specifics::FAST_BOOTSTRAP, comment.c_str());
+        LOG::LOGGER.STD(
+            "Bootstrap realizations saved as %s.\n", out_fname.c_str() + 1);
 
         run();
     }
@@ -319,7 +321,7 @@ private:
         cblas_dscal(bins::TOTAL_KZ_BINS, 1. / remaining_boots, mean, 1);
 
         t2 = mytime::timer.getTime();
-        LOG::LOGGER.STD("Total time spent in mean is %.2f mins.\n", t2 - t1);
+        LOG::LOGGER.STD("  Total time spent in mean is %.2f mins, ", t2 - t1);
     }
 
 
@@ -335,7 +337,7 @@ private:
         }
 
         t2 = mytime::timer.getTime();
-        LOG::LOGGER.STD("Total time spent in median is %.2f mins.\n", t2 - t1);
+        LOG::LOGGER.STD("  Total time spent in median is %.2f mins, ", t2 - t1);
     }
 
 
@@ -370,7 +372,7 @@ private:
             _sandwichInvFisher();
 
         t2 = mytime::timer.getTime();
-        LOG::LOGGER.STD("Total time spent in MAD covariance is %.2f mins.\n", t2 - t1);
+        LOG::LOGGER.STD("MAD covariance is %.2f mins.\n", t2 - t1);
     }
 
 
@@ -402,8 +404,7 @@ private:
             _sandwichInvFisher();
 
         t2 = mytime::timer.getTime();
-        LOG::LOGGER.STD(
-            "Total time spent in mean covariance is %.2f mins.\n", t2 - t1);
+        LOG::LOGGER.STD("covariance is %.2f mins.\n", t2 - t1);
     }
 
 
@@ -437,7 +438,7 @@ private:
 
         t2 = mytime::timer.getTime();
         LOG::LOGGER.STD(
-            "\nTotal time spent in mean covariance is %.2f mins.\n", t2 - t1);
+            "\n    Time spent in finding outliers is %.2f mins. ", t2 - t1);
         return new_remains;
     }
 
@@ -469,7 +470,7 @@ private:
             // Find outliers
             unsigned int new_remains = _findOutliers(temppower.get(), tempfisher.get());
 
-            LOG::LOGGER.STD("Removed outliers. Remaining %d.\n", new_remains);
+            LOG::LOGGER.STD("Removed outliers. Remaining %d.\n  ", new_remains);
             if (new_remains == remaining_boots)
                 break;
 
