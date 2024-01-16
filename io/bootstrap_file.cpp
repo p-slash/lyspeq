@@ -23,7 +23,7 @@ void ioh::checkFitsStatus(int status) {
 }
 
 
-void ioh::saveBootstrapRealizations(
+std::string ioh::saveBootstrapRealizations(
         const std::string &base, const double *allpowers, const double *invfisher,
         unsigned int nboots, int nk, int nz, bool fastbootstrap, const char *comment
 ) {
@@ -85,6 +85,8 @@ void ioh::saveBootstrapRealizations(
 
     fits_close_file(fits_file, &status);
     ioh::checkFitsStatus(status);
+
+    return out_fname;
 }
 
 
