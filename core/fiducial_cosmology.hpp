@@ -98,6 +98,5 @@ struct sq_integrand_params
 
 double q_matrix_integrand(double k, void *params);
 double signal_matrix_integrand(double k, void *params);
-double exactDerivMatrixNoWindow(double kc, double dk, double v);
 
 #endif
