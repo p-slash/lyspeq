@@ -12,6 +12,7 @@
 #include <algorithm> // std::for_each & transform & lower(upper)_bound
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 #include <sstream>
 #include <stdexcept>
 
@@ -334,7 +335,20 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     bins::setRedshiftBinningFunction(zm);
 
     double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
-    shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
+
+    std::function<double(double)> eval_deriv_kn;
+    if (specifics::USE_RESOLUTION_MATRIX) {
+        double kc = bins::KBAND_CENTERS[kn],
+               dk = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn];
+        eval_deriv_kn = [kc, dk](double v) {
+            return exactDerivMatrixNoWindow(kc, dk, v);
+        };
+    } else {
+        shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
+        eval_deriv_kn = [interp_deriv_kn](double v) {
+            return interp_deriv_kn->evaluate(v);
+        };
+    }
 
     int low, up;
     bins::redshiftBinningFunction(
@@ -353,7 +367,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 
         #pragma omp simd
         for (int j = l1; j < u1; ++j)
-            inter_mat[j + idx] *= interp_deriv_kn->evaluate(_vmatrix[j + idx]);
+            inter_mat[j + idx] *= eval_deriv_kn(_vmatrix[j + idx]);
     }
 
     t_interp = mytime::timer.getTime() - t;
