@@ -334,23 +334,29 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
     bins::setRedshiftBinningFunction(zm);
 
-    double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
-
     std::function<double(double)> eval_deriv_kn;
+
     if (specifics::USE_RESOLUTION_MATRIX) {
         double kc = bins::KBAND_CENTERS[kn],
                dk = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn];
+
         eval_deriv_kn = [kc, dk](double v) {
-            return exactDerivMatrixNoWindow(kc, dk, v);
+            double x = dk * v / 2;
+            if (x == 0)
+                x = 1.0;
+            else
+                x = sin(x) / x;
+
+            return dk / MY_PI * x * cos(kc * v);
         };
     } else {
-        shared_interp_1d interp_deriv_kn = interp_derivative_matrix[kn];
-        eval_deriv_kn = [interp_deriv_kn](double v) {
-            return interp_deriv_kn->evaluate(v);
+        eval_deriv_kn = [idkn = interp_derivative_matrix[kn]](double v) {
+            return idkn->evaluate(v);
         };
     }
 
     int low, up;
+    double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
     bins::redshiftBinningFunction(
         _matrix_lambda, _matrix_n, zm,
         inter_mat, low, up);
