@@ -29,6 +29,11 @@ Fiducial signal matrix if there is still more space after all derivative
 matrices. This scheme speeds up the algorithm.
 */
 
+namespace glmemory {
+    extern void allocMemory();
+}
+
+
 class Chunk
 {
 protected:
@@ -61,7 +66,7 @@ protected:
     void _setNQandFisherIndex();
     void _setStoredMatrices();
 
-    void _allocateMatrices();
+    void _initMatrices();
     void _freeMatrices();
     // void _saveIndividualResult();
 

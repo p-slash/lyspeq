@@ -38,6 +38,47 @@ int _getMaxKindex(double knyq)
     return std::distance(bins::KBAND_CENTERS.begin(), it);
 }
 
+namespace glmemory {
+    int max_size = 0, max_size_2 = 0, max_matrix_n = 0, max_nqdim = 0;
+    bool on_oversampling = false;
+    std::unique_ptr<double[]>
+        covariance_matrix, temp_matrix[2], temp_vector, weighted_data_vector,
+        stored_sfid, matrix_lambda, finer_matrix, v_matrix, z_matrix;
+    std::vector<std::unique_ptr<double[]>> stored_ikz_qi;
+
+    void setMaxSizes(int size, int matrix_n, int nqdim, bool onsamp) {
+        max_size = std::max(size, max_size);
+        max_size_2 = max_size * max_size;
+        max_matrix_n = std::max(matrix_n, max_matrix_n);
+        max_nqdim = std::max(nqdim, max_nqdim);
+        on_oversampling |= onsamp;
+    }
+
+    void allocMemory() {
+        temp_vector = std::make_unique<double[]>(max_size);
+        weighted_data_vector = std::make_unique<double[]>(max_size);
+
+        covariance_matrix = std::make_unique<double[]>(max_size_2);
+        temp_matrix[0] = std::make_unique<double[]>(max_size_2);
+        temp_matrix[1] = std::make_unique<double[]>(max_size_2);
+
+        if (!specifics::TURN_OFF_SFID)
+            stored_sfid = std::make_unique<double[]>(max_size_2);
+
+        for (int i = 0; i < max_nqdim; ++i)
+            stored_ikz_qi.push_back(std::make_unique<double[]>(max_size_2));
+
+        if (on_oversampling)
+        {
+            matrix_lambda = std::make_unique<double[]>(max_matrix_n);
+            long highsize = (long)(max_matrix_n) * (long)(max_matrix_n);
+            finer_matrix = std::make_unique<double[]>(highsize);
+            v_matrix = std::make_unique<double[]>(highsize);
+            z_matrix = std::make_unique<double[]>(highsize);
+        }
+    }
+}
+
 Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 {
     isCovInverted = false;
@@ -77,6 +118,7 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     }
 
     _setStoredMatrices();
+    glmemory::setMaxSizes(size(), _matrix_n, stored_ikz_qi.size(), on_oversampling);
 
     interp_derivative_matrix.reserve(bins::NUMBER_OF_K_BANDS);
 
@@ -672,7 +714,7 @@ void Chunk::oneQSOiteration(
 
     DEBUG_LOG("Allocating matrices\n");
 
-    _allocateMatrices();
+    _initMatrices();
 
     _setVZMatrices();
 
@@ -725,26 +767,26 @@ void Chunk::oneQSOiteration(
 }
 
 
-void Chunk::_allocateMatrices()
+void Chunk::_initMatrices()
 {
-    covariance_matrix = new double[DATA_SIZE_2];
+    covariance_matrix = glmemory::covariance_matrix.get();
 
     for (int i = 0; i < 2; ++i)
-        temp_matrix[i] = new double[DATA_SIZE_2];
+        temp_matrix[i] = glmemory::temp_matrix[i].get();
 
-    temp_vector = new double[size()];
-    weighted_data_vector = new double[size()];
+    temp_vector = glmemory::temp_vector.get();
+    weighted_data_vector = glmemory::weighted_data_vector.get();
     
-    for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
-        iqt->second = new double[DATA_SIZE_2];
+    for (int i = 0; i < stored_ikz_qi.size(); ++i)
+        stored_ikz_qi[i].second = glmemory::stored_ikz_qi[i].get();
 
     if (!specifics::TURN_OFF_SFID)
-        stored_sfid = new double[DATA_SIZE_2];
+        stored_sfid = glmemory::stored_sfid.get();
 
     // Create a temp highres lambda array
     if (on_oversampling)
     {
-        _matrix_lambda = new double[_matrix_n];
+        _matrix_lambda = glmemory::matrix_lambda.get();
 
         double fine_dlambda =
             qFile->dlambda / LYA_REST / specifics::OVERSAMPLING_FACTOR;
@@ -752,10 +794,9 @@ void Chunk::_allocateMatrices()
         for (int i = 0; i < _matrix_n; ++i)
             _matrix_lambda[i] = qFile->wave()[0] + (i - disp) * fine_dlambda;
 
-        long highsize = (long)(_matrix_n) * (long)(_matrix_n);
-        _finer_matrix = new double[highsize];
-        _vmatrix = new double[highsize];
-        _zmatrix = new double[highsize];
+        _finer_matrix = glmemory::finer_matrix.get();
+        _vmatrix = glmemory::v_matrix.get();
+        _zmatrix = glmemory::z_matrix.get();
     }
     else
     {
@@ -776,29 +817,8 @@ void Chunk::_allocateMatrices()
 
 void Chunk::_freeMatrices()
 {
-    delete [] covariance_matrix;
-
-    for (int i = 0; i < 2; ++i)
-        delete [] temp_matrix[i];
-
-    delete [] temp_vector;
-    delete [] weighted_data_vector;
-    for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
-        delete [] iqt->second;
-
-    if (!specifics::TURN_OFF_SFID)
-        delete [] stored_sfid;
-
     if (specifics::USE_RESOLUTION_MATRIX)
         qFile->Rmat->freeBuffer();
-
-    if (on_oversampling)
-    {
-        delete [] _finer_matrix;
-        delete [] _matrix_lambda;
-        delete [] _vmatrix;
-        delete [] _zmatrix;
-    }
 
     if (interp2d_signal_matrix)
         interp2d_signal_matrix.reset();

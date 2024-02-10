@@ -419,6 +419,8 @@ void OneDQuadraticPowerEstimate::iterate()
     if (process::this_pe == 0)
         time_all_pes.resize(process::total_pes);
 
+    glmemory::allocMemory();
+
     for (int iteration = 0; iteration < NUMBER_OF_ITERATIONS; iteration++)
     {
         LOG::LOGGER.STD("Iteration number %d of %d.\n", iteration+1, NUMBER_OF_ITERATIONS);
