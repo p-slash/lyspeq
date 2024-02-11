@@ -459,7 +459,7 @@ namespace mxhelp
 
     // class DiaMatrix
     DiaMatrix::DiaMatrix(int nm, int ndia)
-        : sandwich_buffer(nullptr), ndim(nm), ndiags(ndia)
+        : ndim(nm), ndiags(ndia)
     {
         // e.g. ndim=724, ndiags=11
         // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
@@ -767,7 +767,7 @@ namespace mxhelp
 
     void DiaMatrix::sandwich(double *inplace)
     {
-        sandwich_buffer = glmemory::getSandwichBuffer(ndim * ndim);
+        double *sandwich_buffer = glmemory::getSandwichBuffer(ndim * ndim);
 
         multiplyLeft(inplace, sandwich_buffer);
         multiplyRightT(sandwich_buffer, inplace);
@@ -785,7 +785,7 @@ namespace mxhelp
     // class OversampledMatrix
     OversampledMatrix::OversampledMatrix(
             int n1, int nelem_prow, int osamp, double dlambda
-    ) : sandwich_buffer(nullptr), nrows(n1), nelem_per_row(nelem_prow),
+    ) : nrows(n1), nelem_per_row(nelem_prow),
         oversampling(osamp)
     {
         ncols = nrows*oversampling + nelem_per_row-1;
@@ -829,7 +829,7 @@ namespace mxhelp
 
     void OversampledMatrix::sandwich(const double *S, double *B)
     {
-        sandwich_buffer = glmemory::getSandwichBuffer(
+        double *sandwich_buffer = glmemory::getSandwichBuffer(
             myomp::getMaxNumThreads() * ncols);
  
         #pragma omp parallel for schedule(static, 1)

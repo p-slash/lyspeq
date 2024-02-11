@@ -95,7 +95,7 @@ namespace mxhelp
     class DiaMatrix
     {
         std::unique_ptr<int[]> offsets;
-        double *values, *sandwich_buffer;
+        double *values;
         int size;
 
         double* _getDiagonal(int d);
@@ -143,7 +143,7 @@ namespace mxhelp
 
     class OversampledMatrix
     {
-        double *values, *sandwich_buffer;
+        double *values;
         int size;
 
         double* _getRow(int i) { return values + i * nelem_per_row; };
