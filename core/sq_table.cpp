@@ -390,15 +390,13 @@ void SQLookupTable::readSQforR(
             s = getSignalMatrixInterp(r_index);
     }
 
-    q.clear();
-    // Read Q tables. 
-    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-    {            
-        if (alloc || interp_derivative_matrices.empty())
-            q.push_back(_allocReadQFile(kn, r_index));
-        else
-            q.push_back(getDerivativeMatrixInterp(kn, r_index));
-    }
+    // Read Q tables.
+    if (alloc || interp_derivative_matrices.empty())
+        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
+            q[kn] = _allocReadQFile(kn, r_index);
+    else
+        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
+            q[kn] = getDerivativeMatrixInterp(kn, r_index);
 }
 
 int SQLookupTable::findSpecResIndex(int spec_res, double dv) const

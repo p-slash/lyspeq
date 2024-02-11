@@ -171,14 +171,15 @@ namespace mxhelp
     }
 
     void LAPACKErrorHandle(const char *base, int info) {
-        if (info != 0) {
-            std::string err_msg(base);
-            if (info < 0)   err_msg += ": Illegal value.";
-            else            err_msg += ": Singular.";
+        if (info == 0)
+            return;
 
-            fprintf(stderr, "%s\n", err_msg.c_str());
-            throw std::runtime_error(err_msg);
-        }
+        std::string err_msg(base);
+        if (info < 0)   err_msg += ": Illegal value.";
+        else            err_msg += ": Singular.";
+
+        fprintf(stderr, "%s\n", err_msg.c_str());
+        throw std::runtime_error(err_msg);
     }
 
     void LAPACKE_InvertMatrixLU(double *A, int N) {
