@@ -532,6 +532,8 @@ void OneDQuadraticPowerEstimate::iterate()
         }
     }
 
+    glmemory::dealloc();
+
     // Save chunk estimates to a file
     if (process::SAVE_EACH_CHUNK_RESULT)
         _saveChunkResults(local_queue);

@@ -31,6 +31,7 @@ matrices. This scheme speeds up the algorithm.
 
 namespace glmemory {
     extern void allocMemory();
+    extern void dealloc();
 }
 
 

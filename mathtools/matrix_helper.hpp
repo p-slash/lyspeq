@@ -106,7 +106,7 @@ namespace mxhelp
         int ndim, ndiags;
 
         DiaMatrix(int nm, int ndia);
-        ~DiaMatrix() { delete [] values; freeBuffer(); };
+        ~DiaMatrix() { delete [] values; };
         DiaMatrix(DiaMatrix &&rhs) = delete;
         DiaMatrix(const DiaMatrix &rhs) = delete;
 
@@ -119,7 +119,6 @@ namespace mxhelp
         void transpose();
         void deconvolve(double m); // bool byCol
 
-        void freeBuffer();
         void constructGaussian(double *v, double R_kms, double a_kms);
         void fprintfMatrix(const char *fname);
         void orderTranspose();
@@ -158,7 +157,7 @@ namespace mxhelp
         // osamp : Oversampling coefficient.
         // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
         OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda);
-        ~OversampledMatrix() { delete [] values; freeBuffer(); };
+        ~OversampledMatrix() { delete [] values; };
         OversampledMatrix(OversampledMatrix &&rhs) = delete;
         OversampledMatrix(const OversampledMatrix &rhs) = delete;
 
@@ -179,7 +178,6 @@ namespace mxhelp
         // B = R . S . R^T, S is symmetric
         void sandwich(const double *S, double *B);
 
-        void freeBuffer();
         double getMinMemUsage() { return (double)sizeof(double) * size / 1048576.; };
         double getBufMemUsage() {
             return (double)sizeof(double) * nrows * myomp::getMaxNumThreads() / 1048576.;
@@ -233,7 +231,6 @@ namespace mxhelp
         // B = R . S . R^T, S is symmetric
         void sandwich(const double *S, double *B);
 
-        void freeBuffer();
         double getMinMemUsage();
         double getBufMemUsage();
 

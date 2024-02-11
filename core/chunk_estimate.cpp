@@ -77,6 +77,19 @@ namespace glmemory {
             z_matrix = std::make_unique<double[]>(highsize);
         }
     }
+
+    void dealloc() {
+        temp_vector.reset();
+        weighted_data_vector.reset();
+        covariance_matrix.reset();
+        temp_matrix[0].reset();
+        temp_matrix[1].reset();
+        stored_sfid.reset();
+        matrix_lambda.reset();
+        finer_matrix.reset();
+        v_matrix.reset();
+        z_matrix.reset();
+    }
 }
 
 Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
@@ -817,9 +830,6 @@ void Chunk::_initMatrices()
 
 void Chunk::_freeMatrices()
 {
-    if (specifics::USE_RESOLUTION_MATRIX)
-        qFile->Rmat->freeBuffer();
-
     if (interp2d_signal_matrix)
         interp2d_signal_matrix.reset();
     interp_derivative_matrix.clear();
