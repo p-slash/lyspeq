@@ -95,8 +95,7 @@ namespace glmemory {
         v_matrix.reset();
         z_matrix.reset();
 
-        if (interp2d_signal_matrix)
-            interp2d_signal_matrix.reset();
+        interp2d_signal_matrix.reset();
         interp_derivative_matrix.clear();
     }
 }

@@ -171,9 +171,6 @@ namespace mxhelp
     }
 
     void LAPACKErrorHandle(const char *base, int info) {
-        if (info == 0)
-            return;
-
         std::string err_msg(base);
         if (info < 0)   err_msg += ": Illegal value.";
         else            err_msg += ": Singular.";
@@ -191,11 +188,15 @@ namespace mxhelp
         // the LU factorization of a general m-by-n matrix.
         info = LAPACKE_dgetrf(
             LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, ipiv.data());
-        LAPACKErrorHandle("ERROR in LU decomposition.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in LU decomposition.", info);
 
         info = LAPACKE_dgetri(
             LAPACK_ROW_MAJOR, LIN, A, LIN, ipiv.data());
-        LAPACKErrorHandle("ERROR in LU invert.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in LU invert.", info);
 
         // dpotrf(CblasUpper, N, A, N); 
         // the Cholesky factorization of a symmetric positive-definite matrix
@@ -269,7 +270,9 @@ namespace mxhelp
         info = LAPACKE_dgesvd(
             LAPACK_ROW_MAJOR, 'N', 'N', LIN, LIN, B.get(), LIN, svals.get(), 
             NULL, LIN, NULL, LIN, superb.get());
-        LAPACKErrorHandle("ERROR in SVD.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in SVD.", info);
 
         if (sjump == nullptr)
             return svals[N - 1] / svals[0];
@@ -321,7 +324,8 @@ namespace mxhelp
             LAPACK_ROW_MAJOR, LIN, 1, A, LIN, ipiv.data(), b, 1);
         // info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', LIN, 1, S, LIN,b, 1);
 
-        LAPACKErrorHandle("ERROR in solve_safe.", info);
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in solve_safe.", info);
     }
 
 
@@ -341,7 +345,9 @@ namespace mxhelp
         lapack_int LIN = N, info = 0;
         info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', LIN, 1, S, LIN, b, 1);
 
-        LAPACKErrorHandle("ERROR in safeSolveCho.", info);
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in safeSolveCho.", info);
+
         for (const auto &i : empty_indx)
             b[i] = 0;
     }
@@ -392,7 +398,9 @@ namespace mxhelp
         info = LAPACKE_dgesvd(
             LAPACK_COL_MAJOR, 'O', 'N', M, N, A, M, svals, 
             NULL, M, NULL, N, superb.get());
-        LAPACKErrorHandle("ERROR in SVD.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in SVD.", info);
     }
 
     void printfMatrix(const double *A, int nrows, int ncols)
