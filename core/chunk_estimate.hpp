@@ -49,18 +49,13 @@ protected:
     // Uninitialized arrays
     // Oversampled resomat specifics
     bool on_oversampling;
-    double *_finer_matrix, *_vmatrix, *_zmatrix;
+    double *_vmatrix, *_zmatrix;
 
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
-    double *covariance_matrix, *stored_sfid;
+    double *covariance_matrix;
     double *temp_matrix[2];
     std::vector<std::pair<int, double*>> stored_ikz_qi;
-    // DATA_SIZE sized vectors. 
-    double *temp_vector, *weighted_data_vector;
-
-    shared_interp_2d interp2d_signal_matrix;
-    std::vector<shared_interp_1d> interp_derivative_matrix;
 
     void _copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     void _findRedshiftBin();
@@ -68,7 +63,6 @@ protected:
     void _setStoredMatrices();
 
     void _initMatrices();
-    void _freeMatrices();
     // void _saveIndividualResult();
 
     void _setFiducialSignalMatrix(double *sm);
