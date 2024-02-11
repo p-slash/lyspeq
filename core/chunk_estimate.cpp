@@ -70,7 +70,7 @@ namespace glmemory {
             memUsed += process::getMemoryMB(max_matrix_n + 3 * highsize);
         }
 
-        process::updateMemory(memUsed);
+        process::updateMemory(-memUsed);
 
         temp_vector = std::make_unique<double[]>(max_size);
         weighted_data_vector = std::make_unique<double[]>(max_size);
@@ -110,7 +110,7 @@ namespace glmemory {
         interp2d_signal_matrix.reset();
         interp_derivative_matrix.clear();
 
-        process::updateMemory(-memUsed);
+        process::updateMemory(memUsed);
     }
 }
 
