@@ -30,7 +30,7 @@ public:
     TestOneQSOEstimate(const std::string &fname_qso) : OneQSOEstimate(fname_qso)
     {
         glmemory::allocMemory();
-        chunks[0]->_allocateMatrices();
+        chunks[0]->_initMatrices();
         process::sq_private_table->readSQforR(chunks[0]->RES_INDEX, 
             chunks[0]->interp2d_signal_matrix, chunks[0]->interp_derivative_matrix);
         chunks[0]->_setVZMatrices();

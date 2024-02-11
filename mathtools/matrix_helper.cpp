@@ -68,6 +68,22 @@ double _integrated_window_fn_v(double x, double R, double a)
     return (R/a/MY_SQRT_2) * (_integral_erf(xr+ar) + _integral_erf(xr-ar) - 2*_integral_erf(xr));
 }
 
+
+namespace glmemory {
+    int capacity = 0;
+    std::unique_ptr<double[]> sandwich_buffer;
+
+    double* getSandwichBuffer(int size) {
+        if (size > capacity) {
+            sandwich_buffer = std::make_unique<double[]>(size);
+            capacity = size;
+        }
+
+        return sandwich_buffer.get();
+    }
+}
+
+
 namespace mxhelp
 {
     #define BLOCK_SIZE 32
@@ -613,15 +629,6 @@ namespace mxhelp
         // if (byCol)  transpose();
     }
 
-    void DiaMatrix::freeBuffer()
-    {
-        if (sandwich_buffer != nullptr)
-        {
-            delete [] sandwich_buffer;
-            sandwich_buffer = nullptr;
-        }
-    }
-
     void DiaMatrix::multiply(
             CBLAS_SIDE SIDER, CBLAS_TRANSPOSE TRANSR,
             const double* A, double *B) {
@@ -751,8 +758,7 @@ namespace mxhelp
 
     void DiaMatrix::sandwich(double *inplace)
     {
-        if (sandwich_buffer == nullptr)
-            sandwich_buffer = new double[ndim*ndim];
+        sandwich_buffer = glmemory::getSandwichBuffer(ndim * ndim);
 
         multiplyLeft(inplace, sandwich_buffer);
         multiplyRightT(sandwich_buffer, inplace);
@@ -814,8 +820,8 @@ namespace mxhelp
 
     void OversampledMatrix::sandwich(const double *S, double *B)
     {
-        if (sandwich_buffer == nullptr)
-            sandwich_buffer = new double[myomp::getMaxNumThreads() * ncols];
+        sandwich_buffer = glmemory::getSandwichBuffer(
+            myomp::getMaxNumThreads() * ncols);
  
         #pragma omp parallel for schedule(static, 1)
         for (int i = 0; i < nrows; ++i) {
@@ -856,15 +862,6 @@ namespace mxhelp
         }
 
         fclose(toWrite);
-    }
-
-    void OversampledMatrix::freeBuffer()
-    {
-        if (sandwich_buffer != nullptr)
-        {
-            delete [] sandwich_buffer;
-            sandwich_buffer = nullptr;
-        }
     }
 
     // Main resolution object
@@ -1016,12 +1013,6 @@ namespace mxhelp
         }
         else
             osamp_matrix->sandwich(S, B);
-    }
-
-    void Resolution::freeBuffer()
-    {
-        if (dia_matrix)   dia_matrix->freeBuffer();
-        if (osamp_matrix) osamp_matrix->freeBuffer();
     }
 
     double Resolution::getMinMemUsage()
