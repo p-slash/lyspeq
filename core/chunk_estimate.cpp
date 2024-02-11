@@ -59,14 +59,14 @@ namespace glmemory {
     }
 
     void allocMemory() {
-        long highsize = 0;
+        int highsize = 0;
 
         memUsed += process::getMemoryMB(
             2 * max_size + (3 + !specifics::TURN_OFF_SFID + max_nqdim) * max_size_2
         );
 
         if (on_oversampling) {
-            highsize = (long)(max_matrix_n) * (long)(max_matrix_n);
+            highsize = max_matrix_n * max_matrix_n;
             memUsed += process::getMemoryMB(max_matrix_n + 3 * highsize);
         }
 
