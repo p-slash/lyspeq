@@ -41,6 +41,7 @@ int _getMaxKindex(double knyq)
 namespace glmemory {
     int max_size = 0, max_size_2 = 0, max_matrix_n = 0, max_nqdim = 0;
     bool on_oversampling = false;
+    double memUsed = 0;
     std::unique_ptr<double[]>
         covariance_matrix, temp_matrix[2], temp_vector, weighted_data_vector,
         stored_sfid, matrix_lambda, finer_matrix, v_matrix, z_matrix;
@@ -58,6 +59,19 @@ namespace glmemory {
     }
 
     void allocMemory() {
+        long highsize = 0;
+
+        memUsed += process::getMemoryMB(
+            2 * max_size + (3 + !specifics::TURN_OFF_SFID + max_nqdim) * max_size_2
+        );
+
+        if (on_oversampling) {
+            highsize = (long)(max_matrix_n) * (long)(max_matrix_n);
+            memUsed += process::getMemoryMB(max_matrix_n + 3 * highsize);
+        }
+
+        process::updateMemory(memUsed);
+
         temp_vector = std::make_unique<double[]>(max_size);
         weighted_data_vector = std::make_unique<double[]>(max_size);
 
@@ -71,10 +85,8 @@ namespace glmemory {
         for (int i = 0; i < max_nqdim; ++i)
             stored_ikz_qi.push_back(std::make_unique<double[]>(max_size_2));
 
-        if (on_oversampling)
-        {
+        if (on_oversampling) {
             matrix_lambda = std::make_unique<double[]>(max_matrix_n);
-            long highsize = (long)(max_matrix_n) * (long)(max_matrix_n);
             finer_matrix = std::make_unique<double[]>(highsize);
             v_matrix = std::make_unique<double[]>(highsize);
             z_matrix = std::make_unique<double[]>(highsize);
@@ -97,6 +109,8 @@ namespace glmemory {
 
         interp2d_signal_matrix.reset();
         interp_derivative_matrix.clear();
+
+        process::updateMemory(-memUsed);
     }
 }
 
