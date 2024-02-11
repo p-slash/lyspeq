@@ -38,6 +38,82 @@ int _getMaxKindex(double knyq)
     return std::distance(bins::KBAND_CENTERS.begin(), it);
 }
 
+namespace glmemory {
+    int max_size = 0, max_size_2 = 0, max_matrix_n = 0, max_nqdim = 0;
+    bool on_oversampling = false;
+    double memUsed = 0;
+    std::unique_ptr<double[]>
+        covariance_matrix, temp_matrix[2], temp_vector, weighted_data_vector,
+        stored_sfid, matrix_lambda, finer_matrix, v_matrix, z_matrix;
+    std::vector<std::unique_ptr<double[]>> stored_ikz_qi;
+
+    shared_interp_2d interp2d_signal_matrix;
+    std::vector<shared_interp_1d> interp_derivative_matrix;
+
+    void setMaxSizes(int size, int matrix_n, int nqdim, bool onsamp) {
+        max_size = std::max(size, max_size);
+        max_size_2 = max_size * max_size;
+        max_matrix_n = std::max(matrix_n, max_matrix_n);
+        max_nqdim = std::max(nqdim, max_nqdim);
+        on_oversampling |= onsamp;
+    }
+
+    void allocMemory() {
+        int highsize = 0;
+
+        memUsed += process::getMemoryMB(
+            2 * max_size + (3 + !specifics::TURN_OFF_SFID + max_nqdim) * max_size_2
+        );
+
+        if (on_oversampling) {
+            highsize = max_matrix_n * max_matrix_n;
+            memUsed += process::getMemoryMB(max_matrix_n + 3 * highsize);
+        }
+
+        process::updateMemory(-memUsed);
+
+        temp_vector = std::make_unique<double[]>(max_size);
+        weighted_data_vector = std::make_unique<double[]>(max_size);
+
+        covariance_matrix = std::make_unique<double[]>(max_size_2);
+        temp_matrix[0] = std::make_unique<double[]>(max_size_2);
+        temp_matrix[1] = std::make_unique<double[]>(max_size_2);
+
+        if (!specifics::TURN_OFF_SFID)
+            stored_sfid = std::make_unique<double[]>(max_size_2);
+
+        for (int i = 0; i < max_nqdim; ++i)
+            stored_ikz_qi.push_back(std::make_unique<double[]>(max_size_2));
+
+        if (on_oversampling) {
+            matrix_lambda = std::make_unique<double[]>(max_matrix_n);
+            finer_matrix = std::make_unique<double[]>(highsize);
+            v_matrix = std::make_unique<double[]>(highsize);
+            z_matrix = std::make_unique<double[]>(highsize);
+        }
+
+        interp_derivative_matrix.resize(bins::NUMBER_OF_K_BANDS);
+    }
+
+    void dealloc() {
+        temp_vector.reset();
+        weighted_data_vector.reset();
+        covariance_matrix.reset();
+        temp_matrix[0].reset();
+        temp_matrix[1].reset();
+        stored_sfid.reset();
+        matrix_lambda.reset();
+        finer_matrix.reset();
+        v_matrix.reset();
+        z_matrix.reset();
+
+        interp2d_signal_matrix.reset();
+        interp_derivative_matrix.clear();
+
+        process::updateMemory(memUsed);
+    }
+}
+
 Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 {
     isCovInverted = false;
@@ -77,8 +153,7 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     }
 
     _setStoredMatrices();
-
-    interp_derivative_matrix.reserve(bins::NUMBER_OF_K_BANDS);
+    glmemory::setMaxSizes(size(), _matrix_n, stored_ikz_qi.size(), on_oversampling);
 
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
         dbt_estimate_before_fisher_vector.push_back(
@@ -301,13 +376,13 @@ void Chunk::_setFiducialSignalMatrix(double *sm)
     ++mytime::number_of_times_called_setsfid;
 
     double t = mytime::timer.getTime();
-    double *inter_mat = (on_oversampling) ? _finer_matrix : sm;
+    double *inter_mat = (on_oversampling) ? glmemory::finer_matrix.get() : sm;
 
     #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < _matrix_n; ++i) {
         for (int j = i; j < _matrix_n; ++j) {
             int idx = j + i * _matrix_n;
-            inter_mat[idx] = interp2d_signal_matrix->evaluate(
+            inter_mat[idx] = glmemory::interp2d_signal_matrix->evaluate(
                 _zmatrix[idx], _vmatrix[idx]);
         }
     }
@@ -350,13 +425,13 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
             return dk / MY_PI * x * cos(kc * v);
         };
     } else {
-        eval_deriv_kn = [idkn = interp_derivative_matrix[kn]](double v) {
+        eval_deriv_kn = [idkn = glmemory::interp_derivative_matrix[kn]](double v) {
             return idkn->evaluate(v);
         };
     }
 
     int low, up;
-    double *inter_mat = (on_oversampling) ? _finer_matrix : qi;
+    double *inter_mat = (on_oversampling) ? glmemory::finer_matrix.get() : qi;
     bins::redshiftBinningFunction(
         _matrix_lambda, _matrix_n, zm,
         inter_mat, low, up);
@@ -395,7 +470,7 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     // Set fiducial signal matrix
     if (!specifics::TURN_OFF_SFID)
-        std::copy_n(stored_sfid, DATA_SIZE_2, covariance_matrix);
+        std::copy_n(glmemory::stored_sfid.get(), DATA_SIZE_2, covariance_matrix);
     else
         std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
 
@@ -409,8 +484,9 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
     // but smooth before adding
     double *nvec = qFile->noise();
     if (process::smoother->isSmoothingOn()) {
-        process::smoother->smoothNoise(qFile->noise(), temp_vector, size());
-        nvec = temp_vector;
+        process::smoother->smoothNoise(
+            qFile->noise(), glmemory::temp_vector.get(), size());
+        nvec = glmemory::temp_vector.get();
     }
 
     cblas_daxpy(size(), 1., nvec, 1, covariance_matrix, size() + 1);
@@ -481,7 +557,7 @@ void Chunk::_addMarginalizations() {
     for (int i = 0; i < specifics::CONT_NVECS; ++i) {
         double tt = mxhelp::my_cblas_dsymvdot(
             marg_mat + i * size(), inverse_covariance_matrix,
-            temp_vector, size());
+            glmemory::temp_vector.get(), size());
         DEBUG_LOG("  %.3e", tt);
     } DEBUG_LOG("\n");
     std::copy_n(marg_mat, size() * specifics::CONT_NVECS, temp_matrix[1]);
@@ -500,7 +576,7 @@ void Chunk::_addMarginalizations() {
     for (int i = 0; i < nvecs_to_use; ++i)
         _remShermanMorrison(
             marg_mat + i * size(), size(),
-            temp_vector, inverse_covariance_matrix);
+            glmemory::temp_vector.get(), inverse_covariance_matrix);
 
     #ifdef DEBUG
     DEBUG_LOG("SVD:");
@@ -511,7 +587,7 @@ void Chunk::_addMarginalizations() {
     for (int i = 0; i < specifics::CONT_NVECS; ++i) {
         double tt = mxhelp::my_cblas_dsymvdot(
             temp_matrix[1] + i * size(), inverse_covariance_matrix,
-            temp_vector, size());
+            glmemory::temp_vector.get(), size());
         DEBUG_LOG("  %.3e", tt);
     } DEBUG_LOG("\n");
     #endif
@@ -568,7 +644,7 @@ void Chunk::computePSbeforeFvector()
     cblas_dsymv(
         CblasRowMajor, CblasUpper, size(), 1.,
         inverse_covariance_matrix, size(), qFile->delta(), 1,
-        0, weighted_data_vector, 1);
+        0, glmemory::weighted_data_vector.get(), 1);
 
     double t = mytime::timer.getTime();
 
@@ -576,8 +652,8 @@ void Chunk::computePSbeforeFvector()
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
         dk0[iqt->first] = mxhelp::my_cblas_dsymvdot(
-            weighted_data_vector, 
-            iqt->second, temp_vector, size());
+            glmemory::weighted_data_vector.get(), 
+            iqt->second, glmemory::temp_vector.get(), size());
         // Transform q matrices to weighted matrices inplace
         // Get weighted derivative matrix ikz: C-1 Qi
         _getWeightedMatrix(iqt->second);
@@ -610,7 +686,7 @@ void Chunk::computePSbeforeFvector()
         // NERSC Perlmutter has faster dgemm
         cblas_dgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            size(), size(), size(), 1., stored_sfid, size(),
+            size(), size(), size(), 1., glmemory::stored_sfid.get(), size(),
             inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
 
         #pragma omp parallel for
@@ -672,7 +748,7 @@ void Chunk::oneQSOiteration(
 
     DEBUG_LOG("Allocating matrices\n");
 
-    _allocateMatrices();
+    _initMatrices();
 
     _setVZMatrices();
 
@@ -689,7 +765,7 @@ void Chunk::oneQSOiteration(
 
     // Preload fiducial signal matrix if memory allows
     if (!specifics::TURN_OFF_SFID)
-        _setFiducialSignalMatrix(stored_sfid);
+        _setFiducialSignalMatrix(glmemory::stored_sfid.get());
 
     setCovarianceMatrix(ps_estimate);
 
@@ -720,31 +796,23 @@ void Chunk::oneQSOiteration(
             "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
             size(), MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
     }
-
-    _freeMatrices();
 }
 
 
-void Chunk::_allocateMatrices()
+void Chunk::_initMatrices()
 {
-    covariance_matrix = new double[DATA_SIZE_2];
+    covariance_matrix = glmemory::covariance_matrix.get();
 
     for (int i = 0; i < 2; ++i)
-        temp_matrix[i] = new double[DATA_SIZE_2];
-
-    temp_vector = new double[size()];
-    weighted_data_vector = new double[size()];
+        temp_matrix[i] = glmemory::temp_matrix[i].get();
     
-    for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
-        iqt->second = new double[DATA_SIZE_2];
-
-    if (!specifics::TURN_OFF_SFID)
-        stored_sfid = new double[DATA_SIZE_2];
+    for (int i = 0; i < stored_ikz_qi.size(); ++i)
+        stored_ikz_qi[i].second = glmemory::stored_ikz_qi[i].get();
 
     // Create a temp highres lambda array
     if (on_oversampling)
     {
-        _matrix_lambda = new double[_matrix_n];
+        _matrix_lambda = glmemory::matrix_lambda.get();
 
         double fine_dlambda =
             qFile->dlambda / LYA_REST / specifics::OVERSAMPLING_FACTOR;
@@ -752,15 +820,12 @@ void Chunk::_allocateMatrices()
         for (int i = 0; i < _matrix_n; ++i)
             _matrix_lambda[i] = qFile->wave()[0] + (i - disp) * fine_dlambda;
 
-        long highsize = (long)(_matrix_n) * (long)(_matrix_n);
-        _finer_matrix = new double[highsize];
-        _vmatrix = new double[highsize];
-        _zmatrix = new double[highsize];
+        _vmatrix = glmemory::v_matrix.get();
+        _zmatrix = glmemory::z_matrix.get();
     }
     else
     {
         _matrix_lambda = qFile->wave();
-        _finer_matrix = nullptr;
         _vmatrix = temp_matrix[0];
         _zmatrix = temp_matrix[1];
     }
@@ -770,39 +835,9 @@ void Chunk::_allocateMatrices()
     // i.e., no caching of SQ files
     // If all tables are cached, then this function simply points 
     // to those in process:sq_private_table
-    process::sq_private_table->readSQforR(RES_INDEX, interp2d_signal_matrix, 
-        interp_derivative_matrix);
-}
-
-void Chunk::_freeMatrices()
-{
-    delete [] covariance_matrix;
-
-    for (int i = 0; i < 2; ++i)
-        delete [] temp_matrix[i];
-
-    delete [] temp_vector;
-    delete [] weighted_data_vector;
-    for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
-        delete [] iqt->second;
-
-    if (!specifics::TURN_OFF_SFID)
-        delete [] stored_sfid;
-
-    if (specifics::USE_RESOLUTION_MATRIX)
-        qFile->Rmat->freeBuffer();
-
-    if (on_oversampling)
-    {
-        delete [] _finer_matrix;
-        delete [] _matrix_lambda;
-        delete [] _vmatrix;
-        delete [] _zmatrix;
-    }
-
-    if (interp2d_signal_matrix)
-        interp2d_signal_matrix.reset();
-    interp_derivative_matrix.clear();
+    process::sq_private_table->readSQforR(
+        RES_INDEX, glmemory::interp2d_signal_matrix, 
+        glmemory::interp_derivative_matrix);
 }
 
 void Chunk::fprintfMatrices(const char *fname_base)
@@ -812,7 +847,8 @@ void Chunk::fprintfMatrices(const char *fname_base)
     if (!specifics::TURN_OFF_SFID)
     {
         buf = std::string(fname_base) + "-signal.txt";
-        mxhelp::fprintfMatrix(buf.c_str(), stored_sfid, size(), size());
+        mxhelp::fprintfMatrix(
+            buf.c_str(), glmemory::stored_sfid.get(), size(), size());
     }
 
     if (qFile->Rmat != NULL)
