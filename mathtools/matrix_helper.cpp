@@ -68,6 +68,22 @@ double _integrated_window_fn_v(double x, double R, double a)
     return (R/a/MY_SQRT_2) * (_integral_erf(xr+ar) + _integral_erf(xr-ar) - 2*_integral_erf(xr));
 }
 
+
+namespace glmemory {
+    int capacity = 0;
+    std::unique_ptr<double[]> sandwich_buffer;
+
+    double* getSandwichBuffer(int size) {
+        if (size > capacity) {
+            sandwich_buffer = std::make_unique<double[]>(size);
+            capacity = size;
+        }
+
+        return sandwich_buffer.get();
+    }
+}
+
+
 namespace mxhelp
 {
     #define BLOCK_SIZE 32
@@ -155,14 +171,12 @@ namespace mxhelp
     }
 
     void LAPACKErrorHandle(const char *base, int info) {
-        if (info != 0) {
-            std::string err_msg(base);
-            if (info < 0)   err_msg += ": Illegal value.";
-            else            err_msg += ": Singular.";
+        std::string err_msg(base);
+        if (info < 0)   err_msg += ": Illegal value.";
+        else            err_msg += ": Singular.";
 
-            fprintf(stderr, "%s\n", err_msg.c_str());
-            throw std::runtime_error(err_msg);
-        }
+        fprintf(stderr, "%s\n", err_msg.c_str());
+        throw std::runtime_error(err_msg);
     }
 
     void LAPACKE_InvertMatrixLU(double *A, int N) {
@@ -174,11 +188,15 @@ namespace mxhelp
         // the LU factorization of a general m-by-n matrix.
         info = LAPACKE_dgetrf(
             LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, ipiv.data());
-        LAPACKErrorHandle("ERROR in LU decomposition.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in LU decomposition.", info);
 
         info = LAPACKE_dgetri(
             LAPACK_ROW_MAJOR, LIN, A, LIN, ipiv.data());
-        LAPACKErrorHandle("ERROR in LU invert.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in LU invert.", info);
 
         // dpotrf(CblasUpper, N, A, N); 
         // the Cholesky factorization of a symmetric positive-definite matrix
@@ -252,7 +270,9 @@ namespace mxhelp
         info = LAPACKE_dgesvd(
             LAPACK_ROW_MAJOR, 'N', 'N', LIN, LIN, B.get(), LIN, svals.get(), 
             NULL, LIN, NULL, LIN, superb.get());
-        LAPACKErrorHandle("ERROR in SVD.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in SVD.", info);
 
         if (sjump == nullptr)
             return svals[N - 1] / svals[0];
@@ -304,7 +324,8 @@ namespace mxhelp
             LAPACK_ROW_MAJOR, LIN, 1, A, LIN, ipiv.data(), b, 1);
         // info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', LIN, 1, S, LIN,b, 1);
 
-        LAPACKErrorHandle("ERROR in solve_safe.", info);
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in solve_safe.", info);
     }
 
 
@@ -324,7 +345,9 @@ namespace mxhelp
         lapack_int LIN = N, info = 0;
         info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', LIN, 1, S, LIN, b, 1);
 
-        LAPACKErrorHandle("ERROR in safeSolveCho.", info);
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in safeSolveCho.", info);
+
         for (const auto &i : empty_indx)
             b[i] = 0;
     }
@@ -375,7 +398,9 @@ namespace mxhelp
         info = LAPACKE_dgesvd(
             LAPACK_COL_MAJOR, 'O', 'N', M, N, A, M, svals, 
             NULL, M, NULL, N, superb.get());
-        LAPACKErrorHandle("ERROR in SVD.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in SVD.", info);
     }
 
     void printfMatrix(const double *A, int nrows, int ncols)
@@ -434,7 +459,7 @@ namespace mxhelp
 
     // class DiaMatrix
     DiaMatrix::DiaMatrix(int nm, int ndia)
-        : sandwich_buffer(nullptr), ndim(nm), ndiags(ndia)
+        : ndim(nm), ndiags(ndia)
     {
         // e.g. ndim=724, ndiags=11
         // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
@@ -613,15 +638,6 @@ namespace mxhelp
         // if (byCol)  transpose();
     }
 
-    void DiaMatrix::freeBuffer()
-    {
-        if (sandwich_buffer != nullptr)
-        {
-            delete [] sandwich_buffer;
-            sandwich_buffer = nullptr;
-        }
-    }
-
     void DiaMatrix::multiply(
             CBLAS_SIDE SIDER, CBLAS_TRANSPOSE TRANSR,
             const double* A, double *B) {
@@ -751,8 +767,7 @@ namespace mxhelp
 
     void DiaMatrix::sandwich(double *inplace)
     {
-        if (sandwich_buffer == nullptr)
-            sandwich_buffer = new double[ndim*ndim];
+        double *sandwich_buffer = glmemory::getSandwichBuffer(ndim * ndim);
 
         multiplyLeft(inplace, sandwich_buffer);
         multiplyRightT(sandwich_buffer, inplace);
@@ -770,7 +785,7 @@ namespace mxhelp
     // class OversampledMatrix
     OversampledMatrix::OversampledMatrix(
             int n1, int nelem_prow, int osamp, double dlambda
-    ) : sandwich_buffer(nullptr), nrows(n1), nelem_per_row(nelem_prow),
+    ) : nrows(n1), nelem_per_row(nelem_prow),
         oversampling(osamp)
     {
         ncols = nrows*oversampling + nelem_per_row-1;
@@ -814,8 +829,8 @@ namespace mxhelp
 
     void OversampledMatrix::sandwich(const double *S, double *B)
     {
-        if (sandwich_buffer == nullptr)
-            sandwich_buffer = new double[myomp::getMaxNumThreads() * ncols];
+        double *sandwich_buffer = glmemory::getSandwichBuffer(
+            myomp::getMaxNumThreads() * ncols);
  
         #pragma omp parallel for schedule(static, 1)
         for (int i = 0; i < nrows; ++i) {
@@ -856,15 +871,6 @@ namespace mxhelp
         }
 
         fclose(toWrite);
-    }
-
-    void OversampledMatrix::freeBuffer()
-    {
-        if (sandwich_buffer != nullptr)
-        {
-            delete [] sandwich_buffer;
-            sandwich_buffer = nullptr;
-        }
     }
 
     // Main resolution object
@@ -1016,12 +1022,6 @@ namespace mxhelp
         }
         else
             osamp_matrix->sandwich(S, B);
-    }
-
-    void Resolution::freeBuffer()
-    {
-        if (dia_matrix)   dia_matrix->freeBuffer();
-        if (osamp_matrix) osamp_matrix->freeBuffer();
     }
 
     double Resolution::getMinMemUsage()
