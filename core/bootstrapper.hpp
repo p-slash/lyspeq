@@ -93,6 +93,11 @@ public:
         bins::TOTAL_KZ_BINS = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_Z_BINS;
         bins::FISHER_SIZE = bins::TOTAL_KZ_BINS * bins::TOTAL_KZ_BINS;
 
+        if (myomp::getMaxNumThreads() > bins::TOTAL_KZ_BINS) {
+            LOG::LOGGER.STD("Using only %d OMP threads.", bins::TOTAL_KZ_BINS);
+            myomp::setNumThreads(bins::TOTAL_KZ_BINS);
+        }
+
         pcoeff = std::make_unique<double[]>(nboots * bins::TOTAL_KZ_BINS);
         tempfisher = std::make_unique<double[]>(bins::FISHER_SIZE);
         temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
