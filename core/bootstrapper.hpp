@@ -157,7 +157,8 @@ public:
         LOG::LOGGER.STD(
             "Bootstrap realizations saved as %s.\n", out_fname.c_str() + 1);
 
-        run();
+        // Median bootstrap is too time consuming.
+        _meanBootstrap();
     }
 
 private:
@@ -469,6 +470,9 @@ private:
         _calcuateCovariance(temppower.get(), tempfisher.get());
         _saveData("mean");
 
+        return;
+
+        // Find outliers not useful.
         for (int n = 0; n < 5; ++n) {
             LOG::LOGGER.STD("  Iteration %d...", n + 1);
 
