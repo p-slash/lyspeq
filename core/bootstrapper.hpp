@@ -356,15 +356,14 @@ private:
             for (unsigned int n = 0; n < nboots; ++n)
                 allpowers[n + i * nboots] -= median[i];
 
-        #pragma omp parallel for schedule(static, 1)
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i) {
-            const double *x = allpowers.get() + i * nboots;
-            double *buf = pcoeff.get() + nboots * myomp::getThreadNum();
-
             for (int j = i; j < bins::TOTAL_KZ_BINS; ++j) {
-                const double *y = allpowers.get() + j * nboots;
+                double *buf = pcoeff.get() + nboots * myomp::getThreadNum();
 
-                mxhelp::vector_multiply(nboots, x, y, buf);
+                mxhelp::vector_multiply(
+                    nboots, allpowers.get() + i * nboots,
+                    allpowers.get() + j * nboots, buf);
 
                 mad_cov[j + i * bins::TOTAL_KZ_BINS] =
                     stats::medianOfUnsortedVector(buf, nboots);
