@@ -343,7 +343,7 @@ private:
         }
 
         t2 = mytime::timer.getTime();
-        LOG::LOGGER.STD("  Total time spent in median is %.2f mins, ", t2 - t1);
+        LOG::LOGGER.STD("median is %.2f mins, ", t2 - t1);
     }
 
 
@@ -451,9 +451,15 @@ private:
     void _medianBootstrap() {
         LOG::LOGGER.STD("Calculating median bootstrap covariance.\n");
 
+        double t1 = mytime::timer.getTime(), t2 = 0;
+        myomp::setNumThreads(std::min(4, myomp::getMaxNumThreads()));
         mxhelp::transpose_copy(
             allpowers.get(), pcoeff.get(), nboots, bins::TOTAL_KZ_BINS);
+        myomp::setNumThreads(
+            std::min(bins::TOTAL_KZ_BINS, myomp::getMaxNumThreads()));
         allpowers.swap(pcoeff);
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("  Total time spent in transpose_copy is %.2f mins, ", t2 - t1);
 
         _calcuateMedian(temppower.get());
         _calcuateMadCovariance(temppower.get(), tempfisher.get());
