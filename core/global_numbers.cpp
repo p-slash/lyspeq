@@ -438,10 +438,9 @@ namespace bins
         low = std::lower_bound(z, z + N, zc - Z_BIN_WIDTH / 2) - z;
         up = std::upper_bound(z, z + N, zc + Z_BIN_WIDTH / 2) - z;
 
-        std::fill_n(out, N, 0);
-        #pragma omp simd
-        for (int i = low; i < up; ++i)
-            out[i] = 1;
+        std::fill(out, out + low, 0);
+        std::fill(out + low, out + up, 1);
+        std::fill(out + up, out + N, 0);
     }
 
     void (*redshiftBinningFunction)(
