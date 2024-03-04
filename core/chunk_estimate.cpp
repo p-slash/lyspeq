@@ -417,12 +417,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 
         eval_deriv_kn = [kc, dk](double v) {
             double x = dk * v / 2;
-            if (x == 0)
-                x = 1.0;
-            else
-                x = sin(x) / x;
-
-            return dk / MY_PI * x * cos(kc * v);
+            return (dk / MY_PI) * cos(kc * v) * sin(x) / (x + DOUBLE_EPSILON);
         };
     } else {
         eval_deriv_kn = [idkn = glmemory::interp_derivative_matrix[kn]](double v) {
