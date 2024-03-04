@@ -93,6 +93,11 @@ public:
         bins::TOTAL_KZ_BINS = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_Z_BINS;
         bins::FISHER_SIZE = bins::TOTAL_KZ_BINS * bins::TOTAL_KZ_BINS;
 
+        if (myomp::getMaxNumThreads() > bins::TOTAL_KZ_BINS) {
+            LOG::LOGGER.STD("Using only %d OMP threads.", bins::TOTAL_KZ_BINS);
+            myomp::setNumThreads(bins::TOTAL_KZ_BINS);
+        }
+
         pcoeff = std::make_unique<double[]>(nboots * bins::TOTAL_KZ_BINS);
         tempfisher = std::make_unique<double[]>(bins::FISHER_SIZE);
         temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
@@ -152,7 +157,8 @@ public:
         LOG::LOGGER.STD(
             "Bootstrap realizations saved as %s.\n", out_fname.c_str() + 1);
 
-        run();
+        // Median bootstrap is too time consuming.
+        _meanBootstrap();
     }
 
 private:
@@ -337,7 +343,7 @@ private:
         }
 
         t2 = mytime::timer.getTime();
-        LOG::LOGGER.STD("  Total time spent in median is %.2f mins, ", t2 - t1);
+        LOG::LOGGER.STD("median is %.2f mins, ", t2 - t1);
     }
 
 
@@ -350,15 +356,14 @@ private:
             for (unsigned int n = 0; n < nboots; ++n)
                 allpowers[n + i * nboots] -= median[i];
 
-        #pragma omp parallel for schedule(static, 1)
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i) {
-            const double *x = allpowers.get() + i * nboots;
-            double *buf = pcoeff.get() + nboots * myomp::getThreadNum();
-
             for (int j = i; j < bins::TOTAL_KZ_BINS; ++j) {
-                const double *y = allpowers.get() + j * nboots;
+                double *buf = pcoeff.get() + nboots * myomp::getThreadNum();
 
-                mxhelp::vector_multiply(nboots, x, y, buf);
+                mxhelp::vector_multiply(
+                    nboots, allpowers.get() + i * nboots,
+                    allpowers.get() + j * nboots, buf);
 
                 mad_cov[j + i * bins::TOTAL_KZ_BINS] =
                     stats::medianOfUnsortedVector(buf, nboots);
@@ -446,9 +451,12 @@ private:
     void _medianBootstrap() {
         LOG::LOGGER.STD("Calculating median bootstrap covariance.\n");
 
+        double t1 = mytime::timer.getTime(), t2 = 0;
         mxhelp::transpose_copy(
             allpowers.get(), pcoeff.get(), nboots, bins::TOTAL_KZ_BINS);
         allpowers.swap(pcoeff);
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("  Total time spent in transpose_copy is %.2f mins, ", t2 - t1);
 
         _calcuateMedian(temppower.get());
         _calcuateMadCovariance(temppower.get(), tempfisher.get());
@@ -464,6 +472,9 @@ private:
         _calcuateCovariance(temppower.get(), tempfisher.get());
         _saveData("mean");
 
+        return;
+
+        // Find outliers not useful.
         for (int n = 0; n < 5; ++n) {
             LOG::LOGGER.STD("  Iteration %d...", n + 1);
 

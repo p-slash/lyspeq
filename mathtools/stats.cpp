@@ -6,15 +6,13 @@
 
 
 double stats::medianOfSortedArray(const double *sorted_arr, int size) {
-    int jj = size / 2;
-    double median = sorted_arr[jj];
-
     if (size % 2 == 0) {
-        median += sorted_arr[jj - 1];
-        median /= 2;
+        int jj = size / 2;
+        return (sorted_arr[jj - 1] + sorted_arr[jj]) / 2;
+    } else {
+        int jj = size / 2;
+        return sorted_arr[jj];
     }
-
-    return median;
 }
 
 
