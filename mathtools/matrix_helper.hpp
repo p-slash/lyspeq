@@ -28,7 +28,6 @@ namespace mxhelp
             int N, const double *x, int incx, const double *y, int incy,
             double *out
     ) {
-        #pragma omp parallel for
         for (int i = 0; i < N; ++i)
             out[i] = x[i * incx] * y[i * incy];
     }
@@ -36,7 +35,6 @@ namespace mxhelp
     inline void vector_multiply(
             int N, const double *x, const double *y, double *out
     ) {
-        #pragma omp parallel for
         for (int i = 0; i < N; ++i)
             out[i] = x[i] * y[i];
     }
