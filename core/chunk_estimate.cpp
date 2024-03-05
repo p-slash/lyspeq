@@ -78,6 +78,10 @@ namespace glmemory {
         process::updateMemory(-ntempmatrices * process::getMemoryMB(max_size_2));
         memUsed += ntempmatrices * process::getMemoryMB(max_size_2);
 
+        LOG::LOGGER.STD(
+            "Using %d temp matrices. Remaining memory is %.2f MB.\n",
+            ntempmatrices, process::MEMORY_ALLOC);
+
         temp_vector = std::make_unique<double[]>(max_size);
         weighted_data_vector = std::make_unique<double[]>(max_size);
 
