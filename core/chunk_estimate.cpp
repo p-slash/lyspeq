@@ -102,6 +102,7 @@ namespace glmemory {
         temp_matrix[0].reset();
         temp_matrix[1].reset();
         stored_sfid.reset();
+        stored_ikz_qi.clear();
         matrix_lambda.reset();
         finer_matrix.reset();
         v_matrix.reset();
