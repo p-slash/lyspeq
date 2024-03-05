@@ -69,7 +69,7 @@ protected:
     void _setVZMatrices();
     void _setQiMatrix(double *qi, int i_kz);
     void _addMarginalizations();
-    void _getWeightedMatrix(double *m);
+    void _getWeightedMatrix(double *&m);
 
     friend class TestOneQSOEstimate;
 

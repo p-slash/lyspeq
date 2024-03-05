@@ -610,7 +610,7 @@ void Chunk::invertCovarianceMatrix()
     mytime::time_spent_on_c_inv += t;
 }
 
-void Chunk::_getWeightedMatrix(double *m)
+void Chunk::_getWeightedMatrix(double *&m)
 {
     //C-1 . Q
     // cblas_dsymm(
@@ -624,7 +624,7 @@ void Chunk::_getWeightedMatrix(double *m)
         size(), size(), size(), 1., inverse_covariance_matrix, size(),
         m, size(), 0, temp_matrix[0], size());
 
-    std::copy(temp_matrix[0], temp_matrix[0] + DATA_SIZE_2, m);
+    std::swap(temp_matrix[0], m);
 }
 
 void Chunk::computePSbeforeFvector()
