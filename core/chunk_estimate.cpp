@@ -43,9 +43,9 @@ namespace glmemory {
     bool on_oversampling = false;
     double memUsed = 0;
     std::unique_ptr<double[]>
-        covariance_matrix, temp_matrix[2], temp_vector, weighted_data_vector,
+        covariance_matrix, temp_vector, weighted_data_vector,
         stored_sfid, matrix_lambda, finer_matrix, v_matrix, z_matrix;
-    std::vector<std::unique_ptr<double[]>> stored_ikz_qi;
+    std::vector<std::unique_ptr<double[]>> stored_ikz_qi, temp_matrices;
 
     shared_interp_2d interp2d_signal_matrix;
     std::vector<shared_interp_1d> interp_derivative_matrix;
@@ -62,7 +62,7 @@ namespace glmemory {
         int highsize = 0;
 
         memUsed += process::getMemoryMB(
-            2 * max_size + (3 + !specifics::TURN_OFF_SFID + max_nqdim) * max_size_2
+            2 * max_size + (1 + !specifics::TURN_OFF_SFID + max_nqdim) * max_size_2
         );
 
         if (on_oversampling) {
@@ -71,17 +71,26 @@ namespace glmemory {
         }
 
         process::updateMemory(-memUsed);
+        int ntempmatrices = std::min(
+            myomp::getMaxNumThreads(),
+            int(0.9 * process::MEMORY_ALLOC / process::getMemoryMB(max_size_2))
+        );
+        process::updateMemory(-ntempmatrices * process::getMemoryMB(max_size_2));
+        memUsed += ntempmatrices * process::getMemoryMB(max_size_2);
 
         temp_vector = std::make_unique<double[]>(max_size);
         weighted_data_vector = std::make_unique<double[]>(max_size);
 
         covariance_matrix = std::make_unique<double[]>(max_size_2);
-        temp_matrix[0] = std::make_unique<double[]>(max_size_2);
-        temp_matrix[1] = std::make_unique<double[]>(max_size_2);
+
+        temp_matrices.reserve(ntempmatrices);
+        for (int i = 0; i < ntempmatrices; ++i)
+            temp_matrices.push_back(std::make_unique<double[]>(max_size_2));
 
         if (!specifics::TURN_OFF_SFID)
             stored_sfid = std::make_unique<double[]>(max_size_2);
 
+        stored_ikz_qi.reserve(max_nqdim);
         for (int i = 0; i < max_nqdim; ++i)
             stored_ikz_qi.push_back(std::make_unique<double[]>(max_size_2));
 
@@ -99,8 +108,7 @@ namespace glmemory {
         temp_vector.reset();
         weighted_data_vector.reset();
         covariance_matrix.reset();
-        temp_matrix[0].reset();
-        temp_matrix[1].reset();
+        temp_matrices.clear();
         stored_sfid.reset();
         stored_ikz_qi.clear();
         matrix_lambda.reset();
@@ -697,16 +705,14 @@ void Chunk::computePSbeforeFvector()
     t = mytime::timer.getTime();
 
     // I am not sure if we can parallize the outer loop here.
-    // need to limit num_threads=2, but will that mess up inner loops?
-    // Seems to speed things up though.
-    #pragma omp parallel for num_threads(2) schedule(static, 1)
+    // Seems to speed things up though. Enabling nested loops slow things down.
+    #pragma omp parallel for num_threads(glmemory::temp_matrices.size()) schedule(static, 1)
     for (auto iqt = stored_ikz_qi.cbegin(); iqt != stored_ikz_qi.cend(); ++iqt) {
         int idx_fji_0 = N_Q_MATRICES * iqt->first;
-        double *Q_ikz_matrix_T = temp_matrix[myomp::getThreadNum()];
+        double *Q_ikz_matrix_T = glmemory::temp_matrices[myomp::getThreadNum()].get();
 
         mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size(), size());
 
-        #pragma omp parallel for
         for (auto jqt = iqt; jqt != stored_ikz_qi.cend(); ++jqt) {
             #ifdef FISHER_OPTIMIZATION
             int diff_ji = jqt->first - iqt->first;
@@ -800,7 +806,7 @@ void Chunk::_initMatrices()
     covariance_matrix = glmemory::covariance_matrix.get();
 
     for (int i = 0; i < 2; ++i)
-        temp_matrix[i] = glmemory::temp_matrix[i].get();
+        temp_matrix[i] = glmemory::temp_matrices[i].get();
     
     for (int i = 0; i < stored_ikz_qi.size(); ++i)
         stored_ikz_qi[i].second = glmemory::stored_ikz_qi[i].get();
