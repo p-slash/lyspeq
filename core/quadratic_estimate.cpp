@@ -28,6 +28,8 @@
 #endif
 
 
+std::pair<bool, double> damping_pair {false, 0.};
+
 void _saveChunkResults(
         std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
 ) {
@@ -243,7 +245,7 @@ std::vector<std::string> OneDQuadraticPowerEstimate::_loadBalancing(
 
 void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 {
-    double t = mytime::timer.getTime(), damp = 0;
+    double t = mytime::timer.getTime();
     int status = 0;
 
     LOG::LOGGER.STD("Inverting Fisher matrix.\n");
@@ -252,14 +254,17 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
         fisher_matrix_sum.get(), bins::FISHER_SIZE,
         solver_invfisher_matrix.get());
 
+    damping_pair.second = 0;
     status = mxhelp::stableInvertSym(
         solver_invfisher_matrix, bins::TOTAL_KZ_BINS,
-        bins::NewDegreesOfFreedom, damp);
+        bins::NewDegreesOfFreedom, damping_pair.second);
 
-    if (status != 0) {
+    damping_pair.first = status != 0;
+
+    if (damping_pair.first) {
         LOG::LOGGER.STD(
             "* Fisher matrix is damped by adding %.2e to the diagonal.\n",
-            damp);
+            damping_pair.second);
 
         static auto _temp_fmat = std::make_unique<double[]>(bins::FISHER_SIZE);
 
@@ -699,6 +704,12 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fnam
         "# Ft     : t before Fisher\n"
         "# -----------------------------------------------------------------\n");
 
+    if (damping_pair.first)
+        fprintf(toWrite, "# Damped: True\n");
+    else
+        fprintf(toWrite, "# Damped: False\n");
+
+    fprintf(toWrite, "# Damping constant: %.3e\n", damping_pair.second);
     fprintf(toWrite, "# %d %d\n# ", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
 
     for (int i = 0; i <= bins::NUMBER_OF_Z_BINS + 1; ++i)
