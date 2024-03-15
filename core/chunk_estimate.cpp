@@ -713,7 +713,7 @@ void Chunk::computePSbeforeFvector()
     #pragma omp parallel for num_threads(glmemory::temp_matrices.size()) schedule(static, 1)
     for (auto iqt = stored_ikz_qi.cbegin(); iqt != stored_ikz_qi.cend(); ++iqt) {
         int idx_fji_0 = N_Q_MATRICES * iqt->first;
-        double *Q_ikz_matrix_T = glmemory::temp_matrices[myomp::getThreadNum()].get();
+        double *Q_ikz_matrix_T = temp_matrix[myomp::getThreadNum()];
 
         mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size(), size());
 
@@ -809,7 +809,8 @@ void Chunk::_initMatrices()
 {
     covariance_matrix = glmemory::covariance_matrix.get();
 
-    for (int i = 0; i < 2; ++i)
+    temp_matrix.resize(glmemory::temp_matrices.size());
+    for (int i = 0; i < temp_matrix.size(); ++i)
         temp_matrix[i] = glmemory::temp_matrices[i].get();
     
     for (int i = 0; i < stored_ikz_qi.size(); ++i)

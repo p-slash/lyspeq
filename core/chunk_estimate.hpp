@@ -54,7 +54,7 @@ protected:
     // DATA_SIZE x DATA_SIZE sized matrices 
     // Note that noise matrix is diagonal and stored as pointer to its array 
     double *covariance_matrix;
-    double *temp_matrix[2];
+    std::vector<double*> temp_matrix;
     std::vector<std::pair<int, double*>> stored_ikz_qi;
 
     void _copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2);
