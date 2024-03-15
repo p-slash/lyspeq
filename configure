@@ -50,8 +50,6 @@ function set_config_options()
                 ENABLE_MPI="-DENABLE_MPI";;
             --use-mkl-cblas )
                 USE_MKL_CBLAS="-DUSE_MKL_CBLAS";;
-            --use-openblas )
-                USE_OPENBLAS="USE_OPENBLAS";;
             --enable-openmp )
                 CPPFLAGS_OMP="-fopenmp"
                 ENABLE_OMP="-DENABLE_OMP";;
@@ -62,6 +60,8 @@ function set_config_options()
                 ENABLE_DEBUG="-DDEBUG";;
             CXX=* )
                 CXX="${i#*=}";;
+            LDLIBS=* )
+                LDLIBS="${i#*=}";;
             GSL_DIR=* )
                 GSL_DIR="${i#*=}";;
             FFTW_ROOT=* )
@@ -414,10 +414,6 @@ function set_cblas_inc_lib()
         cblas_libs="-lcblas -llapack"
 
         reconfigure_for_mkl_libs
-    fi
-
-    if [[ ! -z "${USE_OPENBLAS}" ]]; then
-        cblas_libs="-lopenblas -lcblas -llapack"
     fi
 
     test_file="${srcdir}/build-aux/test_cblas_lapacke_compiling"
