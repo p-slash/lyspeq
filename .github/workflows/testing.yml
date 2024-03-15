@@ -16,8 +16,8 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get -y install build-essential libgsl-dev \
-        libopenblas-dev liblapacke liblapacke-dev libcfitsio-dev \
-        libfftw3-dev
+        libopenblas-base libopenblas-dev liblapacke liblapacke-dev \
+        libcfitsio-dev libfftw3-dev
     - name: Set up Python 3.11
       uses: actions/setup-python@v4
       with:
@@ -25,7 +25,7 @@ jobs:
     - name: Install NumPy
       run: pip install numpy
     - name: configure
-      run: ./configure --enable-openmp LDLIBS="-lblas -llapack"
+      run: ./configure --enable-openmp
     - name: make
       run: make
     - name: make test
