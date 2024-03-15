@@ -20,10 +20,6 @@
 #include "lapacke.h"
 #endif
 
-#if defined(ENABLE_OMP)
-#include "omp.h"
-#endif
-
 const double
 MY_SQRT_2 = 1.41421356237,
 MY_SQRT_PI = 1.77245385091,
@@ -72,6 +68,22 @@ double _integrated_window_fn_v(double x, double R, double a)
     return (R/a/MY_SQRT_2) * (_integral_erf(xr+ar) + _integral_erf(xr-ar) - 2*_integral_erf(xr));
 }
 
+
+namespace glmemory {
+    int capacity = 0;
+    std::unique_ptr<double[]> sandwich_buffer;
+
+    double* getSandwichBuffer(int size) {
+        if (size > capacity) {
+            sandwich_buffer = std::make_unique<double[]>(size);
+            capacity = size;
+        }
+
+        return sandwich_buffer.get();
+    }
+}
+
+
 namespace mxhelp
 {
     #define BLOCK_SIZE 32
@@ -90,17 +102,17 @@ namespace mxhelp
         }
     }
 
-    void transpose_copy(const double *A, double *B, int N) {
+    void transpose_copy(const double *A, double *B, int M, int N) {
         #pragma omp parallel for collapse(2)
-        for (int i = 0; i < N; i += BLOCK_SIZE) {
+        for (int i = 0; i < M; i += BLOCK_SIZE) {
             for (int j = 0; j < N; j += BLOCK_SIZE) {
-                int kmax = std::min(i + BLOCK_SIZE, N),
+                int kmax = std::min(i + BLOCK_SIZE, M),
                     lmax = std::min(j + BLOCK_SIZE, N);
 
                 #pragma omp simd collapse(2)
                 for (int l = j; l < lmax; ++l)
                     for (int k = i; k < kmax; ++k)
-                        B[k + l * N] = A[l + k * N];
+                        B[k + l * M] = A[l + k * N];
             }
         }
     }
@@ -132,12 +144,12 @@ namespace mxhelp
         return result;
     }
 
-    double my_cblas_dgemvdot(
-            const double *v, const double *A, double *temp_vector, int N
+    double my_cblas_dsymvdot(
+            const double *v, const double *S, double *temp_vector, int N
     ) {
-        cblas_dgemv(
-            CblasRowMajor, CblasNoTrans, N, N, 1.,
-            A, N, v, 1, 0, temp_vector, 1);
+        cblas_dsymv(
+            CblasRowMajor, CblasUpper, N, 1.,
+            S, N, v, 1, 0, temp_vector, 1);
 
         return cblas_ddot(N, v, 1, temp_vector, 1);
     }
@@ -159,14 +171,12 @@ namespace mxhelp
     }
 
     void LAPACKErrorHandle(const char *base, int info) {
-        if (info != 0) {
-            std::string err_msg(base);
-            if (info < 0)   err_msg += ": Illegal value.";
-            else            err_msg += ": Singular.";
+        std::string err_msg(base);
+        if (info < 0)   err_msg += ": Illegal value.";
+        else            err_msg += ": Singular.";
 
-            fprintf(stderr, "%s\n", err_msg.c_str());
-            throw std::runtime_error(err_msg);
-        }
+        fprintf(stderr, "%s\n", err_msg.c_str());
+        throw std::runtime_error(err_msg);
     }
 
     void LAPACKE_InvertMatrixLU(double *A, int N) {
@@ -178,11 +188,15 @@ namespace mxhelp
         // the LU factorization of a general m-by-n matrix.
         info = LAPACKE_dgetrf(
             LAPACK_ROW_MAJOR, LIN, LIN, A, LIN, ipiv.data());
-        LAPACKErrorHandle("ERROR in LU decomposition.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in LU decomposition.", info);
 
         info = LAPACKE_dgetri(
             LAPACK_ROW_MAJOR, LIN, A, LIN, ipiv.data());
-        LAPACKErrorHandle("ERROR in LU invert.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in LU invert.", info);
 
         // dpotrf(CblasUpper, N, A, N); 
         // the Cholesky factorization of a symmetric positive-definite matrix
@@ -216,14 +230,16 @@ namespace mxhelp
         return N - empty_indx.size();
     }
 
-    void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp) {
+    void LAPACKE_InvertSymMatrixLU_damped(
+            std::unique_ptr<double[]> &S, int N, double damp
+    ) {
         int size = N * N;
         auto _Amat = std::make_unique<double[]>(size),
              _Bmat = std::make_unique<double[]>(size);
         cblas_dgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            N, N, N, 1., S, N,
-            S, N, 0, _Amat.get(), N);
+            N, N, N, 1., S.get(), N,
+            S.get(), N, 0, _Amat.get(), N);
 
         // Scaling damping
         // cblas_dscal(N, 1. + damp, _Amat.get(), N + 1);
@@ -236,15 +252,10 @@ namespace mxhelp
 
         cblas_dgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            N, N, N, 0.5, _Amat.get(), N,
-            S, N, 0, _Bmat.get(), N);
+            N, N, N, 1., _Amat.get(), N,
+            S.get(), N, 0, _Bmat.get(), N);
 
-        cblas_dgemm(
-            CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            N, N, N, 0.5, S, N,
-            _Amat.get(), N, 1, _Bmat.get(), N);
-
-        std::copy_n(_Bmat.get(), size, S);
+        _Bmat.swap(S);
     }
 
     double LAPACKE_RcondSvd(const double *A, int N, double *sjump) {
@@ -259,7 +270,9 @@ namespace mxhelp
         info = LAPACKE_dgesvd(
             LAPACK_ROW_MAJOR, 'N', 'N', LIN, LIN, B.get(), LIN, svals.get(), 
             NULL, LIN, NULL, LIN, superb.get());
-        LAPACKErrorHandle("ERROR in SVD.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in SVD.", info);
 
         if (sjump == nullptr)
             return svals[N - 1] / svals[0];
@@ -277,20 +290,22 @@ namespace mxhelp
     }
 
 
-    int stableInvertSym(double *S, int N, int &dof, double &damp) {
+    int stableInvertSym(
+            std::unique_ptr<double[]> &S, int N, int &dof, double &damp
+    ) {
         int warn = 0;
-        std::vector<int> empty_indx = _setEmptyIndices(S, N);
+        std::vector<int> empty_indx = _setEmptyIndices(S.get(), N);
         dof = N - empty_indx.size();
         damp = 0;
 
         double rcond = 0;
-        rcond = LAPACKE_RcondSvd(S, N, &damp);
+        rcond = LAPACKE_RcondSvd(S.get(), N, &damp);
 
         if (damp != 0) {
             warn = 1;
             LAPACKE_InvertSymMatrixLU_damped(S, N, damp);
         } else {
-            LAPACKE_InvertMatrixLU(S, N);
+            LAPACKE_InvertMatrixLU(S.get(), N);
         }
 
         for (const auto &i : empty_indx)
@@ -309,7 +324,8 @@ namespace mxhelp
             LAPACK_ROW_MAJOR, LIN, 1, A, LIN, ipiv.data(), b, 1);
         // info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', LIN, 1, S, LIN,b, 1);
 
-        LAPACKErrorHandle("ERROR in solve_safe.", info);
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in solve_safe.", info);
     }
 
 
@@ -329,7 +345,9 @@ namespace mxhelp
         lapack_int LIN = N, info = 0;
         info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', LIN, 1, S, LIN, b, 1);
 
-        LAPACKErrorHandle("ERROR in safeSolveCho.", info);
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in safeSolveCho.", info);
+
         for (const auto &i : empty_indx)
             b[i] = 0;
     }
@@ -339,9 +357,9 @@ namespace mxhelp
         auto _Amat = std::make_unique<double[]>(N * N),
              _Ab = std::make_unique<double[]>(N);
 
-        cblas_dgemv(
-            CblasRowMajor, CblasNoTrans,
-            N, N, 1., S, N, 
+        cblas_dsymv(
+            CblasRowMajor, CblasUpper,
+            N, 1., S, N, 
             b, 1, 0, _Ab.get(), 1);
         std::copy_n(_Ab.get(), N, b);
 
@@ -380,7 +398,9 @@ namespace mxhelp
         info = LAPACKE_dgesvd(
             LAPACK_COL_MAJOR, 'O', 'N', M, N, A, M, svals, 
             NULL, M, NULL, N, superb.get());
-        LAPACKErrorHandle("ERROR in SVD.", info);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in SVD.", info);
     }
 
     void printfMatrix(const double *A, int nrows, int ncols)
@@ -439,7 +459,7 @@ namespace mxhelp
 
     // class DiaMatrix
     DiaMatrix::DiaMatrix(int nm, int ndia)
-        : sandwich_buffer(NULL), ndim(nm), ndiags(ndia)
+        : ndim(nm), ndiags(ndia)
     {
         // e.g. ndim=724, ndiags=11
         // offsets: [ 5  4  3  2  1  0 -1 -2 -3 -4 -5]
@@ -460,11 +480,8 @@ namespace mxhelp
     {
         double *newmat = new double[size];
 
-        for (int d = 0; d < ndiags; ++d)
-            cblas_dcopy(ndim, matrix()+d, ndiags,
-                newmat+d*ndim, 1);
+        transpose_copy(matrix(), newmat, ndim, ndiags);
 
-        // values = std::move(newmat);
         delete [] values;
         values = newmat;
     }
@@ -621,15 +638,6 @@ namespace mxhelp
         // if (byCol)  transpose();
     }
 
-    void DiaMatrix::freeBuffer()
-    {
-        if (sandwich_buffer != NULL)
-        {
-            delete [] sandwich_buffer;
-            sandwich_buffer = NULL;
-        }
-    }
-
     void DiaMatrix::multiply(
             CBLAS_SIDE SIDER, CBLAS_TRANSPOSE TRANSR,
             const double* A, double *B) {
@@ -759,8 +767,7 @@ namespace mxhelp
 
     void DiaMatrix::sandwich(double *inplace)
     {
-        if (sandwich_buffer == NULL)
-            sandwich_buffer = new double[ndim*ndim];
+        double *sandwich_buffer = glmemory::getSandwichBuffer(ndim * ndim);
 
         multiplyLeft(inplace, sandwich_buffer);
         multiplyRightT(sandwich_buffer, inplace);
@@ -778,7 +785,7 @@ namespace mxhelp
     // class OversampledMatrix
     OversampledMatrix::OversampledMatrix(
             int n1, int nelem_prow, int osamp, double dlambda
-    ) : sandwich_buffer(NULL), nrows(n1), nelem_per_row(nelem_prow),
+    ) : nrows(n1), nelem_per_row(nelem_prow),
         oversampling(osamp)
     {
         ncols = nrows*oversampling + nelem_per_row-1;
@@ -787,55 +794,66 @@ namespace mxhelp
         values  = new double[size];
     }
 
+
     // R . A = B
     // A should be ncols x ncols symmetric matrix. 
     // B should be nrows x ncols, will be initialized to zero
     void OversampledMatrix::multiplyLeft(const double* A, double *B)
     {
+        #pragma omp parallel for
         for (int i = 0; i < nrows; ++i)
-        {
-            double *bsub = B + i * ncols;
-            const double *Asub = A + i * ncols * oversampling;
-
             cblas_dgemv(
                 CblasRowMajor, CblasTrans,
-                nelem_per_row, ncols, 1., Asub, ncols, 
-                _getRow(i), 1, 0, bsub, 1);
-        }
-
-        // std::fill_n(B, nrows * ncols, 0);
-        // #pragma omp parallel for simd collapse(3)
-        // for (int i = 0; i < nrows; ++i)
-        //     for (int j = 0; j < nelem_per_row; ++j)
-        //         for (int k = 0; k < ncols; ++k)
-        //             B[k + i * ncols] += 
-        //                 A[k + (j + i * oversampling) * ncols] * values[j + i * nelem_per_row];
+                nelem_per_row, ncols, 1.,
+                A + i * oversampling * ncols, ncols, 
+                values + i * nelem_per_row, 1,
+                0, B + i * ncols, 1);
     }
 
     // A . R^T = B
     // A should be nrows x ncols matrix. 
     // B should be nrows x nrows, will be initialized to zero
-    void OversampledMatrix::multiplyRight(const double* A, double *B)
-    {
+    // Assumes B will be symmetric
+    void OversampledMatrix::multiplyRight(const double* A, double *B) {
+        #pragma omp parallel for
         for (int i = 0; i < nrows; ++i)
-        {
-            double *bsub = B + i;
-            const double *Asub = A + i * oversampling;
+            cblas_dgemv(
+                CblasRowMajor, CblasNoTrans,
+                nrows - i, nelem_per_row, 1.,
+                A + i * (oversampling + ncols), ncols, 
+                values + i * nelem_per_row, 1,
+                0, B + i * (nrows + 1), 1);
 
-            cblas_dgemv(CblasRowMajor, CblasNoTrans,
-                nrows, nelem_per_row, 1., Asub, ncols, 
-                _getRow(i), 1, 0, bsub, nrows);
-        }
+        copyUpperToLower(B, nrows);
     }
 
-    void OversampledMatrix::sandwichHighRes(double *B, const double *temp_highres_mat)
+    void OversampledMatrix::sandwich(const double *S, double *B)
     {
-        if (sandwich_buffer == NULL)
-            sandwich_buffer = new double[nrows*ncols];
+        double *sandwich_buffer = glmemory::getSandwichBuffer(
+            myomp::getMaxNumThreads() * ncols);
+ 
+        #pragma omp parallel for schedule(static, 1)
+        for (int i = 0; i < nrows; ++i) {
+            const double *As = S + i * oversampling * (ncols + 1);
+            const double *row = values + i * nelem_per_row;
+            double *v = sandwich_buffer + myomp::getThreadNum() * ncols;
 
-        multiplyLeft(temp_highres_mat, sandwich_buffer);
-        multiplyRight(sandwich_buffer, B);
+            cblas_dgemv(
+                CblasRowMajor, CblasTrans,
+                nelem_per_row, ncols - i * oversampling, 1.,
+                As, ncols, 
+                row, 1,
+                0, v, 1);
+
+            for (int j = 0; j < nrows - i; ++j)
+                B[j + i * (nrows + 1)] = cblas_ddot(
+                    nelem_per_row, v + j * oversampling, 1,
+                    row + j * nelem_per_row, 1);
+        }
+
+        copyUpperToLower(B, nrows);
     }
+
 
     void OversampledMatrix::fprintfMatrix(const char *fname)
     {
@@ -853,15 +871,6 @@ namespace mxhelp
         }
 
         fclose(toWrite);
-    }
-
-    void OversampledMatrix::freeBuffer()
-    {
-        if (sandwich_buffer != NULL)
-        {
-            delete [] sandwich_buffer;
-            sandwich_buffer = NULL;
-        }
     }
 
     // Main resolution object
@@ -936,13 +945,6 @@ namespace mxhelp
         }
     }
 
-    int Resolution::getNElemPerRow() const
-    {
-        if (is_dia_matrix)
-            return dia_matrix->ndiags;
-        else
-            return osamp_matrix->nelem_per_row;
-    }
 
     void Resolution::oversample(int osamp, double dlambda)
     {
@@ -1011,21 +1013,15 @@ namespace mxhelp
         dia_matrix.reset();
     }
 
-    void Resolution::sandwich(double *B, const double *temp_highres_mat)
+    void Resolution::sandwich(const double *S, double *B)
     {
         if (is_dia_matrix)
         {
-            const double *tmat __attribute__((unused)) = temp_highres_mat;
+            const double *tmat __attribute__((unused)) = S;
             dia_matrix->sandwich(B);
         }
         else
-            osamp_matrix->sandwichHighRes(B, temp_highres_mat);
-    }
-
-    void Resolution::freeBuffer()
-    {
-        if (dia_matrix)   dia_matrix->freeBuffer();
-        if (osamp_matrix) osamp_matrix->freeBuffer();
+            osamp_matrix->sandwich(S, B);
     }
 
     double Resolution::getMinMemUsage()

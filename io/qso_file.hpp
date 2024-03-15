@@ -88,12 +88,10 @@ public:
 
     void readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
-        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
-        int &oversampling);
+        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda);
 
     void readData(double *lambda, double *delta, double *ivar);
-    std::unique_ptr<mxhelp::Resolution> readAllocResolutionMatrix(
-        int oversampling, double dlambda);
+    std::unique_ptr<mxhelp::Resolution> readAllocResolutionMatrix();
 };
 
 class QSOFile
@@ -113,7 +111,7 @@ public:
     std::string fname;
     double z_qso, snr, dv_kms, dlambda, ra, dec, R_kms;
     long id;
-    int R_fwhm, oversampling;
+    int R_fwhm;
     std::unique_ptr<mxhelp::Resolution> Rmat;
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);

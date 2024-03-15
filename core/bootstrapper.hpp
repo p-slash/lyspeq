@@ -1,6 +1,7 @@
 #ifndef BOOTSTRAPPER_H
 #define BOOTSTRAPPER_H
 
+#include <algorithm>
 #include <memory>
 #include <random>
 #include <string>
@@ -9,10 +10,12 @@
 #endif
 
 #include "core/one_qso_estimate.hpp"
+#include "core/omp_manager.hpp"
 #include "core/global_numbers.hpp"
 #include "core/progress.hpp"
 #include "mathtools/matrix_helper.hpp"
 #include "mathtools/stats.hpp"
+#include "io/bootstrap_file.hpp"
 
 
 class PoissonRNG {
@@ -25,8 +28,8 @@ public:
         return p_dist(rng_engine);
     }
 
-    void fillVector(std::vector<double> &v) {
-        for (auto it = v.begin(); it != v.end(); ++it)
+    void fillVector(double *v, int size) {
+        for (double *it = v; it != v + size; ++it)
             (*it) = generate();
     }
 
@@ -61,18 +64,51 @@ public:
         pgenerator = std::make_unique<PoissonRNG>(process::this_pe);
 
         if (specifics::FAST_BOOTSTRAP) {
-            temppower.resize(nboots * bins::TOTAL_KZ_BINS);
-            pcoeff.resize(nboots);
+            temppower = std::make_unique<double[]>(nboots * bins::TOTAL_KZ_BINS);
+            pcoeff = std::make_unique<double[]>(nboots);
         } else
-            temppower.resize(bins::TOTAL_KZ_BINS);
+            temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
-        tempfisher.resize(bins::FISHER_SIZE);
+        tempfisher = std::make_unique<double[]>(bins::FISHER_SIZE);
         if (process::this_pe == 0)
-            allpowers.resize(nboots * bins::TOTAL_KZ_BINS);
+            allpowers = std::make_unique<double[]>(nboots * bins::TOTAL_KZ_BINS);
 
-        outlier.resize(nboots, false);
+        outlier = std::make_unique<bool[]>(nboots);
     }
+
+    PoissonBootstrapper(const std::string &fname) {
+        if (process::this_pe != 0)
+            return;
+
+        if (process::total_pes > 1)
+            LOG::LOGGER.ERR("No need for MPI.\n");
+
+        ioh::readBootstrapRealizations(
+            fname, allpowers, slvF,
+            nboots, bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS,
+            specifics::FAST_BOOTSTRAP
+        );
+
+        remaining_boots = nboots;
+        bins::TOTAL_KZ_BINS = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_Z_BINS;
+        bins::FISHER_SIZE = bins::TOTAL_KZ_BINS * bins::TOTAL_KZ_BINS;
+
+        if (myomp::getMaxNumThreads() > bins::TOTAL_KZ_BINS) {
+            LOG::LOGGER.STD("Using only %d OMP threads.", bins::TOTAL_KZ_BINS);
+            myomp::setNumThreads(bins::TOTAL_KZ_BINS);
+        }
+
+        pcoeff = std::make_unique<double[]>(nboots * bins::TOTAL_KZ_BINS);
+        tempfisher = std::make_unique<double[]>(bins::FISHER_SIZE);
+        temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+        outlier = std::make_unique<bool[]>(nboots);
+
+        invfisher = slvF.get();
+    }
+
     ~PoissonBootstrapper() { process::updateMemory(getMinMemUsage()); }
+
+    void run() { _meanBootstrap(); _medianBootstrap(); }
 
     void run(
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
@@ -83,10 +119,14 @@ public:
 
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
 
+        std::string comment;
         if (specifics::FAST_BOOTSTRAP) {
+            comment = "FastBootstrap method. Realizations are not normalized. "
+                      "Apply y = 0.5 gemv(SOLV_INVF, x)";
             _fastBootstrap(local_queue);
         }
         else {
+            comment = "Complete bootstrap method. Realizations are normalized.";
             Progress prog_tracker(nboots);
             int ii = 0;
             for (unsigned int jj = 0; jj < nboots; ++jj) {
@@ -110,16 +150,23 @@ public:
 
         mytime::printfBootstrapTimeSpentDetails();
 
+        std::string out_fname = ioh::saveBootstrapRealizations(
+            process::FNAME_BASE, allpowers.get(), invfisher,
+            nboots, bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS,
+            specifics::FAST_BOOTSTRAP, comment.c_str());
+        LOG::LOGGER.STD(
+            "Bootstrap realizations saved as %s.\n", out_fname.c_str() + 1);
+
+        // Median bootstrap is too time consuming.
         _meanBootstrap();
-        _medianBootstrap();
     }
 
 private:
     unsigned int nboots, remaining_boots;
     double *invfisher;
     std::unique_ptr<PoissonRNG> pgenerator;
-    std::vector<double> temppower, tempfisher, allpowers, pcoeff;
-    std::vector<bool> outlier;
+    std::unique_ptr<double[]> temppower, tempfisher, allpowers, pcoeff, slvF;
+    std::unique_ptr<bool[]> outlier;
 
     double getMinMemUsage() {
         double memfull = process::getMemoryMB(nboots * bins::TOTAL_KZ_BINS);
@@ -136,15 +183,20 @@ private:
     }
 
     void _fastBootstrap(
-            std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
+            const std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
+        /* After this function call,
+            - On main task: pcoeff and temppower memories are swapped, such that
+            pcoeff is size of nboot * Nkz and temppower is size of Nkz
+            - On other tasks, pcoeff and temppower are released.
+        */
         double t1 = mytime::timer.getTime(), t2 = 0;
-        std::fill(temppower.begin(), temppower.end(), 0);
+        // std::fill_n(temppower.get(), nboots * bins::TOTAL_KZ_BINS, 0);
 
         Progress prog_tracker(local_queue.size());
         for (const auto &one_qso : local_queue) {
-            pgenerator->fillVector(pcoeff);
-            one_qso->addBootPowerOnly(nboots, pcoeff.data(), temppower.data());
+            pgenerator->fillVector(pcoeff.get(), nboots);
+            one_qso->addBootPowerOnly(nboots, pcoeff.get(), temppower.get());
             ++prog_tracker;
         }
 
@@ -153,29 +205,40 @@ private:
 
         #if defined(ENABLE_MPI)
         MPI_Reduce(
-            temppower.data(),
-            allpowers.data(), temppower.size(),
+            temppower.get(),
+            allpowers.get(), nboots * bins::TOTAL_KZ_BINS,
             MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        #else
+        std::copy_n(
+            temppower.get(), nboots * bins::TOTAL_KZ_BINS,
+            allpowers.get());
         #endif
+
+        if (process::this_pe == 0) {
+            temppower.swap(pcoeff);
+        } else {
+            temppower.reset();
+            pcoeff.reset();
+        }
 
         t1 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_mpi += t1 - t2;
     }
 
     bool _oneBoot(
-            int jj, std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
+            int jj, const std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         double t1 = mytime::timer.getTime(), t2;
 
-        std::fill(temppower.begin(), temppower.end(), 0);
-        std::fill(tempfisher.begin(), tempfisher.end(), 0);
+        std::fill_n(temppower.get(), bins::TOTAL_KZ_BINS, 0);
+        std::fill_n(tempfisher.get(), bins::FISHER_SIZE, 0);
 
         for (const auto &one_qso : local_queue) {
             int p = pgenerator->generate();
             if (p == 0)
                 continue;
 
-            one_qso->addBoot(p, temppower.data(), tempfisher.data());
+            one_qso->addBoot(p, temppower.get(), tempfisher.get());
         }
 
         t2 = mytime::timer.getTime();
@@ -183,23 +246,27 @@ private:
 
         #if defined(ENABLE_MPI)
         MPI_Reduce(
-            temppower.data(),
-            allpowers.data() + jj * bins::TOTAL_KZ_BINS,
+            temppower.get(),
+            allpowers.get() + jj * bins::TOTAL_KZ_BINS,
             bins::TOTAL_KZ_BINS,
             MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD
         );
         if (process::this_pe != 0) {
             MPI_Reduce(
-                tempfisher.data(),
+                tempfisher.get(),
                 nullptr, bins::FISHER_SIZE,
                 MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         }
         else {
             MPI_Reduce(
                 MPI_IN_PLACE,
-                tempfisher.data(), bins::FISHER_SIZE,
+                tempfisher.get(), bins::FISHER_SIZE,
                 MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         }
+        #else
+        std::copy_n(
+            temppower.get(), bins::TOTAL_KZ_BINS,
+            allpowers.get() + jj * bins::TOTAL_KZ_BINS);
         #endif
 
         bool valid = true;
@@ -209,8 +276,8 @@ private:
         if (process::this_pe == 0) {
             try {
                 mxhelp::LAPACKE_safeSolveCho(
-                    tempfisher.data(), bins::TOTAL_KZ_BINS,
-                    allpowers.data() + jj * bins::TOTAL_KZ_BINS);
+                    tempfisher.get(), bins::TOTAL_KZ_BINS,
+                    allpowers.get() + jj * bins::TOTAL_KZ_BINS);
             } catch (std::exception& e) {
                 valid = false;
             }
@@ -233,7 +300,7 @@ private:
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
             bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
             0.5, invfisher,
-            bins::TOTAL_KZ_BINS, tempfisher.data(), bins::TOTAL_KZ_BINS,
+            bins::TOTAL_KZ_BINS, tempfisher.get(), bins::TOTAL_KZ_BINS,
             0, m.get(), bins::TOTAL_KZ_BINS);
 
         cblas_dgemm(
@@ -241,93 +308,115 @@ private:
             bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
             0.5, m.get(),
             bins::TOTAL_KZ_BINS, invfisher, bins::TOTAL_KZ_BINS,
-            0, tempfisher.data(), bins::TOTAL_KZ_BINS);
+            0, tempfisher.get(), bins::TOTAL_KZ_BINS);
     }
 
 
-    void _calcuateMean(std::vector<double> &mean) {
-        std::fill(mean.begin(), mean.begin() + bins::TOTAL_KZ_BINS, 0);
+    void _calcuateMean(double *mean) {
+        double t1 = mytime::timer.getTime(), t2 = 0;
+
+        std::fill_n(mean, bins::TOTAL_KZ_BINS, 0);
         for (unsigned int jj = 0; jj < nboots; ++jj) {
             if (outlier[jj]) continue;
 
-            mxhelp::vector_add(
-                mean.data(),
-                allpowers.data() + jj * bins::TOTAL_KZ_BINS,
-                bins::TOTAL_KZ_BINS);
+            cblas_daxpy(
+                bins::TOTAL_KZ_BINS,
+                1, allpowers.get() + jj * bins::TOTAL_KZ_BINS, 1,
+                mean, 1);
         }
-        cblas_dscal(bins::TOTAL_KZ_BINS, 1. / remaining_boots, mean.data(), 1);
+        cblas_dscal(bins::TOTAL_KZ_BINS, 1. / remaining_boots, mean, 1);
+
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("  Total time spent in mean is %.2f mins, ", t2 - t1);
     }
 
 
-    void _calcuateMedian(std::vector<double> &median) {
-        median.resize(bins::TOTAL_KZ_BINS);
+    void _calcuateMedian(double *median) {
+        double t1 = mytime::timer.getTime(), t2 = 0;
 
+        #pragma omp parallel for
         for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i) {
-            cblas_dcopy(
-                nboots, allpowers.data() + i, bins::TOTAL_KZ_BINS,
-                pcoeff.data(), 1);
-            median[i] = stats::medianOfUnsortedVector(pcoeff);
+            double *buf = pcoeff.get() + nboots * myomp::getThreadNum();
+
+            std::copy_n(allpowers.get() + i * nboots, nboots, buf);
+            median[i] = stats::medianOfUnsortedVector(buf, nboots);
         }
+
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("median is %.2f mins, ", t2 - t1);
     }
 
 
-    void _calcuateMadCovariance(
-            const double *median, std::vector<double> &mad_cov
-    ) {
-        mad_cov.resize(bins::FISHER_SIZE);
+    void _calcuateMadCovariance(const double *median, double *mad_cov) {
+        double t1 = mytime::timer.getTime(), t2 = 0;
 
+        // Subtract median from allpowers
+        #pragma omp parallel for collapse(2)
+        for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
+            for (unsigned int n = 0; n < nboots; ++n)
+                allpowers[n + i * nboots] -= median[i];
+
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i) {
-            const double *x = allpowers.data() + i;
-
             for (int j = i; j < bins::TOTAL_KZ_BINS; ++j) {
-                const double *y = allpowers.data() + j;
+                double *buf = pcoeff.get() + nboots * myomp::getThreadNum();
 
-                for (unsigned int k = 0; k < nboots; k += bins::TOTAL_KZ_BINS)
-                    pcoeff[k] = (x[k] - median[i]) * (y[k] - median[j]);
+                mxhelp::vector_multiply(
+                    nboots, allpowers.get() + i * nboots,
+                    allpowers.get() + j * nboots, buf);
 
                 mad_cov[j + i * bins::TOTAL_KZ_BINS] =
-                    2.19810276 * stats::medianOfUnsortedVector(pcoeff);
+                    stats::medianOfUnsortedVector(buf, nboots);
+                // 2.19810276
             }
         }
 
-        mxhelp::copyUpperToLower(mad_cov.data(), bins::TOTAL_KZ_BINS);
+        mxhelp::copyUpperToLower(mad_cov, bins::TOTAL_KZ_BINS);
 
         if (specifics::FAST_BOOTSTRAP)
             _sandwichInvFisher();
+
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("MAD covariance is %.2f mins.\n", t2 - t1);
     }
 
 
-    void _calcuateCovariance(const double *mean, std::vector<double> &cov) {
+    void _calcuateCovariance(const double *mean, double *cov) {
+        double t1 = mytime::timer.getTime(), t2 = 0;
         auto v = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
-        std::fill(cov.begin(), cov.end(), 0);
+        std::fill_n(cov, bins::FISHER_SIZE, 0);
         for (unsigned int jj = 0; jj < nboots; ++jj) {
             if (outlier[jj]) continue;
 
-            double *x = allpowers.data() + jj * bins::TOTAL_KZ_BINS;
+            double *x = allpowers.get() + jj * bins::TOTAL_KZ_BINS;
             for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
                 v[i] = x[i] - mean[i];
 
             cblas_dsyr(
                 CblasRowMajor, CblasUpper,
                 bins::TOTAL_KZ_BINS, 1, v.get(), 1,
-                cov.data(), bins::TOTAL_KZ_BINS);
+                cov, bins::TOTAL_KZ_BINS);
         }
 
         cblas_dscal(
             bins::FISHER_SIZE, 1. / (remaining_boots - 1),
-            cov.data(), 1);
+            cov, 1);
 
-        mxhelp::copyUpperToLower(cov.data(), bins::TOTAL_KZ_BINS);
+        mxhelp::copyUpperToLower(cov, bins::TOTAL_KZ_BINS);
 
         if (specifics::FAST_BOOTSTRAP)
             _sandwichInvFisher();
+
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("covariance is %.2f mins.\n", t2 - t1);
     }
 
 
     unsigned int _findOutliers(
-            const std::vector<double> &mean, const double *invcov
+            const double *mean, const double *invcov
     ) {
+        double t1 = mytime::timer.getTime(), t2 = 0;
         auto v = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
              y = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
@@ -335,55 +424,71 @@ private:
         double maxChi2 = 8. * sqrt(2. * bins::TOTAL_KZ_BINS);
 
         for (unsigned int jj = 0; jj < nboots; ++jj) {
-            if (outlier[jj]) continue;
-
-            double *x = allpowers.data() + jj * bins::TOTAL_KZ_BINS;
+            double *x = allpowers.get() + jj * bins::TOTAL_KZ_BINS;
             for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
                 v[i] = x[i] - mean[i];
 
-            double chi2 = mxhelp::my_cblas_dgemvdot(
+            pcoeff[jj] = mxhelp::my_cblas_dsymvdot(
                 v.get(), invcov, y.get(), bins::TOTAL_KZ_BINS) / 4
                 - bins::TOTAL_KZ_BINS;
 
-            if (fabs(chi2) > maxChi2)
-                outlier[jj] = true;
-            else
-                ++new_remains;
+            outlier[jj] = fabs(pcoeff[jj]) > maxChi2;
+            if (!outlier[jj])  ++new_remains;
         }
 
+        auto chi2s = stats::getCdfs(pcoeff.get(), nboots);
+        LOG::LOGGER.STD("Max chi2: %.3e :: Chi2s:", maxChi2);
+        for (auto i = chi2s.cbegin(); i != chi2s.cend(); ++i)
+            LOG::LOGGER.STD("   %.3e", *i);
+
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD(
+            "\n    Time spent in finding outliers is %.2f mins. ", t2 - t1);
         return new_remains;
     }
 
 
     void _medianBootstrap() {
         LOG::LOGGER.STD("Calculating median bootstrap covariance.\n");
-        _calcuateMedian(temppower);
-        _calcuateMadCovariance(temppower.data(), tempfisher);
+
+        double t1 = mytime::timer.getTime(), t2 = 0;
+        mxhelp::transpose_copy(
+            allpowers.get(), pcoeff.get(), nboots, bins::TOTAL_KZ_BINS);
+        allpowers.swap(pcoeff);
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("  Total time spent in transpose_copy is %.2f mins, ", t2 - t1);
+
+        _calcuateMedian(temppower.get());
+        _calcuateMadCovariance(temppower.get(), tempfisher.get());
+
         _saveData("median");
     }
 
     void _meanBootstrap() {
         LOG::LOGGER.STD("Calculating mean bootstrap covariance.\n");
         // Calculate mean power, store into temppower
-        _calcuateMean(temppower);
+        _calcuateMean(temppower.get());
         // Calculate the covariance matrix into tempfisher
-        _calcuateCovariance(temppower.data(), tempfisher);
+        _calcuateCovariance(temppower.get(), tempfisher.get());
         _saveData("mean");
 
+        return;
+
+        // Find outliers not useful.
         for (int n = 0; n < 5; ++n) {
             LOG::LOGGER.STD("  Iteration %d...", n + 1);
 
             // Find outliers
-            unsigned int new_remains = _findOutliers(temppower, tempfisher.data());
+            unsigned int new_remains = _findOutliers(temppower.get(), tempfisher.get());
 
-            LOG::LOGGER.STD("Removed outliers. Remaining %d.\n", new_remains);
+            LOG::LOGGER.STD("Removed outliers. Remaining %d.\n  ", new_remains);
             if (new_remains == remaining_boots)
                 break;
 
             remaining_boots = new_remains;
 
-            _calcuateMean(temppower);
-            _calcuateCovariance(temppower.data(), tempfisher);
+            _calcuateMean(temppower.get());
+            _calcuateCovariance(temppower.get(), tempfisher.get());
         }
         
         _saveData("mean_pruned");
@@ -395,13 +500,13 @@ private:
             process::FNAME_BASE + std::string("_bootstrap_") + t
             + std::string(".txt");
         mxhelp::fprintfMatrix(
-            buffer.c_str(), temppower.data(),
+            buffer.c_str(), temppower.get(),
             1, bins::TOTAL_KZ_BINS);
 
         buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
                  + std::string("_covariance.txt");
         mxhelp::fprintfMatrix(
-            buffer.c_str(), tempfisher.data(),
+            buffer.c_str(), tempfisher.get(),
             bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
     }
 };

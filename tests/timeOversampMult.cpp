@@ -9,9 +9,7 @@
 #include "cblas.h"
 #endif
 
-#if defined(ENABLE_OMP)
-#include "omp.h"
-#endif
+#include "core/omp_manager.hpp"
 
 int TOTAL_KZ_BINS = 35 * 13, N_LOOPS = 450000;
 

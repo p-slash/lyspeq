@@ -365,4 +365,3 @@ double exactDerivMatrixNoWindow(double k1, double k2, double v) {
 
 
 
-

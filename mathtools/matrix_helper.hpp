@@ -10,23 +10,34 @@
 #include "cblas.h"
 #endif
 
+#include "core/omp_manager.hpp"
+
 namespace mxhelp
 {
     // Copy upper triangle of matrix A to its lower triangle
     // A is NxN
     void copyUpperToLower(double *A, int N);
 
-    void transpose_copy(const double *A, double *B, int N);
+    void transpose_copy(const double *A, double *B, int M, int N);
 
     // v always starts at 0, ends at N-1-abs(d)
     // A is NxN
     void getDiagonal(const double *A, int N, int d, double *v);
-    inline
-    void vector_add(double *target, const double *source, int size)
-    {cblas_daxpy(size, 1, source, 1, target, 1);}
-    inline
-    void vector_sub(double *target, const double *source, int size)
-    {cblas_daxpy(size, -1, source, 1, target, 1);}
+
+    inline void vector_multiply(
+            int N, const double *x, int incx, const double *y, int incy,
+            double *out
+    ) {
+        for (int i = 0; i < N; ++i)
+            out[i] = x[i * incx] * y[i * incy];
+    }
+
+    inline void vector_multiply(
+            int N, const double *x, const double *y, double *out
+    ) {
+        for (int i = 0; i < N; ++i)
+            out[i] = x[i] * y[i];
+    }
 
     // Trace of A.B
     // Both are assumed to general and square NxN
@@ -42,8 +53,8 @@ namespace mxhelp
     {return cblas_ddot(N, A, N+1, B, 1);}
 
     // vT . A . v
-    double my_cblas_dgemvdot(
-        const double *v, const double *A,
+    double my_cblas_dsymvdot(
+        const double *v, const double *S,
         double *temp_vector, int N);
 
     void printfMatrix(const double *A, int N1, int N2);
@@ -67,7 +78,8 @@ namespace mxhelp
     int LAPACKE_InvertMatrixLU_safe(double *A, int N);
     // S is symmetric
     // returns warning code (1 if damping used). DOF and damp as well
-    int stableInvertSym(double *S, int N, int &dof, double &damp);
+    int stableInvertSym(
+        std::unique_ptr<double[]> &S, int N, int &dof, double &damp);
 
     void LAPACKE_safeSolveCho(double *S, int N, double *b);
     // S is symmetric. Only upper addressed
@@ -81,7 +93,7 @@ namespace mxhelp
     class DiaMatrix
     {
         std::unique_ptr<int[]> offsets;
-        double *values, *sandwich_buffer;
+        double *values;
         int size;
 
         double* _getDiagonal(int d);
@@ -92,7 +104,7 @@ namespace mxhelp
         int ndim, ndiags;
 
         DiaMatrix(int nm, int ndia);
-        ~DiaMatrix() { delete [] values; freeBuffer(); };
+        ~DiaMatrix() { delete [] values; };
         DiaMatrix(DiaMatrix &&rhs) = delete;
         DiaMatrix(const DiaMatrix &rhs) = delete;
 
@@ -105,7 +117,6 @@ namespace mxhelp
         void transpose();
         void deconvolve(double m); // bool byCol
 
-        void freeBuffer();
         void constructGaussian(double *v, double R_kms, double a_kms);
         void fprintfMatrix(const char *fname);
         void orderTranspose();
@@ -130,7 +141,7 @@ namespace mxhelp
 
     class OversampledMatrix
     {
-        double *values, *sandwich_buffer;
+        double *values;
         int size;
 
         double* _getRow(int i) { return values + i * nelem_per_row; };
@@ -144,7 +155,7 @@ namespace mxhelp
         // osamp : Oversampling coefficient.
         // dlambda : Linear wavelength spacing of the original grid (i.e. rows)
         OversampledMatrix(int n1, int nelem_prow, int osamp, double dlambda);
-        ~OversampledMatrix() { delete [] values; freeBuffer(); };
+        ~OversampledMatrix() { delete [] values; };
         OversampledMatrix(OversampledMatrix &&rhs) = delete;
         OversampledMatrix(const OversampledMatrix &rhs) = delete;
 
@@ -159,14 +170,16 @@ namespace mxhelp
         // A . R^T = B
         // A should be nrows x ncols matrix. 
         // B should be nrows x nrows, will be initialized to zero
+        // Assumes B will be symmetric
         void multiplyRight(const double* A, double *B);
 
-        // B = R . Temp . R^T
-        void sandwichHighRes(double *B, const double *temp_highres_mat);
+        // B = R . S . R^T, S is symmetric
+        void sandwich(const double *S, double *B);
 
-        void freeBuffer();
         double getMinMemUsage() { return (double)sizeof(double) * size / 1048576.; };
-        double getBufMemUsage() { return (double)sizeof(double) * nrows * ncols / 1048576.; };
+        double getBufMemUsage() {
+            return (double)sizeof(double) * nrows * myomp::getMaxNumThreads() / 1048576.;
+        };
 
         void fprintfMatrix(const char *fname);
     };
@@ -194,18 +207,17 @@ namespace mxhelp
         int getNCols() const { return ncols; };
         bool isDiaMatrix() const { return is_dia_matrix; };
         double* matrix() const {
-            if (is_dia_matrix)
-                return dia_matrix->matrix();
-            else
-                return osamp_matrix->matrix();
-        };
+            if (is_dia_matrix) return dia_matrix->matrix();
+            else               return osamp_matrix->matrix();
+        }
         int getSize() const {
-            if (is_dia_matrix)
-                return dia_matrix->getSize();
-            else
-                return osamp_matrix->getSize();
-        };
-        int getNElemPerRow() const;
+            if (is_dia_matrix) return dia_matrix->getSize();
+            else               return osamp_matrix->getSize();
+        }
+        int getNElemPerRow() const {
+            if (is_dia_matrix) return dia_matrix->ndiags;
+            else               return osamp_matrix->nelem_per_row;
+        }
 
         void cutBoundary(int i1, int i2);
 
@@ -214,10 +226,9 @@ namespace mxhelp
         void deconvolve(double m) { if (is_dia_matrix) dia_matrix->deconvolve(m); };
         void oversample(int osamp, double dlambda);
 
-        // B = R . Temp . R^T
-        void sandwich(double *B, const double *temp_highres_mat);
+        // B = R . S . R^T, S is symmetric
+        void sandwich(const double *S, double *B);
 
-        void freeBuffer();
         double getMinMemUsage();
         double getBufMemUsage();
 

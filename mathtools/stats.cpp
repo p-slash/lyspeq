@@ -6,30 +6,25 @@
 
 
 double stats::medianOfSortedArray(const double *sorted_arr, int size) {
-    int jj = size / 2;
-    double median = sorted_arr[jj];
-
     if (size % 2 == 0) {
-        median += sorted_arr[jj - 1];
-        median /= 2;
+        int jj = size / 2;
+        return (sorted_arr[jj - 1] + sorted_arr[jj]) / 2;
+    } else {
+        int jj = size / 2;
+        return sorted_arr[jj];
     }
-
-    return median;
 }
 
 
 double stats::medianOfUnsortedVector(std::vector<double> &v) {
     std::sort(v.begin(), v.end());
+    return stats::medianOfSortedArray(v.data(), v.size());
+}
 
-    int jj = v.size() / 2;
-    double median = v[jj];
 
-    if (v.size() % 2 == 0) {
-        median += v[jj - 1];
-        median /= 2;
-    }
-
-    return median;
+double stats::medianOfUnsortedVector(double *v, int size) {
+    std::sort(v, v + size);
+    return stats::medianOfSortedArray(v, size);
 }
 
 
@@ -51,4 +46,17 @@ void stats::medianOffBalanceStats(
     // convert to absolute values and find find median
     std::for_each(v.begin(), v.end(), [](double &t) { t = fabs(t); });
     med_offset = stats::medianOfUnsortedVector(v);
+}
+
+
+std::vector<double> stats::getCdfs(double *v, int size, int nsigma) {
+    std::sort(v, v + size);
+    std::vector<double> result(2 * nsigma + 1);
+
+    for (int s = -nsigma; s <= nsigma; s++) {
+        double pdf = 0.5 * (1. + erf(s / sqrt(2.)));
+        result[s + nsigma] = v[int(pdf)];
+    }
+
+    return result;
 }

@@ -443,14 +443,14 @@ namespace bins
         low = std::lower_bound(z, z + N, zc - Z_BIN_WIDTH / 2) - z;
         up = std::upper_bound(z, z + N, zc + Z_BIN_WIDTH / 2) - z;
 
-        std::fill_n(out, N, 0);
-        #pragma omp simd
-        for (int i = low; i < up; ++i)
-            out[i] = 1;
+        std::fill(out, out + low, 0);
+        std::fill(out + low, out + up, 1);
+        std::fill(out + up, out + N, 0);
     }
 
     void (*redshiftBinningFunction)(
-        const double *z, int N, int zm, double *out, int &low, int &up) = &zBinTopHat;
+        const double *z, int N, int zm, double *out, int &low, int &up
+    ) = &zBinTopHat;
 
     void setRedshiftBinningFunction(int zm)
     {
@@ -459,7 +459,9 @@ namespace bins
             redshiftBinningFunction = &zBinTopHat;
             break;
         case TriangleBinningMethod:
-            if (zm == 0)
+            if (NUMBER_OF_Z_BINS == 1)
+                redshiftBinningFunction = &zBinTopHat;
+            else if (zm == 0)
                 redshiftBinningFunction = &zBinTriangular1;
             else if (zm == NUMBER_OF_Z_BINS - 1)
                 redshiftBinningFunction = &zBinTriangular2;
@@ -468,28 +470,6 @@ namespace bins
             break;
         }
     }
-
-    // Given the redshift z, returns binning weight. 1 for top-hats, interpolation for triangular
-    // zm: Bin number to consider
-    // zc: Central bin number for triangular bins. Binning weights depend on being to the left 
-    // or to the right of this number.
-    // extern inline 
-
-    // double redshiftBinningFunction(double z, int zm)
-    // {
-    //     #if defined(TOPHAT_Z_BINNING_FN)
-    //     if (zm == findRedshiftBin(z)) return 1;
-    //     else                          return 0;
-
-    //     #elif defined(TRIANGLE_Z_BINNING_FN)
-    //     double x=z-ZBIN_CENTERS[zm], r = 1-fabs(x)/Z_BIN_WIDTH;
-    //     if (r<0) return 0;
-    //     if (zm==0 && x<0) return 1;
-    //     if (zm==(NUMBER_OF_Z_BINS-1) && x>0) return 1;
-    //     return r;
-    //     #endif
-    // }
-
 }
 
 namespace mytime
