@@ -99,6 +99,9 @@ function set_prebuild_system()
         nersc )
             CXX="CC"
             ;;
+        github )
+            cblas_libs="-lblas -llapack -llapacke"
+            ;;
         x64-linux-gnu-mklxe18 )
             CXX="g++"
             USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
@@ -281,8 +284,10 @@ function set_gsl_inc_lib()
         GSL_DIR=$(gsl-config --prefix)
         echo "gsl is in the following directory: ${GSL_DIR}"
         echo "using gsl version ${GSL_VERSION}"
-        gsl_cflags="-I${GSL_DIR}/include"
-        gsl_ldflags="-L${GSL_DIR}/lib"
+        if [[ "${GSL_DIR}" != "/usr" ]]; then
+            gsl_cflags="-I${GSL_DIR}/include"
+            gsl_ldflags="-L${GSL_DIR}/lib"
+        fi
     else
         echo "Warning: no gsl env variable found!"
     fi
@@ -407,7 +412,7 @@ function set_cblas_inc_lib()
         echo "CBLAS_DIR=${CBLAS_DIR}"
         cblas_cflags="-I${CBLAS_DIR}/include"
         cblas_ldflags="-L${CBLAS_DIR}/lib"
-        cblas_libs="-lcblas -llapack"
+        cblas_libs="-lblas -llapack"
 
         reconfigure_for_mkl_libs
     fi
