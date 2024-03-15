@@ -99,6 +99,9 @@ function set_prebuild_system()
         nersc )
             CXX="CC"
             ;;
+        github )
+            cblas_libs="-lblas -llapack -llapacke"
+            ;;
         x64-linux-gnu-mklxe18 )
             CXX="g++"
             USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
