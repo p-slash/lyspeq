@@ -409,7 +409,7 @@ function set_cblas_inc_lib()
         echo "CBLAS_DIR=${CBLAS_DIR}"
         cblas_cflags="-I${CBLAS_DIR}/include"
         cblas_ldflags="-L${CBLAS_DIR}/lib"
-        cblas_libs="-lcblas -llapack"
+        cblas_libs="-lblas -llapack"
 
         reconfigure_for_mkl_libs
     fi
