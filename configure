@@ -281,8 +281,10 @@ function set_gsl_inc_lib()
         GSL_DIR=$(gsl-config --prefix)
         echo "gsl is in the following directory: ${GSL_DIR}"
         echo "using gsl version ${GSL_VERSION}"
-        gsl_cflags="-I${GSL_DIR}/include"
-        gsl_ldflags="-L${GSL_DIR}/lib"
+        if [[ "${GSL_DIR}" != "/usr" ]]; then
+            gsl_cflags="-I${GSL_DIR}/include"
+            gsl_ldflags="-L${GSL_DIR}/lib"
+        fi
     else
         echo "Warning: no gsl env variable found!"
     fi
@@ -403,11 +405,11 @@ function set_cblas_inc_lib()
         CBLAS_DIR="$MKLROOT"
     fi
 
+    cblas_libs="-lcblas -llapack"
     if [[ ! -z "${CBLAS_DIR}" ]]; then
         echo "CBLAS_DIR=${CBLAS_DIR}"
         cblas_cflags="-I${CBLAS_DIR}/include"
         cblas_ldflags="-L${CBLAS_DIR}/lib"
-        cblas_libs="-lcblas -llapack"
 
         reconfigure_for_mkl_libs
     fi
