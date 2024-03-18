@@ -197,9 +197,16 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
     else
     {
         // Find the resolution index for the look up table
-        RES_INDEX = process::sq_private_table->findSpecResIndex(qFile->R_fwhm, qFile->dv_kms);
+        RES_INDEX = process::sq_private_table->findSpecResIndex(
+            qFile->R_fwhm, qFile->dv_kms);
 
-        if (RES_INDEX == -1) throw std::out_of_range("SPECRES not found in tables!");
+        if (RES_INDEX == -1) {
+            std::ostringstream err_msg;
+            err_msg << "SpecRes R: " << qFile->R_fwhm << ", dv: " << qFile->dv_kms
+                    << " not found in tables!";
+            throw std::out_of_range(err_msg.str());
+        }
+
         _matrix_n = size();
     }
 
