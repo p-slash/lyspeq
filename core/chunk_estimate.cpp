@@ -71,10 +71,10 @@ namespace glmemory {
         }
 
         process::updateMemory(-memUsed);
-        int ntempmatrices = std::min(
+        int ntempmatrices = std::max(2, std::min(
             myomp::getMaxNumThreads(),
             int(0.9 * process::MEMORY_ALLOC / process::getMemoryMB(max_size_2))
-        );
+        ));
         process::updateMemory(-ntempmatrices * process::getMemoryMB(max_size_2));
         memUsed += ntempmatrices * process::getMemoryMB(max_size_2);
 
