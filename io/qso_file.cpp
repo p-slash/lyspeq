@@ -305,7 +305,9 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
 
     _setHeaderKeys();
     _setColumnNames();
-    _checkStatus();
+
+    if (status != 0)
+        _handleStatus();
 
     // fits_get_hdu_num(fits_file, &curr_spec_index);
     // fits_get_num_hdus(fits_file, &no_spectra, &status);
@@ -314,11 +316,8 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
     // _move(fname_qso[fname_qso.size-2] - '0');
 }
 
-void PiccaFile::_checkStatus()
+void PiccaFile::_handleStatus()
 {
-    if (status == 0)
-        return;
-
     char fits_msg[50];
     fits_get_errstatus(status, fits_msg);
     std::string error_msg = std::string("FITS ERROR ") + std::string(fits_msg);
@@ -345,6 +344,7 @@ void PiccaFile::_setColumnNames()
 {
     int ncols;
     char keyname[FLEN_KEYWORD], colname[FLEN_VALUE];
+
     fits_get_num_cols(fits_file, &ncols, &status);
     colnames.reserve(ncols);
 
@@ -373,10 +373,12 @@ void PiccaFile::readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
         int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda
 ) {
+    status = 0;
     curr_elem_per_row = -1;
 
     // This is not ndiags in integer, but length in bytes that includes other columns
     // fits_read_key(fits_file, TINT, "NAXIS1", &curr_ndiags, NULL, &status);
+    // fits_get_num_rows(fits_file, &curr_N, &status);
     fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
     N = curr_N;
 
@@ -413,6 +415,9 @@ void PiccaFile::readParameters(
         fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
     else
         dlambda = -1;
+
+    if (status != 0)
+        _handleStatus();
 }
 
 int PiccaFile::_getColNo(char *tmplt)
@@ -420,13 +425,17 @@ int PiccaFile::_getColNo(char *tmplt)
     int colnum;
     status = 0;
     fits_get_colnum(fits_file, CASEINSEN, tmplt, &colnum, &status);
-    _checkStatus();
+    
+    if (status != 0)
+        _handleStatus();
+
     return colnum;
 }
 
 void PiccaFile::readData(double *lambda, double *delta, double *noise)
 {
     int nonull, colnum;
+    status = 0;
 
     // Read wavelength
     char logtmp[]="LOGLAM", lambtmp[]="LAMBDA";
@@ -466,7 +475,8 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, noise, &nonull, 
         &status);
 
-    _checkStatus();
+    if (status != 0)
+        _handleStatus();
 
     std::for_each(noise, noise+curr_N, [](double &ld)
         { ld = 1. / (sqrt(ld) + DOUBLE_EPSILON); }
@@ -479,8 +489,11 @@ std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix() {
     long naxes[2];
     char resotmp[] = "RESOMAT";
     colnum = _getColNo(resotmp);
+
+    status = 0;
     fits_read_tdim(fits_file, colnum, curr_N, &naxis, &naxes[0], &status);
-    _checkStatus();
+    if (status != 0)
+        _handleStatus();
 
     curr_elem_per_row = naxes[0];
     Rmat = std::make_unique<mxhelp::Resolution>(curr_N, curr_elem_per_row);
@@ -488,7 +501,9 @@ std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix() {
     fits_read_col(
         fits_file, TDOUBLE, colnum, 1, 1, curr_N * curr_elem_per_row, 0, 
         Rmat->matrix(), &nonull, &status);
-    _checkStatus();
+
+    if (status != 0)
+        _handleStatus();
 
     Rmat->orderTranspose();
 
