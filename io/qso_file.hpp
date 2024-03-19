@@ -67,7 +67,7 @@ class PiccaFile
     std::vector<std::string> header_keys, colnames;
 
     int _getColNo(char *tmplt);
-    void _checkStatus();
+    void _handleStatus();
 
     void _setHeaderKeys();
     void _setColumnNames();
