@@ -30,6 +30,14 @@ matrices. This scheme speeds up the algorithm.
 */
 
 namespace glmemory {
+    extern std::unique_ptr<double[]>
+        covariance_matrix, temp_vector, weighted_data_vector,
+        stored_sfid, matrix_lambda, finer_matrix, v_matrix, z_matrix;
+    extern std::vector<std::unique_ptr<double[]>> stored_ikz_qi, temp_matrices;
+
+    extern shared_interp_2d interp2d_signal_matrix;
+    extern std::vector<shared_interp_1d> interp_derivative_matrix;
+
     extern void allocMemory();
     extern void dealloc();
 }
