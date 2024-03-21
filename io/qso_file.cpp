@@ -303,6 +303,8 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
         }
         fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
         cache[basefname] = fits_file;
+        fits_get_num_hdus(fits_file, &no_spectra, &status);
+        no_spectra--;
     }
 
     _setHeaderKeys();
@@ -312,9 +314,6 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
         _handleStatus();
 
     // fits_get_hdu_num(fits_file, &curr_spec_index);
-    // fits_get_num_hdus(fits_file, &no_spectra, &status);
-
-    // no_spectra--;
     // _move(fname_qso[fname_qso.size-2] - '0');
 }
 
