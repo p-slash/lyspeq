@@ -37,7 +37,8 @@ double _getMediandlambda(const double *wave, int size) {
 // mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
         : PB(p_or_b), wave_head(nullptr), delta_head(nullptr), noise_head(nullptr),
-          arr_size(0), _fullsize(0), shift(0), num_masked_pixels(0), fname(fname_qso)
+          arr_size(0), _fullsize(0), shift(0), num_masked_pixels(0), fname(fname_qso),
+          expid(-1), night(-1), fiber(-1)
 {
     if (PB == Picca)
         pfile = std::make_unique<PiccaFile>(fname);
@@ -80,7 +81,8 @@ void QSOFile::readParameters()
 {
     if (pfile)
         pfile->readParameters(
-            id, arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms, dlambda);
+            id, arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms, dlambda,
+            expid, night, fiber);
     else
         bqfile->readParameters(
             arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms);
@@ -369,9 +371,17 @@ bool PiccaFile::_isColumnName(const std::string &key)
         [key](const std::string &elem) { return elem == key; });
 }
 
+void PiccaFile::_readOptionalInt(const std::string &key, int &output) {
+    if (_isHeaderKey(key))
+        fits_read_key(fits_file, TINT, key.c_str(), &output, NULL, &status);
+    else
+        output = -1;
+}
+
 void PiccaFile::readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
-        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda
+        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
+        int &expid, int &night, int &fiber
 ) {
     status = 0;
     curr_elem_per_row = -1;
@@ -415,6 +425,10 @@ void PiccaFile::readParameters(
         fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
     else
         dlambda = -1;
+
+    _readOptionalInt("EXPID", expid);
+    _readOptionalInt("NIGHT", night);
+    _readOptionalInt("FIBER", fiber);
 
     if (status != 0)
         _handleStatus();
