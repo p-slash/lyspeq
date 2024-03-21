@@ -8,7 +8,7 @@
 				
 #---------------------------------------
 # WARNING: You (probably) should not change anything below
-DIRS=$(addprefix $(srcdir)/, core io mathtools tests)
+DIRS=$(addprefix $(srcdir)/, core cross io mathtools tests)
 DEPDIR=$(addprefix $(srcdir)/, dep)
 $(shell mkdir -p $(DEPDIR))
 SRCEXT=cpp
@@ -18,17 +18,20 @@ SOURCES=fiducial_cosmology.cpp global_numbers.cpp matrix_helper.cpp one_qso_esti
 quadratic_estimate.cpp sq_table.cpp discrete_interpolation.cpp fourier_integrator.cpp \
 interpolation.cpp interpolation_2d.cpp config_file.cpp io_helper_functions.cpp qso_file.cpp \
 sq_lookup_table_file.cpp logger.cpp real_field.cpp chunk_estimate.cpp smoother.cpp bootstrap_file.cpp \
-stats.cpp
+stats.cpp cross_exposure.cpp exposure.cpp one_qso_exposures.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
-lboot_OBJ=$(filter-out quadratic_estimate.o, $(OBJECTS))
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o lyspeqBootStats.o \
 cblas_tests.o testPointRef.o testSQCMatrices.o test-fftconvolve.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
 sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
 discrete_interpolation.o interpolation.o interpolation_2d.o
+cross_objs=cross_exposure.o exposure.o one_qso_exposures.o
 test_objects=test_utils.o testPointRef.o test-fftconvolve.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
+
+
+NONX_OBJECTS=$(filter-out $(cross_objs), $(OBJECTS))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
 CPPFLAGS+=-I$(srcdir) -std=c++17 -DHAVE_INLINE $(MORECPPFLAGS)
@@ -51,13 +54,13 @@ test: core cblas_tests testSQCMatrices
 
 	@python3 tests/compareTestResults.py $(srcdir)
 	
-LyaPowerEstimate: LyaPowerEstimate.o $(OBJECTS)
+LyaPowerEstimate: LyaPowerEstimate.o $(NONX_OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-lyspeqBootStats: lyspeqBootStats.o $(lboot_OBJ)
+lyspeqBootStats: lyspeqBootStats.o $(filter-out quadratic_estimate.o, $(NONX_OBJECTS))
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 test_utils.o: test_utils.cpp
@@ -66,7 +69,7 @@ test_utils.o: test_utils.cpp
 cblas_tests: cblas_tests.o matrix_helper.o real_field.o test_utils.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-testSQCMatrices: testSQCMatrices.o test_utils.o $(OBJECTS)
+testSQCMatrices: testSQCMatrices.o test_utils.o $(NONX_OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testPointRef: testPointRef.o
@@ -78,7 +81,7 @@ myfitsread: myfitsread.cpp
 testReadingBootRealizations: testReadingBootRealizations.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-test-fftconvolve: test-fftconvolve.o $(OBJECTS)
+test-fftconvolve: test-fftconvolve.o $(NONX_OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testBootstrapTime: testBootstrapTime.cpp
