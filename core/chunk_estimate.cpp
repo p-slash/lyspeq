@@ -131,37 +131,17 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
 {
     isCovInverted = false;
     _copyQSOFile(qmaster, i1, i2);
-    on_oversampling = specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix();
-
-    qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
-
-    _findRedshiftBin();
-
-    // Convert flux to fluctuations around the mean flux of the chunk
-    // Otherwise assume input data is fluctuations
-    conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), size());
-
-    // Keep noise as error squared (variance)
-    std::for_each(
-        qFile->noise(), qFile->noise() + size(),
-        [](double &n) { n *= n; });
-
-    // Divide wave by LYA_REST
-    std::for_each(
-        qFile->wave(), qFile->wave() + size(),
-        [](double &w) { w /= LYA_REST; });
 
     // Set up number of matrices, index for Fisher matrix
     _setNQandFisherIndex();
     process::updateMemory(-getMinMemUsage());
 
     stored_ikz_qi.reserve(N_Q_MATRICES);
-    int _kncut = _getMaxKindex(MY_PI / qFile->dv_kms);
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int kn, zm;
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
-        if (kn < _kncut)
+        if (kn < KBIN_UPP)
             stored_ikz_qi.push_back(std::make_pair(i_kz, nullptr));
     }
 
@@ -211,6 +191,27 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
     }
 
     DATA_SIZE_2 = size() * size();
+
+    on_oversampling = specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix();
+
+    qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
+    KBIN_UPP = _getMaxKindex(MY_PI / qFile->dv_kms);
+
+    _findRedshiftBin();
+
+    // Convert flux to fluctuations around the mean flux of the chunk
+    // Otherwise assume input data is fluctuations
+    conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), size());
+
+    // Keep noise as error squared (variance)
+    std::for_each(
+        qFile->noise(), qFile->noise() + size(),
+        [](double &n) { n *= n; });
+
+    // Divide wave by LYA_REST
+    std::for_each(
+        qFile->wave(), qFile->wave() + size(),
+        [](double &w) { w /= LYA_REST; });
 }
 
 void Chunk::_findRedshiftBin()
