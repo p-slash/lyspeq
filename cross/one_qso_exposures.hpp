@@ -19,6 +19,7 @@ class OneQsoExposures: public OneQSOEstimate
 public:
     long targetid;
     std::vector<std::unique_ptr<Exposure>> exposures;
+    std::vector<std::unique_ptr<double[]>> dt_estimate_before_fisher_vector;
 
     OneQsoExposures(const std::string &f_qso);
     OneQsoExposures(OneQsoExposures &&rhs) = default;

@@ -18,11 +18,14 @@ class Exposure: public Chunk
     std::unique_ptr<double[]> weighted_data;
 public:
     Exposure(const qio::QSOFile &qmaster, int i1, int i2) {
-        _copyQSOFile(qmaster, i1, i2); };
+        _copyQSOFile(qmaster, i1, i2);
+        glmemory::setMaxSizes(size(), size(), 0, false);
+    };
 
     int getExpId() const { return qFile->expid; };
     int getNight() const { return qFile->night; };
     int getFiber() const { return qFile->fiber; };
+    double* getWeightedData() const { return weighted_data.get(); };
 
     void initMatrices();
     void deallocMatrices() {
