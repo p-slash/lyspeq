@@ -12,6 +12,10 @@
 
 #include "core/omp_manager.hpp"
 
+namespace glmemory {
+    extern std::unique_ptr<double[]> sandwich_buffer;
+}
+
 namespace mxhelp
 {
     // Copy upper triangle of matrix A to its lower triangle
@@ -129,8 +133,8 @@ namespace mxhelp
         void multiply(
             CBLAS_SIDE SIDER, CBLAS_TRANSPOSE TRANSR,
             const double* A, double *B);
-        void multiplyLeft(const double* A, double *B);
-        void multiplyRightT(const double* A, double *B);
+        void multiplyLeft(const double* A, double *B, int M=0);
+        void multiplyRightT(const double* A, double *B, int M=0);
 
         // R . inplace . R^T
         void sandwich(double *inplace);
@@ -203,6 +207,8 @@ namespace mxhelp
         Resolution(const Resolution *rmaster, int i1, int i2);
         Resolution(Resolution &&rhs) = default;
         Resolution(const Resolution &rhs) = delete;
+
+        DiaMatrix* getDiaMatrixPointer() const { return dia_matrix.get(); };
 
         int getNCols() const { return ncols; };
         bool isDiaMatrix() const { return is_dia_matrix; };

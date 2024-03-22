@@ -729,8 +729,10 @@ namespace mxhelp
         }
     }
 
-    void DiaMatrix::multiplyLeft(const double* A, double *B) {
-        std::fill_n(B, ndim * ndim, 0);
+    void DiaMatrix::multiplyLeft(const double* A, double *B, int M) {
+        if (M == 0) M = ndim;
+
+        std::fill_n(B, ndim * M, 0);
 
         for (int d = 0; d < ndiags; ++d)
         {
@@ -740,15 +742,17 @@ namespace mxhelp
 
             #pragma omp parallel for simd collapse(2)
             for (int i = 0; i < ndim - abs(off); ++i)
-                for (int j = 0; j < ndim; ++j){
-                    B[j + (i + moff) * ndim] += 
-                        values[poff + d * ndim + i] * A[j + (i + poff) * ndim];
+                for (int j = 0; j < M; ++j) {
+                    B[j + (i + moff) * M] += 
+                        values[poff + d * ndim + i] * A[j + (i + poff) * M];
                 }
         }
     }
 
-    void DiaMatrix::multiplyRightT(const double* A, double *B) {
-        std::fill_n(B, ndim * ndim, 0);
+    void DiaMatrix::multiplyRightT(const double* A, double *B, int M) {
+        if (M == 0) M = ndim;
+
+        std::fill_n(B, ndim * M, 0);
 
         for (int d = 0; d < ndiags; ++d)
         {
@@ -757,7 +761,7 @@ namespace mxhelp
                 poff = std::max(0, off);
 
             #pragma omp parallel for simd collapse(2)
-            for (int i = 0; i < ndim; ++i)
+            for (int i = 0; i < M; ++i)
                 for (int j = 0; j < ndim - abs(off); ++j) {
                     B[j + i * ndim + moff] +=
                         values[j + poff + d * ndim] * A[j + i * ndim + poff];
