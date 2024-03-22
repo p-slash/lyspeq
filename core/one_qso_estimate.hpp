@@ -20,6 +20,9 @@ protected:
 
     int istart, ndim;
     std::unique_ptr<double[]> fisher_matrix, theta_vector;
+
+    OneQSOEstimate();
+    std::unique_ptr<qio::QSOFile> _readQsoFile(const std::string &f_qso);
 public:
     std::vector<std::unique_ptr<Chunk>> chunks;
 
