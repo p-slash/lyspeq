@@ -13,14 +13,14 @@
 
 int N_Q_MATRICES, KBIN_UPP, fisher_index_start;
 double *_vmatrix, *_zmatrix;
-std::vector<std::pair<int, double*>> stored_ikz_qi;
+std::vector<std::pair<int, double*>> stored_ikz_qi, stored_weighted_qi;
 
 int N1, N2;
 const qio::QSOFile *q1, *q2;
 
 double _calculateOverlapRatio() {
-    double a1 = q1->wave()[0], a2 = q1->wave()[q1->size() - 1],
-           b1 = q2->wave()[0], b2 = q2->wave()[q2->size() - 1];
+    double a1 = q1->wave()[0], a2 = q1->wave()[N1 - 1],
+           b1 = q2->wave()[0], b2 = q2->wave()[N2 - 1];
 
     double w1 = std::max(a1, b1), w2 = std::min(a2, b2);
     return (w2 - w1) / sqrt((a2 - a1) * (b2 - b1));
@@ -52,7 +52,10 @@ void _setZMatrix(double *m) {
 
 
 void _setNQandFisherIndex() {
-    double zmin = _zmatrix[0], zmax = _zmatrix[N1 * N2 - 1];
+    double a1 = q1->wave()[0], a2 = q1->wave()[N1 - 1],
+           b1 = q2->wave()[0], b2 = q2->wave()[N2 - 1];
+
+    double zmin = sqrt(a1 * b1) - 1., zmax = sqrt(a2 * b2) - 1.;
     int ZBIN_LOW = bins::findRedshiftBin(zmin),
         ZBIN_UPP = bins::findRedshiftBin(zmax);
 
@@ -72,24 +75,34 @@ void _setNQandFisherIndex() {
     }
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
+}
 
-    if (N_Q_MATRICES > glmemory::stored_ikz_qi.size())
+
+void _setStoredIkzQiVector() {
+    if ((2 * N_Q_MATRICES) > glmemory::stored_ikz_qi.size())
         for (int i = 0; i < N_Q_MATRICES - glmemory::stored_ikz_qi.size(); ++i)
             glmemory::stored_ikz_qi.push_back(
                 std::make_unique<double[]>(glmemory::max_size_2));
 
     stored_ikz_qi.clear();
+    stored_weighted_qi.clear();
     stored_ikz_qi.reserve(N_Q_MATRICES);
+    stored_weighted_qi.reserve(N_Q_MATRICES);
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int kn, zm;
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
-        if (kn < KBIN_UPP)
+        if (kn < KBIN_UPP) {
             stored_ikz_qi.push_back(std::make_pair(i_kz, nullptr));
+            stored_weighted_qi.push_back(std::make_pair(i_kz, nullptr));
+        }
     }
 
-    for (int i = 0; i < stored_ikz_qi.size(); ++i)
+    int ndim = stored_ikz_qi.size();
+    for (int i = 0; i < ndim; ++i) {
         stored_ikz_qi[i].second = glmemory::stored_ikz_qi[i].get();
+        stored_weighted_qi[i].second = glmemory::stored_ikz_qi[i + ndim].get();
+    }
 }
 
 
@@ -202,6 +215,9 @@ OneQsoExposures::OneQsoExposures(const std::string &f_qso) {
         LOG::LOGGER.ERR("%s in %s.\n", e.what(), f_qso.c_str());
         return;
     }
+
+    istart = bins::TOTAL_KZ_BINS;
+    ndim = 0;
 }
 
 
@@ -247,8 +263,38 @@ void OneQsoExposures::oneQSOiteration(
         return;
     }
 
+    // decide max_ndim, istart, etc
+    int fisher_index_end = 0;
+    istart = bins::TOTAL_KZ_BINS;
+    for (auto exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
+        for (auto exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
+            q1 = (*exp1)->qFile.get();
+            N1 = q1->size();
+            q2 = (*exp2)->qFile.get();
+            N2 = q2->size();
+            KBIN_UPP = std::min((*exp1)->KBIN_UPP, (*exp2)->KBIN_UPP);
+            _setNQandFisherIndex();
+
+            glmemory::setMaxSizes(
+                std::max(N1, N2), std::max(N1, N2), 0, false);
+
+            istart = std::min(istart, fisher_index_start);
+            fisher_index_end = std::max(
+                fisher_index_end, fisher_index_start + N_Q_MATRICES);
+        }
+    }
+
+    ndim = fisher_index_end - istart;
+    glmemory::setMaxSizes(0, 0, 2 * ndim, false);
+
+    fisher_matrix = std::make_unique<double[]>(ndim * ndim);
+    for (int i = 0; i < 2; ++i)
+        dt_estimate_before_fisher_vector.push_back(
+            std::make_unique<double[]>(ndim));
+
     _vmatrix = glmemory::temp_matrices[0].get(),
     _zmatrix = glmemory::temp_matrices[1].get();
+
     // For each combo calculate derivatives
     for (auto exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
         for (auto exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
@@ -270,6 +316,7 @@ void OneQsoExposures::oneQSOiteration(
             _setVMatrix(_vmatrix);
             _setZMatrix(_zmatrix);
             _setNQandFisherIndex();
+            _setStoredIkzQiVector();
 
             // Construct derivative
             DEBUG_LOG("Setting qi matrices\n");
@@ -281,7 +328,61 @@ void OneQsoExposures::oneQSOiteration(
             _setFiducialSignalMatrix(glmemory::stored_sfid.get());
 
             // Calculate
+            int diff_idx = fisher_index_start - istart;
+            double *dk0 = dt_estimate_before_fisher_vector[0].get(),
+                   *tk0 = dt_estimate_before_fisher_vector[1].get();
 
+            double t = mytime::timer.getTime();
+            for (int i = 0; i != stored_ikz_qi.size(); ++i) {
+                auto &[i_kz, Q_ikz_matrix] = stored_ikz_qi[i];
+                dk0[i_kz + diff_idx] = mxhelp::my_cblas_dgemvdot(
+                    (*exp1)->getWeightedData(), N1,
+                    (*exp2)->getWeightedData(), N2,
+                    Q_ikz_matrix, glmemory::temp_vector.get());
+
+                cblas_dgemm(
+                    CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                    N1, N2, N1, 1., (*exp1)->inverse_covariance_matrix, N1,
+                    Q_ikz_matrix, N2, 0,
+                    glmemory::temp_matrices[0].get(), N2);
+
+                cblas_dgemm(
+                    CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                    N1, N2, N2, 1., glmemory::temp_matrices[0].get(), N2,
+                    (*exp2)->inverse_covariance_matrix, N2, 0.,
+                    stored_weighted_qi[i].second, N2);
+            }
+
+            mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
+
+            int size2 = N1 * N2;
+            #pragma omp parallel for
+            for (const auto &[i_kz, Q_ikz_matrix] : stored_weighted_qi)
+                tk0[i_kz + diff_idx] = cblas_ddot(
+                    size2, Q_ikz_matrix, 1, glmemory::stored_sfid.get(), 1);
+
+            if (specifics::USE_PRECOMPUTED_FISHER)
+                continue;
+
+            t = mytime::timer.getTime();
+
+            #pragma omp parallel for
+            for (auto iqt = stored_weighted_qi.cbegin(); iqt != stored_weighted_qi.cend(); ++iqt) {
+                int idx_fji_0 = ndim * (iqt->first + diff_idx) + diff_idx;
+
+                for (auto jqt = stored_ikz_qi.cbegin(); jqt != stored_ikz_qi.cend(); ++jqt) {
+                    #ifdef FISHER_OPTIMIZATION
+                    int diff_ji = abs(jqt->first - iqt->first);
+                    if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
+                        continue;
+                    #endif
+
+                    fisher_matrix[jqt->first + idx_fji_0] = 
+                        cblas_ddot(size2, iqt->second, 1, jqt->second, 1);
+                }
+            }
+
+            mytime::time_spent_set_fisher += mytime::timer.getTime() - t;;
         }
     }
 }

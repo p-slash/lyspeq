@@ -39,6 +39,7 @@ namespace glmemory {
     extern shared_interp_2d interp2d_signal_matrix;
     extern std::vector<shared_interp_1d> interp_derivative_matrix;
 
+    extern void setMaxSizes(int size, int matrix_n, int nqdim, bool onsamp);
     extern void allocMemory();
     extern void dealloc();
 }
@@ -53,7 +54,7 @@ protected:
     bool isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // Will have finer spacing when rmat is oversampled
-    double *_matrix_lambda, *inverse_covariance_matrix; // Do not delete!
+    double *_matrix_lambda; // Do not delete!
 
     // Uninitialized arrays
     // Oversampled resomat specifics
@@ -87,6 +88,7 @@ public:
     int fisher_index_start, N_Q_MATRICES;
     int ZBIN, ZBIN_LOW, ZBIN_UPP, KBIN_UPP;
 
+    double *inverse_covariance_matrix;
     std::vector<std::pair<int, double*>> stored_ikz_qi;
     // Initialized to 0
     // 3 TOTAL_KZ_BINS sized vectors
