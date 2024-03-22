@@ -230,13 +230,12 @@ void OneQsoExposures::oneQSOiteration(
             // Construct derivative
             DEBUG_LOG("Setting qi matrices\n");
 
-            // if ((*exp1)->stored_ikz_qi.size() <= (*exp2)->stored_ikz_qi.size())
-            //     auto &stored_ikz_qi = (*exp1)->stored_ikz_qi;
-            // else
-            //     auto &stored_ikz_qi = (*exp2)->stored_ikz_qi;
+            auto mexp = exp2;
+            if ((*exp1)->stored_ikz_qi.size() < (*exp2)->stored_ikz_qi.size())
+                mexp = exp1;
 
-            for (auto iqt = (*exp1)->stored_ikz_qi.begin(); iqt != (*exp1)->stored_ikz_qi.end(); ++iqt)
-                _setQiMatrix(iqt->second, iqt->first + (*exp1)->fisher_index_start);
+            for (auto iqt = (*mexp)->stored_ikz_qi.begin(); iqt != (*mexp)->stored_ikz_qi.end(); ++iqt)
+                _setQiMatrix(iqt->second, iqt->first + (*mexp)->fisher_index_start);
 
             // Construct fiducial
             _setFiducialSignalMatrix(glmemory::stored_sfid.get());
