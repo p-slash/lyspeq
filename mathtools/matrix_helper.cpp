@@ -154,6 +154,17 @@ namespace mxhelp
         return cblas_ddot(N, v, 1, temp_vector, 1);
     }
 
+    double my_cblas_dgemvdot(
+        const double *x, int Nx, const double* y, int Ny,
+        const double *A, double *temp_vector
+    ) {
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, Nx, Ny, 1.,
+            A, Nx, y, 1, 0, temp_vector, 1);
+
+        return cblas_ddot(Nx, x, 1, temp_vector, 1);
+    }
+
 
     // Slow!
     double my_cblas_dsymvdot(const double *v, const double *S, int N) {
