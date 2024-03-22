@@ -30,6 +30,7 @@ matrices. This scheme speeds up the algorithm.
 */
 
 namespace glmemory {
+    extern int max_size_2;
     extern std::unique_ptr<double[]>
         covariance_matrix, temp_vector, weighted_data_vector,
         stored_sfid, matrix_lambda, finer_matrix, v_matrix, z_matrix;
