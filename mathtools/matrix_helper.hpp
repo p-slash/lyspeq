@@ -13,7 +13,7 @@
 #include "core/omp_manager.hpp"
 
 namespace glmemory {
-    extern std::unique_ptr<double[]> sandwich_buffer;
+    extern double* getSandwichBuffer(int size);
 }
 
 namespace mxhelp
