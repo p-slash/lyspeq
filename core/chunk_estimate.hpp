@@ -80,6 +80,7 @@ protected:
 
     friend class TestOneQSOEstimate;
 
+    Chunk();
 public:
     std::unique_ptr<qio::QSOFile> qFile;
     int fisher_index_start, N_Q_MATRICES;
