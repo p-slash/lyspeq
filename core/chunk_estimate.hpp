@@ -84,7 +84,7 @@ protected:
 public:
     std::unique_ptr<qio::QSOFile> qFile;
     int fisher_index_start, N_Q_MATRICES;
-    int ZBIN, ZBIN_LOW, ZBIN_UPP;
+    int ZBIN, ZBIN_LOW, ZBIN_UPP, KBIN_UPP;
 
     std::vector<std::pair<int, double*>> stored_ikz_qi;
     // Initialized to 0
