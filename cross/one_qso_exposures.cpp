@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <stdexcept>
+#include <functional>
 
 #include "cross/one_qso_exposures.hpp"
 #include "core/global_numbers.hpp"
@@ -8,8 +10,8 @@
 
 #include "mathtools/smoother.hpp"
 
-#include <stdexcept>
 
+double *_vmatrix, *_zmatrix;
 int N1, N2;
 const qio::QSOFile *q1, *q2;
 
@@ -55,13 +57,13 @@ void _doubleRmatSandwich(double *m) {
 }
 
 
-void _setQiMatrix(double *m, int i_kz)
+void _setQiMatrix(double *m, int fi_kz)
 {
     ++mytime::number_of_times_called_setq;
     double t = mytime::timer.getTime(), t_interp;
     int kn, zm;
 
-    bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
+    bins::getFisherMatrixBinNoFromIndex(fi_kz, kn, zm);
     bins::setRedshiftBinningFunction(zm);
 
     std::function<double(double)> eval_deriv_kn;
@@ -118,15 +120,13 @@ void _setFiducialSignalMatrix(double *sm)
     for (int i = 0; i < N1; ++i) {
         for (int j = 0; j < N2; ++j) {
             int idx = j + i * N2;
-            inter_mat[idx] = glmemory::interp2d_signal_matrix->evaluate(
+            sm[idx] = glmemory::interp2d_signal_matrix->evaluate(
                 _zmatrix[idx], _vmatrix[idx]);
         }
     }
 
     if (specifics::USE_RESOLUTION_MATRIX)
         _doubleRmatSandwich(sm);
-
-    CHECK_ISNAN(sm, DATA_SIZE_2, "Sfid");
 
     t = mytime::timer.getTime() - t;
 
@@ -136,59 +136,39 @@ void _setFiducialSignalMatrix(double *sm)
 
 OneQsoExposures::OneQsoExposures(const std::string &f_qso)
 {
-    qio::QSOFile qFile(f_qso, specifics::INPUT_QSO_FILE);
+    try {
+        auto qFile = _readQsoFile(f_qso);
 
-    qFile.readParameters();
-    qFile.readData();
+        targetid = qFile->id;
+        exposures.reserve(30);
+        std::vector<int> indices = OneQSOEstimate::decideIndices(qFile->size());
+        int nchunks = indices.size() - 1;
 
-    // If using resolution matrix, read resolution matrix from picca file
-    if (specifics::USE_RESOLUTION_MATRIX)
-    {
-        qFile.readAllocResolutionMatrix();
-
-        if (process::smoother->isSmoothingOnRmat())
-            process::smoother->smooth1D(
-                qFile.Rmat->matrix(), qFile.Rmat->getNCols(),
-                qFile.Rmat->getNElemPerRow());
-
-        if (specifics::RESOMAT_DECONVOLUTION_M > 0)
-            qFile.Rmat->deconvolve(specifics::RESOMAT_DECONVOLUTION_M);
-    }
-
-    qFile.closeFile();
-
-    // Boundary cut
-    qFile.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
-
-    if (qFile.realSize() < MIN_PIXELS_IN_CHUNK) {
-        LOG::LOGGER.ERR(
-            "OneQsoExposures::OneQsoExposures::Short file in %s.\n",
-            f_qso.c_str());
-
+        for (int nc = 0; nc < nchunks; ++nc) {
+            try {
+                auto _chunk = std::make_unique<Exposure>(
+                    *qFile, indices[nc], indices[nc + 1]);
+                exposures.push_back(std::move(_chunk));
+            } catch (std::exception& e) {
+                LOG::LOGGER.ERR(
+                    "OneQsoExposures::appendChunkedQsoFile::%s "
+                    "Skipping chunk %d/%d of %s.\n",
+                    e.what(), nc, nchunks, qFile->fname.c_str());
+            }
+        }
+    } catch (std::exception &e) {
+        LOG::LOGGER.ERR("%s in %s.\n", e.what(), f_qso.c_str());
         return;
     }
+}
 
-    targetid = qFile.id;
-    exposures.reserve(20);
-    std::vector<int> indices = OneQSOEstimate::decideIndices(qFile.size());
-    int nchunks = indices.size() - 1;
 
-    for (int nc = 0; nc < nchunks; ++nc)
-    {
-        try
-        {
-            auto _chunk = std::make_unique<Exposure>(
-                qFile, indices[nc], indices[nc + 1]);
-            exposures.push_back(std::move(_chunk));
-        }
-        catch (std::exception& e)
-        {
-            LOG::LOGGER.ERR(
-                "OneQsoExposures::appendChunkedQsoFile::%s "
-                "Skipping chunk %d/%d of %s.\n",
-                e.what(), nc, nchunks, qFile.fname.c_str());
-        }
-    }
+void OneQsoExposures::addExposures(OneQsoExposures *other) {
+    exposures.reserve(exposures.size() + other->exposures.size());
+    std::move(std::begin(other->exposures),
+              std::end(other->exposures),
+              std::back_inserter(exposures));
+    other->exposures.clear();
 }
 
 
@@ -225,8 +205,8 @@ void OneQsoExposures::oneQSOiteration(
         return;
     }
 
-    double *_vmatrix = glmemory::temp_matrices[0].get(),
-           *_zmatrix = glmemory::temp_matrices[1].get();
+    _vmatrix = glmemory::temp_matrices[0].get(),
+    _zmatrix = glmemory::temp_matrices[1].get();
     // For each combo calculate derivatives
     for (auto exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
         for (auto exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
@@ -238,7 +218,7 @@ void OneQsoExposures::oneQSOiteration(
             if ((*exp1)->getExpId() == (*exp2)->getExpId())
                 continue;
 
-            double r_overlap = _calculateOverlapRatio(q1, q2);
+            double r_overlap = _calculateOverlapRatio();
 
             if (r_overlap < 0.5)
                 continue;
@@ -250,53 +230,21 @@ void OneQsoExposures::oneQSOiteration(
             // Construct derivative
             DEBUG_LOG("Setting qi matrices\n");
 
-            for (
-                    auto iqt = (*exp1)->stored_ikz_qi.begin();
-                    iqt != (*exp1)->stored_ikz_qi.end(); ++iqt
-            )
-                _setQiMatrix(iqt->second, iqt->first);
+            // if ((*exp1)->stored_ikz_qi.size() <= (*exp2)->stored_ikz_qi.size())
+            //     auto &stored_ikz_qi = (*exp1)->stored_ikz_qi;
+            // else
+            //     auto &stored_ikz_qi = (*exp2)->stored_ikz_qi;
+
+            for (auto iqt = (*exp1)->stored_ikz_qi.begin(); iqt != (*exp1)->stored_ikz_qi.end(); ++iqt)
+                _setQiMatrix(iqt->second, iqt->first + (*exp1)->fisher_index_start);
 
             // Construct fiducial
+            _setFiducialSignalMatrix(glmemory::stored_sfid.get());
+
             // Calculate
+
         }
     }
-}
-
-
-void OneQsoExposures::collapseBootstrap() {
-    int fisher_index_end = 0;
-
-    istart = bins::TOTAL_KZ_BINS;
-    for (const auto &exp : exposures) {
-        istart = std::min(istart, exp->fisher_index_start);
-        fisher_index_end = std::max(
-            fisher_index_end, exp->fisher_index_start + exp->N_Q_MATRICES);
-    }
-
-    ndim = fisher_index_end - istart;
-
-    theta_vector = std::make_unique<double[]>(ndim);
-    fisher_matrix = std::make_unique<double[]>(ndim * ndim);
-
-    for (const auto &exp : exposures) {
-        int offset = exp->fisher_index_start - istart;
-        double *pk = exp->dbt_estimate_before_fisher_vector[0].get();
-        double *nk = exp->dbt_estimate_before_fisher_vector[1].get();
-        double *tk = exp->dbt_estimate_before_fisher_vector[2].get();
-
-        cblas_daxpy(exp->N_Q_MATRICES, -1, nk, 1, pk, 1);
-        cblas_daxpy(exp->N_Q_MATRICES, -1, tk, 1, pk, 1);
-        cblas_daxpy(exp->N_Q_MATRICES, 1, pk, 1, theta_vector.get() + offset, 1);
-
-        for (int i = 0; i < exp->N_Q_MATRICES; ++i) {
-            for (int j = i; j < exp->N_Q_MATRICES; ++j) {
-                fisher_matrix[j + i * ndim + (ndim + 1) * offset] +=
-                    exp->fisher_matrix[j + i * exp->N_Q_MATRICES];
-            } 
-        }
-    }
-
-    exposures.clear();
 }
 
 
