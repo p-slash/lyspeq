@@ -17,11 +17,6 @@
 #include <stdexcept>
 
 
-namespace glmemory {
-    std::unique_ptr<double[]> temp_vector;
-}
-
-
 void Exposure::initMatrices()
 {
     _initMatrices();

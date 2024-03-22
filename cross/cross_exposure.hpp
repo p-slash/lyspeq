@@ -30,8 +30,17 @@ public:
         File to spectra to list. Filenames are wrt FileInputDir.
     FileInputDir: string
         Directory where files reside.
+
+    Does not support Oversampling!
     */
-    OneDCrossExposureQMLE(ConfigFile &con) : OneDQuadraticPowerEstimate(con) {};
+    OneDCrossExposureQMLE(ConfigFile &con) : OneDQuadraticPowerEstimate(con) {
+        if (specifics::OVERSAMPLING_FACTOR > 0)
+            throw std::invalid_argument(
+                "xQMLE does not support oversampling using OversampleRmat.");
+
+        if (specifics::TURN_OFF_SFID)
+            throw std::invalid_argument("xQMLE requires fiducial signal.");
+    };
 
     void iterate();
 };
