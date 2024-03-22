@@ -11,7 +11,10 @@
 #include "mathtools/smoother.hpp"
 
 
+int N_Q_MATRICES, KBIN_UPP, fisher_index_start;
 double *_vmatrix, *_zmatrix;
+std::vector<std::pair<int, double*>> stored_ikz_qi;
+
 int N1, N2;
 const qio::QSOFile *q1, *q2;
 
@@ -48,6 +51,48 @@ void _setZMatrix(double *m) {
 }
 
 
+void _setNQandFisherIndex() {
+    double zmin = _zmatrix[0], zmax = _zmatrix[N1 * N2 - 1];
+    int ZBIN_LOW = bins::findRedshiftBin(zmin),
+        ZBIN_UPP = bins::findRedshiftBin(zmax);
+
+    N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
+    fisher_index_start = bins::getFisherMatrixIndex(0, ZBIN_LOW);
+
+    if (bins::Z_BINNING_METHOD == bins::TriangleBinningMethod) {
+        // If we need to distribute low end to a lefter bin
+        if ((zmin < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
+        {
+            ++N_Q_MATRICES;
+            fisher_index_start -= bins::NUMBER_OF_K_BANDS;
+        }
+        // If we need to distribute high end to righter bin
+        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < zmax) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
+            ++N_Q_MATRICES;
+    }
+
+    N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
+
+    if (N_Q_MATRICES > glmemory::stored_ikz_qi.size())
+        for (int i = 0; i < N_Q_MATRICES - glmemory::stored_ikz_qi.size(); ++i)
+            glmemory::stored_ikz_qi.push_back(
+                std::make_unique<double[]>(glmemory::max_size_2));
+
+    stored_ikz_qi.clear();
+    stored_ikz_qi.reserve(N_Q_MATRICES);
+    for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
+        int kn, zm;
+        bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
+
+        if (kn < KBIN_UPP)
+            stored_ikz_qi.push_back(std::make_pair(i_kz, nullptr));
+    }
+
+    for (int i = 0; i < stored_ikz_qi.size(); ++i)
+        stored_ikz_qi[i].second = glmemory::stored_ikz_qi[i].get();
+}
+
+
 void _doubleRmatSandwich(double *m) {
     mxhelp::DiaMatrix *r1 = q1->Rmat->getDiaMatrixPointer(),
                       *r2 = q1->Rmat->getDiaMatrixPointer();
@@ -57,8 +102,7 @@ void _doubleRmatSandwich(double *m) {
 }
 
 
-void _setQiMatrix(double *m, int fi_kz)
-{
+void _setQiMatrix(double *m, int fi_kz) {
     ++mytime::number_of_times_called_setq;
     double t = mytime::timer.getTime(), t_interp;
     int kn, zm;
@@ -110,8 +154,7 @@ void _setQiMatrix(double *m, int fi_kz)
 }
 
 
-void _setFiducialSignalMatrix(double *sm)
-{
+void _setFiducialSignalMatrix(double *sm) {
     ++mytime::number_of_times_called_setsfid;
 
     double t = mytime::timer.getTime();
@@ -134,10 +177,9 @@ void _setFiducialSignalMatrix(double *sm)
 }
 
 
-OneQsoExposures::OneQsoExposures(const std::string &f_qso)
-{
+OneQsoExposures::OneQsoExposures(const std::string &f_qso) {
     try {
-        auto qFile = _readQsoFile(f_qso);
+        std::unique_ptr<qio::QSOFile> qFile = _readQsoFile(f_qso);
 
         targetid = qFile->id;
         exposures.reserve(30);
@@ -214,6 +256,7 @@ void OneQsoExposures::oneQSOiteration(
             N1 = q1->size();
             q2 = (*exp2)->qFile.get();
             N2 = q2->size();
+            KBIN_UPP = std::min((*exp1)->KBIN_UPP, (*exp2)->KBIN_UPP);
 
             if ((*exp1)->getExpId() == (*exp2)->getExpId())
                 continue;
@@ -226,16 +269,13 @@ void OneQsoExposures::oneQSOiteration(
             // Contruct VZ matrices
             _setVMatrix(_vmatrix);
             _setZMatrix(_zmatrix);
+            _setNQandFisherIndex();
 
             // Construct derivative
             DEBUG_LOG("Setting qi matrices\n");
 
-            auto mexp = exp2;
-            if ((*exp1)->stored_ikz_qi.size() < (*exp2)->stored_ikz_qi.size())
-                mexp = exp1;
-
-            for (auto iqt = (*mexp)->stored_ikz_qi.begin(); iqt != (*mexp)->stored_ikz_qi.end(); ++iqt)
-                _setQiMatrix(iqt->second, iqt->first + (*mexp)->fisher_index_start);
+            for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
+                _setQiMatrix(iqt->second, iqt->first + fisher_index_start);
 
             // Construct fiducial
             _setFiducialSignalMatrix(glmemory::stored_sfid.get());
