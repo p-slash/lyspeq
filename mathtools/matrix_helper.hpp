@@ -60,6 +60,9 @@ namespace mxhelp
     double my_cblas_dsymvdot(
         const double *v, const double *S,
         double *temp_vector, int N);
+    double my_cblas_dgemvdot(
+        const double *x, int Nx, const double* y, int Ny,
+        const double *A, double *temp_vector);
 
     void printfMatrix(const double *A, int N1, int N2);
     void fprintfMatrix(const char *fname, const double *A, int N1, int N2);
