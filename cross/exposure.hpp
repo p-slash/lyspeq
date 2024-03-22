@@ -24,7 +24,10 @@ public:
     int getFiber() const { return qFile->fiber; };
 
     void initMatrices();
-    void deallocMatrices() { delete [] covariance_matrix; };
+    void deallocMatrices() {
+        delete [] covariance_matrix;
+        weighted_data.reset();
+    };
 
     void setCovarianceMatrix();
     void invertCovarianceMatrix();

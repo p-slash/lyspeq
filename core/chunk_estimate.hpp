@@ -63,7 +63,6 @@ protected:
     // Note that noise matrix is diagonal and stored as pointer to its array 
     double *covariance_matrix;
     std::vector<double*> temp_matrix;
-    std::vector<std::pair<int, double*>> stored_ikz_qi;
 
     void _copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     void _findRedshiftBin();

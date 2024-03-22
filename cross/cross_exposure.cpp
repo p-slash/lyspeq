@@ -1,17 +1,13 @@
 #include "cross/cross_exposure.hpp"
 
-#include <cmath>
-#include <algorithm> // std::for_each
-#include <numeric> // std::accumulate
-#include <memory> // std::default_delete
 #include <cstdio>
-#include <cstdlib> // system
+#include <cmath>
+#include <algorithm>
 #include <stdexcept>
 #include <string>
-#include <sstream>      // std::ostringstream
+#include <sstream> // std::ostringstream
 
 #include "core/bootstrapper.hpp"
-#include "core/one_qso_estimate.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
 #include "core/progress.hpp"
@@ -24,7 +20,6 @@
 
 #if defined(ENABLE_MPI)
 #include "mpi.h" 
-#include "core/mpi_merge_sort.cpp"
 #endif
 
 
