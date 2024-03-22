@@ -86,6 +86,7 @@ public:
     int fisher_index_start, N_Q_MATRICES;
     int ZBIN, ZBIN_LOW, ZBIN_UPP;
 
+    std::vector<std::pair<int, double*>> stored_ikz_qi;
     // Initialized to 0
     // 3 TOTAL_KZ_BINS sized vectors
     std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
