@@ -12,9 +12,11 @@
 #include "io/config_file.hpp"
 
 
+typedef std::unordered_map<long, std::unique_ptr<OneQsoExposures>> targetid_quasar_map;
+
 class OneDCrossExposureQMLE: public OneDQuadraticPowerEstimate
 {
-    std::unordered_map<long, std::unique_ptr<OneQsoExposures>> quasars;
+    targetid_quasar_map quasars;
     // Reads the entire file
     void _readOneDeltaFile(const std::string &fname);
     void _readQSOFiles();
@@ -42,7 +44,7 @@ public:
             throw std::invalid_argument("xQMLE requires fiducial signal.");
     };
 
-    void iterate();
+    void xQmlEstimate();
 };
 
 #endif

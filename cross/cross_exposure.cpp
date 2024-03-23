@@ -23,6 +23,27 @@
 #endif
 
 
+void _saveQuasarResults(const targetid_quasar_map &quasars) {
+    // Create FITS file
+    ioh::BootstrapChunksFile bfile(process::FNAME_BASE, process::this_pe);
+
+    // For each chunk to a different extention
+    for (const auto &[targetid, qso] : quasars) {
+        double *pk = qso->dbt_estimate_before_fisher_vector[0].get();
+        double *nk = qso->dbt_estimate_before_fisher_vector[1].get();
+        double *tk = qso->dbt_estimate_before_fisher_vector[2].get();
+        int ndim = qso->ndim;
+
+        bfile.writeChunk(
+            pk, nk, tk,
+            qso->fisher_matrix.get(), ndim,
+            qso->istart,
+            targetid, qso->exposures[0]->qFile->z_qso,
+            qso->exposures[0]->qFile->ra, qso->exposures[0]->qFile->dec);
+    }
+}
+
+
 void OneDCrossExposureQMLE::_countZbinHistogram() {
     for (const auto &[targetid, qso] : quasars)
         for (const auto &exp : qso->exposures)
@@ -105,7 +126,7 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
 }
 
 
-void OneDCrossExposureQMLE::iterate()
+void OneDCrossExposureQMLE::xQmlEstimate()
 {
     double total_time = 0, total_time_1it = 0;
     std::vector<double> time_all_pes;
@@ -126,7 +147,6 @@ void OneDCrossExposureQMLE::iterate()
     Progress prog_tracker(quasars.size());
     for (const auto &[targetid, one_qso] : quasars) {
         one_qso->oneQSOiteration(
-            powerspectra_fits.get(), 
             dbt_estimate_sum_before_fisher_vector,
             fisher_matrix_sum.get()
         );
@@ -139,7 +159,6 @@ void OneDCrossExposureQMLE::iterate()
 
     // Scale and copy first before summing across PEs
     cblas_dscal(bins::FISHER_SIZE, 0.5, fisher_matrix_sum.get(), 1);
-    mxhelp::copyUpperToLower(fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
 
     // Save bootstrap files only if MPI is enabled.
     #if defined(ENABLE_MPI)
@@ -196,31 +215,21 @@ void OneDCrossExposureQMLE::iterate()
     MPI_Barrier(MPI_COMM_WORLD);
     #endif
 
-    try
-    {
-        if (process::this_pe == 0)
-            _smoothPowerSpectra();
-        #if defined(ENABLE_MPI)
-        MPI_Bcast(
-            powerspectra_fits.get(), bins::TOTAL_KZ_BINS,
-            MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        #endif
-    }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR("ERROR in Python script: %s\n", e.what());
-        throw e;
-    }
-
     glmemory::dealloc();
 
-    // // Save chunk estimates to a file
-    // if (process::SAVE_EACH_CHUNK_RESULT)
-    //     _saveChunkResults(quasars);
+    // Save chunk estimates to a file
+    if (process::SAVE_EACH_CHUNK_RESULT)
+        _saveQuasarResults(quasars);
 
-    // if (specifics::NUMBER_OF_BOOTS > 0) {
-    //     PoissonBootstrapper pbooter(
-    //         specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
-    //     pbooter.run(quasars);
-    // }
+    if (specifics::NUMBER_OF_BOOTS > 0) {
+        PoissonBootstrapper pbooter(
+            specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
+
+        std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
+        local_queue.resize(quasars.size());
+        for (const auto &[targetid, qso] : quasars)
+            local_queue.push_back(qso->move2OneQSOEstimate());
+
+        pbooter.run(local_queue);
+    }
 }

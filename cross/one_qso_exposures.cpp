@@ -206,7 +206,7 @@ void _setFiducialSignalMatrix(double *sm) {
 }
 
 
-OneQsoExposures::OneQsoExposures(const std::string &f_qso) {
+OneQsoExposures::OneQsoExposures(const std::string &f_qso) : OneQSOEstimate() {
     try {
         std::unique_ptr<qio::QSOFile> qFile = _readQsoFile(f_qso);
 
@@ -412,6 +412,15 @@ void OneQsoExposures::oneQSOiteration(
             dt_sum_vector[i].get() + istart, 1);
 }
 
+
+std::unique_ptr<OneQSOEstimate> OneQsoExposures::move2OneQSOEstimate() {
+    auto qso = std::make_unique<OneQSOEstimate>(true);
+    qso->istart = istart;
+    qso->ndim = ndim;
+    qso->theta_vector = std::move(theta_vector);
+    qso->fisher_matrix = std::move(fisher_matrix);
+    return qso;
+}
 
 
 
