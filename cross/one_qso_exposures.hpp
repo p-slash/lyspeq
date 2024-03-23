@@ -19,7 +19,7 @@ class OneQsoExposures: public OneQSOEstimate
 public:
     long targetid;
     std::vector<std::unique_ptr<Exposure>> exposures;
-    std::vector<std::unique_ptr<double[]>> dt_estimate_before_fisher_vector;
+    std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
 
     OneQsoExposures(const std::string &f_qso);
     OneQsoExposures(OneQsoExposures &&rhs) = default;
@@ -28,10 +28,10 @@ public:
     void addExposures(OneQsoExposures *other);
 
     void setAllocPowerSpMemory();
+    void xQmlEstimate();
     // Pass fit values for the power spectrum for numerical stability
     void oneQSOiteration(
-        const double *ps_estimate, 
-        std::vector<std::unique_ptr<double[]>> &dbt_sum_vector, 
+        std::vector<std::unique_ptr<double[]>> &dt_sum_vector, 
         double *fisher_sum);
 
     void collapseBootstrap();

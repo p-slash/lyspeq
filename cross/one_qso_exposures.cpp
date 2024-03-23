@@ -263,49 +263,18 @@ void OneQsoExposures::setAllocPowerSpMemory() {
     ndim = fisher_index_end - istart;
 
     fisher_matrix = std::make_unique<double[]>(ndim * ndim);
-    for (int i = 0; i < 2; ++i)
-        dt_estimate_before_fisher_vector.push_back(
+    theta_vector = std::make_unique<double[]>(ndim);
+    for (int i = 0; i < 3; ++i)
+        dbt_estimate_before_fisher_vector.push_back(
             std::make_unique<double[]>(ndim));
 }
 
 
-void OneQsoExposures::oneQSOiteration(
-        const double *ps_estimate, 
-        std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
-        double *fisher_sum
-) {
-    // Get inverse cov and weighted delta for all exposures
-    for (auto &exp : exposures) {
-        try {
-            exp->initMatrices();
-            exp->setCovarianceMatrix();
-            exp->invertCovarianceMatrix();
-            exp->weightDataVector();
-        }
-        catch (std::exception& e) {
-            LOG::LOGGER.ERR(
-                "OneQsoExposures::oneQSOiteration::%s Skipping %s.\n",
-                e.what(), exp->qFile->fname.c_str());
-            exp.reset();
-        }
-    }
-
-    exposures.erase(std::remove_if(
-        exposures.begin(), exposures.end(), [](const auto &x) { return !x; }),
-        exposures.end()
-    );
-
-    if (exposures.size() < 2) {
-        LOG::LOGGER.ERR(
-            "OneQsoExposures::oneQSOiteration::Not enough valid exposures"
-            " for TARGETID %ld.\n", targetid);
-        return;
-    }
-
-    setAllocPowerSpMemory();
-
-    _vmatrix = glmemory::temp_matrices[0].get(),
+void OneQsoExposures::xQmlEstimate() {
+    _vmatrix = glmemory::temp_matrices[0].get();
     _zmatrix = glmemory::temp_matrices[1].get();
+    double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
+           *tk0 = dbt_estimate_before_fisher_vector[2].get();
 
     // For each combo calculate derivatives
     for (vecExpIt exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
@@ -336,8 +305,6 @@ void OneQsoExposures::oneQSOiteration(
 
             // Calculate
             int diff_idx = fisher_index_start - istart;
-            double *dk0 = dt_estimate_before_fisher_vector[0].get(),
-                   *tk0 = dt_estimate_before_fisher_vector[1].get();
 
             double t = mytime::timer.getTime();
             for (int i = 0; i != stored_ikz_qi.size(); ++i) {
@@ -392,6 +359,57 @@ void OneQsoExposures::oneQSOiteration(
             mytime::time_spent_set_fisher += mytime::timer.getTime() - t;;
         }
     }
+
+    std::copy_n(dk0, ndim, theta_vector.get());
+    cblas_daxpy(ndim, 1, tk0, 1, theta_vector.get(), 1);
+}
+
+
+void OneQsoExposures::oneQSOiteration(
+        std::vector<std::unique_ptr<double[]>> &dt_sum_vector,
+        double *fisher_sum
+) {
+    // Get inverse cov and weighted delta for all exposures
+    for (auto &exp : exposures) {
+        try {
+            exp->initMatrices();
+            exp->setCovarianceMatrix();
+            exp->invertCovarianceMatrix();
+            exp->weightDataVector();
+        }
+        catch (std::exception& e) {
+            LOG::LOGGER.ERR(
+                "OneQsoExposures::oneQSOiteration::%s Skipping %s.\n",
+                e.what(), exp->qFile->fname.c_str());
+            exp.reset();
+        }
+    }
+
+    exposures.erase(std::remove_if(
+        exposures.begin(), exposures.end(), [](const auto &x) { return !x; }),
+        exposures.end()
+    );
+
+    if (exposures.size() < 2) {
+        LOG::LOGGER.ERR(
+            "OneQsoExposures::oneQSOiteration::Not enough valid exposures"
+            " for TARGETID %ld.\n", targetid);
+        return;
+    }
+
+    setAllocPowerSpMemory();
+    xQmlEstimate();
+
+    double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * istart;
+
+    for (int i = 0; i < ndim; ++i)
+        for (int j = 0; j < ndim; ++j)
+            outfisher[j + i * bins::TOTAL_KZ_BINS] += fisher_matrix[j + i * ndim];
+
+    for (int i = 0; i < 3; ++i)
+        cblas_daxpy(
+            ndim, 1, dbt_estimate_before_fisher_vector[i].get(), 1,
+            dt_sum_vector[i].get() + istart, 1);
 }
 
 
