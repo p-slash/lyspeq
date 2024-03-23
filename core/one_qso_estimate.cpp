@@ -90,6 +90,8 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
         LOG::LOGGER.ERR("%s in %s.\n", e.what(), f_qso.c_str());
         return;
     }
+
+    needs_collapsing = true;
 }
 
 double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
@@ -155,6 +157,9 @@ void OneQSOEstimate::oneQSOiteration(
 
 
 void OneQSOEstimate::collapseBootstrap() {
+    if (!needs_collapsing)
+        return;
+
     int fisher_index_end = 0;
 
     istart = bins::TOTAL_KZ_BINS;
@@ -188,6 +193,7 @@ void OneQSOEstimate::collapseBootstrap() {
     }
 
     chunks.clear();
+    needs_collapsing = false;
 }
 
 
