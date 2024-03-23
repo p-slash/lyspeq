@@ -34,7 +34,7 @@ public:
         std::vector<std::unique_ptr<double[]>> &dt_sum_vector, 
         double *fisher_sum);
 
-    void collapseBootstrap();
+    std::unique_ptr<OneQSOEstimate> move2OneQSOEstimate();
 };
 
 #endif
