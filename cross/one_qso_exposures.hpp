@@ -27,6 +27,7 @@ public:
 
     void addExposures(OneQsoExposures *other);
 
+    void setAllocPowerSpMemory();
     // Pass fit values for the power spectrum for numerical stability
     void oneQSOiteration(
         const double *ps_estimate, 

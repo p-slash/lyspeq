@@ -18,38 +18,6 @@ std::vector<std::pair<int, double*>> stored_ikz_qi, stored_weighted_qi;
 int N1, N2;
 const qio::QSOFile *q1, *q2;
 
-double _calculateOverlapRatio() {
-    double a1 = q1->wave()[0], a2 = q1->wave()[N1 - 1],
-           b1 = q2->wave()[0], b2 = q2->wave()[N2 - 1];
-
-    double w1 = std::max(a1, b1), w2 = std::min(a2, b2);
-    return (w2 - w1) / sqrt((a2 - a1) * (b2 - b1));
-}
-
-void _setVMatrix(double *m) {
-    DEBUG_LOG("Setting v matrix\n");
-
-    int N1 = q1->size(), N2 = q2->size();
-    double *l1 = q1->wave(), *l2 = q2->wave();
-
-    #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < N1; ++i)
-        for (int j = 0; j < N2; ++j)
-            m[j + i * N2] = SPEED_OF_LIGHT * fabs(log(l2[j] / l1[i]));
-}
-
-
-void _setZMatrix(double *m) {
-    DEBUG_LOG("Setting z matrix\n");
-
-    double *l1 = q1->wave(), *l2 = q2->wave();
-
-    #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < N1; ++i)
-        for (int j = 0; j < N2; ++j)
-            m[j + i * N2] = sqrt(l2[j] * l1[i]) - 1.;
-}
-
 
 void _setNQandFisherIndex() {
     double a1 = q1->wave()[0], a2 = q1->wave()[N1 - 1],
@@ -78,16 +46,58 @@ void _setNQandFisherIndex() {
 }
 
 
-void _setStoredIkzQiVector() {
-    if ((2 * N_Q_MATRICES) > glmemory::stored_ikz_qi.size())
-        for (int i = 0; i < N_Q_MATRICES - glmemory::stored_ikz_qi.size(); ++i)
-            glmemory::stored_ikz_qi.push_back(
-                std::make_unique<double[]>(glmemory::max_size_2));
+typedef std::vector<std::unique_ptr<Exposure>>::const_iterator vecExpIt;
+void _setInternalVariablesForTwoExposures(vecExpIt exp1, vecExpIt exp2) {
+    q1 = (*exp1)->qFile.get();
+    N1 = q1->size();
+    q2 = (*exp2)->qFile.get();
+    N2 = q2->size();
+    KBIN_UPP = std::min((*exp1)->KBIN_UPP, (*exp2)->KBIN_UPP);
 
+    _setNQandFisherIndex();
+}
+
+
+double _calculateOverlapRatio() {
+    double a1 = q1->wave()[0], a2 = q1->wave()[N1 - 1],
+           b1 = q2->wave()[0], b2 = q2->wave()[N2 - 1];
+
+    double w1 = std::max(a1, b1), w2 = std::min(a2, b2);
+    return (w2 - w1) / sqrt((a2 - a1) * (b2 - b1));
+}
+
+
+void _setVMatrix(double *m) {
+    DEBUG_LOG("Setting v matrix\n");
+
+    int N1 = q1->size(), N2 = q2->size();
+    double *l1 = q1->wave(), *l2 = q2->wave();
+
+    #pragma omp parallel for simd collapse(2)
+    for (int i = 0; i < N1; ++i)
+        for (int j = 0; j < N2; ++j)
+            m[j + i * N2] = SPEED_OF_LIGHT * fabs(log(l2[j] / l1[i]));
+}
+
+
+void _setZMatrix(double *m) {
+    DEBUG_LOG("Setting z matrix\n");
+
+    double *l1 = q1->wave(), *l2 = q2->wave();
+
+    #pragma omp parallel for simd collapse(2)
+    for (int i = 0; i < N1; ++i)
+        for (int j = 0; j < N2; ++j)
+            m[j + i * N2] = sqrt(l2[j] * l1[i]) - 1.;
+}
+
+
+void _setStoredIkzQiVector() {
     stored_ikz_qi.clear();
     stored_weighted_qi.clear();
     stored_ikz_qi.reserve(N_Q_MATRICES);
     stored_weighted_qi.reserve(N_Q_MATRICES);
+
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int kn, zm;
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
@@ -97,6 +107,12 @@ void _setStoredIkzQiVector() {
             stored_weighted_qi.push_back(std::make_pair(i_kz, nullptr));
         }
     }
+
+    int delta_size = 2 * stored_ikz_qi.size() - glmemory::stored_ikz_qi.size();
+    if (delta_size > 0)
+        for (int i = 0; i < delta_size; ++i)
+            glmemory::stored_ikz_qi.push_back(
+                std::make_unique<double[]>(glmemory::max_size_2));
 
     int ndim = stored_ikz_qi.size();
     for (int i = 0; i < ndim; ++i) {
@@ -230,6 +246,29 @@ void OneQsoExposures::addExposures(OneQsoExposures *other) {
 }
 
 
+void OneQsoExposures::setAllocPowerSpMemory() {
+    // decide max_ndim, istart, etc
+    int fisher_index_end = 0;
+    istart = bins::TOTAL_KZ_BINS;
+    for (vecExpIt exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
+        for (vecExpIt exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
+            _setInternalVariablesForTwoExposures(exp1, exp2);
+
+            istart = std::min(istart, fisher_index_start);
+            fisher_index_end = std::max(
+                fisher_index_end, fisher_index_start + N_Q_MATRICES);
+        }
+    }
+
+    ndim = fisher_index_end - istart;
+
+    fisher_matrix = std::make_unique<double[]>(ndim * ndim);
+    for (int i = 0; i < 2; ++i)
+        dt_estimate_before_fisher_vector.push_back(
+            std::make_unique<double[]>(ndim));
+}
+
+
 void OneQsoExposures::oneQSOiteration(
         const double *ps_estimate, 
         std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
@@ -263,46 +302,15 @@ void OneQsoExposures::oneQSOiteration(
         return;
     }
 
-    // decide max_ndim, istart, etc
-    int fisher_index_end = 0;
-    istart = bins::TOTAL_KZ_BINS;
-    for (auto exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
-        for (auto exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
-            q1 = (*exp1)->qFile.get();
-            N1 = q1->size();
-            q2 = (*exp2)->qFile.get();
-            N2 = q2->size();
-            KBIN_UPP = std::min((*exp1)->KBIN_UPP, (*exp2)->KBIN_UPP);
-            _setNQandFisherIndex();
-
-            glmemory::setMaxSizes(
-                std::max(N1, N2), std::max(N1, N2), 0, false);
-
-            istart = std::min(istart, fisher_index_start);
-            fisher_index_end = std::max(
-                fisher_index_end, fisher_index_start + N_Q_MATRICES);
-        }
-    }
-
-    ndim = fisher_index_end - istart;
-    glmemory::setMaxSizes(0, 0, 2 * ndim, false);
-
-    fisher_matrix = std::make_unique<double[]>(ndim * ndim);
-    for (int i = 0; i < 2; ++i)
-        dt_estimate_before_fisher_vector.push_back(
-            std::make_unique<double[]>(ndim));
+    setAllocPowerSpMemory();
 
     _vmatrix = glmemory::temp_matrices[0].get(),
     _zmatrix = glmemory::temp_matrices[1].get();
 
     // For each combo calculate derivatives
-    for (auto exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
-        for (auto exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
-            q1 = (*exp1)->qFile.get();
-            N1 = q1->size();
-            q2 = (*exp2)->qFile.get();
-            N2 = q2->size();
-            KBIN_UPP = std::min((*exp1)->KBIN_UPP, (*exp2)->KBIN_UPP);
+    for (vecExpIt exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
+        for (vecExpIt exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
+            _setInternalVariablesForTwoExposures(exp1, exp2);
 
             if ((*exp1)->getExpId() == (*exp2)->getExpId())
                 continue;
@@ -315,7 +323,6 @@ void OneQsoExposures::oneQSOiteration(
             // Contruct VZ matrices
             _setVMatrix(_vmatrix);
             _setZMatrix(_zmatrix);
-            _setNQandFisherIndex();
             _setStoredIkzQiVector();
 
             // Construct derivative
