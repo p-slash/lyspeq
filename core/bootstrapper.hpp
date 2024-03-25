@@ -44,7 +44,7 @@ namespace mytime
     static double time_spent_on_oneboot_loop = 0, time_spent_on_oneboot_mpi = 0,
                   time_spent_on_oneboot_solve = 0;
 
-    void printfBootstrapTimeSpentDetails()
+    inline void printfBootstrapTimeSpentDetails()
     {
         LOG::LOGGER.STD(
             "Total time spent in loop is %.2f mins.\n"
