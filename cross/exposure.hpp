@@ -15,7 +15,7 @@ is small.
 */
 class Exposure: public Chunk
 {
-    std::unique_ptr<double[]> weighted_data;
+    std::unique_ptr<double[]> weighted_data, local_cov_mat;
 public:
     Exposure(const qio::QSOFile &qmaster, int i1, int i2) {
         _copyQSOFile(qmaster, i1, i2);
@@ -29,12 +29,11 @@ public:
 
     void initMatrices();
     void deallocMatrices() {
-        delete [] covariance_matrix;
+        local_cov_mat.reset();
         weighted_data.reset();
     };
 
     void setCovarianceMatrix();
-    void invertCovarianceMatrix();
     void weightDataVector();
 };
 

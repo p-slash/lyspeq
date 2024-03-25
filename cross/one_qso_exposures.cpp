@@ -360,6 +360,9 @@ void OneQsoExposures::xQmlEstimate() {
         }
     }
 
+    for (auto &expo : exposures)
+        expo->deallocMatrices();
+
     std::copy_n(dk0, ndim, theta_vector.get());
     cblas_daxpy(ndim, 1, tk0, 1, theta_vector.get(), 1);
 }
@@ -370,18 +373,18 @@ void OneQsoExposures::oneQSOiteration(
         double *fisher_sum
 ) {
     // Get inverse cov and weighted delta for all exposures
-    for (auto &exp : exposures) {
+    for (auto &expo : exposures) {
         try {
-            exp->initMatrices();
-            exp->setCovarianceMatrix();
-            exp->invertCovarianceMatrix();
-            exp->weightDataVector();
+            expo->initMatrices();
+            expo->setCovarianceMatrix();
+            expo->invertCovarianceMatrix();
+            expo->weightDataVector();
         }
         catch (std::exception& e) {
             LOG::LOGGER.ERR(
                 "OneQsoExposures::oneQSOiteration::%s Skipping %s.\n",
-                e.what(), exp->qFile->fname.c_str());
-            exp.reset();
+                e.what(), expo->qFile->fname.c_str());
+            expo.reset();
         }
     }
 

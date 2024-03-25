@@ -8,8 +8,6 @@
 
 #include "core/quadratic_estimate.hpp"
 #include "cross/one_qso_exposures.hpp"
-#include "mathtools/stats.hpp"
-#include "io/config_file.hpp"
 
 
 typedef std::unordered_map<long, std::unique_ptr<OneQsoExposures>> targetid_quasar_map;
