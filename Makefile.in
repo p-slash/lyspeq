@@ -38,7 +38,7 @@ CPPFLAGS+=-I$(srcdir) -std=c++17 -DHAVE_INLINE $(MORECPPFLAGS)
 CPPFLAGS+=-MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
-core: LyaPowerEstimate CreateSQLookUpTable lyspeqBootStats
+core: LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats
 
 test: core cblas_tests testSQCMatrices
 	mkdir -p $(srcdir)/tests/output
@@ -55,6 +55,9 @@ test: core cblas_tests testSQCMatrices
 	@python3 tests/compareTestResults.py $(srcdir)
 	
 LyaPowerEstimate: LyaPowerEstimate.o $(NONX_OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+LyaPowerxQmlExposure: LyaPowerxQmlExposure.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
@@ -97,16 +100,16 @@ timeMatrixOps: timeMatrixOps.cpp matrix_helper.o real_field.o
 
 install: LyaPowerEstimate CreateSQLookUpTable lyspeqBootStats
 	mkdir -p $(bindir)
-	cp LyaPowerEstimate CreateSQLookUpTable lyspeqBootStats $(srcdir)/py/lorentzian_fit.py $(srcdir)/py/smbivspline.py $(bindir)
+	cp LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats $(srcdir)/py/lorentzian_fit.py $(srcdir)/py/smbivspline.py $(bindir)
 	chmod a+x $(bindir)/lorentzian_fit.py $(bindir)/smbivspline.py
 
 uninstall:
 	$(RM) $(bindir)/lorentzian_fit.py
-	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/CreateSQLookUpTable $(bindir)/lyspeqBootStats
+	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/LyaPowerxQmlExposure $(bindir)/CreateSQLookUpTable $(bindir)/lyspeqBootStats
 
 clean:
 	$(RM) $(OBJECTS) $(bin_OBJ) $(test_objects) $(srcdir)/tests/output/*
-	$(RM) LyaPowerEstimate CreateSQLookUpTable lyspeqBootStats cblas_tests testSQCMatrices
+	$(RM) LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats cblas_tests testSQCMatrices
 	$(RM) test_cuda_helper testPointRef myfitsread testReadingBootRealizations test-fftconvolve testBootstrapTime testOMPTiming
 
 deepclean: clean
