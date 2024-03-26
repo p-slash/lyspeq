@@ -27,10 +27,11 @@ public:
 
     void addExposures(OneQsoExposures *other);
 
+    int countExposureCombos();
     void setAllocPowerSpMemory();
     void xQmlEstimate();
     // Pass fit values for the power spectrum for numerical stability
-    void oneQSOiteration(
+    int oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dt_sum_vector, 
         double *fisher_sum);
 

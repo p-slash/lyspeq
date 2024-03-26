@@ -34,7 +34,7 @@ DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 NONX_OBJECTS=$(filter-out $(cross_objs), $(OBJECTS))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
-CPPFLAGS+=-I$(srcdir) -std=c++17 -DHAVE_INLINE $(MORECPPFLAGS)
+CPPFLAGS+=-I$(srcdir) -std=c++20 -DHAVE_INLINE $(MORECPPFLAGS)
 CPPFLAGS+=-MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 

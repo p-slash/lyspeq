@@ -58,9 +58,9 @@ void _setInternalVariablesForTwoExposures(vecExpIt exp1, vecExpIt exp2) {
 }
 
 
-double _calculateOverlapRatio() {
-    double a1 = q1->wave()[0], a2 = q1->wave()[N1 - 1],
-           b1 = q2->wave()[0], b2 = q2->wave()[N2 - 1];
+double _calculateOverlapRatio(const qio::QSOFile *qa, const qio::QSOFile *qb) {
+    double a1 = qa->wave()[0], a2 = qa->wave()[qa->size() - 1],
+           b1 = qb->wave()[0], b2 = qb->wave()[qb->size() - 1];
 
     double w1 = std::max(a1, b1), w2 = std::min(a2, b2);
     return (w2 - w1) / sqrt((a2 - a1) * (b2 - b1));
@@ -269,6 +269,31 @@ void OneQsoExposures::setAllocPowerSpMemory() {
             std::make_unique<double[]>(ndim));
 }
 
+bool skipCombo(vecExpIt exp1, vecExpIt exp2, double overlap_cut=0.5) {
+    bool skip = (
+        (*exp1)->getExpId() == (*exp2)->getExpId()
+        || (*exp1)->getNight() == (*exp2)->getNight()
+        || (_calculateOverlapRatio((*exp1)->qFile.get(), (*exp2)->qFile.get())
+            < overlap_cut)
+    );
+    
+    return skip;
+}
+
+int OneQsoExposures::countExposureCombos() {
+    int numcombos = 0;
+
+    for (vecExpIt exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
+        for (vecExpIt exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
+            if (skipCombo(exp1, exp2))
+                continue;
+
+            ++numcombos;
+        }
+    }
+
+    return numcombos;
+}
 
 void OneQsoExposures::xQmlEstimate() {
     _vmatrix = glmemory::temp_matrices[0].get();
@@ -279,15 +304,10 @@ void OneQsoExposures::xQmlEstimate() {
     // For each combo calculate derivatives
     for (vecExpIt exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
         for (vecExpIt exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
+            if (skipCombo(exp1, exp2))
+                continue;
+
             _setInternalVariablesForTwoExposures(exp1, exp2);
-
-            if ((*exp1)->getExpId() == (*exp2)->getExpId())
-                continue;
-
-            double r_overlap = _calculateOverlapRatio();
-
-            if (r_overlap < 0.5)
-                continue;
 
             // Contruct VZ matrices
             _setVMatrix(_vmatrix);
@@ -368,7 +388,7 @@ void OneQsoExposures::xQmlEstimate() {
 }
 
 
-void OneQsoExposures::oneQSOiteration(
+int OneQsoExposures::oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dt_sum_vector,
         double *fisher_sum
 ) {
@@ -397,7 +417,16 @@ void OneQsoExposures::oneQSOiteration(
         LOG::LOGGER.ERR(
             "OneQsoExposures::oneQSOiteration::Not enough valid exposures"
             " for TARGETID %ld.\n", targetid);
-        return;
+        return 0;
+    }
+
+    int numcombos = countExposureCombos();
+
+    if (numcombos == 0) {
+        LOG::LOGGER.ERR(
+            "OneQsoExposures::oneQSOiteration::Not enough valid exposures combos"
+            " for TARGETID %ld.\n", targetid);
+        return 0;
     }
 
     setAllocPowerSpMemory();
@@ -413,6 +442,8 @@ void OneQsoExposures::oneQSOiteration(
         cblas_daxpy(
             ndim, 1, dbt_estimate_before_fisher_vector[i].get(), 1,
             dt_sum_vector[i].get() + istart, 1);
+
+    return numcombos;
 }
 
 

@@ -145,15 +145,26 @@ void OneDCrossExposureQMLE::xQmlEstimate()
     // Calculation for each spectrum
     DEBUG_LOG("Running on local queue size %zu\n", quasars.size());
     Progress prog_tracker(quasars.size());
-    for (const auto &[targetid, one_qso] : quasars) {
-        one_qso->oneQSOiteration(
+    int total_num_expo_combos = 0;
+    for (auto &[targetid, one_qso] : quasars) {
+        int num_expo_combos = one_qso->oneQSOiteration(
             dbt_estimate_sum_before_fisher_vector,
             fisher_matrix_sum.get()
         );
 
+        if (num_expo_combos == 0)
+            one_qso.reset();
+
         ++prog_tracker;
+        total_num_expo_combos += num_expo_combos;
         DEBUG_LOG("One done.\n");
     }
+
+    // C++20 feature
+    std::erase_if(quasars, [](const auto &x) {
+        auto const& [targetid, one_qso] = x;
+        return !one_qso;
+    });
 
     DEBUG_LOG("All done.\n");
 
@@ -166,6 +177,10 @@ void OneDCrossExposureQMLE::xQmlEstimate()
     MPI_Gather(
         &timenow, 1, MPI_DOUBLE, time_all_pes.data(), 1, MPI_DOUBLE,
         0, MPI_COMM_WORLD);
+
+    MPI_Allreduce(
+        MPI_IN_PLACE, &num_expo_combos, 1,
+        MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     // Save PE estimates to a file
     if (process::SAVE_EACH_PE_RESULT)
@@ -191,6 +206,9 @@ void OneDCrossExposureQMLE::xQmlEstimate()
         std::copy(
             precomputed_fisher.begin(), precomputed_fisher.end(), 
             fisher_matrix_sum.get());
+
+    LOG::LOGGER.STD(
+        "Total number of cross exposures: %d.\n", total_num_expo_combos);
 
     try
     {
