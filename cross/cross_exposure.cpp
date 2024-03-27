@@ -76,6 +76,14 @@ void OneDCrossExposureQMLE::_readOneDeltaFile(const std::string &fname) {
         fpath << fname << '[' << i + 1 << ']';
         auto oneqso = std::make_unique<OneQsoExposures>(fpath.str());
 
+        if (oneqso->exposures.size() == 0) {
+            LOG::LOGGER.ERR(
+                "OneDCrossExposureQMLE::_readOneDeltaFile::"
+                "No valid exposures in quasar %s.\n",
+                fpath.str().c_str());
+            continue;
+        }
+
         auto kumap_itr = quasars.find(oneqso->targetid);
 
         if (kumap_itr == quasars.end())
@@ -179,7 +187,7 @@ void OneDCrossExposureQMLE::xQmlEstimate()
         0, MPI_COMM_WORLD);
 
     MPI_Allreduce(
-        MPI_IN_PLACE, &num_expo_combos, 1,
+        MPI_IN_PLACE, &total_num_expo_combos, 1,
         MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     // Save PE estimates to a file
