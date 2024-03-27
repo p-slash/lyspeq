@@ -70,7 +70,12 @@ namespace glmemory {
             memUsed += process::getMemoryMB(max_matrix_n + 3 * highsize);
         }
 
-        LOG::LOGGER.STD("Memory needed for globals: %.2f MB.\n", memUsed);
+        LOG::LOGGER.STD(
+            "Global memory requirements:\n"
+            "  max_size: %d, max_size_2: %d, max_nqdim: %d\n"
+            "  Memory needed: %.2f MB.\n",
+            max_size, max_size_2, max_nqdim);
+
         process::updateMemory(-memUsed);
         int ntempmatrices = std::max(2, std::min(
             myomp::getMaxNumThreads(),

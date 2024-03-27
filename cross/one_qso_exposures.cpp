@@ -112,7 +112,7 @@ void _setStoredIkzQiVector() {
     if (delta_size > 0) {
         LOG::LOGGER.ERR("Need more memory to store glmemory::stored_ikz_qi.\n");
         glmemory::updateMemUsed(
-            -process::getMemoryMB(glmemory::max_size_2 * delta_size));
+            process::getMemoryMB(glmemory::max_size_2 * delta_size));
 
         for (int i = 0; i < delta_size; ++i)
             glmemory::stored_ikz_qi.push_back(
