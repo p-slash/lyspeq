@@ -249,10 +249,15 @@ void BQFile::readData(double *lambda, double *fluxfluctuations, double *noise)
 
 std::string decomposeFname(const std::string &fname, int &hdunum)
 {
-    std::size_t i1 = fname.rfind('[')+1, i2 = fname.rfind(']');
-    std::string basefname = fname.substr(0, i1-1);
+    std::size_t i1 = fname.rfind('['), i2 = fname.rfind(']');
 
-    hdunum = std::stoi(fname.substr(i1, i2-i1))+1;
+    if (i1 == std::string::npos) {
+        hdunum = 1;
+        return fname;
+    }
+
+    std::string basefname = fname.substr(0, i1);
+    hdunum = std::stoi(fname.substr(i1 + 1, i2 - i1 - 1)) + 1;
 
     return basefname;
 }
