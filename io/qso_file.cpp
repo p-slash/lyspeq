@@ -252,7 +252,7 @@ std::string decomposeFname(const std::string &fname, int &hdunum)
     std::size_t i1 = fname.rfind('['), i2 = fname.rfind(']');
 
     if (i1 == std::string::npos) {
-        hdunum = 1;
+        hdunum = 2;
         return fname;
     }
 

@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("Error while Iteration: %s\n", e.what());
+        LOG::LOGGER.ERR("Error while xQmlEstimate: %s\n", e.what());
         qps->printfSpectra();
 
         std::string buf = process::FNAME_BASE + "_error_dump_quadratic_power_estimate_detailed.dat";
