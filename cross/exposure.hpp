@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "core/chunk_estimate.hpp"
+#include "core/global_numbers.hpp"
 
 /*
 This is the umbrella class for multiple exposures.
@@ -17,15 +18,22 @@ class Exposure: public Chunk
 {
     std::unique_ptr<double[]> weighted_data, local_cov_mat;
 public:
-    Exposure(const qio::QSOFile &qmaster, int i1, int i2) {
+    Exposure(const qio::QSOFile &qmaster, int i1, int i2) : Chunk() {
         _copyQSOFile(qmaster, i1, i2);
         glmemory::setMaxSizes(size(), size(), 0, false);
+        process::updateMemory(-getMinMemUsage());
     };
 
     int getExpId() const { return qFile->expid; };
     int getNight() const { return qFile->night; };
     int getFiber() const { return qFile->fiber; };
     double* getWeightedData() const { return weighted_data.get(); };
+
+    double getMinMemUsage() {
+        if (qFile)
+            return qFile->getMinMemUsage();
+        return 0;
+    }
 
     void initMatrices();
     void deallocMatrices() {
