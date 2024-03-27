@@ -239,8 +239,7 @@ OneQsoExposures::OneQsoExposures(const std::string &f_qso) : OneQSOEstimate() {
 
 void OneQsoExposures::addExposures(OneQsoExposures *other) {
     exposures.reserve(exposures.size() + other->exposures.size());
-    std::move(std::begin(other->exposures),
-              std::end(other->exposures),
+    std::move(std::begin(other->exposures), std::end(other->exposures),
               std::back_inserter(exposures));
     other->exposures.clear();
 }
