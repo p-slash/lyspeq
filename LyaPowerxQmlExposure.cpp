@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
     gsl_set_error_handler_off();
 
     ConfigFile config = ConfigFile();
-    std::unique_ptr<OneDQuadraticPowerEstimate> qps;
+    std::unique_ptr<OneDCrossExposureQMLE> qps;
 
     // Let all PEs to read config at the same time.
     try
@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
 
     try
     {
-        qps->iterate();
+        qps->xQmlEstimate();
     }
     catch (std::exception& e)
     {
