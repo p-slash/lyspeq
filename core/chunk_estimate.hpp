@@ -42,6 +42,7 @@ namespace glmemory {
     extern void setMaxSizes(int size, int matrix_n, int nqdim, bool onsamp);
     extern void allocMemory();
     extern void dealloc();
+    extern void updateMemUsed(double mem);
 }
 
 

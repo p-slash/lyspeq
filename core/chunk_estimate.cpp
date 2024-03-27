@@ -70,6 +70,7 @@ namespace glmemory {
             memUsed += process::getMemoryMB(max_matrix_n + 3 * highsize);
         }
 
+        LOG::LOGGER.STD("Memory needed for globals: %.2f MB.\n", memUsed);
         process::updateMemory(-memUsed);
         int ntempmatrices = std::max(2, std::min(
             myomp::getMaxNumThreads(),
@@ -124,6 +125,11 @@ namespace glmemory {
         interp_derivative_matrix.clear();
 
         process::updateMemory(memUsed);
+    }
+
+    void updateMemUsed(double mem) {
+        memUsed += mem;
+        process::updateMemory(-mem);
     }
 }
 
@@ -282,11 +288,7 @@ Chunk::~Chunk()
 
 double Chunk::getMinMemUsage()
 {
-    double minmem = process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
-    if (qFile)
-        minmem += qFile->getMinMemUsage();
-
-    return minmem;
+    return process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
 }
 
 double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
