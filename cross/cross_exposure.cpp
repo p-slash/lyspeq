@@ -70,6 +70,7 @@ void OneDCrossExposureQMLE::_readOneDeltaFile(const std::string &fname) {
     qio::PiccaFile pFile(fname);
     int number_of_spectra = pFile.getNumberSpectra();
 
+    NUMBER_OF_QSOS += number_of_spectra;
     for (int i = 0; i < number_of_spectra; ++i)
     {
         std::ostringstream fpath;
@@ -105,6 +106,7 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
 
     LOG::LOGGER.STD("Read delta files.\n");
 
+    NUMBER_OF_QSOS = 0;
     int number_of_files = ioh::readList(flist.c_str(), filepaths);
     // Add parent directory to file path
     for (auto &fq : filepaths)
