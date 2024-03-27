@@ -54,6 +54,7 @@ void OneDCrossExposureQMLE::_countZbinHistogram() {
     MPI_Allreduce(
         MPI_IN_PLACE, Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2, 
         MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &NUMBER_OF_QSOS, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     #endif
 
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
@@ -102,7 +103,6 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
 
     double t1 = mytime::timer.getTime(), t2 = 0;
     std::vector<std::string> filepaths;
-    std::vector< std::pair<double, int> > cpu_fname_vector;
 
     LOG::LOGGER.STD("Read delta files.\n");
 
@@ -131,7 +131,7 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t2 - t1);
     _countZbinHistogram();
 
-    if (cpu_fname_vector.empty())
+    if (quasars.empty())
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
 }
 
