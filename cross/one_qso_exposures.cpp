@@ -109,10 +109,14 @@ void _setStoredIkzQiVector() {
     }
 
     int delta_size = 2 * stored_ikz_qi.size() - glmemory::stored_ikz_qi.size();
-    if (delta_size > 0)
+    if (delta_size > 0) {
+        LOG::LOGGER.ERR("Need more memory to store glmemory::stored_ikz_qi.\n");
+        glmemory::updateMemUsed(process::getMemoryMB(max_size_2 * delta_size));
+
         for (int i = 0; i < delta_size; ++i)
             glmemory::stored_ikz_qi.push_back(
                 std::make_unique<double[]>(glmemory::max_size_2));
+    }
 
     int ndim = stored_ikz_qi.size();
     for (int i = 0; i < ndim; ++i) {

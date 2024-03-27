@@ -17,15 +17,6 @@
 #include <stdexcept>
 
 
-void Exposure::initMatrices()
-{
-    _initMatrices();
-    local_cov_mat = std::make_unique<double[]>(DATA_SIZE_2);
-    weighted_data = std::make_unique<double[]>(size());
-    covariance_matrix = local_cov_mat.get();
-}
-
-
 void Exposure::setCovarianceMatrix() {
     _setVZMatrices();
 

@@ -20,8 +20,8 @@ class Exposure: public Chunk
 public:
     Exposure(const qio::QSOFile &qmaster, int i1, int i2) : Chunk() {
         _copyQSOFile(qmaster, i1, i2);
-        glmemory::setMaxSizes(size(), size(), 0, false);
-        process::updateMemory(-getMinMemUsage());
+        _setNQandFisherIndex();
+        glmemory::setMaxSizes(size(), size(), 2 * N_Q_MATRICES, false);
     };
 
     int getExpId() const { return qFile->expid; };
@@ -29,16 +29,18 @@ public:
     int getFiber() const { return qFile->fiber; };
     double* getWeightedData() const { return weighted_data.get(); };
 
-    double getMinMemUsage() {
-        if (qFile)
-            return qFile->getMinMemUsage();
-        return 0;
-    }
+    void initMatrices() {
+        _initMatrices();
+        local_cov_mat = std::make_unique<double[]>(DATA_SIZE_2);
+        weighted_data = std::make_unique<double[]>(size());
+        covariance_matrix = local_cov_mat.get();
 
-    void initMatrices();
+        process::updateMemory(-process::getMemoryMB(DATA_SIZE_2 + size()));
+    }
     void deallocMatrices() {
         local_cov_mat.reset();
         weighted_data.reset();
+        process::updateMemory(process::getMemoryMB(DATA_SIZE_2 + size()));
     };
 
     void setCovarianceMatrix();
