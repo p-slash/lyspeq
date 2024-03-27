@@ -294,23 +294,25 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
     std::string basefname = decomposeFname(fname_qso, hdunum);
 
     auto it = cache.find(basefname);
-    if (it != cache.end())
-    {
+    if (it != cache.end()) {
         fits_file = it->second;
-        fits_movabs_hdu(fits_file, hdunum, &hdutype, &status);
     }
-    else
-    {
-        if (cache.size() == MAX_NO_FILES)
-        {
+    else {
+        if (cache.size() == MAX_NO_FILES) {
             fits_close_file(cache.begin()->second, &status);
             cache.erase(cache.begin());
         }
+
         fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
         cache[basefname] = fits_file;
         fits_get_num_hdus(fits_file, &no_spectra, &status);
         no_spectra--;
     }
+
+    fits_movabs_hdu(fits_file, hdunum, &hdutype, &status);
+
+    if (hdutype != BINARY_TBL)
+        throw std::runtime_error("HDU type is not BINARY!");
 
     _setHeaderKeys();
     _setColumnNames();
