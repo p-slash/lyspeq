@@ -55,15 +55,20 @@ void OneDCrossExposureQMLE::_countZbinHistogram() {
         MPI_IN_PLACE, Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2, 
         MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, &NUMBER_OF_QSOS, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &NUMBER_OF_QSOS_OUT, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     #endif
 
-    NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
+    LOG::LOGGER.STD(
+        "Number of remaining quasars: %d\n"
+        "Number of deleted quasars: %d\n", 
+        NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT);
 
-    LOG::LOGGER.STD("Z bin counts: ");
-    for (int zm = 0; zm < bins::NUMBER_OF_Z_BINS+2; zm++)
-        LOG::LOGGER.STD("%d ", Z_BIN_COUNTS[zm]);
-    LOG::LOGGER.STD("\nNumber of quasars: %d\nQSOs in z bins: %d\n", 
-        NUMBER_OF_QSOS, NUMBER_OF_QSOS - NUMBER_OF_QSOS_OUT);
+    std::ostringstream zbintext;
+    zbintext << "Z bin counts:";
+    for (int zm = 0; zm < bins::NUMBER_OF_Z_BINS + 2; zm++)
+        zbintext << "  " << Z_BIN_COUNTS[zm];
+    zbintext << '\n';
+    LOG::LOGGER.STD(zbintext.str().c_str());
 }
 
 
@@ -71,7 +76,6 @@ void OneDCrossExposureQMLE::_readOneDeltaFile(const std::string &fname) {
     qio::PiccaFile pFile(fname);
     int number_of_spectra = pFile.getNumberSpectra();
 
-    NUMBER_OF_QSOS += number_of_spectra;
     for (int i = 0; i < number_of_spectra; ++i)
     {
         std::ostringstream fpath;
@@ -106,7 +110,6 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
 
     LOG::LOGGER.STD("Read delta files.\n");
 
-    NUMBER_OF_QSOS = 0;
     int number_of_files = ioh::readList(flist.c_str(), filepaths);
     // Add parent directory to file path
     for (auto &fq : filepaths)
@@ -125,6 +128,18 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
 
     if (specifics::INPUT_QSO_FILE == qio::Picca)
         qio::PiccaFile::clearCache();
+
+    int init_num_qsos = quasars.size();
+
+    // Remove quasars with not enough pairs
+    // C++20 feature
+    std::erase_if(quasars, [](const auto &x) {
+        auto const& [targetid, one_qso] = x;
+        return !one_qso->hasEnoughUniqueExpidNightPairs();
+    });
+
+    NUMBER_OF_QSOS = quasars.size();
+    NUMBER_OF_QSOS_OUT = init_num_qsos - NUMBER_OF_QSOS;
 
     // Print out time it took to read all files into vector
     t2 = mytime::timer.getTime();

@@ -29,6 +29,10 @@ public:
 
     void addExposures(OneQsoExposures *other);
 
+    bool hasEnoughUniqueExpidNightPairs() const {
+        return unique_expid_night_set.size() > 1;
+    }
+
     int countExposureCombos();
     void setAllocPowerSpMemory();
     void xQmlEstimate();

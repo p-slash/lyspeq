@@ -412,13 +412,6 @@ int OneQsoExposures::oneQSOiteration(
 ) {
     DEBUG_LOG("\n\nOneQsoExposures::oneQSOiteration::TARGETID %ld\n", targetid);
 
-    if (unique_expid_night_set.size() < 2) {
-        LOG::LOGGER.ERR(
-            "OneQsoExposures::oneQSOiteration::Not enough elements in "
-            " unique_expid_night_set for TARGETID %ld.\n", targetid);
-        return 0;
-    }
-
     // Get inverse cov and weighted delta for all exposures
     for (auto &expo : exposures) {
         try {
