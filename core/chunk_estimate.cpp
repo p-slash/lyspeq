@@ -74,7 +74,7 @@ namespace glmemory {
             "Global memory requirements:\n"
             "  max_size: %d, max_size_2: %d, max_nqdim: %d\n"
             "  Memory needed: %.2f MB.\n",
-            max_size, max_size_2, max_nqdim);
+            max_size, max_size_2, max_nqdim, memUsed);
 
         process::updateMemory(-memUsed);
         int ntempmatrices = std::max(2, std::min(
