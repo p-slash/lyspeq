@@ -1,11 +1,7 @@
 #include "cross/exposure.hpp"
 #include "core/global_numbers.hpp"
-#include "core/omp_manager.hpp"
-#include "core/fiducial_cosmology.hpp"
-#include "core/sq_table.hpp"
 
 #include "mathtools/smoother.hpp"
-#include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
 
 #include <cmath>
@@ -19,9 +15,6 @@
 
 void Exposure::setCovarianceMatrix() {
     _setVZMatrices();
-
-    for (int i = 0; i < _matrix_n; ++i)
-        _matrix_lambda[i] += 1;
 
     _setFiducialSignalMatrix(covariance_matrix);
 
