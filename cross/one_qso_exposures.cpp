@@ -71,7 +71,7 @@ double _calculateOverlapRatio(const qio::QSOFile *qa, const qio::QSOFile *qb) {
 
 
 void _setVMatrix(double *m) {
-    DEBUG_LOG("Setting v matrix\n");
+    DEBUG_LOG("OneQsoExposures::_setVMatrix\n");
 
     int N1 = q1->size(), N2 = q2->size();
     double *l1 = q1->wave(), *l2 = q2->wave();
@@ -84,7 +84,7 @@ void _setVMatrix(double *m) {
 
 
 void _setZMatrix(double *m) {
-    DEBUG_LOG("Setting z matrix\n");
+    DEBUG_LOG("OneQsoExposures::_setZMatrix\n");
 
     double *l1 = q1->wave(), *l2 = q2->wave();
 
@@ -255,7 +255,7 @@ void OneQsoExposures::addExposures(OneQsoExposures *other) {
 
 
 void OneQsoExposures::setAllocPowerSpMemory() {
-    DEBUG_LOG("OneQsoExposures::setAllocPowerSpMemory\n");
+    DEBUG_LOG("OneQsoExposures::setAllocPowerSpMemory::TARGETID %ld\n", targetid);
     // decide max_ndim, istart, etc
     int fisher_index_end = 0;
     istart = bins::TOTAL_KZ_BINS;
@@ -401,6 +401,8 @@ int OneQsoExposures::oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dt_sum_vector,
         double *fisher_sum
 ) {
+    DEBUG_LOG("OneQsoExposures::oneQSOiteration::TARGETID %ld", targetid);
+
     // Get inverse cov and weighted delta for all exposures
     for (auto &expo : exposures) {
         try {
