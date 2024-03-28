@@ -243,6 +243,10 @@ OneQsoExposures::OneQsoExposures(const std::string &f_qso) : OneQSOEstimate() {
 
     istart = bins::TOTAL_KZ_BINS;
     ndim = 0;
+    if (!exposures.empty())
+        unique_expid_night_set.emplace(
+            std::make_pair(exposures[0]->getExpId(), exposures[0]->getNight())
+        );
 }
 
 
@@ -251,6 +255,8 @@ void OneQsoExposures::addExposures(OneQsoExposures *other) {
     std::move(std::begin(other->exposures), std::end(other->exposures),
               std::back_inserter(exposures));
     other->exposures.clear();
+    unique_expid_night_set.merge(
+        std::move(other->unique_expid_night_set));
 }
 
 
@@ -405,6 +411,13 @@ int OneQsoExposures::oneQSOiteration(
         double *fisher_sum
 ) {
     DEBUG_LOG("\n\nOneQsoExposures::oneQSOiteration::TARGETID %ld\n", targetid);
+
+    if (unique_expid_night_set.size() < 2) {
+        LOG::LOGGER.ERR(
+            "OneQsoExposures::oneQSOiteration::Not enough elements in "
+            " unique_expid_night_set for TARGETID %ld.\n", targetid);
+        return 0;
+    }
 
     // Get inverse cov and weighted delta for all exposures
     for (auto &expo : exposures) {

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <set>
 #include <memory>
 
 #include "core/one_qso_estimate.hpp"
@@ -16,6 +17,7 @@ is small.
 */
 class OneQsoExposures: public OneQSOEstimate 
 {
+    std::set<std::pair<int, int>> unique_expid_night_set;
 public:
     long targetid;
     std::vector<std::unique_ptr<Exposure>> exposures;
