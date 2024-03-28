@@ -394,9 +394,6 @@ void Chunk::_setVZMatrices() {
             _zmatrix[j + i * _matrix_n] = sqrt(li * lj) - 1.;
         }
     }
-
-    for (int i = 0; i < _matrix_n; ++i)
-        _matrix_lambda[i] -= 1;
 }
 
 void Chunk::_setFiducialSignalMatrix(double *sm)
@@ -777,6 +774,9 @@ void Chunk::oneQSOiteration(
     // 0 is the last matrix
     // i_kz = N_Q_MATRICES - j_kz - 1
     DEBUG_LOG("Setting qi matrices\n");
+
+    for (int i = 0; i < _matrix_n; ++i)
+        _matrix_lambda[i] -= 1;
 
     for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
         _setQiMatrix(iqt->second, iqt->first);
