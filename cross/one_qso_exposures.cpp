@@ -368,19 +368,23 @@ void OneQsoExposures::xQmlEstimate() {
 
             t = mytime::timer.getTime();
 
-            #pragma omp parallel for
-            for (auto iqt = stored_weighted_qi.cbegin(); iqt != stored_weighted_qi.cend(); ++iqt) {
-                int idx_fji_0 = ndim * (iqt->first + diff_idx) + diff_idx;
+            // I think this is still symmetric
+            int nqmat = stored_ikz_qi.size();
+            #pragma omp parallel for collapse(2)
+            for (int i = 0; i != nqmat; ++i) {
+                for (int j = i; j != nqmat; ++j) {
+                    const auto &[i_kz, m1] = stored_weighted_qi[i];
+                    const auto &[j_kz, m2] = stored_ikz_qi[i];
 
-                for (auto jqt = stored_ikz_qi.cbegin(); jqt != stored_ikz_qi.cend(); ++jqt) {
                     #ifdef FISHER_OPTIMIZATION
-                    int diff_ji = abs(jqt->first - iqt->first);
+                    int diff_ji = abs(j_kz - i_kz);
                     if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
                         continue;
                     #endif
 
-                    fisher_matrix[jqt->first + idx_fji_0] = 
-                        cblas_ddot(size2, iqt->second, 1, jqt->second, 1);
+                    int idx_fji_0 = ndim * (i_kz + diff_idx) + diff_idx;
+                    fisher_matrix[j_kz + idx_fji_0] = 
+                        cblas_ddot(size2, m1, 1, m2, 1);
                 }
             }
 
