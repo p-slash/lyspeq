@@ -43,6 +43,9 @@ void _setNQandFisherIndex() {
     }
 
     N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
+    DEBUG_LOG(
+        "OneQsoExposures::_setNQandFisherIndex: nq: %d, fi: %d\n",
+        N_Q_MATRICES, fisher_index_start);
 }
 
 
@@ -93,6 +96,7 @@ void _setZMatrix(double *m) {
 
 
 void _setStoredIkzQiVector() {
+    DEBUG_LOG("OneQsoExposures::_setStoredIkzQiVector\n");
     stored_ikz_qi.clear();
     stored_weighted_qi.clear();
     stored_ikz_qi.reserve(N_Q_MATRICES);
@@ -251,6 +255,7 @@ void OneQsoExposures::addExposures(OneQsoExposures *other) {
 
 
 void OneQsoExposures::setAllocPowerSpMemory() {
+    DEBUG_LOG("OneQsoExposures::setAllocPowerSpMemory\n");
     // decide max_ndim, istart, etc
     int fisher_index_end = 0;
     istart = bins::TOTAL_KZ_BINS;
