@@ -160,7 +160,7 @@ namespace mxhelp
     ) {
         cblas_dgemv(
             CblasRowMajor, CblasNoTrans, Nx, Ny, 1.,
-            A, Nx, y, 1, 0, temp_vector, 1);
+            A, Ny, y, 1, 0, temp_vector, 1);
 
         return cblas_ddot(Nx, x, 1, temp_vector, 1);
     }
