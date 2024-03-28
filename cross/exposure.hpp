@@ -23,6 +23,10 @@ public:
         _setNQandFisherIndex();
         glmemory::setMaxSizes(size(), size(), 2 * N_Q_MATRICES, false);
     };
+    ~Exposure() {
+        if (local_cov_mat || weighted_data)
+            deallocMatrices();
+    }
 
     int getExpId() const { return qFile->expid; };
     int getNight() const { return qFile->night; };
