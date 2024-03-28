@@ -255,7 +255,7 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
         solver_invfisher_matrix.get());
 
     damping_pair.second = 0;
-    status = mxhelp::stableInvertSym(
+    status = mxhelp::stableInvert(
         solver_invfisher_matrix, bins::TOTAL_KZ_BINS,
         bins::NewDegreesOfFreedom, damping_pair.second);
 

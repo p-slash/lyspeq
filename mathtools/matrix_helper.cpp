@@ -241,16 +241,16 @@ namespace mxhelp
         return N - empty_indx.size();
     }
 
-    void LAPACKE_InvertSymMatrixLU_damped(
-            std::unique_ptr<double[]> &S, int N, double damp
+    void LAPACKE_InvertGenMatrixLU_damped(
+            std::unique_ptr<double[]> &M, int N, double damp
     ) {
         int size = N * N;
         auto _Amat = std::make_unique<double[]>(size),
              _Bmat = std::make_unique<double[]>(size);
         cblas_dgemm(
-            CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            N, N, N, 1., S.get(), N,
-            S.get(), N, 0, _Amat.get(), N);
+            CblasRowMajor, CblasTrans, CblasNoTrans,
+            N, N, N, 1., M.get(), N,
+            M.get(), N, 0, _Amat.get(), N);
 
         // Scaling damping
         // cblas_dscal(N, 1. + damp, _Amat.get(), N + 1);
@@ -262,11 +262,11 @@ namespace mxhelp
         LAPACKE_InvertMatrixLU(_Amat.get(), N);
 
         cblas_dgemm(
-            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            CblasRowMajor, CblasNoTrans, CblasTrans,
             N, N, N, 1., _Amat.get(), N,
-            S.get(), N, 0, _Bmat.get(), N);
+            M.get(), N, 0, _Bmat.get(), N);
 
-        _Bmat.swap(S);
+        _Bmat.swap(M);
     }
 
     double LAPACKE_RcondSvd(const double *A, int N, double *sjump) {
@@ -301,26 +301,26 @@ namespace mxhelp
     }
 
 
-    int stableInvertSym(
-            std::unique_ptr<double[]> &S, int N, int &dof, double &damp
+    int stableInvert(
+            std::unique_ptr<double[]> &M, int N, int &dof, double &damp
     ) {
         int warn = 0;
-        std::vector<int> empty_indx = _setEmptyIndices(S.get(), N);
+        std::vector<int> empty_indx = _setEmptyIndices(M.get(), N);
         dof = N - empty_indx.size();
         damp = 0;
 
         double rcond = 0;
-        rcond = LAPACKE_RcondSvd(S.get(), N, &damp);
+        rcond = LAPACKE_RcondSvd(M.get(), N, &damp);
 
         if (damp != 0) {
             warn = 1;
-            LAPACKE_InvertSymMatrixLU_damped(S, N, damp);
+            LAPACKE_InvertGenMatrixLU_damped(M, N, damp);
         } else {
-            LAPACKE_InvertMatrixLU(S.get(), N);
+            LAPACKE_InvertMatrixLU(M.get(), N);
         }
 
         for (const auto &i : empty_indx)
-            S[(N + 1) * i] = 0;
+            M[(N + 1) * i] = 0;
 
         return warn;
     }
