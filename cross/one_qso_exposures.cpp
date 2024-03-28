@@ -284,7 +284,7 @@ void OneQsoExposures::setAllocPowerSpMemory() {
             std::make_unique<double[]>(ndim));
 }
 
-bool skipCombo(vecExpIt exp1, vecExpIt exp2, double overlap_cut=0.5) {
+bool skipCombo(vecExpIt exp1, vecExpIt exp2, double overlap_cut=0.25) {
     bool skip = (
         (*exp1)->getExpId() == (*exp2)->getExpId()
         || (*exp1)->getNight() == (*exp2)->getNight()
@@ -295,7 +295,7 @@ bool skipCombo(vecExpIt exp1, vecExpIt exp2, double overlap_cut=0.5) {
     return skip;
 }
 
-int OneQsoExposures::countExposureCombos() {
+int OneQsoExposures::countExposureCombos() const {
     int numcombos = 0;
 
     for (vecExpIt exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
@@ -441,13 +441,6 @@ int OneQsoExposures::oneQSOiteration(
     }
 
     int numcombos = countExposureCombos();
-
-    if (numcombos == 0) {
-        LOG::LOGGER.ERR(
-            "OneQsoExposures::oneQSOiteration::Not enough valid exposures combos"
-            " for TARGETID %ld.\n", targetid);
-        return 0;
-    }
 
     setAllocPowerSpMemory();
     xQmlEstimate();
