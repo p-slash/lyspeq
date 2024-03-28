@@ -170,6 +170,9 @@ void OneDCrossExposureQMLE::xQmlEstimate()
         DEBUG_LOG("One done.\n");
     }
 
+    if (total_num_expo_combos == 0)
+        LOG::LOGGER.ERR("No cross cross exposures in T:%d.\n", process::this_pe);
+
     // C++20 feature
     std::erase_if(quasars, [](const auto &x) {
         auto const& [targetid, one_qso] = x;
