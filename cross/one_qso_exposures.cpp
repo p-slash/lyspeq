@@ -368,11 +368,11 @@ void OneQsoExposures::xQmlEstimate() {
 
             t = mytime::timer.getTime();
 
-            #pragma omp parallel for collapse(2)
+            #pragma omp parallel for
             for (auto iqt = stored_weighted_qi.cbegin(); iqt != stored_weighted_qi.cend(); ++iqt) {
-                for (auto jqt = stored_ikz_qi.cbegin(); jqt != stored_ikz_qi.cend(); ++jqt) {
-                    int idx_fji_0 = ndim * (iqt->first + diff_idx) + diff_idx;
+                int idx_fji_0 = ndim * (iqt->first + diff_idx) + diff_idx;
 
+                for (auto jqt = stored_ikz_qi.cbegin(); jqt != stored_ikz_qi.cend(); ++jqt) {
                     #ifdef FISHER_OPTIMIZATION
                     int diff_ji = abs(jqt->first - iqt->first);
                     if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
