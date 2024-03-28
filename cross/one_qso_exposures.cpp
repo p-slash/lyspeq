@@ -400,7 +400,7 @@ int OneQsoExposures::oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dt_sum_vector,
         double *fisher_sum
 ) {
-    DEBUG_LOG("OneQsoExposures::oneQSOiteration::TARGETID %ld", targetid);
+    DEBUG_LOG("\n\nOneQsoExposures::oneQSOiteration::TARGETID %ld\n", targetid);
 
     // Get inverse cov and weighted delta for all exposures
     for (auto &expo : exposures) {
