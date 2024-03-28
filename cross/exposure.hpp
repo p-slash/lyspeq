@@ -22,6 +22,7 @@ public:
         _copyQSOFile(qmaster, i1, i2);
         _setNQandFisherIndex();
         glmemory::setMaxSizes(size(), size(), 2 * N_Q_MATRICES, false);
+        N_Q_MATRICES = 0;
     };
     ~Exposure() {
         if (local_cov_mat || weighted_data)

@@ -139,6 +139,7 @@ namespace glmemory {
 }
 
 Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
+        : DATA_SIZE_2(0), _matrix_n(0), N_Q_MATRICES(0)
 {
     isCovInverted = false;
     _copyQSOFile(qmaster, i1, i2);

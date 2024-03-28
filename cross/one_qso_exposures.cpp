@@ -221,7 +221,7 @@ OneQsoExposures::OneQsoExposures(const std::string &f_qso) : OneQSOEstimate() {
 
         targetid = qFile->id;
         exposures.reserve(30);
-        std::vector<int> indices = OneQSOEstimate::decideIndices(qFile->size());
+        std::vector<int> indices = decideIndices(qFile->size());
         int nchunks = indices.size() - 1;
 
         for (int nc = 0; nc < nchunks; ++nc) {
