@@ -30,10 +30,15 @@ public:
     void addExposures(OneQsoExposures *other);
 
     bool hasEnoughUniqueExpidNightPairs() const {
-        return unique_expid_night_set.size() > 1;
+        bool hasit = unique_expid_night_set.size() > 1;
+
+        if (!hasit)
+            return false;
+
+        return countExposureCombos() != 0;
     }
 
-    int countExposureCombos();
+    int countExposureCombos() const;
     void setAllocPowerSpMemory();
     void xQmlEstimate();
     // Pass fit values for the power spectrum for numerical stability
