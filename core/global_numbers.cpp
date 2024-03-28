@@ -18,6 +18,7 @@ namespace process
 
     void updateMemory(double deltamem)
     {
+        DEBUG_LOG("process::updateMemory::%.1f MB", deltamem);
         MEMORY_ALLOC = std::max(0., MEMORY_ALLOC + deltamem);
         if (MEMORY_ALLOC < 100)
             LOG::LOGGER.ERR(

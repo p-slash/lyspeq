@@ -324,8 +324,7 @@ void OneQsoExposures::xQmlEstimate() {
             _setStoredIkzQiVector();
 
             // Construct derivative
-            DEBUG_LOG("Setting qi matrices\n");
-
+            DEBUG_LOG("OneQsoExposures::xQmlEstimate::_setQiMatrix\n");
             for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
                 _setQiMatrix(iqt->second, iqt->first + fisher_index_start);
 
