@@ -17,7 +17,7 @@ std::vector<int> OneQSOEstimate::decideIndices(int size) {
     int nchunks = 1;
     if (specifics::NUMBER_OF_CHUNKS > 1) {
         nchunks += (specifics::NUMBER_OF_CHUNKS * size) / MAX_PIXELS_IN_FOREST;
-        nchunks = (nchunks > specifics::NUMBER_OF_CHUNKS) ? specifics::NUMBER_OF_CHUNKS : nchunks;
+        nchunks = std::min(nchunks, specifics::NUMBER_OF_CHUNKS);
     }
 
     std::vector<int> indices;

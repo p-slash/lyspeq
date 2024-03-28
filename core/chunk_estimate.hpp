@@ -83,7 +83,7 @@ protected:
 
     friend class TestOneQSOEstimate;
 
-    Chunk() {};
+    Chunk() : DATA_SIZE_2(0), _matrix_n(0), N_Q_MATRICES(0) {};
 public:
     std::unique_ptr<qio::QSOFile> qFile;
     int fisher_index_start, N_Q_MATRICES;
