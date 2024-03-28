@@ -133,7 +133,7 @@ void _setStoredIkzQiVector() {
 
 void _doubleRmatSandwich(double *m) {
     mxhelp::DiaMatrix *r1 = q1->Rmat->getDiaMatrixPointer(),
-                      *r2 = q1->Rmat->getDiaMatrixPointer();
+                      *r2 = q2->Rmat->getDiaMatrixPointer();
     double *buf = glmemory::getSandwichBuffer(N1 * N2);
     r1->multiplyLeft(m, buf, N2);
     r2->multiplyRightT(buf, m, N1);
