@@ -66,7 +66,7 @@ double _calculateOverlapRatio(const qio::QSOFile *qa, const qio::QSOFile *qb) {
            b1 = qb->wave()[0], b2 = qb->wave()[qb->size() - 1];
 
     double w1 = std::max(a1, b1), w2 = std::min(a2, b2);
-    return (w2 - w1) / sqrt((a2 - a1) * (b2 - b1));
+    return (w2 - w1) / (std::max(a2, b2) - std::min(a1, b1));
 }
 
 
