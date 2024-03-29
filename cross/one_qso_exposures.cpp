@@ -70,28 +70,17 @@ double _calculateOverlapRatio(const qio::QSOFile *qa, const qio::QSOFile *qb) {
 }
 
 
-void _setVMatrix(double *m) {
-    DEBUG_LOG("OneQsoExposures::_setVMatrix\n");
-
-    int N1 = q1->size(), N2 = q2->size();
-    double *l1 = q1->wave(), *l2 = q2->wave();
-
-    #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < N1; ++i)
-        for (int j = 0; j < N2; ++j)
-            m[j + i * N2] = SPEED_OF_LIGHT * fabs(log(l2[j] / l1[i]));
-}
-
-
-void _setZMatrix(double *m) {
-    DEBUG_LOG("OneQsoExposures::_setZMatrix\n");
+void _setVZMatrix(double *vm, double *zm) {
+    DEBUG_LOG("OneQsoExposures::_setVZMatrix\n");
 
     double *l1 = q1->wave(), *l2 = q2->wave();
 
     #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < N1; ++i)
-        for (int j = 0; j < N2; ++j)
-            m[j + i * N2] = sqrt(l2[j] * l1[i]) - 1.;
+        for (int j = 0; j < N2; ++j) {
+            vm[j + i * N2] = SPEED_OF_LIGHT * fabs(log(l2[j] / l1[i]));
+            zm[j + i * N2] = sqrt(l2[j] * l1[i]) - 1.;
+        }
 }
 
 
@@ -119,8 +108,7 @@ void _setStoredIkzQiVector() {
                 std::make_unique<double[]>(glmemory::max_size_2));
     }
 
-    int ndim = stored_ikz_qi_qwi.size();
-    for (int i = 0; i < ndim; ++i) {
+    for (int i = 0; i < stored_ikz_qi_qwi.size(); ++i) {
         std::get<1>(stored_ikz_qi_qwi[i]) = glmemory::stored_ikz_qi[2 * i].get();
         std::get<2>(stored_ikz_qi_qwi[i]) = glmemory::stored_ikz_qi[2 * i + 1].get();
     }
@@ -325,8 +313,7 @@ void OneQsoExposures::xQmlEstimate() {
             _setInternalVariablesForTwoExposures(exp1, exp2);
 
             // Contruct VZ matrices
-            _setVMatrix(_vmatrix);
-            _setZMatrix(_zmatrix);
+            _setVZMatrix(_vmatrix, _zmatrix);
             _setStoredIkzQiVector();
 
             // Construct derivative
@@ -341,21 +328,24 @@ void OneQsoExposures::xQmlEstimate() {
             int diff_idx = fisher_index_start - istart;
 
             double t = mytime::timer.getTime();
+            #pragma omp parallel for num_threads(glmemory::temp_matrices.size())
             for (auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi) {
+                double *temp = glmemory::temp_matrices[myomp::getThreadNum()].get();
+
                 dk0[i_kz + diff_idx] = mxhelp::my_cblas_dgemvdot(
                     (*exp1)->getWeightedData(), N1,
                     (*exp2)->getWeightedData(), N2,
-                    qi, glmemory::temp_vector.get());
+                    qi, temp);
 
                 cblas_dgemm(
                     CblasRowMajor, CblasNoTrans, CblasNoTrans,
                     N1, N2, N1, 1., (*exp1)->inverse_covariance_matrix, N1,
                     qi, N2, 0,
-                    glmemory::temp_matrices[0].get(), N2);
+                    temp, N2);
 
                 cblas_dgemm(
                     CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                    N1, N2, N2, 1., glmemory::temp_matrices[0].get(), N2,
+                    N1, N2, N2, 1., temp, N2,
                     (*exp2)->inverse_covariance_matrix, N2, 0.,
                     qwi, N2);
             }
