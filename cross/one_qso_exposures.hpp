@@ -9,6 +9,8 @@
 #include "core/one_qso_estimate.hpp"
 #include "cross/exposure.hpp"
 
+typedef std::pair<const Exposure*, const Exposure*> cExpoCombo;
+
 /*
 This is the umbrella class for multiple exposures.
 Each exposure builts its own covariance matrix. Derivative matrices are built
@@ -18,6 +20,7 @@ is small.
 class OneQsoExposures: public OneQSOEstimate 
 {
     std::set<std::pair<int, int>> unique_expid_night_set;
+    std::vector<cExpoCombo> exposure_combos;
 public:
     double z_qso, ra, dec;
     long targetid;
@@ -30,7 +33,7 @@ public:
 
     void addExposures(OneQsoExposures *other);
 
-    bool hasEnoughUniqueExpidNightPairs() const {
+    bool hasEnoughUniqueExpidNightPairs() {
         bool hasit = unique_expid_night_set.size() > 1;
 
         if (!hasit)
@@ -39,7 +42,7 @@ public:
         return countExposureCombos() != 0;
     }
 
-    int countExposureCombos() const;
+    int countExposureCombos();
     void setAllocPowerSpMemory();
     void xQmlEstimate();
     // Pass fit values for the power spectrum for numerical stability
