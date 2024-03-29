@@ -148,8 +148,7 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
 }
 
 
-void OneDCrossExposureQMLE::xQmlEstimate()
-{
+void OneDCrossExposureQMLE::xQmlEstimate() {
     double total_time = 0, total_time_1it = 0;
     std::vector<double> time_all_pes;
     if (process::this_pe == 0)
@@ -271,7 +270,7 @@ void OneDCrossExposureQMLE::xQmlEstimate()
 
         std::vector<std::unique_ptr<OneQSOEstimate>> local_queue(quasars.size());
         for (auto &[targetid, qso] : quasars)
-            local_queue.push_back(qso->move2OneQSOEstimate());
+            local_queue.push_back(std::move(qso->move2OneQSOEstimate()));
 
         pbooter.run(local_queue);
     }

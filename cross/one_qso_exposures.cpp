@@ -272,7 +272,7 @@ void OneQsoExposures::setAllocPowerSpMemory() {
             std::make_unique<double[]>(ndim));
 }
 
-bool skipCombo(vecExpIt expo1, vecExpIt expo2, double overlap_cut=0.25) {
+bool skipCombo(vecExpIt expo1, vecExpIt expo2, double overlap_cut=0.5) {
     bool skip = (
         (*expo1)->getExpId() == (*expo2)->getExpId()
         || (*expo1)->getNight() == (*expo2)->getNight()
@@ -358,7 +358,7 @@ void OneQsoExposures::xQmlEstimate() {
 
         diff_idx *= ndim + 1;
         // I think this is still symmetric
-        #pragma omp parallel for collapse(2)
+        #pragma omp parallel for schedule(static, 1)
         for (auto iqt = stored_ikz_qi_qwi.cbegin(); iqt != stored_ikz_qi_qwi.cend(); ++iqt) {
             for (auto jqt = iqt; jqt != stored_ikz_qi_qwi.cend(); ++jqt) {
                 int i_kz, j_kz;
@@ -446,10 +446,8 @@ std::unique_ptr<OneQSOEstimate> OneQsoExposures::move2OneQSOEstimate() {
     auto qso = std::make_unique<OneQSOEstimate>(true);
     qso->istart = istart;
     qso->ndim = ndim;
-    qso->theta_vector = std::move(theta_vector);
-    qso->fisher_matrix = std::move(fisher_matrix);
-    theta_vector.reset();
-    fisher_matrix.reset();
+    qso->theta_vector.swap(theta_vector);
+    qso->fisher_matrix.swap(fisher_matrix);
     return qso;
 }
 
