@@ -269,8 +269,8 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
             specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
 
         std::vector<std::unique_ptr<OneQSOEstimate>> local_queue(quasars.size());
-        for (auto &[targetid, qso] : quasars)
-            local_queue.push_back(std::move(qso->move2OneQSOEstimate()));
+        for (auto it = quasars.begin(); it != quasars.end(); ++it)
+            local_queue.push_back(it->second->move2OneQSOEstimate());
 
         pbooter.run(local_queue);
     }
