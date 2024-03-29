@@ -220,6 +220,10 @@ OneQsoExposures::OneQsoExposures(const std::string &f_qso) : OneQSOEstimate() {
         std::unique_ptr<qio::QSOFile> qFile = _readQsoFile(f_qso);
 
         targetid = qFile->id;
+        z_qso = qFile->z_qso;
+        ra = qFile->ra;
+        dec = qFile->dec;
+
         exposures.reserve(30);
         std::vector<int> indices = decideIndices(qFile->size());
         int nchunks = indices.size() - 1;
@@ -380,7 +384,7 @@ void OneQsoExposures::xQmlEstimate() {
             for (int i = 0; i != nqmat; ++i) {
                 for (int j = i; j != nqmat; ++j) {
                     const auto &[i_kz, m1] = stored_weighted_qi[i];
-                    const auto &[j_kz, m2] = stored_ikz_qi[i];
+                    const auto &[j_kz, m2] = stored_ikz_qi[j];
 
                     #ifdef FISHER_OPTIMIZATION
                     int diff_ji = abs(j_kz - i_kz);
@@ -402,7 +406,7 @@ void OneQsoExposures::xQmlEstimate() {
         expo->deallocMatrices();
 
     std::copy_n(dk0, ndim, theta_vector.get());
-    cblas_daxpy(ndim, 1, tk0, 1, theta_vector.get(), 1);
+    cblas_daxpy(ndim, -1, tk0, 1, theta_vector.get(), 1);
 }
 
 
@@ -448,7 +452,7 @@ int OneQsoExposures::oneQSOiteration(
     double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * istart;
 
     for (int i = 0; i < ndim; ++i)
-        for (int j = 0; j < ndim; ++j)
+        for (int j = i; j < ndim; ++j)
             outfisher[j + i * bins::TOTAL_KZ_BINS] += fisher_matrix[j + i * ndim];
 
     for (int i = 0; i < 3; ++i)

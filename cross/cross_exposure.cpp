@@ -32,14 +32,11 @@ void _saveQuasarResults(const targetid_quasar_map &quasars) {
         double *pk = qso->dbt_estimate_before_fisher_vector[0].get();
         double *nk = qso->dbt_estimate_before_fisher_vector[1].get();
         double *tk = qso->dbt_estimate_before_fisher_vector[2].get();
-        int ndim = qso->ndim;
 
         bfile.writeChunk(
             pk, nk, tk,
-            qso->fisher_matrix.get(), ndim,
-            qso->istart,
-            targetid, qso->exposures[0]->qFile->z_qso,
-            qso->exposures[0]->qFile->ra, qso->exposures[0]->qFile->dec);
+            qso->fisher_matrix.get(), qso->ndim, qso->istart,
+            targetid, qso->z_qso, qso->ra, qso->dec);
     }
 }
 
@@ -198,6 +195,7 @@ void OneDCrossExposureQMLE::xQmlEstimate()
 
     // Scale and copy first before summing across PEs
     cblas_dscal(bins::FISHER_SIZE, 0.5, fisher_matrix_sum.get(), 1);
+    mxhelp::copyUpperToLower(fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
 
     // Save bootstrap files only if MPI is enabled.
     #if defined(ENABLE_MPI)
@@ -246,14 +244,14 @@ void OneDCrossExposureQMLE::xQmlEstimate()
     {
         LOG::LOGGER.ERR("ERROR while inverting Fisher matrix: %s.\n", e.what());
         total_time_1it = mytime::timer.getTime() - total_time_1it;
-        total_time    += total_time_1it;
+        total_time += total_time_1it;
         iterationOutput(0, total_time_1it, total_time, time_all_pes);
         throw e;
     }
 
     computePowerSpectrumEstimates();
     total_time_1it = mytime::timer.getTime() - total_time_1it;
-    total_time    += total_time_1it;
+    total_time += total_time_1it;
 
     iterationOutput(0, total_time_1it, total_time, time_all_pes);
 
@@ -271,9 +269,8 @@ void OneDCrossExposureQMLE::xQmlEstimate()
         PoissonBootstrapper pbooter(
             specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
 
-        std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
-        local_queue.resize(quasars.size());
-        for (const auto &[targetid, qso] : quasars)
+        std::vector<std::unique_ptr<OneQSOEstimate>> local_queue(quasars.size());
+        for (auto &[targetid, qso] : quasars)
             local_queue.push_back(qso->move2OneQSOEstimate());
 
         pbooter.run(local_queue);
