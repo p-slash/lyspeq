@@ -19,6 +19,7 @@ class OneQsoExposures: public OneQSOEstimate
 {
     std::set<std::pair<int, int>> unique_expid_night_set;
 public:
+    double z_qso, ra, dec;
     long targetid;
     std::vector<std::unique_ptr<Exposure>> exposures;
     std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
