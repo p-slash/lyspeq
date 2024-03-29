@@ -13,7 +13,7 @@
 
 int N_Q_MATRICES, KBIN_UPP, fisher_index_start;
 double *_vmatrix, *_zmatrix;
-std::vector<std::pair<int, double*>> stored_ikz_qi, stored_weighted_qi;
+std::vector<std::tuple<int, double*, double*>> stored_ikz_qi_qwi;
 
 int N1, N2;
 const qio::QSOFile *q1, *q2;
@@ -97,22 +97,18 @@ void _setZMatrix(double *m) {
 
 void _setStoredIkzQiVector() {
     DEBUG_LOG("OneQsoExposures::_setStoredIkzQiVector\n");
-    stored_ikz_qi.clear();
-    stored_weighted_qi.clear();
-    stored_ikz_qi.reserve(N_Q_MATRICES);
-    stored_weighted_qi.reserve(N_Q_MATRICES);
+    stored_ikz_qi_qwi.clear();
+    stored_ikz_qi_qwi.reserve(N_Q_MATRICES);
 
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int kn, zm;
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
-        if (kn < KBIN_UPP) {
-            stored_ikz_qi.push_back(std::make_pair(i_kz, nullptr));
-            stored_weighted_qi.push_back(std::make_pair(i_kz, nullptr));
-        }
+        if (kn < KBIN_UPP)
+            stored_ikz_qi_qwi.push_back(std::make_tuple(i_kz, nullptr, nullptr));
     }
 
-    int delta_size = 2 * stored_ikz_qi.size() - glmemory::stored_ikz_qi.size();
+    int delta_size = 2 * stored_ikz_qi_qwi.size() - glmemory::stored_ikz_qi.size();
     if (delta_size > 0) {
         LOG::LOGGER.ERR("Need more memory to store glmemory::stored_ikz_qi.\n");
         glmemory::updateMemUsed(
@@ -123,10 +119,10 @@ void _setStoredIkzQiVector() {
                 std::make_unique<double[]>(glmemory::max_size_2));
     }
 
-    int ndim = stored_ikz_qi.size();
+    int ndim = stored_ikz_qi_qwi.size();
     for (int i = 0; i < ndim; ++i) {
-        stored_ikz_qi[i].second = glmemory::stored_ikz_qi[i].get();
-        stored_weighted_qi[i].second = glmemory::stored_ikz_qi[i + ndim].get();
+        std::get<1>(stored_ikz_qi_qwi[i]) = glmemory::stored_ikz_qi[2 * i].get();
+        std::get<2>(stored_ikz_qi_qwi[i]) = glmemory::stored_ikz_qi[2 * i + 1].get();
     }
 }
 
@@ -166,7 +162,7 @@ void _setQiMatrix(double *m, int fi_kz) {
 
     std::fill_n(m, N1 * N2, 0);
 
-    #pragma omp parallel for schedule(static, 1)
+    #pragma omp parallel for
     for (int i = 0; i < N1; ++i) {
         int idx = i * N2, l1, u1;
 
@@ -335,8 +331,8 @@ void OneQsoExposures::xQmlEstimate() {
 
             // Construct derivative
             DEBUG_LOG("OneQsoExposures::xQmlEstimate::_setQiMatrix\n");
-            for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
-                _setQiMatrix(iqt->second, iqt->first + fisher_index_start);
+            for (auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
+                _setQiMatrix(qi, i_kz + fisher_index_start);
 
             // Construct fiducial
             _setFiducialSignalMatrix(glmemory::stored_sfid.get());
@@ -345,33 +341,32 @@ void OneQsoExposures::xQmlEstimate() {
             int diff_idx = fisher_index_start - istart;
 
             double t = mytime::timer.getTime();
-            for (int i = 0; i != stored_ikz_qi.size(); ++i) {
-                auto &[i_kz, Q_ikz_matrix] = stored_ikz_qi[i];
+            for (auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi) {
                 dk0[i_kz + diff_idx] = mxhelp::my_cblas_dgemvdot(
                     (*exp1)->getWeightedData(), N1,
                     (*exp2)->getWeightedData(), N2,
-                    Q_ikz_matrix, glmemory::temp_vector.get());
+                    qi, glmemory::temp_vector.get());
 
                 cblas_dgemm(
                     CblasRowMajor, CblasNoTrans, CblasNoTrans,
                     N1, N2, N1, 1., (*exp1)->inverse_covariance_matrix, N1,
-                    Q_ikz_matrix, N2, 0,
+                    qi, N2, 0,
                     glmemory::temp_matrices[0].get(), N2);
 
                 cblas_dgemm(
                     CblasRowMajor, CblasNoTrans, CblasNoTrans,
                     N1, N2, N2, 1., glmemory::temp_matrices[0].get(), N2,
                     (*exp2)->inverse_covariance_matrix, N2, 0.,
-                    stored_weighted_qi[i].second, N2);
+                    qwi, N2);
             }
 
             mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
 
             int size2 = N1 * N2;
             #pragma omp parallel for
-            for (const auto &[i_kz, Q_ikz_matrix] : stored_weighted_qi)
+            for (const auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
                 tk0[i_kz + diff_idx] = cblas_ddot(
-                    size2, Q_ikz_matrix, 1, glmemory::stored_sfid.get(), 1);
+                    size2, qi, 1, glmemory::stored_sfid.get(), 1);
 
             if (specifics::USE_PRECOMPUTED_FISHER)
                 continue;
@@ -379,12 +374,13 @@ void OneQsoExposures::xQmlEstimate() {
             t = mytime::timer.getTime();
 
             // I think this is still symmetric
-            int nqmat = stored_ikz_qi.size();
             #pragma omp parallel for collapse(2)
-            for (int i = 0; i != nqmat; ++i) {
-                for (int j = i; j != nqmat; ++j) {
-                    const auto &[i_kz, m1] = stored_weighted_qi[i];
-                    const auto &[j_kz, m2] = stored_ikz_qi[j];
+            for (auto iqt = stored_ikz_qi_qwi.cbegin(); iqt != stored_ikz_qi_qwi.cend(); ++iqt) {
+                for (auto jqt = iqt; jqt != stored_ikz_qi_qwi.cend(); ++jqt) {
+                    int i_kz, j_kz;
+                    double *qwi, *qjT;
+                    std::tie(i_kz, std::ignore, qwi) = *iqt;
+                    std::tie(j_kz, qjT, std::ignore) = *jqt;
 
                     #ifdef FISHER_OPTIMIZATION
                     int diff_ji = abs(j_kz - i_kz);
@@ -394,7 +390,7 @@ void OneQsoExposures::xQmlEstimate() {
 
                     int idx_fji_0 = ndim * (i_kz + diff_idx) + diff_idx;
                     fisher_matrix[j_kz + idx_fji_0] = 
-                        cblas_ddot(size2, m1, 1, m2, 1);
+                        cblas_ddot(size2, qwi, 1, qjT, 1);
                 }
             }
 
