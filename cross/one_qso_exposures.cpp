@@ -10,6 +10,7 @@
 
 #include "mathtools/smoother.hpp"
 
+typedef std::vector<std::unique_ptr<Exposure>>::const_iterator vecExpIt;
 
 int N_Q_MATRICES, KBIN_UPP, fisher_index_start;
 double *_vmatrix, *_zmatrix;
@@ -49,13 +50,14 @@ void _setNQandFisherIndex() {
 }
 
 
-typedef std::vector<std::unique_ptr<Exposure>>::const_iterator vecExpIt;
-void _setInternalVariablesForTwoExposures(vecExpIt exp1, vecExpIt exp2) {
-    q1 = (*exp1)->qFile.get();
+void _setInternalVariablesForTwoExposures(
+        const Exposure* expo1, const Exposure* expo2
+) {
+    q1 = expo1->qFile.get();
     N1 = q1->size();
-    q2 = (*exp2)->qFile.get();
+    q2 = expo2->qFile.get();
     N2 = q2->size();
-    KBIN_UPP = std::min((*exp1)->KBIN_UPP, (*exp2)->KBIN_UPP);
+    KBIN_UPP = std::min(expo1->KBIN_UPP, expo2->KBIN_UPP);
 
     _setNQandFisherIndex();
 }
@@ -253,14 +255,12 @@ void OneQsoExposures::setAllocPowerSpMemory() {
     // decide max_ndim, istart, etc
     int fisher_index_end = 0;
     istart = bins::TOTAL_KZ_BINS;
-    for (vecExpIt exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
-        for (vecExpIt exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
-            _setInternalVariablesForTwoExposures(exp1, exp2);
+    for (const auto &[expo1, expo2] : exposure_combos) {
+        _setInternalVariablesForTwoExposures(expo1, expo2);
 
-            istart = std::min(istart, fisher_index_start);
-            fisher_index_end = std::max(
-                fisher_index_end, fisher_index_start + N_Q_MATRICES);
-        }
+        istart = std::min(istart, fisher_index_start);
+        fisher_index_end = std::max(
+            fisher_index_end, fisher_index_start + N_Q_MATRICES);
     }
 
     ndim = fisher_index_end - istart;
@@ -272,30 +272,30 @@ void OneQsoExposures::setAllocPowerSpMemory() {
             std::make_unique<double[]>(ndim));
 }
 
-bool skipCombo(vecExpIt exp1, vecExpIt exp2, double overlap_cut=0.25) {
+bool skipCombo(vecExpIt expo1, vecExpIt expo2, double overlap_cut=0.25) {
     bool skip = (
-        (*exp1)->getExpId() == (*exp2)->getExpId()
-        || (*exp1)->getNight() == (*exp2)->getNight()
-        || (_calculateOverlapRatio((*exp1)->qFile.get(), (*exp2)->qFile.get())
+        (*expo1)->getExpId() == (*expo2)->getExpId()
+        || (*expo1)->getNight() == (*expo2)->getNight()
+        || (_calculateOverlapRatio((*expo1)->qFile.get(), (*expo2)->qFile.get())
             < overlap_cut)
     );
     
     return skip;
 }
 
-int OneQsoExposures::countExposureCombos() const {
-    int numcombos = 0;
-
-    for (vecExpIt exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
-        for (vecExpIt exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
-            if (skipCombo(exp1, exp2))
+int OneQsoExposures::countExposureCombos() {
+    exposure_combos.clear();
+    for (vecExpIt expo1 = exposures.cbegin(); expo1 != exposures.cend() - 1; ++expo1) {
+        for (vecExpIt expo2 = expo1 + 1; expo2 != exposures.cend(); ++expo2) {
+            if (skipCombo(expo1, expo2))
                 continue;
 
-            ++numcombos;
+            exposure_combos.push_back(
+                std::make_pair((*expo1).get(), (*expo2).get()));
         }
     }
 
-    return numcombos;
+    return exposure_combos.size();
 }
 
 void OneQsoExposures::xQmlEstimate() {
@@ -305,87 +305,82 @@ void OneQsoExposures::xQmlEstimate() {
            *tk0 = dbt_estimate_before_fisher_vector[2].get();
 
     // For each combo calculate derivatives
-    for (vecExpIt exp1 = exposures.cbegin(); exp1 != exposures.cend() - 1; ++exp1) {
-        for (vecExpIt exp2 = exp1 + 1; exp2 != exposures.cend(); ++exp2) {
-            if (skipCombo(exp1, exp2))
-                continue;
+    for (const auto &[expo1, expo2] : exposure_combos) {
+        _setInternalVariablesForTwoExposures(expo1, expo2);
 
-            _setInternalVariablesForTwoExposures(exp1, exp2);
+        // Contruct VZ matrices
+        _setVZMatrix(_vmatrix, _zmatrix);
+        _setStoredIkzQiVector();
 
-            // Contruct VZ matrices
-            _setVZMatrix(_vmatrix, _zmatrix);
-            _setStoredIkzQiVector();
+        // Construct derivative
+        DEBUG_LOG("OneQsoExposures::xQmlEstimate::_setQiMatrix\n");
+        for (auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
+            _setQiMatrix(qi, i_kz + fisher_index_start);
 
-            // Construct derivative
-            DEBUG_LOG("OneQsoExposures::xQmlEstimate::_setQiMatrix\n");
-            for (auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
-                _setQiMatrix(qi, i_kz + fisher_index_start);
+        // Construct fiducial
+        _setFiducialSignalMatrix(glmemory::stored_sfid.get());
 
-            // Construct fiducial
-            _setFiducialSignalMatrix(glmemory::stored_sfid.get());
+        // Calculate
+        int diff_idx = fisher_index_start - istart;
 
-            // Calculate
-            int diff_idx = fisher_index_start - istart;
+        double t = mytime::timer.getTime();
+        #pragma omp parallel for num_threads(glmemory::temp_matrices.size())
+        for (auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi) {
+            double *temp = glmemory::temp_matrices[myomp::getThreadNum()].get();
 
-            double t = mytime::timer.getTime();
-            #pragma omp parallel for num_threads(glmemory::temp_matrices.size())
-            for (auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi) {
-                double *temp = glmemory::temp_matrices[myomp::getThreadNum()].get();
+            dk0[i_kz + diff_idx] = mxhelp::my_cblas_dgemvdot(
+                expo1->getWeightedData(), N1,
+                expo2->getWeightedData(), N2,
+                qi, temp);
 
-                dk0[i_kz + diff_idx] = mxhelp::my_cblas_dgemvdot(
-                    (*exp1)->getWeightedData(), N1,
-                    (*exp2)->getWeightedData(), N2,
-                    qi, temp);
+            cblas_dgemm(
+                CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                N1, N2, N1, 1., expo1->inverse_covariance_matrix, N1,
+                qi, N2, 0,
+                temp, N2);
 
-                cblas_dgemm(
-                    CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                    N1, N2, N1, 1., (*exp1)->inverse_covariance_matrix, N1,
-                    qi, N2, 0,
-                    temp, N2);
-
-                cblas_dgemm(
-                    CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                    N1, N2, N2, 1., temp, N2,
-                    (*exp2)->inverse_covariance_matrix, N2, 0.,
-                    qwi, N2);
-            }
-
-            mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
-
-            int size2 = N1 * N2;
-            #pragma omp parallel for
-            for (const auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
-                tk0[i_kz + diff_idx] = cblas_ddot(
-                    size2, qi, 1, glmemory::stored_sfid.get(), 1);
-
-            if (specifics::USE_PRECOMPUTED_FISHER)
-                continue;
-
-            t = mytime::timer.getTime();
-
-            // I think this is still symmetric
-            #pragma omp parallel for collapse(2)
-            for (auto iqt = stored_ikz_qi_qwi.cbegin(); iqt != stored_ikz_qi_qwi.cend(); ++iqt) {
-                for (auto jqt = iqt; jqt != stored_ikz_qi_qwi.cend(); ++jqt) {
-                    int i_kz, j_kz;
-                    double *qwi, *qjT;
-                    std::tie(i_kz, std::ignore, qwi) = *iqt;
-                    std::tie(j_kz, qjT, std::ignore) = *jqt;
-
-                    #ifdef FISHER_OPTIMIZATION
-                    int diff_ji = abs(j_kz - i_kz);
-                    if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
-                        continue;
-                    #endif
-
-                    int idx_fji_0 = ndim * (i_kz + diff_idx) + diff_idx;
-                    fisher_matrix[j_kz + idx_fji_0] = 
-                        cblas_ddot(size2, qwi, 1, qjT, 1);
-                }
-            }
-
-            mytime::time_spent_set_fisher += mytime::timer.getTime() - t;;
+            cblas_dgemm(
+                CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                N1, N2, N2, 1., temp, N2,
+                expo2->inverse_covariance_matrix, N2, 0.,
+                qwi, N2);
         }
+
+        mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
+
+        int size2 = N1 * N2;
+        #pragma omp parallel for
+        for (const auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
+            tk0[i_kz + diff_idx] = cblas_ddot(
+                size2, qi, 1, glmemory::stored_sfid.get(), 1);
+
+        if (specifics::USE_PRECOMPUTED_FISHER)
+            continue;
+
+        t = mytime::timer.getTime();
+
+        // I think this is still symmetric
+        #pragma omp parallel for collapse(2)
+        for (auto iqt = stored_ikz_qi_qwi.cbegin(); iqt != stored_ikz_qi_qwi.cend(); ++iqt) {
+            for (auto jqt = iqt; jqt != stored_ikz_qi_qwi.cend(); ++jqt) {
+                int i_kz, j_kz;
+                double *qwi, *qjT;
+                std::tie(i_kz, std::ignore, qwi) = *iqt;
+                std::tie(j_kz, qjT, std::ignore) = *jqt;
+
+                #ifdef FISHER_OPTIMIZATION
+                int diff_ji = abs(j_kz - i_kz);
+                if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
+                    continue;
+                #endif
+
+                int idx_fji_0 = ndim * (i_kz + diff_idx) + diff_idx;
+                fisher_matrix[j_kz + idx_fji_0] = 
+                    cblas_ddot(size2, qwi, 1, qjT, 1);
+            }
+        }
+
+        mytime::time_spent_set_fisher += mytime::timer.getTime() - t;;
     }
 
     for (auto &expo : exposures)
