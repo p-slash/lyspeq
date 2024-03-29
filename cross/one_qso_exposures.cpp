@@ -324,24 +324,21 @@ void OneQsoExposures::xQmlEstimate() {
         int diff_idx = fisher_index_start - istart;
 
         double t = mytime::timer.getTime();
-        #pragma omp parallel for num_threads(glmemory::temp_matrices.size())
         for (auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi) {
-            double *temp = glmemory::temp_matrices[myomp::getThreadNum()].get();
-
             dk0[i_kz + diff_idx] = mxhelp::my_cblas_dgemvdot(
                 expo1->getWeightedData(), N1,
                 expo2->getWeightedData(), N2,
-                qi, temp);
+                qi, glmemory::temp_vector.get());
 
             cblas_dgemm(
                 CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 N1, N2, N1, 1., expo1->inverse_covariance_matrix, N1,
                 qi, N2, 0,
-                temp, N2);
+                glmemory::temp_matrices[0].get(), N2);
 
             cblas_dgemm(
                 CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                N1, N2, N2, 1., temp, N2,
+                N1, N2, N2, 1., glmemory::temp_matrices[0].get(), N2,
                 expo2->inverse_covariance_matrix, N2, 0.,
                 qwi, N2);
         }
@@ -352,13 +349,14 @@ void OneQsoExposures::xQmlEstimate() {
         #pragma omp parallel for
         for (const auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
             tk0[i_kz + diff_idx] = cblas_ddot(
-                size2, qi, 1, glmemory::stored_sfid.get(), 1);
+                size2, qwi, 1, glmemory::stored_sfid.get(), 1);
 
         if (specifics::USE_PRECOMPUTED_FISHER)
             continue;
 
         t = mytime::timer.getTime();
 
+        diff_idx *= ndim + 1;
         // I think this is still symmetric
         #pragma omp parallel for collapse(2)
         for (auto iqt = stored_ikz_qi_qwi.cbegin(); iqt != stored_ikz_qi_qwi.cend(); ++iqt) {
@@ -374,8 +372,7 @@ void OneQsoExposures::xQmlEstimate() {
                     continue;
                 #endif
 
-                int idx_fji_0 = ndim * (i_kz + diff_idx) + diff_idx;
-                fisher_matrix[j_kz + idx_fji_0] = 
+                fisher_matrix[j_kz + ndim * i_kz + diff_idx] = 
                     cblas_ddot(size2, qwi, 1, qjT, 1);
             }
         }
