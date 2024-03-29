@@ -451,6 +451,8 @@ std::unique_ptr<OneQSOEstimate> OneQsoExposures::move2OneQSOEstimate() {
     qso->ndim = ndim;
     qso->theta_vector = std::move(theta_vector);
     qso->fisher_matrix = std::move(fisher_matrix);
+    theta_vector.reset();
+    fisher_matrix.reset();
     return qso;
 }
 
