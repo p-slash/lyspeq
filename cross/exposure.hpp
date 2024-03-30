@@ -33,6 +33,7 @@ public:
     int getNight() const { return qFile->night; };
     int getFiber() const { return qFile->fiber; };
     double* getWeightedData() const { return weighted_data.get(); };
+    double* getInverseCov() const { return inverse_covariance_matrix; };
 
     void initMatrices() {
         _initMatrices();
