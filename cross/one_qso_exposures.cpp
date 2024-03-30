@@ -211,7 +211,7 @@ OneQsoExposures::OneQsoExposures(const std::string &f_qso) : OneQSOEstimate() {
         dec = qFile->dec;
 
         exposures.reserve(30);
-        std::vector<int> indices = decideIndices(qFile->size());
+        std::vector<int> indices = OneQSOEstimate::decideIndices(qFile->size());
         int nchunks = indices.size() - 1;
 
         for (int nc = 0; nc < nchunks; ++nc) {
@@ -332,14 +332,14 @@ void OneQsoExposures::xQmlEstimate() {
 
             cblas_dgemm(
                 CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                N1, N2, N1, 1., expo1->inverse_covariance_matrix, N1,
+                N1, N2, N1, 1., expo1->getInverseCov(), N1,
                 qi, N2, 0,
                 glmemory::temp_matrices[0].get(), N2);
 
             cblas_dgemm(
                 CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 N1, N2, N2, 1., glmemory::temp_matrices[0].get(), N2,
-                expo2->inverse_covariance_matrix, N2, 0.,
+                expo2->getInverseCov(), N2, 0.,
                 qwi, N2);
         }
 

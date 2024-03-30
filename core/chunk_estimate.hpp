@@ -55,7 +55,7 @@ protected:
     bool isCovInverted;
     double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
     // Will have finer spacing when rmat is oversampled
-    double *_matrix_lambda; // Do not delete!
+    double *_matrix_lambda, *inverse_covariance_matrix; // Do not delete!
 
     // Uninitialized arrays
     // Oversampled resomat specifics
@@ -66,6 +66,7 @@ protected:
     // Note that noise matrix is diagonal and stored as pointer to its array 
     double *covariance_matrix;
     std::vector<double*> temp_matrix;
+    std::vector<std::pair<int, double*>> stored_ikz_qi;
 
     void _copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     void _findRedshiftBin();
@@ -89,8 +90,6 @@ public:
     int fisher_index_start, N_Q_MATRICES;
     int ZBIN, ZBIN_LOW, ZBIN_UPP, KBIN_UPP;
 
-    double *inverse_covariance_matrix;
-    std::vector<std::pair<int, double*>> stored_ikz_qi;
     // Initialized to 0
     // 3 TOTAL_KZ_BINS sized vectors
     std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
