@@ -445,7 +445,7 @@ int OneQsoExposures::oneQSOiteration(
 
 
 std::unique_ptr<OneQSOEstimate> OneQsoExposures::move2OneQSOEstimate() {
-    auto qso = std::make_unique<OneQSOEstimate>(true);
+    auto qso = std::make_unique<OneQSOEstimate>();
     qso->istart = istart;
     qso->ndim = ndim;
     qso->theta_vector.swap(theta_vector);

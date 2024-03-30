@@ -111,13 +111,8 @@ public:
     void run() { _meanBootstrap(); _medianBootstrap(); }
 
     void run(
-            std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
+            const std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
-        // Get thetas to prepare.
-        LOG::LOGGER.STD("Collapsing local queue.\n");
-        for (auto one_qso = local_queue.begin(); one_qso != local_queue.end(); ++one_qso)
-            (*one_qso)->collapseBootstrap();
-
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
 
         std::string comment;

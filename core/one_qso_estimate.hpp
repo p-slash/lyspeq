@@ -16,7 +16,6 @@ nchunks = specifics::NUMBER_OF_CHUNKS * size / MAX_PIXELS_IN_FOREST+1;
 class OneQSOEstimate
 {
 protected:
-    bool needs_collapsing;
     std::string fname_qso;
 
     std::unique_ptr<qio::QSOFile> _readQsoFile(const std::string &f_qso);
@@ -26,7 +25,7 @@ public:
 
     std::vector<std::unique_ptr<Chunk>> chunks;
 
-    OneQSOEstimate(bool collapsed=false) : needs_collapsing(!collapsed) {};
+    OneQSOEstimate() {};
     OneQSOEstimate(const std::string &f_qso);
     OneQSOEstimate(OneQSOEstimate &&rhs) = default;
     OneQSOEstimate(const OneQSOEstimate &rhs) = delete;

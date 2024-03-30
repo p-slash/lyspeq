@@ -546,6 +546,11 @@ void OneDQuadraticPowerEstimate::iterate()
     if (specifics::NUMBER_OF_BOOTS > 0) {
         PoissonBootstrapper pbooter(
             specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
+
+        LOG::LOGGER.STD("Collapsing local queue.\n");
+        for (auto one_qso = local_queue.begin(); one_qso != local_queue.end(); ++one_qso)
+            (*one_qso)->collapseBootstrap();
+
         pbooter.run(local_queue);
     }
 }
