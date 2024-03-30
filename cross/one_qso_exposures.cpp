@@ -222,12 +222,13 @@ OneQsoExposures::OneQsoExposures(const std::string &f_qso) : OneQSOEstimate() {
             } catch (std::exception& e) {
                 LOG::LOGGER.ERR(
                     "OneQsoExposures::appendChunkedQsoFile::%s "
-                    "Skipping chunk %d/%d of %s.\n",
-                    e.what(), nc, nchunks, qFile->fname.c_str());
+                    "Skipping chunk %d/%d of TARGETID %ld in %s.\n",
+                    e.what(), nc, nchunks, targetid, qFile->fname.c_str());
             }
         }
     } catch (std::exception &e) {
-        LOG::LOGGER.ERR("%s in %s.\n", e.what(), f_qso.c_str());
+        LOG::LOGGER.ERR(
+            "%s in TARGETID %ld in %s.\n", e.what(), targetid, f_qso.c_str());
         return;
     }
 
@@ -325,7 +326,7 @@ void OneQsoExposures::xQmlEstimate() {
 
         double t = mytime::timer.getTime();
         for (auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi) {
-            dk0[i_kz + diff_idx] = mxhelp::my_cblas_dgemvdot(
+            dk0[i_kz + diff_idx] += mxhelp::my_cblas_dgemvdot(
                 expo1->getWeightedData(), N1,
                 expo2->getWeightedData(), N2,
                 qi, glmemory::temp_vector.get());
@@ -348,7 +349,7 @@ void OneQsoExposures::xQmlEstimate() {
         int size2 = N1 * N2;
         #pragma omp parallel for
         for (const auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
-            tk0[i_kz + diff_idx] = cblas_ddot(
+            tk0[i_kz + diff_idx] += cblas_ddot(
                 size2, qwi, 1, glmemory::stored_sfid.get(), 1);
 
         if (specifics::USE_PRECOMPUTED_FISHER)
@@ -360,10 +361,11 @@ void OneQsoExposures::xQmlEstimate() {
         // I think this is still symmetric
         #pragma omp parallel for schedule(static, 1)
         for (auto iqt = stored_ikz_qi_qwi.cbegin(); iqt != stored_ikz_qi_qwi.cend(); ++iqt) {
+            int i_kz = 0, j_kz = 0;
+            double *qwi = nullptr, *qjT = nullptr;
+            std::tie(i_kz, std::ignore, qwi) = *iqt;
+
             for (auto jqt = iqt; jqt != stored_ikz_qi_qwi.cend(); ++jqt) {
-                int i_kz, j_kz;
-                double *qwi, *qjT;
-                std::tie(i_kz, std::ignore, qwi) = *iqt;
                 std::tie(j_kz, qjT, std::ignore) = *jqt;
 
                 #ifdef FISHER_OPTIMIZATION
@@ -372,7 +374,7 @@ void OneQsoExposures::xQmlEstimate() {
                     continue;
                 #endif
 
-                fisher_matrix[j_kz + ndim * i_kz + diff_idx] = 
+                fisher_matrix[j_kz + ndim * i_kz + diff_idx] += 
                     cblas_ddot(size2, qwi, 1, qjT, 1);
             }
         }
@@ -383,8 +385,8 @@ void OneQsoExposures::xQmlEstimate() {
     for (auto &expo : exposures)
         expo->deallocMatrices();
 
-    std::copy_n(dk0, ndim, theta_vector.get());
-    cblas_daxpy(ndim, -1, tk0, 1, theta_vector.get(), 1);
+    for (int i = 0; i < ndim; ++i)
+        theta_vector[i] = dk0[i] - tk0[i];
 }
 
 
