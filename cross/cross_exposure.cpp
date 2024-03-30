@@ -38,6 +38,8 @@ void _saveQuasarResults(const targetid_quasar_map &quasars) {
             qso->fisher_matrix.get(), qso->ndim, qso->istart,
             targetid, qso->z_qso, qso->ra, qso->dec);
     }
+
+    LOG::LOGGER.STD("Quasar results are saved.\n");
 }
 
 
@@ -198,7 +200,7 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
 
     // Save bootstrap files only if MPI is enabled.
     #if defined(ENABLE_MPI)
-    double timenow =  mytime::timer.getTime() - total_time_1it;
+    double timenow = mytime::timer.getTime() - total_time_1it;
     MPI_Gather(
         &timenow, 1, MPI_DOUBLE, time_all_pes.data(), 1, MPI_DOUBLE,
         0, MPI_COMM_WORLD);
@@ -272,6 +274,7 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
         for (auto it = quasars.begin(); it != quasars.end(); ++it)
             local_queue.push_back(it->second->move2OneQSOEstimate());
 
+        quasars.clear();
         pbooter.run(local_queue);
     }
 }

@@ -114,6 +114,7 @@ public:
             std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         // Get thetas to prepare.
+        LOG::LOGGER.STD("Collapsing local queue.\n");
         for (auto one_qso = local_queue.begin(); one_qso != local_queue.end(); ++one_qso)
             (*one_qso)->collapseBootstrap();
 
@@ -121,6 +122,7 @@ public:
 
         std::string comment;
         if (specifics::FAST_BOOTSTRAP) {
+            LOG::LOGGER.STD("Using FastBootstrap method.\n");
             comment = "FastBootstrap method. Realizations are not normalized. "
                       "Apply y = 0.5 gemv(SOLV_INVF, x)";
             _fastBootstrap(local_queue);
