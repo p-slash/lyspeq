@@ -152,7 +152,7 @@ void _setQiMatrix(double *m, int fi_kz) {
 
     std::fill_n(m, N1 * N2, 0);
 
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(static, 1)
     for (int i = 0; i < N1; ++i) {
         int idx = i * N2, l1, u1;
 
