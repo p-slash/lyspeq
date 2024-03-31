@@ -272,7 +272,7 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
 
         std::vector<std::unique_ptr<OneQSOEstimate>> local_queue(quasars.size());
         for (auto it = quasars.begin(); it != quasars.end(); ++it)
-            local_queue.push_back(it->second->move2OneQSOEstimate());
+            local_queue.push_back(std::move(it->second));
 
         quasars.clear();
         pbooter.run(local_queue);

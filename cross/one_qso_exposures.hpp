@@ -49,8 +49,6 @@ public:
     int oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dt_sum_vector, 
         double *fisher_sum);
-
-    std::unique_ptr<OneQSOEstimate> move2OneQSOEstimate();
 };
 
 #endif
