@@ -442,16 +442,3 @@ int OneQsoExposures::oneQSOiteration(
 
     return numcombos;
 }
-
-
-std::unique_ptr<OneQSOEstimate> OneQsoExposures::move2OneQSOEstimate() {
-    auto qso = std::make_unique<OneQSOEstimate>();
-    qso->istart = istart;
-    qso->ndim = ndim;
-    qso->theta_vector.swap(theta_vector);
-    qso->fisher_matrix.swap(fisher_matrix);
-    return qso;
-}
-
-
-

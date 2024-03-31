@@ -20,22 +20,22 @@
 
 class PoissonRNG {
 public:
-    PoissonRNG(unsigned long int seed) {
+    PoissonRNG(int seed) {
         rng_engine.seed(seed);
     }
 
-    unsigned int generate() {
+    double generate() {
         return p_dist(rng_engine);
     }
 
-    void fillVector(double *v, int size) {
-        for (double *it = v; it != v + size; ++it)
-            (*it) = generate();
+    void fillVector(double *v, unsigned int size) {
+        for (unsigned int i = 0; i < size; ++i)
+            v[i] = generate();
     }
 
 private:
     std::mt19937_64 rng_engine;
-    std::poisson_distribution<unsigned int> p_dist;
+    std::poisson_distribution<int> p_dist;
 };
 
 
