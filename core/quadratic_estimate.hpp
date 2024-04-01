@@ -24,6 +24,7 @@
 
 class OneDQuadraticPowerEstimate
 {
+protected:
     ConfigFile &config;
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, NUMBER_OF_ITERATIONS;
     std::vector<int> Z_BIN_COUNTS;

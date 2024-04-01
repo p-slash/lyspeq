@@ -12,6 +12,10 @@
 
 #include "core/omp_manager.hpp"
 
+namespace glmemory {
+    extern double* getSandwichBuffer(int size);
+}
+
 namespace mxhelp
 {
     // Copy upper triangle of matrix A to its lower triangle
@@ -56,6 +60,9 @@ namespace mxhelp
     double my_cblas_dsymvdot(
         const double *v, const double *S,
         double *temp_vector, int N);
+    double my_cblas_dgemvdot(
+        const double *x, int Nx, const double* y, int Ny,
+        const double *A, double *temp_vector);
 
     void printfMatrix(const double *A, int N1, int N2);
     void fprintfMatrix(const char *fname, const double *A, int N1, int N2);
@@ -129,8 +136,8 @@ namespace mxhelp
         void multiply(
             CBLAS_SIDE SIDER, CBLAS_TRANSPOSE TRANSR,
             const double* A, double *B);
-        void multiplyLeft(const double* A, double *B);
-        void multiplyRightT(const double* A, double *B);
+        void multiplyLeft(const double* A, double *B, int M=0);
+        void multiplyRightT(const double* A, double *B, int M=0);
 
         // R . inplace . R^T
         void sandwich(double *inplace);
@@ -203,6 +210,8 @@ namespace mxhelp
         Resolution(const Resolution *rmaster, int i1, int i2);
         Resolution(Resolution &&rhs) = default;
         Resolution(const Resolution &rhs) = delete;
+
+        DiaMatrix* getDiaMatrixPointer() const { return dia_matrix.get(); };
 
         int getNCols() const { return ncols; };
         bool isDiaMatrix() const { return is_dia_matrix; };

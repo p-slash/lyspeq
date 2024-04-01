@@ -73,6 +73,7 @@ class PiccaFile
     void _setColumnNames();
     bool _isHeaderKey(const std::string &key);
     bool _isColumnName(const std::string &key);
+    void _readOptionalInt(const std::string &key, int &output);
 
 public:
     static bool compareFnames(const std::string &s1, const std::string &s2);
@@ -87,7 +88,8 @@ public:
 
     void readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
-        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda);
+        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
+        int &expid, int &night, int &fiber);
 
     void readData(double *lambda, double *delta, double *noise);
     std::unique_ptr<mxhelp::Resolution> readAllocResolutionMatrix();
@@ -109,7 +111,7 @@ public:
     std::string fname;
     double z_qso, snr, dv_kms, dlambda, ra, dec;
     long id;
-    int R_fwhm;
+    int R_fwhm, expid, night, fiber;
     std::unique_ptr<mxhelp::Resolution> Rmat;
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);

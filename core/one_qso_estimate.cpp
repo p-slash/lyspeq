@@ -13,80 +13,82 @@
 const int
 MAX_PIXELS_IN_FOREST = 700;
 
-
-int _decideNChunks(int size, std::vector<int> &indices)
-{
+std::vector<int> OneQSOEstimate::decideIndices(int size) {
     int nchunks = 1;
     if (specifics::NUMBER_OF_CHUNKS > 1) {
         nchunks += (specifics::NUMBER_OF_CHUNKS * size) / MAX_PIXELS_IN_FOREST;
-        nchunks = (nchunks > specifics::NUMBER_OF_CHUNKS) ? specifics::NUMBER_OF_CHUNKS : nchunks;
+        nchunks = std::min(nchunks, specifics::NUMBER_OF_CHUNKS);
     }
 
-    indices.reserve(nchunks+1);
+    std::vector<int> indices;
+    indices.reserve(nchunks + 1);
     for (int i = 0; i < nchunks; ++i)
-        indices.push_back((int)((size*i)/nchunks));
+        indices.push_back((int)((size * i) / nchunks));
     indices.push_back(size);
 
-    return nchunks;
+    return indices;
 }
 
-OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
-{
-    fname_qso = f_qso;
-    qio::QSOFile qFile(fname_qso, specifics::INPUT_QSO_FILE);
+std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(const std::string &f_qso) {
+    auto qFile = std::make_unique<qio::QSOFile>(f_qso, specifics::INPUT_QSO_FILE);
 
-    qFile.readParameters();
-    qFile.readData();
+    qFile->readParameters();
+    qFile->readData();
 
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
     {
-        qFile.readAllocResolutionMatrix();
+        qFile->readAllocResolutionMatrix();
 
         if (process::smoother->isSmoothingOnRmat())
             process::smoother->smooth1D(
-                qFile.Rmat->matrix(), qFile.Rmat->getNCols(),
-                qFile.Rmat->getNElemPerRow());
+                qFile->Rmat->matrix(), qFile->Rmat->getNCols(),
+                qFile->Rmat->getNElemPerRow());
 
         if (specifics::RESOMAT_DECONVOLUTION_M > 0)
-            qFile.Rmat->deconvolve(specifics::RESOMAT_DECONVOLUTION_M);
+            qFile->Rmat->deconvolve(specifics::RESOMAT_DECONVOLUTION_M);
 
         if (specifics::OVERSAMPLING_FACTOR > 0)
-            qFile.Rmat->oversample(specifics::OVERSAMPLING_FACTOR, qFile.dlambda);
+            qFile->Rmat->oversample(specifics::OVERSAMPLING_FACTOR, qFile->dlambda);
     }
 
-    qFile.closeFile();
+    qFile->closeFile();
 
     // Boundary cut
-    qFile.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
+    qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-    if (qFile.realSize() < MIN_PIXELS_IN_CHUNK) {
-        LOG::LOGGER.ERR(
-            "OneQSOEstimate::OneQSOEstimate::Short file in %s.\n",
-            fname_qso.c_str());
+    if (qFile->realSize() < MIN_PIXELS_IN_CHUNK)
+        throw std::runtime_error("OneQSOEstimate::_readQsoFile::Short file");
 
+    return qFile;
+}
+
+
+OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
+{
+    try {
+        auto qFile = _readQsoFile(f_qso);
+
+        // decide nchunk with lambda points array[nchunks+1]
+        std::vector<int> indices = OneQSOEstimate::decideIndices(qFile->size());
+        int nchunks = indices.size() - 1;
+
+        // create chunk objects
+        chunks.reserve(nchunks);
+
+        for (int nc = 0; nc < nchunks; ++nc) {
+            try {
+                auto _chunk = std::make_unique<Chunk>(*qFile, indices[nc], indices[nc+1]);
+                chunks.push_back(std::move(_chunk));
+            } catch (std::exception& e) {
+                LOG::LOGGER.ERR(
+                    "OneQSOEstimate::OneQSOEstimate::%s Skipping chunk %d/%d of %s.\n",
+                    e.what(), nc, nchunks, f_qso.c_str());
+            }
+        }
+    } catch (std::exception &e) {
+        LOG::LOGGER.ERR("%s in %s.\n", e.what(), f_qso.c_str());
         return;
-    }
-
-    // decide nchunk with lambda points array[nchunks+1]
-    int nchunks = _decideNChunks(qFile.size(), indices);
-
-    // create chunk objects
-    chunks.reserve(nchunks);
-
-    for (int nc = 0; nc < nchunks; ++nc)
-    {
-        try
-        {
-            auto _chunk = std::make_unique<Chunk>(qFile, indices[nc], indices[nc+1]);
-            chunks.push_back(std::move(_chunk));
-        }
-        catch (std::exception& e)
-        {
-            LOG::LOGGER.ERR(
-                "OneQSOEstimate::OneQSOEstimate::%s Skipping chunk %d/%d of %s.\n",
-                e.what(), nc, nchunks, fname_qso.c_str());
-        }
     }
 }
 
@@ -110,8 +112,8 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
         zbin = bins::findRedshiftBin(zm);
 
         // decide chunks
-        std::vector<int> indices;
-        int nchunks = _decideNChunks(qtemp.size(), indices);
+        std::vector<int> indices = OneQSOEstimate::decideIndices(qtemp.size());
+        int nchunks = indices.size() - 1;
 
         // add compute time from chunks
         double res = 0;
@@ -140,7 +142,7 @@ void OneQSOEstimate::oneQSOiteration(
         catch (std::exception& e) {
             LOG::LOGGER.ERR(
                 "OneQSOEstimate::oneQSOiteration::%s Skipping %s.\n",
-                e.what(), fname_qso.c_str());
+                e.what(), chunk->qFile->fname.c_str());
             chunk.reset();
         }
     }
