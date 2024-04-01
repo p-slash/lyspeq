@@ -14,8 +14,8 @@ typedef std::pair<const Exposure*, const Exposure*> cExpoCombo;
 /*
 This is the umbrella class for multiple exposures.
 Each exposure builts its own covariance matrix. Derivative matrices are built
-for cross exposures. Two exposures are cross correlated if wavelength overlap
-is small.
+for cross exposures. Two exposures are cross correlated if the wavelength
+overlap is large (skipCombo in cpp file).
 */
 class OneQsoExposures: public OneQSOEstimate 
 {
