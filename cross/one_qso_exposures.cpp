@@ -8,15 +8,13 @@
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
-#include "mathtools/smoother.hpp"
-
 typedef std::vector<std::unique_ptr<Exposure>>::const_iterator vecExpIt;
 
 int N_Q_MATRICES, KBIN_UPP, fisher_index_start;
 double *_vmatrix, *_zmatrix;
 std::vector<std::tuple<int, double*, double*>> stored_ikz_qi_qwi;
 
-int N1, N2;
+int N1, N2, CROSS_SIZE_2;
 const qio::QSOFile *q1, *q2;
 
 
@@ -58,7 +56,7 @@ void _setInternalVariablesForTwoExposures(
     q2 = expo2->qFile.get();
     N2 = q2->size();
     KBIN_UPP = std::min(expo1->KBIN_UPP, expo2->KBIN_UPP);
-
+    CROSS_SIZE_2 = N1 * N2;
     _setNQandFisherIndex();
 }
 
@@ -120,7 +118,7 @@ void _setStoredIkzQiVector() {
 void _doubleRmatSandwich(double *m) {
     mxhelp::DiaMatrix *r1 = q1->Rmat->getDiaMatrixPointer(),
                       *r2 = q2->Rmat->getDiaMatrixPointer();
-    double *buf = glmemory::getSandwichBuffer(N1 * N2);
+    double *buf = glmemory::getSandwichBuffer(CROSS_SIZE_2);
     r1->multiplyLeft(m, buf, N2);
     r2->multiplyRightT(buf, m, N1);
 }
@@ -150,7 +148,7 @@ void _setQiMatrix(double *m, int fi_kz) {
         };
     }
 
-    std::fill_n(m, N1 * N2, 0);
+    std::fill_n(m, CROSS_SIZE_2, 0);
 
     #pragma omp parallel for schedule(static, 1)
     for (int i = 0; i < N1; ++i) {
@@ -346,11 +344,10 @@ void OneQsoExposures::xQmlEstimate() {
 
         mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
 
-        int size2 = N1 * N2;
         #pragma omp parallel for
         for (const auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
             tk0[i_kz + diff_idx] += cblas_ddot(
-                size2, qwi, 1, glmemory::stored_sfid.get(), 1);
+                CROSS_SIZE_2, qwi, 1, glmemory::stored_sfid.get(), 1);
 
         if (specifics::USE_PRECOMPUTED_FISHER)
             continue;
@@ -375,7 +372,7 @@ void OneQsoExposures::xQmlEstimate() {
                 #endif
 
                 fisher_matrix[j_kz + ndim * i_kz + diff_idx] += 
-                    cblas_ddot(size2, qwi, 1, qjT, 1);
+                    cblas_ddot(CROSS_SIZE_2, qwi, 1, qjT, 1);
             }
         }
 

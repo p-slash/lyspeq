@@ -9,10 +9,10 @@
 #include "core/global_numbers.hpp"
 
 /*
-This is the umbrella class for multiple exposures.
+Class for a single exposure.
 Each exposure builts its own covariance matrix. Derivative matrices are built
-for cross exposures. Two exposures are cross correlated if wavelength overlap
-is small.
+for cross exposures in OneQsoExposures. Two exposures are cross correlated if
+the wavelength overlap is large.
 */
 class Exposure: public Chunk
 {
@@ -22,6 +22,9 @@ public:
         _copyQSOFile(qmaster, i1, i2);
         _setNQandFisherIndex();
         glmemory::setMaxSizes(size(), size(), 2 * N_Q_MATRICES, false);
+
+        // to keep update memories in check as this class does not store
+        // its own fisher matrix and dbt vectors.
         N_Q_MATRICES = 0;
     }
     Exposure(Exposure &&rhs) = delete;
