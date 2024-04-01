@@ -30,8 +30,19 @@ matrices. This scheme speeds up the algorithm.
 */
 
 namespace glmemory {
+    extern int max_size_2;
+    extern std::unique_ptr<double[]>
+        covariance_matrix, temp_vector, weighted_data_vector,
+        stored_sfid, matrix_lambda, finer_matrix, v_matrix, z_matrix;
+    extern std::vector<std::unique_ptr<double[]>> stored_ikz_qi, temp_matrices;
+
+    extern shared_interp_2d interp2d_signal_matrix;
+    extern std::vector<shared_interp_1d> interp_derivative_matrix;
+
+    extern void setMaxSizes(int size, int matrix_n, int nqdim, bool onsamp);
     extern void allocMemory();
     extern void dealloc();
+    extern void updateMemUsed(double mem);
 }
 
 
@@ -73,10 +84,11 @@ protected:
 
     friend class TestOneQSOEstimate;
 
+    Chunk() : DATA_SIZE_2(0), _matrix_n(0), N_Q_MATRICES(0) {};
 public:
     std::unique_ptr<qio::QSOFile> qFile;
     int fisher_index_start, N_Q_MATRICES;
-    int ZBIN, ZBIN_LOW, ZBIN_UPP;
+    int ZBIN, ZBIN_LOW, ZBIN_UPP, KBIN_UPP;
 
     // Initialized to 0
     // 3 TOTAL_KZ_BINS sized vectors
@@ -97,7 +109,6 @@ public:
     void invertCovarianceMatrix();
 
     void computePSbeforeFvector();
-    void computeFisherMatrix();
 
     // Pass fit values for the power spectrum for numerical stability
     void oneQSOiteration(

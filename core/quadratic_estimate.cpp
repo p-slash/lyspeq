@@ -304,9 +304,9 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
     {
-        cblas_dsymv(
-            CblasRowMajor, CblasUpper, bins::TOTAL_KZ_BINS, 0.5, 
-            solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS,
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
+            0.5, solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS,
             dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 1,
             0, dbt_estimate_fisher_weighted_vector[dbt_i].get(), 1);
     }
@@ -546,6 +546,11 @@ void OneDQuadraticPowerEstimate::iterate()
     if (specifics::NUMBER_OF_BOOTS > 0) {
         PoissonBootstrapper pbooter(
             specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
+
+        LOG::LOGGER.STD("Collapsing local queue.\n");
+        for (auto one_qso = local_queue.begin(); one_qso != local_queue.end(); ++one_qso)
+            (*one_qso)->collapseBootstrap();
+
         pbooter.run(local_queue);
     }
 }

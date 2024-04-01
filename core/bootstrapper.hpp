@@ -20,22 +20,22 @@
 
 class PoissonRNG {
 public:
-    PoissonRNG(unsigned long int seed) {
+    PoissonRNG(int seed) {
         rng_engine.seed(seed);
     }
 
-    unsigned int generate() {
+    double generate() {
         return p_dist(rng_engine);
     }
 
-    void fillVector(double *v, int size) {
-        for (double *it = v; it != v + size; ++it)
-            (*it) = generate();
+    void fillVector(double *v, unsigned int size) {
+        for (unsigned int i = 0; i < size; ++i)
+            v[i] = generate();
     }
 
 private:
     std::mt19937_64 rng_engine;
-    std::poisson_distribution<unsigned int> p_dist;
+    std::poisson_distribution<int> p_dist;
 };
 
 
@@ -44,7 +44,7 @@ namespace mytime
     static double time_spent_on_oneboot_loop = 0, time_spent_on_oneboot_mpi = 0,
                   time_spent_on_oneboot_solve = 0;
 
-    void printfBootstrapTimeSpentDetails()
+    inline void printfBootstrapTimeSpentDetails()
     {
         LOG::LOGGER.STD(
             "Total time spent in loop is %.2f mins.\n"
@@ -111,16 +111,13 @@ public:
     void run() { _meanBootstrap(); _medianBootstrap(); }
 
     void run(
-            std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
+            const std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
-        // Get thetas to prepare.
-        for (auto one_qso = local_queue.begin(); one_qso != local_queue.end(); ++one_qso)
-            (*one_qso)->collapseBootstrap();
-
         LOG::LOGGER.STD("Generating %u bootstrap realizations.\n", nboots);
 
         std::string comment;
         if (specifics::FAST_BOOTSTRAP) {
+            LOG::LOGGER.STD("Using FastBootstrap method.\n");
             comment = "FastBootstrap method. Realizations are not normalized. "
                       "Apply y = 0.5 gemv(SOLV_INVF, x)";
             _fastBootstrap(local_queue);

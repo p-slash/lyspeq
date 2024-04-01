@@ -37,7 +37,8 @@ double _getMediandlambda(const double *wave, int size) {
 // mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
         : PB(p_or_b), wave_head(nullptr), delta_head(nullptr), noise_head(nullptr),
-          arr_size(0), _fullsize(0), shift(0), num_masked_pixels(0), fname(fname_qso)
+          arr_size(0), _fullsize(0), shift(0), num_masked_pixels(0), fname(fname_qso),
+          expid(-1), night(-1), fiber(-1)
 {
     if (PB == Picca)
         pfile = std::make_unique<PiccaFile>(fname);
@@ -80,7 +81,8 @@ void QSOFile::readParameters()
 {
     if (pfile)
         pfile->readParameters(
-            id, arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms, dlambda);
+            id, arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms, dlambda,
+            expid, night, fiber);
     else
         bqfile->readParameters(
             arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms);
@@ -247,10 +249,15 @@ void BQFile::readData(double *lambda, double *fluxfluctuations, double *noise)
 
 std::string decomposeFname(const std::string &fname, int &hdunum)
 {
-    std::size_t i1 = fname.rfind('[')+1, i2 = fname.rfind(']');
-    std::string basefname = fname.substr(0, i1-1);
+    std::size_t i1 = fname.rfind('['), i2 = fname.rfind(']');
 
-    hdunum = std::stoi(fname.substr(i1, i2-i1))+1;
+    if (i1 == std::string::npos) {
+        hdunum = 2;
+        return fname;
+    }
+
+    std::string basefname = fname.substr(0, i1);
+    hdunum = std::stoi(fname.substr(i1 + 1, i2 - i1 - 1)) + 1;
 
     return basefname;
 }
@@ -287,21 +294,25 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
     std::string basefname = decomposeFname(fname_qso, hdunum);
 
     auto it = cache.find(basefname);
-    if (it != cache.end())
-    {
+    if (it != cache.end()) {
         fits_file = it->second;
-        fits_movabs_hdu(fits_file, hdunum, &hdutype, &status);
     }
-    else
-    {
-        if (cache.size() == MAX_NO_FILES)
-        {
+    else {
+        if (cache.size() == MAX_NO_FILES) {
             fits_close_file(cache.begin()->second, &status);
             cache.erase(cache.begin());
         }
+
         fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
         cache[basefname] = fits_file;
+        fits_get_num_hdus(fits_file, &no_spectra, &status);
+        no_spectra--;
     }
+
+    fits_movabs_hdu(fits_file, hdunum, &hdutype, &status);
+
+    if (hdutype != BINARY_TBL)
+        throw std::runtime_error("HDU type is not BINARY!");
 
     _setHeaderKeys();
     _setColumnNames();
@@ -310,9 +321,6 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
         _handleStatus();
 
     // fits_get_hdu_num(fits_file, &curr_spec_index);
-    // fits_get_num_hdus(fits_file, &no_spectra, &status);
-
-    // no_spectra--;
     // _move(fname_qso[fname_qso.size-2] - '0');
 }
 
@@ -369,9 +377,17 @@ bool PiccaFile::_isColumnName(const std::string &key)
         [key](const std::string &elem) { return elem == key; });
 }
 
+void PiccaFile::_readOptionalInt(const std::string &key, int &output) {
+    if (_isHeaderKey(key))
+        fits_read_key(fits_file, TINT, key.c_str(), &output, NULL, &status);
+    else
+        output = -1;
+}
+
 void PiccaFile::readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
-        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda
+        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
+        int &expid, int &night, int &fiber
 ) {
     status = 0;
     curr_elem_per_row = -1;
@@ -415,6 +431,10 @@ void PiccaFile::readParameters(
         fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
     else
         dlambda = -1;
+
+    _readOptionalInt("EXPID", expid);
+    _readOptionalInt("NIGHT", night);
+    _readOptionalInt("FIBER", fiber);
 
     if (status != 0)
         _handleStatus();

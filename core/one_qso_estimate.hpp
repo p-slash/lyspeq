@@ -17,18 +17,20 @@ class OneQSOEstimate
 {
 protected:
     std::string fname_qso;
-    // Emplace_back with vector<OneQSOEstimate> leaks memory!!
-    std::vector<int> indices;
 
+    std::unique_ptr<qio::QSOFile> _readQsoFile(const std::string &f_qso);
+public:
     int istart, ndim;
     std::unique_ptr<double[]> fisher_matrix, theta_vector;
-public:
+
     std::vector<std::unique_ptr<Chunk>> chunks;
 
+    OneQSOEstimate() {};
     OneQSOEstimate(const std::string &f_qso);
     OneQSOEstimate(OneQSOEstimate &&rhs) = default;
     OneQSOEstimate(const OneQSOEstimate &rhs) = delete;
 
+    static std::vector<int> decideIndices(int size);
     static double getComputeTimeEst(std::string fname_qso, int &zbin);
 
     // Pass fit values for the power spectrum for numerical stability

@@ -63,6 +63,7 @@ You can also change interpolation schemes and redshift binning shape. You can al
 Overview of Programs
 =====
 + **LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method. When compiled with MPI compatibility, it distributes qso chunks to multiple CPUs, then reduces the results.
++ **LyaPowerxQmlExposure** is the cross-exposure P1D estimator. The filename input is different than LyaPowerEstimate such that each MPI task reads the entire delta files it was assigned. Each delta file assumed to have all exposures associated with a TARGETID. Do not use more MPI tasks than the number of delta files. The estimator cross correlates exposures with different EXPID and NIGHT, and exposure that have more than 50% overlap in wavelength coverage.
 + **CreateSQLookUpTable** creates look up tables for signal and derivative matrices used in LyaPowerEstimate. When compiled with MPI compatibility, it computes tables for different resolution on multiple CPUs.
 
 Both programs take one common config file.
@@ -222,30 +223,38 @@ Quasar Spectrum File
 It starts with a header (see [QSOFile](io/qso_file.hpp)), then has wavelength, fluctuations and noise in double arrays. A Python script is added to help conversion between different formats (see [BinaryQSO](py/binary_qso.py)). When using this format, end files with `.dat` or `.bin` extensions.
 
 ## Picca format
-When using this format, construct the file list using HDU numbers of each chunk. E.g., for the third spectrum, use picca-delta-100.fits.gz[3]. This is what filename list should look like:
+**LyaPowerEstimate format**: When using this format, construct the file list using HDU numbers of each chunk. E.g., for the third spectrum, use picca-delta-100.fits.gz[3]. This is what filename list should look like:
 
     3
     picca-delta-100.fits.gz[1]
     picca-delta-100.fits.gz[2]
     picca-delta-100.fits.gz[3]
 
+**LyaPowerxQmlExposure format**: When using this format, pass the entire delta file. Do not use more MPI tasks than number of files.
+
+    3
+    picca-delta-0.fits
+    picca-delta-1.fits
+    picca-delta-2.fits
+
 **Following keys are read from the header:**
 
 + Number of pixels is `NAXIS2`.
-+ ID is `TARGETID`.
-+ Redshift of the quasar is `Z`.
-+ `MEANRESO` is assumed to be the Gaussian R value in km/s. This is converted to integer FWHM resolving power by rounding up last two digits.
++ ID is `TARGETID (long)`.
++ Redshift of the quasar is `Z (double)`.
++ **LyaPowerxQmlExposure format** needs `EXPID (int)` and `NIGHT (int)`.
++ `MEANRESO (double)` is assumed to be the Gaussian R value in km/s. This is converted to integer FWHM resolving power by rounding up last two digits.
 
         fwhm_resolution = int(SPEED_OF_LIGHT / MEANRESO / ONE_SIGMA_2_FWHM / 100 + 0.5) * 100;
 
-+ `MEANSNR` is read, but not used.
-+ Pixel spacing is read from `DLL` (difference of log10 lambda), then converted to km/s units.
++ `MEANSNR (double)` is read, but not used.
++ Pixel spacing is read from `DLL (double)` (difference of log10 lambda), then converted to km/s units.
 
         dv_kms = DLL * SPEED_OF_LIGHT * ln(10);
 
 **Following data are read from the data tables:**
 
-+ `LOGLAM` is log10(lambda). This is converted back to lambda.
++ `LAMBDA` as wavelength. Or `LOGLAM` as log10(lambda), which is converted back to lambda.
 + Flux fluctuations are read from `DELTA`.
 + Inverse variance is read from `IVAR`. This is converted back to sigma.
 + When the option is set, the resolution matrix is read from `RESOMAT`. This is reordered for C arrays.

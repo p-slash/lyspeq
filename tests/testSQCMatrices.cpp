@@ -32,6 +32,9 @@ public:
         glmemory::allocMemory();
         chunks[0]->_initMatrices();
         chunks[0]->_setVZMatrices();
+
+        for (int i = 0; i < chunks[0]->_matrix_n; ++i)
+            chunks[0]->_matrix_lambda[i] -= 1;
     };
 
     int test_setFiducialSignalMatrix();

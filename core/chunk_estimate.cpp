@@ -70,6 +70,12 @@ namespace glmemory {
             memUsed += process::getMemoryMB(max_matrix_n + 3 * highsize);
         }
 
+        LOG::LOGGER.STD(
+            "Global memory requirements:\n"
+            "  max_size: %d, max_size_2: %d, max_nqdim: %d\n"
+            "  Memory needed: %.2f MB.\n",
+            max_size, max_size_2, max_nqdim, memUsed);
+
         process::updateMemory(-memUsed);
         int ntempmatrices = std::max(2, std::min(
             myomp::getMaxNumThreads(),
@@ -125,43 +131,29 @@ namespace glmemory {
 
         process::updateMemory(memUsed);
     }
+
+    void updateMemUsed(double mem) {
+        memUsed += mem;
+        process::updateMemory(-mem);
+    }
 }
 
 Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
+        : DATA_SIZE_2(0), _matrix_n(0), N_Q_MATRICES(0)
 {
     isCovInverted = false;
     _copyQSOFile(qmaster, i1, i2);
-    on_oversampling = specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix();
-
-    qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
-
-    _findRedshiftBin();
-
-    // Convert flux to fluctuations around the mean flux of the chunk
-    // Otherwise assume input data is fluctuations
-    conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), size());
-
-    // Keep noise as error squared (variance)
-    std::for_each(
-        qFile->noise(), qFile->noise() + size(),
-        [](double &n) { n *= n; });
-
-    // Divide wave by LYA_REST
-    std::for_each(
-        qFile->wave(), qFile->wave() + size(),
-        [](double &w) { w /= LYA_REST; });
 
     // Set up number of matrices, index for Fisher matrix
     _setNQandFisherIndex();
     process::updateMemory(-getMinMemUsage());
 
     stored_ikz_qi.reserve(N_Q_MATRICES);
-    int _kncut = _getMaxKindex(MY_PI / qFile->dv_kms);
     for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
         int kn, zm;
         bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
-        if (kn < _kncut)
+        if (kn < KBIN_UPP)
             stored_ikz_qi.push_back(std::make_pair(i_kz, nullptr));
     }
 
@@ -211,6 +203,27 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
     }
 
     DATA_SIZE_2 = size() * size();
+
+    on_oversampling = specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix();
+
+    qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
+    KBIN_UPP = _getMaxKindex(MY_PI / qFile->dv_kms);
+
+    _findRedshiftBin();
+
+    // Convert flux to fluctuations around the mean flux of the chunk
+    // Otherwise assume input data is fluctuations
+    conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), size());
+
+    // Keep noise as error squared (variance)
+    std::for_each(
+        qFile->noise(), qFile->noise() + size(),
+        [](double &n) { n *= n; });
+
+    // Divide wave by LYA_REST
+    std::for_each(
+        qFile->wave(), qFile->wave() + size(),
+        [](double &w) { w /= LYA_REST; });
 }
 
 void Chunk::_findRedshiftBin()
@@ -281,11 +294,7 @@ Chunk::~Chunk()
 
 double Chunk::getMinMemUsage()
 {
-    double minmem = process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
-    if (qFile)
-        minmem += qFile->getMinMemUsage();
-
-    return minmem;
+    return process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
 }
 
 double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
@@ -386,9 +395,6 @@ void Chunk::_setVZMatrices() {
             _zmatrix[j + i * _matrix_n] = sqrt(li * lj) - 1.;
         }
     }
-
-    for (int i = 0; i < _matrix_n; ++i)
-        _matrix_lambda[i] -= 1;
 }
 
 void Chunk::_setFiducialSignalMatrix(double *sm)
@@ -769,6 +775,9 @@ void Chunk::oneQSOiteration(
     // 0 is the last matrix
     // i_kz = N_Q_MATRICES - j_kz - 1
     DEBUG_LOG("Setting qi matrices\n");
+
+    for (int i = 0; i < _matrix_n; ++i)
+        _matrix_lambda[i] -= 1;
 
     for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
         _setQiMatrix(iqt->second, iqt->first);

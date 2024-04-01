@@ -154,6 +154,17 @@ namespace mxhelp
         return cblas_ddot(N, v, 1, temp_vector, 1);
     }
 
+    double my_cblas_dgemvdot(
+        const double *x, int Nx, const double* y, int Ny,
+        const double *A, double *temp_vector
+    ) {
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, Nx, Ny, 1.,
+            A, Ny, y, 1, 0, temp_vector, 1);
+
+        return cblas_ddot(Nx, x, 1, temp_vector, 1);
+    }
+
 
     // Slow!
     double my_cblas_dsymvdot(const double *v, const double *S, int N) {
@@ -729,8 +740,10 @@ namespace mxhelp
         }
     }
 
-    void DiaMatrix::multiplyLeft(const double* A, double *B) {
-        std::fill_n(B, ndim * ndim, 0);
+    void DiaMatrix::multiplyLeft(const double* A, double *B, int M) {
+        if (M == 0) M = ndim;
+
+        std::fill_n(B, ndim * M, 0);
 
         for (int d = 0; d < ndiags; ++d)
         {
@@ -740,15 +753,17 @@ namespace mxhelp
 
             #pragma omp parallel for simd collapse(2)
             for (int i = 0; i < ndim - abs(off); ++i)
-                for (int j = 0; j < ndim; ++j){
-                    B[j + (i + moff) * ndim] += 
-                        values[poff + d * ndim + i] * A[j + (i + poff) * ndim];
+                for (int j = 0; j < M; ++j) {
+                    B[j + (i + moff) * M] += 
+                        values[poff + d * ndim + i] * A[j + (i + poff) * M];
                 }
         }
     }
 
-    void DiaMatrix::multiplyRightT(const double* A, double *B) {
-        std::fill_n(B, ndim * ndim, 0);
+    void DiaMatrix::multiplyRightT(const double* A, double *B, int M) {
+        if (M == 0) M = ndim;
+
+        std::fill_n(B, ndim * M, 0);
 
         for (int d = 0; d < ndiags; ++d)
         {
@@ -757,7 +772,7 @@ namespace mxhelp
                 poff = std::max(0, off);
 
             #pragma omp parallel for simd collapse(2)
-            for (int i = 0; i < ndim; ++i)
+            for (int i = 0; i < M; ++i)
                 for (int j = 0; j < ndim - abs(off); ++j) {
                     B[j + i * ndim + moff] +=
                         values[j + poff + d * ndim] * A[j + i * ndim + poff];
