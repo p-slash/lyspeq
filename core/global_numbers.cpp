@@ -164,17 +164,10 @@ namespace specifics
     const std::string FISHER_TXT = "OFF";
     #endif
 
-    #if defined(REDSHIFT_GROWTH_POWER)
-    const std::string RGP_TEXT = "ON";
-    #else
-    const std::string RGP_TEXT = "OFF";
-    #endif
-
     const std::string BUILD_SPECIFICS = 
         std::string("# You are using lyspeq version " __LYSPEQ_VERSION__ ".\n")
         + std::string("# This version is build by the following options:\n")
-        + "# Fisher optimization: " + FISHER_TXT + "\n"
-        + "# Redshift growth scaling: " + RGP_TEXT + "\n";
+        + "# Fisher optimization: " + FISHER_TXT + "\n";
 
     void printBuildSpecifics(FILE *toWrite)
     {
