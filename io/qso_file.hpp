@@ -104,8 +104,8 @@ class QSOFile
     double *wave_head, *delta_head, *noise_head;
     int arr_size, _fullsize, shift, num_masked_pixels;
     // count num_masked_pixels after cutting
-    void _cutMaskedBoundary(double sigma_cut=1e6);
-    void _countMaskedPixels(double sigma_cut=1e6);
+    void _cutMaskedBoundary();
+    void _countMaskedPixels();
 
 public:
     std::string fname;
@@ -153,6 +153,7 @@ public:
     // Cuts masked boundaries as well
     // Counts the num_masked_pixels
     void cutBoundary(double z_lower_edge, double z_upper_edge);
+    void maskOutliers();
 
     void readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed);
     void readAllocResolutionMatrix();

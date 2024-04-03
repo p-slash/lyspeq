@@ -1,7 +1,6 @@
 #include "core/chunk_estimate.hpp"
 #include "core/global_numbers.hpp"
 #include "core/omp_manager.hpp"
-#include "core/fiducial_cosmology.hpp"
 #include "core/sq_table.hpp"
 
 #include "mathtools/smoother.hpp"
@@ -210,10 +209,6 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
     KBIN_UPP = _getMaxKindex(MY_PI / qFile->dv_kms);
 
     _findRedshiftBin();
-
-    // Convert flux to fluctuations around the mean flux of the chunk
-    // Otherwise assume input data is fluctuations
-    conv::convertFluxToDeltaF(qFile->wave(), qFile->delta(), qFile->noise(), size());
 
     // Keep noise as error squared (variance)
     std::for_each(
