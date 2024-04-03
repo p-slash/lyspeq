@@ -53,8 +53,7 @@ void _findMedianStatistics(
     std::for_each(arr, arr + newsize, [median](double &f) { f = fabs(f - median); });
     std::sort(arr, arr + newsize);
 
-    // The constant factor makes it unbiased
-    mad = 1.4826 * stats::medianOfSortedArray(arr, newsize);
+    mad = stats::medianOfSortedArray(arr, newsize);
 }
 
 
@@ -134,12 +133,13 @@ void Smoother::smoothNoise(const double *n2, double *out, int size) {
 
     std::copy_n(n2, size, out);
     _findMedianStatistics(out, size, median, mean, mad);
+    mad *= 3.5;
 
     // Isolate masked pixels as they have high noise
     // n->0 should be smoothed
     std::vector<int> mask_idx;
     for (int i = 0; i < size; ++i)
-        if ((n2[i] - median) > 3.5 * mad)
+        if ((n2[i] - median) > mad)
             mask_idx.push_back(i);
 
     if (use_mean) {

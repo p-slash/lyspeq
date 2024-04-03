@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include "core/one_qso_estimate.hpp"
+#include "core/fiducial_cosmology.hpp"
 #include "core/global_numbers.hpp"
 
 #include "io/logger.hpp"
@@ -34,6 +35,12 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(const std::string &f_
 
     qFile->readParameters();
     qFile->readData();
+
+    // Convert flux to fluctuations around the mean flux of the chunk
+    // Otherwise assume input data is fluctuations
+    conv::convertFluxToDeltaF(
+        qFile->wave(), qFile->delta(), qFile->noise(), qFile->size());
+    qFile->maskOutliers();
 
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)

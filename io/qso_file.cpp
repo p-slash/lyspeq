@@ -9,6 +9,7 @@
 
 namespace qio
 {
+const double SIGMA_CUT = 1e6;
 static std::vector<double> temp_arr;
 
 double _getMediandv(const double *wave, int size) {
@@ -113,21 +114,21 @@ void QSOFile::readData()
         dv_kms  = _getMediandv(wave(), size());
 }
 
-void QSOFile::_countMaskedPixels(double sigma_cut)
+void QSOFile::_countMaskedPixels()
 {
     num_masked_pixels = 0;
     for (int i = 0; i < size(); ++i)
-        if (noise()[i] > sigma_cut)
+        if (noise()[i] > SIGMA_CUT)
             ++num_masked_pixels;
 }
 
-void QSOFile::_cutMaskedBoundary(double sigma_cut)
+void QSOFile::_cutMaskedBoundary()
 {
     int ni1 = 0, ni2 = size();
 
-    while ((ni1 < size()) && (noise()[ni1] > sigma_cut))
+    while ((ni1 < size()) && (noise()[ni1] > SIGMA_CUT))
         ++ni1;
-    while ((ni2 > 0) && (noise()[ni2-1] > sigma_cut))
+    while ((ni2 > 0) && (noise()[ni2-1] > SIGMA_CUT))
         --ni2;
 
     if ((ni1 == 0) && (ni2 == arr_size)) // no change
@@ -141,7 +142,7 @@ void QSOFile::_cutMaskedBoundary(double sigma_cut)
             "Empty spectrum when masked pixels at boundary are removed!"
         );
 
-    _countMaskedPixels(sigma_cut);
+    _countMaskedPixels();
 }
 
 void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
@@ -168,6 +169,37 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
         process::updateMemory(Rmat->getMinMemUsage());
         Rmat->cutBoundary(shift, shift+arr_size);
         process::updateMemory(-Rmat->getMinMemUsage());
+    }
+}
+
+void QSOFile::maskOutliers() {
+    int j = 0, nall = size();
+    temp_arr.resize(realSize());
+
+    double *n = noise(), *f = delta();
+
+    for (int i = 0; i < nall; ++i) {
+        if (n[i] > SIGMA_CUT)
+            continue;
+
+        temp_arr[j] = f[i];
+        ++j;
+    }
+
+    double median = stats::medianOfUnsortedVector(temp_arr);
+    std::for_each(
+        temp_arr.begin(), temp_arr.end(),
+        [median](double &x) { x = fabs(x - median); });
+
+    double mad = 3.5 * stats::medianOfUnsortedVector(temp_arr);
+
+    for (int i = 0; i < nall; ++i) {
+        if (n[i] > SIGMA_CUT)
+            continue;
+
+        if (fabs(f[i] - median) > mad) {
+            f[i] = 0;  n[i] = 1. / DOUBLE_EPSILON;
+        }
     }
 }
 
