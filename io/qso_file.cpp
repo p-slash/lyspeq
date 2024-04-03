@@ -191,7 +191,9 @@ void QSOFile::maskOutliers() {
         temp_arr.begin(), temp_arr.end(),
         [median](double &x) { x = fabs(x - median); });
 
-    double mad = 3.5 * stats::medianOfUnsortedVector(temp_arr);
+    double mad = 3.5 * 1.4826 * (1. + 1. / sqrt(realSize()))
+                 * stats::medianOfUnsortedVector(temp_arr);
+    mad = std::max(3.5, mad);
 
     for (int i = 0; i < nall; ++i) {
         if (n[i] > SIGMA_CUT)

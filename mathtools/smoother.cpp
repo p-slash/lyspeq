@@ -53,7 +53,8 @@ void _findMedianStatistics(
     std::for_each(arr, arr + newsize, [median](double &f) { f = fabs(f - median); });
     std::sort(arr, arr + newsize);
 
-    mad = stats::medianOfSortedArray(arr, newsize);
+    // The constant factor makes it unbiased
+    mad = 1.4826 * stats::medianOfSortedArray(arr, newsize);
 }
 
 
