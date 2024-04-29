@@ -199,7 +199,7 @@ void QSOFile::maskOutliers() {
         if (n[i] > SIGMA_CUT)
             continue;
 
-        if (fabs(f[i] - median) > mad) {
+        if (fabs(f[i] - median) > std::max(mad, 3.5 * n[i])) {
             f[i] = 0;  n[i] = 1. / DOUBLE_EPSILON;
         }
     }
