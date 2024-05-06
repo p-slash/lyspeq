@@ -295,16 +295,16 @@ private:
         auto m = std::make_unique<double[]>(bins::FISHER_SIZE);
         cblas_dgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
-            0.5, invfisher,
-            bins::TOTAL_KZ_BINS, tempfisher.get(), bins::TOTAL_KZ_BINS,
+            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, 1,
+            invfisher, bins::TOTAL_KZ_BINS,
+            tempfisher.get(), bins::TOTAL_KZ_BINS,
             0, m.get(), bins::TOTAL_KZ_BINS);
 
         cblas_dgemm(
-            CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
-            0.5, m.get(),
-            bins::TOTAL_KZ_BINS, invfisher, bins::TOTAL_KZ_BINS,
+            CblasRowMajor, CblasNoTrans, CblasTrans,
+            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, 1,
+            m.get(), bins::TOTAL_KZ_BINS,
+            invfisher, bins::TOTAL_KZ_BINS,
             0, tempfisher.get(), bins::TOTAL_KZ_BINS);
     }
 
@@ -370,9 +370,6 @@ private:
 
         mxhelp::copyUpperToLower(mad_cov, bins::TOTAL_KZ_BINS);
 
-        if (specifics::FAST_BOOTSTRAP)
-            _sandwichInvFisher();
-
         t2 = mytime::timer.getTime();
         LOG::LOGGER.STD("MAD covariance is %.2f mins.\n", t2 - t1);
     }
@@ -401,9 +398,6 @@ private:
             cov, 1);
 
         mxhelp::copyUpperToLower(cov, bins::TOTAL_KZ_BINS);
-
-        if (specifics::FAST_BOOTSTRAP)
-            _sandwichInvFisher();
 
         t2 = mytime::timer.getTime();
         LOG::LOGGER.STD("covariance is %.2f mins.\n", t2 - t1);
@@ -499,6 +493,18 @@ private:
         mxhelp::fprintfMatrix(
             buffer.c_str(), temppower.get(),
             1, bins::TOTAL_KZ_BINS);
+
+        if (specifics::FAST_BOOTSTRAP) {
+            buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
+                     + std::string("_fisher_matrix.txt");
+
+            cblas_dscal(bins::FISHER_SIZE, 0.25, tempfisher.get(), 1);
+            mxhelp::fprintfMatrix(
+                buffer.c_str(), tempfisher.get(),
+                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+
+            _sandwichInvFisher();
+        }
 
         buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
                  + std::string("_covariance.txt");

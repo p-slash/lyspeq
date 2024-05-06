@@ -256,36 +256,15 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
 
     damping_pair.second = 0;
     status = mxhelp::stableInvertSym(
-        solver_invfisher_matrix, bins::TOTAL_KZ_BINS,
-        bins::NewDegreesOfFreedom, damping_pair.second);
+        solver_invfisher_matrix, inverse_fisher_matrix_sum,
+        bins::TOTAL_KZ_BINS, bins::NewDegreesOfFreedom, damping_pair.second);
 
     damping_pair.first = status != 0;
 
-    if (damping_pair.first) {
+    if (damping_pair.first)
         LOG::LOGGER.STD(
             "* Fisher matrix is damped by adding %.2e to the diagonal.\n",
             damping_pair.second);
-
-        static auto _temp_fmat = std::make_unique<double[]>(bins::FISHER_SIZE);
-
-        cblas_dgemm(
-            CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, 1.,
-            solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS,
-            fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS,
-            0, _temp_fmat.get(), bins::TOTAL_KZ_BINS);
-
-        cblas_dgemm(
-            CblasRowMajor, CblasNoTrans, CblasTrans,
-            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS, 1.,
-            _temp_fmat.get(), bins::TOTAL_KZ_BINS,
-            solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS,
-            0, inverse_fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
-    } else {
-        std::copy_n(
-            solver_invfisher_matrix.get(), bins::FISHER_SIZE,
-            inverse_fisher_matrix_sum.get());
-    }
 
     isFisherInverted = true;
 
