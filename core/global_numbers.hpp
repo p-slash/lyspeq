@@ -9,7 +9,7 @@
 
 #include "io/config_file.hpp"
 
-#define __LYSPEQ_VERSION__ "5.0.1"
+#define __LYSPEQ_VERSION__ "5.0.2"
 
 // Debugging flags. Comment out to turn off
 // #define DEBUG_MATRIX_OUT
