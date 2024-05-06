@@ -85,8 +85,10 @@ namespace mxhelp
     int LAPACKE_InvertMatrixLU_safe(double *A, int N);
     // S is symmetric
     // returns warning code (1 if damping used). DOF and damp as well
+    // S is damped solution and Sinv is direct inverse on return
     int stableInvertSym(
-        std::unique_ptr<double[]> &S, int N, int &dof, double &damp);
+        std::unique_ptr<double[]> &S, std::unique_ptr<double[]> &Sinv,
+        int N, int &dof, double &damp);
 
     void LAPACKE_safeSolveCho(double *S, int N, double *b);
     // S is symmetric. Only upper addressed

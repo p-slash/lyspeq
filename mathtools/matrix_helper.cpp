@@ -302,7 +302,8 @@ namespace mxhelp
 
 
     int stableInvertSym(
-            std::unique_ptr<double[]> &S, int N, int &dof, double &damp
+            std::unique_ptr<double[]> &S, std::unique_ptr<double[]> &Sinv,
+            int N, int &dof, double &damp
     ) {
         int warn = 0;
         std::vector<int> empty_indx = _setEmptyIndices(S.get(), N);
@@ -314,13 +315,18 @@ namespace mxhelp
 
         if (damp != 0) {
             warn = 1;
+            std::copy_n(S.get(), N * N, Sinv.get());
+            LAPACKE_InvertMatrixLU(Sinv.get(), N);
             LAPACKE_InvertSymMatrixLU_damped(S, N, damp);
         } else {
             LAPACKE_InvertMatrixLU(S.get(), N);
+            std::copy_n(S.get(), N * N, Sinv.get());
         }
 
-        for (const auto &i : empty_indx)
+        for (const auto &i : empty_indx) {
             S[(N + 1) * i] = 0;
+            Sinv[(N + 1) * i] = 0;
+        }
 
         return warn;
     }
