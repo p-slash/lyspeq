@@ -215,7 +215,9 @@ Other params
 + `NumberOfBoots` (int, default: 20000):
     Number of bootstrap realizations.
 + `FastBootstrap` (int, default: 1, True):
-        Fast bootstrap method. Does not recalculates the Fisher matrix.
+    Fast bootstrap method. Does not recalculate the Fisher matrix.
++ `SaveBootstrapRealizations` (int, default: 0, False):
+    Saves bootstrap realizations.
 
 Quasar Spectrum File
 ====

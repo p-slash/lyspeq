@@ -75,7 +75,7 @@ namespace specifics
 {
     extern bool
         TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
-        USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP;
+        USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP, SAVE_BOOTREALIZATIONS;
     extern double CHISQ_CONVERGENCE_EPS;
     extern int
         CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
@@ -90,7 +90,8 @@ namespace specifics
         {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "1e-2"},
         {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
         {"PrecomputedFisher", ""},
-        {"NumberOfBoots", "20000"}, {"FastBootstrap", "1"} });
+        {"NumberOfBoots", "20000"}, {"FastBootstrap", "1"},
+        {"SaveBootstrapRealizations", "0"} });
 
     /* This function reads following keys from config file:
     InputIsPicca: int
@@ -125,6 +126,8 @@ namespace specifics
         Number of bootstrap realizations.
     FastBootstrap: int
         Fast bootstrap method. Does not recalculates the Fisher matrix. Default 1
+    SaveBootstrapRealizations: int
+        Saves bootstrap realizations. Default 0
     */
     void readSpecifics(ConfigFile &config);
 
