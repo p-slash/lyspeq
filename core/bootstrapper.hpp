@@ -147,12 +147,15 @@ public:
 
         mytime::printfBootstrapTimeSpentDetails();
 
-        std::string out_fname = ioh::saveBootstrapRealizations(
-            process::FNAME_BASE, allpowers.get(), invfisher,
-            nboots, bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS,
-            specifics::FAST_BOOTSTRAP, comment.c_str());
-        LOG::LOGGER.STD(
-            "Bootstrap realizations saved as %s.\n", out_fname.c_str() + 1);
+        if (specifics::SAVE_BOOTREALIZATIONS) {
+            std::string out_fname = ioh::saveBootstrapRealizations(
+                process::FNAME_BASE, allpowers.get(), invfisher,
+                nboots, bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS,
+                specifics::FAST_BOOTSTRAP, comment.c_str());
+            LOG::LOGGER.STD(
+                "Bootstrap realizations saved as %s.\n",
+                out_fname.c_str() + 1);
+        }
 
         // Median bootstrap is too time consuming.
         _meanBootstrap();
