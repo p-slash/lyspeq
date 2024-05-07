@@ -66,7 +66,7 @@ namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX,
-         USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP;
+         USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP, SAVE_BOOTREALIZATIONS;
     int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
         CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1, NUMBER_OF_BOOTS = 0;
     double RESOMAT_DECONVOLUTION_M = 0;
@@ -119,6 +119,7 @@ namespace specifics
         std::string precomp_fisher_str = config.get("PrecomputedFisher");
         USE_PRECOMPUTED_FISHER = !precomp_fisher_str.empty();
         FAST_BOOTSTRAP = config.getInteger("FastBootstrap") > 0;
+        SAVE_BOOTREALIZATIONS = config.getInteger("SaveBootstrapRealizations") > 0;
 
         if (config.getInteger("InputIsPicca", -1) > 0)
             INPUT_QSO_FILE = qio::Picca;
