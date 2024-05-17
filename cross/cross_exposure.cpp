@@ -195,7 +195,7 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
     DEBUG_LOG("All done.\n");
 
     // Scale and copy first before summing across PEs
-    cblas_dscal(bins::FISHER_SIZE, 0.5, fisher_matrix_sum.get(), 1);
+    // cblas_dscal(bins::FISHER_SIZE, 0.5, fisher_matrix_sum.get(), 1);
     mxhelp::copyUpperToLower(fisher_matrix_sum.get(), bins::TOTAL_KZ_BINS);
 
     // Save bootstrap files only if MPI is enabled.

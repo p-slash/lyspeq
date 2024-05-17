@@ -316,9 +316,6 @@ void OneQsoExposures::xQmlEstimate() {
         for (auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
             _setQiMatrix(qi, i_kz + fisher_index_start);
 
-        // Construct fiducial
-        _setFiducialSignalMatrix(glmemory::stored_sfid.get());
-
         // Calculate
         int diff_idx = fisher_index_start - istart;
 
@@ -344,10 +341,14 @@ void OneQsoExposures::xQmlEstimate() {
 
         mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
 
-        #pragma omp parallel for
-        for (const auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
-            tk0[i_kz + diff_idx] += cblas_ddot(
-                CROSS_SIZE_2, qwi, 1, glmemory::stored_sfid.get(), 1);
+        if (!specifics::TURN_OFF_SFID) {
+            _setFiducialSignalMatrix(glmemory::stored_sfid.get());
+
+            #pragma omp parallel for
+            for (const auto &[i_kz, qi, qwi] : stored_ikz_qi_qwi)
+                tk0[i_kz + diff_idx] += cblas_ddot(
+                    CROSS_SIZE_2, qwi, 1, glmemory::stored_sfid.get(), 1);
+        }
 
         if (specifics::USE_PRECOMPUTED_FISHER)
             continue;
@@ -382,6 +383,8 @@ void OneQsoExposures::xQmlEstimate() {
     for (auto &expo : exposures)
         expo->deallocMatrices();
 
+    cblas_dscal(ndim, 2.0, dk0, 1);
+    cblas_dscal(ndim, 2.0, tk0, 1);
     for (int i = 0; i < ndim; ++i)
         theta_vector[i] = dk0[i] - tk0[i];
 }
