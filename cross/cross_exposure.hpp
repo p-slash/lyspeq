@@ -38,8 +38,8 @@ public:
             throw std::invalid_argument(
                 "xQMLE does not support oversampling using OversampleRmat.");
 
-        if (specifics::TURN_OFF_SFID)
-            throw std::invalid_argument("xQMLE requires fiducial signal.");
+        // if (specifics::TURN_OFF_SFID)
+        //     throw std::invalid_argument("xQMLE requires fiducial signal.");
     };
 
     void xQmlEstimate();

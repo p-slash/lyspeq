@@ -16,7 +16,10 @@
 void Exposure::setCovarianceMatrix() {
     _setVZMatrices();
 
-    _setFiducialSignalMatrix(covariance_matrix);
+    if (specifics::TURN_OFF_SFID)
+        std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
+    else
+        _setFiducialSignalMatrix(covariance_matrix);
 
     // add noise matrix diagonally
     // but smooth before adding
