@@ -389,8 +389,11 @@ void OneDQuadraticPowerEstimate::iterate()
     // Emplace_back with vector<OneQSOEstimate> leaks memory!!
     std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
     local_queue.reserve(local_fpaths.size());
-    for (const auto &fpath : local_fpaths)
-        local_queue.push_back(std::make_unique<OneQSOEstimate>(fpath));
+    for (const auto &fpath : local_fpaths) {
+        auto one_qso = std::make_unique<OneQSOEstimate>(fpath);
+        if (one_qso->chunks.size() != 0)
+            local_queue.push_back(std::move(one_qso));
+    }
 
     if (specifics::INPUT_QSO_FILE == qio::Picca)
         qio::PiccaFile::clearCache();
@@ -426,6 +429,10 @@ void OneDQuadraticPowerEstimate::iterate()
             ++prog_tracker;
             DEBUG_LOG("One done.\n");
         }
+
+        std::erase_if(local_queue, [](const auto &one_qso) {
+            return one_qso->chunks.size() == 0;
+        });
 
         DEBUG_LOG("All done.\n");
 
