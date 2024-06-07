@@ -11,6 +11,11 @@
 
 typedef std::pair<const Exposure*, const Exposure*> cExpoCombo;
 
+namespace specifics {
+    extern bool X_NIGHT, X_FIBER;
+    extern double X_WAVE_OVERLAP_RATIO;
+}
+
 /*
 This is the umbrella class for multiple exposures.
 Each exposure builts its own covariance matrix. Derivative matrices are built
