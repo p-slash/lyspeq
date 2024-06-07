@@ -10,6 +10,12 @@
 
 typedef std::vector<std::unique_ptr<Exposure>>::const_iterator vecExpIt;
 
+namespace specifics {
+    bool X_NIGHT = true, X_FIBER = false;
+    double X_WAVE_OVERLAP_RATIO = 0.5;
+}
+
+
 int N_Q_MATRICES, KBIN_UPP, fisher_index_start;
 double *_vmatrix, *_zmatrix;
 std::vector<std::tuple<int, double*, double*>> stored_ikz_qi_qwi;
@@ -108,7 +114,7 @@ void _setStoredIkzQiVector() {
                 std::make_unique<double[]>(glmemory::max_size_2));
     }
 
-    for (int i = 0; i < stored_ikz_qi_qwi.size(); ++i) {
+    for (size_t i = 0; i < stored_ikz_qi_qwi.size(); ++i) {
         std::get<1>(stored_ikz_qi_qwi[i]) = glmemory::stored_ikz_qi[2 * i].get();
         std::get<2>(stored_ikz_qi_qwi[i]) = glmemory::stored_ikz_qi[2 * i + 1].get();
     }
@@ -271,13 +277,13 @@ void OneQsoExposures::setAllocPowerSpMemory() {
             std::make_unique<double[]>(ndim));
 }
 
-bool skipCombo(vecExpIt expo1, vecExpIt expo2, double overlap_cut=0.5) {
-    bool skip = (
-        (*expo1)->getExpId() == (*expo2)->getExpId()
-        || (*expo1)->getNight() == (*expo2)->getNight()
-        || (_calculateOverlapRatio((*expo1)->qFile.get(), (*expo2)->qFile.get())
-            < overlap_cut)
-    );
+bool skipCombo(vecExpIt expo1, vecExpIt expo2) {
+    bool skip = (*expo1)->getExpId() == (*expo2)->getExpId();
+    skip |= specifics::X_NIGHT && ((*expo1)->getNight() == (*expo2)->getNight());
+    skip |= specifics::X_FIBER && ((*expo1)->getFiber() == (*expo2)->getFiber());
+    skip |= (
+        _calculateOverlapRatio((*expo1)->qFile.get(), (*expo2)->qFile.get())
+        < specifics::X_WAVE_OVERLAP_RATIO);
     
     return skip;
 }

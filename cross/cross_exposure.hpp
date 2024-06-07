@@ -12,6 +12,11 @@
 
 typedef std::unordered_map<long, std::unique_ptr<OneQsoExposures>> targetid_quasar_map;
 
+const config_map xe_default_parameters ({
+    {"DifferentNight", "1"}, {"DifferentFiber", "-1"}, {"MinXWaveOverlapRatio", "0.5"}
+});
+
+
 class OneDCrossExposureQMLE: public OneDQuadraticPowerEstimate
 {
     targetid_quasar_map quasars;
@@ -33,13 +38,15 @@ public:
 
     Does not support Oversampling!
     */
-    OneDCrossExposureQMLE(ConfigFile &con) : OneDQuadraticPowerEstimate(con) {
+    OneDCrossExposureQMLE(ConfigFile &config) : OneDQuadraticPowerEstimate(config) {
         if (specifics::OVERSAMPLING_FACTOR > 0)
             throw std::invalid_argument(
-                "xQMLE does not support oversampling using OversampleRmat.");
+                "xQMLE does not support oversampling usispecifics::ng OversampleRmat.");
 
-        // if (specifics::TURN_OFF_SFID)
-        //     throw std::invalid_argument("xQMLE requires fiducial signal.");
+        config.addDefaults(xe_default_parameters);
+        specifics::X_WAVE_OVERLAP_RATIO = config.getDouble("MinXWaveOverlapRatio");
+        specifics::X_NIGHT = config.getInteger("DifferentNight") > 0;
+        specifics::X_FIBER = config.getInteger("DifferentFiber") > 0;
     };
 
     void xQmlEstimate();
