@@ -38,7 +38,7 @@ public:
 
     Does not support Oversampling!
     */
-    OneDCrossExposureQMLE(ConfigFile &config) : OneDQuadraticPowerEstimate(config) {
+    OneDCrossExposureQMLE(ConfigFile &con) : OneDQuadraticPowerEstimate(con) {
         if (specifics::OVERSAMPLING_FACTOR > 0)
             throw std::invalid_argument(
                 "xQMLE does not support oversampling using OversampleRmat.");
