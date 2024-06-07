@@ -41,7 +41,7 @@ public:
     OneDCrossExposureQMLE(ConfigFile &config) : OneDQuadraticPowerEstimate(config) {
         if (specifics::OVERSAMPLING_FACTOR > 0)
             throw std::invalid_argument(
-                "xQMLE does not support oversampling usispecifics::ng OversampleRmat.");
+                "xQMLE does not support oversampling using OversampleRmat.");
 
         config.addDefaults(xe_default_parameters);
         specifics::X_WAVE_OVERLAP_RATIO = config.getDouble("MinXWaveOverlapRatio");
