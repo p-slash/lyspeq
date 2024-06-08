@@ -225,6 +225,8 @@ Cross exposure params
     Cross correlate different nights only.
 + `DifferentFiber` (int, default: -1, False):
     Cross correlate different fibers only.
++ `DifferentPetal` (int, default: -1, False):
+    Cross correlate different petals only.
 + `MinXWaveOverlapRatio` (double, default: 0.5):
     Cross correlate segments that overlap more than this ratio.
 
