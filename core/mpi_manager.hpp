@@ -68,7 +68,7 @@ namespace mympi {
     }
 
     template<class T>
-    inline void bcast(T *x) {};
+    inline void bcast(T *x, int N=1) {};
 }
 #endif
 
