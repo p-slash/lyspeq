@@ -260,6 +260,7 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
     MPI_Barrier(MPI_COMM_WORLD);
     #endif
 
+    hasConverged();
     glmemory::dealloc();
 
     // Save chunk estimates to a file
