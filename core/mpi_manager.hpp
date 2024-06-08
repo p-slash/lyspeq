@@ -21,6 +21,7 @@ namespace mympi {
     inline MPI_Datatype getMpiDataType();
     template<> inline MPI_Datatype getMpiDataType<double>() { return MPI_DOUBLE; }
     template<> inline MPI_Datatype getMpiDataType<int>() { return MPI_INT; }
+    template<> inline MPI_Datatype getMpiDataType<bool>() { return MPI_CXX_BOOL; }
     // template<> inline MPI_Datatype getMpiDataType<unsigned long>() { return MPI_UNSIGNED_LONG; }
 
     template<class T>
@@ -38,11 +39,16 @@ namespace mympi {
     }
 
     template<class T>
-    inline void gather(const T x, std::vector<T> &result) {
+    inline void gather(T x, std::vector<T> &result) {
         result.resize(total_pes);
         MPI_Gather(
             &x, 1, getMpiDataType<T>(), result.data(), 1, getMpiDataType<T>(),
             0, MPI_COMM_WORLD);
+    }
+
+    template<class T>
+    inline void bcast(T *x, int N=1) {
+        MPI_Bcast(x, N, getMpiDataType<T>(), 0, MPI_COMM_WORLD);
     }
 }
 
@@ -56,10 +62,13 @@ namespace mympi {
     inline void barrier() {};
 
     template<class T>
-    inline void gather(const T x, std::vector<T> &result) {
+    inline void gather(T x, std::vector<T> &result) {
         result.resize(total_pes);
         result[0] = x;
     }
+
+    template<class T>
+    inline void bcast(T &x) {};
 }
 #endif
 

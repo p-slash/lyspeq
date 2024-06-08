@@ -500,11 +500,7 @@ void OneDQuadraticPowerEstimate::iterate()
         {
             if (mympi::this_pe == 0)
                 _smoothPowerSpectra();
-            #if defined(ENABLE_MPI)
-            MPI_Bcast(
-                powerspectra_fits.get(), bins::TOTAL_KZ_BINS,
-                MPI_DOUBLE, 0, MPI_COMM_WORLD);
-            #endif
+            mympi::bcast(powerspectra_fits.get(), bins::TOTAL_KZ_BINS);
         }
         catch (std::exception& e)
         {

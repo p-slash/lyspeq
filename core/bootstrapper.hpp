@@ -272,10 +272,7 @@ private:
 
         t2 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_solve += t2 - t1;
-
-        #if defined(ENABLE_MPI)
-        MPI_Bcast(&valid, 1, MPI_CXX_BOOL, 0, MPI_COMM_WORLD);
-        #endif
+        mympi::bcast(&valid);
 
         return valid;
     }
