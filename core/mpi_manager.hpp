@@ -21,6 +21,7 @@ namespace mympi {
     inline MPI_Datatype getMpiDataType();
     template<> inline MPI_Datatype getMpiDataType<double>() { return MPI_DOUBLE; }
     template<> inline MPI_Datatype getMpiDataType<int>() { return MPI_INT; }
+    // template<> inline MPI_Datatype getMpiDataType<unsigned long>() { return MPI_UNSIGNED_LONG; }
 
     template<class T>
     inline void allreduceInplace(T *x, int N, MPI_Op op=MPI_SUM) {
@@ -35,6 +36,14 @@ namespace mympi {
         else
             MPI_Reduce(MPI_IN_PLACE, x, N, mpi_dtype, op, 0, MPI_COMM_WORLD);
     }
+
+    template<class T>
+    inline void gather(const T x, std::vector<T> &result) {
+        result.resize(total_pes);
+        MPI_Gather(
+            &x, 1, getMpiDataType<T>(), result.data(), 1, getMpiDataType<T>(),
+            0, MPI_COMM_WORLD);
+    }
 }
 
 #else
@@ -45,6 +54,12 @@ namespace mympi {
     inline void finalize() {};
     inline void abort() {};
     inline void barrier() {};
+
+    template<class T>
+    inline void gather(const T x, std::vector<T> &result) {
+        result.resize(total_pes);
+        result[0] = x;
+    }
 }
 #endif
 
