@@ -164,9 +164,7 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
 
     // MPI Reduce ZBIN_COUNTS
     #if defined(ENABLE_MPI)
-    MPI_Allreduce(
-        MPI_IN_PLACE, Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS+2, 
-        MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    mympi::allreduceInplace<int>(Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2);
     #endif
 
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
@@ -453,16 +451,13 @@ void OneDQuadraticPowerEstimate::iterate()
 
         DEBUG_LOG("MPI All reduce.\n");
         if (!specifics::USE_PRECOMPUTED_FISHER)
-            MPI_Allreduce(
-                MPI_IN_PLACE,
-                fisher_matrix_sum.get(), bins::FISHER_SIZE,
-                MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            mympi::allreduceInplace<double>(
+                fisher_matrix_sum.get(), bins::FISHER_SIZE);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            MPI_Allreduce(
-                MPI_IN_PLACE,
-                dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 
-                bins::TOTAL_KZ_BINS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            mympi::allreduceInplace<double>(
+                dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
+                bins::TOTAL_KZ_BINS);
         #endif
 
         // If fisher is precomputed, copy this into fisher_matrix_sum. 

@@ -47,11 +47,9 @@ void OneDCrossExposureQMLE::_countZbinHistogram() {
 
     // MPI Reduce ZBIN_COUNTS
     #if defined(ENABLE_MPI)
-    MPI_Allreduce(
-        MPI_IN_PLACE, Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2, 
-        MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &NUMBER_OF_QSOS, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &NUMBER_OF_QSOS_OUT, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    mympi::allreduceInplace<int>(Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2);
+    mympi::allreduceInplace<int>(&NUMBER_OF_QSOS, 1);
+    mympi::allreduceInplace<int>(&NUMBER_OF_QSOS_OUT, 1);
     #endif
 
     LOG::LOGGER.STD(
@@ -201,10 +199,7 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
     MPI_Gather(
         &timenow, 1, MPI_DOUBLE, time_all_pes.data(), 1, MPI_DOUBLE,
         0, MPI_COMM_WORLD);
-
-    MPI_Allreduce(
-        MPI_IN_PLACE, &total_num_expo_combos, 1,
-        MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    mympi::allreduceInplace<int>(&total_num_expo_combos, 1);
 
     // Save PE estimates to a file
     if (process::SAVE_EACH_PE_RESULT)
@@ -212,16 +207,13 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
 
     DEBUG_LOG("MPI All reduce.\n");
     if (!specifics::USE_PRECOMPUTED_FISHER)
-        MPI_Allreduce(
-            MPI_IN_PLACE,
-            fisher_matrix_sum.get(), bins::FISHER_SIZE,
-            MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        mympi::allreduceInplace<double>(
+            fisher_matrix_sum.get(), bins::FISHER_SIZE);
 
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-        MPI_Allreduce(
-            MPI_IN_PLACE,
-            dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 
-            bins::TOTAL_KZ_BINS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        mympi::allreduceInplace<double>(
+            dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
+            bins::TOTAL_KZ_BINS);
     #endif
 
     // If fisher is precomputed, copy this into fisher_matrix_sum. 

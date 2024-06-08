@@ -249,18 +249,7 @@ private:
             bins::TOTAL_KZ_BINS,
             MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD
         );
-        if (mympi::this_pe != 0) {
-            MPI_Reduce(
-                tempfisher.get(),
-                nullptr, bins::FISHER_SIZE,
-                MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        }
-        else {
-            MPI_Reduce(
-                MPI_IN_PLACE,
-                tempfisher.get(), bins::FISHER_SIZE,
-                MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        }
+        mympi::reduceInplace<double>(tempfisher.get(), bins::FISHER_SIZE);
         #else
         std::copy_n(
             temppower.get(), bins::TOTAL_KZ_BINS,
