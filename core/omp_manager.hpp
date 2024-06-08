@@ -15,9 +15,9 @@ namespace myomp {
 #else
 namespace myomp {
     inline const extern bool OMP_ENABLED = false;
-    inline int getThreadNum() const { return 0; }
+    inline int getThreadNum() { return 0; }
     inline int getNumThreads() { return 1; }
-    inline int getMaxNumThreads() const { return 1; }
+    inline int getMaxNumThreads() { return 1; }
     inline void setNumThreads(int n) {};
 }
 #endif
