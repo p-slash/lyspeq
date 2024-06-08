@@ -12,7 +12,7 @@
 typedef std::pair<const Exposure*, const Exposure*> cExpoCombo;
 
 namespace specifics {
-    extern bool X_NIGHT, X_FIBER;
+    extern bool X_NIGHT, X_FIBER, X_PETAL;
     extern double X_WAVE_OVERLAP_RATIO;
 }
 

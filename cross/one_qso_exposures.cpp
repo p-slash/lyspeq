@@ -11,7 +11,7 @@
 typedef std::vector<std::unique_ptr<Exposure>>::const_iterator vecExpIt;
 
 namespace specifics {
-    bool X_NIGHT = true, X_FIBER = false;
+    bool X_NIGHT = true, X_FIBER = false, X_PETAL=false;
     double X_WAVE_OVERLAP_RATIO = 0.5;
 }
 
@@ -281,6 +281,7 @@ bool skipCombo(vecExpIt expo1, vecExpIt expo2) {
     bool skip = (*expo1)->getExpId() == (*expo2)->getExpId();
     skip |= specifics::X_NIGHT && ((*expo1)->getNight() == (*expo2)->getNight());
     skip |= specifics::X_FIBER && ((*expo1)->getFiber() == (*expo2)->getFiber());
+    skip |= specifics::X_PETAL && ((*expo1)->getPetal() == (*expo2)->getPetal());
     skip |= (
         _calculateOverlapRatio((*expo1)->qFile.get(), (*expo2)->qFile.get())
         < specifics::X_WAVE_OVERLAP_RATIO);
