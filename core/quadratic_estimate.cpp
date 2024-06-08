@@ -11,6 +11,7 @@
 #include <sstream>      // std::ostringstream
 
 #include "core/bootstrapper.hpp"
+#include "core/mpi_manager.hpp"
 #include "core/one_qso_estimate.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
@@ -23,7 +24,6 @@
 #include "io/qso_file.hpp"
 
 #if defined(ENABLE_MPI)
-#include "mpi.h" 
 #include "core/mpi_merge_sort.cpp"
 #endif
 
@@ -34,7 +34,7 @@ void _saveChunkResults(
         std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
 ) {
     // Create FITS file
-    ioh::BootstrapChunksFile bfile(process::FNAME_BASE, process::this_pe);
+    ioh::BootstrapChunksFile bfile(process::FNAME_BASE, mympi::this_pe);
     // For each chunk to a different extention
     for (auto &one_qso : local_queue) {
         for (auto &one_chunk : one_qso->chunks) {
@@ -131,11 +131,11 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
     // Each PE reads a different section of files
     // They sort individually, then merge in pairs
     // Finally, the master PE broadcasts the sorted full array
-    int delta_nfiles = NUMBER_OF_QSOS / process::total_pes,
-        fstart_this  = delta_nfiles * process::this_pe,
-        fend_this    = delta_nfiles * (process::this_pe + 1);
+    int delta_nfiles = NUMBER_OF_QSOS / mympi::total_pes,
+        fstart_this  = delta_nfiles * mympi::this_pe,
+        fend_this    = delta_nfiles * (mympi::this_pe + 1);
     
-    if (process::this_pe == process::total_pes - 1)
+    if (mympi::this_pe == mympi::total_pes - 1)
         fend_this = NUMBER_OF_QSOS;
 
     t2 = mytime::timer.getTime();
@@ -181,8 +181,8 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
     std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end()); // Ascending order
 
     #if defined(ENABLE_MPI)
-    mpisort::mergeSortedArrays(0, process::total_pes, process::this_pe, 
-        cpu_fname_vector);
+    mpisort::mergeSortedArrays(
+        0, mympi::total_pes, mympi::this_pe, cpu_fname_vector);
     mpisort::bcastCpuFnameVec(cpu_fname_vector);
     #endif
 
@@ -201,13 +201,13 @@ std::vector<std::string> OneDQuadraticPowerEstimate::_loadBalancing(
         std::vector< std::pair<double, int> > &cpu_fname_vector
 ) {
     LOG::LOGGER.STD(
-        "Load balancing for %d tasks available.\n", process::total_pes);
+        "Load balancing for %d tasks available.\n", mympi::total_pes);
     
     double load_balance_time = mytime::timer.getTime();
 
-    std::vector<double> bucket_time(process::total_pes, 0);
+    std::vector<double> bucket_time(mympi::total_pes, 0);
     std::vector<std::string> local_fpaths;
-    local_fpaths.reserve(int(1.1*filepaths.size()/process::total_pes));
+    local_fpaths.reserve(int(1.1*filepaths.size()/mympi::total_pes));
 
     std::vector<std::pair <double, int>>::reverse_iterator qe =
         cpu_fname_vector.rbegin();
@@ -219,7 +219,7 @@ std::vector<std::string> OneDQuadraticPowerEstimate::_loadBalancing(
         auto min_bt = std::min_element(bucket_time.begin(), bucket_time.end());
         (*min_bt) += qe->first;
 
-        if (std::distance(bucket_time.begin(), min_bt) == process::this_pe)
+        if (std::distance(bucket_time.begin(), min_bt) == mympi::this_pe)
             local_fpaths.push_back(filepaths[qe->second]);
     }
 
@@ -340,10 +340,10 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
     static std::string
         tmp_ps_fname = (
             process::TMP_FOLDER + "/tmp-power-"
-            + std::to_string(process::this_pe) + ".txt"),
+            + std::to_string(mympi::this_pe) + ".txt"),
         tmp_smooth_fname= (
             process::TMP_FOLDER + "/tmp-smooth-"
-            + std::to_string(process::this_pe) + ".txt");
+            + std::to_string(mympi::this_pe) + ".txt");
     
     // ioh::create_tmp_file(tmp_ps_fname, process::TMP_FOLDER);
     // ioh::create_tmp_file(tmp_smooth_fname, process::TMP_FOLDER);
@@ -403,8 +403,8 @@ void OneDQuadraticPowerEstimate::iterate()
     LOG::LOGGER.STD("Local files are read in %.1f minutes.\n", total_time_1it);
 
     std::vector<double> time_all_pes;
-    if (process::this_pe == 0)
-        time_all_pes.resize(process::total_pes);
+    if (mympi::this_pe == 0)
+        time_all_pes.resize(mympi::total_pes);
 
     glmemory::allocMemory();
 
@@ -508,7 +508,7 @@ void OneDQuadraticPowerEstimate::iterate()
 
         try
         {
-            if (process::this_pe == 0)
+            if (mympi::this_pe == 0)
                 _smoothPowerSpectra();
             #if defined(ENABLE_MPI)
             MPI_Bcast(
@@ -793,7 +793,7 @@ double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
 void OneDQuadraticPowerEstimate::iterationOutput(
         int it, double t1, double tot, std::vector<double> &times_all_pes
 ) {
-    if (process::this_pe != 0)
+    if (mympi::this_pe != 0)
         return;
 
     std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
@@ -831,7 +831,7 @@ void OneDQuadraticPowerEstimate::iterationOutput(
 
     mytime::printfTimeSpentDetails();
 
-    if (process::total_pes == 1) {
+    if (mympi::total_pes == 1) {
         LOG::LOGGER.STD("----------------------------------\n");
         return;
     }
@@ -881,7 +881,7 @@ void OneDQuadraticPowerEstimate::_savePEResult()
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("ERROR: Saving PE results: %d\n", process::this_pe);
+        LOG::LOGGER.ERR("ERROR: Saving PE results: %d\n", mympi::this_pe);
     }
 }
 #else

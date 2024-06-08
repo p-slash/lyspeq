@@ -5,11 +5,8 @@
 
 #include <gsl/gsl_errno.h>
 
-#if defined(ENABLE_MPI)
-#include "mpi.h" 
-#endif
-
 #include "core/global_numbers.hpp"
+#include "core/mpi_manager.hpp"
 #include "core/sq_table.hpp"
 #include "core/fiducial_cosmology.hpp"
 
@@ -24,21 +21,12 @@
 
 int main(int argc, char *argv[])
 {
-    #if defined(ENABLE_MPI)
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &process::this_pe);
-    MPI_Comm_size(MPI_COMM_WORLD, &process::total_pes);
-    #else
-    process::this_pe   = 0;
-    process::total_pes = 1;
-    #endif
+    mympi::init(argc, argv);
 
     if (argc<2)
     {
         fprintf(stderr, "Missing config file!\n");
-        #if defined(ENABLE_MPI)
-        MPI_Finalize();
-        #endif
+        mympi::finalize();
         return 1;
     }
 
@@ -53,16 +41,14 @@ int main(int argc, char *argv[])
     try
     {
         config.readFile(FNAME_CONFIG);
-        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
+        LOG::LOGGER.open(config.get("OutputDir", "."), mympi::this_pe);
         specifics::printBuildSpecifics();
         mytime::writeTimeLogHeader();
     }
     catch (std::exception& e)
     {
         fprintf(stderr, "Error while reading config file: %s\n", e.what());
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
+        mympi::abort();
         return 1;
     }
 
@@ -78,9 +64,7 @@ int main(int argc, char *argv[])
     {
         LOG::LOGGER.ERR("Error while parsing config file: %s\n",
             e.what());
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
+        mympi::abort();
         return 1;
     }
 
@@ -89,16 +73,14 @@ int main(int argc, char *argv[])
     {
         if (process::SAVE_EACH_PE_RESULT)
             ioh::boot_saver = std::make_unique<ioh::BootstrapFile>(process::FNAME_BASE,
-                bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS, process::this_pe);
+                bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS, mympi::this_pe);
         MPI_Barrier(MPI_COMM_WORLD);
     }
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while openning BootstrapFile: %s\n",
             e.what());
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
+        mympi::abort();
 
         return 1;
     }
@@ -121,9 +103,7 @@ int main(int argc, char *argv[])
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
+        mympi::abort();
 
         return 1;
     }
@@ -138,9 +118,7 @@ int main(int argc, char *argv[])
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while OneDCrossExposureQMLE contructed: %s\n", e.what());
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
+        mympi::abort();
 
         return 1;
     }
@@ -160,9 +138,7 @@ int main(int argc, char *argv[])
         buf = process::FNAME_BASE + "_error_dump_fisher_matrix.dat";
         qps->writeFisherMatrix(buf.c_str());
 
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
+        mympi::abort();
 
         return 1;
     }
