@@ -491,9 +491,7 @@ void OneDQuadraticPowerEstimate::iterate()
 
         iterationOutput(iteration, total_time_1it, total_time, time_all_pes);
 
-        #if defined(ENABLE_MPI)
-        MPI_Barrier(MPI_COMM_WORLD);
-        #endif
+        mympi::barrier();
 
         if (hasConverged())
         {
