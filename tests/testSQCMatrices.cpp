@@ -184,11 +184,7 @@ int main(int argc, char *argv[])
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
-        
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-
+        mympi::abort();
         return 1;
     }
 
