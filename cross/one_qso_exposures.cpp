@@ -11,7 +11,7 @@
 typedef std::vector<std::unique_ptr<Exposure>>::const_iterator vecExpIt;
 
 namespace specifics {
-    bool X_NIGHT = true, X_FIBER = false, X_PETAL=false;
+    bool X_NIGHT = true, X_FIBER = false, X_PETAL = false;
     double X_WAVE_OVERLAP_RATIO = 0.5;
 }
 
@@ -239,9 +239,7 @@ OneQsoExposures::OneQsoExposures(const std::string &f_qso) : OneQSOEstimate() {
     istart = bins::TOTAL_KZ_BINS;
     ndim = 0;
     if (!exposures.empty())
-        unique_expid_night_set.emplace(
-            std::make_pair(exposures[0]->getExpId(), exposures[0]->getNight())
-        );
+        unique_expid_set.insert(exposures[0]->getExpId());
 }
 
 
@@ -250,8 +248,7 @@ void OneQsoExposures::addExposures(OneQsoExposures *other) {
     std::move(std::begin(other->exposures), std::end(other->exposures),
               std::back_inserter(exposures));
     other->exposures.clear();
-    unique_expid_night_set.merge(
-        std::move(other->unique_expid_night_set));
+    unique_expid_set.merge(std::move(other->unique_expid_set));
 }
 
 

@@ -14,7 +14,7 @@ typedef std::unordered_map<long, std::unique_ptr<OneQsoExposures>> targetid_quas
 
 const config_map xe_default_parameters ({
     {"DifferentNight", "1"}, {"DifferentFiber", "-1"},
-    {"DifferentPetal", "-1"}, {"MinXWaveOverlapRatio", "0.5"}
+    {"DifferentPetal", "-1"}, {"MinXWaveOverlapRatio", "0.6"}
 });
 
 

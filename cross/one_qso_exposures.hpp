@@ -24,7 +24,7 @@ overlap is large (skipCombo in cpp file).
 */
 class OneQsoExposures: public OneQSOEstimate 
 {
-    std::set<std::pair<int, int>> unique_expid_night_set;
+    std::set<int> unique_expid_set;
     std::vector<cExpoCombo> exposure_combos;
 public:
     double z_qso, ra, dec;
@@ -38,8 +38,8 @@ public:
 
     void addExposures(OneQsoExposures *other);
 
-    bool hasEnoughUniqueExpidNightPairs() {
-        bool hasit = unique_expid_night_set.size() > 1;
+    bool hasEnoughUniqueExpids() {
+        bool hasit = unique_expid_set.size() > 1;
 
         if (!hasit)
             return false;
