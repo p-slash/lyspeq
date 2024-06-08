@@ -164,7 +164,7 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
 
     // MPI Reduce ZBIN_COUNTS
     #if defined(ENABLE_MPI)
-    mympi::allreduceInplace<int>(Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2);
+    mympi::reduceInplace(Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2);
     #endif
 
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
@@ -441,9 +441,7 @@ void OneDQuadraticPowerEstimate::iterate()
         // Save bootstrap files only if MPI is enabled.
         #if defined(ENABLE_MPI)
         double timenow =  mytime::timer.getTime() - total_time_1it;
-        MPI_Gather(
-            &timenow, 1, MPI_DOUBLE, time_all_pes.data(), 1, MPI_DOUBLE,
-            0, MPI_COMM_WORLD);
+        mympi::gather(timenow, time_all_pes);
 
         // Save PE estimates to a file
         if (process::SAVE_EACH_PE_RESULT)
@@ -451,11 +449,10 @@ void OneDQuadraticPowerEstimate::iterate()
 
         DEBUG_LOG("MPI All reduce.\n");
         if (!specifics::USE_PRECOMPUTED_FISHER)
-            mympi::allreduceInplace<double>(
-                fisher_matrix_sum.get(), bins::FISHER_SIZE);
+            mympi::reduceInplace(fisher_matrix_sum.get(), bins::FISHER_SIZE);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            mympi::allreduceInplace<double>(
+            mympi::reduceInplace(
                 dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
                 bins::TOTAL_KZ_BINS);
         #endif
