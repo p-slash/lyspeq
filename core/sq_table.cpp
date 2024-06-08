@@ -6,6 +6,7 @@
 #include <stdexcept>
 
 #include "core/fiducial_cosmology.hpp"
+#include "core/mpi_manager.hpp"
 #include "mathtools/fourier_integrator.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/sq_lookup_table_file.hpp"
@@ -180,11 +181,11 @@ void SQLookupTable::computeTables(bool force_rewrite)
     allocateSignalAndDerivArrays();
 
     // Initialize loop for parallel computing
-    int delta_nr     = NUMBER_OF_R_VALUES / process::total_pes, 
-        r_start_this = delta_nr * process::this_pe, 
-        r_end_this   = delta_nr * (process::this_pe+1);
+    int delta_nr     = NUMBER_OF_R_VALUES / mympi::total_pes, 
+        r_start_this = delta_nr * mympi::this_pe, 
+        r_end_this   = delta_nr * (mympi::this_pe+1);
 
-    if (process::this_pe == process::total_pes-1)
+    if (mympi::this_pe == mympi::total_pes-1)
         r_end_this = NUMBER_OF_R_VALUES;
 
     // Integrate derivative matrices

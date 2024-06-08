@@ -10,6 +10,7 @@
 #include "core/bootstrapper.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
+#include "core/mpi_manager.hpp"
 #include "core/progress.hpp"
 
 #include "mathtools/matrix_helper.hpp"
@@ -18,14 +19,10 @@
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
-#if defined(ENABLE_MPI)
-#include "mpi.h" 
-#endif
-
 
 void _saveQuasarResults(const targetid_quasar_map &quasars) {
     // Create FITS file
-    ioh::BootstrapChunksFile bfile(process::FNAME_BASE, process::this_pe);
+    ioh::BootstrapChunksFile bfile(process::FNAME_BASE, mympi::this_pe);
 
     // For each chunk to a different extention
     for (const auto &[targetid, qso] : quasars) {
@@ -115,11 +112,11 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
         fq.insert(0, findir);
 
     // Each PE reads a different section of files
-    int delta_nfiles = number_of_files / process::total_pes,
-        fstart_this  = delta_nfiles * process::this_pe,
-        fend_this    = delta_nfiles * (process::this_pe + 1);
+    int delta_nfiles = number_of_files / mympi::total_pes,
+        fstart_this  = delta_nfiles * mympi::this_pe,
+        fend_this    = delta_nfiles * (mympi::this_pe + 1);
     
-    if (process::this_pe == process::total_pes - 1)
+    if (mympi::this_pe == mympi::total_pes - 1)
         fend_this = number_of_files;
 
     for (int findex = fstart_this; findex < fend_this; ++findex)
@@ -153,8 +150,8 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
 void OneDCrossExposureQMLE::xQmlEstimate() {
     double total_time = 0, total_time_1it = 0;
     std::vector<double> time_all_pes;
-    if (process::this_pe == 0)
-        time_all_pes.resize(process::total_pes);
+    if (mympi::this_pe == 0)
+        time_all_pes.resize(mympi::total_pes);
 
     _readQSOFiles();
 
@@ -184,7 +181,7 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
     }
 
     if (total_num_expo_combos == 0)
-        LOG::LOGGER.ERR("No cross cross exposures in T:%d.\n", process::this_pe);
+        LOG::LOGGER.ERR("No cross cross exposures in T:%d.\n", mympi::this_pe);
 
     // C++20 feature
     std::erase_if(quasars, [](const auto &x) {
