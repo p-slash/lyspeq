@@ -34,6 +34,7 @@ public:
     int getExpId() const { return qFile->expid; };
     int getNight() const { return qFile->night; };
     int getFiber() const { return qFile->fiber; };
+    int getPetal() const { return qFile->petal; };
     double* getWeightedData() const { return weighted_data.get(); };
     double* getInverseCov() const { return inverse_covariance_matrix; };
 
