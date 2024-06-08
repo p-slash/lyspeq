@@ -14,6 +14,7 @@ namespace mympi {
     }
     inline void finalize() { MPI_Finalize(); }
     inline void abort() { MPI_Abort(MPI_COMM_WORLD, 1); }
+    inline void barrier() { MPI_Barrier(MPI_COMM_WORLD); }
 }
 
 #else
@@ -23,6 +24,7 @@ namespace mympi {
     inline void init(int argc, char *argv[]) {};
     inline void finalize() {};
     inline void abort() {};
+    inline void barrier() {};
 }
 #endif
 

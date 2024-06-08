@@ -253,9 +253,7 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
 
     iterationOutput(0, total_time_1it, total_time, time_all_pes);
 
-    #if defined(ENABLE_MPI)
-    MPI_Barrier(MPI_COMM_WORLD);
-    #endif
+    mympi::barrier();
 
     hasConverged();
     glmemory::dealloc();
