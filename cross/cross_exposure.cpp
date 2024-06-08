@@ -134,7 +134,7 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
     // C++20 feature
     std::erase_if(quasars, [](const auto &x) {
         auto const& [targetid, one_qso] = x;
-        return !one_qso->hasEnoughUniqueExpidNightPairs();
+        return !one_qso->hasEnoughUniqueExpids();
     });
 
     NUMBER_OF_QSOS = quasars.size();

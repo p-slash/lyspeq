@@ -39,7 +39,7 @@ double _getMediandlambda(const double *wave, int size) {
 QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
         : PB(p_or_b), wave_head(nullptr), delta_head(nullptr), noise_head(nullptr),
           arr_size(0), _fullsize(0), shift(0), num_masked_pixels(0), fname(fname_qso),
-          expid(-1), night(-1), fiber(-1)
+          expid(-1), night(-1), fiber(-1), petal(-1)
 {
     if (PB == Picca)
         pfile = std::make_unique<PiccaFile>(fname);
@@ -83,7 +83,7 @@ void QSOFile::readParameters()
     if (pfile)
         pfile->readParameters(
             id, arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms, dlambda,
-            expid, night, fiber);
+            expid, night, fiber, petal);
     else
         bqfile->readParameters(
             arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms);
@@ -421,7 +421,7 @@ void PiccaFile::_readOptionalInt(const std::string &key, int &output) {
 void PiccaFile::readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
         int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
-        int &expid, int &night, int &fiber
+        int &expid, int &night, int &fiber, int &petal
 ) {
     status = 0;
     curr_elem_per_row = -1;
@@ -469,6 +469,7 @@ void PiccaFile::readParameters(
     _readOptionalInt("EXPID", expid);
     _readOptionalInt("NIGHT", night);
     _readOptionalInt("FIBER", fiber);
+    _readOptionalInt("PETAL_LOC", petal);
 
     if (status != 0)
         _handleStatus();
