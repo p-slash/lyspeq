@@ -22,7 +22,7 @@ stats.cpp cross_exposure.cpp exposure.cpp one_qso_exposures.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o lyspeqBootStats.o \
-cblas_tests.o testPointRef.o testSQCMatrices.o test-fftconvolve.o
+LyaPowerxQmlExposure.o cblas_tests.o testPointRef.o testSQCMatrices.o test-fftconvolve.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
 sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
 discrete_interpolation.o interpolation.o interpolation_2d.o
