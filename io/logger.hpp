@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <sstream> // std::ostringstream
 #include <string>
+#include <vector>
+
 
 namespace LOG
 {
