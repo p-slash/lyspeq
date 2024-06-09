@@ -39,6 +39,11 @@ namespace mympi {
     }
 
     template<class T>
+    inline void reduceToOther(T *source, T *target, int N, MPI_Op op=MPI_SUM) {
+        MPI_Reduce(source, target, N, getMpiDataType<T>(), op, 0, MPI_COMM_WORLD);
+    }
+
+    template<class T>
     inline void gather(T x, std::vector<T> &result) {
         result.resize(total_pes);
         MPI_Gather(
@@ -67,6 +72,11 @@ namespace mympi {
     inline void gather(T x, std::vector<T> &result) {
         result.resize(total_pes);
         result[0] = x;
+    }
+
+    template<class T>
+    inline void reduceToOther(T *source, T *target, int N) {
+        std::copy_n(source, N, target);
     }
 }
 #endif
