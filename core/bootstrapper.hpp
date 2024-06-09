@@ -201,16 +201,8 @@ private:
         t2 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_loop += t2 - t1;
 
-        #if defined(ENABLE_MPI)
-        MPI_Reduce(
-            temppower.get(),
-            allpowers.get(), nboots * bins::TOTAL_KZ_BINS,
-            MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        #else
-        std::copy_n(
-            temppower.get(), nboots * bins::TOTAL_KZ_BINS,
-            allpowers.get());
-        #endif
+        mympi::reduceToOther(
+            temppower.get(), allpowers.get(), nboots * bins::TOTAL_KZ_BINS);
 
         if (mympi::this_pe == 0) {
             temppower.swap(pcoeff);
@@ -242,19 +234,10 @@ private:
         t2 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_loop += t2 - t1;
 
-        #if defined(ENABLE_MPI)
-        MPI_Reduce(
-            temppower.get(),
-            allpowers.get() + jj * bins::TOTAL_KZ_BINS,
-            bins::TOTAL_KZ_BINS,
-            MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD
-        );
+        mympi::reduceToOther(
+            temppower.get(), allpowers.get() + jj * bins::TOTAL_KZ_BINS,
+            bins::TOTAL_KZ_BINS);
         mympi::reduceInplace(tempfisher.get(), bins::FISHER_SIZE);
-        #else
-        std::copy_n(
-            temppower.get(), bins::TOTAL_KZ_BINS,
-            allpowers.get() + jj * bins::TOTAL_KZ_BINS);
-        #endif
 
         bool valid = true;
         t1 = mytime::timer.getTime();
