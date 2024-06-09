@@ -60,15 +60,14 @@ namespace mympi {
     inline void finalize() {};
     inline void abort() {};
     inline void barrier() {};
+    inline void reduceInplace(...) {};
+    inline void bcast(...) {};
 
     template<class T>
     inline void gather(T x, std::vector<T> &result) {
         result.resize(total_pes);
         result[0] = x;
     }
-
-    template<class T>
-    inline void bcast(T *x, int N=1) {};
 }
 #endif
 

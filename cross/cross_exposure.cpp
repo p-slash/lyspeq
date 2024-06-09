@@ -45,12 +45,9 @@ void OneDCrossExposureQMLE::_countZbinHistogram() {
         for (const auto &exp : qso->exposures)
             Z_BIN_COUNTS[exp->ZBIN + 1] += 1;
 
-    // MPI Reduce ZBIN_COUNTS
-    #if defined(ENABLE_MPI)
     mympi::reduceInplace(Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2);
     mympi::reduceInplace(&NUMBER_OF_QSOS, 1);
     mympi::reduceInplace(&NUMBER_OF_QSOS_OUT, 1);
-    #endif
 
     LOG::LOGGER.STD(
         "Number of remaining quasars: %d\n"
