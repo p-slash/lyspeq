@@ -11,6 +11,8 @@
     ioh::checkFitsStatus(status);
 } */
 
+std::unique_ptr<ioh::BootstrapFile> ioh::boot_saver;
+
 void ioh::checkFitsStatus(int status) {
     if (status == 0)
         return;
@@ -188,8 +190,6 @@ void ioh::BootstrapChunksFile::writeChunk(
 
 
 #if defined(ENABLE_MPI)
-std::unique_ptr<ioh::BootstrapFile> ioh::boot_saver;
-
 ioh::BootstrapFile::BootstrapFile(const std::string &base, int nk, int nz, int thispe)
 : nkbins(nk), nzbins(nz), pe(thispe)
 {

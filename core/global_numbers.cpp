@@ -8,7 +8,6 @@
 
 namespace process
 {
-    int this_pe=0, total_pes=1;
     std::string TMP_FOLDER = ".";
     std::string FNAME_BASE;
     double MEMORY_ALLOC  = 0;

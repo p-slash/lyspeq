@@ -1,7 +1,6 @@
 #include "io/logger.hpp"
 
 #include <cstdarg>
-#include <sstream> // std::ostringstream
 #include <stdexcept>
 
 #include "io/io_helper_functions.hpp"

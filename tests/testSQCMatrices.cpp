@@ -7,11 +7,8 @@
 
 #include <gsl/gsl_errno.h>
 
-#if defined(ENABLE_MPI)
-#include "mpi.h" 
-#endif
-
 #include "core/global_numbers.hpp"
+#include "core/mpi_manager.hpp"
 #include "core/sq_table.hpp"
 #include "core/one_qso_estimate.hpp"
 #include "core/fiducial_cosmology.hpp"
@@ -132,21 +129,12 @@ int test_SQLookupTable(const ConfigFile &config)
 int main(int argc, char *argv[])
 {
     int r=0;
-    #if defined(ENABLE_MPI)
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &process::this_pe);
-    MPI_Comm_size(MPI_COMM_WORLD, &process::total_pes);
-    #else
-    process::this_pe   = 0;
-    process::total_pes = 1;
-    #endif
+    mympi::init(argc, argv);
 
     if (argc<2)
     {
         fprintf(stderr, "Missing config file!\n");
-        #if defined(ENABLE_MPI)
-        MPI_Finalize();
-        #endif
+        mympi::finalize();
         return 1;
     }
 
@@ -160,7 +148,7 @@ int main(int argc, char *argv[])
     {
         // Read variables from config file and set up bins.
         config.readFile(FNAME_CONFIG);
-        LOG::LOGGER.open(config.get("OutputDir", "."), process::this_pe);
+        LOG::LOGGER.open(config.get("OutputDir", "."), mympi::this_pe);
         specifics::printBuildSpecifics();
         mytime::writeTimeLogHeader();
     }
@@ -196,11 +184,7 @@ int main(int argc, char *argv[])
     catch (std::exception& e)
     {
         LOG::LOGGER.ERR("Error while SQ Table contructed: %s\n", e.what());
-        
-        #if defined(ENABLE_MPI)
-        MPI_Abort(MPI_COMM_WORLD, 1);
-        #endif
-
+        mympi::abort();
         return 1;
     }
 
@@ -218,9 +202,7 @@ int main(int argc, char *argv[])
     if (r == 0)
         LOG::LOGGER.STD("SQ matrices work!\n");
 
-    #if defined(ENABLE_MPI)
-    MPI_Finalize();
-    #endif
+    mympi::finalize();
 
     return r;
 }

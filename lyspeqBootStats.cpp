@@ -19,8 +19,8 @@ int printUse(char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-    process::this_pe = 0;
-    process::total_pes = 1;
+    mympi::this_pe = 0;
+    mympi::total_pes = 1;
 
     if (argc < 3 || argc > 4) {
         fprintf(stderr, "Missing arguments!\n");

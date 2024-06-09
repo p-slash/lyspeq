@@ -29,7 +29,6 @@ namespace qio
 // PE rank and total number of threads
 namespace process
 {
-    extern int this_pe, total_pes;
     extern std::string TMP_FOLDER;
     extern std::string FNAME_BASE;
     extern double MEMORY_ALLOC;

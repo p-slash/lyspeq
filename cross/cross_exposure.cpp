@@ -10,6 +10,7 @@
 #include "core/bootstrapper.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
+#include "core/mpi_manager.hpp"
 #include "core/progress.hpp"
 
 #include "mathtools/matrix_helper.hpp"
@@ -18,14 +19,10 @@
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
-#if defined(ENABLE_MPI)
-#include "mpi.h" 
-#endif
-
 
 void _saveQuasarResults(const targetid_quasar_map &quasars) {
     // Create FITS file
-    ioh::BootstrapChunksFile bfile(process::FNAME_BASE, process::this_pe);
+    ioh::BootstrapChunksFile bfile(process::FNAME_BASE, mympi::this_pe);
 
     // For each chunk to a different extention
     for (const auto &[targetid, qso] : quasars) {
@@ -48,26 +45,17 @@ void OneDCrossExposureQMLE::_countZbinHistogram() {
         for (const auto &exp : qso->exposures)
             Z_BIN_COUNTS[exp->ZBIN + 1] += 1;
 
-    // MPI Reduce ZBIN_COUNTS
-    #if defined(ENABLE_MPI)
-    MPI_Allreduce(
-        MPI_IN_PLACE, Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2, 
-        MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &NUMBER_OF_QSOS, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &NUMBER_OF_QSOS_OUT, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    #endif
+    mympi::reduceInplace(Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2);
+    mympi::reduceInplace(&NUMBER_OF_QSOS, 1);
+    mympi::reduceInplace(&NUMBER_OF_QSOS_OUT, 1);
 
     LOG::LOGGER.STD(
         "Number of remaining quasars: %d\n"
         "Number of deleted quasars: %d\n", 
         NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT);
 
-    std::ostringstream zbintext;
-    zbintext << "Z bin counts:";
-    for (int zm = 0; zm < bins::NUMBER_OF_Z_BINS + 2; zm++)
-        zbintext << "  " << Z_BIN_COUNTS[zm];
-    zbintext << '\n';
-    LOG::LOGGER.STD(zbintext.str().c_str());
+    LOG::LOGGER.STD(
+        LOG::getLineTextFromVector(Z_BIN_COUNTS, "Z bin counts:").c_str());
 }
 
 
@@ -115,11 +103,11 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
         fq.insert(0, findir);
 
     // Each PE reads a different section of files
-    int delta_nfiles = number_of_files / process::total_pes,
-        fstart_this  = delta_nfiles * process::this_pe,
-        fend_this    = delta_nfiles * (process::this_pe + 1);
+    int delta_nfiles = number_of_files / mympi::total_pes,
+        fstart_this  = delta_nfiles * mympi::this_pe,
+        fend_this    = delta_nfiles * (mympi::this_pe + 1);
     
-    if (process::this_pe == process::total_pes - 1)
+    if (mympi::this_pe == mympi::total_pes - 1)
         fend_this = number_of_files;
 
     for (int findex = fstart_this; findex < fend_this; ++findex)
@@ -153,8 +141,8 @@ void OneDCrossExposureQMLE::_readQSOFiles() {
 void OneDCrossExposureQMLE::xQmlEstimate() {
     double total_time = 0, total_time_1it = 0;
     std::vector<double> time_all_pes;
-    if (process::this_pe == 0)
-        time_all_pes.resize(process::total_pes);
+    if (mympi::this_pe == 0)
+        time_all_pes.resize(mympi::total_pes);
 
     _readQSOFiles();
 
@@ -164,6 +152,11 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
 
     // Set total Fisher matrix and omn before F to zero for all k, z bins
     initializeIteration();
+
+    std::vector<int> num_quasars_vec;
+    mympi::gather<int>(quasars.size(), num_quasars_vec);
+    LOG::LOGGER.STD(LOG::getLineTextFromVector(
+        num_quasars_vec, "Number of quasars in each task:").c_str());
 
     // Calculation for each spectrum
     DEBUG_LOG("Running on local queue size %zu\n", quasars.size());
@@ -184,7 +177,7 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
     }
 
     if (total_num_expo_combos == 0)
-        LOG::LOGGER.ERR("No cross cross exposures in T:%d.\n", process::this_pe);
+        LOG::LOGGER.ERR("No cross cross exposures in T:%d.\n", mympi::this_pe);
 
     // C++20 feature
     std::erase_if(quasars, [](const auto &x) {
@@ -201,13 +194,8 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
     // Save bootstrap files only if MPI is enabled.
     #if defined(ENABLE_MPI)
     double timenow = mytime::timer.getTime() - total_time_1it;
-    MPI_Gather(
-        &timenow, 1, MPI_DOUBLE, time_all_pes.data(), 1, MPI_DOUBLE,
-        0, MPI_COMM_WORLD);
-
-    MPI_Allreduce(
-        MPI_IN_PLACE, &total_num_expo_combos, 1,
-        MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    mympi::gather(timenow, time_all_pes);
+    mympi::reduceInplace(&total_num_expo_combos, 1);
 
     // Save PE estimates to a file
     if (process::SAVE_EACH_PE_RESULT)
@@ -215,16 +203,12 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
 
     DEBUG_LOG("MPI All reduce.\n");
     if (!specifics::USE_PRECOMPUTED_FISHER)
-        MPI_Allreduce(
-            MPI_IN_PLACE,
-            fisher_matrix_sum.get(), bins::FISHER_SIZE,
-            MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        mympi::allreduceInplace(fisher_matrix_sum.get(), bins::FISHER_SIZE);
 
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-        MPI_Allreduce(
-            MPI_IN_PLACE,
-            dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 
-            bins::TOTAL_KZ_BINS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        mympi::allreduceInplace(
+            dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
+            bins::TOTAL_KZ_BINS);
     #endif
 
     // If fisher is precomputed, copy this into fisher_matrix_sum. 
@@ -256,9 +240,7 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
 
     iterationOutput(0, total_time_1it, total_time, time_all_pes);
 
-    #if defined(ENABLE_MPI)
-    MPI_Barrier(MPI_COMM_WORLD);
-    #endif
+    mympi::barrier();
 
     hasConverged();
     glmemory::dealloc();
