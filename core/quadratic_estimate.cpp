@@ -162,17 +162,14 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
     t1 = mytime::timer.getTime();
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
 
-    // MPI Reduce ZBIN_COUNTS
-    #if defined(ENABLE_MPI)
     mympi::reduceInplace(Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2);
-    #endif
 
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
 
-    LOG::LOGGER.STD("Z bin counts: ");
-    for (int zm = 0; zm < bins::NUMBER_OF_Z_BINS+2; zm++)
-        LOG::LOGGER.STD("%d ", Z_BIN_COUNTS[zm]);
-    LOG::LOGGER.STD("\nNumber of quasars: %d\nQSOs in z bins: %d\n", 
+    LOG::LOGGER.STD(
+        LOG::getLineTextFromVector(Z_BIN_COUNTS, "Z bin counts:").c_str());
+    LOG::LOGGER.STD(
+        "Number of quasars: %d\nQSOs in z bins: %d\n", 
         NUMBER_OF_QSOS, NUMBER_OF_QSOS - NUMBER_OF_QSOS_OUT);
 
     LOG::LOGGER.STD("Sorting with respect to estimated cpu time.\n");
