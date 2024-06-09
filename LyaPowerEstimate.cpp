@@ -67,23 +67,21 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    #if defined(ENABLE_MPI)
-    try
-    {
-        if (process::SAVE_EACH_PE_RESULT)
-            ioh::boot_saver = std::make_unique<ioh::BootstrapFile>(process::FNAME_BASE,
-                bins::NUMBER_OF_K_BANDS, bins::NUMBER_OF_Z_BINS, mympi::this_pe);
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR("Error while openning BootstrapFile: %s\n",
-            e.what());
-        mympi::abort();
+    if (process::SAVE_EACH_PE_RESULT) {
+        try {
+            ioh::boot_saver = std::make_unique<ioh::BootstrapFile>(
+                process::FNAME_BASE, bins::NUMBER_OF_K_BANDS,
+                bins::NUMBER_OF_Z_BINS, mympi::this_pe);
+            mympi::barrier();
+        }
+        catch (std::exception& e) {
+            LOG::LOGGER.ERR("Error while openning BootstrapFile: %s\n",
+                e.what());
+            mympi::abort();
 
-        return 1;
+            return 1;
+        }
     }
-    #endif
 
     try
     {
@@ -143,13 +141,8 @@ int main(int argc, char *argv[])
     }
 
     qps.reset();
-
-    #if defined(ENABLE_MPI)
-    // Make sure bootsaver is deleted before
-    // MPI finalized
     ioh::boot_saver.reset();
-    MPI_Finalize();
-    #endif
+    mympi::finalize();
 
     return 0;
 }
