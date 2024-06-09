@@ -203,8 +203,7 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
 
     DEBUG_LOG("MPI All reduce.\n");
     if (!specifics::USE_PRECOMPUTED_FISHER)
-        mympi::allreduceInplace(
-            fisher_matrix_sum.get(), bins::FISHER_SIZE);
+        mympi::allreduceInplace(fisher_matrix_sum.get(), bins::FISHER_SIZE);
 
     for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
         mympi::allreduceInplace(
