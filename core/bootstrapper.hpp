@@ -5,12 +5,10 @@
 #include <memory>
 #include <random>
 #include <string>
-#if defined(ENABLE_MPI)
-#include "mpi.h" 
-#endif
 
 #include "core/one_qso_estimate.hpp"
 #include "core/omp_manager.hpp"
+#include "core/mpi_manager.hpp"
 #include "core/global_numbers.hpp"
 #include "core/progress.hpp"
 #include "mathtools/matrix_helper.hpp"
@@ -61,7 +59,7 @@ public:
             : nboots(num_boots), remaining_boots(num_boots), invfisher(ifisher)
     {
         process::updateMemory(-getMinMemUsage());
-        pgenerator = std::make_unique<PoissonRNG>(process::this_pe);
+        pgenerator = std::make_unique<PoissonRNG>(mympi::this_pe);
 
         if (specifics::FAST_BOOTSTRAP) {
             temppower = std::make_unique<double[]>(nboots * bins::TOTAL_KZ_BINS);
@@ -70,17 +68,17 @@ public:
             temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
         tempfisher = std::make_unique<double[]>(bins::FISHER_SIZE);
-        if (process::this_pe == 0)
+        if (mympi::this_pe == 0)
             allpowers = std::make_unique<double[]>(nboots * bins::TOTAL_KZ_BINS);
 
         outlier = std::make_unique<bool[]>(nboots);
     }
 
     PoissonBootstrapper(const std::string &fname) {
-        if (process::this_pe != 0)
+        if (mympi::this_pe != 0)
             return;
 
-        if (process::total_pes > 1)
+        if (mympi::total_pes > 1)
             LOG::LOGGER.ERR("No need for MPI.\n");
 
         ioh::readBootstrapRealizations(
@@ -135,7 +133,7 @@ public:
             remaining_boots = ii;
         }
 
-        if (process::this_pe != 0)
+        if (mympi::this_pe != 0)
             return;
 
         double success_ratio = (100. * remaining_boots) / nboots;
@@ -172,7 +170,7 @@ private:
         double memfull = process::getMemoryMB(nboots * bins::TOTAL_KZ_BINS);
         double needed_mem = (
             process::getMemoryMB(bins::FISHER_SIZE)
-            + memfull / process::total_pes
+            + memfull / mympi::total_pes
         );
 
         if (specifics::FAST_BOOTSTRAP)
@@ -203,18 +201,10 @@ private:
         t2 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_loop += t2 - t1;
 
-        #if defined(ENABLE_MPI)
-        MPI_Reduce(
-            temppower.get(),
-            allpowers.get(), nboots * bins::TOTAL_KZ_BINS,
-            MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        #else
-        std::copy_n(
-            temppower.get(), nboots * bins::TOTAL_KZ_BINS,
-            allpowers.get());
-        #endif
+        mympi::reduceToOther(
+            temppower.get(), allpowers.get(), nboots * bins::TOTAL_KZ_BINS);
 
-        if (process::this_pe == 0) {
+        if (mympi::this_pe == 0) {
             temppower.swap(pcoeff);
         } else {
             temppower.reset();
@@ -244,36 +234,16 @@ private:
         t2 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_loop += t2 - t1;
 
-        #if defined(ENABLE_MPI)
-        MPI_Reduce(
-            temppower.get(),
-            allpowers.get() + jj * bins::TOTAL_KZ_BINS,
-            bins::TOTAL_KZ_BINS,
-            MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD
-        );
-        if (process::this_pe != 0) {
-            MPI_Reduce(
-                tempfisher.get(),
-                nullptr, bins::FISHER_SIZE,
-                MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        }
-        else {
-            MPI_Reduce(
-                MPI_IN_PLACE,
-                tempfisher.get(), bins::FISHER_SIZE,
-                MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        }
-        #else
-        std::copy_n(
-            temppower.get(), bins::TOTAL_KZ_BINS,
-            allpowers.get() + jj * bins::TOTAL_KZ_BINS);
-        #endif
+        mympi::reduceToOther(
+            temppower.get(), allpowers.get() + jj * bins::TOTAL_KZ_BINS,
+            bins::TOTAL_KZ_BINS);
+        mympi::reduceInplace(tempfisher.get(), bins::FISHER_SIZE);
 
         bool valid = true;
         t1 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_mpi += t1 - t2;
 
-        if (process::this_pe == 0) {
+        if (mympi::this_pe == 0) {
             try {
                 mxhelp::LAPACKE_safeSolveCho(
                     tempfisher.get(), bins::TOTAL_KZ_BINS,
@@ -285,10 +255,7 @@ private:
 
         t2 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_solve += t2 - t1;
-
-        #if defined(ENABLE_MPI)
-        MPI_Bcast(&valid, 1, MPI_CXX_BOOL, 0, MPI_COMM_WORLD);
-        #endif
+        mympi::bcast(&valid);
 
         return valid;
     }

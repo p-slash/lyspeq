@@ -11,6 +11,7 @@
 #include <sstream>      // std::ostringstream
 
 #include "core/bootstrapper.hpp"
+#include "core/mpi_manager.hpp"
 #include "core/one_qso_estimate.hpp"
 #include "core/global_numbers.hpp"
 #include "core/fiducial_cosmology.hpp"
@@ -23,7 +24,6 @@
 #include "io/qso_file.hpp"
 
 #if defined(ENABLE_MPI)
-#include "mpi.h" 
 #include "core/mpi_merge_sort.cpp"
 #endif
 
@@ -34,7 +34,7 @@ void _saveChunkResults(
         std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
 ) {
     // Create FITS file
-    ioh::BootstrapChunksFile bfile(process::FNAME_BASE, process::this_pe);
+    ioh::BootstrapChunksFile bfile(process::FNAME_BASE, mympi::this_pe);
     // For each chunk to a different extention
     for (auto &one_qso : local_queue) {
         for (auto &one_chunk : one_qso->chunks) {
@@ -131,11 +131,11 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
     // Each PE reads a different section of files
     // They sort individually, then merge in pairs
     // Finally, the master PE broadcasts the sorted full array
-    int delta_nfiles = NUMBER_OF_QSOS / process::total_pes,
-        fstart_this  = delta_nfiles * process::this_pe,
-        fend_this    = delta_nfiles * (process::this_pe + 1);
+    int delta_nfiles = NUMBER_OF_QSOS / mympi::total_pes,
+        fstart_this  = delta_nfiles * mympi::this_pe,
+        fend_this    = delta_nfiles * (mympi::this_pe + 1);
     
-    if (process::this_pe == process::total_pes - 1)
+    if (mympi::this_pe == mympi::total_pes - 1)
         fend_this = NUMBER_OF_QSOS;
 
     t2 = mytime::timer.getTime();
@@ -162,27 +162,22 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
     t1 = mytime::timer.getTime();
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
 
-    // MPI Reduce ZBIN_COUNTS
-    #if defined(ENABLE_MPI)
-    MPI_Allreduce(
-        MPI_IN_PLACE, Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS+2, 
-        MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    #endif
+    mympi::reduceInplace(Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2);
 
     NUMBER_OF_QSOS_OUT = Z_BIN_COUNTS[0] + Z_BIN_COUNTS[bins::NUMBER_OF_Z_BINS+1];
 
-    LOG::LOGGER.STD("Z bin counts: ");
-    for (int zm = 0; zm < bins::NUMBER_OF_Z_BINS+2; zm++)
-        LOG::LOGGER.STD("%d ", Z_BIN_COUNTS[zm]);
-    LOG::LOGGER.STD("\nNumber of quasars: %d\nQSOs in z bins: %d\n", 
+    LOG::LOGGER.STD(
+        LOG::getLineTextFromVector(Z_BIN_COUNTS, "Z bin counts:").c_str());
+    LOG::LOGGER.STD(
+        "Number of quasars: %d\nQSOs in z bins: %d\n", 
         NUMBER_OF_QSOS, NUMBER_OF_QSOS - NUMBER_OF_QSOS_OUT);
 
     LOG::LOGGER.STD("Sorting with respect to estimated cpu time.\n");
     std::sort(cpu_fname_vector.begin(), cpu_fname_vector.end()); // Ascending order
 
     #if defined(ENABLE_MPI)
-    mpisort::mergeSortedArrays(0, process::total_pes, process::this_pe, 
-        cpu_fname_vector);
+    mpisort::mergeSortedArrays(
+        0, mympi::total_pes, mympi::this_pe, cpu_fname_vector);
     mpisort::bcastCpuFnameVec(cpu_fname_vector);
     #endif
 
@@ -201,13 +196,13 @@ std::vector<std::string> OneDQuadraticPowerEstimate::_loadBalancing(
         std::vector< std::pair<double, int> > &cpu_fname_vector
 ) {
     LOG::LOGGER.STD(
-        "Load balancing for %d tasks available.\n", process::total_pes);
+        "Load balancing for %d tasks available.\n", mympi::total_pes);
     
     double load_balance_time = mytime::timer.getTime();
 
-    std::vector<double> bucket_time(process::total_pes, 0);
+    std::vector<double> bucket_time(mympi::total_pes, 0);
     std::vector<std::string> local_fpaths;
-    local_fpaths.reserve(int(1.1*filepaths.size()/process::total_pes));
+    local_fpaths.reserve(int(1.1*filepaths.size()/mympi::total_pes));
 
     std::vector<std::pair <double, int>>::reverse_iterator qe =
         cpu_fname_vector.rbegin();
@@ -219,7 +214,7 @@ std::vector<std::string> OneDQuadraticPowerEstimate::_loadBalancing(
         auto min_bt = std::min_element(bucket_time.begin(), bucket_time.end());
         (*min_bt) += qe->first;
 
-        if (std::distance(bucket_time.begin(), min_bt) == process::this_pe)
+        if (std::distance(bucket_time.begin(), min_bt) == mympi::this_pe)
             local_fpaths.push_back(filepaths[qe->second]);
     }
 
@@ -340,10 +335,10 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
     static std::string
         tmp_ps_fname = (
             process::TMP_FOLDER + "/tmp-power-"
-            + std::to_string(process::this_pe) + ".txt"),
+            + std::to_string(mympi::this_pe) + ".txt"),
         tmp_smooth_fname= (
             process::TMP_FOLDER + "/tmp-smooth-"
-            + std::to_string(process::this_pe) + ".txt");
+            + std::to_string(mympi::this_pe) + ".txt");
     
     // ioh::create_tmp_file(tmp_ps_fname, process::TMP_FOLDER);
     // ioh::create_tmp_file(tmp_smooth_fname, process::TMP_FOLDER);
@@ -403,8 +398,8 @@ void OneDQuadraticPowerEstimate::iterate()
     LOG::LOGGER.STD("Local files are read in %.1f minutes.\n", total_time_1it);
 
     std::vector<double> time_all_pes;
-    if (process::this_pe == 0)
-        time_all_pes.resize(process::total_pes);
+    if (mympi::this_pe == 0)
+        time_all_pes.resize(mympi::total_pes);
 
     glmemory::allocMemory();
 
@@ -443,9 +438,7 @@ void OneDQuadraticPowerEstimate::iterate()
         // Save bootstrap files only if MPI is enabled.
         #if defined(ENABLE_MPI)
         double timenow =  mytime::timer.getTime() - total_time_1it;
-        MPI_Gather(
-            &timenow, 1, MPI_DOUBLE, time_all_pes.data(), 1, MPI_DOUBLE,
-            0, MPI_COMM_WORLD);
+        mympi::gather(timenow, time_all_pes);
 
         // Save PE estimates to a file
         if (process::SAVE_EACH_PE_RESULT)
@@ -453,16 +446,12 @@ void OneDQuadraticPowerEstimate::iterate()
 
         DEBUG_LOG("MPI All reduce.\n");
         if (!specifics::USE_PRECOMPUTED_FISHER)
-            MPI_Allreduce(
-                MPI_IN_PLACE,
-                fisher_matrix_sum.get(), bins::FISHER_SIZE,
-                MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            mympi::allreduceInplace(fisher_matrix_sum.get(), bins::FISHER_SIZE);
 
         for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
-            MPI_Allreduce(
-                MPI_IN_PLACE,
-                dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 
-                bins::TOTAL_KZ_BINS, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            mympi::allreduceInplace(
+                dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
+                bins::TOTAL_KZ_BINS);
         #endif
 
         // If fisher is precomputed, copy this into fisher_matrix_sum. 
@@ -491,9 +480,7 @@ void OneDQuadraticPowerEstimate::iterate()
 
         iterationOutput(iteration, total_time_1it, total_time, time_all_pes);
 
-        #if defined(ENABLE_MPI)
-        MPI_Barrier(MPI_COMM_WORLD);
-        #endif
+        mympi::barrier();
 
         if (hasConverged())
         {
@@ -508,13 +495,9 @@ void OneDQuadraticPowerEstimate::iterate()
 
         try
         {
-            if (process::this_pe == 0)
+            if (mympi::this_pe == 0)
                 _smoothPowerSpectra();
-            #if defined(ENABLE_MPI)
-            MPI_Bcast(
-                powerspectra_fits.get(), bins::TOTAL_KZ_BINS,
-                MPI_DOUBLE, 0, MPI_COMM_WORLD);
-            #endif
+            mympi::bcast(powerspectra_fits.get(), bins::TOTAL_KZ_BINS);
         }
         catch (std::exception& e)
         {
@@ -793,7 +776,7 @@ double OneDQuadraticPowerEstimate::powerSpectrumFiducial(int kn, int zm)
 void OneDQuadraticPowerEstimate::iterationOutput(
         int it, double t1, double tot, std::vector<double> &times_all_pes
 ) {
-    if (process::this_pe != 0)
+    if (mympi::this_pe != 0)
         return;
 
     std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
@@ -831,7 +814,7 @@ void OneDQuadraticPowerEstimate::iterationOutput(
 
     mytime::printfTimeSpentDetails();
 
-    if (process::total_pes == 1) {
+    if (mympi::total_pes == 1) {
         LOG::LOGGER.STD("----------------------------------\n");
         return;
     }
@@ -881,7 +864,7 @@ void OneDQuadraticPowerEstimate::_savePEResult()
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("ERROR: Saving PE results: %d\n", process::this_pe);
+        LOG::LOGGER.ERR("ERROR: Saving PE results: %d\n", mympi::this_pe);
     }
 }
 #else

@@ -2,10 +2,25 @@
 #define LOGGER_H
 
 #include <cstdio>
+#include <sstream> // std::ostringstream
 #include <string>
+#include <vector>
+
 
 namespace LOG
 {
+    template<class T>
+    inline std::string getLineTextFromVector(
+            const std::vector<T> vec, const char hdr[]
+    ) {
+        std::ostringstream txt;
+        txt << hdr;
+        for (T v : vec)
+            txt << "  " << v;
+        txt << '\n';
+        return txt.str();
+    }
+
     namespace TYPE
     {
         enum LOG_TYPE
