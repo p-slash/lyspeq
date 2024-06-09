@@ -45,8 +45,7 @@ private:
 #if defined(ENABLE_MPI)
 // Saves results to outdir/bootresults.dat
 // Fisher matrix is compressed, only saved upper 3Nk diagonals.
-class BootstrapFile
-{
+class BootstrapFile {
     MPI_File bootfile;
     int nkbins, nzbins, pe,
         nkzbins, ndiags, cf_size,
@@ -60,9 +59,14 @@ public:
 
     void writeBoot(const double *pk, const double *fisher);
 };
+#else
+class BootstrapFile {
+public:
+    BootstrapFile(...) {};
+};
+#endif
 
 extern std::unique_ptr<BootstrapFile> boot_saver;
-#endif
 
 }
 
