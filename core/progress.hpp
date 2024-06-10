@@ -13,6 +13,8 @@ public:
         pcounter = 0;
         thres = percThres;
         init_time = mytime::timer.getTime();
+        last_weighted_time = 0;
+        last_weight = 0;
     };
 
     Progress& operator++() {
@@ -24,19 +26,28 @@ public:
 
             double time_passed_progress =
                 mytime::timer.getTime() - init_time;
-            double remain_progress =
-                time_passed_progress * (size - pcounter) / pcounter;
+
+            double curr_total_time = (
+                time_passed_progress * size + last_weighted_time
+            ) / (pcounter + last_weight);
+
+            double remain_progress = curr_total_time - time_passed_progress;
+
+            last_weight = pcounter * 0.8;
+            last_weighted_time = curr_total_time * last_weight;
 
             LOG::LOGGER.STD(
-                "Progress: %d%%. Elapsed: %.1f mins. Remaining: %.1f mins.\n",
-                curr_progress, time_passed_progress, remain_progress);
+                "Progress: %3d%%. Elapsed: %5.1f mins. Remaining: %5.1f mins. "
+                "Total: %5.1f mins.\n",
+                curr_progress, time_passed_progress, remain_progress,
+                curr_total_time);
         }
         return *this;
     };
 
 private:
     int size, last_progress, pcounter, thres;
-    double init_time;
+    double init_time, last_weighted_time, last_weight;
 };
 
 #endif
