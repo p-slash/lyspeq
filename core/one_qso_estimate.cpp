@@ -34,6 +34,10 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(const std::string &f_
     auto qFile = std::make_unique<qio::QSOFile>(f_qso, specifics::INPUT_QSO_FILE);
 
     qFile->readParameters();
+
+    if (qFile->snr < specifics::MIN_SNR_CUT)
+        throw std::runtime_error("OneQSOEstimate::_readQsoFile::Low SNR");
+
     qFile->readData();
 
     // Convert flux to fluctuations around the mean flux of the chunk
