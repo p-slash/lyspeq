@@ -79,11 +79,11 @@ namespace specifics
     extern int
         CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
         NUMBER_OF_CHUNKS, NUMBER_OF_BOOTS, OVERSAMPLING_FACTOR;
-    extern double RESOMAT_DECONVOLUTION_M;
+    extern double RESOMAT_DECONVOLUTION_M, MIN_SNR_CUT;
     extern qio::ifileformat INPUT_QSO_FILE;
 
     const config_map specifics_default_parameters ({
-        {"InputIsPicca", "-1"}, {"UseResoMatrix", "-1"},
+        {"MinimumSnrCut", "0"}, {"InputIsPicca", "-1"}, {"UseResoMatrix", "-1"},
         {"ResoMatDeconvolutionM", "-1"}, {"OversampleRmat", "-1"},
         {"DynamicChunkNumber", "1"}, {"TurnOffBaseline", "-1"},
         {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "1e-2"},
@@ -93,6 +93,8 @@ namespace specifics
         {"SaveBootstrapRealizations", "0"} });
 
     /* This function reads following keys from config file:
+    MinimumSnrCut: double, default: 0
+        Minimum mean SNR in the forest.
     InputIsPicca: int
         If > 0, input file format is from picca. Off by default.
     UseResoMatrix: int
