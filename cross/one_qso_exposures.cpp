@@ -1,6 +1,9 @@
 #include <algorithm>
 #include <stdexcept>
 #include <functional>
+#ifdef DEBUG
+#include <cassert>
+#endif
 
 #include "cross/one_qso_exposures.hpp"
 #include "core/global_numbers.hpp"
@@ -8,11 +11,11 @@
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
-typedef std::vector<std::unique_ptr<Exposure>>::const_iterator vecExpIt;
+// typedef std::vector<std::unique_ptr<Exposure>>::const_iterator vecExpIt;
 
 namespace specifics {
     bool X_NIGHT = true, X_FIBER = false, X_PETAL = false;
-    double X_WAVE_OVERLAP_RATIO = 0.5;
+    double X_WAVE_OVERLAP_RATIO = 0.6;
 }
 
 
@@ -274,13 +277,13 @@ void OneQsoExposures::setAllocPowerSpMemory() {
             std::make_unique<double[]>(ndim));
 }
 
-bool skipCombo(vecExpIt expo1, vecExpIt expo2) {
-    bool skip = (*expo1)->getExpId() == (*expo2)->getExpId();
-    skip |= specifics::X_NIGHT && ((*expo1)->getNight() == (*expo2)->getNight());
-    skip |= specifics::X_FIBER && ((*expo1)->getFiber() == (*expo2)->getFiber());
-    skip |= specifics::X_PETAL && ((*expo1)->getPetal() == (*expo2)->getPetal());
+bool skipCombo(const Exposure *expo1, const Exposure *expo2) {
+    bool skip = expo1->getExpId() == expo2->getExpId();
+    skip |= specifics::X_NIGHT && (expo1->getNight() == expo2->getNight());
+    skip |= specifics::X_FIBER && (expo1->getFiber() == expo2->getFiber());
+    skip |= specifics::X_PETAL && (expo1->getPetal() == expo2->getPetal());
     skip |= (
-        _calculateOverlapRatio((*expo1)->qFile.get(), (*expo2)->qFile.get())
+        _calculateOverlapRatio(expo1->qFile.get(), expo2->qFile.get())
         < specifics::X_WAVE_OVERLAP_RATIO);
     
     return skip;
@@ -288,13 +291,13 @@ bool skipCombo(vecExpIt expo1, vecExpIt expo2) {
 
 int OneQsoExposures::countExposureCombos() {
     exposure_combos.clear();
-    for (vecExpIt expo1 = exposures.cbegin(); expo1 != exposures.cend() - 1; ++expo1) {
-        for (vecExpIt expo2 = expo1 + 1; expo2 != exposures.cend(); ++expo2) {
-            if (skipCombo(expo1, expo2))
+    for (auto expo1 = exposures.cbegin(); expo1 != exposures.cend() - 1; ++expo1) {
+        for (auto expo2 = expo1 + 1; expo2 != exposures.cend(); ++expo2) {
+            const Exposure *e1 = (*expo1).get(), *e2 = (*expo2).get();
+            if (skipCombo(e1, e2))
                 continue;
 
-            exposure_combos.push_back(
-                std::make_pair((*expo1).get(), (*expo2).get()));
+            exposure_combos.push_back(std::make_pair(e1, e2));
         }
     }
 
@@ -310,6 +313,9 @@ void OneQsoExposures::xQmlEstimate() {
     // For each combo calculate derivatives
     for (const auto &[expo1, expo2] : exposure_combos) {
         _setInternalVariablesForTwoExposures(expo1, expo2);
+        #ifdef DEBUG
+        assert(!skipCombo(expo1, expo2));
+        #endif
 
         // Contruct VZ matrices
         _setVZMatrix(_vmatrix, _zmatrix);
