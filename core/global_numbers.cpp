@@ -68,7 +68,7 @@ namespace specifics
          USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP, SAVE_BOOTREALIZATIONS;
     int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
         CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1, NUMBER_OF_BOOTS = 0;
-    double RESOMAT_DECONVOLUTION_M = 0;
+    double RESOMAT_DECONVOLUTION_M = 0, MIN_SNR_CUT = 0;
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
     int OVERSAMPLING_FACTOR = -1;
 
@@ -93,6 +93,7 @@ namespace specifics
         LOG::LOGGER.STD("Reading specifics from config.\n");
         config.addDefaults(specifics_default_parameters);
 
+        MIN_SNR_CUT = config.getDouble("MinimumSnrCut");
         RESOMAT_DECONVOLUTION_M = config.getDouble("ResoMatDeconvolutionM");
         OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat", -1);
         NUMBER_OF_CHUNKS = config.getInteger("DynamicChunkNumber", 1);
