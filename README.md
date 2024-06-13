@@ -176,6 +176,8 @@ If your files have flux fluctuations, set the following to 1. This overrides all
 
 Other params
 ====
++ `MinimumSnrCut` (double, default: 0)
+    Minimum mean SNR in the forest.
 + `InputIsPicca` (int):
     If > 0, input file format is from picca. Off by default.
 + `SmoothNoiseWeights` (int):
@@ -260,7 +262,7 @@ It starts with a header (see [QSOFile](io/qso_file.hpp)), then has wavelength, f
 
         fwhm_resolution = int(SPEED_OF_LIGHT / MEANRESO / ONE_SIGMA_2_FWHM / 100 + 0.5) * 100;
 
-+ `MEANSNR (double)` is read, but not used.
++ `MEANSNR (double)` is read and used to drop low SNR forests based on MinimumSnrCut key in the config file.
 + Pixel spacing is read from `DLL (double)` (difference of log10 lambda), then converted to km/s units.
 
         dv_kms = DLL * SPEED_OF_LIGHT * ln(10);
