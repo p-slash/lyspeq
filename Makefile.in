@@ -18,7 +18,7 @@ SOURCES=fiducial_cosmology.cpp global_numbers.cpp matrix_helper.cpp one_qso_esti
 quadratic_estimate.cpp sq_table.cpp discrete_interpolation.cpp fourier_integrator.cpp \
 interpolation.cpp interpolation_2d.cpp config_file.cpp io_helper_functions.cpp qso_file.cpp \
 sq_lookup_table_file.cpp logger.cpp real_field.cpp chunk_estimate.cpp smoother.cpp bootstrap_file.cpp \
-stats.cpp cross_exposure.cpp exposure.cpp one_qso_exposures.cpp
+stats.cpp cross_exposure.cpp one_qso_exposures.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o lyspeqBootStats.o \
@@ -26,7 +26,7 @@ LyaPowerxQmlExposure.o cblas_tests.o testPointRef.o testSQCMatrices.o test-fftco
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
 sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
 discrete_interpolation.o interpolation.o interpolation_2d.o
-cross_objs=cross_exposure.o exposure.o one_qso_exposures.o
+cross_objs=cross_exposure.o one_qso_exposures.o
 test_objects=test_utils.o testPointRef.o test-fftconvolve.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
