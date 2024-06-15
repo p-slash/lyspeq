@@ -1,7 +1,5 @@
 #include "mathtools/real_field_3d.hpp"
 
-#include "core/omp_manager.hpp"
-
 // #include <algorithm>
 #include <cmath>
 // #include <cassert>
@@ -59,8 +57,8 @@ void RealField3D::fftX2K() {
     fftw_execute(p_x2k);
 
     #pragma omp parallel for simd
-    for (auto &f : field_k)
-        f *= gridvol;
+    for (size_t i = 0; i < size_complex; ++i)
+        field_k[i] *= gridvol;
 } 
 
 
