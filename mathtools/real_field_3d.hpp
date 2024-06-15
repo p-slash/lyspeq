@@ -6,6 +6,24 @@
 
 #include <fftw3.h>
 
+#include "core/omp_manager.hpp"
+
+#if defined(ENABLE_OMP)
+namespace myomp {
+    inline void init_fftw() {
+        fftw_init_threads();
+        fftw_plan_with_nthreads(omp_get_max_threads());
+    }
+
+    inline void clean_fftw() { fftw_cleanup_threads(); }
+}
+#else
+namespace myomp {
+    inline void init_fftw() {};
+    inline void clean_fftw() {};
+}
+#endif
+
 
 /* In-place 3D FFT */
 class RealField3D {
