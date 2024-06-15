@@ -8,7 +8,7 @@
 				
 #---------------------------------------
 # WARNING: You (probably) should not change anything below
-DIRS=$(addprefix $(srcdir)/, core cross io mathtools tests)
+DIRS=$(addprefix $(srcdir)/, core cross io mathtools qu3d tests)
 DEPDIR=$(addprefix $(srcdir)/, dep)
 $(shell mkdir -p $(DEPDIR))
 SRCEXT=cpp
@@ -22,11 +22,13 @@ stats.cpp cross_exposure.cpp one_qso_exposures.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o lyspeqBootStats.o \
-LyaPowerxQmlExposure.o cblas_tests.o testPointRef.o testSQCMatrices.o test-fftconvolve.o
+LyaPowerxQmlExposure.o LyaPower3DEstimate.o \
+cblas_tests.o testPointRef.o testSQCMatrices.o test-fftconvolve.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
 sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
 discrete_interpolation.o interpolation.o interpolation_2d.o
 cross_objs=cross_exposure.o one_qso_exposures.o
+qu3d_objs=optimal_qu3d.o real_field_3d.o config_file.o io_helper_functions.o
 test_objects=test_utils.o testPointRef.o test-fftconvolve.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
 
@@ -58,6 +60,9 @@ LyaPowerEstimate: LyaPowerEstimate.o $(NONX_OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 LyaPowerxQmlExposure: LyaPowerxQmlExposure.o $(OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+LyaPower3DEstimate: LyaPower3DEstimate.o $(qu3d_objs)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
