@@ -36,7 +36,7 @@ public:
                 ld = ld / LYA_REST;
             }
         );
-        z1 = qFile->wave;
+        z1 = qFile->wave();
 
         // Convert to ivar again
         std::for_each(
