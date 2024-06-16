@@ -54,6 +54,17 @@ public:
     void rawFFTX2K() { fftw_execute(p_x2k); }
     void fftX2K();
     void fftK2X();
+
+    size_t getIndex(int nx, int ny, int nz) {
+        int n[] = {nx, ny, nz};
+        for (int axis = 0; axis < 3; ++axis)
+            if (n[axis] >= ngrid[axis])
+                n[axis] = 0;
+
+        return n[2] + (ngrid[2] + padding) * (n[1] + ngrid[1] * n[0]);
+    }
+
+    double interpolate(double coord[3]);
 };
 
 #endif
