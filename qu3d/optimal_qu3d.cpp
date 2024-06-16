@@ -91,6 +91,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     _readQSOFiles(flist, findir);
 
     num_iterations = config.getInteger("NumberOfIterations");
+    tolerance = config.getDouble("ConvergenceTolerance");
 
     mesh.ngrid[0] = config.getInteger("NGRID_X");
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
@@ -112,7 +113,7 @@ void Qu3DEstimator::multMeshComp() {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->getCartesianCoords(i, coord);
-            mesh.reverseInterpolate(coord, qso->y[i]);   
+            mesh.reverseInterpolate(coord, qso->in[i]);   
         }
     }
 
@@ -131,7 +132,66 @@ void Qu3DEstimator::multMeshComp() {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->getCartesianCoords(i, coord);
-            qso->Cy[i] += qso->ivar[i] * mesh.interpolate(coord);   
+            qso->out[i] += qso->ivar[i] * mesh.interpolate(coord);   
         }
+    }
+}
+
+
+void Qu3DEstimator::updateY(double residual_norm2) {
+    double a_down = 0, alpha = 0;
+
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        qso->in = qso->search.get();
+
+    /* Multiply C x search into Cy*/
+    multiplyCovVector();
+
+    // get a_down
+    #pragma omp parallel for reduction(+:a_down)
+    for (auto &qso : quasars)
+        a_down += cblas_ddot(qso->N, qso->search.get(), 1, qso->Cy.get(), 1);
+
+    alpha = residual_norm2 / a_down;
+
+    /* Update y in the search direction, restore qso->in
+       Update residual*/
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        cblas_daxpy(qso->N, alpha, qso->search.get(), 1, qso->y.get(), 1);
+        cblas_daxpy(qso->N, -alpha, qso->residual.get(), 1, qso->Cy.get(), 1);
+        qso->in = qso->y.get();
+    }
+}
+
+
+void Qu3DEstimator::conjugateGradientDescent() {
+    multiplyCovVector();
+
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i) {
+            qso->residual[i] = qso->Cy[i] - qso->qFile->delta()[i];
+            qso->search[i] = qso->residual[i];
+        }
+    }
+
+    double old_residual_norm2 = calculateResidualNorm2();
+
+    if (sqrt(old_residual_norm2) < tolerance)
+        return;
+
+    for (int niter = 0; niter < num_iterations; ++niter) {
+        updateY(old_residual_norm2);
+        multiplyCovVector();
+
+        double new_residual_norm2 = calculateResidualNorm2();
+        if (sqrt(new_residual_norm2) < tolerance)
+            return;
+
+        double beta = new_residual_norm2 / old_residual_norm2;
+        old_residual_norm2 = new_residual_norm2;
+        calculateNewDirection(beta);
     }
 }
