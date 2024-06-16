@@ -65,6 +65,7 @@ public:
     }
 
     double interpolate(double coord[3]);
+    void reverseInterpolate(double coord[3], double val);
 };
 
 #endif
