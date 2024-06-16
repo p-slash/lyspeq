@@ -4,6 +4,8 @@
 #include "core/global_numbers.hpp"
 #include "io/logger.hpp"
 
+std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
+
 
 void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     qio::PiccaFile pFile(fname);
@@ -11,8 +13,7 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     std::vector<std::unique_ptr<qio::QSOFile>> local_quasars;
     local_quasars.reserve(number_of_spectra);
 
-    for (int i = 0; i < number_of_spectra; ++i)
-    {
+    for (int i = 0; i < number_of_spectra; ++i) {
         std::ostringstream fpath;
         fpath << fname << '[' << i + 1 << ']';
 
@@ -60,7 +61,7 @@ void Qu3DEstimator::_readQSOFiles(
 
     int number_of_files = ioh::readList(flist.c_str(), filepaths);
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (auto &fq : filepaths) {
         fq.insert(0, findir);  // Add parent directory to file path
         _readOneDeltaFile(fq);
@@ -71,7 +72,6 @@ void Qu3DEstimator::_readQSOFiles(
 
     int init_num_qsos = quasars.size();
 
-    // Print out time it took to read all files into vector
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t2 - t1);
 
@@ -106,5 +106,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     mesh.length[2] = config.getInteger("LENGTH_Z");
     mesh.z0 = config.getInteger("ZSTART");
 
+    cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
+
+    _readQSOFiles(flist, findir);
     mesh.construct();
 }
