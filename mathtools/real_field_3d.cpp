@@ -34,9 +34,10 @@ void RealField3D::construct() {
         totalvol *= length[axis];
     }
 
-    padding = 2 - (ngrid[2] % 2);
-    size_complex = ngrid[0] * ngrid[1] * (ngrid[2] / 2 + 1);
+    ngrid_z = ngrid[2] + 2 - (ngrid[2] % 2);
+    ngrid_kz = ngrid[2] / 2 + 1;
     ngrid_xy = ngrid[0] * ngrid[1];
+    size_complex = ngrid_xy * ngrid_kz;
 
     field_k.resize(size_complex);
     field_x = reinterpret_cast<double*>(field_k.data());
@@ -68,7 +69,7 @@ void RealField3D::fftK2X() {
     #pragma omp parallel for simd collapse(2)
     for (int ij = 0; ij < ngrid_xy; ++ij)
         for (int k = 0; k < ngrid[2]; ++k)
-            field_x[k + (ngrid[2] + padding) * ij] /= totalvol;
+            field_x[k + ngrid_z * ij] /= totalvol;
 }
 
 

@@ -12,6 +12,10 @@
 class CosmicQuasar {
 public:
     std::unique_ptr<qio::QSOFile> qFile;
+    int N;
+    /* z1: 1 + z */
+    double *z1, *ivar, angles[3];
+    std::unique_ptr<double[]> r, y, Cy, residual, search;
 
     CosmicQuasar(qio::PiccaFile *pf, int hdunum) {
         qFile = std::make_unique<qio::QSOFile>(pf, hdunum);
@@ -30,9 +34,10 @@ public:
         qFile->maskOutliers();
         qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
+        N = N;
         // Convert wave to 1 + z
         std::for_each(
-            qFile->wave(), qFile->wave() + qFile->size(), [](double &ld) {
+            qFile->wave(), qFile->wave() + N, [](double &ld) {
                 ld = ld / LYA_REST;
             }
         );
@@ -40,7 +45,7 @@ public:
 
         // Convert to ivar again
         std::for_each(
-            qFile->noise(), qFile->noise() + qFile->size(), [](double &n) {
+            qFile->noise(), qFile->noise() + N, [](double &n) {
                 n *= n;
                 n = 1 / n;
                 if (n < DOUBLE_EPSILON)
@@ -48,21 +53,34 @@ public:
             }
         );
         ivar = qFile->noise();
+
+        r = std::make_unique<double[]>(N);
+        y = std::make_unique<double[]>(N);
+        Cy = std::make_unique<double[]>(N);
+        residual = std::make_unique<double[]>(N);
+        search = std::make_unique<double[]>(N);
+
+        // Weight deltas
+        for (int i = 0; i < N; ++i) {
+            qFile->delta()[i] *= ivar[i];
+            y[i] = qFile->delta()[i];
+        }
+
+        double xy = sin(qFile->dec);
+        angles[0] = xy * cos(qFile->ra);
+        angles[1] = xy * sin(qFile->ra);
+        angles[2] = cos(qFile->dec);
     }
 
-    /* return 1 + z */
-    double* getZ1() const { return z1; }
-    double* getIvar() const { return ivar; }
-
     void setRadialComovingDistance(const fidcosmo::FlatLCDM *cosmo) {
-        r = std::make_unique<double[]>(qFile->size());
-        for (int i = 0; i < qFile->size(); ++i)
+        for (int i = 0; i < N; ++i)
             r[i] = cosmo->getComovingDist(z1[i]);
     }
 
-private:
-    double *z1, *ivar;
-    std::unique_ptr<double[]> r, CinvDelta;
+    void getCartesianCoords(int i, double coord[3]) {
+        for (int axis = 0; axis < 3; ++axis)
+            coord[axis] = r[i] * angles[axis];
+    }
 };
 
 #endif
