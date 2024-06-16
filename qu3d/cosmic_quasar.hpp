@@ -1,6 +1,7 @@
 #ifndef COSMIC_QUASAR_H
 #define COSMIC_QUASAR_H
 
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -9,6 +10,26 @@
 #include "io/qso_file.hpp"
 #include "qu3d/cosmology_3d.hpp"
 
+
+class NormalRNG {
+public:
+    NormalRNG() {};
+
+    void seed(long in) { rng_engine.seed(in); }
+
+    double generate() { return n_dist(rng_engine); }
+
+    void fillVector(double *v, unsigned int size) {
+        for (unsigned int i = 0; i < size; ++i)
+            v[i] = generate();
+    }
+
+private:
+    std::mt19937_64 rng_engine;
+    std::normal_distribution<double> n_dist;
+};
+
+
 class CosmicQuasar {
 public:
     std::unique_ptr<qio::QSOFile> qFile;
@@ -16,6 +37,7 @@ public:
     /* z1: 1 + z */
     double *z1, *ivar, angles[3], *in, *out;
     std::unique_ptr<double[]> r, y, Cy, residual, search;
+    NormalRNG rng;
 
     CosmicQuasar(qio::PiccaFile *pf, int hdunum) {
         qFile = std::make_unique<qio::QSOFile>(pf, hdunum);
@@ -34,7 +56,7 @@ public:
         qFile->maskOutliers();
         qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-        N = N;
+        N = qFile->size();
         // Convert wave to 1 + z
         std::for_each(
             qFile->wave(), qFile->wave() + N, [](double &ld) {
@@ -69,6 +91,8 @@ public:
         angles[0] = qFile->ra;
         angles[1] = qFile->dec;
         angles[2] = 1;
+
+        rng.seed(qFile->id);
     }
 
     void setRadialComovingDistance(const fidcosmo::FlatLCDM *cosmo) {
@@ -80,6 +104,12 @@ public:
     void getCartesianCoords(int i, double coord[3]) {
         for (int axis = 0; axis < 3; ++axis)
             coord[axis] = r[i] * angles[axis];
+    }
+
+    void fillRngNoise() {
+        rng.fillVector(y.get(), N);
+        for (int i = 0; i < N; ++i)
+            y[i] *= sqrt(ivar[i]);
     }
 };
 
