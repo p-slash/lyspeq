@@ -16,7 +16,7 @@
 const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "512"}, {"NGRID_Z", "48"},
     {"LENGTH_X", "45000"}, {"LENGTH_Y", "25000"}, {"LENGTH_Z", "2000"},
-    {"ZSTART", "5200"}, {"NumberOfIterations", "5"},
+    {"ZSTART", "5200"}, {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"ConvergenceTolerance", "1e-6"}, {"LongScale", "50"}
 });
 
@@ -24,9 +24,11 @@ const config_map qu3d_default_parameters ({
 class Qu3DEstimator
 {
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
-    int num_iterations;
+    int max_conj_grad_steps, max_monte_carlos;
     double tolerance, rscale_long;
     RealField3D mesh;
+
+    std::unique_ptr<double[]> power_est, bias_est, fisher;
     // targetid_quasar_map quasars;
     // Reads the entire file
     void _readOneDeltaFile(const std::string &fname);
@@ -39,6 +41,17 @@ public:
         Directory where files reside.
     */
     Qu3DEstimator(ConfigFile &config);
+
+    void reverseInterpolate() {
+        double coord[3];
+        mesh.zero_field_k();
+        for (auto &qso : quasars) {
+            for (int i = 0; i < qso->N; ++i) {
+                qso->getCartesianCoords(i, coord);
+                mesh.reverseInterpolate(coord, qso->in[i]);
+            }
+        }
+    }
 
     void multMeshComp();
     void multParticleComp();
@@ -55,28 +68,15 @@ public:
         // multParticleComp();
     }
 
+    void multiplyDerivVector(int iperp, int iz);
+
     /* Return residual^T . residual */
-    double calculateResidualNorm2() {
-        double residual_norm2 = 0;
-
-        #pragma omp parallel for reduction(+:residual_norm2)
-        for (auto &qso : quasars)
-            residual_norm2 += cblas_dnrm2(qso->N, qso->residual.get(), 1);
-
-        return residual_norm2;
-    }
-
-    void calculateNewDirection(double beta)  {
-        #pragma omp parallel for
-        for (auto &qso : quasars) {
-            cblas_dscal(qso->N, beta, qso->search.get(), 1);
-            for (int i = 0; i < qso->N; ++i)
-                qso->search[i] += qso->residual[i];
-        }
-    }
-
+    double calculateResidualNorm2();
     void updateY(double residual_norm2);
+    void calculateNewDirection(double beta);
     void conjugateGradientDescent();
+
+    void estimatePowerBias();
 };
 
 #endif

@@ -6,6 +6,7 @@
 
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
+int NUMBER_OF_K_BANDS_2 = 0;
 
 
 inline bool hasConverged(double norm, double tolerance) {
@@ -19,6 +20,7 @@ inline bool hasConverged(double norm, double tolerance) {
 
     return false;
 }
+
 
 void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     qio::PiccaFile pFile(fname);
@@ -54,6 +56,7 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
         local_quasars.clear();
     }
 }
+
 
 void Qu3DEstimator::_readQSOFiles(
         const std::string &flist, const std::string &findir
@@ -102,7 +105,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
 
     _readQSOFiles(flist, findir);
 
-    num_iterations = config.getInteger("NumberOfIterations");
+    max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
+    max_monte_carlos = config.getInteger("MaxMonteCarlos");
     tolerance = config.getDouble("ConvergenceTolerance");
     rscale_long = config.getDouble("LongScale");
     rscale_long *= -rscale_long;
@@ -117,21 +121,20 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     mesh.z0 = config.getInteger("ZSTART");
 
     mesh.construct();
+
+    NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
+    bins::FISHER_SIZE = NUMBER_OF_K_BANDS_2 * NUMBER_OF_K_BANDS_2;
+
+    power_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
 }
 
 
 void Qu3DEstimator::multMeshComp() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
-    // Reverse interp
-    double coord[3];
-    mesh.zero_field_k();
-    for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i) {
-            qso->getCartesianCoords(i, coord);
-            mesh.reverseInterpolate(coord, qso->in[i]);   
-        }
-    }
+    reverseInterpolate();
 
     // Convolve power
     mesh.fftX2K();
@@ -144,17 +147,29 @@ void Qu3DEstimator::multMeshComp() {
     }
     mesh.fftK2X();
 
+    double coord[3];
     // Interpolate and Weight by Ivar
     #pragma omp parallel for
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->getCartesianCoords(i, coord);
-            qso->out[i] += qso->ivar[i] * mesh.interpolate(coord);   
+            qso->out[i] += qso->ivar[i] * mesh.interpolate(coord);
         }
     }
 
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("multMeshComp took %.2f m.\n", t2 - t1);
+}
+
+
+double Qu3DEstimator::calculateResidualNorm2() {
+    double residual_norm2 = 0;
+
+    #pragma omp parallel for reduction(+:residual_norm2)
+    for (auto &qso : quasars)
+        residual_norm2 += cblas_dnrm2(qso->N, qso->residual.get(), 1);
+
+    return residual_norm2;
 }
 
 
@@ -191,13 +206,23 @@ void Qu3DEstimator::updateY(double residual_norm2) {
 }
 
 
+void Qu3DEstimator::calculateNewDirection(double beta)  {
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        cblas_dscal(qso->N, beta, qso->search.get(), 1);
+        for (int i = 0; i < qso->N; ++i)
+            qso->search[i] += qso->residual[i];
+    }
+}
+
+
 void Qu3DEstimator::conjugateGradientDescent() {
     multiplyCovVector();
 
     #pragma omp parallel for
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            qso->residual[i] = qso->Cy[i] - qso->qFile->delta()[i];
+            qso->residual[i] = qso->Cy[i] - qso->in[i];
             qso->search[i] = qso->residual[i];
         }
     }
@@ -207,7 +232,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
     if (hasConverged(sqrt(old_residual_norm2), tolerance))
         return;
 
-    for (int niter = 0; niter < num_iterations; ++niter) {
+    for (int niter = 0; niter < max_conj_grad_steps; ++niter) {
         updateY(old_residual_norm2);
         multiplyCovVector();
 
@@ -221,3 +246,94 @@ void Qu3DEstimator::conjugateGradientDescent() {
         calculateNewDirection(beta);
     }
 }
+
+
+void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
+    reverseInterpolate();
+
+    mesh.fftX2K();
+    #pragma omp parallel for
+    for (size_t i = 0; i < mesh.size_complex; ++i) {
+        double kperp, kz;
+        mesh.getKperpKzFromIndex(i, kperp, kz);
+        if ((bins::KBAND_EDGES[iperp + 1] < kperp)
+            || (kperp <= bins::KBAND_EDGES[iperp])
+            || (bins::KBAND_EDGES[iz + 1] < kz)
+            || (kz <= bins::KBAND_EDGES[iz])
+        )
+            mesh.field_k[i] = 0;
+    }
+    mesh.fftK2X();
+
+    double coord[3];
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i) {
+            qso->getCartesianCoords(i, coord);
+            qso->out[i] = mesh.interpolate(coord);
+        }
+    }
+}
+
+
+void Qu3DEstimator::estimatePowerBias() {
+    conjugateGradientDescent();
+
+    for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
+        for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
+            multiplyDerivVector(iperp, iz);
+
+            double p = 0;
+
+            #pragma omp parallel for reduction(+:p)
+            for (auto &qso : quasars)
+                p += cblas_ddot(qso->N, qso->y.get(), 1, qso->Cy.get(), 1);
+
+            power_est[iz + bins::NUMBER_OF_K_BANDS * iperp] = p;
+        }
+    }
+
+    /* Estimate Bias */
+    auto old_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+
+    for (int nmc = 0; nmc < max_monte_carlos; ++nmc) {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->fillRngNoise();
+
+        conjugateGradientDescent();
+
+        for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
+            for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
+                multiplyDerivVector(iperp, iz);
+
+                double p = 0;
+
+                #pragma omp parallel for reduction(+:p)
+                for (auto &qso : quasars)
+                    p += cblas_ddot(qso->N, qso->y.get(), 1, qso->Cy.get(), 1);
+
+                old_bias_est[iz + bins::NUMBER_OF_K_BANDS * iperp] = p;
+            }
+        }
+
+        double max_rel_err = 0, mean_rel_err = 0;
+        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
+            double rel_err = (bias_est[i] - old_bias_est[i])
+                             / std::max(bias_est[i], old_bias_est[i]);
+            max_rel_err = std::max(rel_err, max_rel_err);
+            mean_rel_err += rel_err / NUMBER_OF_K_BANDS_2;
+        }
+
+        LOG::LOGGER.STD(
+            "Mean / Max relative errors in bias are %.2e / %.2e. "
+            "MC convergences when < %.2e / %.2e",
+            mean_rel_err, max_rel_err, 1e-6, 1e-4);
+
+        if (mean_rel_err < 1e-6 || max_rel_err < 1e-4)
+            break;
+
+        bias_est.swap(old_bias_est);
+    }
+}
+
