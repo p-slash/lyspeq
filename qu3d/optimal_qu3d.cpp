@@ -18,7 +18,8 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
         std::ostringstream fpath;
         fpath << fname << '[' << i + 1 << ']';
 
-        auto qFile = std::make_unique<qio::QSOFile>(fpath.str(), qio::Picca);
+        auto qFile = std::make_unique<qio::QSOFile>(&pFile, i + 1);
+        qFile->fname = fpath.str();
         qFile->readParameters();
 
         if (qFile->snr < specifics::MIN_SNR_CUT)
@@ -40,6 +41,8 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
         local_quasars.push_back(std::move(qFile));
     }
 
+    pFile.closeFile()
+
     if (local_quasars.empty())
         return;
 
@@ -59,17 +62,15 @@ void Qu3DEstimator::_readQSOFiles(
     std::vector<std::string> filepaths;
 
     LOG::LOGGER.STD("Read delta files.\n");
+    qio::PiccaFile::use_cache = false;
 
     int number_of_files = ioh::readList(flist.c_str(), filepaths);
 
-    // #pragma omp parallel for
+    #pragma omp parallel for
     for (auto &fq : filepaths) {
         fq.insert(0, findir);  // Add parent directory to file path
         _readOneDeltaFile(fq);
     }
-
-    if (specifics::INPUT_QSO_FILE == qio::Picca)
-        qio::PiccaFile::clearCache();
 
     int init_num_qsos = quasars.size();
 

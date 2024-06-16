@@ -50,6 +50,16 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
     id = 0;
 }
 
+QSOFile::QSOFile(PiccaFile* pf, int hdunum)
+        : PB(Picca), wave_head(nullptr), delta_head(nullptr), noise_head(nullptr),
+          arr_size(0), _fullsize(0), shift(0), num_masked_pixels(0), fname(""),
+          expid(-1), night(-1), fiber(-1), petal(-1)
+{
+    pfile = std::make_unique<PiccaFile>(pf, hdunum);
+    dlambda = -1;
+    id = 0;
+}
+
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         : PB(qmaster.PB), shift(0), num_masked_pixels(0), fname(qmaster.fname), 
           z_qso(qmaster.z_qso), snr(qmaster.snr),
@@ -319,6 +329,7 @@ bool PiccaFile::compareFnames(const std::string &s1, const std::string &s2)
 }
 
 const int MAX_NO_FILES = 1;
+bool PiccaFile::use_cache = true;
 
 // Normals
 // Assume fname to be ..fits.gz[1]
@@ -327,18 +338,25 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
     int hdunum, hdutype;
     std::string basefname = decomposeFname(fname_qso, hdunum);
 
-    auto it = cache.find(basefname);
-    if (it != cache.end()) {
-        fits_file = it->second;
+    if (PiccaFile::use_cache) {
+        auto it = cache.find(basefname);
+        if (it != cache.end()) {
+            fits_file = it->second;
+        }
+        else {
+            if (cache.size() == MAX_NO_FILES) {
+                fits_close_file(cache.begin()->second, &status);
+                cache.erase(cache.begin());
+            }
+
+            fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
+            cache[basefname] = fits_file;
+            fits_get_num_hdus(fits_file, &no_spectra, &status);
+            no_spectra--;
+        }
     }
     else {
-        if (cache.size() == MAX_NO_FILES) {
-            fits_close_file(cache.begin()->second, &status);
-            cache.erase(cache.begin());
-        }
-
         fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
-        cache[basefname] = fits_file;
         fits_get_num_hdus(fits_file, &no_spectra, &status);
         no_spectra--;
     }
@@ -357,6 +375,24 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
     // fits_get_hdu_num(fits_file, &curr_spec_index);
     // _move(fname_qso[fname_qso.size-2] - '0');
 }
+
+
+PiccaFile::PiccaFile(const PiccaFile *pf, int hdunum)
+        : fits_file(pf->fits_file), status(0) 
+{
+    int hdutype;
+    fits_movabs_hdu(fits_file, hdunum + 1, &hdutype, &status);
+
+    if (hdutype != BINARY_TBL)
+        throw std::runtime_error("HDU type is not BINARY!");
+
+    _setHeaderKeys();
+    _setColumnNames();
+
+    if (status != 0)
+        _handleStatus();
+}
+
 
 void PiccaFile::_handleStatus()
 {
