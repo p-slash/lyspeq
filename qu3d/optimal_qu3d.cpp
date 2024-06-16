@@ -1,4 +1,6 @@
 #include "qu3d/optimal_qu3d.hpp"
+#include "qu3d/cosmology_3d.hpp"
+
 #include "core/global_numbers.hpp"
 #include "io/logger.hpp"
 
@@ -21,11 +23,18 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
             continue;
 
         qFile->readData();
+
         qFile->maskOutliers();
+        qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
+
+        std::for_each(
+            qFile->wave(), qFile->wave() + qFile->size(), [](double &ld) {
+                ld = ld / LYA_REST;
+            }
+        );
         // Convert to distance
         // Convert to ivar again
 
-        qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
         local_quasars.push_back(std::move(qFile));
     }
 
