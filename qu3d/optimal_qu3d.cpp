@@ -107,6 +107,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
 
 
 void Qu3DEstimator::multMeshComp() {
+    double t1 = mytime::timer.getTime(), t2 = 0;
+
     // Reverse interp
     double coord[3];
     mesh.zero_field_k();
@@ -135,10 +137,15 @@ void Qu3DEstimator::multMeshComp() {
             qso->out[i] += qso->ivar[i] * mesh.interpolate(coord);   
         }
     }
+
+    t2 = mytime::timer.getTime();
+    LOG::LOGGER.STD("multMeshComp took %.2f m.\n", t2 - t1);
 }
 
 
 void Qu3DEstimator::updateY(double residual_norm2) {
+    double t1 = mytime::timer.getTime(), t2 = 0;
+
     double a_down = 0, alpha = 0;
 
     #pragma omp parallel for
@@ -163,6 +170,9 @@ void Qu3DEstimator::updateY(double residual_norm2) {
         cblas_daxpy(qso->N, -alpha, qso->residual.get(), 1, qso->Cy.get(), 1);
         qso->in = qso->y.get();
     }
+
+    t2 = mytime::timer.getTime();
+    LOG::LOGGER.STD("updateY took %.2f m.\n", t2 - t1);
 }
 
 
@@ -177,18 +187,31 @@ void Qu3DEstimator::conjugateGradientDescent() {
         }
     }
 
-    double old_residual_norm2 = calculateResidualNorm2();
+    double old_residual_norm2 = calculateResidualNorm2(), norm;
+    norm = sqrt(old_residual_norm2);
 
-    if (sqrt(old_residual_norm2) < tolerance)
+    if (norm < tolerance)
         return;
+
+    LOG::LOGGER.STD(
+        "Current norm(residuals) is %.2e. "
+        "conjugateGradientDescent convergence when < %.2e",
+        norm, tolerance);
 
     for (int niter = 0; niter < num_iterations; ++niter) {
         updateY(old_residual_norm2);
         multiplyCovVector();
 
         double new_residual_norm2 = calculateResidualNorm2();
-        if (sqrt(new_residual_norm2) < tolerance)
+        norm = sqrt(new_residual_norm2);
+
+        if (norm < tolerance)
             return;
+
+        LOG::LOGGER.STD(
+            "Current norm(residuals) is %.2e. "
+            "conjugateGradientDescent convergence when < %.2e",
+            norm, tolerance);
 
         double beta = new_residual_norm2 / old_residual_norm2;
         old_residual_norm2 = new_residual_norm2;
