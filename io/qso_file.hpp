@@ -76,13 +76,20 @@ class PiccaFile
     void _readOptionalInt(const std::string &key, int &output);
 
 public:
+    /* Default is true. For thread safety, set use_cache = false */
+    static bool use_cache;
     static bool compareFnames(const std::string &s1, const std::string &s2);
     static void clearCache();
 
     // Assume fname to be ..fits.gz[1]
     PiccaFile(const std::string &fname_qso);
+    PiccaFile(const PiccaFile *pf, int hdunum);
     PiccaFile(PiccaFile &&rhs) = default;
     PiccaFile(const PiccaFile &rhs) = delete;
+
+    /* Only call this from the master copy of the file
+       AND if use_cache is false. */
+    void closeFile() { fits_close_file(fits_file, &status); }
 
     int getNumberSpectra() const {return no_spectra;};
 
@@ -115,6 +122,7 @@ public:
     std::unique_ptr<mxhelp::Resolution> Rmat;
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);
+    QSOFile(PiccaFile* pf, int hdunum);
     // The "copy" constructor below also cuts masked boundaries.
     QSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     QSOFile(QSOFile &&rhs) = delete;
