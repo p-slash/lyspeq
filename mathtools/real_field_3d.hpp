@@ -82,15 +82,14 @@ public:
             k[axis] = k_fund[axis] * kn[axis];
     }
 
-    void getKKzFromIndex(size_t i, double &k, double &kz) {
+    void getK2KzFromIndex(size_t i, double &k2, double &kz) {
         double ks[3];
         getKFromIndex(i, ks);
         kz = ks[2];
 
-        k = 0;
+        k2 = 0;
         for (int axis = 0; axis < 3; ++axis)
-            k += ks[axis] * ks[axis];
-        k = sqrt(k);
+            k2 += ks[axis] * ks[axis];
     }
 
     double interpolate(double coord[3]);

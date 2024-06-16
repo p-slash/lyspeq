@@ -17,7 +17,7 @@ const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "512"}, {"NGRID_Z", "48"},
     {"LENGTH_X", "45000"}, {"LENGTH_Y", "25000"}, {"LENGTH_Z", "2000"},
     {"ZSTART", "5200"}, {"NumberOfIterations", "5"},
-    {"ConvergenceTolerance", "1e-6"}
+    {"ConvergenceTolerance", "1e-6"}, {"LongScale", "50"}
 });
 
 
@@ -25,7 +25,7 @@ class Qu3DEstimator
 {
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     int num_iterations;
-    double tolerance;
+    double tolerance, rscale_long;
     RealField3D mesh;
     // targetid_quasar_map quasars;
     // Reads the entire file
