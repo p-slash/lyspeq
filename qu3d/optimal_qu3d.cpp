@@ -31,6 +31,9 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     if (local_quasars.empty())
         return;
 
+    for (auto &qso : local_quasars)
+        qso->setRadialComovingDistance(cosmo.get());
+
     #pragma omp critical
     {
         quasars.reserve(quasars.size() + local_quasars.size());
@@ -82,6 +85,11 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     if (findir.back() != '/')
         findir += '/';
 
+    cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
+    p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
+
+    _readQSOFiles(flist, findir);
+
     num_iterations = config.getInteger("NumberOfIterations");
 
     mesh.ngrid[0] = config.getInteger("NGRID_X");
@@ -93,9 +101,5 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     mesh.length[2] = config.getInteger("LENGTH_Z");
     mesh.z0 = config.getInteger("ZSTART");
 
-    cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
-    p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
-
-    _readQSOFiles(flist, findir);
     mesh.construct();
 }

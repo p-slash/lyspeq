@@ -11,7 +11,7 @@
 #include "io/io_helper_functions.hpp"
 
 
-double trapz(double *y, double dx, int N) {
+static double trapz(double *y, double dx, int N) {
     double result = (y[0] + y[N - 1]) / 2;
     for (int i = 1; i < N - 1; ++i)
         result += y[i];
@@ -74,12 +74,12 @@ namespace fidcosmo {
                 double z1, double A=0.3173, double nu_y0=357.91212097,
                 double p=1.83, double invp=0.54644808743,
                 double nmassless=2, double B=0.23058962986246165
-        ) {
+        ) const {
             return B * (nmassless + pow(1 + pow(A * nu_y0 / z1, p), invp));
         }
 
         /* in km/s/Mpc */
-        double _calcHubble(double z1) {
+        double _calcHubble(double z1) const {
             double z3 = z1 * z1 * z1;
             double z4 = z3 * z1;
             double nu = _nu_relative_density(z1);
@@ -87,15 +87,15 @@ namespace fidcosmo {
         }
 
         /* in km/s/Mpc */
-        double getHubble(double z1) {
+        double getHubble(double z1) const {
             return hubble_z->evaluate(z1);
         }
 
-        double getInvHubble(double z1) {
+        double getInvHubble(double z1) const {
             return 1 / hubble_z->evaluate(z1);
         }
 
-        double getComovingDist(double z1) {
+        double getComovingDist(double z1) const {
             return interp_comov_dist->evaluate(z1);
         }
     };
