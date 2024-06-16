@@ -92,6 +92,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
 
     num_iterations = config.getInteger("NumberOfIterations");
     tolerance = config.getDouble("ConvergenceTolerance");
+    rscale_long = config.getDouble("LongScale");
+    rscale_long *= -rscale_long;
 
     mesh.ngrid[0] = config.getInteger("NGRID_X");
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
@@ -123,9 +125,10 @@ void Qu3DEstimator::multMeshComp() {
     mesh.fftX2K();
     #pragma omp parallel for
     for (size_t i = 0; i < mesh.size_complex; ++i) {
-        double k, kz;
-        mesh.getKKzFromIndex(i, k, kz);
-        mesh.field_k[i] *= p3d_model->evaluate(k, kz);
+        double k2, kz;
+        mesh.getK2KzFromIndex(i, k2, kz);
+        mesh.field_k[i] *=
+            p3d_model->evaluate(sqrt(k2), kz) * exp(rscale_long * k2);
     }
     mesh.fftK2X();
 
