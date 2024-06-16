@@ -92,6 +92,18 @@ public:
             k2 += ks[axis] * ks[axis];
     }
 
+    void getKperpKzFromIndex(size_t i, double &kperp, double &kz) {
+        double ks[3];
+        getKFromIndex(i, ks);
+        kz = ks[2];
+
+        kperp = 0;
+        for (int axis = 0; axis < 2; ++axis)
+            kperp += ks[axis] * ks[axis];
+
+        kperp = sqrt(kperp);
+    }
+
     double interpolate(double coord[3]);
     void reverseInterpolate(double coord[3], double val);
 };
