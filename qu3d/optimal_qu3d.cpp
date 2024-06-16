@@ -8,6 +8,18 @@ std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 
 
+inline bool hasConverged(double norm, double tolerance) {
+    if (norm < tolerance)
+        return true;
+
+    LOG::LOGGER.STD(
+        "Current norm(residuals) is %.2e. "
+        "conjugateGradientDescent convergence when < %.2e",
+        norm, tolerance);
+
+    return false;
+}
+
 void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     qio::PiccaFile pFile(fname);
     int number_of_spectra = pFile.getNumberSpectra();
@@ -190,31 +202,19 @@ void Qu3DEstimator::conjugateGradientDescent() {
         }
     }
 
-    double old_residual_norm2 = calculateResidualNorm2(), norm;
-    norm = sqrt(old_residual_norm2);
+    double old_residual_norm2 = calculateResidualNorm2();
 
-    if (norm < tolerance)
+    if (hasConverged(sqrt(old_residual_norm2), tolerance))
         return;
-
-    LOG::LOGGER.STD(
-        "Current norm(residuals) is %.2e. "
-        "conjugateGradientDescent convergence when < %.2e",
-        norm, tolerance);
 
     for (int niter = 0; niter < num_iterations; ++niter) {
         updateY(old_residual_norm2);
         multiplyCovVector();
 
         double new_residual_norm2 = calculateResidualNorm2();
-        norm = sqrt(new_residual_norm2);
 
-        if (norm < tolerance)
+        if (hasConverged(sqrt(new_residual_norm2), tolerance))
             return;
-
-        LOG::LOGGER.STD(
-            "Current norm(residuals) is %.2e. "
-            "conjugateGradientDescent convergence when < %.2e",
-            norm, tolerance);
 
         double beta = new_residual_norm2 / old_residual_norm2;
         old_residual_norm2 = new_residual_norm2;
