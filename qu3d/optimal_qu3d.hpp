@@ -16,7 +16,8 @@
 const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "512"}, {"NGRID_Z", "48"},
     {"LENGTH_X", "45000"}, {"LENGTH_Y", "25000"}, {"LENGTH_Z", "2000"},
-    {"ZSTART", "5200"}, {"NumberOfIterations", "5"}
+    {"ZSTART", "5200"}, {"NumberOfIterations", "5"},
+    {"ConvergenceTolerance", "1e-6"}
 });
 
 
@@ -24,14 +25,12 @@ class Qu3DEstimator
 {
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     int num_iterations;
+    double tolerance;
     RealField3D mesh;
     // targetid_quasar_map quasars;
     // Reads the entire file
     void _readOneDeltaFile(const std::string &fname);
     void _readQSOFiles(const std::string &flist, const std::string &findir);
-
-    void multMeshComp();
-    void multParticleComp();
 public:
     /* This function reads following keys from config file:
     FileNameList: string
@@ -41,19 +40,43 @@ public:
     */
     Qu3DEstimator(ConfigFile &config);
 
-    void multiplyCov_x_Vector() {
+    void multMeshComp();
+    void multParticleComp();
+
+    /* Multiply each quasar's *in pointer and save to *out pointer. */
+    void multiplyCovVector() {
         // init new results to Cy = I.y
         #pragma omp parallel for
         for (auto &qso : quasars)
-            std::copy_n(qso->y.get(), qso->N, qso->Cy.get());
+            std::copy_n(qso->in, qso->N, qso->out);
 
         // Add long wavelength mode to Cy
         multMeshComp();
         // multParticleComp();
+    }
 
-        // Check convergence
-    };
-    void estimate();
+    /* Return residual^T . residual */
+    double calculateResidualNorm2() {
+        double residual_norm2 = 0;
+
+        #pragma omp parallel for reduction(+:residual_norm2)
+        for (auto &qso : quasars)
+            residual_norm2 += cblas_dnrm2(qso->N, qso->residual.get(), 1);
+
+        return residual_norm2;
+    }
+
+    void calculateNewDirection(double beta)  {
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            cblas_dscal(qso->N, beta, qso->search.get(), 1);
+            for (int i = 0; i < qso->N; ++i)
+                qso->search[i] += qso->residual[i];
+        }
+    }
+
+    void updateY(double residual_norm2);
+    void conjugateGradientDescent();
 };
 
 #endif

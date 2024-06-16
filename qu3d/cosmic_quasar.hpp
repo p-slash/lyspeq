@@ -14,7 +14,7 @@ public:
     std::unique_ptr<qio::QSOFile> qFile;
     int N;
     /* z1: 1 + z */
-    double *z1, *ivar, angles[3];
+    double *z1, *ivar, angles[3], *in, *out;
     std::unique_ptr<double[]> r, y, Cy, residual, search;
 
     CosmicQuasar(qio::PiccaFile *pf, int hdunum) {
