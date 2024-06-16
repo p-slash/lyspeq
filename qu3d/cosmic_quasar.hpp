@@ -66,10 +66,9 @@ public:
             y[i] = qFile->delta()[i];
         }
 
-        double xy = sin(qFile->dec);
-        angles[0] = xy * cos(qFile->ra);
-        angles[1] = xy * sin(qFile->ra);
-        angles[2] = cos(qFile->dec);
+        angles[0] = qFile->ra;
+        angles[1] = qFile->dec;
+        angles[2] = 1;
     }
 
     void setRadialComovingDistance(const fidcosmo::FlatLCDM *cosmo) {
@@ -77,6 +76,7 @@ public:
             r[i] = cosmo->getComovingDist(z1[i]);
     }
 
+    /* Equirectangular projection */
     void getCartesianCoords(int i, double coord[3]) {
         for (int axis = 0; axis < 3; ++axis)
             coord[axis] = r[i] * angles[axis];
