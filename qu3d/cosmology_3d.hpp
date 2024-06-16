@@ -8,6 +8,7 @@
 #include "core/global_numbers.hpp"
 #include "mathtools/discrete_interpolation.hpp"
 #include "io/config_file.hpp"
+#include "io/io_helper_functions.hpp"
 
 
 double trapz(double *y, double dx, int N) {
@@ -100,19 +101,108 @@ namespace fidcosmo {
     };
 
     class LinearPowerInterpolator {
-        int N;
-        double z_pivot;
-        std::unique_ptr<double[]> lnk, lnP;
+        std::unique_ptr<DiscreteInterpolation1D> interp_lnp;
+
+        void _readFile(const std::string &fname) {
+            std::ifstream toRead = ioh::open_fstream<std::ifstream>(fname);
+            std::vector<double> lnk, lnP;
+            double lnk1, lnP1;
+
+            while (toRead >> lnk1 >> lnP1) {
+                lnk.push_back(lnk1);
+                lnP.push_back(lnP1);
+            }
+
+            toRead.close();
+
+            double dlnk = lnk[1] - lnk[0];
+
+            for (int i = 1; i < lnk.size() - 1; ++i)
+                if (fabs(lnk[i + 1] - lnk[i] - dlnk) > 1e-8)
+                    throw std::runtime_error(
+                        "Input PlinearFilename does not have equal ln k spacing.");
+
+            interp_lnp = std::make_unique<DiscreteInterpolation1D>(
+                lnk[0], dlnk, lnk.size(), lnP.data());
+        }
     public:
+        double z_pivot;
+
         /* This function reads following keys from config file:
         PlinearFilename: str
+            Linear power spectrum file. First column is ln k, second column is
+            ln P. ln k must be equally spaced.
         PlinearPivotRedshift: double
         */
         LinearPowerInterpolator(ConfigFile &config) {
             std::string fname = config.get("PlinearFilename");
+            if (fname.empty())
+                throw std::invalid_argument("Must pass PlinearFilename.");
+
             z_pivot = config.getDouble("PlinearPivotRedshift");
+            _readFile(fname);
         }
-    }
+
+        double evaluate(double k) {
+            if (k == 0)
+                k = DOUBLE_EPSILON;
+
+            return exp(interp_lnp->evaluate(log(k)));
+        }
+    };
+
+    const config_map arinyo_default_parameters ({
+        {"b_F", "0.30966"}, {"beta_F", "1.67"}, {"k_p", "67.66"},
+        {"q_1", ""}, {"q_2", ""}, {"nu_0", ""}, {"nu_1", ""}, {"k_nu", ""}
+    });
+
+    class ArinyoP3DModel {
+        double b_F, beta_F, k_p, q_1, q_2, nu_0, nu_1, k_nu;
+        std::unique_ptr<LinearPowerInterpolator> interp_p;
+
+    public:
+        /* This function reads following keys from config file:
+        b_F: double
+        beta_F: double
+        k_p: double
+        q_1: double
+        q_2: double
+        nu_0: double
+        nu_1: double
+        k_nu: double
+        */
+        ArinyoP3DModel(ConfigFile &config) {
+            config.addDefaults(arinyo_default_parameters);
+            b_F = config.getDouble("b_F");
+            beta_F = config.getDouble("beta_F");
+            k_p = config.getDouble("k_p");
+            q_1 = config.getDouble("q_1");
+            q_2 = config.getDouble("q_2");
+            nu_0 = config.getDouble("nu_0");
+            nu_1 = config.getDouble("nu_1");
+            k_nu = config.getDouble("k_nu");
+
+            interp_p = std::make_unique<LinearPowerInterpolator>(config);
+        }
+
+        double evaluate(double k, double kz) {
+            double
+            plin = interp_p->evaluate(k),
+            delta2_L = plin * k * k * k / 2 / MY_PI * MY_PI,
+            k_kp = k / k_p,
+            mu = kz / k,
+            result, lnD;
+
+            result = b_F * (1 + beta_F * mu * mu);
+            result *= result;
+
+            lnD = (q_1 * delta2_L + q_2 * delta2_L * delta2_L);
+            lnD *= 1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0);
+            lnD -= k_kp * k_kp;
+
+            return result * plin * exp(lnD);
+        }
+    };
 }
 
 #endif

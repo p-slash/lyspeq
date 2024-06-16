@@ -5,6 +5,7 @@
 #include "io/logger.hpp"
 
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
+std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 
 
 void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
@@ -107,6 +108,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     mesh.z0 = config.getInteger("ZSTART");
 
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
+    p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
 
     _readQSOFiles(flist, findir);
     mesh.construct();
