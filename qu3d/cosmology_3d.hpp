@@ -59,7 +59,7 @@ namespace fidcosmo {
 
             for (int i = 0; i < nz; ++i) {
                 int N = (z1arr[i] - 1) / dz + 1.01;
-                cDist[i] = trapz(&invHz[0], dz, N);
+                cDist[i] = SPEED_OF_LIGHT * trapz(&invHz[0], dz, N);
             }
 
             interp_comov_dist = std::make_unique<DiscreteInterpolation1D>(
