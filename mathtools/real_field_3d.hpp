@@ -27,14 +27,14 @@ namespace myomp {
 
 /* In-place 3D FFT */
 class RealField3D {
-    size_t size_complex, size_real;
-    int padding, ngrid_xy;
+    int ngrid_z, ngrid_xy, ngrid_kz;
     double k_fund[3], gridvol, totalvol;
 
     fftw_plan p_x2k;
     fftw_plan p_k2x;
 
 public:
+    size_t size_complex, size_real;
     int ngrid[3];
     double length[3], dx[3], z0;
     std::vector<std::complex<double>> field_k;
@@ -61,7 +61,36 @@ public:
             if (n[axis] >= ngrid[axis])
                 n[axis] = 0;
 
-        return n[2] + (ngrid[2] + padding) * (n[1] + ngrid[1] * n[0]);
+        return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
+    }
+
+    void getKFromIndex(size_t i, double k[3]) {
+        int kn[3];
+
+        size_t temp = i / ngrid_kz;
+        kn[2] = i % ngrid_kz;
+        kn[0] = temp / ngrid[1];
+        kn[1] = temp % ngrid[1];
+
+        if (kn[0] > ngrid[0] / 2)
+            kn[0] -= ngrid[0];
+
+        if (kn[1] > ngrid[1] / 2)
+            kn[1] -= ngrid[1];
+
+        for (int axis = 0; axis < 3; ++axis)
+            k[axis] = k_fund[axis] * kn[axis];
+    }
+
+    void getKKzFromIndex(size_t i, double &k, double &kz) {
+        double ks[3];
+        getKFromIndex(i, ks);
+        kz = ks[2];
+
+        k = 0;
+        for (int axis = 0; axis < 3; ++axis)
+            k += ks[axis] * ks[axis];
+        k = sqrt(k);
     }
 
     double interpolate(double coord[3]);

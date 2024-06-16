@@ -103,3 +103,35 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
 
     mesh.construct();
 }
+
+
+void Qu3DEstimator::multMeshComp() {
+    // Reverse interp
+    double coord[3];
+    mesh.zero_field_k();
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i) {
+            qso->getCartesianCoords(i, coord);
+            mesh.reverseInterpolate(coord, qso->y[i]);   
+        }
+    }
+
+    // Convolve power
+    mesh.fftX2K();
+    #pragma omp parallel for
+    for (size_t i = 0; i < mesh.size_complex; ++i) {
+        double k, kz;
+        mesh.getKKzFromIndex(i, k, kz);
+        mesh.field_k[i] *= p3d_model->evaluate(k, kz);
+    }
+    mesh.fftK2X();
+
+    // Interpolate and Weight by Ivar
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i) {
+            qso->getCartesianCoords(i, coord);
+            qso->Cy[i] += qso->ivar[i] * mesh.interpolate(coord);   
+        }
+    }
+}

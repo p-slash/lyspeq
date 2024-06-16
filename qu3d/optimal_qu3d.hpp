@@ -29,6 +29,9 @@ class Qu3DEstimator
     // Reads the entire file
     void _readOneDeltaFile(const std::string &fname);
     void _readQSOFiles(const std::string &flist, const std::string &findir);
+
+    void multMeshComp();
+    void multParticleComp();
 public:
     /* This function reads following keys from config file:
     FileNameList: string
@@ -38,7 +41,18 @@ public:
     */
     Qu3DEstimator(ConfigFile &config);
 
-    void multiplyCov_x_Vector(double *y);
+    void multiplyCov_x_Vector() {
+        // init new results to Cy = I.y
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            std::copy_n(qso->y.get(), qso->N, qso->Cy.get());
+
+        // Add long wavelength mode to Cy
+        multMeshComp();
+        // multParticleComp();
+
+        // Check convergence
+    };
     void estimate();
 };
 
