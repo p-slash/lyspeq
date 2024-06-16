@@ -11,37 +11,22 @@ std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     qio::PiccaFile pFile(fname);
     int number_of_spectra = pFile.getNumberSpectra();
-    std::vector<std::unique_ptr<qio::QSOFile>> local_quasars;
+    std::vector<std::unique_ptr<CosmicQuasar>> local_quasars;
     local_quasars.reserve(number_of_spectra);
 
     for (int i = 0; i < number_of_spectra; ++i) {
-        std::ostringstream fpath;
-        fpath << fname << '[' << i + 1 << ']';
-
-        auto qFile = std::make_unique<qio::QSOFile>(&pFile, i + 1);
-        qFile->fname = fpath.str();
-        qFile->readParameters();
-
-        if (qFile->snr < specifics::MIN_SNR_CUT)
-            continue;
-
-        qFile->readData();
-
-        qFile->maskOutliers();
-        qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
-
-        std::for_each(
-            qFile->wave(), qFile->wave() + qFile->size(), [](double &ld) {
-                ld = ld / LYA_REST;
-            }
-        );
-        // Convert to distance
-        // Convert to ivar again
-
-        local_quasars.push_back(std::move(qFile));
+        try {
+            local_quasars.push_back(
+                std::make_unique<CosmicQuasar>(&pFile, i + 1));
+        } catch (std::exception& e) {
+            std::ostringstream fpath;
+            fpath << fname << '[' << i + 1 << ']';
+            LOG::LOGGER.ERR(
+                "%s. Filename %s.\n", e.what(), fpath.str().c_str());
+        }
     }
 
-    pFile.closeFile()
+    pFile.closeFile();
 
     if (local_quasars.empty())
         return;

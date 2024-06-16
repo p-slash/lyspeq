@@ -9,7 +9,7 @@
 #include "mathtools/real_field_3d.hpp"
 
 #include "io/config_file.hpp"
-#include "io/qso_file.hpp"
+#include "qu3d/cosmic_quasar.hpp"
 
 // typedef std::unordered_map<long, std::unique_ptr<qio::QSOFile>> targetid_quasar_map;
 
@@ -22,7 +22,7 @@ const config_map qu3d_default_parameters ({
 
 class Qu3DEstimator
 {
-    std::vector<std::unique_ptr<qio::QSOFile>> quasars;
+    std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     int num_iterations;
     RealField3D mesh;
     // targetid_quasar_map quasars;
