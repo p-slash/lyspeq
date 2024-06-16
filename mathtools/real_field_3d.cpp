@@ -70,3 +70,29 @@ void RealField3D::fftK2X() {
         for (int k = 0; k < ngrid[2]; ++k)
             field_x[k + (ngrid[2] + padding) * ij] /= totalvol;
 }
+
+
+double RealField3D::interpolate(double coord[3]) {
+    int n[3];
+    double d[3], r;
+
+    coord[2] -= z0;
+    for (int axis = 0; axis < 3; ++axis) {
+        n[axis] = coord[axis] / dx[axis];
+        d[axis] = coord[axis] / dx[axis] - n[axis];
+    }
+
+    r = field_x[getIndex(n[0], n[1], n[2])] * (1 - d[0]) * (1 - d[1]) * (1 - d[2]);
+
+    r += field_x[getIndex(n[0], n[1], n[2] + 1)] * (1 - d[0]) * (1 - d[1]) * d[2];
+    r += field_x[getIndex(n[0], n[1] + 1, n[2])] * (1 - d[0]) * d[1] * (1 - d[2]);
+    r += field_x[getIndex(n[0] + 1, n[1], n[2])] * d[0] * (1 - d[1]) * (1 - d[2]);
+
+    r += field_x[getIndex(n[0], n[1] + 1, n[2] + 1)] * (1 - d[0]) * d[1] * d[2];
+    r += field_x[getIndex(n[0] + 1, n[1], n[2] + 1)] * d[0] * (1 - d[1]) * d[2];
+    r += field_x[getIndex(n[0] + 1, n[1] + 1, n[2])] * d[0] * d[1] * (1 - d[2]);
+
+    r += field_x[getIndex(n[0] + 1, n[1] + 1, n[2] + 1)] * d[0] * d[1] * d[2];
+
+    return r;
+}
