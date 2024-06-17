@@ -402,6 +402,7 @@ void OneQsoExposures::xQmlEstimate() {
 }
 
 
+/* Current test mostly catches high-snr spectra */
 bool OneQsoExposures::isAnOutlier() {
     double *v = dbt_estimate_before_fisher_vector[1].get(),
            mean_dev = 0, median_dev = 0, s = 0;
@@ -425,7 +426,7 @@ bool OneQsoExposures::isAnOutlier() {
     median_dev = stats::medianOfUnsortedVector(v, j);
 
     std::fill_n(v, ndim, 0);
-    bool is_an_outlier = (median_dev > 3.5);
+    bool is_an_outlier = (median_dev > 25.);
 
     if (!is_an_outlier)
         return false;
@@ -478,8 +479,11 @@ int OneQsoExposures::oneQSOiteration(
     setAllocPowerSpMemory();
     xQmlEstimate();
 
+    #ifdef DEBUG
+    /* Current test mostly catches high-snr spectra */
     if (isAnOutlier())
         return 0;
+    #ifdef
 
     double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * istart;
 
