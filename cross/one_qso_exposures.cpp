@@ -8,6 +8,8 @@
 #include "cross/one_qso_exposures.hpp"
 #include "core/global_numbers.hpp"
 
+#include "mathtools/stats.hpp"
+
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
