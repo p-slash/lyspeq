@@ -8,6 +8,8 @@
 #include "cross/one_qso_exposures.hpp"
 #include "core/global_numbers.hpp"
 
+#include "mathtools/stats.hpp"
+
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
@@ -400,6 +402,44 @@ void OneQsoExposures::xQmlEstimate() {
 }
 
 
+/* Current test mostly catches high-snr spectra */
+bool OneQsoExposures::isAnOutlier() {
+    double *v = dbt_estimate_before_fisher_vector[1].get(),
+           mean_dev = 0, median_dev = 0, s = 0;
+    int j = 0;
+
+    for (int i = 0; i < ndim; ++i) {
+        // Covariance of theta is 4xFisher
+        s = fisher_matrix[i * (ndim + 1)];
+        if (s == 0)
+            continue;
+
+        s = 2 * sqrt(s);
+
+        v[j] = theta_vector[i] / s;
+        v[j] *= v[j];
+        mean_dev += v[j];
+        ++j;
+    }
+
+    mean_dev /= j;
+    median_dev = stats::medianOfUnsortedVector(v, j);
+
+    std::fill_n(v, ndim, 0);
+    bool is_an_outlier = (median_dev > 25.);
+
+    if (!is_an_outlier)
+        return false;
+
+    LOG::LOGGER.ERR(
+        "OneQsoExposures::isAnOutlier::Outlier P1D estimate in "
+        "TARGETID %ld: Mean dev: %.1f, Median dev: %.1f.\n",
+        targetid, mean_dev, median_dev);
+
+    return true;
+}
+
+
 int OneQsoExposures::oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dt_sum_vector,
         double *fisher_sum
@@ -438,6 +478,12 @@ int OneQsoExposures::oneQSOiteration(
 
     setAllocPowerSpMemory();
     xQmlEstimate();
+
+    #ifdef DEBUG
+    /* Current test mostly catches high-snr spectra */
+    if (isAnOutlier())
+        return 0;
+    #ifdef
 
     double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * istart;
 
