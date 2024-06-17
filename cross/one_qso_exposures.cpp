@@ -483,7 +483,7 @@ int OneQsoExposures::oneQSOiteration(
     /* Current test mostly catches high-snr spectra */
     if (isAnOutlier())
         return 0;
-    #ifdef
+    #endif
 
     double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * istart;
 
