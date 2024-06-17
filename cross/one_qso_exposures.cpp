@@ -405,7 +405,7 @@ void OneQsoExposures::xQmlEstimate() {
 bool OneQsoExposures::isAnOutlier() {
     double *v = dbt_estimate_before_fisher_vector[1].get(),
            mean_dev = 0, median_dev = 0, s = 0;
-    int non_zero_elems = 0;
+    int j = 0;
 
     for (int i = 0; i < ndim; ++i) {
         // Covariance of theta is 4xFisher
@@ -415,17 +415,17 @@ bool OneQsoExposures::isAnOutlier() {
 
         s = 2 * sqrt(s);
 
-        v[i] = theta_vector[i] / s;
-        v[i] *= v[i];
-        mean_dev += v[i];
-        ++non_zero_elems;
+        v[j] = theta_vector[i] / s;
+        v[j] *= v[j];
+        mean_dev += v[j];
+        ++j;
     }
 
-    mean_dev /= non_zero_elems;
-    median_dev = stats::medianOfUnsortedVector(v, ndim);
+    mean_dev /= j;
+    median_dev = stats::medianOfUnsortedVector(v, j);
 
     std::fill_n(v, ndim, 0);
-    bool is_an_outlier = (mean_dev > 2) || (median_dev > 2);
+    bool is_an_outlier = (median_dev > 3.5);
 
     if (!is_an_outlier)
         return false;
