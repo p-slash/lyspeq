@@ -54,7 +54,8 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         : PB(qmaster.PB), shift(0), num_masked_pixels(0), fname(qmaster.fname), 
           z_qso(qmaster.z_qso), snr(qmaster.snr),
           ra(qmaster.ra), dec(qmaster.dec), id(qmaster.id),
-          R_fwhm(qmaster.R_fwhm)
+          R_fwhm(qmaster.R_fwhm), expid(qmaster.expid), night(qmaster.night),
+          fiber(qmaster.fiber), petal(qmaster.petal)
 {
     arr_size = i2 - i1;
     _fullsize = arr_size;
