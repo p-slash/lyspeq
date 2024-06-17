@@ -50,6 +50,7 @@ public:
     int countExposureCombos();
     void setAllocPowerSpMemory();
     void xQmlEstimate();
+    bool isAnOutlier();
     // Pass fit values for the power spectrum for numerical stability
     int oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dt_sum_vector, 

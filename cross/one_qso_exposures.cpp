@@ -400,6 +400,43 @@ void OneQsoExposures::xQmlEstimate() {
 }
 
 
+bool OneQsoExposures::isAnOutlier() {
+    double *v = dbt_estimate_before_fisher_vector[1].get(),
+           mean_dev = 0, median_dev = 0, s = 0;
+    int non_zero_elems = 0;
+
+    for (int i = 0; i < ndim; ++i) {
+        // Covariance of theta is 4xFisher
+        s = fisher_matrix[i * (ndim + 1)];
+        if (s == 0)
+            continue;
+
+        s = 2 * sqrt(s);
+
+        v[i] = theta_vector[i] / s;
+        v[i] *= v[i];
+        mean_dev += v[i];
+        ++non_zero_elems;
+    }
+
+    mean_dev /= non_zero_elems;
+    median_dev = stats::medianOfUnsortedVector(v, ndim);
+
+    std::fill_n(v, ndim, 0);
+    bool is_an_outlier = (mean_dev > 2) || (median_dev > 2);
+
+    if (!is_an_outlier)
+        return false;
+
+    LOG::LOGGER.ERR(
+        "OneQsoExposures::isAnOutlier::Outlier P1D estimate in "
+        "TARGETID %ld: Mean dev: %.1f, Median dev: %.1f.\n",
+        targetid, mean_dev, median_dev);
+
+    return true;
+}
+
+
 int OneQsoExposures::oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dt_sum_vector,
         double *fisher_sum
@@ -438,6 +475,9 @@ int OneQsoExposures::oneQSOiteration(
 
     setAllocPowerSpMemory();
     xQmlEstimate();
+
+    if (isAnOutlier())
+        return 0;
 
     double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * istart;
 
