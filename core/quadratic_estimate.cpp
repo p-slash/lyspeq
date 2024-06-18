@@ -386,7 +386,7 @@ void OneDQuadraticPowerEstimate::iterate()
     local_queue.reserve(local_fpaths.size());
     for (const auto &fpath : local_fpaths) {
         auto one_qso = std::make_unique<OneQSOEstimate>(fpath);
-        if (one_qso->chunks.size() != 0)
+        if (!one_qso->chunks.empty())
             local_queue.push_back(std::move(one_qso));
     }
 

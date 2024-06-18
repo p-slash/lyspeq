@@ -8,6 +8,8 @@
 #include "cross/one_qso_exposures.hpp"
 #include "core/global_numbers.hpp"
 
+#include "mathtools/stats.hpp"
+
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 
@@ -79,17 +81,18 @@ double _calculateOverlapRatio(const qio::QSOFile *qa, const qio::QSOFile *qb) {
 }
 
 
-void _setVZMatrix(double *vm, double *zm) {
+void _setVZMatrix() {
     DEBUG_LOG("OneQsoExposures::_setVZMatrix\n");
 
     double *l1 = q1->wave(), *l2 = q2->wave();
 
     #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < N1; ++i)
+    for (int i = 0; i < N1; ++i) {
         for (int j = 0; j < N2; ++j) {
-            vm[j + i * N2] = SPEED_OF_LIGHT * fabs(log(l2[j] / l1[i]));
-            zm[j + i * N2] = sqrt(l2[j] * l1[i]) - 1.;
+            _vmatrix[j + i * N2] = SPEED_OF_LIGHT * fabs(log(l2[j] / l1[i]));
+            _zmatrix[j + i * N2] = sqrt(l2[j] * l1[i]) - 1.;
         }
+    }
 }
 
 
@@ -313,12 +316,21 @@ void OneQsoExposures::xQmlEstimate() {
     // For each combo calculate derivatives
     for (const auto &[expo1, expo2] : exposure_combos) {
         _setInternalVariablesForTwoExposures(expo1, expo2);
+
+        LOG::LOGGER.DEB(
+            "ExpId %d vs %d\nNight %d vs %d\n"
+            "Fiber %d vs %d\nPetal %d vs %d\n",
+            expo1->getExpId(), expo2->getExpId(),
+            expo1->getNight(), expo2->getNight(),
+            expo1->getFiber(), expo2->getFiber(),
+            expo1->getPetal(), expo2->getPetal());
+
         #ifdef DEBUG
         assert(!skipCombo(expo1, expo2));
         #endif
 
         // Contruct VZ matrices
-        _setVZMatrix(_vmatrix, _zmatrix);
+        _setVZMatrix();
         _setStoredIkzQiVector();
 
         // Construct derivative
@@ -400,6 +412,44 @@ void OneQsoExposures::xQmlEstimate() {
 }
 
 
+/* Current test mostly catches high-snr spectra */
+bool OneQsoExposures::isAnOutlier() {
+    double *v = dbt_estimate_before_fisher_vector[1].get(),
+           mean_dev = 0, median_dev = 0, s = 0;
+    int j = 0;
+
+    for (int i = 0; i < ndim; ++i) {
+        // Covariance of theta is 4xFisher
+        s = fisher_matrix[i * (ndim + 1)];
+        if (s == 0)
+            continue;
+
+        s = 2 * sqrt(s);
+
+        v[j] = theta_vector[i] / s;
+        v[j] *= v[j];
+        mean_dev += v[j];
+        ++j;
+    }
+
+    mean_dev /= j;
+    median_dev = stats::medianOfUnsortedVector(v, j);
+
+    std::fill_n(v, ndim, 0);
+    bool is_an_outlier = (median_dev > 25.);
+
+    if (!is_an_outlier)
+        return false;
+
+    LOG::LOGGER.ERR(
+        "OneQsoExposures::isAnOutlier::Outlier P1D estimate in "
+        "TARGETID %ld: Mean dev: %.1f, Median dev: %.1f.\n",
+        targetid, mean_dev, median_dev);
+
+    return true;
+}
+
+
 int OneQsoExposures::oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dt_sum_vector,
         double *fisher_sum
@@ -438,6 +488,12 @@ int OneQsoExposures::oneQSOiteration(
 
     setAllocPowerSpMemory();
     xQmlEstimate();
+
+    #ifdef DEBUG
+    /* Current test mostly catches high-snr spectra */
+    if (isAnOutlier())
+        return 0;
+    #endif
 
     double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * istart;
 

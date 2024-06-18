@@ -94,7 +94,7 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
             } catch (std::exception& e) {
                 LOG::LOGGER.ERR(
                     "OneQSOEstimate::OneQSOEstimate::%s Skipping chunk %d/%d of %s.\n",
-                    e.what(), nc, nchunks, f_qso.c_str());
+                    e.what(), nc + 1, nchunks, f_qso.c_str());
             }
         }
     } catch (std::exception &e) {
