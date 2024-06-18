@@ -63,7 +63,7 @@ LyaPowerEstimate: LyaPowerEstimate.o $(NONX_OBJECTS)
 LyaPowerxQmlExposure: LyaPowerxQmlExposure.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-LyaPower3DEstimate: LyaPower3DEstimate.o $(qu3d_objs) $(global_objs)
+LyaPower3DEstimate: LyaPower3DEstimate.o $(qu3d_objs) $(global_objs) cosmic_quasar.hpp cosmology_3d.hpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
