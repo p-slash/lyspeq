@@ -34,6 +34,7 @@ public:
 // Assumes evenly spaced x.
 // cubic interpolation
 // Out of bound values are extrapolated linearly
+// Natural boundary conditions (second derivatives are zero)
 class DiscreteCubicInterpolation1D
 {
     bool _alloc;
