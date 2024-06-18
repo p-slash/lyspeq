@@ -110,6 +110,7 @@ DiscreteCubicInterpolation1D::DiscreteCubicInterpolation1D(
 void DiscreteCubicInterpolation1D::construct() {
     const double sig = 0.5;
     auto u = std::make_unique<double[]>(N - 1);
+    u[0] = 0;
     _y2p[0] = 0;
     _y2p[N - 1] = 0;
 
