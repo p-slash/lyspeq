@@ -1,6 +1,8 @@
 #include "mathtools/matrix_helper.hpp"
 #include "tests/test_utils.hpp"
 
+#include "mathtools/discrete_interpolation.hpp"
+
 #include <unordered_map>
 #include <string>
 #include <cmath>
@@ -151,7 +153,7 @@ int test_getDiagonal()
         mxhelp::getDiagonal(sym_matrix_A, NA, d, v);
         const double *truth_diag = &diagonal_of_A[d*NA];
         
-        if (not allClose(truth_diag, v, NA-d))
+        if (!allClose(truth_diag, v, NA-d))
         {
             fprintf(stderr, "ERROR getDiagonal(%d).\n", d);
             printMatrices(truth_diag, v, NA-d, 1);
@@ -370,7 +372,7 @@ int test_OversampledMatrix_multiplications()
     mtrxB2(NrowsOversamp*NrowsOversamp, 0);
 
     ovrmat.multiplyLeft(oversample_multiplier_A, mtrxB1.data());
-    if (not allClose(truth_oversample_left_multiplication, mtrxB1.data(), mtrxB1.size()))
+    if (!allClose(truth_oversample_left_multiplication, mtrxB1.data(), mtrxB1.size()))
     {
         fprintf(stderr, "ERROR OversampledMatrix::multiplyLeft.\n");
         printMatrices(truth_oversample_left_multiplication,
@@ -379,7 +381,7 @@ int test_OversampledMatrix_multiplications()
     }
 
     ovrmat.multiplyRight(mtrxB1.data(), mtrxB2.data());
-    if (not allClose(truth_oversample_right_multiplication, mtrxB2.data(), mtrxB2.size()))
+    if (!allClose(truth_oversample_right_multiplication, mtrxB2.data(), mtrxB2.size()))
     {
         fprintf(stderr, "ERROR OversampledMatrix::multiplyRight.\n");
         printMatrices(truth_oversample_right_multiplication,
@@ -388,7 +390,7 @@ int test_OversampledMatrix_multiplications()
     }
 
     ovrmat.sandwich(oversample_multiplier_A, mtrxB2.data());
-    if (not allClose(truth_oversample_right_multiplication, mtrxB2.data(), mtrxB2.size()))
+    if (!allClose(truth_oversample_right_multiplication, mtrxB2.data(), mtrxB2.size()))
     {
         fprintf(stderr, "ERROR OversampledMatrix::sandwich.\n");
         printMatrices(truth_oversample_right_multiplication,
@@ -526,7 +528,7 @@ int _compare_one_DiaMatrix_multiplications(
 ) {
     int r = 0;
     const double *truth = diamatrix_truth_map.at(combo);
-    if (not allClose(truth, result, nrows * ncols))
+    if (!allClose(truth, result, nrows * ncols))
     {
         fprintf(stderr, "ERROR DiaMatrix::multiply('%c', '%c').\n", combo[0], combo[1]);
         printMatrices(truth, result, nrows, ncols);
@@ -646,7 +648,7 @@ int test_DiaMatrix_getRow()
         diarmat.getRow(row, testrow);
         const double *truth_row = &diamatrix_rows[row*NdiagDiag];
         
-        if (not allClose(truth_row, testrow.data(), testrow.size()))
+        if (!allClose(truth_row, testrow.data(), testrow.size()))
         {
             fprintf(stderr, "ERROR DiaMatrix::getRow(%d).\n", row);
             printMatrices(truth_row, testrow.data(), testrow.size(), 1);
@@ -678,7 +680,7 @@ int test_DiaMatrix_orderTranspose() {
     );
 
     diarmat.orderTranspose();
-    if (not allClose(diamatrix_diagonals, diarmat.matrix(), diarmat.getSize()))
+    if (!allClose(diamatrix_diagonals, diarmat.matrix(), diarmat.getSize()))
     {
         fprintf(stderr, "ERROR DiaMatrix::orderTranspose().\n");
         printMatrices(diamatrix_diagonals, diarmat.matrix(), NdiagDiag, NrowsDiag);
@@ -720,7 +722,7 @@ int test_Resolution_osamp()
     for (int row = 0; row < ndim; ++row)
     {
         double *this_row = rmat.matrix() + row*nelemperrow;
-        if (not allClose(truth_row, this_row, nelemperrow))
+        if (!allClose(truth_row, this_row, nelemperrow))
         {
             fprintf(stderr, "ERROR Resolution::oversample.\n");
             printMatrices(truth_row, this_row, 1, nelemperrow);
@@ -729,6 +731,39 @@ int test_Resolution_osamp()
     }
 
     return r;
+}
+
+
+int test_cubic_interpolate() {
+    double dv = 2.0;
+    int narr = 25;
+    auto yarr = std::make_unique<double[]>(narr);
+    double a = -0.5 / (narr - 1) / dv;  // zero second deriv at the end.
+    for (int i = 0; i < narr; ++i) {
+        double x = dv * i, x3 = x * x * x;
+        yarr[i] = a * x3 * x + x3 + 2 * x + 10;
+    }
+
+    auto interp1d_cubic = std::make_unique<DiscreteCubicInterpolation1D>(
+            0, dv, narr, yarr.get());
+
+    dv = 1.0;
+    narr = 45;
+    yarr = std::make_unique<double[]>(narr);
+    auto truth = std::make_unique<double[]>(narr);
+    for (int i = 0; i < narr; ++i) {
+        double x = dv * i, x3 = x * x * x;
+        truth[i] = a * x3 * x + x3 + 2 * x + 10;
+        yarr[i] = interp1d_cubic->evaluate(x);
+    }
+
+    if (!allClose(truth.get(), yarr.get(), narr, 1e-2)) {
+        fprintf(stderr, "ERROR test_cubic_interpolate.\n");
+        printMatrices(truth.get(), yarr.get(), 1, narr);
+        return 1;
+    }
+
+    return 0;
 }
 
 int main()
@@ -754,6 +789,7 @@ int main()
     r += test_DiaMatrix_orderTranspose();
     r += test_LAPACKE_SVD();
     r += test_Resolution_osamp();
+    r += test_cubic_interpolate();
 
     if (r == 0)
         printf("Matrix operations work!\n");
