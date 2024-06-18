@@ -140,7 +140,6 @@ namespace glmemory {
 Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
         : DATA_SIZE_2(0), _matrix_n(0), N_Q_MATRICES(0)
 {
-    isCovInverted = false;
     _copyQSOFile(qmaster, i1, i2);
 
     // Set up number of matrices, index for Fisher matrix
@@ -507,7 +506,6 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     cblas_daxpy(size(), 1., nvec, 1, covariance_matrix, size() + 1);
 
-    isCovInverted = false;
     CHECK_ISNAN(covariance_matrix, DATA_SIZE_2, "CovMat");
 
     // When compiled with debugging feature
@@ -620,8 +618,6 @@ void Chunk::invertCovarianceMatrix()
     mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, size());
 
     inverse_covariance_matrix = covariance_matrix;
-
-    isCovInverted = true;
 
     if (specifics::CONT_NVECS > 0)
         _addMarginalizations();
