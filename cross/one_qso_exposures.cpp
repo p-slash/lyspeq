@@ -81,17 +81,18 @@ double _calculateOverlapRatio(const qio::QSOFile *qa, const qio::QSOFile *qb) {
 }
 
 
-void _setVZMatrix(double *vm, double *zm) {
+void _setVZMatrix() {
     DEBUG_LOG("OneQsoExposures::_setVZMatrix\n");
 
     double *l1 = q1->wave(), *l2 = q2->wave();
 
     #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < N1; ++i)
+    for (int i = 0; i < N1; ++i) {
         for (int j = 0; j < N2; ++j) {
-            vm[j + i * N2] = SPEED_OF_LIGHT * fabs(log(l2[j] / l1[i]));
-            zm[j + i * N2] = sqrt(l2[j] * l1[i]) - 1.;
+            _vmatrix[j + i * N2] = SPEED_OF_LIGHT * fabs(log(l2[j] / l1[i]));
+            _zmatrix[j + i * N2] = sqrt(l2[j] * l1[i]) - 1.;
         }
+    }
 }
 
 
@@ -315,12 +316,21 @@ void OneQsoExposures::xQmlEstimate() {
     // For each combo calculate derivatives
     for (const auto &[expo1, expo2] : exposure_combos) {
         _setInternalVariablesForTwoExposures(expo1, expo2);
+
+        LOG::LOGGER.DEB(
+            "ExpId %d vs %d\nNight %d vs %d\n"
+            "Fiber %d vs %d\nPetal %d vs %d\n",
+            expo1->getExpId(), expo2->getExpId(),
+            expo1->getNight(), expo2->getNight(),
+            expo1->getFiber(), expo2->getFiber(),
+            expo1->getPetal(), expo2->getPetal());
+
         #ifdef DEBUG
         assert(!skipCombo(expo1, expo2));
         #endif
 
         // Contruct VZ matrices
-        _setVZMatrix(_vmatrix, _zmatrix);
+        _setVZMatrix();
         _setStoredIkzQiVector();
 
         // Construct derivative
