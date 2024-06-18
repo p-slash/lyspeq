@@ -1,6 +1,7 @@
 #ifndef COSMIC_QUASAR_H
 #define COSMIC_QUASAR_H
 
+#include <algorithm>
 #include <random>
 #include <sstream>
 #include <stdexcept>
