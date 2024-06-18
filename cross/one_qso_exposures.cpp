@@ -302,7 +302,7 @@ int OneQsoExposures::countExposureCombos() {
     exposure_combos.clear();
     for (auto expo1 = exposures.cbegin(); expo1 != exposures.cend() - 1; ++expo1) {
         for (auto expo2 = expo1 + 1; expo2 != exposures.cend(); ++expo2) {
-            const Exposure *e1 = (*expo1).get(), *e2 = (*expo2).get();
+            const Exposure *e1 = expo1->get(), *e2 = expo2->get();
             if (xeutils::skipCombo(e1, e2))
                 continue;
 
@@ -412,9 +412,6 @@ void OneQsoExposures::xQmlEstimate() {
         mytime::time_spent_set_fisher += mytime::timer.getTime() - t;;
     }
 
-    for (auto &expo : exposures)
-        expo->deallocMatrices();
-
     cblas_dscal(ndim, 2.0, dk0, 1);
     cblas_dscal(ndim, 2.0, tk0, 1);
     for (int i = 0; i < ndim; ++i)
@@ -498,6 +495,9 @@ int OneQsoExposures::oneQSOiteration(
 
     setAllocPowerSpMemory();
     xQmlEstimate();
+
+    for (auto &expo : exposures)
+        expo->deallocMatrices();
 
     #ifdef DEBUG
     /* Current test mostly catches high-snr spectra */
