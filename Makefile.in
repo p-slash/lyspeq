@@ -75,7 +75,7 @@ lyspeqBootStats: lyspeqBootStats.o $(filter-out quadratic_estimate.o, $(NONX_OBJ
 test_utils.o: test_utils.cpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" -c $^ -o $@
 
-cblas_tests: cblas_tests.o matrix_helper.o real_field.o test_utils.o
+cblas_tests: cblas_tests.o matrix_helper.o real_field.o test_utils.o discrete_interpolation.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testSQCMatrices: testSQCMatrices.o test_utils.o $(NONX_OBJECTS)
