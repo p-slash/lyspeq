@@ -101,6 +101,7 @@ namespace fidcosmo {
     };
 
     class LinearPowerInterpolator {
+        /* Power spectrum interpolator in Mpc units */
         std::unique_ptr<DiscreteInterpolation1D> interp_lnp;
 
         void _readFile(const std::string &fname) {
@@ -152,12 +153,15 @@ namespace fidcosmo {
     };
 
     const config_map arinyo_default_parameters ({
-        {"b_F", "0.30966"}, {"beta_F", "1.67"}, {"k_p", "67.66"},
-        {"q_1", ""}, {"q_2", ""}, {"nu_0", ""}, {"nu_1", ""}, {"k_nu", ""}
+        // Some parameters from vega and DESI Y1 fits.
+        // Need to confirm if k_p and k_nu are in Mpc units or in Mpc/h units.
+        {"b_F", "0.11"}, {"beta_F", "1.74"}, {"k_p", "19.47"},
+        {"q_1", "0.8558"}, {"nu_0", "1.07"}, {"nu_1", "1.61"},
+        {"k_nu", "1.11"}
     });
 
     class ArinyoP3DModel {
-        double b_F, beta_F, k_p, q_1, q_2, nu_0, nu_1, k_nu;
+        double b_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu;
         std::unique_ptr<LinearPowerInterpolator> interp_p;
 
     public:
@@ -166,9 +170,8 @@ namespace fidcosmo {
         beta_F: double
         k_p: double
         q_1: double
-        q_2: double
-        nu_0: double
-        nu_1: double
+        nu_0: double  == b_nu - a_nu of arinyo
+        nu_1: double  == b_nu of arinyo
         k_nu: double
         */
         ArinyoP3DModel(ConfigFile &config) {
@@ -177,7 +180,6 @@ namespace fidcosmo {
             beta_F = config.getDouble("beta_F");
             k_p = config.getDouble("k_p");
             q_1 = config.getDouble("q_1");
-            q_2 = config.getDouble("q_2");
             nu_0 = config.getDouble("nu_0");
             nu_1 = config.getDouble("nu_1");
             k_nu = config.getDouble("k_nu");
@@ -196,9 +198,9 @@ namespace fidcosmo {
             result = b_F * (1 + beta_F * mu * mu);
             result *= result;
 
-            lnD = (q_1 * delta2_L + q_2 * delta2_L * delta2_L);
-            lnD *= 1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0);
-            lnD -= k_kp * k_kp;
+            lnD = (q_1 * delta2_L) * (
+                    1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0)
+            ) - k_kp * k_kp;
 
             return result * plin * exp(lnD);
         }
