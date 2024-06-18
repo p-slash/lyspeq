@@ -22,7 +22,7 @@ bool allClose(const double *a, const double *b, int size)
 
 DiscreteInterpolation1D::DiscreteInterpolation1D(
         double x_start, double delta_x, int Nsize, double *y_arr, bool alloc
-) : x1(x_start), dx(delta_x), N(Nsize), _alloc(alloc)
+) : _alloc(alloc), x1(x_start), dx(delta_x), N(Nsize)
 {
     x2 = x1 + dx * (N - 1);
     if (_alloc) {
@@ -86,6 +86,84 @@ bool DiscreteInterpolation1D::operator==(const DiscreteInterpolation1D &rhs) con
     result &= allClose(y, rhs.y, N);
     return result;
 }
+
+
+
+DiscreteCubicInterpolation1D::DiscreteCubicInterpolation1D(
+        double x_start, double delta_x, int Nsize, double *y_arr, bool alloc
+) : _alloc(alloc), x1(x_start), dx(delta_x), N(Nsize)
+{
+    x2 = x1 + dx * (N - 1);
+    if (_alloc) {
+        y = new double[N];
+        if (y_arr != nullptr)
+            std::copy(y_arr, y_arr + N, y);
+    }
+    else
+        y = y_arr;
+
+    _y2p = std::make_unique<double[]>(N);
+    construct();
+}
+
+
+void DiscreteCubicInterpolation1D::construct() {
+    const double sig = 0.5;
+    auto u = std::make_unique<double[]>(N - 1);
+    _y2p[0] = 0;
+    _y2p[N - 1] = 0;
+
+    for (int i = 1; i < N - 1; ++i) {
+        double p = sig * _y2p[i - 1] + 2.0;
+        _y2p[i] = -sig / p;
+        u[i] = (y[i - 1] - 2 * y[i] + y[i + 1]) / dx;
+        u[i] = (- sig * u[i - 1] + 3 * u[i] / dx) / p;
+    }
+
+    for (int i = N - 2; i > 0; --i)
+        _y2p[i] = _y2p[i] * _y2p[i + 1] + u[i];
+}
+
+
+void DiscreteCubicInterpolation1D::resetPointer(
+        double x_start, double delta_x, int Nsize, double *y_arr
+) {
+    assert(!_alloc);
+    x1 = x_start;
+    dx = delta_x;
+    N = Nsize;
+    y = y_arr;
+    construct();
+}
+
+double DiscreteCubicInterpolation1D::evaluate(double x)
+{
+    double xx = (x - x1) / dx;
+    int n = (int) xx;
+
+    if (n < 0) n = 0;
+    else if (n >= N - 1) n = N - 2;
+
+    double dn = xx - n, y1 = y[n], y2 = y[n + 1],
+           ypp1 = _y2p[n], ypp2 = _y2p[n + 1];
+
+    xx = (1 - dn) * y1 + dn * y2
+         - ((2 - dn) * ypp1 + (dn + 1) * ypp2
+            ) * (1 - dn) * dn * dx * dx / 6.;
+    return xx;
+}
+
+
+bool DiscreteCubicInterpolation1D::operator==(const DiscreteCubicInterpolation1D &rhs) const
+{
+    bool result = true;
+    result &= isClose(x1, rhs.x1) && isClose(x2, rhs.x2) && isClose(dx, rhs.dx);
+    result &= N == rhs.N;
+    result &= allClose(y, rhs.y, N);
+    return result;
+}
+
+
 
 DiscreteInterpolation2D::DiscreteInterpolation2D(
         double x_start, double delta_x, double y_start, double delta_y,
