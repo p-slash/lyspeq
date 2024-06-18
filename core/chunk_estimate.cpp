@@ -436,8 +436,8 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
                dk = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn];
 
         eval_deriv_kn = [kc, dk](double v) {
-            double x = dk * v / 2;
-            return (dk / MY_PI) * cos(kc * v) * sin(x) / (x + DOUBLE_EPSILON);
+            double x = dk * v / 2 + DOUBLE_EPSILON;
+            return (dk / MY_PI) * cos(kc * v) * (sin(x) / x);
         };
     } else {
         eval_deriv_kn = [idkn = glmemory::interp_derivative_matrix[kn]](double v) {
