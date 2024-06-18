@@ -122,7 +122,7 @@ public:
     std::unique_ptr<mxhelp::Resolution> Rmat;
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);
-    QSOFile(PiccaFile* pf, int hdunum);
+    QSOFile(const PiccaFile* pf, int hdunum);
     // The "copy" constructor below also cuts masked boundaries.
     QSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     QSOFile(QSOFile &&rhs) = delete;

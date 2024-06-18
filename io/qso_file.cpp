@@ -50,7 +50,7 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
     id = 0;
 }
 
-QSOFile::QSOFile(PiccaFile* pf, int hdunum)
+QSOFile::QSOFile(const PiccaFile* pf, int hdunum)
         : PB(Picca), wave_head(nullptr), delta_head(nullptr), noise_head(nullptr),
           arr_size(0), _fullsize(0), shift(0), num_masked_pixels(0), fname(""),
           expid(-1), night(-1), fiber(-1), petal(-1)
