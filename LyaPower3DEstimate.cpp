@@ -60,6 +60,7 @@ int main(int argc, char *argv[]) {
     qps = std::make_unique<Qu3DEstimator>(config);
     config.checkUnusedKeys();
 
+    qps->estimatePowerBias();
     myomp::clean_fftw();
     return 0;
 }

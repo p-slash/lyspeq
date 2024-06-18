@@ -40,7 +40,7 @@ public:
     std::unique_ptr<double[]> r, y, Cy, residual, search;
     NormalRNG rng;
 
-    CosmicQuasar(qio::PiccaFile *pf, int hdunum) {
+    CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
         qFile = std::make_unique<qio::QSOFile>(pf, hdunum);
         // qFile->fname = fpath.str();
         qFile->readParameters();
