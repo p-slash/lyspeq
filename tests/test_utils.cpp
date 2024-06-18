@@ -10,11 +10,13 @@ bool isClose(double a, double b, double relerr, double abserr)
     return fabs(a-b) < (abserr + relerr * mag);
 }
 
-bool allClose(const double *a, const double *b, int size)
-{
+bool allClose(
+        const double *a, const double *b, int size,
+        double relerr, double abserr
+) {
     bool result = true;
     for (int i = 0; i < size; ++i)
-        result &= isClose(a[i], b[i]);
+        result &= isClose(a[i], b[i], relerr, abserr);
     return result;
 }
 
