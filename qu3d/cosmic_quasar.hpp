@@ -93,6 +93,8 @@ public:
         angles[2] = 1;
 
         rng.seed(qFile->id);
+        in = y.get();
+        out = Cy.get();
     }
 
     void setRadialComovingDistance(const fidcosmo::FlatLCDM *cosmo) {

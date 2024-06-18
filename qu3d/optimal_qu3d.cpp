@@ -147,10 +147,10 @@ void Qu3DEstimator::multMeshComp() {
     }
     mesh.fftK2X();
 
-    double coord[3];
     // Interpolate and Weight by Ivar
     #pragma omp parallel for
     for (auto &qso : quasars) {
+        double coord[3];
         for (int i = 0; i < qso->N; ++i) {
             qso->getCartesianCoords(i, coord);
             qso->out[i] += qso->ivar[i] * mesh.interpolate(coord);
@@ -188,7 +188,7 @@ void Qu3DEstimator::updateY(double residual_norm2) {
     // get a_down
     #pragma omp parallel for reduction(+:a_down)
     for (auto &qso : quasars)
-        a_down += cblas_ddot(qso->N, qso->search.get(), 1, qso->Cy.get(), 1);
+        a_down += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
     alpha = residual_norm2 / a_down;
 
@@ -196,8 +196,9 @@ void Qu3DEstimator::updateY(double residual_norm2) {
        Update residual*/
     #pragma omp parallel for
     for (auto &qso : quasars) {
-        cblas_daxpy(qso->N, alpha, qso->search.get(), 1, qso->y.get(), 1);
-        cblas_daxpy(qso->N, -alpha, qso->residual.get(), 1, qso->Cy.get(), 1);
+        /* in is search.get() */
+        cblas_daxpy(qso->N, alpha, qso->in, 1, qso->y.get(), 1);
+        cblas_daxpy(qso->N, -alpha, qso->residual.get(), 1, qso->out, 1);
         qso->in = qso->y.get();
     }
 
@@ -209,9 +210,10 @@ void Qu3DEstimator::updateY(double residual_norm2) {
 void Qu3DEstimator::calculateNewDirection(double beta)  {
     #pragma omp parallel for
     for (auto &qso : quasars) {
-        cblas_dscal(qso->N, beta, qso->search.get(), 1);
+        // cblas_dscal(qso->N, beta, qso->search.get(), 1);
+        // cblas_daxpy(qso->N, 1, qso->residual.get(), 1, qso->search.get(), 1);
         for (int i = 0; i < qso->N; ++i)
-            qso->search[i] += qso->residual[i];
+            qso->search[i] = beta * qso->search[i] + qso->residual[i];
     }
 }
 
@@ -265,9 +267,9 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
     }
     mesh.fftK2X();
 
-    double coord[3];
     #pragma omp parallel for
     for (auto &qso : quasars) {
+        double coord[3];
         for (int i = 0; i < qso->N; ++i) {
             qso->getCartesianCoords(i, coord);
             qso->out[i] = mesh.interpolate(coord);
@@ -277,17 +279,19 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
 
 
 void Qu3DEstimator::estimatePowerBias() {
+    /* calculate Cinv . delta into y */
     conjugateGradientDescent();
 
     for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
         for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
+            /* calculate C,k . y into Cy */
             multiplyDerivVector(iperp, iz);
 
             double p = 0;
 
             #pragma omp parallel for reduction(+:p)
             for (auto &qso : quasars)
-                p += cblas_ddot(qso->N, qso->y.get(), 1, qso->Cy.get(), 1);
+                p += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
             power_est[iz + bins::NUMBER_OF_K_BANDS * iperp] = p;
         }
@@ -297,21 +301,24 @@ void Qu3DEstimator::estimatePowerBias() {
     auto old_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
     for (int nmc = 0; nmc < max_monte_carlos; ++nmc) {
+        /* generate random Gaussian vector into y */
         #pragma omp parallel for
         for (auto &qso : quasars)
             qso->fillRngNoise();
 
+        /* calculate Cinv . n into y */
         conjugateGradientDescent();
 
         for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
             for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
+                /* calculate C,k . y into Cy */
                 multiplyDerivVector(iperp, iz);
 
                 double p = 0;
 
                 #pragma omp parallel for reduction(+:p)
                 for (auto &qso : quasars)
-                    p += cblas_ddot(qso->N, qso->y.get(), 1, qso->Cy.get(), 1);
+                    p += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
                 old_bias_est[iz + bins::NUMBER_OF_K_BANDS * iperp] = p;
             }
