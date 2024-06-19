@@ -28,6 +28,16 @@ void logCosmoDist() {
 }
 
 
+void logCosmoHubble() {
+    DEBUG_LOG("getHubble:");
+    for (int i = 0; i < 10; ++i) {
+        double z1 = 2.95 + i * 0.2;
+        DEBUG_LOG(" H(%.1f) = %.2f", z1 - 1, cosmo->getHubble(z1));
+    }
+    DEBUG_LOG("\n");
+}
+
+
 void logPmodel() {
     DEBUG_LOG("P3dModel:");
     const double kz = 0.01;
