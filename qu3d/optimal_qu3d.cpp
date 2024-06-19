@@ -9,6 +9,19 @@ std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 int NUMBER_OF_K_BANDS_2 = 0;
 
 
+#ifdef DEBUG
+void CHECK_ISNAN(double *mat, int size, std::string msg)
+{
+    if (std::any_of(mat, mat + size, [](double x) { return std::isnan(x); }))
+        throw std::runtime_error(std::string("NAN in ") + msg);
+    std::string line = std::string("No nans in ") + msg + '\n';
+    DEBUG_LOG(line.c_str());
+}
+#else
+#define CHECK_ISNAN(X, Y, Z)
+#endif
+
+
 inline bool hasConverged(double norm, double tolerance) {
     if (norm < tolerance)
         return true;
@@ -45,8 +58,10 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     if (local_quasars.empty())
         return;
 
-    for (auto &qso : local_quasars)
+    for (auto &qso : local_quasars) {
         qso->setRadialComovingDistance(cosmo.get());
+        CHECK_ISNAN(qso->r.get(), qso->N, "comovingdist");
+    }
 
     #pragma omp critical
     {
@@ -142,10 +157,11 @@ void Qu3DEstimator::multMeshComp() {
     mesh.fftX2K();
     #pragma omp parallel for
     for (size_t i = 0; i < mesh.size_complex; ++i) {
-        double k2, kz;
+        double k2, kz, p;
         mesh.getK2KzFromIndex(i, k2, kz);
-        mesh.field_k[i] *=
-            p3d_model->evaluate(sqrt(k2), kz) * exp(rscale_long * k2);
+        p = p3d_model->evaluate(sqrt(k2), kz);
+        CHECK_ISNAN(&p, 1, "p3d_model");
+        mesh.field_k[i] *= p * exp(rscale_long * k2);
     }
     mesh.fftK2X();
 
