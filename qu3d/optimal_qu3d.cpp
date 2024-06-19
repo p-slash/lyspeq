@@ -52,6 +52,7 @@ void logPmodel() {
 #else
 #define CHECK_ISNAN(X, Y, Z)
 void logCosmoDist() {};
+void logCosmoHubble() {};
 void logPmodel() {};
 #endif
 
@@ -146,7 +147,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
         findir += '/';
 
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
-    logCosmoDist();
+    logCosmoDist(); logCosmoHubble();
     p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
     logPmodel();
 

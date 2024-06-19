@@ -11,9 +11,9 @@
 #include "io/io_helper_functions.hpp"
 
 
-static double trapz(double *y, double dx, int N) {
+static double trapz(const double *y, double dx, int N) {
     double result = (y[0] + y[N - 1]) / 2;
-    for (int i = 1; i < N - 1; ++i)
+    for (int i = N - 2; i > 0; --i)
         result += y[i];
     return result * dx;
 }
@@ -40,7 +40,7 @@ namespace fidcosmo {
             Omega_m = config.getDouble("OmegaMatter");
             Omega_r = config.getDouble("OmegaRadiation");
             H0 = config.getDouble("Hubble");
-            Omega_L = 1 - Omega_m - Omega_r * (1 + _nu_relative_density(1));
+            Omega_L = 1.0 - Omega_m - Omega_r * (1 + _nu_relative_density(1));
 
             // Cache
             const int nz = 2000, nz2 = 2900;
@@ -74,15 +74,15 @@ namespace fidcosmo {
                 double z1, double A=0.3173, double nu_y0=357.91212097,
                 double p=1.83, double invp=0.54644808743,
                 double nmassless=2, double B=0.23058962986246165
-        ) const {
+        ) {
             return B * (nmassless + pow(1 + pow(A * nu_y0 / z1, p), invp));
         }
 
         /* in km/s/Mpc */
-        double _calcHubble(double z1) const {
+        double _calcHubble(double z1) {
             double z3 = z1 * z1 * z1;
-            double nu = _nu_relative_density(z1);
-            return H0 * sqrt(Omega_L + (Omega_m + Omega_r * (1 + nu) * z1) * z3);
+            double nu = 1.0 + _nu_relative_density(z1);
+            return H0 * sqrt(Omega_L + (Omega_m + Omega_r * nu * z1) * z3);
         }
 
         /* in km/s/Mpc */
