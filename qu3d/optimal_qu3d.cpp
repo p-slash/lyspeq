@@ -16,21 +16,43 @@ void CHECK_ISNAN(double *mat, int size, std::string msg) {
     // std::string line = std::string("No nans in ") + msg + '\n';
     // DEBUG_LOG(line.c_str());
 }
+
+
+void logCosmoDist() {
+    DEBUG_LOG("getComovingDist:");
+    for (int i = 0; i < 10; ++i) {
+        double z1 = 2 + i * 0.2;
+        DEBUG_LOG(" chi(%.1f) = %.2f", z1 - 1, cosmo->getComovingDist(z1));
+    }
+    DEBUG_LOG("\n");
+}
+
+
+void logPmodel() {
+    DEBUG_LOG("P3dModel:");
+    const double kz = 0.01;
+    for (int i = 0; i < 10; ++i) {
+        double k = 0.02 + i * 0.02;
+        DEBUG_LOG(
+            " P3d(k=%.2f, kz=%.2f) = %.2f",
+            k, kz, p3d_model->evaluate(k, kz));
+    }
+    DEBUG_LOG("\n");
+}
 #else
 #define CHECK_ISNAN(X, Y, Z)
+void logCosmoDist() {};
+void logPmodel() {};
 #endif
 
 
 inline bool hasConverged(double norm, double tolerance) {
-    if (norm < tolerance)
-        return true;
-
     LOG::LOGGER.STD(
         "Current norm(residuals) is %.2e. "
         "conjugateGradientDescent convergence when < %.2e\n",
         norm, tolerance);
 
-    return false;
+    return norm < tolerance;
 }
 
 
@@ -114,7 +136,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
         findir += '/';
 
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
+    logCosmoDist();
     p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
+    logPmodel();
 
     _readQSOFiles(flist, findir);
 
