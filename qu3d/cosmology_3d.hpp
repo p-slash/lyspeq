@@ -44,7 +44,7 @@ namespace fidcosmo {
             Omega_L = 1.0 - Omega_m - Omega_r * (1 + _nu_relative_density(1));
 
             // Cache
-            const int nz = 2000, nz2 = 3000;
+            const int nz = 2000;
             const double dz = 0.002;
             double z1arr[nz], Hz[nz], cDist[nz];
             for (int i = 0; i < nz; ++i) {
@@ -56,12 +56,14 @@ namespace fidcosmo {
                 z1arr[0], dz, nz, &Hz[0]);
 
             double invHz[nz2];
+            const int nz2 = 30000;
+            const double dz2 = 0.0002;
             for (int i = 0; i < nz2; ++i)
-                invHz[i] = getInvHubble(1 + i * dz);
+                invHz[i] = getInvHubble(1 + i * dz2);
 
             for (int i = 0; i < nz; ++i) {
-                int N = (z1arr[i] - 1) / dz + 1.01;
-                cDist[i] = SPEED_OF_LIGHT * trapz(&invHz[0], N, dz);
+                int N = (z1arr[i] - 1) / dz2 + 1.01;
+                cDist[i] = SPEED_OF_LIGHT * trapz(&invHz[0], N, dz2);
             }
 
             interp_comov_dist = std::make_unique<DiscreteInterpolation1D>(
