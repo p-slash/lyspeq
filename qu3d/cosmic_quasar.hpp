@@ -71,7 +71,7 @@ public:
             qFile->noise(), qFile->noise() + N, [](double &n) {
                 n *= n;
                 n = 1 / n;
-                if (n < DOUBLE_EPSILON)
+                if (n <= 5. * DOUBLE_EPSILON)
                     n = 0;
             }
         );
@@ -90,7 +90,7 @@ public:
         }
 
         angles[0] = qFile->ra;
-        angles[1] = qFile->dec;
+        angles[1] = MY_PI / 2 - qFile->dec;
         angles[2] = 1;
 
         rng.seed(qFile->id);
