@@ -44,20 +44,20 @@ namespace fidcosmo {
             Omega_L = 1.0 - Omega_m - Omega_r * (1 + _nu_relative_density(1));
 
             // Cache
-            const int nz = 2000;
+            const int nz = 3000;
             const double dz = 0.002;
             double z1arr[nz], Hz[nz], cDist[nz];
             for (int i = 0; i < nz; ++i) {
-                z1arr[i] = 2.8 + dz * i;
+                z1arr[i] = 1.0 + dz * i;
                 Hz[i] = _calcHubble(z1arr[i]);
             }
 
             hubble_z = std::make_unique<DiscreteInterpolation1D>(
                 z1arr[0], dz, nz, &Hz[0]);
 
-            double invHz[nz2];
             const int nz2 = 30000;
             const double dz2 = 0.0002;
+            double invHz[nz2];
             for (int i = 0; i < nz2; ++i)
                 invHz[i] = getInvHubble(1 + i * dz2);
 
