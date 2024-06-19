@@ -81,9 +81,8 @@ namespace fidcosmo {
         /* in km/s/Mpc */
         double _calcHubble(double z1) const {
             double z3 = z1 * z1 * z1;
-            double z4 = z3 * z1;
             double nu = _nu_relative_density(z1);
-            return H0 * sqrt(Omega_L + Omega_m * z3 + Omega_r * (1 + nu) * z4);
+            return H0 * sqrt(Omega_L + (Omega_m + Omega_r * (1 + nu) * z1) * z3);
         }
 
         /* in km/s/Mpc */
