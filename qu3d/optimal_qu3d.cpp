@@ -70,7 +70,7 @@ void Qu3DEstimator::_readQSOFiles(
 
     int number_of_files = ioh::readList(flist.c_str(), filepaths);
 
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(8)
     for (auto &fq : filepaths) {
         fq.insert(0, findir);  // Add parent directory to file path
         _readOneDeltaFile(fq);
