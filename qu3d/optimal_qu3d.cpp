@@ -22,7 +22,7 @@ void logCosmoDist() {
     DEBUG_LOG("getComovingDist:");
     for (int i = 0; i < 10; ++i) {
         double z1 = 2.95 + i * 0.2;
-        DEBUG_LOG(" chi(%.1f) = %.2f", z1 - 1, cosmo->getComovingDist(z1));
+        DEBUG_LOG(" chi(%.3f) = %.3f", z1 - 1, cosmo->getComovingDist(z1));
     }
     DEBUG_LOG("\n");
 }
@@ -32,7 +32,7 @@ void logCosmoHubble() {
     DEBUG_LOG("getHubble:");
     for (int i = 0; i < 10; ++i) {
         double z1 = 2.95 + i * 0.2;
-        DEBUG_LOG(" H(%.1f) = %.2f", z1 - 1, cosmo->getHubble(z1));
+        DEBUG_LOG(" H(%.3f) = %.3f", z1 - 1, cosmo->getHubble(z1));
     }
     DEBUG_LOG("\n");
 }
