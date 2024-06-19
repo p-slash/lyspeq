@@ -11,10 +11,11 @@
 #include "io/io_helper_functions.hpp"
 
 
-static double trapz(const double *y, double dx, int N) {
-    double result = (y[0] + y[N - 1]) / 2;
+static double trapz(const double *y, int N, double dx=1.0) {
+    double result = y[N - 1] / 2;
     for (int i = N - 2; i > 0; --i)
         result += y[i];
+    result += y[0] / 2;
     return result * dx;
 }
 
@@ -43,7 +44,7 @@ namespace fidcosmo {
             Omega_L = 1.0 - Omega_m - Omega_r * (1 + _nu_relative_density(1));
 
             // Cache
-            const int nz = 2000, nz2 = 2900;
+            const int nz = 2000, nz2 = 3000;
             const double dz = 0.002;
             double z1arr[nz], Hz[nz], cDist[nz];
             for (int i = 0; i < nz; ++i) {
@@ -60,7 +61,7 @@ namespace fidcosmo {
 
             for (int i = 0; i < nz; ++i) {
                 int N = (z1arr[i] - 1) / dz + 1.01;
-                cDist[i] = SPEED_OF_LIGHT * trapz(&invHz[0], dz, N);
+                cDist[i] = SPEED_OF_LIGHT * trapz(&invHz[0], N, dz);
             }
 
             interp_comov_dist = std::make_unique<DiscreteInterpolation1D>(
