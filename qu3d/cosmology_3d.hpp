@@ -118,7 +118,7 @@ namespace fidcosmo {
 
             double dlnk = lnk[1] - lnk[0];
 
-            for (int i = 1; i < lnk.size() - 1; ++i)
+            for (size_t i = 1; i < lnk.size() - 1; ++i)
                 if (fabs(lnk[i + 1] - lnk[i] - dlnk) > 1e-8)
                     throw std::runtime_error(
                         "Input PlinearFilename does not have equal ln k spacing.");
