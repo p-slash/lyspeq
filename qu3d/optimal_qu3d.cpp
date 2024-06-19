@@ -15,7 +15,7 @@ inline bool hasConverged(double norm, double tolerance) {
 
     LOG::LOGGER.STD(
         "Current norm(residuals) is %.2e. "
-        "conjugateGradientDescent convergence when < %.2e",
+        "conjugateGradientDescent convergence when < %.2e\n",
         norm, tolerance);
 
     return false;
@@ -76,8 +76,6 @@ void Qu3DEstimator::_readQSOFiles(
         _readOneDeltaFile(fq);
     }
 
-    // int init_num_qsos = quasars.size();
-
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t2 - t1);
 
@@ -121,7 +119,10 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     mesh.length[2] = config.getInteger("LENGTH_Z");
     mesh.z0 = config.getInteger("ZSTART");
 
+    double t1 = mytime::timer.getTime(), t2 = 0;
     mesh.construct();
+    t2 = mytime::timer.getTime();
+    LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
 
     NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
     bins::FISHER_SIZE = NUMBER_OF_K_BANDS_2 * NUMBER_OF_K_BANDS_2;
