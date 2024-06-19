@@ -28,7 +28,7 @@ namespace myomp {
 /* In-place 3D FFT */
 class RealField3D {
     int ngrid_z, ngrid_xy, ngrid_kz;
-    double k_fund[3], gridvol, totalvol;
+    double k_fund[3], totalvol;
 
     fftw_plan p_x2k;
     fftw_plan p_k2x;
@@ -36,7 +36,7 @@ class RealField3D {
 public:
     size_t size_complex, size_real;
     int ngrid[3];
-    double length[3], dx[3], z0;
+    double length[3], dx[3], z0, cellvol;
     std::vector<std::complex<double>> field_k;
     double *field_x;
 

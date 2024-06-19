@@ -22,7 +22,7 @@ RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr)
 
 void RealField3D::construct() {
     size_real = 1;
-    gridvol = 1;
+    cellvol = 1;
     totalvol = 1;
 
     for (int axis = 0; axis < 3; ++axis) {
@@ -30,7 +30,7 @@ void RealField3D::construct() {
         dx[axis] = length[axis] / ngrid[axis];
 
         size_real *= ngrid[axis];
-        gridvol *= dx[axis];
+        cellvol *= dx[axis];
         totalvol *= length[axis];
     }
 
@@ -59,7 +59,7 @@ void RealField3D::fftX2K() {
 
     #pragma omp parallel for simd
     for (size_t i = 0; i < size_complex; ++i)
-        field_k[i] *= gridvol;
+        field_k[i] *= cellvol;
 } 
 
 

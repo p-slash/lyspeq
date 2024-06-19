@@ -160,7 +160,7 @@ void Qu3DEstimator::multMeshComp() {
         mesh.getK2KzFromIndex(i, k2, kz);
         p = p3d_model->evaluate(sqrt(k2), kz);
         CHECK_ISNAN(&p, 1, "p3d_model");
-        mesh.field_k[i] *= p * exp(rscale_long * k2);
+        mesh.field_k[i] *= p * exp(rscale_long * k2) / mesh.cellvol;
     }
     mesh.fftK2X();
 
