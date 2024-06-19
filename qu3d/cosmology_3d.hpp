@@ -146,7 +146,7 @@ namespace fidcosmo {
 
         double evaluate(double k) {
             if (k == 0)
-                k = DOUBLE_EPSILON;
+                return 0;
 
             return exp(interp_lnp->evaluate(log(k)));
         }
@@ -188,6 +188,9 @@ namespace fidcosmo {
         }
 
         double evaluate(double k, double kz) {
+            if (k == 0)
+                return 0;
+
             double
             plin = interp_p->evaluate(k),
             delta2_L = plin * k * k * k / 2 / MY_PI * MY_PI,
