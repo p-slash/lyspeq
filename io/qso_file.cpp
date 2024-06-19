@@ -10,10 +10,9 @@
 namespace qio
 {
 const double SIGMA_CUT = 1e6;
-static std::vector<double> temp_arr;
 
 double _getMediandv(const double *wave, int size) {
-    temp_arr.resize(size - 1);
+    std::vector<double> temp_arr(size - 1);
     for (int i = 0; i < size - 1; ++i)
         temp_arr[i] = log(wave[i + 1] / wave[i]) * SPEED_OF_LIGHT;
 
@@ -21,7 +20,7 @@ double _getMediandv(const double *wave, int size) {
 }
 
 double _getMediandlambda(const double *wave, int size) {
-    temp_arr.resize(size - 1);
+    std::vector<double> temp_arr(size - 1);
     for (int i = 0; i < size - 1; ++i)
         temp_arr[i] = wave[i + 1] - wave[i];
 
@@ -185,7 +184,7 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
 void QSOFile::maskOutliers() {
     int j = 0, nall = size();
-    temp_arr.resize(realSize());
+    std::vector<double> temp_arr(realSize());
 
     double *n = noise(), *f = delta();
 

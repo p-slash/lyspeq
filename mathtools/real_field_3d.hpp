@@ -57,9 +57,12 @@ public:
 
     size_t getIndex(int nx, int ny, int nz) {
         int n[] = {nx, ny, nz};
-        for (int axis = 0; axis < 3; ++axis)
+        for (int axis = 0; axis < 3; ++axis) {
             if (n[axis] >= ngrid[axis])
                 n[axis] = 0;
+            if (n[axis] < 0)
+                n[axis] = ngrid[axis] - 1;
+        }
 
         return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
     }

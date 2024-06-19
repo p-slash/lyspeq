@@ -53,8 +53,9 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
         quasars.reserve(quasars.size() + local_quasars.size());
         std::move(std::begin(local_quasars), std::end(local_quasars),
                   std::back_inserter(quasars));
-        local_quasars.clear();
     }
+
+    local_quasars.clear();
 }
 
 
