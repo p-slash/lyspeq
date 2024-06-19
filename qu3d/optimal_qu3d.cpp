@@ -76,7 +76,7 @@ void Qu3DEstimator::_readQSOFiles(
         _readOneDeltaFile(fq);
     }
 
-    int init_num_qsos = quasars.size();
+    // int init_num_qsos = quasars.size();
 
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t2 - t1);

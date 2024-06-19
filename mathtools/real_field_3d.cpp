@@ -101,7 +101,7 @@ double RealField3D::interpolate(double coord[3]) {
 
 void RealField3D::reverseInterpolate(double coord[3], double val) {
     int n[3];
-    double d[3], r;
+    double d[3];
 
     coord[2] -= z0;
     for (int axis = 0; axis < 3; ++axis) {
