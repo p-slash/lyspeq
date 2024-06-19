@@ -21,7 +21,7 @@ void CHECK_ISNAN(double *mat, int size, std::string msg) {
 void logCosmoDist() {
     DEBUG_LOG("getComovingDist:");
     for (int i = 0; i < 10; ++i) {
-        double z1 = 2 + i * 0.2;
+        double z1 = 2.95 + i * 0.2;
         DEBUG_LOG(" chi(%.1f) = %.2f", z1 - 1, cosmo->getComovingDist(z1));
     }
     DEBUG_LOG("\n");
