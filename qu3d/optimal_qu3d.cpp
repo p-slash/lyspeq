@@ -10,12 +10,11 @@ int NUMBER_OF_K_BANDS_2 = 0;
 
 
 #ifdef DEBUG
-void CHECK_ISNAN(double *mat, int size, std::string msg)
-{
+void CHECK_ISNAN(double *mat, int size, std::string msg) {
     if (std::any_of(mat, mat + size, [](double x) { return std::isnan(x); }))
         throw std::runtime_error(std::string("NAN in ") + msg);
-    std::string line = std::string("No nans in ") + msg + '\n';
-    DEBUG_LOG(line.c_str());
+    // std::string line = std::string("No nans in ") + msg + '\n';
+    // DEBUG_LOG(line.c_str());
 }
 #else
 #define CHECK_ISNAN(X, Y, Z)
