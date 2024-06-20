@@ -330,23 +330,15 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         double kperp = 0;
         mesh.getKperpFromIperp(jxy, kperp);
+        if(!isInsideKbin(iperp, kperp))
+            continue;
 
         auto fk_begin = mesh.field_k.begin() + mesh.ngrid_kz * jxy;
-        if(isInsideKbin(iperp, kperp))
-            std::copy(fk_begin + mesh_z_1, fk_begin + mesh_z_2,
-                      mesh2.field_k.begin() + mesh.ngrid_kz * jxy);
+        std::copy(fk_begin + mesh_z_1, fk_begin + mesh_z_2,
+                  mesh2.field_k.begin() + mesh.ngrid_kz * jxy);
     }
     mesh.fftK2X();
     mesh2.fftK2X();
-
-    // #pragma omp parallel for
-    // for (auto &qso : quasars) {
-    //     double coord[3];
-    //     for (int i = 0; i < qso->N; ++i) {
-    //         qso->getCartesianCoords(i, coord);
-    //         qso->out[i] = mesh.interpolate(coord);
-    //     }
-    // }
 }
 
 
@@ -359,14 +351,8 @@ void Qu3DEstimator::estimatePowerBias() {
     LOG::LOGGER.STD("  Multiplying with derivative matrices.\n");
     for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
         for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
-            /* calculate C,k . y into Cy */
+            /* calculate C,k . y into mesh2 */
             multiplyDerivVector(iperp, iz);
-
-            // double p = 0;
-
-            // #pragma omp parallel for reduction(+:p)
-            // for (auto &qso : quasars)
-            //     p += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
             power_est[iz + bins::NUMBER_OF_K_BANDS * iperp] = mesh.dot(mesh2);
         }
@@ -386,25 +372,20 @@ void Qu3DEstimator::estimatePowerBias() {
         /* calculate Cinv . n into y */
         conjugateGradientDescent();
 
+        reverseInterpolate();
         for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
             for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
-                /* calculate C,k . y into Cy */
+                /* calculate C,k . y into mesh2 */
                 multiplyDerivVector(iperp, iz);
 
-                double p = 0;
-
-                #pragma omp parallel for reduction(+:p)
-                for (auto &qso : quasars)
-                    p += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
-
-                old_bias_est[iz + bins::NUMBER_OF_K_BANDS * iperp] = p;
+                old_bias_est[iz + bins::NUMBER_OF_K_BANDS * iperp] = mesh.dot(mesh2);
             }
         }
 
         double max_rel_err = 0, mean_rel_err = 0;
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
-            double rel_err = (bias_est[i] - old_bias_est[i])
-                             / std::max(bias_est[i], old_bias_est[i]);
+            double rel_err = fabs(bias_est[i] - old_bias_est[i])
+                             / (DOUBLE_EPSILON + std::max(bias_est[i], old_bias_est[i]));
             max_rel_err = std::max(rel_err, max_rel_err);
             mean_rel_err += rel_err / NUMBER_OF_K_BANDS_2;
         }
