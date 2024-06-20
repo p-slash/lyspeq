@@ -64,7 +64,7 @@ inline bool isOutsideKbin(int ib, double kb) {
 
 inline bool hasConverged(double norm, double tolerance) {
     LOG::LOGGER.STD(
-        "    Current norm(residuals) is %.2e. "
+        "    Current norm(residuals) is %.8e. "
         "conjugateGradientDescent convergence when < %.2e\n",
         norm, tolerance);
 
@@ -296,7 +296,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
 
     double old_residual_norm2 = calculateResidualNorm2();
 
-    if (hasConverged(sqrt(old_residual_norm2), tolerance))
+    if (hasConverged(sqrt(old_residual_norm2) / num_all_pixels, tolerance))
         return;
 
     for (int niter = 0; niter < max_conj_grad_steps; ++niter) {
@@ -305,7 +305,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
 
         double new_residual_norm2 = calculateResidualNorm2();
 
-        if (hasConverged(sqrt(new_residual_norm2), tolerance))
+        if (hasConverged(sqrt(new_residual_norm2) / num_all_pixels, tolerance))
             return;
 
         double beta = new_residual_norm2 / old_residual_norm2;
@@ -326,7 +326,7 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
 
     mesh.fftX2K();
     #pragma omp parallel for
-    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+    for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         double kperp = 0;
         mesh.getKperpFromIperp(jxy, kperp);
 
