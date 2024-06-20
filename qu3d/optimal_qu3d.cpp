@@ -356,6 +356,7 @@ void Qu3DEstimator::estimatePowerBias() {
     conjugateGradientDescent();
 
     reverseInterpolate();
+    LOG::LOGGER.STD("  Multiplying with derivative matrices.\n");
     for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
         for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
             /* calculate C,k . y into Cy */
@@ -372,10 +373,11 @@ void Qu3DEstimator::estimatePowerBias() {
     }
 
     /* Estimate Bias */
-    LOG::LOGGER.STD("Estimating bias.\n");
+    LOG::LOGGER.STD("Estimating bias.\nMCs:");
     auto old_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
     for (int nmc = 0; nmc < max_monte_carlos; ++nmc) {
+        LOG::LOGGER.STD("  %d", nmc);
         /* generate random Gaussian vector into y */
         #pragma omp parallel for
         for (auto &qso : quasars)
