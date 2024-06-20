@@ -344,6 +344,10 @@ void OneQsoExposures::xQmlEstimate() {
         for (auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi)
             xeutils::_setQiMatrix(qi, i_kz + xeutils::fisher_index_start);
 
+        // keep it here. _vmatrix will be destroyed by dgemm later!
+        if (!specifics::TURN_OFF_SFID)
+            xeutils::_setFiducialSignalMatrix(glmemory::stored_sfid.get());
+
         // Calculate
         int diff_idx = xeutils::fisher_index_start - istart;
 
@@ -372,8 +376,6 @@ void OneQsoExposures::xQmlEstimate() {
         mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
 
         if (!specifics::TURN_OFF_SFID) {
-            xeutils::_setFiducialSignalMatrix(glmemory::stored_sfid.get());
-
             #pragma omp parallel for
             for (const auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi)
                 tk0[i_kz + diff_idx] += cblas_ddot(
