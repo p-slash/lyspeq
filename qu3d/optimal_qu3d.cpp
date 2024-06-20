@@ -359,11 +359,11 @@ void Qu3DEstimator::estimatePowerBias() {
     }
 
     /* Estimate Bias */
-    LOG::LOGGER.STD("Estimating bias.\nMCs:");
+    LOG::LOGGER.STD("Estimating bias. MCs:\n");
     auto old_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
     for (int nmc = 0; nmc < max_monte_carlos; ++nmc) {
-        LOG::LOGGER.STD("  %d", nmc);
+        LOG::LOGGER.STD("%d:", nmc);
         /* generate random Gaussian vector into y */
         #pragma omp parallel for
         for (auto &qso : quasars)
@@ -384,8 +384,9 @@ void Qu3DEstimator::estimatePowerBias() {
 
         double max_rel_err = 0, mean_rel_err = 0;
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
-            double rel_err = fabs(bias_est[i] - old_bias_est[i])
-                             / (DOUBLE_EPSILON + std::max(bias_est[i], old_bias_est[i]));
+            double rel_err = fabs(bias_est[i] - old_bias_est[i]);
+            rel_err /= DOUBLE_EPSILON + std::max(
+                fabs(bias_est[i]), fabs(old_bias_est[i]));
             max_rel_err = std::max(rel_err, max_rel_err);
             mean_rel_err += rel_err / NUMBER_OF_K_BANDS_2;
         }
