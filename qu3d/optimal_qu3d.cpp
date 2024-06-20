@@ -6,6 +6,7 @@
 
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
+RealField3D mesh2;
 int NUMBER_OF_K_BANDS_2 = 0;
 
 
@@ -57,8 +58,8 @@ void logPmodel() {};
 #endif
 
 
-inline bool isOutsideKbin(int ib, double kb) {
-    return (kb <= bins::KBAND_EDGES[ib]) || (bins::KBAND_EDGES[ib + 1] < kb);
+inline bool isInsideKbin(int ib, double kb) {
+    return (bins::KBAND_EDGES[ib] <= kb) && (kb < bins::KBAND_EDGES[ib + 1]);
 }
 
 
@@ -178,9 +179,10 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     mesh.length[1] = config.getInteger("LENGTH_Y");
     mesh.length[2] = config.getInteger("LENGTH_Z");
     mesh.z0 = config.getInteger("ZSTART");
-
+    mesh2 = mesh;
     double t1 = mytime::timer.getTime(), t2 = 0;
     mesh.construct();
+    mesh2.construct();
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
 
@@ -315,8 +317,6 @@ void Qu3DEstimator::conjugateGradientDescent() {
 
 
 void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
-    reverseInterpolate();
-
     int mesh_z_1 = bins::KBAND_EDGES[iz] / mesh.k_fund[2],
         mesh_z_2 = bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2];
 
@@ -324,30 +324,29 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
     mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
 
     mesh.fftX2K();
+    mesh2.zero_field_k();
+
     #pragma omp parallel for
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         double kperp = 0;
         mesh.getKperpFromIperp(jxy, kperp);
 
         auto fk_begin = mesh.field_k.begin() + mesh.ngrid_kz * jxy;
-        if(isOutsideKbin(iperp, kperp)) {
-            std::fill(fk_begin, fk_begin + mesh.ngrid_kz, 0);
-        }
-        else {
-            std::fill(fk_begin, fk_begin + mesh_z_1, 0);
-            std::fill(fk_begin + mesh_z_2, fk_begin + mesh.ngrid_kz, 0);
-        }
+        if(isInsideKbin(iperp, kperp))
+            std::copy(fk_begin + mesh_z_1, fk_begin + mesh_z_2,
+                      mesh2.field_k.begin() + mesh.ngrid_kz * jxy);
     }
     mesh.fftK2X();
+    mesh2.fftK2X();
 
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
-        double coord[3];
-        for (int i = 0; i < qso->N; ++i) {
-            qso->getCartesianCoords(i, coord);
-            qso->out[i] = mesh.interpolate(coord);
-        }
-    }
+    // #pragma omp parallel for
+    // for (auto &qso : quasars) {
+    //     double coord[3];
+    //     for (int i = 0; i < qso->N; ++i) {
+    //         qso->getCartesianCoords(i, coord);
+    //         qso->out[i] = mesh.interpolate(coord);
+    //     }
+    // }
 }
 
 
@@ -356,18 +355,19 @@ void Qu3DEstimator::estimatePowerBias() {
     /* calculate Cinv . delta into y */
     conjugateGradientDescent();
 
+    reverseInterpolate();
     for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
         for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
             /* calculate C,k . y into Cy */
             multiplyDerivVector(iperp, iz);
 
-            double p = 0;
+            // double p = 0;
 
-            #pragma omp parallel for reduction(+:p)
-            for (auto &qso : quasars)
-                p += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+            // #pragma omp parallel for reduction(+:p)
+            // for (auto &qso : quasars)
+            //     p += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
-            power_est[iz + bins::NUMBER_OF_K_BANDS * iperp] = p;
+            power_est[iz + bins::NUMBER_OF_K_BANDS * iperp] = mesh.dot(mesh2);
         }
     }
 
