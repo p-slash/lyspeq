@@ -1,6 +1,9 @@
 #ifndef MPI_MANAGER_H
 #define MPI_MANAGER_H
 
+#include <algorithm>
+#include <vector>
+
 #if defined(ENABLE_MPI)
 #include "mpi.h"
 
