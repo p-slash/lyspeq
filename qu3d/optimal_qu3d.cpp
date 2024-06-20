@@ -57,9 +57,14 @@ void logPmodel() {};
 #endif
 
 
+inline bool isOutsideKbin(int ib, double kb) {
+    return (kb <= bins::KBAND_EDGES[ib]) || (bins::KBAND_EDGES[ib + 1] < kb);
+}
+
+
 inline bool hasConverged(double norm, double tolerance) {
     LOG::LOGGER.STD(
-        "Current norm(residuals) is %.2e. "
+        "    Current norm(residuals) is %.2e. "
         "conjugateGradientDescent convergence when < %.2e\n",
         norm, tolerance);
 
@@ -128,12 +133,18 @@ void Qu3DEstimator::_readQSOFiles(
 
     if (quasars.empty())
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
+
+
+    #pragma omp parallel for reduction(+:num_all_pixels)
+    for (auto &qso : quasars)
+        num_all_pixels += qso->N;
 }
 
 
 Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     config.addDefaults(qu3d_default_parameters);
 
+    num_all_pixels = 0;
     std::string
         flist = config.get("FileNameList"),
         findir = config.get("FileInputDir");
@@ -210,7 +221,7 @@ void Qu3DEstimator::multMeshComp() {
     }
 
     t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("multMeshComp took %.2f m.\n", t2 - t1);
+    LOG::LOGGER.STD("    multMeshComp took %.2f m.\n", t2 - t1);
 }
 
 
@@ -245,17 +256,17 @@ void Qu3DEstimator::updateY(double residual_norm2) {
     alpha = residual_norm2 / a_down;
 
     /* Update y in the search direction, restore qso->in
-       Update residual*/
+       Update residual */
     #pragma omp parallel for
     for (auto &qso : quasars) {
         /* in is search.get() */
         cblas_daxpy(qso->N, alpha, qso->in, 1, qso->y.get(), 1);
-        cblas_daxpy(qso->N, -alpha, qso->residual.get(), 1, qso->out, 1);
+        cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
         qso->in = qso->y.get();
     }
 
     t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("updateY took %.2f m.\n", t2 - t1);
+    LOG::LOGGER.STD("    updateY took %.2f m.\n", t2 - t1);
 }
 
 
@@ -271,12 +282,14 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
 
 
 void Qu3DEstimator::conjugateGradientDescent() {
+    LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
     multiplyCovVector();
 
+    /* Assume qso->in is the desired output */
     #pragma omp parallel for
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            qso->residual[i] = qso->Cy[i] - qso->in[i];
+            qso->residual[i] = qso->in[i] - qso->Cy[i];
             qso->search[i] = qso->residual[i];
         }
     }
@@ -305,17 +318,26 @@ void Qu3DEstimator::conjugateGradientDescent() {
 void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
     reverseInterpolate();
 
+    int mesh_z_1 = bins::KBAND_EDGES[iz] / mesh.k_fund[2],
+        mesh_z_2 = bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2];
+
+    mesh_z_1 = std::max(0, mesh_z_1);
+    mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
+
     mesh.fftX2K();
     #pragma omp parallel for
-    for (size_t i = 0; i < mesh.size_complex; ++i) {
-        double kperp, kz;
-        mesh.getKperpKzFromIndex(i, kperp, kz);
-        if ((bins::KBAND_EDGES[iperp + 1] < kperp)
-            || (kperp <= bins::KBAND_EDGES[iperp])
-            || (bins::KBAND_EDGES[iz + 1] < kz)
-            || (kz <= bins::KBAND_EDGES[iz])
-        )
-            mesh.field_k[i] = 0;
+    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+        double kperp = 0;
+        mesh.getKperpFromIperp(jxy, kperp);
+
+        auto fk_begin = mesh.field_k.begin() + mesh.ngrid_kz * jxy;
+        if(isOutsideKbin(iperp, kperp)) {
+            std::fill(fk_begin, fk_begin + mesh.ngrid_kz, 0);
+        }
+        else {
+            std::fill(fk_begin, fk_begin + mesh_z_1, 0);
+            std::fill(fk_begin + mesh_z_2, fk_begin + mesh.ngrid_kz, 0);
+        }
     }
     mesh.fftK2X();
 
@@ -331,6 +353,7 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
 
 
 void Qu3DEstimator::estimatePowerBias() {
+    LOG::LOGGER.STD("Calculating power spectrum.\n");
     /* calculate Cinv . delta into y */
     conjugateGradientDescent();
 
@@ -350,6 +373,7 @@ void Qu3DEstimator::estimatePowerBias() {
     }
 
     /* Estimate Bias */
+    LOG::LOGGER.STD("Estimating bias.\n");
     auto old_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
     for (int nmc = 0; nmc < max_monte_carlos; ++nmc) {
@@ -385,7 +409,7 @@ void Qu3DEstimator::estimatePowerBias() {
         }
 
         LOG::LOGGER.STD(
-            "Mean / Max relative errors in bias are %.2e / %.2e. "
+            "  Mean / Max relative errors in bias are %.2e / %.2e. "
             "MC convergences when < %.2e / %.2e",
             mean_rel_err, max_rel_err, 1e-6, 1e-4);
 

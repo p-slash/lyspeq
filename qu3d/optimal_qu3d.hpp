@@ -24,6 +24,7 @@ const config_map qu3d_default_parameters ({
 class Qu3DEstimator
 {
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
+    size_t num_all_pixels;
     int max_conj_grad_steps, max_monte_carlos;
     double tolerance, rscale_long;
     RealField3D mesh;

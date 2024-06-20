@@ -27,16 +27,13 @@ namespace myomp {
 
 /* In-place 3D FFT */
 class RealField3D {
-    int ngrid_z, ngrid_xy, ngrid_kz;
-    double k_fund[3], totalvol;
-
     fftw_plan p_x2k;
     fftw_plan p_k2x;
 
 public:
     size_t size_complex, size_real;
-    int ngrid[3];
-    double length[3], dx[3], z0, cellvol;
+    int ngrid[3], ngrid_kz, ngrid_z, ngrid_xy;
+    double length[3], dx[3], k_fund[3], z0, cellvol, totalvol;
     std::vector<std::complex<double>> field_k;
     double *field_x;
 
@@ -59,9 +56,9 @@ public:
         int n[] = {nx, ny, nz};
         for (int axis = 0; axis < 3; ++axis) {
             if (n[axis] >= ngrid[axis])
-                n[axis] = 0;
+                n[axis] -= ngrid[axis];
             if (n[axis] < 0)
-                n[axis] = ngrid[axis] - 1;
+                n[axis] += ngrid[axis];
         }
 
         return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
@@ -70,10 +67,10 @@ public:
     void getKFromIndex(size_t i, double k[3]) {
         int kn[3];
 
-        size_t temp = i / ngrid_kz;
+        size_t iperp = i / ngrid_kz;
         kn[2] = i % ngrid_kz;
-        kn[0] = temp / ngrid[1];
-        kn[1] = temp % ngrid[1];
+        kn[0] = iperp / ngrid[1];
+        kn[1] = iperp % ngrid[1];
 
         if (kn[0] > ngrid[0] / 2)
             kn[0] -= ngrid[0];
@@ -93,6 +90,23 @@ public:
         k2 = 0;
         for (int axis = 0; axis < 3; ++axis)
             k2 += ks[axis] * ks[axis];
+    }
+
+    void getKperpFromIperp(size_t iperp, double &kperp) {
+        int kn[2];
+        kn[0] = iperp / ngrid[1];
+        kn[1] = iperp % ngrid[1];
+
+        kperp = 0;
+        for (int axis = 0; axis < 2; ++axis) {
+            if (kn[axis] > ngrid[axis] / 2)
+                kn[axis] -= ngrid[axis];
+
+            double t = k_fund[axis] * kn[axis];
+            kperp += t * t;
+        }
+
+        kperp = sqrt(kperp);
     }
 
     void getKperpKzFromIndex(size_t i, double &kperp, double &kz) {
