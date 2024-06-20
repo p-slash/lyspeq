@@ -777,6 +777,7 @@ void Chunk::oneQSOiteration(
         _matrix_lambda[i] += 1;
 
     // Preload fiducial signal matrix if memory allows
+    // !! Keep it here. _vmatrix will be destroyed by dgemm later !!
     if (!specifics::TURN_OFF_SFID)
         _setFiducialSignalMatrix(glmemory::stored_sfid.get());
 
