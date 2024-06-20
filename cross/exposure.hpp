@@ -48,9 +48,11 @@ public:
 
         process::updateMemory(-process::getMemoryMB(DATA_SIZE_2 + size()));
     }
+
     void deallocMatrices() {
         local_cov_mat.reset();
         weighted_data.reset();
+        covariance_matrix = nullptr;
         process::updateMemory(process::getMemoryMB(DATA_SIZE_2 + size()));
     };
 
