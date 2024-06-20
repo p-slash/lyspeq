@@ -41,7 +41,8 @@ public:
     void construct();
 
     RealField3D(RealField3D &&rhs) = delete;
-    RealField3D(const RealField3D &rhs) = delete;
+    /* Copy constructor. Copy needs to call construct! */
+    RealField3D(const RealField3D &rhs);
     ~RealField3D() {
         fftw_destroy_plan(p_x2k);
         fftw_destroy_plan(p_k2x);
