@@ -301,7 +301,6 @@ void Qu3DEstimator::conjugateGradientDescent() {
 
     for (int niter = 0; niter < max_conj_grad_steps; ++niter) {
         updateY(old_residual_norm2);
-        multiplyCovVector();
 
         double new_residual_norm2 = calculateResidualNorm2();
 
