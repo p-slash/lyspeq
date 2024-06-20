@@ -38,11 +38,12 @@ public:
     double *field_x;
 
     RealField3D();
+     /* Copy constructor. Copy needs to call construct! */
+    RealField3D(const RealField3D &rhs);
+    // RealField3D(RealField3D &&rhs) = delete;
+
     void construct();
 
-    RealField3D(RealField3D &&rhs) = delete;
-    /* Copy constructor. Copy needs to call construct! */
-    RealField3D(const RealField3D &rhs);
     ~RealField3D() {
         fftw_destroy_plan(p_x2k);
         fftw_destroy_plan(p_k2x);
@@ -52,6 +53,7 @@ public:
     void rawFFTX2K() { fftw_execute(p_x2k); }
     void fftX2K();
     void fftK2X();
+    double dot(const RealField3D &other);
 
     size_t getIndex(int nx, int ny, int nz) {
         int n[] = {nx, ny, nz};
@@ -63,6 +65,10 @@ public:
         }
 
         return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
+    }
+
+    inline size_t getCorrectIndexX(size_t j) {
+        return j + (j / ngrid[2]) * (ngrid[2] - ngrid_z);
     }
 
     void getKFromIndex(size_t i, double k[3]) {

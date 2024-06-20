@@ -83,6 +83,18 @@ void RealField3D::fftK2X() {
 }
 
 
+double RealField3D::dot(const RealField3D &other) {
+    double result = 0;
+    #pragma omp parallel for reduction(+:result)
+    for (size_t j = 0; j < size_real; ++j) {
+        size_t i = getCorrectIndexX(j);
+        result += field_x[i] * other.field_x[i];
+    }
+
+    return result;
+}
+
+
 double RealField3D::interpolate(double coord[3]) {
     int n[3];
     double d[3], r;
