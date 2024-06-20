@@ -393,7 +393,7 @@ void Qu3DEstimator::estimatePowerBias() {
 
         LOG::LOGGER.STD(
             "  Mean / Max relative errors in bias are %.2e / %.2e. "
-            "MC convergences when < %.2e / %.2e",
+            "MC convergences when < %.2e / %.2e\n",
             mean_rel_err, max_rel_err, 1e-6, 1e-4);
 
         if (mean_rel_err < 1e-6 || max_rel_err < 1e-4)
