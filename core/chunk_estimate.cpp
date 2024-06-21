@@ -140,7 +140,6 @@ namespace glmemory {
 Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
         : DATA_SIZE_2(0), _matrix_n(0), N_Q_MATRICES(0)
 {
-    isCovInverted = false;
     _copyQSOFile(qmaster, i1, i2);
 
     // Set up number of matrices, index for Fisher matrix
@@ -437,8 +436,8 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
                dk = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn];
 
         eval_deriv_kn = [kc, dk](double v) {
-            double x = dk * v / 2;
-            return (dk / MY_PI) * cos(kc * v) * sin(x) / (x + DOUBLE_EPSILON);
+            double x = dk * v / 2 + DOUBLE_EPSILON;
+            return (dk / MY_PI) * cos(kc * v) * (sin(x) / x);
         };
     } else {
         eval_deriv_kn = [idkn = glmemory::interp_derivative_matrix[kn]](double v) {
@@ -507,7 +506,6 @@ void Chunk::setCovarianceMatrix(const double *ps_estimate)
 
     cblas_daxpy(size(), 1., nvec, 1, covariance_matrix, size() + 1);
 
-    isCovInverted = false;
     CHECK_ISNAN(covariance_matrix, DATA_SIZE_2, "CovMat");
 
     // When compiled with debugging feature
@@ -620,8 +618,6 @@ void Chunk::invertCovarianceMatrix()
     mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, size());
 
     inverse_covariance_matrix = covariance_matrix;
-
-    isCovInverted = true;
 
     if (specifics::CONT_NVECS > 0)
         _addMarginalizations();
@@ -781,6 +777,7 @@ void Chunk::oneQSOiteration(
         _matrix_lambda[i] += 1;
 
     // Preload fiducial signal matrix if memory allows
+    // !! Keep it here. _vmatrix will be destroyed by dgemm later !!
     if (!specifics::TURN_OFF_SFID)
         _setFiducialSignalMatrix(glmemory::stored_sfid.get());
 
