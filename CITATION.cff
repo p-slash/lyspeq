@@ -15,11 +15,11 @@ preferred-citation:
     given-names: Andreu
   - family-names: Padmanabhan
     given-names: Nikhil
-  date-published: 2020-08-14
+  date-published: 2020-10-01
   doi: 10.1093/mnras/staa2331
   issue: 4
-  journal: MNRAS
-  start: 4742
+  journal: Mon. Not. R. Astron. Soc.
+  pages: 4742-4752
   title: "Optimal 1D Lyα forest power spectrum estimation - I. DESI-lite spectra"
   type: article
   url: "https://academic.oup.com/mnras/article/497/4/4742/5892573"
