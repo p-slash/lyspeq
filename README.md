@@ -1,41 +1,8 @@
-`lyspeq` is highly efficient, parallelized and customizable program for 1D flux power spectrum of the Lyman-alpha forest that implements quadratic maximum likelihood estimator. Please cite papers Karaçaylı, Font-Ribera & Padmanabhan (2020) and Karaçaylı et al. (submitted to MNRAS).
+`lyspeq` is highly efficient, parallelized and customizable program for 1D flux power spectrum of the Lyman-alpha forest that implements quadratic maximum likelihood estimator. Please cite following papers:
 
-+ Karaçaylı N. G., Font-Ribera A., Padmanabhan N., 2020, [MNRAS](https://doi.org/10.1093/mnras/staa2331), 497, 4742
-+ Karaçaylı N. G., et al., 2021, MNRAS (submitted), [arXiv](https://arxiv.org/abs/2108.10870)
-
-### Highlighted Features
-+ Poisson bootstrap covariance estimate.
-+ Fiducial cosmology has default parameters:
-    
-        A      =    6.621420e-02
-        n      =   -2.685349e+00
-        alpha  =   -2.232763e-01
-        B      =    3.591244e+00
-        beta   =   -1.768045e-01
-        lambda =    3.598261e+02
-
-+ When `FiducialPowerFile` set in config file, an interpolation function takes over. This file should be a binary file and have the following convention:
-
-        Nk Nz
-        z[1]...z[Nz]
-        k[1]...k[Nk]
-        P[nz=1, nk=1...Nk]...P[Nz, nk=1...Nk]
-
-+ Intermediate python script applies a weighted smoothing. This smoothing script has --interp_log option, which can be enabled by setting `SmoothLnkLnP` to 1 in the config file.
-+ `SaveEachChunkResult` in config file saves each chunk's Fisher and power estimates.
-
-### Optimizations
-+ Each PE reads and sorts its own spectra, then they all perform a merge sort. This saves significant amount of time reading ~1m files.
-+ Using discrete interpolation instead of `gsl_interp` to eliminate time spent on binary search.
-+ Does not copy S and Q matrices when they are not changed, which saves time.
-+ Use `chrono` library to measure time.
-+ No more `gsl_vector` and `gsl_matrix`, but uses LAPACKE instead.
-
-### Other
-+ Logger saves separately for each PE.
-+ Needs CBLAS & LAPACKE libraries to run (not using `gsl_vector` and `gsl_matrix`).
-+ GSL flags are silenced in compilation.
-+ Removed redshift evolution option.
++ Karaçaylı N.G., Font-Ribera A., Padmanabhan N., 2020, “Optimal 1D Lyα forest power spectrum estimation - I. DESI-lite spectra”, [MNRAS, 497, 4742](https://doi.org/10.1093/mnras/staa2331). [arXiv:2008.06421](https://arxiv.org/abs/2008.06421)
++ Karaçaylı N.G. et al., 2022, “Optimal 1D Lyα forest power spectrum estimation - II. KODIAQ, SQUAD, and XQ-100”, [MNRAS, 509, 2842](https://doi.org/10.1093/mnras/stab3201). [arXiv:2108.10870](https://arxiv.org/abs/2108.10870)
++ Karaçaylı N.G. et al., 2024, “Optimal 1D Lyα Forest Power Spectrum Estimation - III. DESI early data”, [MNRAS, 528, 3941](https://doi.org/10.1093/mnras/stae171). [arXiv:2306.06316](https://arxiv.org/abs/2306.06316)
 
 Prerequisites
 =====
@@ -296,7 +263,39 @@ Poisson Bootstrapping
 ===
 `lyspeq` performs a parallel Poisson bootstrapping in the end. Poisson bootstrapping generates random coefficients for each quasar (not chunk) using `Poisson(mu=1)` random distribution. This approximation is based on Binomial distribution for large n. The sum of these coefficients are not constrained to be the total number of quasars in the sample, which could be refined at future versions if necesary [1](https://www.unofficialgoogledatascience.com/2015/08/an-introduction-to-poisson-bootstrap26.html), [2](http://www.med.mcgill.ca/epidemiology/Hanley/Reprints/bootstrap-hanley-macgibbon2006.pdf), [3](https://mihagazvoda.com/posts/poisson-bootstrap/).
 
+### Highlighted Features
++ Poisson bootstrap covariance estimate.
++ Fiducial cosmology has default parameters:
+    
+        A      =    6.621420e-02
+        n      =   -2.685349e+00
+        alpha  =   -2.232763e-01
+        B      =    3.591244e+00
+        beta   =   -1.768045e-01
+        lambda =    3.598261e+02
 
++ When `FiducialPowerFile` set in config file, an interpolation function takes over. This file should be a binary file and have the following convention:
+
+        Nk Nz
+        z[1]...z[Nz]
+        k[1]...k[Nk]
+        P[nz=1, nk=1...Nk]...P[Nz, nk=1...Nk]
+
++ Intermediate python script applies a weighted smoothing. This smoothing script has --interp_log option, which can be enabled by setting `SmoothLnkLnP` to 1 in the config file.
++ `SaveEachChunkResult` in config file saves each chunk's Fisher and power estimates.
+
+### Optimizations
++ Each PE reads and sorts its own spectra, then they all perform a merge sort. This saves significant amount of time reading ~1m files.
++ Using discrete interpolation instead of `gsl_interp` to eliminate time spent on binary search.
++ Does not copy S and Q matrices when they are not changed, which saves time.
++ Use `chrono` library to measure time.
++ No more `gsl_vector` and `gsl_matrix`, but uses LAPACKE instead.
+
+### Other
++ Logger saves separately for each PE.
++ Needs CBLAS & LAPACKE libraries to run (not using `gsl_vector` and `gsl_matrix`).
++ GSL flags are silenced in compilation.
++ Removed redshift evolution option.
 
 
 
