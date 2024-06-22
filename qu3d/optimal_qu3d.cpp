@@ -168,6 +168,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
     tolerance = config.getDouble("ConvergenceTolerance");
+    specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
     rscale_long = config.getDouble("LongScale");
     rscale_long *= -rscale_long;
 
