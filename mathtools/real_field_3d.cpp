@@ -95,7 +95,9 @@ double RealField3D::dot(const RealField3D &other) {
 }
 
 
-std::vector<size_t> RealField3D::findNeighboringPixels(size_t i, double radius) {
+std::vector<size_t> RealField3D::findNeighboringPixels(
+        size_t i, double radius
+) const {
     int n[3], dn[3], ntot = 1;
     std::vector<size_t> neighbors;
 
@@ -129,7 +131,7 @@ std::vector<size_t> RealField3D::findNeighboringPixels(size_t i, double radius) 
 }
 
 
-double RealField3D::interpolate(double coord[3]) {
+double RealField3D::interpolate(double coord[3]) const {
     int n[3];
     double d[3], r;
 
