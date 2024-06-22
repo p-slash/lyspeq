@@ -41,8 +41,9 @@ public:
     std::unique_ptr<qio::QSOFile> qFile;
     int N;
     /* z1: 1 + z */
+    /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *ivar, angles[3], *out;
-    const double *in;
+    const double *in, *truth;
     std::unique_ptr<double[]> r, y, Cy, residual, search;
     NormalRNG rng;
 
@@ -90,10 +91,8 @@ public:
         search = std::make_unique<double[]>(N);
 
         // Weight deltas
-        for (int i = 0; i < N; ++i) {
+        for (int i = 0; i < N; ++i)
             qFile->delta()[i] *= ivar[i];
-            y[i] = qFile->delta()[i];
-        }
 
         angles[0] = qFile->ra * true_pitch;
         angles[1] = qFile->dec;
@@ -101,6 +100,7 @@ public:
 
         rng.seed(qFile->id);
         in = y.get();
+        truth = qFile->delta();
         out = Cy.get();
     }
 
@@ -116,9 +116,10 @@ public:
     }
 
     void fillRngNoise() {
-        rng.fillVector(y.get(), N);
+        /* overwrite qFile->delta */
+        rng.fillVector(truth, N);
         for (int i = 0; i < N; ++i)
-            y[i] *= sqrt(ivar[i]);
+            truth[i] *= sqrt(ivar[i]);
     }
 };
 

@@ -285,13 +285,18 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
 
 void Qu3DEstimator::conjugateGradientDescent() {
     LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
+
+    /* Initial guess */
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        std::copy_n(qso->truth, qso->N, qso->in);
+
     multiplyCovVector();
 
-    /* Assume qso->in is the desired output */
     #pragma omp parallel for
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            qso->residual[i] = qso->in[i] - qso->Cy[i];
+            qso->residual[i] = qso->truth[i] - qso->Cy[i];
             qso->search[i] = qso->residual[i];
         }
     }
