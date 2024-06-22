@@ -169,13 +169,14 @@ void Qu3DEstimator::_constructMap() {
 void Qu3DEstimator::_findNeighbors() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
+    rscale_long *= rscale_factor;
     #pragma omp parallel for
     for (auto &qso : quasars) {
-        for (const auto &i : qso->grid_indices) {
+        for (const size_t &i : qso->grid_indices) {
             auto neighboring_pixels = mesh.findNeighboringPixels(
-                i, 4 * rscale_long);
+                i, rscale_long);
 
-            for (size_t ipix : neighboring_pixels) {
+            for (const size_t &ipix : neighboring_pixels) {
                 auto kumap_itr = idx_quasar_map.find(ipix);
 
                 if (kumap_itr == idx_quasar_map.end())
@@ -187,6 +188,7 @@ void Qu3DEstimator::_findNeighbors() {
         }
     }
 
+    rscale_long /= rscale_factor;
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("_findNeighbors took %.2f m.\n", t2 - t1);
 }
@@ -219,6 +221,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     tolerance = config.getDouble("ConvergenceTolerance");
     specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
     rscale_long = config.getDouble("LongScale");
+    rscale_factor = config.getDouble("ScaleFactor");
 
     mesh.ngrid[0] = config.getInteger("NGRID_X");
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
