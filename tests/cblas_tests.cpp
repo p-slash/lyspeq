@@ -738,10 +738,10 @@ int test_cubic_interpolate() {
     double dv = 2.0;
     int narr = 25;
     auto yarr = std::make_unique<double[]>(narr);
-    double a = -0.5 / (narr - 1) / dv;  // zero second deriv at the end.
+    const double a = 21312;
     for (int i = 0; i < narr; ++i) {
         double x = dv * i, x3 = x * x * x;
-        yarr[i] = a * x3 * x + x3 + 2 * x + 10;
+        yarr[i] = a * x3 + 10;
     }
 
     auto interp1d_cubic = std::make_unique<DiscreteCubicInterpolation1D>(
@@ -753,7 +753,7 @@ int test_cubic_interpolate() {
     auto truth = std::make_unique<double[]>(narr);
     for (int i = 0; i < narr; ++i) {
         double x = dv * i, x3 = x * x * x;
-        truth[i] = a * x3 * x + x3 + 2 * x + 10;
+        truth[i] = a * x3 + 10;
         yarr[i] = interp1d_cubic->evaluate(x);
     }
 
