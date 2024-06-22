@@ -67,6 +67,16 @@ public:
         return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
     }
 
+    size_t getNgpIndex(double coord[3]) {
+        int n[3];
+
+        coord[2] -= z0;
+        for (int axis = 0; axis < 3; ++axis)
+            n[axis] = round(coord[axis] / dx[axis]);
+
+        return getIndex(n[0], n[1], n[2]);
+    }
+
     inline size_t getCorrectIndexX(size_t j) {
         return j + (j / ngrid[2]) * (ngrid[2] - ngrid_z);
     }
@@ -129,7 +139,10 @@ public:
     }
 
     double interpolate(double coord[3]);
-    void reverseInterpolate(double coord[3], double val);
+    void reverseInterpolateCIC(double coord[3], double val);
+    void reverseInterpolateNGP(double coord[3], double val) {
+        field_x[getNgpIndex(coord)] += val;
+    }
 };
 
 #endif

@@ -101,8 +101,9 @@ double RealField3D::interpolate(double coord[3]) {
 
     coord[2] -= z0;
     for (int axis = 0; axis < 3; ++axis) {
-        n[axis] = coord[axis] / dx[axis];
-        d[axis] = coord[axis] / dx[axis] - n[axis];
+        d[axis] = coord[axis] / dx[axis];
+        n[axis] = d[axis];
+        d[axis] -= n[axis];
     }
 
     r = field_x[getIndex(n[0], n[1], n[2])] * (1 - d[0]) * (1 - d[1]) * (1 - d[2]);
@@ -121,14 +122,15 @@ double RealField3D::interpolate(double coord[3]) {
 }
 
 
-void RealField3D::reverseInterpolate(double coord[3], double val) {
+void RealField3D::reverseInterpolateCIC(double coord[3], double val) {
     int n[3];
     double d[3];
 
     coord[2] -= z0;
     for (int axis = 0; axis < 3; ++axis) {
-        n[axis] = coord[axis] / dx[axis];
-        d[axis] = coord[axis] / dx[axis] - n[axis];
+        d[axis] = coord[axis] / dx[axis];
+        n[axis] = d[axis];
+        d[axis] -= n[axis];
     }
 
     field_x[getIndex(n[0], n[1], n[2])] += val * (1 - d[0]) * (1 - d[1]) * (1 - d[2]);
