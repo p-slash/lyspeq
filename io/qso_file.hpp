@@ -143,6 +143,7 @@ public:
     double* wave() const  { return wave_head+shift; };
     double* delta() const { return delta_head+shift; };
     double* noise() const { return noise_head+shift; };
+    void convertNoiseToIvar();
 
     double getMinMemUsage() {
         double mem = 0;

@@ -215,6 +215,17 @@ void QSOFile::maskOutliers() {
     }
 }
 
+void QSOFile::convertNoiseToIvar() {
+    std::for_each(
+        noise(), noise() + size(), [](double &n) {
+            n *= n;
+            n = 1 / n;
+            if (n <= 5. * DOUBLE_EPSILON)
+                n = 0;
+        }
+    );
+}
+
 void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 {
     if (wave_head == nullptr)

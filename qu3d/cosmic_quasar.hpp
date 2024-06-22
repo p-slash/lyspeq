@@ -75,15 +75,7 @@ public:
         );
         z1 = qFile->wave();
 
-        // Convert to ivar again
-        std::for_each(
-            qFile->noise(), qFile->noise() + N, [](double &n) {
-                n *= n;
-                n = 1 / n;
-                if (n <= 5. * DOUBLE_EPSILON)
-                    n = 0;
-            }
-        );
+        qFile->convertNoiseToIvar();
         ivar = qFile->noise();
 
         r = std::make_unique<double[]>(N);
