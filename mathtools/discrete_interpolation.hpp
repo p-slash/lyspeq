@@ -30,25 +30,27 @@ public:
 };
 
 
-// Stores a copy of y array.
-// Assumes evenly spaced x.
-// cubic interpolation
-// Out of bound values are extrapolated linearly
-// Natural boundary conditions (second derivatives are zero)
-class DiscreteCubicInterpolation1D
-{
-    bool _alloc;
+class DiscreteCubicInterpolation1D {
+    /* Stores a copy of y array.
+       Assumes evenly spaced x.
+       cubic interpolation
+       Out of bound values are extrapolated
+       Natural (second derivatives are zero) or Not-A-Knot boundary conditions
+    */
+
+    bool _alloc, _notaknot;
     double x1, x2, dx;
     double *y;
     int N;
 
     std::unique_ptr<double[]> _y2p;
-    void construct();
+    void construct_natural();
+    void construct_notaknot();
 
 public:
     DiscreteCubicInterpolation1D(
         double x_start, double delta_x, int Nsize,
-        double *y_arr=nullptr, bool alloc=true);
+        double *y_arr=nullptr, bool alloc=true, bool notaknot=true);
     ~DiscreteCubicInterpolation1D() { if (_alloc) delete [] y; };
     void resetPointer(double x_start, double delta_x, int Nsize, double *y_arr);
     bool operator==(const DiscreteCubicInterpolation1D &rhs) const;
