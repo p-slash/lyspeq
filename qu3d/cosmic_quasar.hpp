@@ -19,7 +19,7 @@
 constexpr double med_dec = 0.14502735752295168;
 
 namespace specifics {
-    inline int DOWNSAMPLE_FACTOR = 3;
+    static int DOWNSAMPLE_FACTOR;
 }
 
 class NormalRNG {
