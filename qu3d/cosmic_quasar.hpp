@@ -2,6 +2,7 @@
 #define COSMIC_QUASAR_H
 
 #include <algorithm>
+#include <cmath>
 #include <random>
 #include <sstream>
 #include <stdexcept>
@@ -10,6 +11,10 @@
 
 #include "io/qso_file.hpp"
 #include "qu3d/cosmology_3d.hpp"
+
+
+// The median of DEC distribution in radians
+constexpr double true_pitch = cos(0.14502735752295168);
 
 
 class NormalRNG {
@@ -90,8 +95,8 @@ public:
             y[i] = qFile->delta()[i];
         }
 
-        angles[0] = qFile->ra;
-        angles[1] = MY_PI / 2 - qFile->dec;
+        angles[0] = qFile->ra * true_pitch;
+        angles[1] = qFile->dec;
         angles[2] = 1;
 
         rng.seed(qFile->id);
