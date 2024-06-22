@@ -17,7 +17,7 @@
 constexpr double med_dec = 0.14502735752295168;
 
 namespace specifics {
-    int DOWNSAMPLE_FACTOR = 3;
+    inline int DOWNSAMPLE_FACTOR = 3;
 }
 
 class NormalRNG {
@@ -62,20 +62,23 @@ public:
         }
 
         qFile->readData();
-
         qFile->maskOutliers();
         qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-        N = qFile->size();
         // Convert wave to 1 + z
         std::for_each(
-            qFile->wave(), qFile->wave() + N, [](double &ld) {
+            qFile->wave(), qFile->wave() + qFile->size(), [](double &ld) {
                 ld = ld / LYA_REST;
             }
         );
-        z1 = qFile->wave();
 
         qFile->convertNoiseToIvar();
+
+        if (specifics::DOWNSAMPLE_FACTOR > 1)
+            qFile->downsample(specifics::DOWNSAMPLE_FACTOR);
+
+        N = qFile->size();
+        z1 = qFile->wave();
         ivar = qFile->noise();
 
         r = std::make_unique<double[]>(N);
