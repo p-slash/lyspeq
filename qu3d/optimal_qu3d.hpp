@@ -34,6 +34,7 @@ class Qu3DEstimator
     void _readQSOFiles(const std::string &flist, const std::string &findir);
 
     void _constructMap();
+    void _findNeighbors();
 public:
     /* This function reads following keys from config file:
     FileNameList: string
