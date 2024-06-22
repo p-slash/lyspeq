@@ -1,8 +1,13 @@
+#include <unordered_map>
+
 #include "qu3d/optimal_qu3d.hpp"
 #include "qu3d/cosmology_3d.hpp"
 
 #include "core/global_numbers.hpp"
 #include "io/logger.hpp"
+
+typedef std::unordered_map<size_t, std::vector<const CosmicQuasar*>> gridindex_quasar_map;
+gridindex_quasar_map idx_quasar_map;
 
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
@@ -142,6 +147,25 @@ void Qu3DEstimator::_readQSOFiles(
 }
 
 
+void Qu3DEstimator::_constructMap() {
+    double t1 = mytime::timer.getTime(), t2 = 0;
+
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        qso->findGridPoints(mesh);
+
+    t2 = mytime::timer.getTime();
+    LOG::LOGGER.STD("findGridPoints took %.2f m.\n", t2 - t1);
+
+    for (const auto &qso : quasars)
+        for (const auto &i : qso->grid_indices)
+            idx_quasar_map[i].push_back(qso.get());
+
+    t1 = mytime::timer.getTime();
+    LOG::LOGGER.STD("Appending map took %.2f m.\n", t1 - t2);
+}
+
+
 Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     config.addDefaults(qu3d_default_parameters);
 
@@ -193,6 +217,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     power_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
     bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
     fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
+
+    _constructMap();
 }
 
 
@@ -232,7 +258,7 @@ double Qu3DEstimator::calculateResidualNorm2() {
     double residual_norm2 = 0;
 
     #pragma omp parallel for reduction(+:residual_norm2)
-    for (auto &qso : quasars)
+    for (const auto &qso : quasars)
         residual_norm2 += cblas_dnrm2(qso->N, qso->residual.get(), 1);
 
     return residual_norm2;
@@ -253,7 +279,7 @@ void Qu3DEstimator::updateY(double residual_norm2) {
 
     // get a_down
     #pragma omp parallel for reduction(+:a_down)
-    for (auto &qso : quasars)
+    for (const auto &qso : quasars)
         a_down += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
     alpha = residual_norm2 / a_down;

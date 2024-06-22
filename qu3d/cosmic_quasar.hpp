@@ -4,12 +4,14 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <memory>
 
 #include "io/qso_file.hpp"
+#include "mathtools/real_field_3d.hpp"
 #include "qu3d/cosmology_3d.hpp"
 
 
@@ -48,6 +50,9 @@ public:
     double *z1, *ivar, angles[3], *in, *out, *truth;
     std::unique_ptr<double[]> r, y, Cy, residual, search;
     NormalRNG rng;
+
+    std::set<size_t> grid_indices;
+    std::set<const CosmicQuasar*> neighbors;
 
     CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
         qFile = std::make_unique<qio::QSOFile>(pf, hdunum);
@@ -117,6 +122,14 @@ public:
         rng.fillVector(truth, N);
         for (int i = 0; i < N; ++i)
             truth[i] *= sqrt(ivar[i]);
+    }
+
+    void findGridPoints(const RealField3D &mesh) {
+        double coord[3];
+        for (int i = 0; i < N; ++i) {
+            getCartesianCoords(i, coord);
+            grid_indices.insert(mesh.getNgpIndex(coord));
+        }
     }
 };
 
