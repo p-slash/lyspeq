@@ -104,7 +104,32 @@ namespace fidcosmo {
 
     class LinearPowerInterpolator {
         /* Power spectrum interpolator in Mpc units */
-        std::unique_ptr<DiscreteInterpolation1D> interp_lnp;
+        std::unique_ptr<DiscreteCubicInterpolation1D> interp_lnp;
+
+        std::unique_ptr<double[]> _appendLinearExtrapolation(
+                double lnk1, double lnk2, double dlnk, int N,
+                const std::vector<double> &lnP, double &newlnk1,
+                double lnkmin=log(1e-5), double lnkmax=log(5.0)
+        ) {
+            double m1 = lnP[1] - lnP[0],
+                   m2 = lnP[N - 1] - lnP[N - 2];
+
+            int n1 = std::max(0, int((lnk1 - lnkmin) / dlnk)),
+                n2 = std::max(0, int((lnkmax - lnk2) / dlnk));
+
+            newlnk1 = lnk1 - n1 * dlnk;
+            auto result = std::make_unique<double[]>(n1 + N + n2);
+
+            for (int i = 0; i < n1; ++i)
+                result[i] = lnP[0] + m1 * (i - n1);
+
+            std::copy(lnP.begin(), lnP.end(), result.get() + n1);
+
+            for (int i = 0; i < n2; ++i)
+                result[n1 + N + i] = lnP.back() + m2 * (i + 1);
+
+            return result;
+        }
 
         void _readFile(const std::string &fname) {
             std::ifstream toRead = ioh::open_fstream<std::ifstream>(fname);
@@ -118,15 +143,18 @@ namespace fidcosmo {
 
             toRead.close();
 
+            int N = lnk.size();
             double dlnk = lnk[1] - lnk[0];
 
-            for (size_t i = 1; i < lnk.size() - 1; ++i)
+            for (size_t i = 1; i < N - 1; ++i)
                 if (fabs(lnk[i + 1] - lnk[i] - dlnk) > 1e-8)
                     throw std::runtime_error(
                         "Input PlinearFilename does not have equal ln k spacing.");
 
-            interp_lnp = std::make_unique<DiscreteInterpolation1D>(
-                lnk[0], dlnk, lnk.size(), lnP.data());
+            auto appendLnp = _appendLinearExtrapolation(
+                lnk[0], lnk.back(), dlnk, N, lnP, lnk1);
+            interp_lnp = std::make_unique<DiscreteCubicInterpolation1D>(
+                lnk1, dlnk, N, appendLnp.get());
         }
     public:
         double z_pivot;
