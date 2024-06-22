@@ -81,14 +81,14 @@ public:
         return j + (j / ngrid[2]) * (ngrid[2] - ngrid_z);
     }
 
-    void getNFromIndex(size_t i, int n[3]) {
+    void getNFromIndex(size_t i, int n[3]) const {
         int nperp = i / ngrid_z;
         n[2] = i % ngrid_z;
         n[0] = nperp / ngrid[1];
         n[1] = nperp % ngrid[1];
     }
 
-    void getKFromIndex(size_t i, double k[3]) {
+    void getKFromIndex(size_t i, double k[3]) const {
         int kn[3];
 
         size_t iperp = i / ngrid_kz;
@@ -106,7 +106,7 @@ public:
             k[axis] = k_fund[axis] * kn[axis];
     }
 
-    void getK2KzFromIndex(size_t i, double &k2, double &kz) {
+    void getK2KzFromIndex(size_t i, double &k2, double &kz) const {
         double ks[3];
         getKFromIndex(i, ks);
         kz = ks[2];
@@ -116,7 +116,7 @@ public:
             k2 += ks[axis] * ks[axis];
     }
 
-    void getKperpFromIperp(size_t iperp, double &kperp) {
+    void getKperpFromIperp(size_t iperp, double &kperp) const {
         int kn[2];
         kn[0] = iperp / ngrid[1];
         kn[1] = iperp % ngrid[1];
@@ -133,7 +133,7 @@ public:
         kperp = sqrt(kperp);
     }
 
-    void getKperpKzFromIndex(size_t i, double &kperp, double &kz) {
+    void getKperpKzFromIndex(size_t i, double &kperp, double &kz) const {
         double ks[3];
         getKFromIndex(i, ks);
         kz = ks[2];
@@ -145,8 +145,8 @@ public:
         kperp = sqrt(kperp);
     }
 
-    std::vector<size_t> findNeighboringPixels(size_t i, double radius);
-    double interpolate(double coord[3]);
+    std::vector<size_t> findNeighboringPixels(size_t i, double radius) const;
+    double interpolate(double coord[3]) const;
     void reverseInterpolateCIC(double coord[3], double val);
     void reverseInterpolateNGP(double coord[3], double val) {
         field_x[getNgpIndex(coord)] += val;
