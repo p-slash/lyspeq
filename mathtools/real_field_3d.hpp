@@ -81,6 +81,13 @@ public:
         return j + (j / ngrid[2]) * (ngrid[2] - ngrid_z);
     }
 
+    void getNFromIndex(size_t i, int n[3]) {
+        int nperp = i / ngrid_z;
+        n[2] = i % ngrid_z;
+        n[0] = nperp / ngrid[1];
+        n[1] = nperp % ngrid[1];
+    }
+
     void getKFromIndex(size_t i, double k[3]) {
         int kn[3];
 
@@ -138,6 +145,7 @@ public:
         kperp = sqrt(kperp);
     }
 
+    std::vector<size_t> findNeighboringPixels(size_t i, double radius);
     double interpolate(double coord[3]);
     void reverseInterpolateCIC(double coord[3], double val);
     void reverseInterpolateNGP(double coord[3], double val) {

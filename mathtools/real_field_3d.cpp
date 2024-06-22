@@ -95,6 +95,40 @@ double RealField3D::dot(const RealField3D &other) {
 }
 
 
+std::vector<size_t> RealField3D::findNeighboringPixels(size_t i, double radius) {
+    int n[3], dn[3], ntot = 1;
+    std::vector<size_t> neighbors;
+
+    getNFromIndex(i, n);
+    for (int axis = 0; axis < 3; ++axis) {
+        dn[axis] = ceil(radius / dx[axis]) - 1;
+        ntot *= 2 * dn[axis] + 1;
+    }
+
+    radius *= radius;
+    neighbors.reserve(ntot);
+    for (int x = -dn[0]; x <= dn[0]; ++x) {
+        double x2 = x * dx[0];  x2 *= x2;
+
+        for (int y = -dn[1]; y <= dn[1]; ++y) {
+            double y2 = y * dx[1];  y2 *= y2;
+
+            for (int z = -dn[2]; z <= dn[2]; ++z) {
+                double z2 = z * dx[2];  z2 *= z2;
+                z2 += x2 + y2;
+
+                if (z2 > radius)
+                    continue;
+
+                neighbors.push_back(getIndex(n[0] + x, n[1] + y, n[2] + z));
+            }
+        }
+    }
+
+    return neighbors;
+}
+
+
 double RealField3D::interpolate(double coord[3]) {
     int n[3];
     double d[3], r;
