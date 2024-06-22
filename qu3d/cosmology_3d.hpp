@@ -55,7 +55,7 @@ namespace fidcosmo {
             hubble_z = std::make_unique<DiscreteCubicInterpolation1D>(
                 z1arr[0], dz, nz, &Hz[0]);
 
-            const int nz2 = 3000;
+            const int nz2 = 3100;
             const double dz2 = 0.002;
             double invHz[nz2];
             for (int i = 0; i < nz2; ++i)

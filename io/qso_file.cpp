@@ -228,7 +228,8 @@ void QSOFile::convertNoiseToIvar() {
 
 
 void QSOFile::downsample(int m) {
-    int nfirst = arr_size / m, nrem = arr_size % m, nnew = nfirst + nrem != 0;
+    int nfirst = arr_size / m, nrem = arr_size % m,
+        nnew = nfirst + int(nrem != 0);
 
     double *wn = new double[nnew], *dn = new double[nnew], *in = new double[nnew];
 
