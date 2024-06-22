@@ -28,7 +28,7 @@ namespace fidcosmo {
 
     class FlatLCDM {
         double Omega_m, Omega_r, H0, Omega_L;
-        std::unique_ptr<DiscreteInterpolation1D>
+        std::unique_ptr<DiscreteCubicInterpolation1D>
             interp_comov_dist, hubble_z;
     public:
         /* This function reads following keys from config file:

@@ -42,8 +42,7 @@ public:
     int N;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
-    double *z1, *ivar, angles[3], *out;
-    const double *in, *truth;
+    double *z1, *ivar, angles[3], *in, *out, *truth;
     std::unique_ptr<double[]> r, y, Cy, residual, search;
     NormalRNG rng;
 
