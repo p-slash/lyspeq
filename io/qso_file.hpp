@@ -144,6 +144,10 @@ public:
     double* delta() const { return delta_head+shift; };
     double* noise() const { return noise_head+shift; };
     void convertNoiseToIvar();
+    /* Assumes noise in IVAR form to downsample.
+       Does not downsample resolution matrix.
+       Does not count masked pixels */
+    void downsample(int m);
 
     double getMinMemUsage() {
         double mem = 0;

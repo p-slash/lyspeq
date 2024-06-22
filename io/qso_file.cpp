@@ -217,7 +217,7 @@ void QSOFile::maskOutliers() {
 
 void QSOFile::convertNoiseToIvar() {
     std::for_each(
-        noise(), noise() + size(), [](double &n) {
+        noise(), noise() + arr_size, [](double &n) {
             n *= n;
             n = 1 / n;
             if (n <= 5. * DOUBLE_EPSILON)
@@ -225,6 +225,50 @@ void QSOFile::convertNoiseToIvar() {
         }
     );
 }
+
+
+void QSOFile::downsample(int m) {
+    int nfirst = arr_size / m, nrem = arr_size % m, nnew = nfirst + nrem != 0;
+
+    double *wn = new double[nnew], *dn = new double[nnew], *in = new double[nnew];
+
+    for (int i = 0; i < nfirst; ++i) {
+        wn[i] = 0;  dn[i] = 0;  in[i] = 0;
+        for (int j = 0; j < m; ++j) {
+            wn[i] += wave()[j + m * i] * noise()[j + m * i];
+            dn[i] += delta()[j + m * i] * noise()[j + m * i];
+            in[i] += noise()[j + m * i];
+        }
+
+        wn[i] /= in[i];  dn[i] /= in[i];
+    }
+
+    if (nrem != 0) {
+        wn[nfirst] = 0;  dn[nfirst] = 0;  in[nfirst] = 0;
+        for (int j = 0; j < nrem; ++j) {
+            wn[nfirst] += wave()[j + m * nfirst] * noise()[j + m * nfirst];
+            dn[nfirst] += delta()[j + m * nfirst] * noise()[j + m * nfirst];
+            in[nfirst] += noise()[j + m * nfirst];
+        }
+
+        wn[nfirst] /= in[nfirst];  dn[nfirst] /= in[nfirst];
+    }
+
+    process::updateMemory(getMinMemUsage());
+    arr_size = nnew;
+    _fullsize = arr_size;
+    shift = 0;
+    num_masked_pixels = 0;
+
+    process::updateMemory(-process::getMemoryMB(_fullsize * 3));
+    delete [] wave_head;
+    delete [] delta_head;
+    delete [] noise_head;
+
+    wave_head = wn;  delta_head = dn;  noise_head = in;
+    recalcDvDLam();
+}
+
 
 void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 {
