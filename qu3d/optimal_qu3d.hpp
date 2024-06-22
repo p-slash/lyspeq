@@ -14,7 +14,7 @@ const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "288"}, {"NGRID_Z", "48"},
     {"LENGTH_X", "45000"}, {"LENGTH_Y", "14000"}, {"LENGTH_Z", "2000"},
     {"ZSTART", "5200"}, {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
-    {"ConvergenceTolerance", "1e-6"}, {"LongScale", "50"},
+    {"ConvergenceTolerance", "1e-6"}, {"LongScale", "50"}, {"ScaleFactor", "4"},
     {"DownsampleFactor", "3"}
 });
 
@@ -24,7 +24,7 @@ class Qu3DEstimator
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     size_t num_all_pixels;
     int max_conj_grad_steps, max_monte_carlos;
-    double tolerance, rscale_long;
+    double tolerance, rscale_long, rscale_factor;
     RealField3D mesh;
 
     std::unique_ptr<double[]> power_est, bias_est, fisher;
