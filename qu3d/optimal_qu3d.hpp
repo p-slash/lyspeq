@@ -50,7 +50,7 @@ public:
         for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i) {
                 qso->getCartesianCoords(i, coord);
-                mesh.reverseInterpolate(coord, qso->in[i]);
+                mesh.reverseInterpolateNGP(coord, qso->in[i]);
             }
         }
     }
