@@ -296,7 +296,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
     #pragma omp parallel for
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            qso->residual[i] = qso->truth[i] - qso->Cy[i];
+            qso->residual[i] = qso->truth[i] - qso->out[i];
             qso->search[i] = qso->residual[i];
         }
     }
