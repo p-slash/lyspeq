@@ -14,8 +14,11 @@
 
 
 // The median of DEC distribution in radians
-constexpr double true_pitch = cos(0.14502735752295168);
+constexpr double med_dec = 0.14502735752295168;
 
+namespace specifics {
+    int DOWNSAMPLE_FACTOR = 3;
+}
 
 class NormalRNG {
 public:
@@ -93,8 +96,8 @@ public:
         for (int i = 0; i < N; ++i)
             qFile->delta()[i] *= ivar[i];
 
-        angles[0] = qFile->ra * true_pitch;
-        angles[1] = qFile->dec;
+        angles[0] = qFile->ra;
+        angles[1] = qFile->dec - med_dec;
         angles[2] = 1;
 
         rng.seed(qFile->id);
