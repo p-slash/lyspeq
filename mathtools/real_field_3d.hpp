@@ -55,7 +55,7 @@ public:
     void fftK2X();
     double dot(const RealField3D &other);
 
-    size_t getIndex(int nx, int ny, int nz) {
+    size_t getIndex(int nx, int ny, int nz) const {
         int n[] = {nx, ny, nz};
         for (int axis = 0; axis < 3; ++axis) {
             if (n[axis] >= ngrid[axis])
@@ -67,7 +67,7 @@ public:
         return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
     }
 
-    size_t getNgpIndex(double coord[3]) {
+    size_t getNgpIndex(double coord[3]) const {
         int n[3];
 
         coord[2] -= z0;

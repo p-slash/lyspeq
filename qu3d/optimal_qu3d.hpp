@@ -4,14 +4,11 @@
 #include <vector>
 #include <string>
 #include <memory>
-// #include <unordered_map>
 
 #include "mathtools/real_field_3d.hpp"
 
 #include "io/config_file.hpp"
 #include "qu3d/cosmic_quasar.hpp"
-
-// typedef std::unordered_map<long, std::unique_ptr<qio::QSOFile>> targetid_quasar_map;
 
 const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "288"}, {"NGRID_Z", "48"},
@@ -35,6 +32,8 @@ class Qu3DEstimator
     // Reads the entire file
     void _readOneDeltaFile(const std::string &fname);
     void _readQSOFiles(const std::string &flist, const std::string &findir);
+
+    void _constructMap();
 public:
     /* This function reads following keys from config file:
     FileNameList: string
