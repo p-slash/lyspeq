@@ -152,8 +152,10 @@ public:
     std::vector<size_t> findNeighboringPixels(size_t i, double radius) const;
     double interpolate(double coord[3]) const;
     void reverseInterpolateCIC(double coord[3], double val);
-    void reverseInterpolateNGP(double coord[3], double val) {
-        field_x[getNgpIndex(coord)] += val;
+    void reverseInterpolateNGP(double coord[3], size_t idx, double val) {
+        if (idx != getNgpIndex(coord))
+            return;
+        field_x[idx] += val;
     }
 };
 
