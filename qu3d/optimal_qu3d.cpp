@@ -178,19 +178,16 @@ void Qu3DEstimator::_findNeighbors() {
     rscale_long *= rscale_factor;
     #pragma omp parallel for
     for (auto &qso : quasars) {
-        for (const size_t &i : qso->grid_indices) {
-            auto neighboring_pixels = mesh.findNeighboringPixels(
-                i, rscale_long);
+        auto neighboring_pixels = qso->findNeighborPixels(mesh, rscale_long);
 
-            for (const size_t &ipix : neighboring_pixels) {
-                auto kumap_itr = idx_quasar_map.find(ipix);
+        for (const size_t &ipix : neighboring_pixels) {
+            auto kumap_itr = idx_quasar_map.find(ipix);
 
-                if (kumap_itr == idx_quasar_map.end())
-                    continue;
+            if (kumap_itr == idx_quasar_map.end())
+                continue;
 
-                qso->neighbors.insert(
-                    kumap_itr->second.cbegin(), kumap_itr->second.cend());
-            }
+            qso->neighbors.insert(
+                kumap_itr->second.cbegin(), kumap_itr->second.cend());
         }
     }
 
