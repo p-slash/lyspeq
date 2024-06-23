@@ -131,6 +131,23 @@ public:
             grid_indices.insert(mesh.getNgpIndex(coord));
         }
     }
+
+    std::set<size_t> findNeighborPixels(
+            const RealField3D &mesh, double radius
+    ) {
+        std::vector<size_t> neighboring_pixels;
+        for (const size_t &i : grid_indices) {
+            auto other = mesh.findNeighboringPixels(i, radius);
+            neighboring_pixels.reserve(neighboring_pixels.size() + other.size());
+            std::move(other.begin(), other.end(),
+                      std::back_inserter(neighboring_pixels));
+            other.clear();
+        }
+
+        std::set<size_t> unique_neighboring_pixels(
+            neighboring_pixels.begin(), neighboring_pixels.end());
+        return unique_neighboring_pixels;
+    }
 };
 
 #endif
