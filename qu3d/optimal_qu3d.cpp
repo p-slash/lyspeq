@@ -263,7 +263,7 @@ void Qu3DEstimator::reverseInterpolate() {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->getCartesianCoords(i, coord);
-            mesh.reverseInterpolateNGP(coord, qso->in[i]);
+            mesh.reverseInterpolateCIC(coord, qso->in[i]);
         }
     }
 
