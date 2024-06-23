@@ -112,7 +112,7 @@ public:
     }
 
     /* Equirectangular projection */
-    void getCartesianCoords(int i, double coord[3]) {
+    void getCartesianCoords(int i, double coord[3]) const {
         for (int axis = 0; axis < 3; ++axis)
             coord[axis] = r[i] * angles[axis];
     }
