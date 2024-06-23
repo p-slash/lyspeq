@@ -137,7 +137,6 @@ void Qu3DEstimator::_readQSOFiles(
     }
 
     t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t2 - t1);
 
     if (quasars.empty())
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
@@ -146,6 +145,11 @@ void Qu3DEstimator::_readQSOFiles(
     #pragma omp parallel for reduction(+:num_all_pixels)
     for (auto &qso : quasars)
         num_all_pixels += qso->N;
+
+    LOG::LOGGER.STD(
+        "There are %d quasars and %ld number of pixels. "
+        "Reading QSO files took %.2f m.\n",
+        quasars.size(), num_all_pixels, t2 - t1);
 }
 
 
