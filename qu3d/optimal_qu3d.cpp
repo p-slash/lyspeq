@@ -247,9 +247,10 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
 
     _constructMap();
     // _findNeighbors();
-    idx_quasars_pairs.reserve(idx_quasar_map.size());
-    for (auto &[idx, qsos] : idx_quasar_map)
-        idx_quasars_pairs.push_back(std::make_pair(idx, std::move(qsos)));
+    // idx_quasars_pairs.reserve(idx_quasar_map.size());
+    // for (auto &[idx, qsos] : idx_quasar_map)
+    //     idx_quasars_pairs.push_back(std::make_pair(idx, std::move(qsos)));
+    // std::sort(idx_quasars_pairs.begin(), idx_quasars_pairs.end());
     idx_quasar_map.clear();
     rscale_long *= -rscale_long;
 }
@@ -258,24 +259,25 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
 void Qu3DEstimator::reverseInterpolate() {
     mesh.zero_field_k();
 
-    // double coord[3];
-    // for (auto &qso : quasars) {
-    //     for (int i = 0; i < qso->N; ++i) {
-    //         qso->getCartesianCoords(i, coord);
-    //         mesh.reverseInterpolateNGP(coord, qso->in[i]);
-    //     }
-    // }
-
-    #pragma omp parallel for schedule(dynamic, 1)
-    for (const auto &[idx, qsos] : idx_quasars_pairs) {
-        double coord[3];
-        for (auto &qso : qsos) {
-            for (int i = 0; i < qso->N; ++i) {
-                qso->getCartesianCoords(i, coord);
-                mesh.reverseInterpolateNGP(coord, idx, qso->in[i]);
-            }
+    double coord[3];
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i) {
+            qso->getCartesianCoords(i, coord);
+            mesh.reverseInterpolateNGP(coord, qso->in[i]);
         }
     }
+
+    // Not faster
+    // #pragma omp parallel for schedule(dynamic, 8) num_threads(8)
+    // for (const auto &[idx, qsos] : idx_quasars_pairs) {
+    //     double coord[3];
+    //     for (const auto &qso : qsos) {
+    //         for (int i = 0; i < qso->N; ++i) {
+    //             qso->getCartesianCoords(i, coord);
+    //             mesh.reverseInterpolateNGP(coord, idx, qso->in[i]);
+    //         }
+    //     }
+    // }
 }
 
 
