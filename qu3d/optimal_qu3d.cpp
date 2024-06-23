@@ -193,7 +193,7 @@ void Qu3DEstimator::_findNeighbors() {
     LOG::LOGGER.STD("_findNeighbors took %.2f m.\n", t2 - t1);
 }
 
-Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
+Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     config.addDefaults(qu3d_default_parameters);
 
     num_all_pixels = 0;
@@ -492,5 +492,65 @@ void Qu3DEstimator::estimatePowerBias() {
 
         bias_est.swap(old_bias_est);
     }
+
+    std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
+    buffer << "_p3d.txt";
+    write(buffer.str().c_str());
 }
 
+
+void Qu3DEstimator::write(const char *fname) {
+    FILE *toWrite = ioh::open_file(fname, "w");
+
+    specifics::printBuildSpecifics(toWrite);
+    config.writeConfig(toWrite);
+
+    fprintf(toWrite, "# -----------------------------------------------------------------\n"
+        "# File Template\nNk\n"
+        "# kperp | kz | P3D | e_P3D | Pfid | d | b | Fd | Fb\n"
+        "# Nk     : Number of k bins\n"
+        "# kperp  : Perpendicular k bin [Mpc^-1]\n"
+        "# kz     : Line-of-sight k bin [Mpc^-1]\n"
+        "# P3D    : Estimated P3D [Mpc^3]\n"
+        "# e_P3D  : Gaussian error in estimated P3D [Mpc^3]\n"
+        "# Pfid   : Fiducial power [Mpc^3]\n"
+        "# d      : Power estimate before noise (b) subtracted [Mpc^3]\n"
+        "# b      : Noise estimate [Mpc^3]\n"
+        "# Fd     : d before Fisher\n"
+        "# Fb     : b before Fisher\n"
+        "# -----------------------------------------------------------------\n");
+
+    // if (damping_pair.first)
+    //     fprintf(toWrite, "# Damped: True\n");
+    // else
+    //     fprintf(toWrite, "# Damped: False\n");
+
+    // fprintf(toWrite, "# Damping constant: %.3e\n", damping_pair.second);
+    fprintf(toWrite, "# %d\n", bins::NUMBER_OF_K_BANDS);
+    fprintf(
+        toWrite,
+        "%14s %14s %14s %14s %14s %14s %14s %14s %14s\n", 
+        "kperp", "kz", "P3D", "e_P3D", "Pfid", "d", "b", "Fd", "Fb");
+
+    int kn = 0, zm = 0;
+    for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
+        for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
+            double kperp = bins::KBAND_CENTERS[kperp],
+                   kz = bins::KBAND_CENTERS[iz],
+                   P3D = 0,
+                   e_P3D = 0,
+                   k = sqrt(kperp * kperp + kz * kz),
+                   Pfid = p3d_model->evaluate(k, kz),
+                   d = 0,
+                   b = 0,
+                   Fd = power_est[iz + bins::NUMBER_OF_K_BANDS * iperp],
+                   Fb = bias_est[iz + bins::NUMBER_OF_K_BANDS * iperp];
+            fprintf(toWrite,
+                    "%14e %14e %14e %14e %14e %14e %14e %14e %14e\n", 
+                    kperp, kz, P3D, e_P3D, Pfid, d, b, Fd, Fb);
+        }
+    }
+
+    fclose(toWrite);
+    LOG::LOGGER.STD("P3D estimate saved as %s.\n", fname);
+}
