@@ -6,8 +6,7 @@
 #include "core/global_numbers.hpp"
 #include "io/logger.hpp"
 
-typedef std::unordered_map<size_t, std::vector<const CosmicQuasar*>> gridindex_quasar_map;
-gridindex_quasar_map idx_quasar_map;
+std::unordered_map<size_t, std::vector<const CosmicQuasar*>> idx_quasar_map;
 
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
@@ -246,9 +245,21 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
     fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
 
     _constructMap();
-    _findNeighbors();
+    // _findNeighbors();
     idx_quasar_map.clear();
     rscale_long *= -rscale_long;
+}
+
+
+void Qu3DEstimator::reverseInterpolate() {
+    double coord[3];
+    mesh.zero_field_k();
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i) {
+            qso->getCartesianCoords(i, coord);
+            mesh.reverseInterpolateNGP(coord, qso->in[i]);
+        }
+    }
 }
 
 

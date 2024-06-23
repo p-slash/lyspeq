@@ -44,17 +44,7 @@ public:
     */
     Qu3DEstimator(ConfigFile &config);
 
-    void reverseInterpolate() {
-        double coord[3];
-        mesh.zero_field_k();
-        for (auto &qso : quasars) {
-            for (int i = 0; i < qso->N; ++i) {
-                qso->getCartesianCoords(i, coord);
-                mesh.reverseInterpolateNGP(coord, qso->in[i]);
-            }
-        }
-    }
-
+    void reverseInterpolate();
     void multMeshComp();
     void multParticleComp();
 
