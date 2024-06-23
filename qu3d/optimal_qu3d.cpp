@@ -89,10 +89,12 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
             local_quasars.push_back(
                 std::make_unique<CosmicQuasar>(&pFile, i + 1));
         } catch (std::exception& e) {
+            #ifdef VERBOSE
             std::ostringstream fpath;
             fpath << fname << '[' << i + 1 << ']';
             LOG::LOGGER.ERR(
                 "%s. Filename %s.\n", e.what(), fpath.str().c_str());
+            #endif
         }
     }
 
