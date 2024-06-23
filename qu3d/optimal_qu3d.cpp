@@ -7,6 +7,7 @@
 #include "io/logger.hpp"
 
 std::unordered_map<size_t, std::vector<const CosmicQuasar*>> idx_quasar_map;
+std::vector<std::pair<size_t, std::vector<const CosmicQuasar*>>> idx_quasars_pairs;
 
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
@@ -246,18 +247,33 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &config) {
 
     _constructMap();
     // _findNeighbors();
+    idx_quasars_pairs.reserve(idx_quasar_map.size());
+    for (auto &[idx, qsos] : idx_quasar_map)
+        idx_quasars_pairs.push_back(std::make_pair(idx, std::move(qsos)));
     idx_quasar_map.clear();
     rscale_long *= -rscale_long;
 }
 
 
 void Qu3DEstimator::reverseInterpolate() {
-    double coord[3];
     mesh.zero_field_k();
-    for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i) {
-            qso->getCartesianCoords(i, coord);
-            mesh.reverseInterpolateNGP(coord, qso->in[i]);
+
+    // double coord[3];
+    // for (auto &qso : quasars) {
+    //     for (int i = 0; i < qso->N; ++i) {
+    //         qso->getCartesianCoords(i, coord);
+    //         mesh.reverseInterpolateNGP(coord, qso->in[i]);
+    //     }
+    // }
+
+    #pragma omp parallel for schedule(dynamic, 1)
+    for (const auto &[idx, qsos] : idx_quasars_pairs) {
+        double coord[3];
+        for (auto &qso : qsos) {
+            for (int i = 0; i < qso->N; ++i) {
+                qso->getCartesianCoords(i, coord);
+                mesh.reverseInterpolateNGP(coord, idx, qso->in[i]);
+            }
         }
     }
 }
