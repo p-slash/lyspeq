@@ -49,11 +49,7 @@ public:
         fftw_destroy_plan(p_k2x);
     };
 
-    void zero_field_k() {
-        #pragma omp parallel for
-        for (auto it = field_k.begin(); it != field_k.end(); ++it)
-            *it = 0;
-    }
+    void zero_field_k() { std::fill(field_k.begin(), field_k.end(), 0); }
     void rawFFTX2K() { fftw_execute(p_x2k); }
     void fftX2K();
     void fftK2X();
