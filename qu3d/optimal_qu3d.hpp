@@ -21,6 +21,7 @@ const config_map qu3d_default_parameters ({
 
 class Qu3DEstimator
 {
+    ConfigFile &config;
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     size_t num_all_pixels;
     int max_conj_grad_steps, max_monte_carlos;
@@ -42,7 +43,7 @@ public:
     FileInputDir: string
         Directory where files reside.
     */
-    Qu3DEstimator(ConfigFile &config);
+    Qu3DEstimator(ConfigFile &configg);
 
     void reverseInterpolate();
     void multMeshComp();
@@ -69,6 +70,7 @@ public:
     void conjugateGradientDescent();
 
     void estimatePowerBias();
+    void write(const char *fname);
 };
 
 #endif
