@@ -275,6 +275,19 @@ void Qu3DEstimator::reverseInterpolate() {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->getCartesianCoords(i, coord);
+            mesh.reverseInterpolateCIC(coord, qso->in[i]);
+        }
+    }
+}
+
+
+void Qu3DEstimator::reverseInterpolateIsig() {
+    mesh.zero_field_k();
+
+    double coord[3];
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i) {
+            qso->getCartesianCoords(i, coord);
             mesh.reverseInterpolateCIC(coord, qso->in[i] * qso->isig[i]);
         }
     }
@@ -296,7 +309,7 @@ void Qu3DEstimator::reverseInterpolate() {
 void Qu3DEstimator::multMeshComp() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
-    reverseInterpolate();
+    reverseInterpolateIsig();
 
     // Convolve power
     mesh.fftX2K();
