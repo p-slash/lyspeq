@@ -266,8 +266,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     rscale_long *= -rscale_long;
 }
 
-#define VERBOSE
-
 void Qu3DEstimator::reverseInterpolate() {
     mesh.zero_field_k();
 
@@ -334,9 +332,7 @@ void Qu3DEstimator::multMeshComp() {
     }
 
     t2 = mytime::timer.getTime();
-    #ifdef VERBOSE
     LOG::LOGGER.STD("    multMeshComp took %.2f m.\n", t2 - t1);
-    #endif
 }
 
 
@@ -383,9 +379,7 @@ void Qu3DEstimator::updateY(double residual_norm2) {
     }
 
     t2 = mytime::timer.getTime();
-    #ifdef VERBOSE
     LOG::LOGGER.STD("    updateY took %.2f m.\n", t2 - t1);
-    #endif
 }
 
 
@@ -401,9 +395,7 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
 
 
 void Qu3DEstimator::conjugateGradientDescent() {
-    #ifdef VERBOSE
     LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
-    #endif
 
     /* Initial guess */
     #pragma omp parallel for
@@ -495,7 +487,6 @@ void Qu3DEstimator::estimatePowerBias() {
 
     /* Estimate Bias */
     LOG::LOGGER.STD("Estimating bias. MCs:\n");
-    #undef VERBOSE
     auto total_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
     auto diff_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
