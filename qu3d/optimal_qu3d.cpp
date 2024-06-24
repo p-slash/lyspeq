@@ -342,8 +342,10 @@ double Qu3DEstimator::calculateResidualNorm2() {
     double residual_norm2 = 0;
 
     #pragma omp parallel for reduction(+:residual_norm2)
-    for (const auto &qso : quasars)
-        residual_norm2 += cblas_dnrm2(qso->N, qso->residual.get(), 1);
+    for (const auto &qso : quasars) {
+        double rn = cblas_dnrm2(qso->N, qso->residual.get(), 1)
+        residual_norm2 += rn * rn;
+    }
 
     return residual_norm2;
 }
@@ -509,21 +511,16 @@ void Qu3DEstimator::estimatePowerBias() {
             }
         }
 
-        double max_rel_err = 0, mean_rel_err = 0;
-        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
-            double rel_err = fabs(bias_est[i] - old_bias_est[i]);
-            rel_err /= DOUBLE_EPSILON + std::max(
-                fabs(bias_est[i]), fabs(old_bias_est[i]));
-            max_rel_err = std::max(rel_err, max_rel_err);
-            mean_rel_err += rel_err / NUMBER_OF_K_BANDS_2;
-        }
+        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
+            bias_est[i] -= old_bias_est[i];
+
+        double norm2 = cblas_dnrm2(NUMBER_OF_K_BANDS_2, bias_est.get(), 1);
 
         LOG::LOGGER.STD(
-            "  Mean / Max relative errors in bias are %.2e / %.2e. "
-            "MC convergences when < %.2e / %.2e\n",
-            mean_rel_err, max_rel_err, 1e-6, 1e-4);
+            "  ||Delta bias||2 is %.2e. MC convergences when < %.2e\n",
+            norm2, tolerance);
 
-        if (mean_rel_err < 1e-6 || max_rel_err < 1e-4)
+        if (norm2 < tolerance)
             break;
 
         bias_est.swap(old_bias_est);

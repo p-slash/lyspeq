@@ -56,6 +56,21 @@ NA = 4,
 NcolsSVD = 6,
 NrowsSVD = 5;
 
+
+int test_cblas_nrm2() {
+    const int N = 8;
+    double A[N], r;
+    for (int i = 0; i < N; ++i)
+        A[i] = 1;
+    r = cblas_dnrm2(N, A, 1);
+    if (isClose(sqrt(N), r))
+        return 0;
+
+    fprintf(stderr, "ERROR cblas_dnrm2.\n");
+    printValues(sqrt(N), r);
+    return 1;
+}
+
 int test_cblas_ddot()
 {
     const int N = 8;
@@ -769,6 +784,7 @@ int test_cubic_interpolate() {
 int main()
 {
     int r = 0;
+    r += test_cblas_nrm2();
     r += test_cblas_ddot();
     r += test_cblas_dsymv_1();
     r += test_cblas_dsymv_2();
