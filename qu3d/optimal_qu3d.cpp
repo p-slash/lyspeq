@@ -13,6 +13,7 @@ std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 RealField3D mesh2;
 int NUMBER_OF_K_BANDS_2 = 0;
+bool verbose = true;
 
 
 #ifdef DEBUG
@@ -70,7 +71,7 @@ inline bool isInsideKbin(int ib, double kb) {
 
 inline bool isDiverging(double old_norm, double new_norm) {
     bool diverging = (old_norm - new_norm) < DOUBLE_EPSILON;
-    if (diverging)
+    if (verbose && diverging)
         LOG::LOGGER.STD("    Iterations are stagnant or diverging.\n");
 
     return diverging;
@@ -78,10 +79,11 @@ inline bool isDiverging(double old_norm, double new_norm) {
 
 
 inline bool hasConverged(double norm, double tolerance) {
-    LOG::LOGGER.STD(
-        "    Current norm(residuals) is %.8e. "
-        "conjugateGradientDescent convergence when < %.2e\n",
-        norm, tolerance);
+    if (verbose)
+        LOG::LOGGER.STD(
+            "    Current norm(residuals) is %.8e. "
+            "conjugateGradientDescent convergence when < %.2e\n",
+            norm, tolerance);
 
     return norm < tolerance;
 }
@@ -332,7 +334,8 @@ void Qu3DEstimator::multMeshComp() {
     }
 
     t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("    multMeshComp took %.2f m.\n", t2 - t1);
+    if (verbose)
+        LOG::LOGGER.STD("    multMeshComp took %.2f m.\n", t2 - t1);
 }
 
 
@@ -379,7 +382,8 @@ void Qu3DEstimator::updateY(double residual_norm2) {
     }
 
     t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("    updateY took %.2f m.\n", t2 - t1);
+    if (verbose)
+        LOG::LOGGER.STD("    updateY took %.2f m.\n", t2 - t1);
 }
 
 
@@ -395,7 +399,8 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
 
 
 void Qu3DEstimator::conjugateGradientDescent() {
-    LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
+    if (verbose)
+        LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
 
     /* Initial guess */
     #pragma omp parallel for
@@ -487,6 +492,7 @@ void Qu3DEstimator::estimatePowerBias() {
 
     /* Estimate Bias */
     LOG::LOGGER.STD("Estimating bias. MCs:\n");
+    verbose = false;
     auto total_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
     auto diff_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
