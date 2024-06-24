@@ -343,7 +343,7 @@ double Qu3DEstimator::calculateResidualNorm2() {
 
     #pragma omp parallel for reduction(+:residual_norm2)
     for (const auto &qso : quasars) {
-        double rn = cblas_dnrm2(qso->N, qso->residual.get(), 1)
+        double rn = cblas_dnrm2(qso->N, qso->residual.get(), 1);
         residual_norm2 += rn * rn;
     }
 
