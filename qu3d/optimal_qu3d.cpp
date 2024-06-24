@@ -419,6 +419,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
 
         double beta = new_residual_norm2 / old_residual_norm2;
         old_residual_norm2 = new_residual_norm2;
+        old_residual_norm = new_residual_norm;
         calculateNewDirection(beta);
     }
 
