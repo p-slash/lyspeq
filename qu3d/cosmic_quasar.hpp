@@ -47,7 +47,7 @@ public:
     int N;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
-    double *z1, *ivar, angles[3], *in, *out, *truth;
+    double *z1, *isig, angles[3], *in, *out, *truth;
     std::unique_ptr<double[]> r, y, Cy, residual, search;
     NormalRNG rng;
 
@@ -84,7 +84,7 @@ public:
 
         N = qFile->size();
         z1 = qFile->wave();
-        ivar = qFile->noise();
+        isig = qFile->noise();
 
         r = std::make_unique<double[]>(N);
         y = std::make_unique<double[]>(N);
@@ -92,9 +92,11 @@ public:
         residual = std::make_unique<double[]>(N);
         search = std::make_unique<double[]>(N);
 
-        // Weight deltas
-        for (int i = 0; i < N; ++i)
-            qFile->delta()[i] *= ivar[i];
+        // Convert to inverse sigma and weight deltas
+        for (int i = 0; i < N; ++i) {
+            isig[i] = sqrt(isig[i]);
+            qFile->delta()[i] *= isig[i];
+        }
 
         angles[0] = qFile->ra;
         angles[1] = qFile->dec - med_dec;
@@ -120,8 +122,18 @@ public:
     void fillRngNoise() {
         /* overwrite qFile->delta */
         rng.fillVector(truth, N);
+        // for (int i = 0; i < N; ++i)
+            // truth[i] *= sqrt(ivar[i]);
+    }
+
+    void multIsigInVector() {
         for (int i = 0; i < N; ++i)
-            truth[i] *= sqrt(ivar[i]);
+            in[i] *= isig[i];
+    }
+
+    void divIsigInVector() {
+        for (int i = 0; i < N; ++i)
+            in[i] /= isig[i] + DOUBLE_EPSILON;
     }
 
     void findGridPoints(const RealField3D &mesh) {

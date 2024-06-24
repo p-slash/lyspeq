@@ -68,6 +68,15 @@ inline bool isInsideKbin(int ib, double kb) {
 }
 
 
+inline bool isDiverging(double old_norm, double new_norm) {
+    bool diverging = (new_norm - old_norm) < DOUBLE_EPSILON;
+    if (diverging)
+        LOG::LOGGER.STD("    Iterations are stagnant or diverging.\n");
+
+    return diverging;
+}
+
+
 inline bool hasConverged(double norm, double tolerance) {
     LOG::LOGGER.STD(
         "    Current norm(residuals) is %.8e. "
@@ -266,7 +275,7 @@ void Qu3DEstimator::reverseInterpolate() {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->getCartesianCoords(i, coord);
-            mesh.reverseInterpolateCIC(coord, qso->in[i]);
+            mesh.reverseInterpolateCIC(coord, qso->in[i] * qso->isig[i]);
         }
     }
 
@@ -301,13 +310,13 @@ void Qu3DEstimator::multMeshComp() {
     }
     mesh.fftK2X();
 
-    // Interpolate and Weight by Ivar
+    // Interpolate and Weight by isig
     #pragma omp parallel for
     for (auto &qso : quasars) {
         double coord[3];
         for (int i = 0; i < qso->N; ++i) {
             qso->getCartesianCoords(i, coord);
-            qso->out[i] += qso->ivar[i] * mesh.interpolate(coord);
+            qso->out[i] += qso->isig[i] * mesh.interpolate(coord);
         }
     }
 
@@ -390,23 +399,33 @@ void Qu3DEstimator::conjugateGradientDescent() {
         }
     }
 
-    double old_residual_norm2 = calculateResidualNorm2();
+    double old_residual_norm2 = calculateResidualNorm2(),
+           old_residual_norm = sqrt(old_residual_norm2) / num_all_pixels;
 
-    if (hasConverged(sqrt(old_residual_norm2) / num_all_pixels, tolerance))
-        return;
+    if (hasConverged(old_residual_norm, tolerance))
+        goto endconjugateGradientDescent;
 
     for (int niter = 0; niter < max_conj_grad_steps; ++niter) {
         updateY(old_residual_norm2);
 
-        double new_residual_norm2 = calculateResidualNorm2();
+        double new_residual_norm2 = calculateResidualNorm2(),
+               new_residual_norm = sqrt(new_residual_norm2) / num_all_pixels;
 
-        if (hasConverged(sqrt(new_residual_norm2) / num_all_pixels, tolerance))
-            return;
+        bool end_iter = isDiverging(old_residual_norm, new_residual_norm);
+        end_iter |= hasConverged(new_residual_norm, tolerance);
+
+        if (end_iter)
+            goto endconjugateGradientDescent;
 
         double beta = new_residual_norm2 / old_residual_norm2;
         old_residual_norm2 = new_residual_norm2;
         calculateNewDirection(beta);
     }
+
+endconjugateGradientDescent:
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        qso->multIsigInVector();
 }
 
 

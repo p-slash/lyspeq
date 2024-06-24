@@ -46,6 +46,7 @@ public:
     Qu3DEstimator(ConfigFile &configg);
 
     void reverseInterpolate();
+    void preconditionJacobi();
     void multMeshComp();
     void multParticleComp();
 
@@ -67,6 +68,9 @@ public:
     double calculateResidualNorm2();
     void updateY(double residual_norm2);
     void calculateNewDirection(double beta);
+    /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
+    where y = N^-1/2 z and m = N^-1/2 delta. Then get y.
+    */
     void conjugateGradientDescent();
 
     void estimatePowerBias();
