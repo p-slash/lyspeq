@@ -59,7 +59,7 @@ void RealField3D::construct() {
 
     p_k2x = fftw_plan_dft_c2r_3d(
         ngrid[0], ngrid[1], ngrid[2],
-        reinterpret_cast<fftw_complex*>(field_k.data()), field_x, \
+        reinterpret_cast<fftw_complex*>(field_k.data()), field_x,
         FFTW_MEASURE);
 
 }
