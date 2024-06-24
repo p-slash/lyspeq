@@ -176,7 +176,7 @@ void Qu3DEstimator::_findNeighbors() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     rscale_long *= rscale_factor;
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         auto neighboring_pixels = qso->findNeighborPixels(mesh, rscale_long);
 
