@@ -45,11 +45,12 @@ public:
     */
     Qu3DEstimator(ConfigFile &configg);
 
-    void reverseInterpolate();
+    void reverseInterpolateIsig();
     void preconditionJacobi();
     void multMeshComp();
     void multParticleComp();
 
+    void reverseInterpolate();
     /* Multiply each quasar's *in pointer and save to *out pointer. */
     void multiplyCovVector() {
         // init new results to Cy = I.y
