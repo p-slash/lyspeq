@@ -69,7 +69,7 @@ inline bool isInsideKbin(int ib, double kb) {
 
 
 inline bool isDiverging(double old_norm, double new_norm) {
-    bool diverging = (new_norm - old_norm) < DOUBLE_EPSILON;
+    bool diverging = (old_norm - new_norm) < DOUBLE_EPSILON;
     if (diverging)
         LOG::LOGGER.STD("    Iterations are stagnant or diverging.\n");
 
