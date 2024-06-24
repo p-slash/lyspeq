@@ -86,7 +86,6 @@ inline bool hasConverged(double norm, double tolerance) {
     return norm < tolerance;
 }
 
-
 void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     qio::PiccaFile pFile(fname);
     int number_of_spectra = pFile.getNumberSpectra();
@@ -267,6 +266,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     rscale_long *= -rscale_long;
 }
 
+#define VERBOSE
 
 void Qu3DEstimator::reverseInterpolate() {
     mesh.zero_field_k();
@@ -334,7 +334,9 @@ void Qu3DEstimator::multMeshComp() {
     }
 
     t2 = mytime::timer.getTime();
+    #ifdef VERBOSE
     LOG::LOGGER.STD("    multMeshComp took %.2f m.\n", t2 - t1);
+    #endif
 }
 
 
@@ -381,7 +383,9 @@ void Qu3DEstimator::updateY(double residual_norm2) {
     }
 
     t2 = mytime::timer.getTime();
+    #ifdef VERBOSE
     LOG::LOGGER.STD("    updateY took %.2f m.\n", t2 - t1);
+    #endif
 }
 
 
@@ -397,7 +401,9 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
 
 
 void Qu3DEstimator::conjugateGradientDescent() {
+    #ifdef VERBOSE
     LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
+    #endif
 
     /* Initial guess */
     #pragma omp parallel for
@@ -489,10 +495,11 @@ void Qu3DEstimator::estimatePowerBias() {
 
     /* Estimate Bias */
     LOG::LOGGER.STD("Estimating bias. MCs:\n");
+    #undef VERBOSE
     auto total_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
     auto diff_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
-    for (int nmc = 0; nmc < max_monte_carlos; ++nmc) {
+    for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
         LOG::LOGGER.STD("%d:", nmc);
         /* generate random Gaussian vector into y */
         #pragma omp parallel for
@@ -513,18 +520,24 @@ void Qu3DEstimator::estimatePowerBias() {
         }
 
         std::copy_n(bias_est.get(), NUMBER_OF_K_BANDS_2, diff_bias_est.get());
-        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
-            bias_est[i] = total_bias_est[i] / (nmc + 1);
-            diff_bias_est[i] -= bias_est[i];
-        }
+        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
+            bias_est[i] = total_bias_est[i] / nmc;
 
-        double norm2 = cblas_dnrm2(NUMBER_OF_K_BANDS_2, diff_bias_est.get(), 1);
+        if (nmc % 5 != 0)
+            continue;
+
+        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
+            diff_bias_est[i] -= bias_est[i];
+
+        double
+        d_rel_norm = cblas_dnrm2(NUMBER_OF_K_BANDS_2, diff_bias_est.get(), 1)
+                     / cblas_dnrm2(NUMBER_OF_K_BANDS_2, bias_est.get(), 1);
 
         LOG::LOGGER.STD(
-            "  ||Delta bias||2 is %.2e. MC convergences when < %.2e\n",
-            norm2, tolerance);
+            "  Fractional norm change is %.2e. MC convergences when < %.2e\n",
+            d_rel_norm, tolerance);
 
-        if (norm2 < tolerance)
+        if (d_rel_norm < tolerance)
             break;
     }
 
