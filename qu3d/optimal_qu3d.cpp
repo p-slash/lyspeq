@@ -489,7 +489,8 @@ void Qu3DEstimator::estimatePowerBias() {
 
     /* Estimate Bias */
     LOG::LOGGER.STD("Estimating bias. MCs:\n");
-    auto old_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    auto total_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    auto diff_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
     for (int nmc = 0; nmc < max_monte_carlos; ++nmc) {
         LOG::LOGGER.STD("%d:", nmc);
@@ -507,14 +508,17 @@ void Qu3DEstimator::estimatePowerBias() {
                 /* calculate C,k . y into mesh2 */
                 multiplyDerivVector(iperp, iz);
 
-                old_bias_est[iz + bins::NUMBER_OF_K_BANDS * iperp] = mesh.dot(mesh2);
+                total_bias_est[iz + bins::NUMBER_OF_K_BANDS * iperp] += mesh.dot(mesh2);
             }
         }
 
-        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-            bias_est[i] -= old_bias_est[i];
+        std::copy_n(bias_est.get(), NUMBER_OF_K_BANDS_2, diff_bias_est.get());
+        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
+            bias_est[i] = total_bias_est[i] / (nmc + 1);
+            diff_bias_est[i] -= bias_est[i];
+        }
 
-        double norm2 = cblas_dnrm2(NUMBER_OF_K_BANDS_2, bias_est.get(), 1);
+        double norm2 = cblas_dnrm2(NUMBER_OF_K_BANDS_2, diff_bias_est.get(), 1);
 
         LOG::LOGGER.STD(
             "  ||Delta bias||2 is %.2e. MC convergences when < %.2e\n",
@@ -522,8 +526,6 @@ void Qu3DEstimator::estimatePowerBias() {
 
         if (norm2 < tolerance)
             break;
-
-        bias_est.swap(old_bias_est);
     }
 
     std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
