@@ -483,7 +483,9 @@ void Qu3DEstimator::estimatePowerBias() {
             /* calculate C,k . y into mesh2 */
             multiplyDerivVector(iperp, iz);
 
-            power_est[iz + bins::NUMBER_OF_K_BANDS * iperp] = mesh.dot(mesh2);
+            power_est[
+                iz + bins::NUMBER_OF_K_BANDS * iperp
+            ] = mesh.dot(mesh2) / mesh.cellvol;
         }
     }
 
@@ -494,7 +496,6 @@ void Qu3DEstimator::estimatePowerBias() {
     auto diff_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
     for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
-        LOG::LOGGER.STD("%d:", nmc);
         /* generate random Gaussian vector into y */
         #pragma omp parallel for
         for (auto &qso : quasars)
@@ -509,27 +510,31 @@ void Qu3DEstimator::estimatePowerBias() {
                 /* calculate C,k . y into mesh2 */
                 multiplyDerivVector(iperp, iz);
 
-                total_bias_est[iz + bins::NUMBER_OF_K_BANDS * iperp] += mesh.dot(mesh2);
+                total_bias_est[
+                    iz + bins::NUMBER_OF_K_BANDS * iperp] += mesh.dot(mesh2);
             }
         }
 
         std::copy_n(bias_est.get(), NUMBER_OF_K_BANDS_2, diff_bias_est.get());
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-            bias_est[i] = total_bias_est[i] / nmc;
+            bias_est[i] = total_bias_est[i] / nmc / mesh.cellvol;
 
         if (nmc % 5 != 0)
             continue;
 
+        double n1 = cblas_dnrm2(NUMBER_OF_K_BANDS_2, diff_bias_est.get(), 1),
+               n2 = cblas_dnrm2(NUMBER_OF_K_BANDS_2, bias_est.get(), 1),
+               ndiff = 0;
+
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
             diff_bias_est[i] -= bias_est[i];
 
-        double
-        d_rel_norm = cblas_dnrm2(NUMBER_OF_K_BANDS_2, diff_bias_est.get(), 1)
-                     / cblas_dnrm2(NUMBER_OF_K_BANDS_2, bias_est.get(), 1);
+        ndiff = cblas_dnrm2(NUMBER_OF_K_BANDS_2, diff_bias_est.get(), 1);
+        double d_rel_norm = ndiff / std::max(n1, n2);
 
         LOG::LOGGER.STD(
-            "  Fractional norm change is %.2e. MC convergences when < %.2e\n",
-            d_rel_norm, tolerance);
+            "  %d: Fractional norm change is %.2e. MC converges when < %.2e\n",
+            nmc, d_rel_norm, tolerance);
 
         if (d_rel_norm < tolerance)
             break;
