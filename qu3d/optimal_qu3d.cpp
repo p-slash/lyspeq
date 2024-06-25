@@ -471,7 +471,8 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
 
         std::fill(fk2_begin, fk2_begin + mesh_z_1, 0);
         auto fk1_begin = mesh.field_k.begin() + jj;
-        std::copy(fk1_begin + mesh_z_1, fk1_begin + mesh_z_2, fk2_begin);
+        std::copy(fk1_begin + mesh_z_1, fk1_begin + mesh_z_2,
+                  fk2_begin + mesh_z_1);
         std::fill(fk2_begin + mesh_z_2, fk2_begin + mesh.ngrid_kz, 0);
     }
     mesh2.fftK2X();
