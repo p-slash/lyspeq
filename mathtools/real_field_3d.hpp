@@ -41,13 +41,11 @@ public:
     double *field_x;
 
     RealField3D();
-     /* Copy constructor. Copy needs to call construct! */
-    RealField3D(const RealField3D &rhs);
-    RealField3D(RealField3D &&rhs);
-    RealField3D operator=(const RealField3D &rhs) {
-        return RealField3D(rhs);
-    }
+    RealField3D(const RealField3D &rhs) = delete;
+    RealField3D(RealField3D &&rhs) = delete;
 
+    /* Copy constructor. Need to call construct! */
+    void copy(const RealField3D &rhs);
     void construct(bool inp=true);
 
     ~RealField3D() {
