@@ -30,6 +30,15 @@ RealField3D::RealField3D(const RealField3D &rhs) : p_x2k(nullptr), p_k2x(nullptr
 }
 
 
+RealField3D::RealField3D(RealField3D &&rhs) {
+    for (int axis = 0; axis < 3; ++axis) {
+        ngrid[axis] = rhs.ngrid[axis];
+        length[axis] = rhs.length[axis];
+    }
+    z0 = rhs.z0;
+}
+
+
 void RealField3D::construct(bool inp) {
     _inplace = inp;
     size_real = 1;
