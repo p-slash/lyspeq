@@ -248,7 +248,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     mesh.z0 = config.getInteger("ZSTART");
     mesh2 = mesh;
     double t1 = mytime::timer.getTime(), t2 = 0;
-    mesh.construct();
+    mesh.construct(false);
     mesh2.construct();
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
@@ -273,7 +273,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 }
 
 void Qu3DEstimator::reverseInterpolate() {
-    mesh.zero_field_k();
+    mesh.zero_field_x();
 
     double coord[3];
     for (auto &qso : quasars) {
@@ -286,7 +286,7 @@ void Qu3DEstimator::reverseInterpolate() {
 
 
 void Qu3DEstimator::reverseInterpolateIsig() {
-    mesh.zero_field_k();
+    mesh.zero_field_x();
 
     double coord[3];
     for (auto &qso : quasars) {
@@ -456,21 +456,24 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
     mesh_z_1 = std::max(0, mesh_z_1);
     mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
 
-    mesh.fftX2K();
-    mesh2.zero_field_k();
-
     #pragma omp parallel for
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+        int jj = mesh.ngrid_kz * jxy;
+        auto fk2_begin = mesh2.field_k.begin() + jj;
+
         double kperp = 0;
         mesh.getKperpFromIperp(jxy, kperp);
-        if(!isInsideKbin(iperp, kperp))
-            continue;
 
-        auto fk_begin = mesh.field_k.begin() + mesh.ngrid_kz * jxy;
-        std::copy(fk_begin + mesh_z_1, fk_begin + mesh_z_2,
-                  mesh2.field_k.begin() + mesh.ngrid_kz * jxy);
+        if(!isInsideKbin(iperp, kperp)) {
+            std::fill(fk2_begin, fk2_begin + mesh.ngrid_kz, 0);
+            continue;
+        }
+
+        std::fill(fk2_begin, fk2_begin + mesh_z_1, 0);
+        auto fk1_begin = mesh.field_k.begin() + jj;
+        std::copy(fk1_begin + mesh_z_1, fk1_begin + mesh_z_2, fk2_begin);
+        std::fill(fk2_begin + mesh_z_2, fk2_begin + mesh.ngrid_kz, 0);
     }
-    mesh.fftK2X();
     mesh2.fftK2X();
 }
 
@@ -481,6 +484,7 @@ void Qu3DEstimator::estimatePower() {
     conjugateGradientDescent();
 
     reverseInterpolate();
+    mesh.fftX2K();
     LOG::LOGGER.STD("  Multiplying with derivative matrices.\n");
     for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
         for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
@@ -512,6 +516,7 @@ void Qu3DEstimator::estimateBiasMc() {
         conjugateGradientDescent();
 
         reverseInterpolate();
+        mesh.fftX2K();
         for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
             for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
                 /* calculate C,k . y into mesh2 */
@@ -556,6 +561,7 @@ void Qu3DEstimator::calculateFisherVeck(int i) {
 
     /* save v into mesh */
     reverseInterpolate();
+    mesh.fftX2K();
     /* calculate C,k . v into mesh2 */
     multiplyDerivVector(iperp, iz);
     /* Interpolate and Weight by isig back to qso grid */

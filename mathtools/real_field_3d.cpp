@@ -30,7 +30,8 @@ RealField3D::RealField3D(const RealField3D &rhs) : p_x2k(nullptr), p_k2x(nullptr
 }
 
 
-void RealField3D::construct() {
+void RealField3D::construct(bool inp) {
+    _inplace = inp;
     size_real = 1;
     cellvol = 1;
     totalvol = 1;
@@ -44,13 +45,21 @@ void RealField3D::construct() {
         totalvol *= length[axis];
     }
 
-    ngrid_z = ngrid[2] + 2 - (ngrid[2] % 2);
     ngrid_kz = ngrid[2] / 2 + 1;
     ngrid_xy = ngrid[0] * ngrid[1];
     size_complex = ngrid_xy * ngrid_kz;
 
     field_k.resize(size_complex);
-    field_x = reinterpret_cast<double*>(field_k.data());
+
+    if (_inplace) {
+        field_x = reinterpret_cast<double*>(field_k.data());
+        ngrid_z = ngrid[2] + 2 - (ngrid[2] % 2);
+    }
+    else {
+        _field_x = std::make_unique<double[]>(size_real);
+        field_x = _field_x.get();
+        ngrid_z = ngrid[2];
+    }
     
     p_x2k = fftw_plan_dft_r2c_3d(
         ngrid[0], ngrid[1], ngrid[2],
@@ -85,10 +94,17 @@ void RealField3D::fftK2X() {
 
 double RealField3D::dot(const RealField3D &other) {
     double result = 0;
-    #pragma omp parallel for reduction(+:result)
-    for (size_t j = 0; j < size_real; ++j) {
-        size_t i = getCorrectIndexX(j);
-        result += field_x[i] * other.field_x[i];
+    if (_inplace) {
+        #pragma omp parallel for reduction(+:result)
+        for (size_t j = 0; j < size_real; ++j) {
+            size_t i = getCorrectIndexX(j);
+            result += field_x[i] * other.field_x[i];
+        }
+    }
+    else {
+        #pragma omp parallel for reduction(+:result)
+        for (size_t i = 0; i < size_real; ++i)
+            result += field_x[i] * other.field_x[i];
     }
 
     return result;
