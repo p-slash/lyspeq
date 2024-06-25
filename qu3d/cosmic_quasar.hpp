@@ -24,7 +24,7 @@ namespace specifics {
 
 class MyRNG {
 public:
-    MyRNG() {};
+    MyRNG() :uidist(0, 1) {};
 
     void seed(long in) { rng_engine.seed(in); }
 
@@ -41,7 +41,7 @@ public:
 private:
     std::mt19937_64 rng_engine;
     std::normal_distribution<double> n_dist;
-    std::uniform_int_distribution<int> uidist(0, 1);
+    std::uniform_int_distribution<int> uidist;
 };
 
 
