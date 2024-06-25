@@ -71,7 +71,8 @@ inline bool isInsideKbin(int ib, double kb) {
 
 
 inline bool isDiverging(double old_norm, double new_norm) {
-    bool diverging = (old_norm - new_norm) < DOUBLE_EPSILON;
+    double a = std::max(old_norm, new_norm);
+    bool diverging = (old_norm - new_norm) < DOUBLE_EPSILON * a;
     if (verbose && diverging)
         LOG::LOGGER.STD("    Iterations are stagnant or diverging.\n");
 
@@ -82,8 +83,8 @@ inline bool isDiverging(double old_norm, double new_norm) {
 inline bool hasConverged(double norm, double tolerance) {
     if (verbose)
         LOG::LOGGER.STD(
-            "    Current norm(residuals) is %.8e. "
-            "conjugateGradientDescent convergence when < %.2e\n",
+            "    Current norm(residuals) / norm(initial residuals) is %.8e. "
+            "conjugateGradientDescent converges when this is < %.2e\n",
             norm, tolerance);
 
     return norm < tolerance;
@@ -415,26 +416,25 @@ void Qu3DEstimator::conjugateGradientDescent() {
     }
 
     double old_residual_norm2 = calculateResidualNorm2(),
-           old_residual_norm = sqrt(old_residual_norm2) / num_all_pixels;
+           init_residual_norm = sqrt(old_residual_norm2);
 
-    if (hasConverged(old_residual_norm, tolerance))
+    if (hasConverged(init_residual_norm, tolerance))
         goto endconjugateGradientDescent;
 
     for (int niter = 0; niter < max_conj_grad_steps; ++niter) {
         updateY(old_residual_norm2);
 
         double new_residual_norm2 = calculateResidualNorm2(),
-               new_residual_norm = sqrt(new_residual_norm2) / num_all_pixels;
+               new_residual_norm = sqrt(new_residual_norm2);
 
-        bool end_iter = isDiverging(old_residual_norm, new_residual_norm);
-        end_iter |= hasConverged(new_residual_norm, tolerance);
+        bool end_iter = isDiverging(old_residual_norm2, new_residual_norm2);
+        end_iter |= hasConverged(new_residual_norm / init_residual_norm, tolerance);
 
         if (end_iter)
             goto endconjugateGradientDescent;
 
         double beta = new_residual_norm2 / old_residual_norm2;
         old_residual_norm2 = new_residual_norm2;
-        old_residual_norm = new_residual_norm;
         calculateNewDirection(beta);
     }
 
