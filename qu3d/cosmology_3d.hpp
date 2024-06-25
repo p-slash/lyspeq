@@ -11,6 +11,8 @@
 #include "io/io_helper_functions.hpp"
 
 
+constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
+
 inline double trapz(const double *y, int N, double dx=1.0) {
     double result = y[N - 1] / 2;
     for (int i = N - 2; i > 0; --i)
@@ -229,7 +231,7 @@ namespace fidcosmo {
 
             double
             plin = interp_p->evaluate(k),
-            delta2_L = plin * k * k * k / 2 / MY_PI * MY_PI,
+            delta2_L = plin * k * k * k / TWO_PI2,
             k_kp = k / k_p, k_rL = k * rscale_long,
             mu = kz / k,
             result, lnD;
