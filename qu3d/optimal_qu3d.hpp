@@ -79,8 +79,10 @@ public:
     */
     void conjugateGradientDescent();
 
-    void estimatePowerBias();
-    void write(const char *fname);
+    void estimatePower();
+    void estimateBiasMc();
+    void estimateFisher();
+    void write(const char *fname = nullptr);
 };
 
 #endif
