@@ -2,6 +2,7 @@
 #define REALFIELD_3D_H
 
 #include <complex>
+#include <memory>
 #include <vector>
 
 #include <fftw3.h>
@@ -30,6 +31,8 @@ class RealField3D {
     fftw_plan p_x2k;
     fftw_plan p_k2x;
 
+    bool _inplace;
+    std::unique_ptr<double[]> _field_x;
 public:
     size_t size_complex, size_real;
     int ngrid[3], ngrid_kz, ngrid_z, ngrid_xy;
@@ -40,9 +43,14 @@ public:
     RealField3D();
      /* Copy constructor. Copy needs to call construct! */
     RealField3D(const RealField3D &rhs);
-    // RealField3D(RealField3D &&rhs) = delete;
+    RealField3D(RealField3D &&rhs) = delete;
+    RealField3D operator=(const RealField3D &rhs) {
+        if (this == &rhs)
+            return *this;
+        return RealField3D(rhs);
+    }
 
-    void construct();
+    void construct(bool inp=true);
 
     ~RealField3D() {
         fftw_destroy_plan(p_x2k);
@@ -50,6 +58,13 @@ public:
     };
 
     void zero_field_k() { std::fill(field_k.begin(), field_k.end(), 0); }
+    void zero_field_x() {
+        if (_inplace)
+            zero_field_k();
+        else
+            std::fill_n(field_x, size_real, 0);
+    }
+
     void rawFFTX2K() { fftw_execute(p_x2k); }
     void fftX2K();
     void fftK2X();
