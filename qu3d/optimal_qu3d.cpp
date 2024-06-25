@@ -496,7 +496,7 @@ void Qu3DEstimator::estimateBiasMc() {
     LOG::LOGGER.STD("Estimating bias.\n");
     verbose = false;
     auto total_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    auto diff_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    auto total_bias2_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
     Progress prog_tracker(max_monte_carlos, 10);
     for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
@@ -514,49 +514,110 @@ void Qu3DEstimator::estimateBiasMc() {
                 /* calculate C,k . y into mesh2 */
                 multiplyDerivVector(iperp, iz);
 
-                total_bias_est[
-                    iz + bins::NUMBER_OF_K_BANDS * iperp] += mesh.dot(mesh2);
+                double b = mesh.dot(mesh2) / mesh.cellvol;
+                total_bias_est[iz + bins::NUMBER_OF_K_BANDS * iperp] += b;
+                total_bias2_est[iz + bins::NUMBER_OF_K_BANDS * iperp] += b * b;
             }
         }
 
         ++prog_tracker;
-        #if 0
-        std::copy_n(bias_est.get(), NUMBER_OF_K_BANDS_2, diff_bias_est.get());
+
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-            bias_est[i] = total_bias_est[i] / nmc / mesh.cellvol;
+            bias_est[i] = total_bias_est[i] / nmc;
 
         if (nmc % 5 != 0)
             continue;
 
-        double n1 = cblas_dnrm2(NUMBER_OF_K_BANDS_2, diff_bias_est.get(), 1),
-               n2 = cblas_dnrm2(NUMBER_OF_K_BANDS_2, bias_est.get(), 1),
-               ndiff = 0;
-
-        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-            diff_bias_est[i] -= bias_est[i];
-
-        ndiff = cblas_dnrm2(NUMBER_OF_K_BANDS_2, diff_bias_est.get(), 1);
-        double d_rel_norm = ndiff / std::max(n1, n2);
+        double max_std = 0, mean_std = 0, std_k;
+        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
+            std_k = sqrt(
+                (total_bias2_est[i] / nmc - bias_est[i] * bias_est[i])
+                / (nmc - 1)
+            );
+            max_std = std::max(std_k, max_std);
+            mean_std += std_k / NUMBER_OF_K_BANDS_2;
+        }
 
         LOG::LOGGER.STD(
-            "  %d: Fractional norm change is %.2e. MC converges when < %.2e\n",
-            nmc, d_rel_norm, tolerance);
+            "  %d: Estimated mean/max std is %.2e/%.2e. MC converges when < %.2e\n",
+            nmc, mean_std, max_std, tolerance);
 
-        if (d_rel_norm < tolerance)
+        if (max_std < tolerance)
             break;
-        #endif
     }
-
-    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-        bias_est[i] = total_bias_est[i] / max_monte_carlos / mesh.cellvol;
 }
 
-void Qu3DEstimator::write(const char *fname) {
-    if (fname == nullptr) {
-        std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
-        buffer << "_p3d.txt";
-        fname = buffer.str().c_str();
+
+void Qu3DEstimator::calculateFisherVeck(int i) {
+    int iperp = i / bins::NUMBER_OF_K_BANDS,
+        iz = i % bins::NUMBER_OF_K_BANDS;
+
+    /* save v into mesh */
+    reverseInterpolate();
+    /* calculate C,k . v into mesh2 */
+    multiplyDerivVector(iperp, iz);
+    /* Interpolate and Weight by isig back to qso grid */
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        double coord[3];
+        for (int i = 0; i < qso->N; ++i) {
+            qso->getCartesianCoords(i, coord);
+            qso->truth[i] = qso->isig[i] * mesh2.interpolate(coord);
+        }
     }
+    /* calculate Cinv . C,k . Ones into in */
+    conjugateGradientDescent();
+}
+
+
+void Qu3DEstimator::estimateFisher() {
+    LOG::LOGGER.STD("Estimating Fisher.\n");
+    verbose = false;
+
+    Progress prog_tracker(max_monte_carlos, 10);
+    double tmpf = 0;
+    for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
+        /* generate random +-1 vector into delta/truth */
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->fillRngOnes();
+
+        for (int i = 0; i < bins::FISHER_SIZE; ++i) {
+            calculateFisherVeck(i);
+
+            tmpf = 0;
+            #pragma omp parallel for reduction(+:tmpf)
+            for (auto &qso : quasars) {
+                qso->copyInToFisherVec();
+                tmpf += qso->dotFisherVecIn();
+            }
+
+            fisher[i * (bins::FISHER_SIZE + 1)] = tmpf;
+
+            for (int j = i + 1; j < bins::FISHER_SIZE; ++j) {
+                calculateFisherVeck(j);
+
+                tmpf = 0;
+                #pragma omp parallel for reduction(+:tmpf)
+                for (auto &qso : quasars)
+                    tmpf += qso->dotFisherVecIn();
+
+                fisher[j + i * bins::FISHER_SIZE] = tmpf;
+            }
+        }
+        ++prog_tracker;
+    }
+
+    double alpha = 0.5 / (max_monte_carlos * mesh.cellvol);
+    cblas_dscal(bins::FISHER_SIZE, alpha, fisher.get(), 1);
+    mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
+}
+
+
+void Qu3DEstimator::write() {
+    std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
+    buffer << "_p3d.txt";
+    const char *fname = buffer.str().c_str();
 
     FILE *toWrite = ioh::open_file(fname, "w");
 
@@ -611,4 +672,13 @@ void Qu3DEstimator::write(const char *fname) {
 
     fclose(toWrite);
     LOG::LOGGER.STD("P3D estimate saved as %s.\n", fname);
+
+
+    buffer.str(process::FNAME_BASE);
+    buffer << "_fisher.txt";
+    fname = buffer.str().c_str();
+    mxhelp::fprintfMatrix(
+        fname, fisher.get(), NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
+
+    LOG::LOGGER.STD("Fisher matrix saved as %s.\n", fname);
 }
