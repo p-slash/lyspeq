@@ -55,6 +55,7 @@ void logPmodel() {
             k, kz, p3d_model->evaluate(k, kz));
     }
     DEBUG_LOG("\n");
+    DEBUG_LOG("VarLss: %.5e\n", p3d_model->getVarLss());
 }
 #else
 #define CHECK_ISNAN(X, Y, Z)

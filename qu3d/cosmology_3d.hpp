@@ -198,7 +198,23 @@ namespace fidcosmo {
         std::unique_ptr<LinearPowerInterpolator> interp_p;
 
         void _calcVarLss() {
+            constexpr int nlnk = 5001;
+            constexpr double lnk1 = log(1e-5), lnk2 = log(5.0);
+            const double dlnk = (lnk2 - lnk1) / (nlnk - 1);
+            double powers_kz[nlnk], powers_kperp[nlnk];
 
+            for (int i = 0; i < nlnk; ++i) {
+                double kperp2 = exp(lnk1 + i * dlnk);
+                kperp2 *= kperp2;
+                for (int j = 0; j < nlnk; ++j) {
+                    double kz = exp(lnk1 + j * dlnk),
+                           k = sqrt(kperp2 + kz * kz);
+                    powers_kz[j] = kperp2 * kz * evaluate(k, kz);
+                }
+                powers_kperp[i] = trapz(powers_kz, nlnk, dlnk);
+            }
+
+            _varlss = trapz(powers_kperp, nlnk, dlnk) / TWO_PI2;
         }
     public:
         /* This function reads following keys from config file:
@@ -246,9 +262,7 @@ namespace fidcosmo {
             return result * plin * exp(lnD);
         }
 
-        double getVarLss() {
-
-        }
+        double getVarLss() const { return _varlss; }
     };
 }
 
