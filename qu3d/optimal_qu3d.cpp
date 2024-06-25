@@ -454,7 +454,7 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
     int mesh_z_1 = bins::KBAND_EDGES[iz] / mesh.k_fund[2],
         mesh_z_2 = bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2];
 
-    mesh_z_1 = std::max(0, mesh_z_1);
+    mesh_z_1 = std::min(mesh.ngrid_kz, std::max(0, mesh_z_1));
     mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
 
     #pragma omp parallel for
