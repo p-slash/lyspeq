@@ -45,13 +45,17 @@ public:
     */
     Qu3DEstimator(ConfigFile &configg);
 
-    void reverseInterpolateIsig();
-    void preconditionJacobi();
+    void preconditionJacobi() {};
     void multMeshComp();
     void multParticleComp();
 
+    /* Reverse interopates qso->in onto the mesh */
     void reverseInterpolate();
-    /* Multiply each quasar's *in pointer and save to *out pointer. */
+    /* Reverse interopates qso->in x qso->isig onto the mesh */
+    void reverseInterpolateIsig();
+
+    /* Multiply each quasar's *in pointer and save to *out pointer.
+       (I + N^-1/2 S N^-1/2) z = out */
     void multiplyCovVector() {
         // init new results to Cy = I.y
         #pragma omp parallel for
@@ -69,6 +73,7 @@ public:
     double calculateResidualNorm2();
     void updateY(double residual_norm2);
     void calculateNewDirection(double beta);
+
     /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
     where y = N^-1/2 z and m = N^-1/2 delta. Then get y.
     */
