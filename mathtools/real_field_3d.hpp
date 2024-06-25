@@ -43,10 +43,8 @@ public:
     RealField3D();
      /* Copy constructor. Copy needs to call construct! */
     RealField3D(const RealField3D &rhs);
-    RealField3D(RealField3D &&rhs) = delete;
+    RealField3D(RealField3D &&rhs);
     RealField3D operator=(const RealField3D &rhs) {
-        if (this == &rhs)
-            return *this;
         return RealField3D(rhs);
     }
 
