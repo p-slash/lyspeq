@@ -81,8 +81,9 @@ public:
 
     void estimatePower();
     void estimateBiasMc();
+    void calculateFisherVeck(int i);
     void estimateFisher();
-    void write(const char *fname = nullptr);
+    void write();
 };
 
 #endif
