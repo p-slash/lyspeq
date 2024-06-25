@@ -247,7 +247,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     mesh.length[1] = config.getInteger("LENGTH_Y");
     mesh.length[2] = config.getInteger("LENGTH_Z");
     mesh.z0 = config.getInteger("ZSTART");
-    mesh2 = mesh;
+    mesh2.copy(mesh);
     double t1 = mytime::timer.getTime(), t2 = 0;
     mesh.construct(INPLACE_FFT);
     mesh2.construct(INPLACE_FFT);
