@@ -25,7 +25,7 @@ class Qu3DEstimator
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     size_t num_all_pixels;
     int max_conj_grad_steps, max_monte_carlos;
-    double tolerance, rscale_long, rscale_factor;
+    double tolerance, radius;
     RealField3D mesh;
 
     std::unique_ptr<double[]> power_est, bias_est, fisher;

@@ -185,10 +185,9 @@ void Qu3DEstimator::_constructMap() {
 void Qu3DEstimator::_findNeighbors() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
-    rscale_long *= rscale_factor;
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
-        auto neighboring_pixels = qso->findNeighborPixels(mesh, rscale_long);
+        auto neighboring_pixels = qso->findNeighborPixels(mesh, radius);
 
         for (const size_t &ipix : neighboring_pixels) {
             auto kumap_itr = idx_quasar_map.find(ipix);
@@ -201,7 +200,6 @@ void Qu3DEstimator::_findNeighbors() {
         }
     }
 
-    rscale_long /= rscale_factor;
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("_findNeighbors took %.2f m.\n", t2 - t1);
 }
@@ -233,8 +231,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
     tolerance = config.getDouble("ConvergenceTolerance");
     specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
-    rscale_long = config.getDouble("LongScale");
+    radius = config.getDouble("LongScale");
     rscale_factor = config.getDouble("ScaleFactor");
+    radius *= rscale_factor;
 
     mesh.ngrid[0] = config.getInteger("NGRID_X");
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
@@ -265,7 +264,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     //     idx_quasars_pairs.push_back(std::make_pair(idx, std::move(qsos)));
     // std::sort(idx_quasars_pairs.begin(), idx_quasars_pairs.end());
     idx_quasar_map.clear();
-    rscale_long *= -rscale_long;
 }
 
 void Qu3DEstimator::reverseInterpolate() {
@@ -317,9 +315,7 @@ void Qu3DEstimator::multMeshComp() {
     for (size_t i = 0; i < mesh.size_complex; ++i) {
         double k2, kz, p;
         mesh.getK2KzFromIndex(i, k2, kz);
-        p = p3d_model->evaluate(sqrt(k2), kz);
-        CHECK_ISNAN(&p, 1, "p3d_model");
-        mesh.field_k[i] *= p * exp(rscale_long * k2) / mesh.cellvol;
+        mesh.field_k[i] *= p3d_model->evaluate(sqrt(k2), kz) / mesh.cellvol;
     }
     mesh.fftK2X();
 

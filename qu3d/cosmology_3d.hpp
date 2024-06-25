@@ -191,9 +191,13 @@ namespace fidcosmo {
     });
 
     class ArinyoP3DModel {
-        double b_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu;
+        double _varlss;
+        double b_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long;
         std::unique_ptr<LinearPowerInterpolator> interp_p;
 
+        void _calcVarLss() {
+
+        }
     public:
         /* This function reads following keys from config file:
         b_F: double
@@ -204,7 +208,7 @@ namespace fidcosmo {
         nu_1: double  == b_nu of arinyo
         k_nu: double
         */
-        ArinyoP3DModel(ConfigFile &config) {
+        ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
             config.addDefaults(arinyo_default_parameters);
             b_F = config.getDouble("b_F");
             beta_F = config.getDouble("beta_F");
@@ -213,8 +217,10 @@ namespace fidcosmo {
             nu_0 = config.getDouble("nu_0");
             nu_1 = config.getDouble("nu_1");
             k_nu = config.getDouble("k_nu");
+            rscale_long = config.getDouble("LongScale");
 
             interp_p = std::make_unique<LinearPowerInterpolator>(config);
+            _calcVarLss();
         }
 
         double evaluate(double k, double kz) {
@@ -224,7 +230,7 @@ namespace fidcosmo {
             double
             plin = interp_p->evaluate(k),
             delta2_L = plin * k * k * k / 2 / MY_PI * MY_PI,
-            k_kp = k / k_p,
+            k_kp = k / k_p, k_rL = k * rscale_long,
             mu = kz / k,
             result, lnD;
 
@@ -233,9 +239,13 @@ namespace fidcosmo {
 
             lnD = (q_1 * delta2_L) * (
                     1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0)
-            ) - k_kp * k_kp;
+            ) - k_kp * k_kp - k_rL * k_rL;
 
             return result * plin * exp(lnD);
+        }
+
+        double getVarLss() {
+
         }
     };
 }
