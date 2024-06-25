@@ -460,20 +460,26 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
     #pragma omp parallel for
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
-        auto fk2_begin = mesh2.field_k.begin() + jj;
 
         double kperp = 0;
         mesh.getKperpFromIperp(jxy, kperp);
 
         if(!isInsideKbin(iperp, kperp)) {
-            std::fill(fk2_begin, fk2_begin + mesh.ngrid_kz, 0);
+            std::fill(
+                mesh2.field_k.begin() + jj,
+                mesh2.field_k.begin() + jj + mesh.ngrid_kz, 0);
         }
         else {
-            std::fill(fk2_begin, fk2_begin + mesh_z_1, 0);
-            auto fk1_begin = mesh.field_k.begin() + jj;
-            std::copy(fk1_begin + mesh_z_1, fk1_begin + mesh_z_2,
-                      fk2_begin + mesh_z_1);
-            std::fill(fk2_begin + mesh_z_2, fk2_begin + mesh.ngrid_kz, 0);
+            std::fill(
+                mesh2.field_k.begin() + jj,
+                mesh2.field_k.begin() + jj + mesh_z_1, 0);
+            std::copy(
+                mesh.field_k.begin() + jj + mesh_z_1,
+                mesh.field_k.begin() + jj + mesh_z_2,
+                mesh2.field_k.begin() + jj + mesh_z_1);
+            std::fill(
+                mesh2.field_k.begin() + jj + mesh_z_2,
+                mesh2.field_k.begin() + jj + mesh.ngrid_kz, 0);
         }
     }
     mesh2.fftK2X();
