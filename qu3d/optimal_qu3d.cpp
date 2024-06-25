@@ -4,6 +4,7 @@
 #include "qu3d/cosmology_3d.hpp"
 
 #include "core/global_numbers.hpp"
+#include "core/progress.hpp"
 #include "io/logger.hpp"
 
 std::unordered_map<size_t, std::vector<const CosmicQuasar*>> idx_quasar_map;
@@ -471,7 +472,7 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
 }
 
 
-void Qu3DEstimator::estimatePowerBias() {
+void Qu3DEstimator::estimatePower() {
     LOG::LOGGER.STD("Calculating power spectrum.\n");
     /* calculate Cinv . delta into y */
     conjugateGradientDescent();
@@ -488,13 +489,16 @@ void Qu3DEstimator::estimatePowerBias() {
             ] = mesh.dot(mesh2) / mesh.cellvol;
         }
     }
+}
 
-    /* Estimate Bias */
-    LOG::LOGGER.STD("Estimating bias. MCs:\n");
+
+void Qu3DEstimator::estimateBiasMc() {
+    LOG::LOGGER.STD("Estimating bias.\n");
     verbose = false;
     auto total_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
     auto diff_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
+    Progress prog_tracker(max_monte_carlos, 10);
     for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
         /* generate random Gaussian vector into y */
         #pragma omp parallel for
@@ -515,6 +519,8 @@ void Qu3DEstimator::estimatePowerBias() {
             }
         }
 
+        ++prog_tracker;
+        #if 0
         std::copy_n(bias_est.get(), NUMBER_OF_K_BANDS_2, diff_bias_est.get());
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
             bias_est[i] = total_bias_est[i] / nmc / mesh.cellvol;
@@ -538,15 +544,20 @@ void Qu3DEstimator::estimatePowerBias() {
 
         if (d_rel_norm < tolerance)
             break;
+        #endif
     }
 
-    std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
-    buffer << "_p3d.txt";
-    write(buffer.str().c_str());
+    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
+        bias_est[i] = total_bias_est[i] / max_monte_carlos / mesh.cellvol;
 }
 
-
 void Qu3DEstimator::write(const char *fname) {
+    if (fname == nullptr) {
+        std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
+        buffer << "_p3d.txt";
+        fname = buffer.str().c_str();
+    }
+
     FILE *toWrite = ioh::open_file(fname, "w");
 
     specifics::printBuildSpecifics(toWrite);
