@@ -15,6 +15,7 @@ std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 RealField3D mesh2;
 int NUMBER_OF_K_BANDS_2 = 0;
 bool verbose = true;
+constexpr bool INPLACE_FFT = false;
 
 
 #ifdef DEBUG
@@ -248,8 +249,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     mesh.z0 = config.getInteger("ZSTART");
     mesh2 = mesh;
     double t1 = mytime::timer.getTime(), t2 = 0;
-    mesh.construct(false);
-    mesh2.construct();
+    mesh.construct(INPLACE_FFT);
+    mesh2.construct(INPLACE_FFT);
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
 
