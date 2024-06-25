@@ -22,22 +22,26 @@ namespace specifics {
     static int DOWNSAMPLE_FACTOR;
 }
 
-class NormalRNG {
+class MyRNG {
 public:
-    NormalRNG() {};
+    MyRNG() {};
 
     void seed(long in) { rng_engine.seed(in); }
 
-    double generate() { return n_dist(rng_engine); }
-
-    void fillVector(double *v, unsigned int size) {
+    void fillVectorNormal(double *v, unsigned int size) {
         for (unsigned int i = 0; i < size; ++i)
-            v[i] = generate();
+            v[i] = n_dist(rng_engine);
+    }
+
+    void fillVectorOnes(double *v, size_t size) {
+        for (size_t i = 0; i < size; ++i)
+            v[i] = (uidist(rng_engine) == 0) ? -1 : +1;
     }
 
 private:
     std::mt19937_64 rng_engine;
     std::normal_distribution<double> n_dist;
+    std::uniform_int_distribution<int> uidist(0, 1);
 };
 
 
@@ -49,7 +53,7 @@ public:
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth;
     std::unique_ptr<double[]> r, y, Cy, residual, search;
-    NormalRNG rng;
+    MyRNG rng;
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*> neighbors;
@@ -119,12 +123,9 @@ public:
             coord[axis] = r[i] * angles[axis];
     }
 
-    void fillRngNoise() {
-        /* overwrite qFile->delta */
-        rng.fillVector(truth, N);
-        // for (int i = 0; i < N; ++i)
-            // truth[i] *= sqrt(ivar[i]);
-    }
+    /* overwrite qFile->delta */
+    void fillRngNoise() { rng.fillVectorNormal(truth, N); }
+    void fillRngOnes() { rng.fillVectorOnes(truth, N); }
 
     void multIsigInVector() {
         for (int i = 0; i < N; ++i)
