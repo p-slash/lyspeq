@@ -28,7 +28,9 @@ class Qu3DEstimator
     double tolerance, radius, rscale_factor;
     RealField3D mesh;
 
-    std::unique_ptr<double[]> power_est, bias_est, fisher;
+    std::unique_ptr<double[]>
+        raw_power, filt_power, raw_bias, filt_bias,
+        fisher, covariance;
     // targetid_quasar_map quasars;
     // Reads the entire file
     void _readOneDeltaFile(const std::string &fname);
@@ -83,6 +85,7 @@ public:
     void estimateBiasMc();
     void calculateFisherVeck(int i);
     void estimateFisher();
+    void filter();
     void write();
 };
 

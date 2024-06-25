@@ -256,9 +256,12 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
     bins::FISHER_SIZE = NUMBER_OF_K_BANDS_2 * NUMBER_OF_K_BANDS_2;
 
-    power_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    raw_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    filt_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    raw_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    filt_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
     fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
+    covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
 
     _constructMap();
     // _findNeighbors();
@@ -484,7 +487,7 @@ void Qu3DEstimator::estimatePower() {
             /* calculate C,k . y into mesh2 */
             multiplyDerivVector(iperp, iz);
 
-            power_est[
+            raw_power[
                 iz + bins::NUMBER_OF_K_BANDS * iperp
             ] = mesh.dot(mesh2) / mesh.cellvol;
         }
@@ -495,8 +498,8 @@ void Qu3DEstimator::estimatePower() {
 void Qu3DEstimator::estimateBiasMc() {
     LOG::LOGGER.STD("Estimating bias.\n");
     verbose = false;
-    auto total_bias_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    auto total_bias2_est = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    auto total_b = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    auto total_b2 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
     Progress prog_tracker(max_monte_carlos, 10);
     for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
@@ -515,15 +518,15 @@ void Qu3DEstimator::estimateBiasMc() {
                 multiplyDerivVector(iperp, iz);
 
                 double b = mesh.dot(mesh2) / mesh.cellvol;
-                total_bias_est[iz + bins::NUMBER_OF_K_BANDS * iperp] += b;
-                total_bias2_est[iz + bins::NUMBER_OF_K_BANDS * iperp] += b * b;
+                total_b[iz + bins::NUMBER_OF_K_BANDS * iperp] += b;
+                total_b2[iz + bins::NUMBER_OF_K_BANDS * iperp] += b * b;
             }
         }
 
         ++prog_tracker;
 
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-            bias_est[i] = total_bias_est[i] / nmc;
+            raw_bias[i] = total_b[i] / nmc;
 
         if (nmc % 5 != 0)
             continue;
@@ -531,8 +534,7 @@ void Qu3DEstimator::estimateBiasMc() {
         double max_std = 0, mean_std = 0, std_k;
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
             std_k = sqrt(
-                (total_bias2_est[i] / nmc - bias_est[i] * bias_est[i])
-                / (nmc - 1)
+                (total_b2[i] / nmc - raw_bias[i] * raw_bias[i]) / (nmc - 1)
             );
             max_std = std::max(std_k, max_std);
             mean_std += std_k / NUMBER_OF_K_BANDS_2;
@@ -614,6 +616,23 @@ void Qu3DEstimator::estimateFisher() {
 }
 
 
+void Qu3DEstimator::filter() {
+    std::copy_n(fisher.get(), bins::FISHER_SIZE, covariance.get());
+    mxhelp::LAPACKE_InvertMatrixLU(covariance.get(), NUMBER_OF_K_BANDS_2);
+    cblas_dgemv(
+        CblasRowMajor, CblasNoTrans, NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2,
+        0.5, covariance.get(), NUMBER_OF_K_BANDS_2,
+        raw_power.get(), 1,
+        0, filt_power.get(), 1);
+
+    cblas_dgemv(
+        CblasRowMajor, CblasNoTrans, NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2,
+        0.5, covariance.get(), NUMBER_OF_K_BANDS_2,
+        raw_bias.get(), 1,
+        0, filt_bias.get(), 1);
+}
+
+
 void Qu3DEstimator::write() {
     std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
     buffer << "_p3d.txt";
@@ -654,16 +673,17 @@ void Qu3DEstimator::write() {
     int kn = 0, zm = 0;
     for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
         for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
+            size_t i = iz + bins::NUMBER_OF_K_BANDS * iperp;
             double kperp = bins::KBAND_CENTERS[kperp],
                    kz = bins::KBAND_CENTERS[iz],
-                   P3D = 0,
-                   e_P3D = 0,
+                   P3D = filt_power[i] - filt_bias[i],
+                   e_P3D = sqrt(covariance[i * (NUMBER_OF_K_BANDS_2 + 1)]),
                    k = sqrt(kperp * kperp + kz * kz),
                    Pfid = p3d_model->evaluate(k, kz),
-                   d = 0,
-                   b = 0,
-                   Fd = power_est[iz + bins::NUMBER_OF_K_BANDS * iperp],
-                   Fb = bias_est[iz + bins::NUMBER_OF_K_BANDS * iperp];
+                   d = filt_power[i],
+                   b = filt_bias[i],
+                   Fd = raw_power[iz + bins::NUMBER_OF_K_BANDS * iperp],
+                   Fb = raw_bias[iz + bins::NUMBER_OF_K_BANDS * iperp];
             fprintf(toWrite,
                     "%14e %14e %14e %14e %14e %14e %14e %14e %14e\n", 
                     kperp, kz, P3D, e_P3D, Pfid, d, b, Fd, Fb);
