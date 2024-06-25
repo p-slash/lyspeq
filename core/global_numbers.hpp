@@ -14,7 +14,7 @@
 // Debugging flags. Comment out to turn off
 // #define DEBUG_MATRIX_OUT
 
-const double
+constexpr double
 SPEED_OF_LIGHT = 299792.458,
 LYA_REST = 1215.67,
 MY_PI = 3.14159265359,
