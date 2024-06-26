@@ -7,6 +7,13 @@
 #include "core/progress.hpp"
 #include "io/logger.hpp"
 
+/* Timing map */
+std::unordered_map<std::string, std::pair<int, double>> timings{
+    {"rInterp", std::make_pair(0, 0.0)}, {"interp", std::make_pair(0, 0.0)},
+    {"CGD", std::make_pair(0, 0.0)}, {"mDeriv", std::make_pair(0, 0.0)}
+};
+
+/* Internal variables */
 std::unordered_map<size_t, std::vector<const CosmicQuasar*>> idx_quasar_map;
 std::vector<std::pair<size_t, std::vector<const CosmicQuasar*>>> idx_quasars_pairs;
 
@@ -65,6 +72,15 @@ void logCosmoDist() {};
 void logCosmoHubble() {};
 void logPmodel() {};
 #endif
+
+
+void logTimings() {
+    LOG::LOGGER.STD("Total time statistics:\n");
+    for (const auto &[key, value] : timings)
+        LOG::LOGGER.STD(
+            "%s: %.2e mins / %d calls\n",
+            key.c_str(), value.second, value.first);
+}
 
 
 inline bool isInsideKbin(int ib, double kb) {
@@ -274,15 +290,21 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 }
 
 void Qu3DEstimator::reverseInterpolate() {
+    double dt = mytime::timer.getTime();
     mesh.zero_field_x();
 
     for (auto &qso : quasars)
         for (int i = 0; i < qso->N; ++i)
             mesh.reverseInterpolateCIC(qso->r.get() + 3 * i, qso->in[i]);
+
+    dt = mytime::timer.getTime() - dt;
+    ++timings["rInterp"].first;
+    timings["rInterp"].second += dt;
 }
 
 
 void Qu3DEstimator::reverseInterpolateIsig() {
+    double dt = mytime::timer.getTime();
     mesh.zero_field_x();
 
     for (auto &qso : quasars)
@@ -290,6 +312,9 @@ void Qu3DEstimator::reverseInterpolateIsig() {
             mesh.reverseInterpolateCIC(
                 qso->r.get() + 3 * i, qso->in[i] * qso->isig[i]);
 
+    dt = mytime::timer.getTime() - dt;
+    ++timings["rInterp"].first;
+    timings["rInterp"].second += dt;
     // Not faster
     // #pragma omp parallel for schedule(dynamic, 8) num_threads(8)
     // for (const auto &[idx, qsos] : idx_quasars_pairs) {
@@ -319,6 +344,7 @@ void Qu3DEstimator::multMeshComp() {
     }
     mesh.fftK2X();
 
+    double dt = mytime::timer.getTime();
     // Interpolate and Weight by isig
     #pragma omp parallel for
     for (auto &qso : quasars)
@@ -326,6 +352,9 @@ void Qu3DEstimator::multMeshComp() {
             qso->out[i] += qso->isig[i] * mesh.interpolate(qso->r.get() + 3 * i);
 
     t2 = mytime::timer.getTime();
+    ++timings["interp"].first;
+    timings["interp"].second += t2 - dt;
+
     if (verbose)
         LOG::LOGGER.STD("    multMeshComp took %.2f m.\n", t2 - t1);
 }
@@ -373,9 +402,9 @@ void Qu3DEstimator::updateY(double residual_norm2) {
         qso->in = qso->y.get();
     }
 
-    t2 = mytime::timer.getTime();
+    t2 = mytime::timer.getTime() - t1;
     if (verbose)
-        LOG::LOGGER.STD("    updateY took %.2f m.\n", t2 - t1);
+        LOG::LOGGER.STD("    updateY took %.2f m.\n", t2);
 }
 
 
@@ -391,6 +420,7 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
 
 
 void Qu3DEstimator::conjugateGradientDescent() {
+    double dt = mytime::timer.getTime();
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
 
@@ -436,10 +466,15 @@ endconjugateGradientDescent:
     #pragma omp parallel for
     for (auto &qso : quasars)
         qso->multIsigInVector();
+
+    dt = mytime::timer.getTime() - dt;
+    ++timings["CGD"].first;
+    timings["CGD"].second += dt;
 }
 
 
 double Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
+    double dt = mytime::timer.getTime();
     int mesh_z_1 = bins::KBAND_EDGES[iz] / mesh.k_fund[2],
         mesh_z_2 = bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2];
 
@@ -472,7 +507,11 @@ double Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
     }
     mesh2.fftK2X();
 
-    return mesh.dot(mesh2);
+    double result = mesh.dot(mesh2);
+    dt = mytime::timer.getTime() - dt;
+    ++timings["mDeriv"].first;
+    timings["mDeriv"].second += dt;
+    return result;
 }
 
 
@@ -490,6 +529,8 @@ void Qu3DEstimator::estimatePower() {
             raw_power[
                 iz + bins::NUMBER_OF_K_BANDS * iperp
             ] = multiplyDerivVector(iperp, iz) / mesh.cellvol;
+
+    logTimings();
 }
 
 
@@ -545,6 +586,8 @@ void Qu3DEstimator::estimateBiasMc() {
         if (max_std < tolerance)
             break;
     }
+
+    logTimings();
 }
 
 
