@@ -450,7 +450,7 @@ endconjugateGradientDescent:
 }
 
 
-void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
+double Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
     int mesh_z_1 = bins::KBAND_EDGES[iz] / mesh.k_fund[2],
         mesh_z_2 = bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2];
 
@@ -461,7 +461,7 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
 
-        double kperp = mesh.getKperpFromIperp(jxy, kperp);
+        double kperp = mesh.getKperpFromIperp(jxy);
 
         if(!isInsideKbin(iperp, kperp)) {
             std::fill(
@@ -482,6 +482,8 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
         }
     }
     mesh2.fftK2X();
+
+    return mesh.dot(mesh2);
 }
 
 
@@ -493,16 +495,12 @@ void Qu3DEstimator::estimatePower() {
     reverseInterpolate();
     mesh.fftX2K();
     LOG::LOGGER.STD("  Multiplying with derivative matrices.\n");
-    for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
-        for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
-            /* calculate C,k . y into mesh2 */
-            multiplyDerivVector(iperp, iz);
-
+    /* calculate C,k . y into mesh2, then dot */
+    for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp)
+        for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz)
             raw_power[
                 iz + bins::NUMBER_OF_K_BANDS * iperp
-            ] = mesh.dot(mesh2) / mesh.cellvol;
-        }
-    }
+            ] = multiplyDerivVector(iperp, iz) / mesh.cellvol;
 }
 
 
@@ -527,9 +525,7 @@ void Qu3DEstimator::estimateBiasMc() {
         for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
             for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
                 /* calculate C,k . y into mesh2 */
-                multiplyDerivVector(iperp, iz);
-
-                double b = mesh.dot(mesh2) / mesh.cellvol;
+                double b = multiplyDerivVector(iperp, iz) / mesh.cellvol;
                 total_b[iz + bins::NUMBER_OF_K_BANDS * iperp] += b;
                 total_b2[iz + bins::NUMBER_OF_K_BANDS * iperp] += b * b;
             }
@@ -580,7 +576,7 @@ void Qu3DEstimator::drawRndDeriv(int i) {
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
 
-        double kperp = mesh.getKperpFromIperp(jxy, kperp);
+        double kperp = mesh.getKperpFromIperp(jxy);
 
         if(!isInsideKbin(iperp, kperp)) {
             std::fill(
@@ -639,9 +635,7 @@ void Qu3DEstimator::estimateFisher() {
                 int jperp = j / bins::NUMBER_OF_K_BANDS,
                     jz = j % bins::NUMBER_OF_K_BANDS;
                 /* calculate C,k . y into mesh2 */
-                multiplyDerivVector(jperp, jz);
-
-                fisher[j + i * NUMBER_OF_K_BANDS_2] += mesh.dot(mesh2);
+                fisher[j + i * NUMBER_OF_K_BANDS_2] += multiplyDerivVector(jperp, jz);
             }
         }
         ++prog_tracker;
