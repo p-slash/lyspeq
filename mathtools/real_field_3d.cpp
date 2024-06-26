@@ -1,6 +1,7 @@
 #include <cmath>
 
 #include "mathtools/real_field_3d.hpp"
+#include "mathtools/matrix_helper.hpp"
 #include "mathtools/my_random.hpp"
 // #include <algorithm>
 // #include <cassert>
@@ -115,18 +116,12 @@ void RealField3D::fillRndNormal() {
 
 double RealField3D::dot(const RealField3D &other) {
     double result = 0;
-    if (_inplace) {
-        #pragma omp parallel for reduction(+:result)
-        for (size_t j = 0; j < size_real; ++j) {
-            size_t i = getCorrectIndexX(j);
-            result += field_x[i] * other.field_x[i];
-        }
-    }
-    else {
-        #pragma omp parallel for reduction(+:result)
-        for (size_t i = 0; i < size_real; ++i)
-            result += field_x[i] * other.field_x[i];
-    }
+
+    #pragma omp parallel for reduction(+:result)
+    for (int ij = 0; ij < ngrid_xy; ++ij)
+        result += cblas_ddot(
+            ngrid[2], field_x + ngrid_z * ij, 1,
+            other.field_x + ngrid_z * ij, 1);
 
     return result;
 }
@@ -183,9 +178,9 @@ double RealField3D::interpolate(double coord[3]) const {
 
     r += field_x[getIndex(n[0], n[1], n[2] + 1)] * (1 - d[0]) * (1 - d[1]) * d[2];
     r += field_x[getIndex(n[0], n[1] + 1, n[2])] * (1 - d[0]) * d[1] * (1 - d[2]);
-    r += field_x[getIndex(n[0] + 1, n[1], n[2])] * d[0] * (1 - d[1]) * (1 - d[2]);
-
     r += field_x[getIndex(n[0], n[1] + 1, n[2] + 1)] * (1 - d[0]) * d[1] * d[2];
+
+    r += field_x[getIndex(n[0] + 1, n[1], n[2])] * d[0] * (1 - d[1]) * (1 - d[2]);
     r += field_x[getIndex(n[0] + 1, n[1], n[2] + 1)] * d[0] * (1 - d[1]) * d[2];
     r += field_x[getIndex(n[0] + 1, n[1] + 1, n[2])] * d[0] * d[1] * (1 - d[2]);
 
@@ -210,9 +205,9 @@ void RealField3D::reverseInterpolateCIC(double coord[3], double val) {
 
     field_x[getIndex(n[0], n[1], n[2] + 1)] += val * (1 - d[0]) * (1 - d[1]) * d[2];
     field_x[getIndex(n[0], n[1] + 1, n[2])] += val * (1 - d[0]) * d[1] * (1 - d[2]);
-    field_x[getIndex(n[0] + 1, n[1], n[2])] += val * d[0] * (1 - d[1]) * (1 - d[2]);
-
     field_x[getIndex(n[0], n[1] + 1, n[2] + 1)] += val * (1 - d[0]) * d[1] * d[2];
+
+    field_x[getIndex(n[0] + 1, n[1], n[2])] += val * d[0] * (1 - d[1]) * (1 - d[2]);
     field_x[getIndex(n[0] + 1, n[1], n[2] + 1)] += val * d[0] * (1 - d[1]) * d[2];
     field_x[getIndex(n[0] + 1, n[1] + 1, n[2])] += val * d[0] * d[1] * (1 - d[2]);
 
@@ -278,12 +273,12 @@ void RealField3D::getK2KzFromIndex(size_t i, double &k2, double &kz) const {
         k2 += ks[axis] * ks[axis];
 }
 
-void RealField3D::getKperpFromIperp(size_t iperp, double &kperp) const {
+double RealField3D::getKperpFromIperp(size_t iperp) const {
     int kn[2];
     kn[0] = iperp / ngrid[1];
     kn[1] = iperp % ngrid[1];
 
-    kperp = 0;
+    double kperp = 0;
     for (int axis = 0; axis < 2; ++axis) {
         if (kn[axis] > ngrid[axis] / 2)
             kn[axis] -= ngrid[axis];
@@ -292,7 +287,7 @@ void RealField3D::getKperpFromIperp(size_t iperp, double &kperp) const {
         kperp += t * t;
     }
 
-    kperp = sqrt(kperp);
+    return sqrt(kperp);
 }
 
 void RealField3D::getKperpKzFromIndex(size_t i, double &kperp, double &kz)
