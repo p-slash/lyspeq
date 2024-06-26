@@ -20,7 +20,7 @@ std::vector<std::pair<size_t, std::vector<const CosmicQuasar*>>> idx_quasars_pai
 
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
-RealField3D mesh2;
+RealField3D mesh2, mesh_rnd;
 int NUMBER_OF_K_BANDS_2 = 0;
 bool verbose = true;
 constexpr bool INPLACE_FFT = false;
@@ -620,9 +620,6 @@ void Qu3DEstimator::drawRndDeriv(int i) {
     mesh_z_1 = std::min(mesh.ngrid_kz, std::max(0, mesh_z_1));
     mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
 
-    mesh.fillRndNormal();
-    mesh.fftX2K();
-
     #pragma omp parallel for
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
@@ -638,6 +635,10 @@ void Qu3DEstimator::drawRndDeriv(int i) {
             std::fill(
                 mesh.field_k.begin() + jj,
                 mesh.field_k.begin() + jj + mesh_z_1, 0);
+            std::copy(
+                mesh_rnd.field_k.begin() + jj + mesh_z_1,
+                mesh_rnd.field_k.begin() + jj + mesh_z_2,
+                mesh.field_k.begin() + jj + mesh_z_1);
             std::fill(
                 mesh.field_k.begin() + jj + mesh_z_2,
                 mesh.field_k.begin() + jj + mesh.ngrid_kz, 0);
@@ -667,8 +668,20 @@ void Qu3DEstimator::estimateFisher() {
     LOG::LOGGER.STD("Estimating Fisher.\n");
     verbose = false;
 
-    Progress prog_tracker(max_monte_carlos);
+    /* Create another mesh to store random numbers. This way, randoms are
+       generated once, and FFTd once. This grid can perform in-place FFTs,
+       since it is only needed in Fourier space, which is equivalent between
+       in-place and out-of-place transforms.
+    */
+    LOG::LOGGER.STD("  Constructing another mesh.\n");
+    mesh_rnd.copy(mesh);
+    mesh_rnd.construct();
+    Progress prog_tracker(max_monte_carlos, 5);
     for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
+        mesh_rnd.fillRndNormal();
+        mesh_rnd.fftX2K();
+        LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
+
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
             drawRndDeriv(i);
 
