@@ -36,7 +36,7 @@ class RealField3D {
 public:
     size_t size_complex, size_real;
     int ngrid[3], ngrid_kz, ngrid_z, ngrid_xy;
-    double length[3], dx[3], k_fund[3], z0, cellvol, totalvol;
+    double length[3], dx[3], k_fund[3], z0, cellvol, invtotalvol;
     std::vector<std::complex<double>> field_k;
     double *field_x;
 
@@ -63,7 +63,8 @@ public:
 
     void fillRndNormal();
 
-    void rawFFTX2K() { fftw_execute(p_x2k); }
+    void rawFftX2K() { fftw_execute(p_x2k); }
+    void rawFftK2X() { fftw_execute(p_k2x); }
     void fftX2K();
     void fftK2X();
     double dot(const RealField3D &other);

@@ -48,7 +48,7 @@ void RealField3D::construct(bool inp) {
     _inplace = inp;
     size_real = 1;
     cellvol = 1;
-    totalvol = 1;
+    invtotalvol = 1;
 
     for (int axis = 0; axis < 3; ++axis) {
         k_fund[axis] = 2 * MY_PI / length[axis];
@@ -56,8 +56,9 @@ void RealField3D::construct(bool inp) {
 
         size_real *= ngrid[axis];
         cellvol *= dx[axis];
-        totalvol *= length[axis];
+        invtotalvol *= length[axis];
     }
+    invtotalvol = 1.0 / invtotalvol;
 
     ngrid_kz = ngrid[2] / 2 + 1;
     ngrid_xy = ngrid[0] * ngrid[1];
@@ -90,19 +91,19 @@ void RealField3D::construct(bool inp) {
 void RealField3D::fftX2K() {
     fftw_execute(p_x2k);
 
-    #pragma omp parallel for simd
-    for (size_t i = 0; i < size_complex; ++i)
-        field_k[i] *= cellvol;
+    #pragma omp parallel for
+    for (size_t ij = 0; ij < ngrid_xy; ++ij)
+        for (int k = 0; k < ngrid_kz; ++k)
+            field_k[k + ngrid_kz * ij] *= cellvol;
 } 
 
 
 void RealField3D::fftK2X() {
     fftw_execute(p_k2x);
 
-    #pragma omp parallel for simd collapse(2)
+    #pragma omp parallel for
     for (int ij = 0; ij < ngrid_xy; ++ij)
-        for (int k = 0; k < ngrid[2]; ++k)
-            field_x[k + ngrid_z * ij] /= totalvol;
+        cblas_dscal(ngrid[2], invtotalvol, field_x + ngrid_z * ij, 1);
 }
 
 
