@@ -30,7 +30,7 @@ public:
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth;
-    std::unique_ptr<double[]> r, y, Cy, residual, search, fisher_vk;
+    std::unique_ptr<double[]> r, y, Cy, residual, search;
     MyRNG rng;
 
     std::set<size_t> grid_indices;
@@ -73,7 +73,6 @@ public:
         Cy = std::make_unique<double[]>(N);
         residual = std::make_unique<double[]>(N);
         search = std::make_unique<double[]>(N);
-        fisher_vk = std::make_unique<double[]>(N);
 
         // Convert to inverse sigma and weight deltas
         for (int i = 0; i < N; ++i) {
@@ -104,6 +103,7 @@ public:
 
     /* overwrite qFile->delta */
     void fillRngNoise() { rng.fillVectorNormal(truth, N); }
+    /*
     void fillRngOnes() {
         rng.fillVectorOnes(fisher_vk.get(), N);
         for (int i = 0; i < N; ++i)
@@ -111,6 +111,7 @@ public:
     }
     void copyInToFisherVec() { std::copy_n(in, N, fisher_vk.get()); }
     double dotFisherVecIn() { return cblas_ddot(N, fisher_vk.get(), 1, in, 1); }
+    */
 
     void multIsigInVector() {
         for (int i = 0; i < N; ++i)
