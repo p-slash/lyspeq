@@ -62,8 +62,8 @@ int main(int argc, char *argv[]) {
 
     qps->estimatePower();
     qps->estimateBiasMc();
-    qps->estimateFisher();
-    qps->filter();
+    // qps->estimateFisher();
+    // qps->filter();
     qps->write();
     myomp::clean_fftw();
     return 0;
