@@ -83,8 +83,11 @@ public:
 
     void estimatePower();
     void estimateBiasMc();
-    void calculateFisherVeck(int i);
+
+
+    void drawRndDeriv(int i);
     void estimateFisher();
+
     void filter();
     void write();
 };

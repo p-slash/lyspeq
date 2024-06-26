@@ -563,62 +563,86 @@ void Qu3DEstimator::estimateBiasMc() {
 }
 
 
-void Qu3DEstimator::calculateFisherVeck(int i) {
+void Qu3DEstimator::drawRndDeriv(int i) {
     int iperp = i / bins::NUMBER_OF_K_BANDS,
         iz = i % bins::NUMBER_OF_K_BANDS;
 
-    /* save v into mesh */
-    reverseInterpolate();
+    int mesh_z_1 = bins::KBAND_EDGES[iz] / mesh.k_fund[2],
+        mesh_z_2 = bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2];
+
+    mesh_z_1 = std::min(mesh.ngrid_kz, std::max(0, mesh_z_1));
+    mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
+
+    mesh.fillRndNormal();
     mesh.fftX2K();
-    /* calculate C,k . v into mesh2 */
-    multiplyDerivVector(iperp, iz);
-    /* Interpolate and Weight by isig back to qso grid */
+
+    #pragma omp parallel for
+    for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+        size_t jj = mesh.ngrid_kz * jxy;
+
+        double kperp = 0;
+        mesh.getKperpFromIperp(jxy, kperp);
+
+        if(!isInsideKbin(iperp, kperp)) {
+            std::fill(
+                mesh.field_k.begin() + jj,
+                mesh.field_k.begin() + jj + mesh.ngrid_kz, 0);
+        }
+        else {
+            std::fill(
+                mesh.field_k.begin() + jj,
+                mesh.field_k.begin() + jj + mesh_z_1, 0);
+            std::fill(
+                mesh.field_k.begin() + jj + mesh_z_2,
+                mesh.field_k.begin() + jj + mesh.ngrid_kz, 0);
+        }
+    }
+
+    mesh.fftK2X();
+
     #pragma omp parallel for
     for (auto &qso : quasars) {
         double coord[3];
         for (int i = 0; i < qso->N; ++i) {
             qso->getCartesianCoords(i, coord);
-            qso->truth[i] = qso->isig[i] * mesh2.interpolate(coord);
+            qso->truth[i] = qso->isig[i] * mesh.interpolate(coord);
         }
     }
-    /* calculate Cinv . C,k . Ones into in */
-    conjugateGradientDescent();
 }
 
 
 void Qu3DEstimator::estimateFisher() {
+    /* Tr[C^-1 . Qk . C^-1 Qk'] = <qk^T . C^-1 . Qk' . C^-1 . qk>
+
+    1. Generate qk on the grid.
+        - Generate uniform white noise on x. FFT.
+        - Cut out k modes. iFFT.
+    2. Interpolate . isig to each qso->truth
+    3. Solve C^-1 . qk into qso->in
+    4. Reverse interpolate to mesh.
+    5. Multiply with Qk' on mesh.
+    */
     LOG::LOGGER.STD("Estimating Fisher.\n");
     verbose = false;
 
-    Progress prog_tracker(max_monte_carlos, 10);
-    double tmpf = 0;
+    Progress prog_tracker(max_monte_carlos);
     for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
-        /* generate random +-1 vector into delta/truth */
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            qso->fillRngOnes();
-
         for (int i = 0; i < bins::FISHER_SIZE; ++i) {
-            calculateFisherVeck(i);
+            drawRndDeriv(i);
 
-            tmpf = 0;
-            #pragma omp parallel for reduction(+:tmpf)
-            for (auto &qso : quasars) {
-                qso->copyInToFisherVec();
-                tmpf += qso->dotFisherVecIn();
-            }
+            /* calculate C^-1 . qk into in */
+            conjugateGradientDescent();
+            /* save C^-1 . v (in) into mesh */
+            reverseInterpolate();
+            mesh.fftX2K();
 
-            fisher[i * (bins::FISHER_SIZE + 1)] = tmpf;
+            for (int j = i; j < bins::FISHER_SIZE; ++j) {
+                int jperp = j / bins::NUMBER_OF_K_BANDS,
+                    jz = j % bins::NUMBER_OF_K_BANDS;
+                /* calculate C,k . y into mesh2 */
+                multiplyDerivVector(jperp, jz);
 
-            for (int j = i + 1; j < bins::FISHER_SIZE; ++j) {
-                calculateFisherVeck(j);
-
-                tmpf = 0;
-                #pragma omp parallel for reduction(+:tmpf)
-                for (auto &qso : quasars)
-                    tmpf += qso->dotFisherVecIn();
-
-                fisher[j + i * bins::FISHER_SIZE] = tmpf;
+                fisher[j + i * bins::FISHER_SIZE] += mesh.dot(mesh2);
             }
         }
         ++prog_tracker;
