@@ -1,7 +1,8 @@
-#include "mathtools/real_field_3d.hpp"
-
-// #include <algorithm>
 #include <cmath>
+
+#include "mathtools/real_field_3d.hpp"
+#include "mathtools/my_random.hpp"
+// #include <algorithm>
 // #include <cassert>
 
 const double MY_PI = 3.14159265359;
@@ -90,6 +91,18 @@ void RealField3D::fftK2X() {
     for (int ij = 0; ij < ngrid_xy; ++ij)
         for (int k = 0; k < ngrid[2]; ++k)
             field_x[k + ngrid_z * ij] /= totalvol;
+}
+
+
+void RealField3D::fillRndNormal() {
+    std::vector<MyRNG> rngs(myomp::getMaxNumThreads());
+    for (int i = 0; i < rngs.size(); ++i)
+        rngs[i].seed(18 * i + 2422);
+
+    #pragma omp parallel for
+    for (int ij = 0; ij < ngrid_xy; ++ij)
+        rngs[myomp::getThreadNum()].fillVectorNormal(
+            field_x + ngrid_z * ij, ngrid[2]);
 }
 
 
