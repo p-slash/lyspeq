@@ -461,8 +461,7 @@ void Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
 
-        double kperp = 0;
-        mesh.getKperpFromIperp(jxy, kperp);
+        double kperp = mesh.getKperpFromIperp(jxy, kperp);
 
         if(!isInsideKbin(iperp, kperp)) {
             std::fill(
@@ -581,8 +580,7 @@ void Qu3DEstimator::drawRndDeriv(int i) {
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
 
-        double kperp = 0;
-        mesh.getKperpFromIperp(jxy, kperp);
+        double kperp = mesh.getKperpFromIperp(jxy, kperp);
 
         if(!isInsideKbin(iperp, kperp)) {
             std::fill(

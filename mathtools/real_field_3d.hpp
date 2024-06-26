@@ -77,7 +77,7 @@ public:
     void getNFromIndex(size_t i, int n[3]) const;
     void getKFromIndex(size_t i, double k[3]) const;
     void getK2KzFromIndex(size_t i, double &k2, double &kz) const;
-    void getKperpFromIperp(size_t iperp, double &kperp) const;
+    double getKperpFromIperp(size_t iperp) const;
     void getKperpKzFromIndex(size_t i, double &kperp, double &kz) const;
 
     std::vector<size_t> findNeighboringPixels(size_t i, double radius) const;
