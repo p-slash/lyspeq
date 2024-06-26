@@ -13,7 +13,7 @@ void _initRngs() {
     if (!rngs.empty())
         return;
 
-    rngs.reserve(myomp::getMaxNumThreads());
+    rngs.resize(myomp::getMaxNumThreads());
     for (int i = 0; i < rngs.size(); ++i)
         rngs[i].seed(18 * i + 2422);
 }
