@@ -541,21 +541,22 @@ void Qu3DEstimator::estimateBiasMc() {
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
             raw_bias[i] = total_b[i] / nmc;
 
-        if (nmc % 5 != 0)
+        if ((nmc < 20) || (nmc % 5 != 0))
             continue;
 
-        double max_std = 0, mean_std = 0, std_k;
+        double max_std = 0, mean_std = 0, std_k, b2_k;
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
+            b2_k = total_b2[i] / nmc;
             std_k = sqrt(
-                (total_b2[i] / nmc - raw_bias[i] * raw_bias[i]) / (nmc - 1)
+                (1 - raw_bias[i] * raw_bias[i] / b2_k) / (nmc - 1)
             );
             max_std = std::max(std_k, max_std);
             mean_std += std_k / NUMBER_OF_K_BANDS_2;
         }
 
         LOG::LOGGER.STD(
-            "  %d: Estimated mean/max std is %.2e/%.2e. MC converges when < %.2e\n",
-            nmc, mean_std, max_std, tolerance);
+            "  %d: Estimated relative mean/max std is %.2e/%.2e. "
+            "MC converges when < %.2e\n", nmc, mean_std, max_std, tolerance);
 
         if (max_std < tolerance)
             break;
