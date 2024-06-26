@@ -529,7 +529,7 @@ double Qu3DEstimator::multiplyDerivVector(int i) {
                 mesh2.field_k.begin() + jj + mesh.ngrid_kz, 0);
         }
     }
-    mesh2.fftK2X();
+    mesh2.rawFftK2X();
 
     double result = mesh.dot(mesh2);
     dt = mytime::timer.getTime() - dt;
@@ -545,11 +545,11 @@ void Qu3DEstimator::estimatePower() {
     conjugateGradientDescent();
 
     reverseInterpolate();
-    mesh.fftX2K();
+    mesh.rawFftX2K();
     LOG::LOGGER.STD("  Multiplying with derivative matrices.\n");
     /* calculate C,k . y into mesh2, then dot */
     for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-        raw_power[i] = multiplyDerivVector(i) / mesh.cellvol;
+        raw_power[i] = multiplyDerivVector(i) * mesh.invtotalvol;
 
     logTimings();
 }
@@ -572,10 +572,10 @@ void Qu3DEstimator::estimateBiasMc() {
         conjugateGradientDescent();
 
         reverseInterpolate();
-        mesh.fftX2K();
+        mesh.rawFftX2K();
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
             /* calculate C,k . y into mesh2 */
-            double b = multiplyDerivVector(i) / mesh.cellvol;
+            double b = multiplyDerivVector(i) * mesh.invtotalvol;
             total_b[i] += b;
             total_b2[i] += b * b;
         }
@@ -676,7 +676,7 @@ void Qu3DEstimator::estimateFisher() {
             conjugateGradientDescent();
             /* save C^-1 . v (in) into mesh */
             reverseInterpolate();
-            mesh.fftX2K();
+            mesh.rawFftX2K();
 
             /* calculate C,k . y into mesh2 */
             for (int j = i; j < NUMBER_OF_K_BANDS_2; ++j)
@@ -685,7 +685,7 @@ void Qu3DEstimator::estimateFisher() {
         ++prog_tracker;
     }
 
-    double alpha = 0.5 / (max_monte_carlos * mesh.cellvol);
+    double alpha = 0.5 * mesh.invtotalvol / max_monte_carlos;
     cblas_dscal(bins::FISHER_SIZE, alpha, fisher.get(), 1);
     mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
 }
