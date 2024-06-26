@@ -473,8 +473,11 @@ endconjugateGradientDescent:
 }
 
 
-double Qu3DEstimator::multiplyDerivVector(int iperp, int iz) {
+double Qu3DEstimator::multiplyDerivVector(int i) {
     double dt = mytime::timer.getTime();
+    int iperp = i / bins::NUMBER_OF_K_BANDS,
+        iz = i % bins::NUMBER_OF_K_BANDS;
+
     int mesh_z_1 = bins::KBAND_EDGES[iz] / mesh.k_fund[2],
         mesh_z_2 = bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2];
 
@@ -524,11 +527,8 @@ void Qu3DEstimator::estimatePower() {
     mesh.fftX2K();
     LOG::LOGGER.STD("  Multiplying with derivative matrices.\n");
     /* calculate C,k . y into mesh2, then dot */
-    for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp)
-        for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz)
-            raw_power[
-                iz + bins::NUMBER_OF_K_BANDS * iperp
-            ] = multiplyDerivVector(iperp, iz) / mesh.cellvol;
+    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
+        raw_power[i] = multiplyDerivVector(i) / mesh.cellvol;
 
     logTimings();
 }
@@ -552,13 +552,11 @@ void Qu3DEstimator::estimateBiasMc() {
 
         reverseInterpolate();
         mesh.fftX2K();
-        for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
-            for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
-                /* calculate C,k . y into mesh2 */
-                double b = multiplyDerivVector(iperp, iz) / mesh.cellvol;
-                total_b[iz + bins::NUMBER_OF_K_BANDS * iperp] += b;
-                total_b2[iz + bins::NUMBER_OF_K_BANDS * iperp] += b * b;
-            }
+        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
+            /* calculate C,k . y into mesh2 */
+            double b = multiplyDerivVector(i) / mesh.cellvol;
+            total_b[i] += b;
+            total_b2[i] += b * b;
         }
 
         ++prog_tracker;
@@ -659,12 +657,9 @@ void Qu3DEstimator::estimateFisher() {
             reverseInterpolate();
             mesh.fftX2K();
 
-            for (int j = i; j < NUMBER_OF_K_BANDS_2; ++j) {
-                int jperp = j / bins::NUMBER_OF_K_BANDS,
-                    jz = j % bins::NUMBER_OF_K_BANDS;
-                /* calculate C,k . y into mesh2 */
-                fisher[j + i * NUMBER_OF_K_BANDS_2] += multiplyDerivVector(jperp, jz);
-            }
+            /* calculate C,k . y into mesh2 */
+            for (int j = i; j < NUMBER_OF_K_BANDS_2; ++j)
+                fisher[j + i * NUMBER_OF_K_BANDS_2] += multiplyDerivVector(j);
         }
         ++prog_tracker;
     }

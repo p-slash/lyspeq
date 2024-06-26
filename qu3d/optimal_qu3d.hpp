@@ -69,7 +69,7 @@ public:
         // multParticleComp();
     }
 
-    double multiplyDerivVector(int iperp, int iz);
+    double multiplyDerivVector(int i);
 
     /* Return residual^T . residual */
     double calculateResidualNorm2();
