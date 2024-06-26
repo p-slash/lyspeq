@@ -334,16 +334,16 @@ void Qu3DEstimator::multMeshComp() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     reverseInterpolateIsig();
-
-    // Convolve power
-    mesh.fftX2K();
+    // Convolve power. Normalization including cellvol and N^3 yields inverse
+    // total volume
+    mesh.rawFftX2K();
     #pragma omp parallel for
     for (size_t i = 0; i < mesh.size_complex; ++i) {
         double k2, kz;
         mesh.getK2KzFromIndex(i, k2, kz);
-        mesh.field_k[i] *= p3d_model->evaluate(sqrt(k2), kz) / mesh.cellvol;
+        mesh.field_k[i] *= mesh.invtotalvol * p3d_model->evaluate(sqrt(k2), kz);
     }
-    mesh.fftK2X();
+    mesh.rawFftK2X();
 
     double dt = mytime::timer.getTime();
     // Interpolate and Weight by isig
