@@ -61,100 +61,24 @@ public:
             std::fill_n(field_x, size_real, 0);
     }
 
+    void fillRndNormal();
+
     void rawFFTX2K() { fftw_execute(p_x2k); }
     void fftX2K();
     void fftK2X();
     double dot(const RealField3D &other);
 
-    size_t getIndex(int nx, int ny, int nz) const {
-        int n[] = {nx, ny, nz};
-        for (int axis = 0; axis < 3; ++axis) {
-            if (n[axis] >= ngrid[axis])
-                n[axis] -= ngrid[axis];
-            if (n[axis] < 0)
-                n[axis] += ngrid[axis];
-        }
-
-        return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
-    }
-
-    size_t getNgpIndex(double coord[3]) const {
-        int n[3];
-
-        coord[2] -= z0;
-        for (int axis = 0; axis < 3; ++axis)
-            n[axis] = round(coord[axis] / dx[axis]);
-
-        return getIndex(n[0], n[1], n[2]);
-    }
-
+    size_t getIndex(int nx, int ny, int nz) const;
+    size_t getNgpIndex(double coord[3]) const;
     inline size_t getCorrectIndexX(size_t j) {
         return j + (j / ngrid[2]) * (ngrid[2] - ngrid_z);
     }
 
-    void getNFromIndex(size_t i, int n[3]) const {
-        int nperp = i / ngrid_z;
-        n[2] = i % ngrid_z;
-        n[0] = nperp / ngrid[1];
-        n[1] = nperp % ngrid[1];
-    }
-
-    void getKFromIndex(size_t i, double k[3]) const {
-        int kn[3];
-
-        size_t iperp = i / ngrid_kz;
-        kn[2] = i % ngrid_kz;
-        kn[0] = iperp / ngrid[1];
-        kn[1] = iperp % ngrid[1];
-
-        if (kn[0] > ngrid[0] / 2)
-            kn[0] -= ngrid[0];
-
-        if (kn[1] > ngrid[1] / 2)
-            kn[1] -= ngrid[1];
-
-        for (int axis = 0; axis < 3; ++axis)
-            k[axis] = k_fund[axis] * kn[axis];
-    }
-
-    void getK2KzFromIndex(size_t i, double &k2, double &kz) const {
-        double ks[3];
-        getKFromIndex(i, ks);
-        kz = ks[2];
-
-        k2 = 0;
-        for (int axis = 0; axis < 3; ++axis)
-            k2 += ks[axis] * ks[axis];
-    }
-
-    void getKperpFromIperp(size_t iperp, double &kperp) const {
-        int kn[2];
-        kn[0] = iperp / ngrid[1];
-        kn[1] = iperp % ngrid[1];
-
-        kperp = 0;
-        for (int axis = 0; axis < 2; ++axis) {
-            if (kn[axis] > ngrid[axis] / 2)
-                kn[axis] -= ngrid[axis];
-
-            double t = k_fund[axis] * kn[axis];
-            kperp += t * t;
-        }
-
-        kperp = sqrt(kperp);
-    }
-
-    void getKperpKzFromIndex(size_t i, double &kperp, double &kz) const {
-        double ks[3];
-        getKFromIndex(i, ks);
-        kz = ks[2];
-
-        kperp = 0;
-        for (int axis = 0; axis < 2; ++axis)
-            kperp += ks[axis] * ks[axis];
-
-        kperp = sqrt(kperp);
-    }
+    void getNFromIndex(size_t i, int n[3]) const;
+    void getKFromIndex(size_t i, double k[3]) const;
+    void getK2KzFromIndex(size_t i, double &k2, double &kz) const;
+    void getKperpFromIperp(size_t iperp, double &kperp) const;
+    void getKperpKzFromIndex(size_t i, double &kperp, double &kz) const;
 
     std::vector<size_t> findNeighboringPixels(size_t i, double radius) const;
     double interpolate(double coord[3]) const;

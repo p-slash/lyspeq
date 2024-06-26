@@ -198,3 +198,92 @@ void RealField3D::reverseInterpolateCIC(double coord[3], double val) {
 
     field_x[getIndex(n[0] + 1, n[1] + 1, n[2] + 1)] += val * d[0] * d[1] * d[2];
 }
+
+
+size_t RealField3D::getIndex(int nx, int ny, int nz) const {
+    int n[] = {nx, ny, nz};
+    for (int axis = 0; axis < 3; ++axis) {
+        if (n[axis] >= ngrid[axis])
+            n[axis] -= ngrid[axis];
+        if (n[axis] < 0)
+            n[axis] += ngrid[axis];
+    }
+
+    return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
+}
+
+size_t RealField3D::getNgpIndex(double coord[3]) const {
+    int n[3];
+
+    coord[2] -= z0;
+    for (int axis = 0; axis < 3; ++axis)
+        n[axis] = round(coord[axis] / dx[axis]);
+
+    return getIndex(n[0], n[1], n[2]);
+}
+
+
+void RealField3D::getNFromIndex(size_t i, int n[3]) const {
+    int nperp = i / ngrid_z;
+    n[2] = i % ngrid_z;
+    n[0] = nperp / ngrid[1];
+    n[1] = nperp % ngrid[1];
+}
+
+void RealField3D::getKFromIndex(size_t i, double k[3]) const {
+    int kn[3];
+
+    size_t iperp = i / ngrid_kz;
+    kn[2] = i % ngrid_kz;
+    kn[0] = iperp / ngrid[1];
+    kn[1] = iperp % ngrid[1];
+
+    if (kn[0] > ngrid[0] / 2)
+        kn[0] -= ngrid[0];
+
+    if (kn[1] > ngrid[1] / 2)
+        kn[1] -= ngrid[1];
+
+    for (int axis = 0; axis < 3; ++axis)
+        k[axis] = k_fund[axis] * kn[axis];
+}
+
+void RealField3D::getK2KzFromIndex(size_t i, double &k2, double &kz) const {
+    double ks[3];
+    getKFromIndex(i, ks);
+    kz = ks[2];
+
+    k2 = 0;
+    for (int axis = 0; axis < 3; ++axis)
+        k2 += ks[axis] * ks[axis];
+}
+
+void RealField3D::getKperpFromIperp(size_t iperp, double &kperp) const {
+    int kn[2];
+    kn[0] = iperp / ngrid[1];
+    kn[1] = iperp % ngrid[1];
+
+    kperp = 0;
+    for (int axis = 0; axis < 2; ++axis) {
+        if (kn[axis] > ngrid[axis] / 2)
+            kn[axis] -= ngrid[axis];
+
+        double t = k_fund[axis] * kn[axis];
+        kperp += t * t;
+    }
+
+    kperp = sqrt(kperp);
+}
+
+void RealField3D::getKperpKzFromIndex(size_t i, double &kperp, double &kz)
+const {
+    double ks[3];
+    getKFromIndex(i, ks);
+    kz = ks[2];
+
+    kperp = 0;
+    for (int axis = 0; axis < 2; ++axis)
+        kperp += ks[axis] * ks[axis];
+
+    kperp = sqrt(kperp);
+}
