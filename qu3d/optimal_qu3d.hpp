@@ -58,16 +58,7 @@ public:
 
     /* Multiply each quasar's *in pointer and save to *out pointer.
        (I + N^-1/2 S N^-1/2) z = out */
-    void multiplyCovVector() {
-        // init new results to Cy = I.y
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            std::copy_n(qso->in, qso->N, qso->out);
-
-        // Add long wavelength mode to Cy
-        multMeshComp();
-        // multParticleComp();
-    }
+    void multiplyCovVector();
 
     double multiplyDerivVector(int i);
 

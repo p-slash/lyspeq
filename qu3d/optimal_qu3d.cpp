@@ -10,7 +10,8 @@
 /* Timing map */
 std::unordered_map<std::string, std::pair<int, double>> timings{
     {"rInterp", std::make_pair(0, 0.0)}, {"interp", std::make_pair(0, 0.0)},
-    {"CGD", std::make_pair(0, 0.0)}, {"mDeriv", std::make_pair(0, 0.0)}
+    {"CGD", std::make_pair(0, 0.0)}, {"mDeriv", std::make_pair(0, 0.0)},
+    {"mCov", std::make_pair(0, 0.0)}
 };
 
 /* Internal variables */
@@ -338,7 +339,7 @@ void Qu3DEstimator::multMeshComp() {
     mesh.fftX2K();
     #pragma omp parallel for
     for (size_t i = 0; i < mesh.size_complex; ++i) {
-        double k2, kz, p;
+        double k2, kz;
         mesh.getK2KzFromIndex(i, k2, kz);
         mesh.field_k[i] *= p3d_model->evaluate(sqrt(k2), kz) / mesh.cellvol;
     }
@@ -357,6 +358,26 @@ void Qu3DEstimator::multMeshComp() {
 
     if (verbose)
         LOG::LOGGER.STD("    multMeshComp took %.2f m.\n", t2 - t1);
+}
+
+
+void Qu3DEstimator::multiplyCovVector() {
+    /* Multiply each quasar's *in pointer and save to *out pointer.
+       (I + N^-1/2 S N^-1/2) z = out
+    */
+    double dt = mytime::timer.getTime();
+
+    // init new results to Cy = I.y
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        std::copy_n(qso->in, qso->N, qso->out);
+
+    // Add long wavelength mode to Cy
+    multMeshComp();
+    // multParticleComp();
+    dt = mytime::timer.getTime() - dt;
+    ++timings["mCov"].first;
+    timings["mCov"].second += dt;
 }
 
 
@@ -688,11 +709,9 @@ void Qu3DEstimator::filter() {
 
 
 void Qu3DEstimator::write() {
-    std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
-    buffer << "_p3d.txt";
-    const char *fname = buffer.str().c_str();
+    std::string buffer = process::FNAME_BASE + "_p3d.txt";
 
-    FILE *toWrite = ioh::open_file(fname, "w");
+    FILE *toWrite = ioh::open_file(buffer.c_str(), "w");
 
     specifics::printBuildSpecifics(toWrite);
     config.writeConfig(toWrite);
@@ -745,14 +764,11 @@ void Qu3DEstimator::write() {
     }
 
     fclose(toWrite);
-    LOG::LOGGER.STD("P3D estimate saved as %s.\n", fname);
+    LOG::LOGGER.STD("P3D estimate saved as %s.\n", buffer.c_str());
 
-
-    buffer.str(process::FNAME_BASE);
-    buffer << "_fisher.txt";
-    fname = buffer.str().c_str();
+    buffer = process::FNAME_BASE + "_fisher.txt";
     mxhelp::fprintfMatrix(
-        fname, fisher.get(), NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
+        buffer.c_str(), fisher.get(), NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
 
-    LOG::LOGGER.STD("Fisher matrix saved as %s.\n", fname);
+    LOG::LOGGER.STD("Fisher matrix saved as %s.\n", buffer.c_str());
 }
