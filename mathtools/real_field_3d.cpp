@@ -6,10 +6,21 @@
 // #include <cassert>
 
 const double MY_PI = 3.14159265359;
+std::vector<MyRNG> rngs;
+
+void _initRngs() {
+    if (!rngs.empty())
+        return;
+
+    rngs.reserve(myomp::getMaxNumThreads());
+    for (int i = 0; i < rngs.size(); ++i)
+        rngs[i].seed(18 * i + 2422);
+}
 
 
 RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr)
 {
+    _initRngs();
     size_complex = 0;
     size_real = 0;
 
@@ -95,10 +106,6 @@ void RealField3D::fftK2X() {
 
 
 void RealField3D::fillRndNormal() {
-    std::vector<MyRNG> rngs(myomp::getMaxNumThreads());
-    for (int i = 0; i < rngs.size(); ++i)
-        rngs[i].seed(18 * i + 2422);
-
     #pragma omp parallel for
     for (int ij = 0; ij < ngrid_xy; ++ij)
         rngs[myomp::getThreadNum()].fillVectorNormal(
