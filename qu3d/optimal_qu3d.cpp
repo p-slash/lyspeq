@@ -118,7 +118,7 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
         return;
 
     for (auto &qso : local_quasars) {
-        qso->setRadialComovingDistance(cosmo.get());
+        qso->setComovingDistances(cosmo.get());
         CHECK_ISNAN(qso->r.get(), qso->N, "comovingdist");
     }
 
@@ -276,26 +276,19 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 void Qu3DEstimator::reverseInterpolate() {
     mesh.zero_field_x();
 
-    double coord[3];
-    for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i) {
-            qso->getCartesianCoords(i, coord);
-            mesh.reverseInterpolateCIC(coord, qso->in[i]);
-        }
-    }
+    for (auto &qso : quasars)
+        for (int i = 0; i < qso->N; ++i)
+            mesh.reverseInterpolateCIC(qso->r.get() + 3 * i, qso->in[i]);
 }
 
 
 void Qu3DEstimator::reverseInterpolateIsig() {
     mesh.zero_field_x();
 
-    double coord[3];
-    for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i) {
-            qso->getCartesianCoords(i, coord);
-            mesh.reverseInterpolateCIC(coord, qso->in[i] * qso->isig[i]);
-        }
-    }
+    for (auto &qso : quasars)
+        for (int i = 0; i < qso->N; ++i)
+            mesh.reverseInterpolateCIC(
+                qso->r.get() + 3 * i, qso->in[i] * qso->isig[i]);
 
     // Not faster
     // #pragma omp parallel for schedule(dynamic, 8) num_threads(8)
@@ -328,13 +321,9 @@ void Qu3DEstimator::multMeshComp() {
 
     // Interpolate and Weight by isig
     #pragma omp parallel for
-    for (auto &qso : quasars) {
-        double coord[3];
-        for (int i = 0; i < qso->N; ++i) {
-            qso->getCartesianCoords(i, coord);
-            qso->out[i] += qso->isig[i] * mesh.interpolate(coord);
-        }
-    }
+    for (auto &qso : quasars)
+        for (int i = 0; i < qso->N; ++i)
+            qso->out[i] += qso->isig[i] * mesh.interpolate(qso->r.get() + 3 * i);
 
     t2 = mytime::timer.getTime();
     if (verbose)
@@ -596,13 +585,9 @@ void Qu3DEstimator::drawRndDeriv(int i) {
     mesh.fftK2X();
 
     #pragma omp parallel for
-    for (auto &qso : quasars) {
-        double coord[3];
-        for (int i = 0; i < qso->N; ++i) {
-            qso->getCartesianCoords(i, coord);
-            qso->truth[i] = qso->isig[i] * mesh.interpolate(coord);
-        }
-    }
+    for (auto &qso : quasars)
+        for (int i = 0; i < qso->N; ++i)
+            qso->truth[i] = qso->isig[i] * mesh.interpolate(qso->r.get() + 3 * i);
 }
 
 

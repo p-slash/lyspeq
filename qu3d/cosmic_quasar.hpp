@@ -68,7 +68,7 @@ public:
         z1 = qFile->wave();
         isig = qFile->noise();
 
-        r = std::make_unique<double[]>(N);
+        r = std::make_unique<double[]>(3 * N);
         y = std::make_unique<double[]>(N);
         Cy = std::make_unique<double[]>(N);
         residual = std::make_unique<double[]>(N);
@@ -90,15 +90,14 @@ public:
         out = Cy.get();
     }
 
-    void setRadialComovingDistance(const fidcosmo::FlatLCDM *cosmo) {
-        for (int i = 0; i < N; ++i)
-            r[i] = cosmo->getComovingDist(z1[i]);
-    }
-
-    /* Equirectangular projection */
-    void getCartesianCoords(int i, double coord[3]) const {
-        for (int axis = 0; axis < 3; ++axis)
-            coord[axis] = r[i] * angles[axis];
+    void setComovingDistances(const fidcosmo::FlatLCDM *cosmo) {
+        /* Equirectangular projection */
+        for (int i = 0; i < N; ++i) {
+            double chi = cosmo->getComovingDist(z1[i]);
+            r[0 + 3 * i] = angles[0] * chi;
+            r[1 + 3 * i] = angles[1] * chi;
+            r[2 + 3 * i] = angles[2] * chi;
+        }
     }
 
     /* overwrite qFile->delta */
@@ -124,11 +123,8 @@ public:
     }
 
     void findGridPoints(const RealField3D &mesh) {
-        double coord[3];
-        for (int i = 0; i < N; ++i) {
-            getCartesianCoords(i, coord);
-            grid_indices.insert(mesh.getNgpIndex(coord));
-        }
+        for (int i = 0; i < N; ++i)
+            grid_indices.insert(mesh.getNgpIndex(r.get() + 3 * i));
     }
 
     std::set<size_t> findNeighborPixels(

@@ -167,9 +167,10 @@ double RealField3D::interpolate(double coord[3]) const {
     int n[3];
     double d[3], r;
 
-    coord[2] -= z0;
+    d[0] = coord[0] / dx[0];
+    d[1] = coord[1] / dx[1];
+    d[2] = (coord[2] - z0) / dx[2];
     for (int axis = 0; axis < 3; ++axis) {
-        d[axis] = coord[axis] / dx[axis];
         n[axis] = d[axis];
         d[axis] -= n[axis];
     }
@@ -194,9 +195,10 @@ void RealField3D::reverseInterpolateCIC(double coord[3], double val) {
     int n[3];
     double d[3];
 
-    coord[2] -= z0;
+    d[0] = coord[0] / dx[0];
+    d[1] = coord[1] / dx[1];
+    d[2] = (coord[2] - z0) / dx[2];
     for (int axis = 0; axis < 3; ++axis) {
-        d[axis] = coord[axis] / dx[axis];
         n[axis] = d[axis];
         d[axis] -= n[axis];
     }
@@ -230,9 +232,9 @@ size_t RealField3D::getIndex(int nx, int ny, int nz) const {
 size_t RealField3D::getNgpIndex(double coord[3]) const {
     int n[3];
 
-    coord[2] -= z0;
-    for (int axis = 0; axis < 3; ++axis)
-        n[axis] = round(coord[axis] / dx[axis]);
+    n[0] = round(coord[0] / dx[0]);
+    n[1] = round(coord[1] / dx[1]);
+    n[2] = round((coord[2] - z0) / dx[2]);
 
     return getIndex(n[0], n[1], n[2]);
 }
