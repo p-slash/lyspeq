@@ -255,10 +255,10 @@ void RealField3D::getKFromIndex(size_t i, double k[3]) const {
     kn[0] = iperp / ngrid[1];
     kn[1] = iperp % ngrid[1];
 
-    if (kn[0] > ngrid[0] / 2)
+    if (kn[0] > (ngrid[0] / 2))
         kn[0] -= ngrid[0];
 
-    if (kn[1] > ngrid[1] / 2)
+    if (kn[1] > (ngrid[1] / 2))
         kn[1] -= ngrid[1];
 
     for (int axis = 0; axis < 3; ++axis)
