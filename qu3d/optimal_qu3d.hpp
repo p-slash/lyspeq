@@ -11,7 +11,7 @@
 #include "qu3d/cosmic_quasar.hpp"
 
 const config_map qu3d_default_parameters ({
-    {"NGRID_X", "1024"}, {"NGRID_Y", "288"}, {"NGRID_Z", "48"},
+    {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
     {"LENGTH_X", "45000"}, {"LENGTH_Y", "14000"}, {"LENGTH_Z", "2000"},
     {"ZSTART", "5200"}, {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"ConvergenceTolerance", "1e-6"}, {"LongScale", "50"}, {"ScaleFactor", "4"},
