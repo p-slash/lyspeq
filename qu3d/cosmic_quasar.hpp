@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <random>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -11,6 +10,7 @@
 #include <memory>
 
 #include "io/qso_file.hpp"
+#include "mathtools/my_random.hpp"
 #include "mathtools/real_field_3d.hpp"
 #include "qu3d/cosmology_3d.hpp"
 
@@ -21,28 +21,6 @@ constexpr double med_dec = 0.14502735752295168;
 namespace specifics {
     static int DOWNSAMPLE_FACTOR;
 }
-
-class MyRNG {
-public:
-    MyRNG() :uidist(0, 1) {};
-
-    void seed(long in) { rng_engine.seed(in); }
-
-    void fillVectorNormal(double *v, unsigned int size) {
-        for (unsigned int i = 0; i < size; ++i)
-            v[i] = n_dist(rng_engine);
-    }
-
-    void fillVectorOnes(double *v, size_t size) {
-        for (size_t i = 0; i < size; ++i)
-            v[i] = (uidist(rng_engine) == 0) ? -1 : +1;
-    }
-
-private:
-    std::mt19937_64 rng_engine;
-    std::normal_distribution<double> n_dist;
-    std::uniform_int_distribution<int> uidist;
-};
 
 
 class CosmicQuasar {
@@ -126,7 +104,11 @@ public:
 
     /* overwrite qFile->delta */
     void fillRngNoise() { rng.fillVectorNormal(truth, N); }
-    void fillRngOnes() { rng.fillVectorOnes(truth, N); }
+    void fillRngOnes() {
+        rng.fillVectorOnes(fisher_vk.get(), N);
+        for (int i = 0; i < N; ++i)
+            truth[i] = fisher_vk[i] * isig[i];
+    }
     void copyInToFisherVec() { std::copy_n(in, N, fisher_vk.get()); }
     double dotFisherVecIn() { return cblas_ddot(N, fisher_vk.get(), 1, in, 1); }
 
