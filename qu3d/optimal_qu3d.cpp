@@ -628,7 +628,7 @@ void Qu3DEstimator::estimateFisher() {
 
     Progress prog_tracker(max_monte_carlos);
     for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
-        for (int i = 0; i < bins::FISHER_SIZE; ++i) {
+        for (int i = 0; i < bins::NUMBER_OF_K_BANDS_2; ++i) {
             drawRndDeriv(i);
 
             /* calculate C^-1 . qk into in */
@@ -637,13 +637,13 @@ void Qu3DEstimator::estimateFisher() {
             reverseInterpolate();
             mesh.fftX2K();
 
-            for (int j = i; j < bins::FISHER_SIZE; ++j) {
+            for (int j = i; j < bins::NUMBER_OF_K_BANDS_2; ++j) {
                 int jperp = j / bins::NUMBER_OF_K_BANDS,
                     jz = j % bins::NUMBER_OF_K_BANDS;
                 /* calculate C,k . y into mesh2 */
                 multiplyDerivVector(jperp, jz);
 
-                fisher[j + i * bins::FISHER_SIZE] += mesh.dot(mesh2);
+                fisher[j + i * bins::NUMBER_OF_K_BANDS_2] += mesh.dot(mesh2);
             }
         }
         ++prog_tracker;
