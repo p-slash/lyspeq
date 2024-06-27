@@ -123,12 +123,6 @@ public:
         }
     }
 
-    void coarseGrainIn(double *vec) {
-        std::fill_n(vec, coarse_N, 0);
-        for (int i = 0; i < N; ++i)
-            vec[i / M_LOS] += in[i];
-    }
-
     /* overwrite qFile->delta */
     void fillRngNoise() { rng.fillVectorNormal(truth, N); }
     /*
