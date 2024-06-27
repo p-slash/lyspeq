@@ -32,7 +32,7 @@ public:
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth;
-    std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r;
+    std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r, coarse_in;
     MyRNG rng;
 
     std::set<size_t> grid_indices;
@@ -74,6 +74,7 @@ public:
 
         r = std::make_unique<double[]>(3 * N);
         coarse_r = std::make_unique<double[]>(3 * coarse_N);
+        coarse_in = std::make_unique<double[]>(3 * coarse_N);
         y = std::make_unique<double[]>(N);
         Cy = std::make_unique<double[]>(N);
         residual = std::make_unique<double[]>(N);
@@ -121,6 +122,18 @@ public:
             cblas_dscal(3 * coarse_N - 3, 1.0 / M_LOS, coarse_r.get(), 1);
             cblas_dscal(3, 1.0 / rem, coarse_r.get() + 3 * coarse_N - 3, 1);
         }
+    }
+
+    void coarseGrainIn() {
+        std::fill_n(coarse_in.get(), coarse_N, 0);
+        for (int i = 0; i < N; ++i)
+            coarse_in[i / M_LOS] += in[i];
+    }
+
+    void coarseGrainInIsig() {
+        std::fill_n(coarse_in.get(), coarse_N, 0);
+        for (int i = 0; i < N; ++i)
+            coarse_in[i / M_LOS] += in[i] * isig[i];
     }
 
     /* overwrite qFile->delta */
