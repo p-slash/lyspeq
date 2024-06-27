@@ -196,6 +196,9 @@ namespace fidcosmo {
         double _varlss;
         double b_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long;
         std::unique_ptr<LinearPowerInterpolator> interp_p;
+        std::unique_ptr<DiscreteInterpolation2D> interp2d_plya;
+        std::unique_ptr<DiscreteInterpolation1D>
+            interp_kperp_plya, interp_kz_plya;
 
         void _calcVarLss() {
             constexpr int nlnk = 5001;
@@ -209,12 +212,43 @@ namespace fidcosmo {
                 for (int j = 0; j < nlnk; ++j) {
                     double kz = exp(lnk1 + j * dlnk),
                            k = sqrt(kperp2 + kz * kz);
-                    powers_kz[j] = kperp2 * kz * evaluate(k, kz);
+                    powers_kz[j] = kperp2 * kz * evalExplicit(k, kz);
                 }
                 powers_kperp[i] = trapz(powers_kz, nlnk, dlnk);
             }
 
             _varlss = trapz(powers_kperp, nlnk, dlnk) / TWO_PI2;
+        }
+
+        void _cacheInterp2D(
+                double dlnk=0.02, double lnk1=log(1e-6), double lnk2=log(5.0)
+        ) {
+            int N = ceil((lnk2 - lnk1) / dlnk);
+            auto lnP = std::make_unique<double[]>(N * N);
+
+            for (int iperp = 0; iperp < N; ++iperp) {
+                double kperp = exp(lnk1 + iperp * dlnk);
+                for (int iz = 0; iz < N; ++iz) {
+                    double kz = exp(lnk1 + iz * dlnk);
+                    double k = sqrt(kperp * kperp + kz * kz);
+                    lnP[iz + N * iperp] = log(evalExplicit(k, kz));
+                }
+            }
+            interp2d_plya = std::make_unique<DiscreteInterpolation2D>(
+                lnk1, dlnk, lnk1, dlnk, lnP.get(), N, N);
+
+            for (int iperp = 0; iperp < N; ++iperp)
+                lnP[iperp] = log(evalExplicit(exp(lnk1 + iperp * dlnk), 0));
+
+            interp_kperp_plya = std::make_unique<DiscreteInterpolation1D>(
+                lnk1, dlnk, N, lnP.get());
+
+            for (int iz = 0; iz < N; ++iz) {
+                double kz = exp(lnk1 + iz * dlnk);
+                lnP[iz] = log(evalExplicit(kz, kz));
+            }
+            interp_kz_plya = std::make_unique<DiscreteInterpolation1D>(
+                lnk1, dlnk, N, lnP.get());
         }
     public:
         /* This function reads following keys from config file:
@@ -239,9 +273,10 @@ namespace fidcosmo {
 
             interp_p = std::make_unique<LinearPowerInterpolator>(config);
             _calcVarLss();
+            _cacheInterp2D();
         }
 
-        double evaluate(double k, double kz) {
+        double evalExplicit(double k, double kz) {
             if (k == 0)
                 return 0;
 
@@ -260,6 +295,17 @@ namespace fidcosmo {
             ) - k_kp * k_kp - k_rL * k_rL;
 
             return result * plin * exp(lnD);
+        }
+
+        double evaluate(double kperp, double kz) {
+            if ((kz == 0) && (kperp == 0))
+                return 0;
+            else if (kz == 0)
+                return exp(interp_kperp_plya->evaluate(kperp));
+            else if (kperp == 0)
+                return exp(interp_kz_plya->evaluate(kz));
+
+            return exp(interp2d_plya->evaluate(log(kz), log(kperp)));
         }
 
         double getVarLss() const { return _varlss; }
