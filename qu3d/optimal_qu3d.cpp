@@ -261,6 +261,13 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     if (findir.back() != '/')
         findir += '/';
 
+    max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
+    max_monte_carlos = config.getInteger("MaxMonteCarlos");
+    tolerance = config.getDouble("ConvergenceTolerance");
+    specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
+    radius = config.getDouble("LongScale");
+    rscale_factor = config.getDouble("ScaleFactor");
+
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
     logCosmoDist(); logCosmoHubble();
     p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
@@ -268,13 +275,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     _readQSOFiles(flist, findir);
     _calculateBoxDimensions(mesh.length, mesh.z0);
-
-    max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
-    max_monte_carlos = config.getInteger("MaxMonteCarlos");
-    tolerance = config.getDouble("ConvergenceTolerance");
-    specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
-    radius = config.getDouble("LongScale");
-    rscale_factor = config.getDouble("ScaleFactor");
 
     mesh.length[1] += 20.0 * radius;
     mesh.length[2] += 20.0 * radius;
