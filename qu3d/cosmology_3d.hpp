@@ -301,9 +301,9 @@ namespace fidcosmo {
             if ((kz == 0) && (kperp == 0))
                 return 0;
             else if (kz == 0)
-                return exp(interp_kperp_plya->evaluate(kperp));
+                return exp(interp_kperp_plya->evaluate(log(kperp)));
             else if (kperp == 0)
-                return exp(interp_kz_plya->evaluate(kz));
+                return exp(interp_kz_plya->evaluate(log(kz)));
 
             return exp(interp2d_plya->evaluate(log(kz), log(kperp)));
         }
