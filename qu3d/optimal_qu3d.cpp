@@ -268,6 +268,15 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     double t1 = mytime::timer.getTime(), t2 = 0;
     mesh.construct(INPLACE_FFT);
     mesh2.construct(INPLACE_FFT);
+
+    // Shift coordinates of quasars
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        for (int i = 0; i < qso->N; ++i) {
+            r[1 + 3 * i] += mesh.length[1] / 2;
+            r[2 + 3 * i] -= mesh.z0;
+        }
+
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
 
