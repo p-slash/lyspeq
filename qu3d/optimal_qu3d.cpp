@@ -528,8 +528,9 @@ void Qu3DEstimator::conjugateGradientDescent() {
         double new_residual_norm2 = calculateResidualNorm2(),
                new_residual_norm = sqrt(new_residual_norm2);
 
-        bool end_iter = isDiverging(old_residual_norm2, new_residual_norm2);
-        end_iter |= hasConverged(new_residual_norm / init_residual_norm, tolerance);
+        // bool end_iter = isDiverging(old_residual_norm2, new_residual_norm2);
+        bool end_iter = hasConverged(
+            new_residual_norm / init_residual_norm, tolerance);
 
         if (end_iter)
             goto endconjugateGradientDescent;
