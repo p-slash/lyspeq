@@ -185,7 +185,7 @@ void Qu3DEstimator::_readQSOFiles(
 
 
 void Qu3DEstimator::_calculateBoxDimensions(double L[3], double &z0) {
-    double lxmin=0, lxmax=0, lymin=0, lymax=0, lzmin=0, lzmax=0;
+    double lxmin=0, lxmax=0, lymin=0, lymax=0, lzmin=1e15, lzmax=0;
     #pragma omp parallel for reduction(min:lxmin, lymin, lzmin) reduction(max:lxmax, lymax, lzmax)
     for (auto &qso : quasars) {
         lxmin = std::min(lxmin, qso->r[0]);
@@ -193,8 +193,8 @@ void Qu3DEstimator::_calculateBoxDimensions(double L[3], double &z0) {
         lxmax = std::max(lxmax, qso->r[3 * (qso->N - 1)]);
         lzmax = std::max(lzmax, qso->r[3 * qso->N - 1]);
 
-        lymin = std::min(lymin, std::min(qso->r[0], qso->r[3 * qso->N - 2]));
-        lymax = std::max(lymax, std::max(qso->r[0], qso->r[3 * qso->N - 2]));
+        lymin = std::min(lymin, std::min(qso->r[1], qso->r[3 * qso->N - 2]));
+        lymax = std::max(lymax, std::max(qso->r[1], qso->r[3 * qso->N - 2]));
     }
 
     L[0] = lxmax - lxmin;
