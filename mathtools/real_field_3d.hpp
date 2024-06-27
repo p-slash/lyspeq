@@ -71,6 +71,7 @@ public:
 
     size_t getIndex(int nx, int ny, int nz) const;
     size_t getNgpIndex(double coord[3]) const;
+    void getCicIndices(double coord[3], size_t idx[8]) const;
     inline size_t getCorrectIndexX(size_t j) {
         return j + (j / ngrid[2]) * (ngrid[2] - ngrid_z);
     }
