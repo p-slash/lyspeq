@@ -301,12 +301,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         }
     }
 
-    LOG::LOGGER.STD("Sorting quasars by mininum NGP index.\n");
-    std::sort(
-        quasars.begin(), quasars.end(), [](const auto &q1, const auto &q2) {
-            return q1->min_x_idx < q2->min_x_idx; }
-    );
-
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
 
@@ -322,6 +316,12 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
 
     _constructMap();
+    LOG::LOGGER.STD("Sorting quasars by mininum NGP index.\n");
+    std::sort(
+        quasars.begin(), quasars.end(), [](const auto &q1, const auto &q2) {
+            return q1->min_x_idx < q2->min_x_idx; }
+    );
+
     // _findNeighbors();
     // idx_quasars_pairs.reserve(idx_quasar_map.size());
     // for (auto &[idx, qsos] : idx_quasar_map)
