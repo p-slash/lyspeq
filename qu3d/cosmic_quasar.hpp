@@ -17,6 +17,8 @@
 
 // The median of DEC distribution in radians
 constexpr double med_dec = 0.14502735752295168;
+// Line of sight coarsing for mesh
+constexpr int M_LOS = 5;
 
 namespace specifics {
     static int DOWNSAMPLE_FACTOR;
@@ -26,11 +28,11 @@ namespace specifics {
 class CosmicQuasar {
 public:
     std::unique_ptr<qio::QSOFile> qFile;
-    int N;
+    int N, coarse_N;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth;
-    std::unique_ptr<double[]> r, y, Cy, residual, search;
+    std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r;
     MyRNG rng;
 
     std::set<size_t> grid_indices;
@@ -66,10 +68,12 @@ public:
             qFile->downsample(specifics::DOWNSAMPLE_FACTOR);
 
         N = qFile->size();
+        coarse_N = N / M_LOS + 1;
         z1 = qFile->wave();
         isig = qFile->noise();
 
         r = std::make_unique<double[]>(3 * N);
+        coarse_r = std::make_unique<double[]>(3 * coarse_N);
         y = std::make_unique<double[]>(N);
         Cy = std::make_unique<double[]>(N);
         residual = std::make_unique<double[]>(N);
@@ -99,6 +103,30 @@ public:
             r[1 + 3 * i] = angles[1] * chi;
             r[2 + 3 * i] = angles[2] * chi;
         }
+    }
+
+    void setCoarseComovingDistances() {
+        for (int i = 0; i < N; ++i) {
+            int j = i / M_LOS;
+            coarse_r[0 + 3 * j] += r[0 + 3 * i];
+            coarse_r[1 + 3 * j] += r[1 + 3 * i];
+            coarse_r[2 + 3 * j] += r[2 + 3 * i];
+        }
+
+        int rem = N % M_LOS;
+        if (rem == 0) {
+            cblas_dscal(3 * coarse_N, 1.0 / M_LOS, coarse_r.get(), 1);
+        }
+        else{
+            cblas_dscal(3 * coarse_N - 3, 1.0 / M_LOS, coarse_r.get(), 1);
+            cblas_dscal(3, 1.0 / rem, coarse_r.get() + 3 * coarse_N - 3, 1);
+        }
+    }
+
+    void coarseGrainIn(double *vec) {
+        std::fill_n(vec, coarse_N, 0);
+        for (int i = 0; i < N; ++i)
+            vec[i / M_LOS] += in[i];
     }
 
     /* overwrite qFile->delta */
