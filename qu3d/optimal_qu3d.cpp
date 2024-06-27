@@ -61,8 +61,8 @@ void logPmodel() {
     for (int i = 0; i < 10; ++i) {
         double k = 0.02 + i * 0.02;
         DEBUG_LOG(
-            " P3d(k=%.2f, kz=%.2f) = %.2f",
-            k, kz, p3d_model->evaluate(k, kz));
+            " P3d(kperp=%.2f, kz=%.2f) = %.2f",
+            k, kz, p3d_model->evaluate(kperp, kz));
     }
     DEBUG_LOG("\n");
     DEBUG_LOG("VarLss: %.5e\n", p3d_model->getVarLss());
@@ -339,9 +339,9 @@ void Qu3DEstimator::multMeshComp() {
     mesh.rawFftX2K();
     #pragma omp parallel for
     for (size_t i = 0; i < mesh.size_complex; ++i) {
-        double k2, kz;
-        mesh.getK2KzFromIndex(i, k2, kz);
-        mesh.field_k[i] *= mesh.invtotalvol * p3d_model->evaluate(sqrt(k2), kz);
+        double kperp, kz;
+        mesh.getKperpKzFromIndex(i, kperp, kz);
+        mesh.field_k[i] *= mesh.invtotalvol * p3d_model->evaluate(kperp, kz);
     }
     mesh.rawFftK2X();
 
@@ -701,6 +701,7 @@ void Qu3DEstimator::estimateFisher() {
     double alpha = 0.5 * mesh.invtotalvol / max_monte_carlos;
     cblas_dscal(bins::FISHER_SIZE, alpha, fisher.get(), 1);
     mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
+    logTimings();
 }
 
 
@@ -765,7 +766,7 @@ void Qu3DEstimator::write() {
                    P3D = filt_power[i] - filt_bias[i],
                    e_P3D = sqrt(covariance[i * (NUMBER_OF_K_BANDS_2 + 1)]),
                    k = sqrt(kperp * kperp + kz * kz),
-                   Pfid = p3d_model->evaluate(k, kz),
+                   Pfid = p3d_model->evaluate(kperp, kz),
                    d = filt_power[i],
                    b = filt_bias[i],
                    Fd = raw_power[iz + bins::NUMBER_OF_K_BANDS * iperp],
