@@ -513,23 +513,18 @@ double Qu3DEstimator::multiplyDerivVector(int i) {
         size_t jj = mesh.ngrid_kz * jxy;
 
         double kperp = mesh.getKperpFromIperp(jxy);
+        auto fk2_begin = mesh2.field_k.begin() + jj;
 
         if(!isInsideKbin(iperp, kperp)) {
-            std::fill(
-                mesh2.field_k.begin() + jj,
-                mesh2.field_k.begin() + jj + mesh.ngrid_kz, 0);
+            std::fill_n(fk2_begin, mesh.ngrid_kz, 0);
         }
         else {
-            std::fill(
-                mesh2.field_k.begin() + jj,
-                mesh2.field_k.begin() + jj + mesh_z_1, 0);
+            std::fill(fk2_begin, fk2_begin + mesh_z_1, 0);
             std::copy(
                 mesh.field_k.begin() + jj + mesh_z_1,
                 mesh.field_k.begin() + jj + mesh_z_2,
-                mesh2.field_k.begin() + jj + mesh_z_1);
-            std::fill(
-                mesh2.field_k.begin() + jj + mesh_z_2,
-                mesh2.field_k.begin() + jj + mesh.ngrid_kz, 0);
+                fk2_begin + mesh_z_1);
+            std::fill(fk2_begin + mesh_z_2, fk2_begin + mesh.ngrid_kz, 0);
         }
     }
     mesh2.rawFftK2X();
@@ -628,23 +623,17 @@ void Qu3DEstimator::drawRndDeriv(int i) {
         size_t jj = mesh.ngrid_kz * jxy;
 
         double kperp = mesh.getKperpFromIperp(jxy);
-
+        auto fk1_begin = mesh.field_k.begin() + jj;
         if(!isInsideKbin(iperp, kperp)) {
-            std::fill(
-                mesh.field_k.begin() + jj,
-                mesh.field_k.begin() + jj + mesh.ngrid_kz, 0);
+            std::fill_n(fk1_begin, mesh.ngrid_kz, 0);
         }
         else {
-            std::fill(
-                mesh.field_k.begin() + jj,
-                mesh.field_k.begin() + jj + mesh_z_1, 0);
+            std::fill(fk1_begin, fk1_begin + mesh_z_1, 0);
             std::copy(
                 mesh_rnd.field_k.begin() + jj + mesh_z_1,
                 mesh_rnd.field_k.begin() + jj + mesh_z_2,
-                mesh.field_k.begin() + jj + mesh_z_1);
-            std::fill(
-                mesh.field_k.begin() + jj + mesh_z_2,
-                mesh.field_k.begin() + jj + mesh.ngrid_kz, 0);
+                fk1_begin + mesh_z_1);
+            std::fill(fk1_begin + mesh_z_2, fk1_begin + mesh.ngrid_kz, 0);
         }
     }
 
