@@ -338,10 +338,13 @@ void Qu3DEstimator::multMeshComp() {
     // total volume
     mesh.rawFftX2K();
     #pragma omp parallel for
-    for (size_t i = 0; i < mesh.size_complex; ++i) {
-        double kperp, kz;
-        mesh.getKperpKzFromIndex(i, kperp, kz);
-        mesh.field_k[i] *= mesh.invtotalvol * p3d_model->evaluate(kperp, kz);
+    for (size_t ij = 0; ij < mesh.ngrid_xy; ++ij) {
+        double kperp = mesh.getKperpFromIperp(ij);
+
+        for (int k = 0; k < mesh.ngrid_kz; ++k)
+            mesh.field_k[k + mesh.ngrid_kz * ij] *=
+                mesh.invtotalvol
+                * p3d_model->evaluate(kperp, k * mesh.k_fund[2]);
     }
     mesh.rawFftK2X();
 
