@@ -184,6 +184,26 @@ void Qu3DEstimator::_readQSOFiles(
 }
 
 
+void Qu3DEstimator::_calculateBoxDimensions(double L[3], double &z0) {
+    double lxmin=0, lxmax=0, lymin=0, lymax=0, lzmin=0, lzmax=0;
+    #pragma omp parallel for reduction(min:lxmin, lymin, lzmin) reduction(max:lxmax, lymax, lzmax)
+    for (auto &qso : quasars) {
+        lxmin = std::min(lxmin, qso->r[0]);
+        lzmin = std::min(lzmin, qso->r[2]);
+        lxmax = std::max(lxmax, qso->r[3 * (qso->N - 1)]);
+        lzmax = std::max(lzmax, qso->r[3 * qso->N - 1]);
+
+        lymin = std::min(lymin, std::min(qso->r[0], qso->r[3 * qso->N - 2]));
+        lymax = std::max(lymax, std::max(qso->r[0], qso->r[3 * qso->N - 2]));
+    }
+
+    L[0] = lxmax - lxmin;
+    L[1] = lymax - lymin;
+    L[2] = lzmax - lzmin;
+    z0 = lzmin;
+}
+
+
 void Qu3DEstimator::_constructMap() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
@@ -247,6 +267,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     logPmodel();
 
     _readQSOFiles(flist, findir);
+    _calculateBoxDimensions(mesh.length, mesh.z0);
 
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
@@ -254,16 +275,17 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
     radius = config.getDouble("LongScale");
     rscale_factor = config.getDouble("ScaleFactor");
-    radius *= rscale_factor;
 
+    mesh.length[1] += 20.0 * radius;
+    mesh.length[2] += 20.0 * radius;
+    mesh.z0 -= 10.0 * radius;
+    LOG::LOGGER.STD(
+        "Box dimensions are as follows: X: %.0f Y: %.0f Z: %.0f Z0: %.0f\n",
+        mesh.length[0], mesh.length[1], mesh.length[2], mesh.z0);
     mesh.ngrid[0] = config.getInteger("NGRID_X");
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
     mesh.ngrid[2] = config.getInteger("NGRID_Z");
 
-    mesh.length[0] = config.getInteger("LENGTH_X");
-    mesh.length[1] = config.getInteger("LENGTH_Y");
-    mesh.length[2] = config.getInteger("LENGTH_Z");
-    mesh.z0 = config.getInteger("ZSTART");
     mesh2.copy(mesh);
     double t1 = mytime::timer.getTime(), t2 = 0;
     mesh.construct(INPLACE_FFT);
@@ -271,15 +293,17 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     // Shift coordinates of quasars
     #pragma omp parallel for
-    for (auto &qso : quasars)
+    for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            r[1 + 3 * i] += mesh.length[1] / 2;
-            r[2 + 3 * i] -= mesh.z0;
+            qso->r[1 + 3 * i] += mesh.length[1] / 2;
+            qso->r[2 + 3 * i] -= mesh.z0;
         }
+    }
 
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
 
+    radius *= rscale_factor;
     NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
     bins::FISHER_SIZE = NUMBER_OF_K_BANDS_2 * NUMBER_OF_K_BANDS_2;
 
