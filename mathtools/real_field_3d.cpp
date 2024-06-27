@@ -240,6 +240,30 @@ size_t RealField3D::getNgpIndex(double coord[3]) const {
     return getIndex(n[0], n[1], n[2]);
 }
 
+void RealField3D::getCicIndices(double coord[3], size_t idx[8]) const {
+    int n[3];
+    double d[3];
+
+    d[0] = coord[0] / dx[0];
+    d[1] = coord[1] / dx[1];
+    d[2] = (coord[2] - z0) / dx[2];
+    for (int axis = 0; axis < 3; ++axis) {
+        n[axis] = d[axis];
+        d[axis] -= n[axis];
+    }
+
+    idx[0] = getIndex(n[0], n[1], n[2]);
+
+    idx[1] = getIndex(n[0], n[1], n[2] + 1);
+    idx[2] = getIndex(n[0], n[1] + 1, n[2]);
+    idx[3] = getIndex(n[0], n[1]+ 1, n[2] + 1);
+
+    idx[4] = getIndex(n[0] + 1, n[1], n[2]);
+    idx[5] = getIndex(n[0] + 1, n[1], n[2] + 1);
+    idx[6] = getIndex(n[0] + 1, n[1] + 1, n[2]);
+
+    idx[7] = getIndex(n[0] + 1, n[1] + 1, n[2] + 1);
+}
 
 void RealField3D::getNFromIndex(size_t i, int n[3]) const {
     int nperp = i / ngrid_z;
