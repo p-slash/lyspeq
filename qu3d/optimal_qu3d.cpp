@@ -292,6 +292,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     mesh2.construct(INPLACE_FFT);
 
     // Shift coordinates of quasars
+    LOG::LOGGER.STD("Shifting quasar locations to center the mesh.\n");
     #pragma omp parallel for
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
@@ -299,6 +300,12 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
             qso->r[2 + 3 * i] -= mesh.z0;
         }
     }
+
+    LOG::LOGGER.STD("Sorting quasars by mininum NGP index.\n");
+    std::sort(
+        quasars.begin(), quasars.end(), [](const auto &q1, const auto &q2) {
+            return q1->min_x_idx < q2->min_x_idx; }
+    );
 
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);

@@ -35,6 +35,7 @@ public:
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*> neighbors;
+    size_t min_x_idx;
 
     CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
         qFile = std::make_unique<qio::QSOFile>(pf, hdunum);
@@ -125,6 +126,7 @@ public:
     void findGridPoints(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
             grid_indices.insert(mesh.getNgpIndex(r.get() + 3 * i));
+        min_x_idx = *std::min_element(grid_indices.begin(), grid_indices.end());
     }
 
     std::set<size_t> findNeighborPixels(
