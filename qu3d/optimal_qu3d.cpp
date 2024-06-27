@@ -404,9 +404,14 @@ void Qu3DEstimator::multMeshComp() {
     double dt = mytime::timer.getTime();
     // Interpolate and Weight by isig
     #pragma omp parallel for
-    for (auto &qso : quasars)
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->coarse_N; ++i)
+            qso->coarse_in[i] = mesh.interpolate(qso->coarse_r.get() + 3 * i);
+
+        // NGP for now
         for (int i = 0; i < qso->N; ++i)
-            qso->out[i] += qso->isig[i] * mesh.interpolate(qso->r.get() + 3 * i);
+            qso->out[i] += qso->isig[i] * qso->coarse_in[i / M_LOS];
+    }
 
     t2 = mytime::timer.getTime();
     ++timings["interp"].first;
@@ -707,9 +712,14 @@ void Qu3DEstimator::drawRndDeriv(int i) {
     mesh.fftK2X();
 
     #pragma omp parallel for
-    for (auto &qso : quasars)
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->coarse_N; ++i)
+            qso->coarse_in[i] = mesh.interpolate(qso->coarse_r.get() + 3 * i);
+
+        // NGP for now
         for (int i = 0; i < qso->N; ++i)
-            qso->truth[i] = qso->isig[i] * mesh.interpolate(qso->r.get() + 3 * i);
+            qso->truth[i] += qso->isig[i] * qso->coarse_in[i / M_LOS];
+    }
 }
 
 
