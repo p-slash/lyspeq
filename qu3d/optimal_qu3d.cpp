@@ -20,6 +20,8 @@ std::vector<std::pair<size_t, std::vector<const CosmicQuasar*>>> idx_quasars_pai
 
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
+double temp_arr[500];
+
 RealField3D mesh2, mesh_rnd;
 int NUMBER_OF_K_BANDS_2 = 0;
 bool verbose = true;
@@ -299,6 +301,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
             qso->r[1 + 3 * i] += mesh.length[1] / 2;
             qso->r[2 + 3 * i] -= mesh.z0;
         }
+        qso->setCoarseComovingDistances();
     }
 
     t2 = mytime::timer.getTime();
@@ -334,9 +337,15 @@ void Qu3DEstimator::reverseInterpolate() {
     double dt = mytime::timer.getTime();
     mesh.zero_field_x();
 
-    for (auto &qso : quasars)
+    for (auto &qso : quasars) {
+        // coarse grain qso->in
+        std::fill_n(temp_arr, qso->coarse_N, 0);
         for (int i = 0; i < qso->N; ++i)
-            mesh.reverseInterpolateCIC(qso->r.get() + 3 * i, qso->in[i]);
+            temp_arr[i / M_LOS] += qso->in[i];
+
+        for (int i = 0; i < qso->coarse_N; ++i)
+            mesh.reverseInterpolateCIC(qso->coarse_r.get() + 3 * i, temp_arr[i]);
+    }
 
     dt = mytime::timer.getTime() - dt;
     ++timings["rInterp"].first;
@@ -348,10 +357,16 @@ void Qu3DEstimator::reverseInterpolateIsig() {
     double dt = mytime::timer.getTime();
     mesh.zero_field_x();
 
-    for (auto &qso : quasars)
+    for (auto &qso : quasars) {
+        // coarse grain qso->in
+        std::fill_n(temp_arr, qso->coarse_N, 0);
         for (int i = 0; i < qso->N; ++i)
+            temp_arr[i / M_LOS] += qso->in[i] * qso->isig[i];
+
+        for (int i = 0; i < qso->coarse_N; ++i)
             mesh.reverseInterpolateCIC(
-                qso->r.get() + 3 * i, qso->in[i] * qso->isig[i]);
+                qso->coarse_r.get() + 3 * i, temp_arr);
+    }
 
     dt = mytime::timer.getTime() - dt;
     ++timings["rInterp"].first;
