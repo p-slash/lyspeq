@@ -364,8 +364,7 @@ void Qu3DEstimator::reverseInterpolateIsig() {
             temp_arr[i / M_LOS] += qso->in[i] * qso->isig[i];
 
         for (int i = 0; i < qso->coarse_N; ++i)
-            mesh.reverseInterpolateCIC(
-                qso->coarse_r.get() + 3 * i, temp_arr);
+            mesh.reverseInterpolateCIC(qso->coarse_r.get() + 3 * i, temp_arr[i]);
     }
 
     dt = mytime::timer.getTime() - dt;
