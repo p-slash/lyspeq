@@ -297,11 +297,6 @@ void RealField3D::getKperpKzFromIndex(size_t i, double &kperp, double &kz)
 const {
     double ks[3];
     getKFromIndex(i, ks);
+    kperp = sqrt(ks[0] * ks[0] + ks[1] * ks[1]);
     kz = ks[2];
-
-    kperp = 0;
-    for (int axis = 0; axis < 2; ++axis)
-        kperp += ks[axis] * ks[axis];
-
-    kperp = sqrt(kperp);
 }
