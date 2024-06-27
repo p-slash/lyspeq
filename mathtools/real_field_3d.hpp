@@ -26,7 +26,11 @@ namespace myomp {
 #endif
 
 
-/* In-place 3D FFT */
+/* 3D FFT 
+    Input coordinates are assumed to shifted by the following relation:
+        y += length[1] / 2
+        z -= z0
+*/
 class RealField3D {
     fftw_plan p_x2k;
     fftw_plan p_k2x;
