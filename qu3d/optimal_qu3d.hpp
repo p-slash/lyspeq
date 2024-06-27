@@ -47,7 +47,7 @@ public:
     */
     Qu3DEstimator(ConfigFile &configg);
 
-    void preconditionJacobi() {};
+    void initGuessDiag();
     void multMeshComp();
     void multParticleComp();
 

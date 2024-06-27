@@ -443,15 +443,28 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
 }
 
 
+void Qu3DEstimator::initGuessDiag() {
+    double varlss = cosmo->getVarLss();
+
+    if (verbose)
+        LOG::LOGGER.STD("  VarLSS: %.2e.\n", varlss);
+
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        for (int i = 0; i < qso->N; ++i) {
+            double isig = qso->isig[i];
+            qso->in[i] = qso->truth[i] / (1.0 + isig * isig * varlss);
+        }
+}
+
+
 void Qu3DEstimator::conjugateGradientDescent() {
     double dt = mytime::timer.getTime();
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
 
     /* Initial guess */
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        std::copy_n(qso->truth, qso->N, qso->in);
+    initGuessDiag();
 
     multiplyCovVector();
 
