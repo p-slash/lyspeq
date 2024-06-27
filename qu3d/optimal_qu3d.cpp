@@ -444,7 +444,7 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
 
 
 void Qu3DEstimator::initGuessDiag() {
-    double varlss = cosmo->getVarLss();
+    double varlss = p3d_model->getVarLss();
 
     if (verbose)
         LOG::LOGGER.STD("  VarLSS: %.2e.\n", varlss);
