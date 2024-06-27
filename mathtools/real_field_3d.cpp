@@ -166,7 +166,8 @@ std::vector<size_t> RealField3D::findNeighboringPixels(
 
 double RealField3D::interpolate(double coord[3]) const {
     int n[3];
-    double d[3], r;
+    double d[3], r = 0;
+    size_t idx0 = 0;
 
     for (int axis = 0; axis < 3; ++axis) {
         d[axis] = coord[axis] / dx[axis];
@@ -174,17 +175,17 @@ double RealField3D::interpolate(double coord[3]) const {
         d[axis] -= n[axis];
     }
 
-    r = field_x[getIndex(n[0], n[1], n[2])] * (1 - d[0]) * (1 - d[1]) * (1 - d[2]);
+    idx0 = getIndex(n[0], n[1], n[2]);
+    r = field_x[idx0] * (1 - d[0]) * (1 - d[1]) * (1 - d[2]);
+    r += field_x[idx0 + 1] * (1 - d[0]) * (1 - d[1]) * d[2];
+    r += field_x[idx0 + ngrid_z] * (1 - d[0]) * d[1] * (1 - d[2]);
+    r += field_x[idx0 + ngrid_z + 1] * (1 - d[0]) * d[1] * d[2];
 
-    r += field_x[getIndex(n[0], n[1], n[2] + 1)] * (1 - d[0]) * (1 - d[1]) * d[2];
-    r += field_x[getIndex(n[0], n[1] + 1, n[2])] * (1 - d[0]) * d[1] * (1 - d[2]);
-    r += field_x[getIndex(n[0], n[1] + 1, n[2] + 1)] * (1 - d[0]) * d[1] * d[2];
-
-    r += field_x[getIndex(n[0] + 1, n[1], n[2])] * d[0] * (1 - d[1]) * (1 - d[2]);
-    r += field_x[getIndex(n[0] + 1, n[1], n[2] + 1)] * d[0] * (1 - d[1]) * d[2];
-    r += field_x[getIndex(n[0] + 1, n[1] + 1, n[2])] * d[0] * d[1] * (1 - d[2]);
-
-    r += field_x[getIndex(n[0] + 1, n[1] + 1, n[2] + 1)] * d[0] * d[1] * d[2];
+    idx0 = getIndex(n[0] + 1, n[1], n[2]);
+    r += field_x[idx0] * d[0] * (1 - d[1]) * (1 - d[2]);
+    r += field_x[idx0 + 1] * d[0] * (1 - d[1]) * d[2];
+    r += field_x[idx0 + ngrid_z] * d[0] * d[1] * (1 - d[2]);
+    r += field_x[idx0 + ngrid_z + 1] * d[0] * d[1] * d[2];
 
     return r;
 }
@@ -192,7 +193,7 @@ double RealField3D::interpolate(double coord[3]) const {
 
 void RealField3D::reverseInterpolateCIC(double coord[3], double val) {
     int n[3];
-    double d[3];
+    double d[3], tmp;
 
     for (int axis = 0; axis < 3; ++axis) {
         d[axis] = coord[axis] / dx[axis];
@@ -200,28 +201,31 @@ void RealField3D::reverseInterpolateCIC(double coord[3], double val) {
         d[axis] -= n[axis];
     }
 
-    field_x[getIndex(n[0], n[1], n[2])] += val * (1 - d[0]) * (1 - d[1]) * (1 - d[2]);
+    size_t idx0 = getIndex(n[0], n[1], n[2]);
+    tmp = val * (1 - d[0]);
 
-    field_x[getIndex(n[0], n[1], n[2] + 1)] += val * (1 - d[0]) * (1 - d[1]) * d[2];
-    field_x[getIndex(n[0], n[1] + 1, n[2])] += val * (1 - d[0]) * d[1] * (1 - d[2]);
-    field_x[getIndex(n[0], n[1] + 1, n[2] + 1)] += val * (1 - d[0]) * d[1] * d[2];
+    field_x[idx0] += tmp * (1 - d[1]) * (1 - d[2]);
+    field_x[idx0 + 1] += tmp * (1 - d[1]) * d[2];
+    field_x[idx0 + ngrid_z] += tmp * d[1] * (1 - d[2]);
+    field_x[idx0 + ngrid_z + 1] += tmp * d[1] * d[2];
 
-    field_x[getIndex(n[0] + 1, n[1], n[2])] += val * d[0] * (1 - d[1]) * (1 - d[2]);
-    field_x[getIndex(n[0] + 1, n[1], n[2] + 1)] += val * d[0] * (1 - d[1]) * d[2];
-    field_x[getIndex(n[0] + 1, n[1] + 1, n[2])] += val * d[0] * d[1] * (1 - d[2]);
+    idx0 = getIndex(n[0] + 1, n[1], n[2]);
+    tmp = val * d[0];
 
-    field_x[getIndex(n[0] + 1, n[1] + 1, n[2] + 1)] += val * d[0] * d[1] * d[2];
+    field_x[idx0] += tmp * (1 - d[1]) * (1 - d[2]);
+    field_x[idx0 + 1] += tmp * (1 - d[1]) * d[2];
+    field_x[idx0 + ngrid_z] += tmp * d[1] * (1 - d[2]);
+    field_x[idx0 + ngrid_z + 1] += tmp * d[1] * d[2];
 }
 
 
 size_t RealField3D::getIndex(int nx, int ny, int nz) const {
     int n[] = {nx, ny, nz};
-    for (int axis = 0; axis < 3; ++axis) {
-        if (n[axis] >= ngrid[axis])
-            n[axis] -= ngrid[axis];
-        if (n[axis] < 0)
-            n[axis] += ngrid[axis];
-    }
+    // only x direction is Periodic
+    if (n[0] >= ngrid[0])
+        n[0] -= ngrid[0];
+    if (n[0] < 0)
+        n[0] += ngrid[0];
 
     return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
 }
@@ -247,16 +251,14 @@ void RealField3D::getCicIndices(double coord[3], size_t idx[8]) const {
     }
 
     idx[0] = getIndex(n[0], n[1], n[2]);
-
-    idx[1] = getIndex(n[0], n[1], n[2] + 1);
-    idx[2] = getIndex(n[0], n[1] + 1, n[2]);
-    idx[3] = getIndex(n[0], n[1]+ 1, n[2] + 1);
+    idx[1] = idx[0] + 1;
+    idx[2] = idx[0] + ngrid_z;
+    idx[3] = idx[1] + 1;
 
     idx[4] = getIndex(n[0] + 1, n[1], n[2]);
-    idx[5] = getIndex(n[0] + 1, n[1], n[2] + 1);
-    idx[6] = getIndex(n[0] + 1, n[1] + 1, n[2]);
-
-    idx[7] = getIndex(n[0] + 1, n[1] + 1, n[2] + 1);
+    idx[5] = idx[4] + 1;
+    idx[6] = idx[4] + ngrid_z;
+    idx[7] = idx[6] + 1;
 }
 
 void RealField3D::getNFromIndex(size_t i, int n[3]) const {
