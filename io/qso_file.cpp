@@ -241,7 +241,12 @@ void QSOFile::downsample(int m) {
             in[i] += noise()[j + m * i];
         }
 
-        wn[i] /= in[i];  dn[i] /= in[i];
+        if (in[i] == 0) {
+            wn[i] /= m;  dn[i] = 0;
+        }
+        else {
+            wn[i] /= in[i];  dn[i] /= in[i];
+        }
     }
 
     if (nrem != 0) {
@@ -252,7 +257,12 @@ void QSOFile::downsample(int m) {
             in[nfirst] += noise()[j + m * nfirst];
         }
 
-        wn[nfirst] /= in[nfirst];  dn[nfirst] /= in[nfirst];
+        if (in[nfirst] == 0) {
+            wn[nfirst] /= m;  dn[i] = 0;
+        }
+        else {
+            wn[nfirst] /= in[nfirst];  dn[nfirst] /= in[nfirst];
+        }
     }
 
     process::updateMemory(getMinMemUsage());
