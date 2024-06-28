@@ -736,6 +736,7 @@ void Qu3DEstimator::estimateFisher() {
     */
     LOG::LOGGER.STD("Estimating Fisher.\n");
     verbose = false;
+    auto total_f2 = std::make_unique<double[]>(bins::FISHER_SIZE);
 
     /* Create another mesh to store random numbers. This way, randoms are
        generated once, and FFTd once. This grid can perform in-place FFTs,
@@ -761,10 +762,33 @@ void Qu3DEstimator::estimateFisher() {
             mesh.rawFftX2K();
 
             /* calculate C,k . y into mesh2 */
-            for (int j = i; j < NUMBER_OF_K_BANDS_2; ++j)
-                fisher[j + i * NUMBER_OF_K_BANDS_2] += multiplyDerivVector(j);
+            for (int j = i; j < NUMBER_OF_K_BANDS_2; ++j) {
+                double ff = multiplyDerivVector(j);
+                fisher[j + i * NUMBER_OF_K_BANDS_2] += ff;
+                total_f2[j + i * NUMBER_OF_K_BANDS_2] += ff * ff;
+            }
         }
+
         ++prog_tracker;
+
+        if ((nmc < 20) || (nmc % 5 != 0))
+            continue;
+
+        double max_std = 0, mean_std = 0, std_k;
+        for (int i = 0; i < bins::FISHER_SIZE; ++i) {
+            std_k = sqrt(
+                (1 - fisher[i] * fisher[i] / total_f2[i] / nmc) / (nmc - 1)
+            );
+            max_std = std::max(std_k, max_std);
+            mean_std += std_k / bins::FISHER_SIZE;
+        }
+
+        LOG::LOGGER.STD(
+            "  %d: Estimated relative mean/max std is %.2e/%.2e. "
+            "MC converges when < %.2e\n", nmc, mean_std, max_std, tolerance);
+
+        if (max_std < tolerance)
+            break;
     }
 
     double alpha = 0.5 * mesh.invtotalvol / max_monte_carlos;
