@@ -718,7 +718,7 @@ void Qu3DEstimator::drawRndDeriv(int i) {
 
         // NGP for now
         for (int i = 0; i < qso->N; ++i)
-            qso->truth[i] += qso->isig[i] * qso->coarse_in[i / M_LOS];
+            qso->truth[i] = qso->isig[i] * qso->coarse_in[i / M_LOS];
     }
 }
 
