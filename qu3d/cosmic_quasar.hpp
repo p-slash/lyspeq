@@ -74,7 +74,7 @@ public:
 
         r = std::make_unique<double[]>(3 * N);
         coarse_r = std::make_unique<double[]>(3 * coarse_N);
-        coarse_in = std::make_unique<double[]>(3 * coarse_N);
+        coarse_in = std::make_unique<double[]>(coarse_N);
         y = std::make_unique<double[]>(N);
         Cy = std::make_unique<double[]>(N);
         residual = std::make_unique<double[]>(N);
