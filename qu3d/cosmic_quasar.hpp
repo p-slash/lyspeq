@@ -55,6 +55,13 @@ public:
         qFile->maskOutliers();
         qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
+        if (qFile->realSize() < 20) {
+            std::ostringstream err_msg;
+            err_msg << "CosmicQuasar::CosmicQuasar::No pixels in TARGETID "
+                    << qFile->id;
+            throw std::runtime_error(err_msg.str());
+        }
+
         // Convert wave to 1 + z
         std::for_each(
             qFile->wave(), qFile->wave() + qFile->size(), [](double &ld) {
