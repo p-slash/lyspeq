@@ -258,7 +258,7 @@ void QSOFile::downsample(int m) {
         }
 
         if (in[nfirst] == 0) {
-            wn[nfirst] /= m;  dn[nfirst] = 0;
+            wn[nfirst] /= nrem;  dn[nfirst] = 0;
         }
         else {
             wn[nfirst] /= in[nfirst];  dn[nfirst] /= in[nfirst];
