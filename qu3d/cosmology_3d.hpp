@@ -198,12 +198,12 @@ namespace fidcosmo {
         std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteInterpolation2D> interp2d_plya;
         std::unique_ptr<DiscreteInterpolation1D>
-            interp_kperp_plya, interp_kz_plya;
+            interp_kperp_plya, interp_kz_plya, interp_p1d;
 
         void _calcVarLss() {
-            constexpr int nlnk = 5001;
-            constexpr double lnk1 = log(1e-5), lnk2 = log(5.0);
-            const double dlnk = (lnk2 - lnk1) / (nlnk - 1);
+            constexpr int nlnk = 10001;
+            constexpr double lnk1 = log(1e-6), lnk2 = log(5.0);
+            constexpr double dlnk = (lnk2 - lnk1) / (nlnk - 1);
             double powers_kz[nlnk], powers_kperp[nlnk];
 
             for (int i = 0; i < nlnk; ++i) {
@@ -212,18 +212,17 @@ namespace fidcosmo {
                 for (int j = 0; j < nlnk; ++j) {
                     double kz = exp(lnk1 + j * dlnk),
                            k = sqrt(kperp2 + kz * kz);
-                    powers_kz[j] = kperp2 * kz * evalExplicit(k, kz);
+                    powers_kz[j] = kz * evalExplicit(k, kz);
                 }
-                powers_kperp[i] = trapz(powers_kz, nlnk, dlnk);
+                powers_kperp[i] = kperp2 * trapz(powers_kz, nlnk, dlnk);
             }
 
             _varlss = trapz(powers_kperp, nlnk, dlnk) / TWO_PI2;
         }
 
-        void _cacheInterp2D(
-                double dlnk=0.02, double lnk1=log(1e-6), double lnk2=log(5.0)
-        ) {
-            int N = ceil((lnk2 - lnk1) / dlnk);
+        void _cacheInterp2D() {
+            constexpr double lnk1 = log(1e-6), lnk2 = log(5.0), dlnk = 0.02;
+            constexpr int N = ceil((lnk2 - lnk1) / dlnk);
             auto lnP = std::make_unique<double[]>(N * N);
 
             for (int iperp = 0; iperp < N; ++iperp) {
@@ -250,6 +249,30 @@ namespace fidcosmo {
             interp_kz_plya = std::make_unique<DiscreteInterpolation1D>(
                 lnk1, dlnk, N, lnP.get());
         }
+
+        void _construcP1D() {
+            constexpr int nlnk = 10001;
+            constexpr double lnk1 = log(1e-6), lnk2 = log(5.0);
+            constexpr double dlnk = (lnk2 - lnk1) / (nlnk - 1), dlnk2 = 0.02;
+            constexpr int nlnk2 = ceil((lnk2 - lnk1) / dlnk);
+            double p1d_integrand[nlnk], p1d[nlnk2];
+
+            for (int i = 0; i < nlnk2; ++i) {
+                double kz = exp(lnk1 + i * dlnk2);
+
+                for (int j = 0; j < nlnk; ++j) {
+                    double kperp2 = exp(lnk1 + j * dlnk);
+                    kperp2 *= kperp2;
+                    double k = sqrt(kperp2 + kz * kz);
+
+                    p1d_integrand[j] = kperp2 * evalExplicit(k, kz);
+                }
+                p1d[i] = log(trapz(p1d_integrand, nlnk, dlnk) / (2.0 * MY_PI));
+            }
+
+            interp_p1d = std::make_unique<DiscreteInterpolation1D>(
+                lnk1, dlnk2, nlnk2, &p1d[0]);
+        }
     public:
         /* This function reads following keys from config file:
         b_F: double
@@ -269,10 +292,12 @@ namespace fidcosmo {
             nu_0 = config.getDouble("nu_0");
             nu_1 = config.getDouble("nu_1");
             k_nu = config.getDouble("k_nu");
-            rscale_long = config.getDouble("LongScale");
+            rscale_long = 0;
 
-            interp_p = std::make_unique<LinearPowerInterpolator>(config);
+            _construcP1D();
             _calcVarLss();
+            interp_p = std::make_unique<LinearPowerInterpolator>(config);
+            rscale_long = config.getDouble("LongScale");
             _cacheInterp2D();
         }
 
@@ -306,6 +331,13 @@ namespace fidcosmo {
                 return exp(interp_kz_plya->evaluate(log(kz)));
 
             return exp(interp2d_plya->evaluate(log(kz), log(kperp)));
+        }
+
+        double evalP1d(double kz) {
+            if (kz < 1e-6)
+                return exp(interp_p1d->evaluate(-13.8155));
+
+            return exp(interp_p1d->evaluate(log(kz)));
         }
 
         double getVarLss() const { return _varlss; }
