@@ -236,13 +236,16 @@ void QSOFile::downsample(int m) {
     for (int i = 0; i < nfirst; ++i) {
         wn[i] = 0;  dn[i] = 0;  in[i] = 0;
         for (int j = 0; j < m; ++j) {
-            wn[i] += wave()[j + m * i] * noise()[j + m * i];
-            dn[i] += delta()[j + m * i] * noise()[j + m * i];
-            in[i] += noise()[j + m * i];
+            double tivar = noise()[j + m * i];
+            wn[i] += wave()[j + m * i] * tivar;
+            dn[i] += delta()[j + m * i] * tivar;
+            in[i] += tivar;
         }
 
         if (in[i] == 0) {
-            wn[i] /= m;  dn[i] = 0;
+            dn[i] = 0;
+            for (int j = 0; j < m; ++j)
+                wn[i] += wave()[j + m * i] / m;
         }
         else {
             wn[i] /= in[i];  dn[i] /= in[i];
@@ -252,13 +255,16 @@ void QSOFile::downsample(int m) {
     if (nrem != 0) {
         wn[nfirst] = 0;  dn[nfirst] = 0;  in[nfirst] = 0;
         for (int j = 0; j < nrem; ++j) {
-            wn[nfirst] += wave()[j + m * nfirst] * noise()[j + m * nfirst];
-            dn[nfirst] += delta()[j + m * nfirst] * noise()[j + m * nfirst];
-            in[nfirst] += noise()[j + m * nfirst];
+            double tivar = noise()[j + m * nfirst];
+            wn[nfirst] += wave()[j + m * nfirst] * tivar;
+            dn[nfirst] += delta()[j + m * nfirst] * tivar;
+            in[nfirst] += tivar;
         }
 
         if (in[nfirst] == 0) {
-            wn[nfirst] /= nrem;  dn[nfirst] = 0;
+            dn[nfirst] = 0;
+            for (int j = 0; j < nrem; ++j)
+                wn[nfirst] += wave()[j + m * nfirst] / nrem;
         }
         else {
             wn[nfirst] /= in[nfirst];  dn[nfirst] /= in[nfirst];
