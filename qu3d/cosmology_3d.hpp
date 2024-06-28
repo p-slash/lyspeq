@@ -196,9 +196,10 @@ namespace fidcosmo {
         double _varlss;
         double b_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long;
         std::unique_ptr<LinearPowerInterpolator> interp_p;
-        std::unique_ptr<DiscreteInterpolation2D> interp2d_plya;
+        std::unique_ptr<DiscreteInterpolation2D> interp2d_pL, interp2d_pS;
         std::unique_ptr<DiscreteInterpolation1D>
-            interp_kperp_plya, interp_kz_plya, interp_p1d;
+            interp_kp_pL, interp_kz_pL, interp_kp_pS, interp_kz_pS,
+            interp_p1d;
 
         void _calcVarLss() {
             constexpr int nlnk = 10001;
@@ -212,7 +213,9 @@ namespace fidcosmo {
                 for (int j = 0; j < nlnk; ++j) {
                     double kz = exp(lnk1 + j * dlnk),
                            k = sqrt(kperp2 + kz * kz);
-                    powers_kz[j] = kz * evalExplicit(k, kz);
+                    double k_rL = k * rscale_long;
+                    k_rL *= -k_rL;
+                    powers_kz[j] = kz * evalExplicit(k, kz) * exp(k_rL);
                 }
                 powers_kperp[i] = kperp2 * trapz(powers_kz, nlnk, dlnk);
             }
@@ -225,28 +228,68 @@ namespace fidcosmo {
             constexpr int N = ceil((lnk2 - lnk1) / dlnk);
             auto lnP = std::make_unique<double[]>(N * N);
 
+            /* Large-scale 2D */
             for (int iperp = 0; iperp < N; ++iperp) {
                 double kperp = exp(lnk1 + iperp * dlnk);
                 for (int iz = 0; iz < N; ++iz) {
                     double kz = exp(lnk1 + iz * dlnk);
                     double k = sqrt(kperp * kperp + kz * kz);
-                    lnP[iz + N * iperp] = log(evalExplicit(k, kz));
+                    double k_rL = k * rscale_long;
+                    k_rL *= -k_rL;
+                    lnP[iz + N * iperp] = log(evalExplicit(k, kz)) + k_rL;
                 }
             }
-            interp2d_plya = std::make_unique<DiscreteInterpolation2D>(
+            interp2d_pL = std::make_unique<DiscreteInterpolation2D>(
                 lnk1, dlnk, lnk1, dlnk, lnP.get(), N, N);
 
+            /* Small-scale 2D */
+            for (int iperp = 0; iperp < N; ++iperp) {
+                double kperp = exp(lnk1 + iperp * dlnk);
+                for (int iz = 0; iz < N; ++iz) {
+                    double kz = exp(lnk1 + iz * dlnk);
+                    double k = sqrt(kperp * kperp + kz * kz);
+                    double k_rL = k * rscale_long;
+                    k_rL = 1.0 - exp(-k_rL * k_rL);
+                    lnP[iz + N * iperp] = log(evalExplicit(k, kz) * k_rL);
+                }
+            }
+            interp2d_pS = std::make_unique<DiscreteInterpolation2D>(
+                lnk1, dlnk, lnk1, dlnk, lnP.get(), N, N);
+
+            /* Large-scale 1Ds */
             for (int iperp = 0; iperp < N; ++iperp)
                 lnP[iperp] = log(evalExplicit(exp(lnk1 + iperp * dlnk), 0));
 
-            interp_kperp_plya = std::make_unique<DiscreteInterpolation1D>(
+            interp_kp_pL = std::make_unique<DiscreteInterpolation1D>(
                 lnk1, dlnk, N, lnP.get());
 
             for (int iz = 0; iz < N; ++iz) {
                 double kz = exp(lnk1 + iz * dlnk);
                 lnP[iz] = log(evalExplicit(kz, kz));
             }
-            interp_kz_plya = std::make_unique<DiscreteInterpolation1D>(
+            interp_kz_pL = std::make_unique<DiscreteInterpolation1D>(
+                lnk1, dlnk, N, lnP.get());
+
+
+            /* Small-scale 1Ds */
+            for (int iperp = 0; iperp < N; ++iperp) {
+                double k = exp(lnk1 + iperp * dlnk);
+                double k_rL = k * rscale_long;
+                k_rL = 1.0 - exp(-k_rL * k_rL);
+
+                lnP[iperp] = log(evalExplicit(k, 0) * k_rL);
+            }
+
+            interp_kp_pS = std::make_unique<DiscreteInterpolation1D>(
+                lnk1, dlnk, N, lnP.get());
+
+            for (int iz = 0; iz < N; ++iz) {
+                double k = exp(lnk1 + iz * dlnk);
+                double k_rL = k * rscale_long;
+                k_rL = 1.0 - exp(-k_rL * k_rL);
+                lnP[iz] = log(evalExplicit(k, k) * k_rL);
+            }
+            interp_kz_pS = std::make_unique<DiscreteInterpolation1D>(
                 lnk1, dlnk, N, lnP.get());
         }
 
@@ -264,8 +307,10 @@ namespace fidcosmo {
                     double kperp2 = exp(lnk1 + j * dlnk);
                     kperp2 *= kperp2;
                     double k = sqrt(kperp2 + kz * kz);
+                    double k_rL = k * rscale_long;
+                    k_rL = 1.0 - exp(-k_rL * k_rL);
 
-                    p1d_integrand[j] = kperp2 * evalExplicit(k, kz);
+                    p1d_integrand[j] = kperp2 * evalExplicit(k, kz) * k_rL;
                 }
                 p1d[i] = log(trapz(p1d_integrand, nlnk, dlnk) / (2.0 * MY_PI));
             }
@@ -293,11 +338,10 @@ namespace fidcosmo {
             nu_1 = config.getDouble("nu_1");
             k_nu = config.getDouble("k_nu");
             interp_p = std::make_unique<LinearPowerInterpolator>(config);
-            rscale_long = 0;
+            rscale_long = config.getDouble("LongScale");
 
             _construcP1D();
             _calcVarLss();
-            rscale_long = config.getDouble("LongScale");
             _cacheInterp2D();
         }
 
@@ -317,7 +361,7 @@ namespace fidcosmo {
 
             lnD = (q_1 * delta2_L) * (
                     1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0)
-            ) - k_kp * k_kp - k_rL * k_rL;
+            ) - k_kp * k_kp;
 
             return result * plin * exp(lnD);
         }
@@ -326,11 +370,11 @@ namespace fidcosmo {
             if ((kz == 0) && (kperp == 0))
                 return 0;
             else if (kz == 0)
-                return exp(interp_kperp_plya->evaluate(log(kperp)));
+                return exp(interp_kp_pL->evaluate(log(kperp)));
             else if (kperp == 0)
-                return exp(interp_kz_plya->evaluate(log(kz)));
+                return exp(interp_kz_pL->evaluate(log(kz)));
 
-            return exp(interp2d_plya->evaluate(log(kz), log(kperp)));
+            return exp(interp2d_pL->evaluate(log(kz), log(kperp)));
         }
 
         double evalP1d(double kz) {
