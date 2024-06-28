@@ -145,8 +145,9 @@ public:
     double* noise() const { return noise_head+shift; };
     void convertNoiseToIvar();
     /* Assumes noise in IVAR form to downsample.
+       Assumes lambda grid regularly spaced.
        Does not downsample resolution matrix.
-       Does not count masked pixels */
+       Does not count masked pixels. */
     void downsample(int m);
 
     double getMinMemUsage() {
