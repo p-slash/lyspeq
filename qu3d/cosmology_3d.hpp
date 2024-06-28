@@ -292,11 +292,11 @@ namespace fidcosmo {
             nu_0 = config.getDouble("nu_0");
             nu_1 = config.getDouble("nu_1");
             k_nu = config.getDouble("k_nu");
+            interp_p = std::make_unique<LinearPowerInterpolator>(config);
             rscale_long = 0;
 
             _construcP1D();
             _calcVarLss();
-            interp_p = std::make_unique<LinearPowerInterpolator>(config);
             rscale_long = config.getDouble("LongScale");
             _cacheInterp2D();
         }
