@@ -636,7 +636,7 @@ void Qu3DEstimator::estimateBiasMc() {
         /* generate random Gaussian vector into y */
         #pragma omp parallel for
         for (auto &qso : quasars)
-            qso->fillRngNoise();
+            qso->fillRngOnes();
 
         /* calculate Cinv . n into y */
         conjugateGradientDescent();

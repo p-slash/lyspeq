@@ -138,15 +138,7 @@ public:
 
     /* overwrite qFile->delta */
     void fillRngNoise() { rng.fillVectorNormal(truth, N); }
-    /*
-    void fillRngOnes() {
-        rng.fillVectorOnes(fisher_vk.get(), N);
-        for (int i = 0; i < N; ++i)
-            truth[i] = fisher_vk[i] * isig[i];
-    }
-    void copyInToFisherVec() { std::copy_n(in, N, fisher_vk.get()); }
-    double dotFisherVecIn() { return cblas_ddot(N, fisher_vk.get(), 1, in, 1); }
-    */
+    void fillRngOnes() { rng.fillVectorOnes(truth, N); }
 
     void multIsigInVector() {
         for (int i = 0; i < N; ++i)
