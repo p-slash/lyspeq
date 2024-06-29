@@ -68,7 +68,8 @@ int main(int argc, char *argv[])
         const std::vector<std::string> ignored_keys({
             "FileNameList", "FileInputDir", "NumberOfIterations",
             "UseChunksMeanFlux", "InputIsDeltaFlux", "MeanFluxFile",
-            "SmoothNoiseWeights", "PrecomputedFisher"
+            "SmoothNoiseWeights", "PrecomputedFisher", "DifferentNight",
+            "DifferentFiber", "DifferentPetal", "MinXWaveOverlapRatio"
         });
         config.checkUnusedKeys(ignored_keys);
         process::sq_private_table->computeTables(force_rewrite);
