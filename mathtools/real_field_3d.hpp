@@ -66,6 +66,7 @@ public:
     }
 
     void fillRndNormal();
+    void fillRndOnes();
 
     void rawFftX2K() { fftw_execute(p_x2k); }
     void rawFftK2X() { fftw_execute(p_k2x); }

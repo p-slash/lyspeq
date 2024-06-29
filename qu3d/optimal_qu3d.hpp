@@ -14,7 +14,7 @@ const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"ConvergenceTolerance", "1e-6"}, {"LongScale", "50"}, {"ScaleFactor", "4"},
-    {"DownsampleFactor", "3"}
+    {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}
 });
 
 
@@ -47,6 +47,7 @@ public:
     */
     Qu3DEstimator(ConfigFile &configg);
 
+    void replaceDeltasWithGaussianField();
     void initGuessDiag();
     void multMeshComp();
     void multParticleComp();
