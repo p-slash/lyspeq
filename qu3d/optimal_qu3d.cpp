@@ -306,6 +306,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
 
+    if (config.getInteger("TestGaussianField") > 0)
+        replaceDeltasWithGaussianField();
+
     radius *= rscale_factor;
     NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
     bins::FISHER_SIZE = NUMBER_OF_K_BANDS_2 * NUMBER_OF_K_BANDS_2;
@@ -748,7 +751,7 @@ void Qu3DEstimator::estimateFisher() {
     mesh_rnd.construct();
     Progress prog_tracker(max_monte_carlos, 5);
     for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
-        mesh_rnd.fillRndNormal();
+        mesh_rnd.fillRndOnes();
         mesh_rnd.fftX2K();
         LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
 
@@ -877,4 +880,36 @@ void Qu3DEstimator::write() {
         buffer.c_str(), fisher.get(), NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
 
     LOG::LOGGER.STD("Fisher matrix saved as %s.\n", buffer.c_str());
+}
+
+
+void Qu3DEstimator::replaceDeltasWithGaussianField() {
+    LOG::LOGGER.STD("Replacing deltas with Gaussian.\n");
+    RealField3D mesh_g;
+    mesh_g.copy(mesh);
+    mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
+    mesh_g.construct();
+    mesh_g.fillRndNormal();
+    mesh_g.fftX2K();
+
+    #pragma omp parallel for
+    for (size_t ij = 0; ij < mesh_g.ngrid_xy; ++ij) {
+        double kperp = mesh_g.getKperpFromIperp(ij);
+
+        for (int k = 0; k < mesh_g.ngrid_kz; ++k)
+            mesh_g.field_k[k + mesh_g.ngrid_kz * ij] *= sqrt(
+                p3d_model->evaluate(kperp, k * mesh_g.k_fund[2])
+                / mesh_g.cellvol);
+    }
+
+    mesh_g.fftK2X();
+
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        qso->fillRngNoise();
+        for (int i = 0; i < qso->N; ++i) {
+            double delta = mesh_g.interpolate(qso->r.get() + 3 * i);
+            qso->qFile->delta()[i] += qso->isig[i] * delta;
+        }
+    }
 }

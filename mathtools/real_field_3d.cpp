@@ -110,6 +110,14 @@ void RealField3D::fftK2X() {
 void RealField3D::fillRndNormal() {
     #pragma omp parallel for
     for (int ij = 0; ij < ngrid_xy; ++ij)
+        rngs[myomp::getThreadNum()].fillVectorNormal(
+            field_x + ngrid_z * ij, ngrid[2]);
+}
+
+
+void RealField3D::fillRndOnes() {
+    #pragma omp parallel for
+    for (int ij = 0; ij < ngrid_xy; ++ij)
         rngs[myomp::getThreadNum()].fillVectorOnes(
             field_x + ngrid_z * ij, ngrid[2]);
 }
