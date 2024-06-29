@@ -858,12 +858,11 @@ void Qu3DEstimator::write() {
                    kz = bins::KBAND_CENTERS[iz],
                    P3D = filt_power[i] - filt_bias[i],
                    e_P3D = sqrt(covariance[i * (NUMBER_OF_K_BANDS_2 + 1)]),
-                   k = sqrt(kperp * kperp + kz * kz),
                    Pfid = p3d_model->evaluate(kperp, kz),
                    d = filt_power[i],
                    b = filt_bias[i],
-                   Fd = raw_power[iz + bins::NUMBER_OF_K_BANDS * iperp],
-                   Fb = raw_bias[iz + bins::NUMBER_OF_K_BANDS * iperp];
+                   Fd = raw_power[i],
+                   Fb = raw_bias[i];
             fprintf(toWrite,
                     "%14e %14e %14e %14e %14e %14e %14e %14e %14e\n", 
                     kperp, kz, P3D, e_P3D, Pfid, d, b, Fd, Fb);
