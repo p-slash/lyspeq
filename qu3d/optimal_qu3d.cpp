@@ -824,7 +824,7 @@ void Qu3DEstimator::write() {
     config.writeConfig(toWrite);
 
     fprintf(toWrite, "# -----------------------------------------------------------------\n"
-        "# File Template\nNk\n"
+        "# File Template\n# Nk\n"
         "# kperp | kz | P3D | e_P3D | Pfid | d | b | Fd | Fb\n"
         "# Nk     : Number of k bins\n"
         "# kperp  : Perpendicular k bin [Mpc^-1]\n"
@@ -854,7 +854,7 @@ void Qu3DEstimator::write() {
     for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
         for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
             size_t i = iz + bins::NUMBER_OF_K_BANDS * iperp;
-            double kperp = bins::KBAND_CENTERS[kperp],
+            double kperp = bins::KBAND_CENTERS[iperp],
                    kz = bins::KBAND_CENTERS[iz],
                    P3D = filt_power[i] - filt_bias[i],
                    e_P3D = sqrt(covariance[i * (NUMBER_OF_K_BANDS_2 + 1)]),
