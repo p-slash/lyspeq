@@ -590,8 +590,10 @@ double Qu3DEstimator::multiplyDerivVector(int i) {
 
         double kperp = mesh.getKperpFromIperp(jxy);
         if(isInsideKbin(iperp, kperp)) {
-            for (int zz = mesh_z_1; zz != mesh_z_2; ++zz)
-                mesh2.field_k[jj + zz] = mesh.invsqrtcellvol * mesh.field_k[jj + zz];
+            std::copy(
+                mesh.field_k.begin() + jj + mesh_z_1,
+                mesh.field_k.begin() + jj + mesh_z_2,
+                mesh2.field_k.begin() + jj + mesh_z_1);
         }
     }
     mesh2.rawFftK2X();
@@ -765,7 +767,7 @@ void Qu3DEstimator::estimateFisher() {
         double max_std = 0, mean_std = 0, std_k;
         for (int i = 0; i < bins::FISHER_SIZE; ++i) {
             std_k = sqrt(
-                (1 - fisher[i] * fisher[i] / total_f2[i] / nmc) / (nmc - 1)
+                fabs(1 - fisher[i] * fisher[i] / total_f2[i] / nmc) / (nmc - 1)
             );
             max_std = std::max(std_k, max_std);
             mean_std += std_k / bins::FISHER_SIZE;
