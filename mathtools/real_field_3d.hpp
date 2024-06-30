@@ -40,7 +40,8 @@ class RealField3D {
 public:
     size_t size_complex, size_real;
     int ngrid[3], ngrid_kz, ngrid_z, ngrid_xy;
-    double length[3], dx[3], k_fund[3], z0, cellvol, invtotalvol;
+    double length[3], dx[3], k_fund[3], z0,
+           cellvol, invtotalvol, invsqrtcellvol;
     std::vector<std::complex<double>> field_k;
     double *field_x;
 
