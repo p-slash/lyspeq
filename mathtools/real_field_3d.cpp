@@ -59,6 +59,7 @@ void RealField3D::construct(bool inp) {
         invtotalvol *= length[axis];
     }
     invtotalvol = 1.0 / invtotalvol;
+    invsqrtcellvol = 1.0 / sqrt(cellvol);
 
     ngrid_kz = ngrid[2] / 2 + 1;
     ngrid_xy = ngrid[0] * ngrid[1];

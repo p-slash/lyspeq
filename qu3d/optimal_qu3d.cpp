@@ -586,20 +586,12 @@ double Qu3DEstimator::multiplyDerivVector(int i) {
     #pragma omp parallel for
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
+        std::fill_n(mesh2.field_k.begin() + jj, mesh.ngrid_kz, 0);
 
         double kperp = mesh.getKperpFromIperp(jxy);
-        auto fk2_begin = mesh2.field_k.begin() + jj;
-
-        if(!isInsideKbin(iperp, kperp)) {
-            std::fill_n(fk2_begin, mesh.ngrid_kz, 0);
-        }
-        else {
-            std::fill(fk2_begin, fk2_begin + mesh_z_1, 0);
-            std::copy(
-                mesh.field_k.begin() + jj + mesh_z_1,
-                mesh.field_k.begin() + jj + mesh_z_2,
-                fk2_begin + mesh_z_1);
-            std::fill(fk2_begin + mesh_z_2, fk2_begin + mesh.ngrid_kz, 0);
+        if(isInsideKbin(iperp, kperp)) {
+            for (int zz = mesh_z_1; zz != mesh_z_2; ++zz)
+                mesh2.field_k[jj + zz] = mesh.invsqrtcellvol * mesh.field_k[jj + zz];
         }
     }
     mesh2.rawFftK2X();
@@ -697,19 +689,12 @@ void Qu3DEstimator::drawRndDeriv(int i) {
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
 
+        std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
+
         double kperp = mesh.getKperpFromIperp(jxy);
-        auto fk1_begin = mesh.field_k.begin() + jj;
-        if(!isInsideKbin(iperp, kperp)) {
-            std::fill_n(fk1_begin, mesh.ngrid_kz, 0);
-        }
-        else {
-            std::fill(fk1_begin, fk1_begin + mesh_z_1, 0);
-            std::copy(
-                mesh_rnd.field_k.begin() + jj + mesh_z_1,
-                mesh_rnd.field_k.begin() + jj + mesh_z_2,
-                fk1_begin + mesh_z_1);
-            std::fill(fk1_begin + mesh_z_2, fk1_begin + mesh.ngrid_kz, 0);
-        }
+        if(isInsideKbin(iperp, kperp))
+            for (size_t zz = mesh_z_1; zz != mesh_z_2; ++zz)
+                mesh.field_k[jj + zz] = mesh.invsqrtcellvol * mesh_rnd.field_k[jj + zz];
     }
 
     mesh.fftK2X();
@@ -897,9 +882,10 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
         double kperp = mesh_g.getKperpFromIperp(ij);
 
         for (int k = 0; k < mesh_g.ngrid_kz; ++k)
-            mesh_g.field_k[k + mesh_g.ngrid_kz * ij] *= sqrt(
-                p3d_model->evaluate(kperp, k * mesh_g.k_fund[2])
-                / mesh_g.cellvol);
+            mesh_g.field_k[k + mesh_g.ngrid_kz * ij] *=
+                mesh_g.invsqrtcellvol * sqrt(
+                    p3d_model->evaluate(kperp, k * mesh_g.k_fund[2])
+            );
     }
 
     mesh_g.fftK2X();
