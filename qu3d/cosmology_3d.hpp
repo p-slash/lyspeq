@@ -377,6 +377,17 @@ namespace fidcosmo {
             return exp(interp2d_pL->evaluate(log(kz), log(kperp)));
         }
 
+        double evaluateSS(double kperp, double kz) {
+            if ((kz == 0) && (kperp == 0))
+                return 0;
+            else if (kz == 0)
+                return exp(interp_kp_pS->evaluate(log(kperp)));
+            else if (kperp == 0)
+                return exp(interp_kz_pS->evaluate(log(kz)));
+
+            return exp(interp2d_pS->evaluate(log(kz), log(kperp)));
+        }
+
         double evalP1d(double kz) {
             if (kz < 1e-6)
                 return exp(interp_p1d->evaluate(-13.8155));
