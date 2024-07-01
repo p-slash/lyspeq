@@ -246,7 +246,7 @@ void Chunk::_setNQandFisherIndex() {
             fisher_index_start -= bins::NUMBER_OF_K_BANDS;
         }
         // If we need to distribute high end to righter bin
-        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
+        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP < (bins::NUMBER_OF_Z_BINS - 1)))
             ++N_Q_MATRICES;
     }
 
@@ -322,7 +322,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
                 fidxlocal -= bins::NUMBER_OF_K_BANDS;
             }
 
-            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
+            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP < (bins::NUMBER_OF_Z_BINS - 1)))
                 ++N_Q_MATRICES;
         }
 

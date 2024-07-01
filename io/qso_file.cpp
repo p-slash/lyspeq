@@ -151,9 +151,11 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
     double l1 = LYA_REST * (1+z_lower_edge), l2 = LYA_REST * (1+z_upper_edge);
     int wi1, wi2;
 
-    wi1 = std::lower_bound(wave(), wave()+size(), l1)-wave();
-    wi2 = std::upper_bound(wave(), wave()+size(), l2)-wave();
-    int newsize = wi2-wi1;
+    wi1 = std::lower_bound(wave(), wave() + size(), l1) - wave();
+    wi2 = std::upper_bound(wave(), wave() + size(), l2) - wave();
+    int newsize = wi2 - wi1;
+
+    arr_size = newsize;
 
     if ((wi1 == arr_size) || (wi2 == 0)) // empty
         return;
@@ -162,7 +164,6 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
         return;
 
     shift += wi1;
-    arr_size = newsize;
 
     _cutMaskedBoundary();
 
