@@ -874,6 +874,9 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     LOG::LOGGER.STD("Replacing deltas with Gaussian.\n");
     RealField3D mesh_g;
     mesh_g.copy(mesh);
+    mesh_g.length[0] *= 1.25;
+    mesh_g.length[1] *= 1.25;
+    mesh_g.length[2] *= 1.25;
     mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
     mesh_g.construct();
     mesh_g.fillRndNormal();
