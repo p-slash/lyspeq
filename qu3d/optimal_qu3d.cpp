@@ -871,7 +871,8 @@ void Qu3DEstimator::write() {
 
 
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
-    LOG::LOGGER.STD("Replacing deltas with Gaussian.\n");
+    LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
+    double t1 = mytime::timer.getTime(), t2 = 0;
     RealField3D mesh_g;
     mesh_g.copy(mesh);
     mesh_g.length[0] *= 1.25;
@@ -903,4 +904,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
             qso->qFile->delta()[i] += qso->isig[i] * delta;
         }
     }
+
+    t2 = mytime::timer.getTime();
+    LOG::LOGGER.STD("It took %.2 m.\n", t2 - t1);
 }
