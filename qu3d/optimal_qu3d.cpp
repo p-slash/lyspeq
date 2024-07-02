@@ -971,6 +971,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
         qso->fillRngNoise();
         for (int i = 0; i < qso->N; ++i) {
             double delta = mesh_g.interpolate(qso->r.get() + 3 * i);
+            qso->qFile->delta()[i] *= (qso->isig[i] != 0);
             qso->qFile->delta()[i] += qso->isig[i] * delta;
         }
     }
