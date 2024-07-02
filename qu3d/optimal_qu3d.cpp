@@ -726,6 +726,8 @@ void Qu3DEstimator::estimateFisher() {
     */
     LOG::LOGGER.STD("Estimating Fisher.\n");
     verbose = false;
+    int org_num_cgd = max_conj_grad_steps;
+    double ff;
     auto total_f2 = std::make_unique<double[]>(bins::FISHER_SIZE);
 
     /* Create another mesh to store random numbers. This way, randoms are
@@ -736,11 +738,16 @@ void Qu3DEstimator::estimateFisher() {
     LOG::LOGGER.STD("  Constructing another mesh.\n");
     mesh_rnd.copy(mesh);
     mesh_rnd.construct();
+
+    max_conj_grad_steps = 1;
+    LOG::LOGGER.STD("  Calculating correlations with %d CGD steps.\n",
+                    max_conj_grad_steps);
+
     Progress prog_tracker(max_monte_carlos, 5);
     for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
         mesh_rnd.fillRndOnes();
         mesh_rnd.fftX2K();
-        LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
+        LOG::LOGGER.STD("    Generated random numbers & FFT.\n");
 
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
             drawRndDeriv(i);
@@ -753,7 +760,7 @@ void Qu3DEstimator::estimateFisher() {
 
             /* calculate C,k . y into mesh2 */
             for (int j = i; j < NUMBER_OF_K_BANDS_2; ++j) {
-                double ff = multiplyDerivVector(j);
+                ff = multiplyDerivVector(j);
                 fisher[j + i * NUMBER_OF_K_BANDS_2] += ff;
                 total_f2[j + i * NUMBER_OF_K_BANDS_2] += ff * ff;
             }
@@ -766,15 +773,69 @@ void Qu3DEstimator::estimateFisher() {
 
         double max_std = 0, mean_std = 0, std_k;
         for (int i = 0; i < bins::FISHER_SIZE; ++i) {
-            std_k = sqrt(
-                fabs(1 - fisher[i] * fisher[i] / total_f2[i] / nmc) / (nmc - 1)
-            );
+            ff = fisher[i] * fisher[i];
+            std_k = sqrt(fabs(1 - ff / total_f2[i] / nmc) / (nmc - 1));
             max_std = std::max(std_k, max_std);
             mean_std += std_k / bins::FISHER_SIZE;
         }
 
         LOG::LOGGER.STD(
-            "  %d: Estimated relative mean/max std is %.2e/%.2e. "
+            "    %d: Estimated relative mean/max std is %.2e/%.2e. "
+            "MC converges when < %.2e\n", nmc, mean_std, max_std, tolerance);
+
+        if (max_std < tolerance)
+            break;
+    }
+
+    // Convert fisher to correlations
+    double *fisher_diagonals = total_f2.get() + NUMBER_OF_K_BANDS_2;
+    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
+        fisher_diagonals[i] = sqrt(fisher[i * (1 + NUMBER_OF_K_BANDS_2)]);
+
+    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
+        for (int j = i; j < NUMBER_OF_K_BANDS_2; ++j)
+            fisher[j + i * NUMBER_OF_K_BANDS_2] /= 
+                fisher_diagonals[i] * fisher_diagonals[j];
+
+    std::fill_n(total_f2.get(), bins::FISHER_SIZE, 0);
+    max_conj_grad_steps = org_num_cgd;
+    LOG::LOGGER.STD("  Calculating diagonals with %d CGD steps.\n",
+                    max_conj_grad_steps);
+    
+    prog_tracker.reset();
+    for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
+        mesh_rnd.fillRndOnes();
+        mesh_rnd.fftX2K();
+        LOG::LOGGER.STD("    Generated random numbers & FFT.\n");
+
+        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
+            drawRndDeriv(i);
+
+            /* calculate C^-1 . qk into in */
+            conjugateGradientDescent();
+            /* save C^-1 . v (in) into mesh */
+            reverseInterpolate();
+            mesh.rawFftX2K();
+            ff = multiplyDerivVector(i);
+            fisher_diagonals[i] += ff;
+            total_f2[i] += ff * ff;
+        }
+
+        ++prog_tracker;
+
+        if ((nmc < 20) || (nmc % 5 != 0))
+            continue;
+
+        double max_std = 0, mean_std = 0, std_k;
+        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
+            ff = fisher_diagonals[i] * fisher_diagonals[i];
+            std_k = sqrt(fabs(1 - ff / total_f2[i] / nmc) / (nmc - 1));
+            max_std = std::max(std_k, max_std);
+            mean_std += std_k / NUMBER_OF_K_BANDS_2;
+        }
+
+        LOG::LOGGER.STD(
+            "    %d: Estimated relative mean/max std is %.2e/%.2e. "
             "MC converges when < %.2e\n", nmc, mean_std, max_std, tolerance);
 
         if (max_std < tolerance)
@@ -782,7 +843,16 @@ void Qu3DEstimator::estimateFisher() {
     }
 
     double alpha = 0.5 * mesh.invtotalvol / max_monte_carlos;
-    cblas_dscal(bins::FISHER_SIZE, alpha, fisher.get(), 1);
+    cblas_dscal(NUMBER_OF_K_BANDS_2, alpha, fisher_diagonals, 1);
+    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
+        fisher_diagonals[i] = sqrt(fisher_diagonals[i]);
+
+    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
+        for (int j = i; j < NUMBER_OF_K_BANDS_2; ++j)
+            fisher[j + i * NUMBER_OF_K_BANDS_2] *= 
+                fisher_diagonals[i] * fisher_diagonals[j];
+
+    // cblas_dscal(bins::FISHER_SIZE, alpha, fisher.get(), 1);
     mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
     logTimings();
 }
