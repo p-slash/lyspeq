@@ -21,10 +21,11 @@ std::vector<std::pair<size_t, std::vector<const CosmicQuasar*>>> idx_quasars_pai
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 
-RealField3D mesh2, mesh_rnd;
+RealField3D mesh_rnd;
 int NUMBER_OF_K_BANDS_2 = 0;
+double DK_BIN = 0;
 bool verbose = true;
-constexpr bool INPLACE_FFT = false;
+constexpr bool INPLACE_FFT = true;
 
 
 #ifdef DEBUG
@@ -287,10 +288,10 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
     mesh.ngrid[2] = config.getInteger("NGRID_Z");
 
-    mesh2.copy(mesh);
+    // mesh2.copy(mesh);
     double t1 = mytime::timer.getTime(), t2 = 0;
     mesh.construct(INPLACE_FFT);
-    mesh2.construct(INPLACE_FFT);
+    // mesh2.construct(INPLACE_FFT);
 
     // Shift coordinates of quasars
     LOG::LOGGER.STD("Shifting quasar locations to center the mesh.\n");
@@ -311,6 +312,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     radius *= rscale_factor;
     NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
+    DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
     bins::FISHER_SIZE = NUMBER_OF_K_BANDS_2 * NUMBER_OF_K_BANDS_2;
 
     raw_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
@@ -572,38 +574,63 @@ endconjugateGradientDescent:
 }
 
 
-double Qu3DEstimator::multiplyDerivVector(int i) {
+void Qu3DEstimator::multiplyDerivVectors(double *out) {
     double dt = mytime::timer.getTime();
-    int iperp = i / bins::NUMBER_OF_K_BANDS,
-        iz = i % bins::NUMBER_OF_K_BANDS;
 
-    int mesh_z_1 = bins::KBAND_EDGES[iz] / mesh.k_fund[2],
-        mesh_z_2 = bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2];
-
-    mesh_z_1 = std::min(mesh.ngrid_kz, std::max(0, mesh_z_1));
-    mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
-
-    #pragma omp parallel for
+    std::fill_n(out, NUMBER_OF_K_BANDS_2, 0);
+    #pragma omp parallel for reduction(+:out[:NUMBER_OF_K_BANDS_2])
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
-        size_t jj = mesh.ngrid_kz * jxy;
-        std::fill_n(mesh2.field_k.begin() + jj, mesh.ngrid_kz, 0);
-
         double kperp = mesh.getKperpFromIperp(jxy);
-        if(isInsideKbin(iperp, kperp)) {
-            std::copy(
-                mesh.field_k.begin() + jj + mesh_z_1,
-                mesh.field_k.begin() + jj + mesh_z_2,
-                mesh2.field_k.begin() + jj + mesh_z_1);
+        size_t jj = mesh.ngrid_kz * jxy;
+
+        int iperp = kperp / DK_BIN;
+        out[iperp * bins::NUMBER_OF_K_BANDS] += std::norm(mesh.field_k[jj]);
+
+        for (int k = 1; k < mesh.ngrid_kz; ++k) {
+            int iz = k * mesh.k_fund[2] / DK_BIN;
+            out[iz + iperp * bins::NUMBER_OF_K_BANDS] +=
+                2.0 * std::norm(mesh.field_k[k + jj]);
         }
     }
-    mesh2.rawFftK2X();
 
-    double result = mesh.dot(mesh2);
     dt = mytime::timer.getTime() - dt;
     ++timings["mDeriv"].first;
     timings["mDeriv"].second += dt;
-    return result;
 }
+
+
+// double Qu3DEstimator::multiplyDerivVector(int i) {
+//     double dt = mytime::timer.getTime();
+//     int iperp = i / bins::NUMBER_OF_K_BANDS,
+//         iz = i % bins::NUMBER_OF_K_BANDS;
+
+//     int mesh_z_1 = bins::KBAND_EDGES[iz] / mesh.k_fund[2],
+//         mesh_z_2 = bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2];
+
+//     mesh_z_1 = std::min(mesh.ngrid_kz, std::max(0, mesh_z_1));
+//     mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
+
+//     #pragma omp parallel for
+//     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+//         size_t jj = mesh.ngrid_kz * jxy;
+//         std::fill_n(mesh2.field_k.begin() + jj, mesh.ngrid_kz, 0);
+
+//         double kperp = mesh.getKperpFromIperp(jxy);
+//         if(isInsideKbin(iperp, kperp)) {
+//             std::copy(
+//                 mesh.field_k.begin() + jj + mesh_z_1,
+//                 mesh.field_k.begin() + jj + mesh_z_2,
+//                 mesh2.field_k.begin() + jj + mesh_z_1);
+//         }
+//     }
+//     mesh2.rawFftK2X();
+
+//     double result = mesh.dot(mesh2);
+//     dt = mytime::timer.getTime() - dt;
+//     ++timings["mDeriv"].first;
+//     timings["mDeriv"].second += dt;
+//     return result;
+// }
 
 
 void Qu3DEstimator::estimatePower() {
@@ -614,9 +641,7 @@ void Qu3DEstimator::estimatePower() {
     reverseInterpolate();
     mesh.rawFftX2K();
     LOG::LOGGER.STD("  Multiplying with derivative matrices.\n");
-    /* calculate C,k . y into mesh2, then dot */
-    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-        raw_power[i] = multiplyDerivVector(i) * mesh.invtotalvol;
+    multiplyDerivVectors(raw_power.get());
 
     logTimings();
 }
@@ -640,26 +665,23 @@ void Qu3DEstimator::estimateBiasMc() {
 
         reverseInterpolate();
         mesh.rawFftX2K();
+        multiplyDerivVectors(total_b.get());
+
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
-            /* calculate C,k . y into mesh2 */
-            double b = multiplyDerivVector(i) * mesh.invtotalvol;
-            total_b[i] += b;
-            total_b2[i] += b * b;
+            raw_bias[i] += total_b[i];
+            total_b2[i] += total_b[i] * total_b[i];
         }
 
         ++prog_tracker;
-
-        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-            raw_bias[i] = total_b[i] / nmc;
 
         if ((nmc < 20) || (nmc % 5 != 0))
             continue;
 
         double max_std = 0, mean_std = 0, std_k, b2_k;
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
-            b2_k = total_b2[i] / nmc;
+            b2_k = raw_bias[i] * raw_bias[i];
             std_k = sqrt(
-                (1 - raw_bias[i] * raw_bias[i] / b2_k) / (nmc - 1)
+                (1 - b2_k / total_b2[i] / nmc) / (nmc - 1)
             );
             max_std = std::max(std_k, max_std);
             mean_std += std_k / NUMBER_OF_K_BANDS_2;
@@ -726,8 +748,7 @@ void Qu3DEstimator::estimateFisher() {
     */
     LOG::LOGGER.STD("Estimating Fisher.\n");
     verbose = false;
-    int org_num_cgd = max_conj_grad_steps;
-    double ff;
+    auto total_f = std::make_unique<double[]>(bins::FISHER_SIZE);
     auto total_f2 = std::make_unique<double[]>(bins::FISHER_SIZE);
 
     /* Create another mesh to store random numbers. This way, randoms are
@@ -739,15 +760,11 @@ void Qu3DEstimator::estimateFisher() {
     mesh_rnd.copy(mesh);
     mesh_rnd.construct();
 
-    max_conj_grad_steps = 1;
-    LOG::LOGGER.STD("  Calculating correlations with %d CGD steps.\n",
-                    max_conj_grad_steps);
-
     Progress prog_tracker(max_monte_carlos, 5);
     for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
         mesh_rnd.fillRndOnes();
         mesh_rnd.fftX2K();
-        LOG::LOGGER.STD("    Generated random numbers & FFT.\n");
+        LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
 
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
             drawRndDeriv(i);
@@ -757,12 +774,11 @@ void Qu3DEstimator::estimateFisher() {
             /* save C^-1 . v (in) into mesh */
             reverseInterpolate();
             mesh.rawFftX2K();
+            multiplyDerivVectors(total_f.get());
 
-            /* calculate C,k . y into mesh2 */
-            for (int j = i; j < NUMBER_OF_K_BANDS_2; ++j) {
-                ff = multiplyDerivVector(j);
-                fisher[j + i * NUMBER_OF_K_BANDS_2] += ff;
-                total_f2[j + i * NUMBER_OF_K_BANDS_2] += ff * ff;
+            for (int j = 0; j < NUMBER_OF_K_BANDS_2; ++j) {
+                fisher[j + i * NUMBER_OF_K_BANDS_2] += total_f[j];
+                total_f2[j + i * NUMBER_OF_K_BANDS_2] += total_f[j] * total_f[j];
             }
         }
 
@@ -771,7 +787,7 @@ void Qu3DEstimator::estimateFisher() {
         if ((nmc < 20) || (nmc % 5 != 0))
             continue;
 
-        double max_std = 0, mean_std = 0, std_k;
+        double max_std = 0, mean_std = 0, std_k, ff;
         for (int i = 0; i < bins::FISHER_SIZE; ++i) {
             ff = fisher[i] * fisher[i];
             std_k = sqrt(fabs(1 - ff / total_f2[i] / nmc) / (nmc - 1));
@@ -787,72 +803,8 @@ void Qu3DEstimator::estimateFisher() {
             break;
     }
 
-    // Convert fisher to correlations
-    double *fisher_diagonals = total_f2.get() + NUMBER_OF_K_BANDS_2;
-    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-        fisher_diagonals[i] = sqrt(fisher[i * (1 + NUMBER_OF_K_BANDS_2)]);
-
-    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-        for (int j = i; j < NUMBER_OF_K_BANDS_2; ++j)
-            fisher[j + i * NUMBER_OF_K_BANDS_2] /= 
-                fisher_diagonals[i] * fisher_diagonals[j];
-
-    std::fill_n(total_f2.get(), bins::FISHER_SIZE, 0);
-    max_conj_grad_steps = org_num_cgd;
-    LOG::LOGGER.STD("  Calculating diagonals with %d CGD steps.\n",
-                    max_conj_grad_steps);
-    
-    prog_tracker.reset();
-    for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
-        mesh_rnd.fillRndOnes();
-        mesh_rnd.fftX2K();
-        LOG::LOGGER.STD("    Generated random numbers & FFT.\n");
-
-        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
-            drawRndDeriv(i);
-
-            /* calculate C^-1 . qk into in */
-            conjugateGradientDescent();
-            /* save C^-1 . v (in) into mesh */
-            reverseInterpolate();
-            mesh.rawFftX2K();
-            ff = multiplyDerivVector(i);
-            fisher_diagonals[i] += ff;
-            total_f2[i] += ff * ff;
-        }
-
-        ++prog_tracker;
-
-        if ((nmc < 20) || (nmc % 5 != 0))
-            continue;
-
-        double max_std = 0, mean_std = 0, std_k;
-        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
-            ff = fisher_diagonals[i] * fisher_diagonals[i];
-            std_k = sqrt(fabs(1 - ff / total_f2[i] / nmc) / (nmc - 1));
-            max_std = std::max(std_k, max_std);
-            mean_std += std_k / NUMBER_OF_K_BANDS_2;
-        }
-
-        LOG::LOGGER.STD(
-            "    %d: Estimated relative mean/max std is %.2e/%.2e. "
-            "MC converges when < %.2e\n", nmc, mean_std, max_std, tolerance);
-
-        if (max_std < tolerance)
-            break;
-    }
-
-    double alpha = 0.5 * mesh.invtotalvol / max_monte_carlos;
-    cblas_dscal(NUMBER_OF_K_BANDS_2, alpha, fisher_diagonals, 1);
-    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-        fisher_diagonals[i] = sqrt(fisher_diagonals[i]);
-
-    for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i)
-        for (int j = i; j < NUMBER_OF_K_BANDS_2; ++j)
-            fisher[j + i * NUMBER_OF_K_BANDS_2] *= 
-                fisher_diagonals[i] * fisher_diagonals[j];
-
-    // cblas_dscal(bins::FISHER_SIZE, alpha, fisher.get(), 1);
+    double alpha = 0.5 / max_monte_carlos;
+    cblas_dscal(bins::FISHER_SIZE, alpha, fisher.get(), 1);
     mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
     logTimings();
 }

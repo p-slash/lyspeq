@@ -61,7 +61,7 @@ public:
        (I + N^-1/2 S N^-1/2) z = out */
     void multiplyCovVector();
 
-    double multiplyDerivVector(int i);
+    void multiplyDerivVectors(double *out);
 
     /* Return residual^T . residual */
     double calculateResidualNorm2();
