@@ -958,12 +958,12 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
 
     #pragma omp parallel for
     for (size_t ij = 0; ij < mesh_g.ngrid_xy; ++ij) {
-        double kperp = kperp_arr[ij];
+        double kperp = mesh_g.getKperpFromIperp(ij);
 
         for (int k = 0; k < mesh_g.ngrid_kz; ++k)
             mesh_g.field_k[k + mesh_g.ngrid_kz * ij] *=
                 mesh_g.invsqrtcellvol * sqrt(
-                    p3d_model->evaluate(kperp, kz_arr[k])
+                    p3d_model->evaluate(kperp, k * mesh_g.k_fund[2])
             );
     }
 
