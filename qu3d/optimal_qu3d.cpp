@@ -21,7 +21,6 @@ std::vector<std::pair<size_t, std::vector<const CosmicQuasar*>>> idx_quasars_pai
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 
-std::unique_ptr<double[]> kperp_arr, kz_arr;
 RealField3D mesh2, mesh_rnd;
 int NUMBER_OF_K_BANDS_2 = 0;
 bool verbose = true;
@@ -292,10 +291,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     double t1 = mytime::timer.getTime(), t2 = 0;
     mesh.construct(INPLACE_FFT);
     mesh2.construct(INPLACE_FFT);
-    kperp_arr = mesh.getKperpArray();
-    kz_arr = std::make_unique<double[]>(mesh.ngrid_kz);
-    for (int i = 0; i < mesh.ngrid_kz; ++i)
-        kz_arr[i] = i * mesh.k_fund[2];
 
     // Shift coordinates of quasars
     LOG::LOGGER.STD("Shifting quasar locations to center the mesh.\n");
@@ -400,11 +395,12 @@ void Qu3DEstimator::multMeshComp() {
     mesh.rawFftX2K();
     #pragma omp parallel for
     for (size_t ij = 0; ij < mesh.ngrid_xy; ++ij) {
-        double kperp = kperp_arr[ij];
+        double kperp = mesh.getKperpFromIperp(ij);
 
         for (int k = 0; k < mesh.ngrid_kz; ++k)
             mesh.field_k[k + mesh.ngrid_kz * ij] *=
-                mesh.invtotalvol * p3d_model->evaluate(kperp, kz_arr[k]);
+                mesh.invtotalvol
+                * p3d_model->evaluate(kperp, k * mesh.k_fund[2]);
     }
     mesh.rawFftK2X();
 
@@ -590,9 +586,9 @@ double Qu3DEstimator::multiplyDerivVector(int i) {
     #pragma omp parallel for
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
-        double kperp = kperp_arr[jxy];
-
         std::fill_n(mesh2.field_k.begin() + jj, mesh.ngrid_kz, 0);
+
+        double kperp = mesh.getKperpFromIperp(jxy);
         if(isInsideKbin(iperp, kperp)) {
             std::copy(
                 mesh.field_k.begin() + jj + mesh_z_1,
@@ -694,9 +690,10 @@ void Qu3DEstimator::drawRndDeriv(int i) {
     #pragma omp parallel for
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
-        double kperp = kperp_arr[jxy];
 
         std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
+
+        double kperp = mesh.getKperpFromIperp(jxy);
         if(isInsideKbin(iperp, kperp))
             for (size_t zz = mesh_z_1; zz != mesh_z_2; ++zz)
                 mesh.field_k[jj + zz] = mesh.invsqrtcellvol * mesh_rnd.field_k[jj + zz];
