@@ -324,6 +324,15 @@ double RealField3D::getKperpFromIperp(size_t iperp) const {
     return sqrt(ks[0] * ks[0] + ks[1] * ks[1]);
 }
 
+
+std::unique_ptr<double[]> RealField3D::getKperpArray() const {
+    auto res = std::make_unique<double[]>(ngrid_xy);
+    for (size_t ij = 0; ij < ngrid_xy; ++ij)
+        res[ij] = getKperpFromIperp(ij);
+    return res;
+}
+
+
 void RealField3D::getKperpKzFromIndex(size_t i, double &kperp, double &kz)
 const {
     double ks[3];
