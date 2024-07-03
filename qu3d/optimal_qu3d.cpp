@@ -576,6 +576,9 @@ endconjugateGradientDescent:
 
 void Qu3DEstimator::multiplyDerivVectors(double *out) {
     double dt = mytime::timer.getTime();
+    static int mesh_kz_max = std::min(
+        int(bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] / mesh.k_fund[2]),
+        mesh.ngrid_kz);
 
     std::fill_n(out, NUMBER_OF_K_BANDS_2, 0);
     #pragma omp parallel for reduction(+:out[:NUMBER_OF_K_BANDS_2])
@@ -584,9 +587,12 @@ void Qu3DEstimator::multiplyDerivVectors(double *out) {
         size_t jj = mesh.ngrid_kz * jxy;
 
         int iperp = kperp / DK_BIN;
+        if (iperp >= bins::NUMBER_OF_K_BANDS)
+            continue;
+
         out[iperp * bins::NUMBER_OF_K_BANDS] += std::norm(mesh.field_k[jj]);
 
-        for (int k = 1; k < mesh.ngrid_kz; ++k) {
+        for (int k = 1; k < mesh_kz_max; ++k) {
             int iz = k * mesh.k_fund[2] / DK_BIN;
             out[iz + iperp * bins::NUMBER_OF_K_BANDS] +=
                 2.0 * std::norm(mesh.field_k[k + jj]);
@@ -748,7 +754,7 @@ void Qu3DEstimator::estimateFisher() {
     */
     LOG::LOGGER.STD("Estimating Fisher.\n");
     verbose = false;
-    auto total_f = std::make_unique<double[]>(bins::FISHER_SIZE);
+    auto total_f = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
     auto total_f2 = std::make_unique<double[]>(bins::FISHER_SIZE);
 
     /* Create another mesh to store random numbers. This way, randoms are
