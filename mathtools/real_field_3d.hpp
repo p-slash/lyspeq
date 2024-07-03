@@ -87,6 +87,7 @@ public:
     void getK2KzFromIndex(size_t i, double &k2, double &kz) const;
     double getKperpFromIperp(size_t iperp) const;
     void getKperpKzFromIndex(size_t i, double &kperp, double &kz) const;
+    std::unique_ptr<double[]> getKperpArray() const;
 
     std::vector<size_t> findNeighboringPixels(size_t i, double radius) const;
     double interpolate(double coord[3]) const;
