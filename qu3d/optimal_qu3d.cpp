@@ -977,5 +977,5 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     }
 
     t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("It took %.2 m.\n", t2 - t1);
+    LOG::LOGGER.STD("It took %.2f m.\n", t2 - t1);
 }
