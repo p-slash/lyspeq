@@ -601,13 +601,12 @@ void Qu3DEstimator::multiplyDerivVectors(double *out) {
     std::fill_n(out, NUMBER_OF_K_BANDS_2, 0);
     #pragma omp parallel for reduction(+:out[:NUMBER_OF_K_BANDS_2])
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
-        double kperp = mesh.getKperpFromIperp(jxy);
-        size_t jj = mesh.ngrid_kz * jxy;
+        int iperp = mesh.getKperpFromIperp(jxy) / DK_BIN;
 
-        int iperp = kperp / DK_BIN;
         if (iperp >= bins::NUMBER_OF_K_BANDS)
             continue;
 
+        size_t jj = mesh.ngrid_kz * jxy;
         out[iperp * bins::NUMBER_OF_K_BANDS] += std::norm(mesh.field_k[jj]);
 
         for (int k = 1; k < mesh_kz_max; ++k) {
@@ -616,6 +615,8 @@ void Qu3DEstimator::multiplyDerivVectors(double *out) {
                 2.0 * std::norm(mesh.field_k[k + jj]);
         }
     }
+
+    cblas_dscal(NUMBER_OF_K_BANDS_2, mesh.invtotalvol, out, 1);
 
     dt = mytime::timer.getTime() - dt;
     ++timings["mDeriv"].first;
@@ -699,13 +700,14 @@ void Qu3DEstimator::estimateBiasMc() {
             break;
     }
 
-    double alpha = 1.0 / nmc;
-    cblas_dscal(NUMBER_OF_K_BANDS_2, alpha, raw_bias.get(), 1);
     result_file->write(
         raw_bias.get(), NUMBER_OF_K_BANDS_2, "FBIAS-FINAL", nmc);
     result_file->write(
         total_b2.get(), NUMBER_OF_K_BANDS_2, "FBIAS2-FINAL", nmc);
     result_file->flush();
+
+    double alpha = 1.0 / nmc;
+    cblas_dscal(NUMBER_OF_K_BANDS_2, alpha, raw_bias.get(), 1);
 
     logTimings();
 }
@@ -828,13 +830,13 @@ void Qu3DEstimator::estimateFisher() {
             break;
     }
 
-    double alpha = 0.5 / nmc;
-    cblas_dscal(bins::FISHER_SIZE, alpha, fisher.get(), 1);
-    mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
+    cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
+    // mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
     result_file->write(fisher.get(), bins::FISHER_SIZE, "FISHER-FINAL", nmc);
     result_file->write(total_f2.get(), bins::FISHER_SIZE, "FISHER2-FINAL", nmc);
     result_file->flush();
 
+    cblas_dscal(bins::FISHER_SIZE, 1.0 / nmc, fisher.get(), 1);
     logTimings();
 }
 
@@ -934,9 +936,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     RealField3D mesh_g;
     mesh_g.initRngs(seed_generator.get());
     mesh_g.copy(mesh);
-    mesh_g.length[0] *= 1.25;
-    mesh_g.length[1] *= 1.25;
-    mesh_g.length[2] *= 1.25;
+    mesh_g.length[1] *= 1.25; mesh_g.length[2] *= 1.25;
     mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
     mesh_g.construct();
     mesh_g.fillRndNormal();
