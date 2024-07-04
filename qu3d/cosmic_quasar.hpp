@@ -145,9 +145,19 @@ public:
             coarse_in[i / M_LOS] += in[i] * isig[i];
     }
 
-    void interpNgpCoarseIsig() {
+    void interpMesh2Coarse(const RealField3D &mesh) {
+        for (int i = 0; i < coarse_N; ++i)
+            coarse_in[i] = mesh.interpolate(coarse_r.get() + 3 * i);
+    }
+
+    void interpNgpCoarseIsig2Out() {
         for (int i = 0; i < N; ++i)
             out[i] += isig[i] * coarse_in[i / M_LOS];
+    }
+
+    void interpNgpCoarseIsig2Truth() {
+        for (int i = 0; i < N; ++i)
+            truth[i] = isig[i] * coarse_in[i / M_LOS];
     }
 
     void interpLinCoarseIsig() {

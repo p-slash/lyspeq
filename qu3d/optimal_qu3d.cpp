@@ -426,10 +426,8 @@ void Qu3DEstimator::multMeshComp() {
     // Interpolate and Weight by isig
     #pragma omp parallel for
     for (auto &qso : quasars) {
-        for (int i = 0; i < qso->coarse_N; ++i)
-            qso->coarse_in[i] = mesh.interpolate(qso->coarse_r.get() + 3 * i);
-
-        qso->interpLinCoarseIsig();
+        qso->interpMesh2Coarse(mesh);
+        qso->interpNgpCoarseIsig2Out();
     }
 
     t2 = mytime::timer.getTime();
@@ -704,8 +702,7 @@ void Qu3DEstimator::estimateBiasMc() {
         total_b2.get(), NUMBER_OF_K_BANDS_2, "FBIAS2-FINAL", nmc);
     result_file->flush();
 
-    double alpha = 1.0 / nmc;
-    cblas_dscal(NUMBER_OF_K_BANDS_2, alpha, raw_bias.get(), 1);
+    cblas_dscal(NUMBER_OF_K_BANDS_2, 1.0 / nmc, raw_bias.get(), 1);
 
     logTimings();
 }
@@ -737,12 +734,8 @@ void Qu3DEstimator::drawRndDeriv(int i) {
 
     #pragma omp parallel for
     for (auto &qso : quasars) {
-        for (int i = 0; i < qso->coarse_N; ++i)
-            qso->coarse_in[i] = mesh.interpolate(qso->coarse_r.get() + 3 * i);
-
-        std::swap(qso->truth, qso->out);
-        qso->interpLinCoarseIsig();
-        std::swap(qso->truth, qso->out);
+        qso->interpMesh2Coarse(mesh);
+        qso->interpNgpCoarseIsig2Truth();
     }
 }
 
