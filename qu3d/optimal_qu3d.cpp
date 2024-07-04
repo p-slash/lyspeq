@@ -23,6 +23,7 @@ std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 
 RealField3D mesh_rnd;
+std::vector<MyRNG> rngs;
 int NUMBER_OF_K_BANDS_2 = 0;
 double DK_BIN = 0;
 bool verbose = true;
@@ -112,6 +113,16 @@ inline bool hasConverged(double norm, double tolerance) {
     return norm < tolerance;
 }
 
+
+void _initRngs(std::seed_seq *seq) {
+    const int N = myomp::getMaxNumThreads();
+    rngs.resize(N);
+    std::vector<size_t> seeds(N);
+    seq->generate(seeds.begin(), seeds.end());
+    for (size_t i = 0; i < N; ++i)
+        rngs[i].seed(seeds[i]);
+}
+
 void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     qio::PiccaFile pFile(fname);
     int number_of_spectra = pFile.getNumberSpectra();
@@ -185,11 +196,6 @@ void Qu3DEstimator::_readQSOFiles(
     #pragma omp parallel for reduction(+:num_all_pixels)
     for (auto &qso : quasars)
         num_all_pixels += qso->N;
-
-    std::vector<size_t> seeds(quasars.size());
-    seed_generator->generate(seeds.begin(), seeds.end());
-    for (int i = 0; i < quasars.size(); ++i)
-        quasars[i]->seed(seeds[i]);
 
     LOG::LOGGER.STD(
         "There are %d quasars and %ld number of pixels. "
@@ -311,6 +317,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     radius = config.getDouble("LongScale");
     rscale_factor = config.getDouble("ScaleFactor");
     seed_generator = std::make_unique<std::seed_seq>(seed.begin(), seed.end());
+    _initRngs(seed_generator.get());
 
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
     logCosmoDist(); logCosmoHubble();
@@ -330,10 +337,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
     mesh.ngrid[2] = config.getInteger("NGRID_Z");
 
-    // mesh2.copy(mesh);
     double t1 = mytime::timer.getTime(), t2 = 0;
     mesh.construct(INPLACE_FFT);
-    // mesh2.construct(INPLACE_FFT);
 
     // Shift coordinates of quasars
     LOG::LOGGER.STD("Shifting quasar locations to center the mesh.\n");
@@ -675,7 +680,7 @@ void Qu3DEstimator::estimateBiasMc() {
         /* generate random Gaussian vector into y */
         #pragma omp parallel for
         for (auto &qso : quasars)
-            qso->fillRngNoise();
+            qso->fillRngNoise(rngs[myomp::getThreadNum()]);
 
         /* calculate Cinv . n into y */
         conjugateGradientDescent();
@@ -898,7 +903,7 @@ std::string _getFname(std::string x) {
 
 
 void Qu3DEstimator::write() {
-    if mytime::this_pe != 0;
+    if (mympi::this_pe != 0)
         return;
 
     std::string fname = _getFname("_p3d");
@@ -992,7 +997,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
 
     #pragma omp parallel for
     for (auto &qso : quasars) {
-        qso->fillRngNoise();
+        qso->fillRngNoise(rngs[myomp::getThreadNum()]);
         for (int i = 0; i < qso->N; ++i) {
             double delta = mesh_g.interpolate(qso->r.get() + 3 * i);
             qso->qFile->delta()[i] *= (qso->isig[i] != 0);

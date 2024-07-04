@@ -10,7 +10,6 @@
 #include <memory>
 
 #include "io/qso_file.hpp"
-#include "mathtools/my_random.hpp"
 #include "mathtools/real_field_3d.hpp"
 #include "qu3d/cosmology_3d.hpp"
 
@@ -33,7 +32,6 @@ public:
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth;
     std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r, coarse_in;
-    MyRNG rng;
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*> neighbors;
@@ -97,13 +95,10 @@ public:
         angles[1] = qFile->dec - med_dec;
         angles[2] = 1;
 
-        // rng.seed(qFile->id);
         in = y.get();
         truth = qFile->delta();
         out = Cy.get();
     }
-
-    void seed(size_t seed_) { rng.seed(seed_); }
 
     void setComovingDistances(const fidcosmo::FlatLCDM *cosmo) {
         /* Equirectangular projection */
@@ -172,8 +167,8 @@ public:
     }
 
     /* overwrite qFile->delta */
-    void fillRngNoise() { rng.fillVectorNormal(truth, N); }
-    void fillRngOnes() { rng.fillVectorOnes(truth, N); }
+    void fillRngNoise(MyRNG &rng) { rng.fillVectorNormal(truth, N); }
+    void fillRngOnes(MyRNG &rng) { rng.fillVectorOnes(truth, N); }
 
     void multIsigInVector() {
         for (int i = 0; i < N; ++i)
