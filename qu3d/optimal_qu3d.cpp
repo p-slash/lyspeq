@@ -516,6 +516,7 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
     for (auto &qso : quasars) {
         // cblas_dscal(qso->N, beta, qso->search.get(), 1);
         // cblas_daxpy(qso->N, 1, qso->residual.get(), 1, qso->search.get(), 1);
+        #pragma omp simd
         for (int i = 0; i < qso->N; ++i)
             qso->search[i] = beta * qso->search[i] + qso->residual[i];
     }
@@ -529,11 +530,12 @@ void Qu3DEstimator::initGuessDiag() {
         LOG::LOGGER.STD("  VarLSS: %.2e.\n", varlss);
 
     #pragma omp parallel for
-    for (auto &qso : quasars)
+    for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             double isig = qso->isig[i];
             qso->in[i] = qso->truth[i] / (1.0 + isig * isig * varlss);
         }
+    }
 }
 
 
@@ -632,6 +634,7 @@ void Qu3DEstimator::estimatePower() {
     multiplyDerivVectors(raw_power.get());
 
     result_file->write(raw_power.get(), NUMBER_OF_K_BANDS_2, "FPOWER");
+    result_file->flush();
     logTimings();
 }
 
@@ -673,6 +676,7 @@ void Qu3DEstimator::estimateBiasMc() {
         result_file->write(
             total_b2.get(), NUMBER_OF_K_BANDS_2,
             "FBIAS2-" + std::to_string(nmc), nmc);
+        result_file->flush();
 
         if (nmc < 20)
             continue;
@@ -701,6 +705,8 @@ void Qu3DEstimator::estimateBiasMc() {
         raw_bias.get(), NUMBER_OF_K_BANDS_2, "FBIAS-FINAL", nmc);
     result_file->write(
         total_b2.get(), NUMBER_OF_K_BANDS_2, "FBIAS2-FINAL", nmc);
+    result_file->flush();
+
     logTimings();
 }
 
@@ -801,6 +807,7 @@ void Qu3DEstimator::estimateFisher() {
         result_file->write(
             total_f2.get(), bins::FISHER_SIZE,
             "FISHER2-" + std::to_string(nmc), nmc);
+        result_file->flush();
 
         if (nmc < 20)
             continue;
@@ -826,6 +833,7 @@ void Qu3DEstimator::estimateFisher() {
     mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
     result_file->write(fisher.get(), bins::FISHER_SIZE, "FISHER-FINAL", nmc);
     result_file->write(total_f2.get(), bins::FISHER_SIZE, "FISHER2-FINAL", nmc);
+    result_file->flush();
 
     logTimings();
 }

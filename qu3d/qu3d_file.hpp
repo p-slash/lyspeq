@@ -53,6 +53,11 @@ namespace ioh {
                 fits_file, TDOUBLE, 1, ndata, (void *) data, &status);
             checkFitsStatus(status);
         }
+
+        void flush() {
+            fits_flush_buffer(fitsfile, 0, &status);
+            checkFitsStatus(status);
+        }
     private:
         int status;
         fitsfile *fits_file;
