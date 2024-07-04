@@ -202,7 +202,7 @@ namespace fidcosmo {
             interp_p1d;
 
         void _calcVarLss() {
-            constexpr int nlnk = 10001;
+            constexpr int nlnk = 5001;
             constexpr double lnk1 = log(1e-6), lnk2 = log(5.0);
             constexpr double dlnk = (lnk2 - lnk1) / (nlnk - 1);
             double powers_kz[nlnk], powers_kperp[nlnk];
@@ -231,10 +231,12 @@ namespace fidcosmo {
             /* Large-scale 2D */
             for (int iperp = 0; iperp < N; ++iperp) {
                 double kperp = exp(lnk1 + iperp * dlnk);
+
                 for (int iz = 0; iz < N; ++iz) {
-                    double kz = exp(lnk1 + iz * dlnk);
-                    double k = sqrt(kperp * kperp + kz * kz);
-                    double k_rL = k * rscale_long;
+                    double kz = exp(lnk1 + iz * dlnk),
+                           k = sqrt(kperp * kperp + kz * kz),
+                           k_rL = k * rscale_long;
+
                     k_rL *= -k_rL;
                     lnP[iz + N * iperp] = log(evalExplicit(k, kz)) + k_rL;
                 }
@@ -245,10 +247,12 @@ namespace fidcosmo {
             /* Small-scale 2D */
             for (int iperp = 0; iperp < N; ++iperp) {
                 double kperp = exp(lnk1 + iperp * dlnk);
+
                 for (int iz = 0; iz < N; ++iz) {
-                    double kz = exp(lnk1 + iz * dlnk);
-                    double k = sqrt(kperp * kperp + kz * kz);
-                    double k_rL = k * rscale_long;
+                    double kz = exp(lnk1 + iz * dlnk),
+                           k = sqrt(kperp * kperp + kz * kz),
+                           k_rL = k * rscale_long;
+
                     k_rL = 1.0 - exp(-k_rL * k_rL);
                     lnP[iz + N * iperp] = log(evalExplicit(k, kz) * k_rL);
                 }
@@ -257,15 +261,21 @@ namespace fidcosmo {
                 lnk1, dlnk, lnk1, dlnk, lnP.get(), N, N);
 
             /* Large-scale 1Ds */
-            for (int iperp = 0; iperp < N; ++iperp)
-                lnP[iperp] = log(evalExplicit(exp(lnk1 + iperp * dlnk), 0));
+            for (int iperp = 0; iperp < N; ++iperp) {
+                double k = exp(lnk1 + iperp * dlnk), k_rL = k * rscale_long;
+                k_rL *= -k_rL;
+
+                lnP[iperp] = log(evalExplicit(k, 0)) + k_rL;
+            }
 
             interp_kp_pL = std::make_unique<DiscreteInterpolation1D>(
                 lnk1, dlnk, N, lnP.get());
 
             for (int iz = 0; iz < N; ++iz) {
-                double kz = exp(lnk1 + iz * dlnk);
-                lnP[iz] = log(evalExplicit(kz, kz));
+                double kz = exp(lnk1 + iz * dlnk), k_rL = kz * rscale_long;
+                k_rL *= -k_rL;
+
+                lnP[iz] = log(evalExplicit(kz, kz)) + k_rL;
             }
             interp_kz_pL = std::make_unique<DiscreteInterpolation1D>(
                 lnk1, dlnk, N, lnP.get());
@@ -273,8 +283,7 @@ namespace fidcosmo {
 
             /* Small-scale 1Ds */
             for (int iperp = 0; iperp < N; ++iperp) {
-                double k = exp(lnk1 + iperp * dlnk);
-                double k_rL = k * rscale_long;
+                double k = exp(lnk1 + iperp * dlnk), k_rL = k * rscale_long;
                 k_rL = 1.0 - exp(-k_rL * k_rL);
 
                 lnP[iperp] = log(evalExplicit(k, 0) * k_rL);
@@ -284,9 +293,9 @@ namespace fidcosmo {
                 lnk1, dlnk, N, lnP.get());
 
             for (int iz = 0; iz < N; ++iz) {
-                double k = exp(lnk1 + iz * dlnk);
-                double k_rL = k * rscale_long;
+                double k = exp(lnk1 + iz * dlnk), k_rL = k * rscale_long;
                 k_rL = 1.0 - exp(-k_rL * k_rL);
+
                 lnP[iz] = log(evalExplicit(k, k) * k_rL);
             }
             interp_kz_pS = std::make_unique<DiscreteInterpolation1D>(
@@ -352,7 +361,7 @@ namespace fidcosmo {
             double
             plin = interp_p->evaluate(k),
             delta2_L = plin * k * k * k / TWO_PI2,
-            k_kp = k / k_p, k_rL = k * rscale_long,
+            k_kp = k / k_p,
             mu = kz / k,
             result, lnD;
 
