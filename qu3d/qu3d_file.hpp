@@ -23,7 +23,7 @@ namespace ioh {
     class Qu3dFile {
     public:
         Qu3dFile(const std::string &base, int thispe) {
-            status = 0;
+            status = 0; fits_file = nullptr;
             std::string out_fname =
                 "!" + base + "-qu3d-" + std::to_string(thispe) + ".fits";
 

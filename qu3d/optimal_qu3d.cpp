@@ -643,7 +643,8 @@ void Qu3DEstimator::estimateBiasMc() {
     auto total_b2 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
     Progress prog_tracker(max_monte_carlos, 10);
-    for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
+    int nmc = 1;
+    for (; nmc <= max_monte_carlos; ++nmc) {
         /* generate random Gaussian vector into y */
         #pragma omp parallel for
         for (auto &qso : quasars)
@@ -663,10 +664,18 @@ void Qu3DEstimator::estimateBiasMc() {
 
         ++prog_tracker;
 
-        if ((nmc < 20) || (nmc % 5 != 0))
+        if (nmc % 5 != 0)
             continue;
 
-        result_file->write(raw_bias.get(), NUMBER_OF_K_BANDS_2, "FBIAS", nmc);
+        result_file->write(
+            raw_bias.get(), NUMBER_OF_K_BANDS_2,
+            "FBIAS-" + std::to_string(nmc), nmc);
+        result_file->write(
+            total_b2.get(), NUMBER_OF_K_BANDS_2,
+            "FBIAS2-" + std::to_string(nmc), nmc);
+
+        if (nmc < 20)
+            continue;
 
         double max_std = 0, mean_std = 0, std_k, b2_k;
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
@@ -686,8 +695,12 @@ void Qu3DEstimator::estimateBiasMc() {
             break;
     }
 
-    double alpha = 1.0 / max_monte_carlos;
+    double alpha = 1.0 / nmc;
     cblas_dscal(NUMBER_OF_K_BANDS_2, alpha, raw_bias.get(), 1);
+    result_file->write(
+        raw_bias.get(), NUMBER_OF_K_BANDS_2, "FBIAS-FINAL", nmc);
+    result_file->write(
+        total_b2.get(), NUMBER_OF_K_BANDS_2, "FBIAS2-FINAL", nmc);
     logTimings();
 }
 
@@ -755,7 +768,8 @@ void Qu3DEstimator::estimateFisher() {
     mesh_rnd.construct();
 
     Progress prog_tracker(max_monte_carlos, 5);
-    for (int nmc = 1; nmc <= max_monte_carlos; ++nmc) {
+    int nmc = 1;
+    for (; nmc <= max_monte_carlos; ++nmc) {
         mesh_rnd.fillRndOnes();
         mesh_rnd.fftX2K();
         LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
@@ -778,10 +792,18 @@ void Qu3DEstimator::estimateFisher() {
 
         ++prog_tracker;
 
-        if ((nmc < 20) || (nmc % 5 != 0))
+        if (nmc % 5 != 0)
             continue;
 
-        result_file->write(fisher.get(), bins::FISHER_SIZE, "FISHER", nmc);
+        result_file->write(
+            fisher.get(), bins::FISHER_SIZE,
+            "FISHER-" + std::to_string(nmc), nmc);
+        result_file->write(
+            total_f2.get(), bins::FISHER_SIZE,
+            "FISHER2-" + std::to_string(nmc), nmc);
+
+        if (nmc < 20)
+            continue;
 
         double max_std = 0, mean_std = 0, std_k, ff;
         for (int i = 0; i < bins::FISHER_SIZE; ++i) {
@@ -799,9 +821,12 @@ void Qu3DEstimator::estimateFisher() {
             break;
     }
 
-    double alpha = 0.5 / max_monte_carlos;
+    double alpha = 0.5 / nmc;
     cblas_dscal(bins::FISHER_SIZE, alpha, fisher.get(), 1);
     mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
+    result_file->write(fisher.get(), bins::FISHER_SIZE, "FISHER-FINAL", nmc);
+    result_file->write(total_f2.get(), bins::FISHER_SIZE, "FISHER2-FINAL", nmc);
+
     logTimings();
 }
 
