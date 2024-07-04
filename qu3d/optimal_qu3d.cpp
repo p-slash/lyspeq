@@ -429,9 +429,7 @@ void Qu3DEstimator::multMeshComp() {
         for (int i = 0; i < qso->coarse_N; ++i)
             qso->coarse_in[i] = mesh.interpolate(qso->coarse_r.get() + 3 * i);
 
-        // NGP for now
-        for (int i = 0; i < qso->N; ++i)
-            qso->out[i] += qso->isig[i] * qso->coarse_in[i / M_LOS];
+        qso->interpLinCoarseIsig();
     }
 
     t2 = mytime::timer.getTime();
@@ -742,9 +740,9 @@ void Qu3DEstimator::drawRndDeriv(int i) {
         for (int i = 0; i < qso->coarse_N; ++i)
             qso->coarse_in[i] = mesh.interpolate(qso->coarse_r.get() + 3 * i);
 
-        // NGP for now
-        for (int i = 0; i < qso->N; ++i)
-            qso->truth[i] = qso->isig[i] * qso->coarse_in[i / M_LOS];
+        std::swap(qso->truth, qso->out);
+        qso->interpLinCoarseIsig();
+        std::swap(qso->truth, qso->out);
     }
 }
 

@@ -145,6 +145,22 @@ public:
             coarse_in[i / M_LOS] += in[i] * isig[i];
     }
 
+    void interpNgpCoarseIsig() {
+        for (int i = 0; i < N; ++i)
+            out[i] += isig[i] * coarse_in[i / M_LOS];
+    }
+
+    void interpLinCoarseIsig() {
+        for (int i = 0; i < N; ++i) {
+            int I = std::min(coarse_N - 2, std::max(0, (i - M_LOS / 2) / M_LOS));
+            double m =
+                (coarse_in[I + 1] - coarse_in[I])
+                / (coarse_r[3 * I + 5] - coarse_r[3 * I + 2]);
+            double y = coarse_in[I] + m * (r[3 * i + 2] - coarse_r[3 * I + 2]);
+            out[i] += isig[i] * y;
+        }
+    }
+
     /* overwrite qFile->delta */
     void fillRngNoise() { rng.fillVectorNormal(truth, N); }
     void fillRngOnes() { rng.fillVectorOnes(truth, N); }
