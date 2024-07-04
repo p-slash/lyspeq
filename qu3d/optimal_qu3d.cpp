@@ -4,6 +4,7 @@
 #include "qu3d/cosmology_3d.hpp"
 
 #include "core/global_numbers.hpp"
+#include "core/mpi_manager.hpp"
 #include "core/progress.hpp"
 #include "io/logger.hpp"
 
@@ -162,6 +163,12 @@ void Qu3DEstimator::_readQSOFiles(
     qio::PiccaFile::use_cache = false;
 
     int number_of_files = ioh::readList(flist.c_str(), filepaths);
+    if (mympi::total_pes > 1) {
+        int nrot = mympi::this_pe * number_of_files / mympi::total_pes;
+        std::rotate(
+            filepaths.begin(), filepaths.begin() + nrot,
+            filepaths.end());
+    }
 
     #pragma omp parallel for num_threads(8)
     for (auto &fq : filepaths) {
@@ -259,7 +266,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     std::string
         flist = config.get("FileNameList"),
         findir = config.get("FileInputDir"),
-        seed = config.get("Seed");
+        seed = config.get("Seed") + std::to_string(mympi::this_pe);
 
     if (flist.empty())
         throw std::invalid_argument("Must pass FileNameList.");
@@ -807,10 +814,16 @@ void Qu3DEstimator::filter() {
 }
 
 
-void Qu3DEstimator::write() {
-    std::string buffer = process::FNAME_BASE + "_p3d.txt";
+std::string _getFname(std::string x) {
+    std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
+    buffer << x << '_' << mympi::this_pe << ".txt";
+    return buffer.str();
+}
 
-    FILE *toWrite = ioh::open_file(buffer.c_str(), "w");
+
+void Qu3DEstimator::write() {
+    std::string fname = _getFname("_p3d");
+    FILE *toWrite = ioh::open_file(fname.c_str(), "w");
 
     specifics::printBuildSpecifics(toWrite);
     config.writeConfig(toWrite);
@@ -862,13 +875,14 @@ void Qu3DEstimator::write() {
     }
 
     fclose(toWrite);
-    LOG::LOGGER.STD("P3D estimate saved as %s.\n", buffer.c_str());
+    LOG::LOGGER.STD("P3D estimate saved as %s.\n", fname.c_str());
 
-    buffer = process::FNAME_BASE + "_fisher.txt";
+    fname = _getFname("_fisher");
     mxhelp::fprintfMatrix(
-        buffer.c_str(), fisher.get(), NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
+        fname.c_str(), fisher.get(),
+        NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
 
-    LOG::LOGGER.STD("Fisher matrix saved as %s.\n", buffer.c_str());
+    LOG::LOGGER.STD("Fisher matrix saved as %s.\n", fname.c_str());
 }
 
 

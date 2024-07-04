@@ -5,6 +5,8 @@
 
 #include <gsl/gsl_errno.h>
 
+#include "core/mpi_manager.hpp"
+
 #include "io/logger.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/config_file.hpp"
@@ -13,6 +15,8 @@
 
 
 int main(int argc, char *argv[]) {
+    mympi::init(argc, argv);
+
     if (argc < 2) {
         fprintf(stderr, "Missing config file!\n");
         return 1;
@@ -29,7 +33,7 @@ int main(int argc, char *argv[]) {
     try
     {
         config.readFile(FNAME_CONFIG);
-        LOG::LOGGER.open(config.get("OutputDir", "."), 0);
+        LOG::LOGGER.open(config.get("OutputDir", "."), mympi::this_pe);
         specifics::printBuildSpecifics();
         mytime::writeTimeLogHeader();
     }
@@ -37,6 +41,7 @@ int main(int argc, char *argv[]) {
     {
         fprintf(stderr, "Error while reading config file: %s\n", e.what());
         myomp::clean_fftw();
+        mympi::finalize();
         return 1;
     }
 
@@ -53,6 +58,7 @@ int main(int argc, char *argv[]) {
         LOG::LOGGER.ERR("Error while parsing config file: %s\n",
             e.what());
         myomp::clean_fftw();
+        mympi::finalize();
         return 1;
     }
 
@@ -67,6 +73,7 @@ int main(int argc, char *argv[]) {
     qps->write();
     qps.reset();
     myomp::clean_fftw();
+    mympi::finalize();
     return 0;
 }
 
