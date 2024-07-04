@@ -37,6 +37,7 @@ class Qu3DEstimator
     // Reads the entire file
     void _readOneDeltaFile(const std::string &fname);
     void _readQSOFiles(const std::string &flist, const std::string &findir);
+    void _openResultsFile();
 
     void _calculateBoxDimensions(double L[3], double &z0);
     void _constructMap();

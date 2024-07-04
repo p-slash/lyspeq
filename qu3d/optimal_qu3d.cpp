@@ -259,6 +259,34 @@ void Qu3DEstimator::_findNeighbors() {
     LOG::LOGGER.STD("_findNeighbors took %.2f m.\n", t2 - t1);
 }
 
+
+void Qu3DEstimator::_openResultsFile() {
+    result_file = std::make_unique<ioh::Qu3dFile>(
+        process::FNAME_BASE, mympi::this_pe);
+
+    double *kperp_grid = raw_power.get(),
+           *kz_grid = filt_power.get(),
+           *pfid_grid = raw_bias.get();
+
+    for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
+        for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
+            size_t i = iz + bins::NUMBER_OF_K_BANDS * iperp;
+            kperp_grid[i] = bins::KBAND_CENTERS[iperp];
+            kz_grid[i] = bins::KBAND_CENTERS[iz];
+            pfid_grid[i] = p3d_model->evaluate(kperp_grid[i], kz_grid[i]);
+        }
+    }
+
+    result_file->write(kperp_grid, NUMBER_OF_K_BANDS_2, "KPERP");
+    result_file->write(kz_grid, NUMBER_OF_K_BANDS_2, "KZ");
+    result_file->write(pfid_grid, NUMBER_OF_K_BANDS_2, "PFID");
+    result_file->flush();
+    std::fill_n(kperp_grid, 0, NUMBER_OF_K_BANDS_2);
+    std::fill_n(kz_grid, 0, NUMBER_OF_K_BANDS_2);
+    std::fill_n(pfid_grid, 0, NUMBER_OF_K_BANDS_2);
+}
+
+
 Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     config.addDefaults(qu3d_default_parameters);
 
@@ -349,8 +377,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     //     idx_quasars_pairs.push_back(std::make_pair(idx, std::move(qsos)));
     // std::sort(idx_quasars_pairs.begin(), idx_quasars_pairs.end());
     idx_quasar_map.clear();
-    result_file = std::make_unique<ioh::Qu3dFile>(
-        process::FNAME_BASE, mympi::this_pe);
+    _openResultsFile();
 }
 
 void Qu3DEstimator::reverseInterpolate() {
@@ -871,6 +898,9 @@ std::string _getFname(std::string x) {
 
 
 void Qu3DEstimator::write() {
+    if mytime::this_pe != 0;
+        return;
+
     std::string fname = _getFname("_p3d");
     FILE *toWrite = ioh::open_file(fname.c_str(), "w");
 
