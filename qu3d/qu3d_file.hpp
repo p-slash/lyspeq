@@ -55,7 +55,7 @@ namespace ioh {
         }
 
         void flush() {
-            fits_flush_buffer(fitsfile, 0, &status);
+            fits_flush_buffer(fits_file, 0, &status);
             checkFitsStatus(status);
         }
     private:
