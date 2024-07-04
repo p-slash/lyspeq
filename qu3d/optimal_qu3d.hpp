@@ -9,6 +9,7 @@
 
 #include "io/config_file.hpp"
 #include "qu3d/cosmic_quasar.hpp"
+#include "qu3d/qu3d_file.hpp"
 
 const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
@@ -26,6 +27,7 @@ class Qu3DEstimator
     int max_conj_grad_steps, max_monte_carlos;
     double tolerance, radius, rscale_factor;
     std::unique_ptr<std::seed_seq> seed_generator;
+    std::unique_ptr<ioh::Qu3dFile> result_file;
     RealField3D mesh;
 
     std::unique_ptr<double[]>

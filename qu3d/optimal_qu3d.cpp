@@ -349,6 +349,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     //     idx_quasars_pairs.push_back(std::make_pair(idx, std::move(qsos)));
     // std::sort(idx_quasars_pairs.begin(), idx_quasars_pairs.end());
     idx_quasar_map.clear();
+    result_file = std::make_unique<ioh::Qu3dFile>(
+        process::FNAME_BASE, mympi::this_pe);
 }
 
 void Qu3DEstimator::reverseInterpolate() {
@@ -629,6 +631,7 @@ void Qu3DEstimator::estimatePower() {
     LOG::LOGGER.STD("  Multiplying with derivative matrices.\n");
     multiplyDerivVectors(raw_power.get());
 
+    result_file->write(raw_power.get(), NUMBER_OF_K_BANDS_2, "FPOWER");
     logTimings();
 }
 
@@ -663,6 +666,8 @@ void Qu3DEstimator::estimateBiasMc() {
         if ((nmc < 20) || (nmc % 5 != 0))
             continue;
 
+        result_file->write(raw_bias.get(), NUMBER_OF_K_BANDS_2, "FBIAS", nmc);
+
         double max_std = 0, mean_std = 0, std_k, b2_k;
         for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
             b2_k = raw_bias[i] * raw_bias[i];
@@ -681,6 +686,8 @@ void Qu3DEstimator::estimateBiasMc() {
             break;
     }
 
+    double alpha = 1.0 / max_monte_carlos;
+    cblas_dscal(NUMBER_OF_K_BANDS_2, alpha, raw_bias.get(), 1);
     logTimings();
 }
 
@@ -773,6 +780,8 @@ void Qu3DEstimator::estimateFisher() {
 
         if ((nmc < 20) || (nmc % 5 != 0))
             continue;
+
+        result_file->write(fisher.get(), bins::FISHER_SIZE, "FISHER", nmc);
 
         double max_std = 0, mean_std = 0, std_k, ff;
         for (int i = 0; i < bins::FISHER_SIZE; ++i) {
