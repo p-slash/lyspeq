@@ -610,7 +610,7 @@ void Qu3DEstimator::multiplyDerivVectors(double *out) {
         out[iperp * bins::NUMBER_OF_K_BANDS] += std::norm(mesh.field_k[jj]);
 
         for (int k = 1; k < mesh_kz_max; ++k) {
-            int iz = k * mesh.k_fund[2] / DK_BIN;
+            int iz = (k * mesh.k_fund[2]) / DK_BIN;
             out[iz + iperp * bins::NUMBER_OF_K_BANDS] +=
                 2.0 * std::norm(mesh.field_k[k + jj]);
         }
@@ -652,7 +652,7 @@ void Qu3DEstimator::estimateBiasMc() {
         /* generate random Gaussian vector into y */
         #pragma omp parallel for
         for (auto &qso : quasars)
-            qso->fillRngOnes();
+            qso->fillRngNoise();
 
         /* calculate Cinv . n into y */
         conjugateGradientDescent();
@@ -778,7 +778,7 @@ void Qu3DEstimator::estimateFisher() {
     Progress prog_tracker(max_monte_carlos, 5);
     int nmc = 1;
     for (; nmc <= max_monte_carlos; ++nmc) {
-        mesh_rnd.fillRndOnes();
+        mesh_rnd.fillRndNormal();
         mesh_rnd.fftX2K();
         LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
 
@@ -936,8 +936,8 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     RealField3D mesh_g;
     mesh_g.initRngs(seed_generator.get());
     mesh_g.copy(mesh);
-    mesh_g.length[1] *= 1.25; mesh_g.length[2] *= 1.25;
-    mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
+    // mesh_g.length[1] *= 1.25; mesh_g.length[2] *= 1.25;
+    // mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
     mesh_g.construct();
     mesh_g.fillRndNormal();
     mesh_g.fftX2K();
