@@ -7,7 +7,7 @@ class MyRNG {
 public:
     MyRNG() :uidist(0, 1) {};
 
-    void seed(long in) { rng_engine.seed(in); }
+    void seed(size_t in) { rng_engine.seed(in); }
 
     void fillVectorNormal(double *v, unsigned int size) {
         for (unsigned int i = 0; i < size; ++i)

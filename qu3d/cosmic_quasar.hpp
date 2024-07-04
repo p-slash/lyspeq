@@ -97,11 +97,13 @@ public:
         angles[1] = qFile->dec - med_dec;
         angles[2] = 1;
 
-        rng.seed(qFile->id);
+        // rng.seed(qFile->id);
         in = y.get();
         truth = qFile->delta();
         out = Cy.get();
     }
+
+    void seed(size_t seed_) { rng.seed(seed_); }
 
     void setComovingDistances(const fidcosmo::FlatLCDM *cosmo) {
         /* Equirectangular projection */

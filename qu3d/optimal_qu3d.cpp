@@ -179,6 +179,11 @@ void Qu3DEstimator::_readQSOFiles(
     for (auto &qso : quasars)
         num_all_pixels += qso->N;
 
+    std::vector<size_t> seeds(quasars.size());
+    seed_generator->generate(seeds.begin(), seeds.end());
+    for (int i = 0; i < quasars.size(); ++i)
+        quasars[i]->seed(seeds[i]);
+
     LOG::LOGGER.STD(
         "There are %d quasars and %ld number of pixels. "
         "Reading QSO files took %.2f m.\n",
@@ -253,7 +258,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     num_all_pixels = 0;
     std::string
         flist = config.get("FileNameList"),
-        findir = config.get("FileInputDir");
+        findir = config.get("FileInputDir"),
+        seed = config.get("Seed");
 
     if (flist.empty())
         throw std::invalid_argument("Must pass FileNameList.");
@@ -269,6 +275,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
     radius = config.getDouble("LongScale");
     rscale_factor = config.getDouble("ScaleFactor");
+    seed_generator = std::make_unique<std::seed_seq>(seed.begin(), seed.end());
 
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
     logCosmoDist(); logCosmoHubble();
@@ -605,40 +612,6 @@ void Qu3DEstimator::multiplyDerivVectors(double *out) {
 }
 
 
-// double Qu3DEstimator::multiplyDerivVector(int i) {
-//     double dt = mytime::timer.getTime();
-//     int iperp = i / bins::NUMBER_OF_K_BANDS,
-//         iz = i % bins::NUMBER_OF_K_BANDS;
-
-//     int mesh_z_1 = bins::KBAND_EDGES[iz] / mesh.k_fund[2],
-//         mesh_z_2 = bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2];
-
-//     mesh_z_1 = std::min(mesh.ngrid_kz, std::max(0, mesh_z_1));
-//     mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
-
-//     #pragma omp parallel for
-//     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
-//         size_t jj = mesh.ngrid_kz * jxy;
-//         std::fill_n(mesh2.field_k.begin() + jj, mesh.ngrid_kz, 0);
-
-//         double kperp = mesh.getKperpFromIperp(jxy);
-//         if(isInsideKbin(iperp, kperp)) {
-//             std::copy(
-//                 mesh.field_k.begin() + jj + mesh_z_1,
-//                 mesh.field_k.begin() + jj + mesh_z_2,
-//                 mesh2.field_k.begin() + jj + mesh_z_1);
-//         }
-//     }
-//     mesh2.rawFftK2X();
-
-//     double result = mesh.dot(mesh2);
-//     dt = mytime::timer.getTime() - dt;
-//     ++timings["mDeriv"].first;
-//     timings["mDeriv"].second += dt;
-//     return result;
-// }
-
-
 void Qu3DEstimator::estimatePower() {
     LOG::LOGGER.STD("Calculating power spectrum.\n");
     /* calculate Cinv . delta into y */
@@ -764,6 +737,7 @@ void Qu3DEstimator::estimateFisher() {
     */
     LOG::LOGGER.STD("  Constructing another mesh.\n");
     mesh_rnd.copy(mesh);
+    mesh_rnd.initRngs(seed_generator.get());
     mesh_rnd.construct();
 
     Progress prog_tracker(max_monte_carlos, 5);
@@ -902,6 +876,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
     double t1 = mytime::timer.getTime(), t2 = 0;
     RealField3D mesh_g;
+    mesh_g.initRngs(seed_generator.get());
     mesh_g.copy(mesh);
     mesh_g.length[0] *= 1.25;
     mesh_g.length[1] *= 1.25;

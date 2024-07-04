@@ -8,6 +8,7 @@
 #include <fftw3.h>
 
 #include "core/omp_manager.hpp"
+#include "mathtools/my_random.hpp"
 
 #if defined(ENABLE_OMP)
 namespace myomp {
@@ -34,6 +35,7 @@ namespace myomp {
 class RealField3D {
     fftw_plan p_x2k;
     fftw_plan p_k2x;
+    std::vector<MyRNG> rngs;
 
     bool _inplace;
     std::unique_ptr<double[]> _field_x;
@@ -52,6 +54,7 @@ public:
     /* Copy constructor. Need to call construct! */
     void copy(const RealField3D &rhs);
     void construct(bool inp=true);
+    void initRngs(std::seed_seq *seq);
 
     ~RealField3D() {
         fftw_destroy_plan(p_x2k);
