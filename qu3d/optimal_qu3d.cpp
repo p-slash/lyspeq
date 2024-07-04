@@ -831,6 +831,20 @@ void Qu3DEstimator::estimateFisher() {
     }
 
     cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
+
+    // Make it symmetric
+    mxhelp::transpose_copy(
+        fisher.get(), covariance.get(),
+        NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
+    cblas_daxpy(bins::FISHER_SIZE, 1.0, covariance.get(), 1, fisher.get(), 1);
+    cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
+
+    mxhelp::transpose_copy(
+        total_f2.get(), covariance.get(),
+        NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
+    cblas_daxpy(bins::FISHER_SIZE, 1.0, covariance.get(), 1, total_f2.get(), 1);
+    cblas_dscal(bins::FISHER_SIZE, 0.5, total_f2.get(), 1);
+
     // mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
     result_file->write(fisher.get(), bins::FISHER_SIZE, "FISHER-FINAL", nmc);
     result_file->write(total_f2.get(), bins::FISHER_SIZE, "FISHER2-FINAL", nmc);
