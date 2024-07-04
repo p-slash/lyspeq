@@ -14,7 +14,7 @@ const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"ConvergenceTolerance", "1e-6"}, {"LongScale", "50"}, {"ScaleFactor", "4"},
-    {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}
+    {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"}
 });
 
 
@@ -25,6 +25,7 @@ class Qu3DEstimator
     size_t num_all_pixels;
     int max_conj_grad_steps, max_monte_carlos;
     double tolerance, radius, rscale_factor;
+    std::unique_ptr<std::seed_seq> seed_generator;
     RealField3D mesh;
 
     std::unique_ptr<double[]>

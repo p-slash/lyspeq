@@ -2,26 +2,22 @@
 
 #include "mathtools/real_field_3d.hpp"
 #include "mathtools/matrix_helper.hpp"
-#include "mathtools/my_random.hpp"
 // #include <algorithm>
 // #include <cassert>
 
 const double MY_PI = 3.14159265359;
-std::vector<MyRNG> rngs;
 
-void _initRngs() {
-    if (!rngs.empty())
-        return;
-
-    rngs.resize(myomp::getMaxNumThreads());
-    for (int i = 0; i < rngs.size(); ++i)
-        rngs[i].seed(18 * i + 2422);
+void RealField3D::initRngs(std::seed_seq *seq) {
+    const int N = myomp::getMaxNumThreads();
+    rngs.resize(N);
+    std::vector<size_t> seeds(N);
+    seq->generate(seeds.begin(), seeds.end());
+    for (size_t i = 0; i < N; ++i)
+        rngs[i].seed(seeds[i]);
 }
 
 
-RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr)
-{
-    _initRngs();
+RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr) {
     size_complex = 0;
     size_real = 0;
 
