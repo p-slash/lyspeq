@@ -187,9 +187,9 @@ namespace fidcosmo {
     const config_map arinyo_default_parameters ({
         // Some parameters from vega and DESI Y1 fits.
         // Need to confirm if k_p and k_nu are in Mpc units or in Mpc/h units.
-        {"b_F", "0.11"}, {"beta_F", "1.74"}, {"k_p", "19.47"},
+        {"b_F", "0.11"}, {"beta_F", "1.74"}, {"k_p", "13.17"},
         {"q_1", "0.8558"}, {"nu_0", "1.07"}, {"nu_1", "1.61"},
-        {"k_nu", "1.11"}
+        {"k_nu", "0.7541"}
     });
 
     class ArinyoP3DModel {
