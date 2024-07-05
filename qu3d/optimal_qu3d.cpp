@@ -351,7 +351,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
             qso->r[1 + 3 * i] += mesh.length[1] / 2;
             qso->r[2 + 3 * i] -= mesh.z0;
         }
-        qso->setCoarseComovingDistances();
+        #ifdef COARSE_INTERP
+            qso->setCoarseComovingDistances();
+        #endif
     }
 
     t2 = mytime::timer.getTime();
@@ -392,17 +394,27 @@ void Qu3DEstimator::reverseInterpolate() {
     double dt = mytime::timer.getTime();
     mesh.zero_field_x();
 
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        qso->coarseGrainIn();
+    #ifdef COARSE_INTERP
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->coarseGrainIn();
 
-    // Assume 2 threads will not encounter race conditions
-    #pragma omp parallel for num_threads(2)
-    for (auto &qso : quasars) {
-        for (int i = 0; i < qso->coarse_N; ++i)
-            mesh.reverseInterpolateCIC(
-                qso->coarse_r.get() + 3 * i, qso->coarse_in[i]);
-    }
+        // Assume 2 threads will not encounter race conditions
+        #pragma omp parallel for num_threads(2)
+        for (auto &qso : quasars) {
+            for (int i = 0; i < qso->coarse_N; ++i)
+                mesh.reverseInterpolateCIC(
+                    qso->coarse_r.get() + 3 * i, qso->coarse_in[i]);
+        }
+    #else
+        // Assume 2 threads will not encounter race conditions
+        #pragma omp parallel for num_threads(2)
+        for (auto &qso : quasars) {
+            for (int i = 0; i < qso->N; ++i)
+                mesh.reverseInterpolateCIC(
+                    qso->r.get() + 3 * i, qso->in[i]);
+        }
+    #endif
 
     dt = mytime::timer.getTime() - dt;
     ++timings["rInterp"].first;
@@ -414,17 +426,27 @@ void Qu3DEstimator::reverseInterpolateIsig() {
     double dt = mytime::timer.getTime();
     mesh.zero_field_x();
 
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        qso->coarseGrainInIsig();
+    #ifdef COARSE_INTERP
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->coarseGrainInIsig();
 
-    // Assume 2 threads will not encounter race conditions
-    #pragma omp parallel for num_threads(2)
-    for (auto &qso : quasars) {
-        for (int i = 0; i < qso->coarse_N; ++i)
-            mesh.reverseInterpolateCIC(
-                qso->coarse_r.get() + 3 * i, qso->coarse_in[i]);
-    }
+        // Assume 2 threads will not encounter race conditions
+        #pragma omp parallel for num_threads(2)
+        for (auto &qso : quasars) {
+            for (int i = 0; i < qso->coarse_N; ++i)
+                mesh.reverseInterpolateCIC(
+                    qso->coarse_r.get() + 3 * i, qso->coarse_in[i]);
+        }
+    #else
+        // Assume 2 threads will not encounter race conditions
+        #pragma omp parallel for num_threads(2)
+        for (auto &qso : quasars) {
+            for (int i = 0; i < qso->N; ++i)
+                mesh.reverseInterpolateCIC(
+                    qso->r.get() + 3 * i, qso->in[i] * qso->isig[i]);
+        }
+    #endif
 
     dt = mytime::timer.getTime() - dt;
     ++timings["rInterp"].first;
@@ -452,11 +474,17 @@ void Qu3DEstimator::multMeshComp() {
 
     double dt = mytime::timer.getTime();
     // Interpolate and Weight by isig
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
-        qso->interpMesh2Coarse(mesh);
-        qso->interpNgpCoarseIsig2Out();
-    }
+    #ifdef COARSE_INTERP
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            qso->interpMesh2Coarse(mesh);
+            qso->interpNgpCoarse2OutIsig();
+        }
+    #else
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->interpAddMesh2OutIsig(mesh);
+    #endif
 
     t2 = mytime::timer.getTime();
     ++timings["interp"].first;
@@ -760,11 +788,17 @@ void Qu3DEstimator::drawRndDeriv(int i) {
 
     mesh.fftK2X();
 
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
-        qso->interpMesh2Coarse(mesh);
-        qso->interpNgpCoarseIsig2Truth();
-    }
+    #ifdef COARSE_INTERP
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            qso->interpMesh2Coarse(mesh);
+            qso->interpNgpCoarse2TruthIsig();
+        }
+    #else
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->interpMesh2TruthIsig(mesh);
+    #endif
 }
 
 
