@@ -270,6 +270,8 @@ void Qu3DEstimator::_openResultsFile() {
     result_file = std::make_unique<ioh::Qu3dFile>(
         process::FNAME_BASE, mympi::this_pe);
 
+    p3d_model->write(result_file.get());
+
     double *kperp_grid = raw_power.get(),
            *kz_grid = filt_power.get(),
            *pfid_grid = raw_bias.get();

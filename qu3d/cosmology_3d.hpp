@@ -10,6 +10,8 @@
 #include "io/config_file.hpp"
 #include "io/io_helper_functions.hpp"
 
+#include "qu3d/qu3d_file.hpp"
+
 
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
 
@@ -405,6 +407,39 @@ namespace fidcosmo {
         }
 
         double getVarLss() const { return _varlss; }
+
+        void write(ioh::Qu3dFile *out) {
+            constexpr int nlnk = 502, nlnk2 = nlnk * nlnk;
+            constexpr double lnk1 = log(1e-6), lnk2 = log(5.0);
+            constexpr double dlnk = (lnk2 - lnk1) / (nlnk - 2);
+            double karr[nlnk], pmarr[nlnk2];
+
+            karr[0] = 0;
+            for (int i = 1; i < nlnk; ++i)
+                karr[i] = exp(lnk1 + (i - 1) * dlnk);
+
+            out->write(karr, nlnk, "KMODEL");
+
+            for (int iperp = 0; iperp < nlnk; ++iperp)
+                for (int iz = 0; iz < nlnk; ++iz)
+                    pmarr[iz + nlnk * iperp] = evaluate(karr[iperp], karr[iz]);
+
+            out->write(pmarr, nlnk2, "PMODEL_L");
+            out->flush();
+
+            for (int iperp = 0; iperp < nlnk; ++iperp)
+                for (int iz = 0; iz < nlnk; ++iz)
+                    pmarr[iz + nlnk * iperp] = evaluateSS(karr[iperp], karr[iz]);
+
+            out->write(pmarr, nlnk2, "PMODEL_S");
+            out->flush();
+
+            for (int iz = 0; iz < nlnk; ++iz)
+                pmarr[iz] = evalP1d(karr[iz]);
+
+            out->write(pmarr, nlnk, "PMODEL_1D");
+            out->flush();
+        }
     };
 }
 
