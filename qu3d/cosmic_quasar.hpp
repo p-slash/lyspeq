@@ -167,8 +167,19 @@ public:
     }
 
     /* overwrite qFile->delta */
-    void fillRngNoise(MyRNG &rng) { rng.fillVectorNormal(truth, N); }
-    void fillRngOnes(MyRNG &rng) { rng.fillVectorOnes(truth, N); }
+    void fillRngNoise(MyRNG &rng) {
+        rng.fillVectorNormal(truth, N);
+        for (int i = 0; i < N; ++i)
+            if (isig[i] == 0)
+                truth[i] = 0;
+    }
+
+    void fillRngOnes(MyRNG &rng) {
+        rng.fillVectorOnes(truth, N);
+        for (int i = 0; i < N; ++i)
+            if (isig[i] == 0)
+                truth[i] = 0;
+    }
 
     void multIsigInVector() {
         for (int i = 0; i < N; ++i)
