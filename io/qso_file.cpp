@@ -155,14 +155,17 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
     wi2 = std::upper_bound(wave(), wave() + size(), l2) - wave();
     int newsize = wi2 - wi1;
 
+    if ((wi1 == arr_size) || (wi2 == 0)) { // empty
+        arr_size = newsize;
+        return;
+    }
+
+    if ((wi1 == 0) && (wi2 == arr_size)) { // no change
+        arr_size = newsize;
+        return;
+    }
+
     arr_size = newsize;
-
-    if ((wi1 == arr_size) || (wi2 == 0)) // empty
-        return;
-
-    if ((wi1 == 0) && (wi2 == arr_size)) // no change
-        return;
-
     shift += wi1;
 
     _cutMaskedBoundary();
