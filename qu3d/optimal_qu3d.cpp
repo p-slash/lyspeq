@@ -491,7 +491,7 @@ void Qu3DEstimator::multMeshComp() {
     timings["interp"].second += t2 - dt;
 
     if (verbose)
-        LOG::LOGGER.STD("    multMeshComp took %.2f m.\n", t2 - t1);
+        LOG::LOGGER.STD("    multMeshComp took %.2f s.\n", 60.0 * (t2 - t1));
 }
 
 
@@ -559,7 +559,7 @@ void Qu3DEstimator::updateY(double residual_norm2) {
 
     t2 = mytime::timer.getTime() - t1;
     if (verbose)
-        LOG::LOGGER.STD("    updateY took %.2f m.\n", t2);
+        LOG::LOGGER.STD("    updateY took %.2f s.\n", 60.0 * t2);
 }
 
 
@@ -593,6 +593,8 @@ void Qu3DEstimator::initGuessDiag() {
 
 void Qu3DEstimator::conjugateGradientDescent() {
     double dt = mytime::timer.getTime();
+    int niter = 1;
+
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
 
@@ -615,7 +617,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
     if (hasConverged(init_residual_norm, tolerance))
         goto endconjugateGradientDescent;
 
-    for (int niter = 0; niter < max_conj_grad_steps; ++niter) {
+    for (; niter <= max_conj_grad_steps; ++niter) {
         updateY(old_residual_norm2);
 
         double new_residual_norm2 = calculateResidualNorm2(),
@@ -634,6 +636,10 @@ void Qu3DEstimator::conjugateGradientDescent() {
     }
 
 endconjugateGradientDescent:
+    if (verbose)
+        LOG::LOGGER.STD(
+            "  conjugateGradientDescent finished in %d iterations.\n", niter);
+
     #pragma omp parallel for
     for (auto &qso : quasars)
         qso->multIsigInVector();
@@ -651,7 +657,7 @@ void Qu3DEstimator::multiplyDerivVectors(double *out) {
         mesh.ngrid_kz);
 
     std::fill_n(out, NUMBER_OF_K_BANDS_2, 0);
-    #pragma omp parallel for reduction(+:out[:NUMBER_OF_K_BANDS_2])
+    #pragma omp parallel for reduction(+:out[0:NUMBER_OF_K_BANDS_2])
     for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         int iperp = mesh.getKperpFromIperp(jxy) / DK_BIN;
 
@@ -1028,10 +1034,9 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     #pragma omp parallel for
     for (auto &qso : quasars) {
         qso->fillRngNoise(rngs[myomp::getThreadNum()]);
-        for (int i = 0; i < qso->N; ++i) {
-            double delta = mesh_g.interpolate(qso->r.get() + 3 * i);
-            qso->qFile->delta()[i] += qso->isig[i] * delta;
-        }
+        for (int i = 0; i < qso->N; ++i)
+            qso->truth[i] += qso->isig[i] * mesh_g.interpolate(
+                qso->r.get() + 3 * i);
     }
 
     t2 = mytime::timer.getTime();
