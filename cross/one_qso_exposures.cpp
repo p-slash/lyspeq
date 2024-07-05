@@ -65,7 +65,7 @@ namespace xeutils {
                 fisher_index_start -= bins::NUMBER_OF_K_BANDS;
             }
             // If we need to distribute high end to righter bin
-            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < zmax) && (ZBIN_UPP != (bins::NUMBER_OF_Z_BINS-1)))
+            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < zmax) && (ZBIN_UPP < (bins::NUMBER_OF_Z_BINS-1)))
                 ++N_Q_MATRICES;
         }
 
