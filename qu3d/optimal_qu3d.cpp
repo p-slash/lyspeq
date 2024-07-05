@@ -290,9 +290,9 @@ void Qu3DEstimator::_openResultsFile() {
     result_file->write(kz_grid, NUMBER_OF_K_BANDS_2, "KZ");
     result_file->write(pfid_grid, NUMBER_OF_K_BANDS_2, "PFID");
     result_file->flush();
-    std::fill_n(kperp_grid, 0, NUMBER_OF_K_BANDS_2);
-    std::fill_n(kz_grid, 0, NUMBER_OF_K_BANDS_2);
-    std::fill_n(pfid_grid, 0, NUMBER_OF_K_BANDS_2);
+    std::fill_n(kperp_grid, NUMBER_OF_K_BANDS_2, 0);
+    std::fill_n(kz_grid, NUMBER_OF_K_BANDS_2, 0);
+    std::fill_n(pfid_grid, NUMBER_OF_K_BANDS_2, 0);
 }
 
 
