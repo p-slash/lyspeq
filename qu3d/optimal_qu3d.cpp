@@ -119,7 +119,7 @@ void _initRngs(std::seed_seq *seq) {
     rngs.resize(N);
     std::vector<size_t> seeds(N);
     seq->generate(seeds.begin(), seeds.end());
-    for (size_t i = 0; i < N; ++i)
+    for (int i = 0; i < N; ++i)
         rngs[i].seed(seeds[i]);
 }
 
@@ -658,7 +658,7 @@ void Qu3DEstimator::multiplyDerivVectors(double *out) {
 
     std::fill_n(out, NUMBER_OF_K_BANDS_2, 0);
     #pragma omp parallel for reduction(+:out[0:NUMBER_OF_K_BANDS_2])
-    for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         int iperp = mesh.getKperpFromIperp(jxy) / DK_BIN;
 
         if (iperp >= bins::NUMBER_OF_K_BANDS)
@@ -781,14 +781,14 @@ void Qu3DEstimator::drawRndDeriv(int i) {
     mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
 
     #pragma omp parallel for
-    for (int jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
 
         std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
 
         double kperp = mesh.getKperpFromIperp(jxy);
         if(isInsideKbin(iperp, kperp))
-            for (size_t zz = mesh_z_1; zz != mesh_z_2; ++zz)
+            for (int zz = mesh_z_1; zz != mesh_z_2; ++zz)
                 mesh.field_k[jj + zz] = mesh.invsqrtcellvol * mesh_rnd.field_k[jj + zz];
     }
 
@@ -975,7 +975,6 @@ void Qu3DEstimator::write() {
         "%14s %14s %14s %14s %14s %14s %14s %14s %14s\n", 
         "kperp", "kz", "P3D", "e_P3D", "Pfid", "d", "b", "Fd", "Fb");
 
-    int kn = 0, zm = 0;
     for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
         for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
             size_t i = iz + bins::NUMBER_OF_K_BANDS * iperp;
