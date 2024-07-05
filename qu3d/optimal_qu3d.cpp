@@ -401,7 +401,7 @@ void Qu3DEstimator::reverseInterpolate() {
 
         // Assume 2 threads will not encounter race conditions
         #pragma omp parallel for num_threads(2)
-        for (auto &qso : quasars) {
+        for (const auto &qso : quasars) {
             for (int i = 0; i < qso->coarse_N; ++i)
                 mesh.reverseInterpolateCIC(
                     qso->coarse_r.get() + 3 * i, qso->coarse_in[i]);
@@ -409,7 +409,7 @@ void Qu3DEstimator::reverseInterpolate() {
     #else
         // Assume 2 threads will not encounter race conditions
         #pragma omp parallel for num_threads(2)
-        for (auto &qso : quasars) {
+        for (const auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
                 mesh.reverseInterpolateCIC(
                     qso->r.get() + 3 * i, qso->in[i]);
@@ -433,7 +433,7 @@ void Qu3DEstimator::reverseInterpolateIsig() {
 
         // Assume 2 threads will not encounter race conditions
         #pragma omp parallel for num_threads(2)
-        for (auto &qso : quasars) {
+        for (const auto &qso : quasars) {
             for (int i = 0; i < qso->coarse_N; ++i)
                 mesh.reverseInterpolateCIC(
                     qso->coarse_r.get() + 3 * i, qso->coarse_in[i]);
@@ -441,7 +441,7 @@ void Qu3DEstimator::reverseInterpolateIsig() {
     #else
         // Assume 2 threads will not encounter race conditions
         #pragma omp parallel for num_threads(2)
-        for (auto &qso : quasars) {
+        for (const auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
                 mesh.reverseInterpolateCIC(
                     qso->r.get() + 3 * i, qso->in[i] * qso->isig[i]);
