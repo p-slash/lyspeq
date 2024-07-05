@@ -17,7 +17,9 @@
 // The median of DEC distribution in radians
 constexpr double med_dec = 0.14502735752295168;
 // Line of sight coarsing for mesh
-constexpr int M_LOS = 5;
+#ifndef M_LOS
+#define M_LOS 5
+#endif
 
 namespace specifics {
     static int DOWNSAMPLE_FACTOR;
@@ -192,9 +194,12 @@ public:
     }
 
     void findGridPoints(const RealField3D &mesh) {
-        for (int i = 0; i < N; ++i)
+        min_x_idx = round(r[0] / mesh.dx[0]);
+        for (int i = 0; i < N; ++i) {
+            min_x_idx = std::min(
+                min_x_idx, size_t(round(r[3 * i] / mesh.dx[0])));
             grid_indices.insert(mesh.getNgpIndex(r.get() + 3 * i));
-        min_x_idx = *std::min_element(grid_indices.begin(), grid_indices.end());
+        }
     }
 
     std::set<size_t> findNeighborPixels(
