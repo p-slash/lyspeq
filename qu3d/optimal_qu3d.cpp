@@ -429,17 +429,6 @@ void Qu3DEstimator::reverseInterpolateIsig() {
     dt = mytime::timer.getTime() - dt;
     ++timings["rInterp"].first;
     timings["rInterp"].second += dt;
-    // Not faster
-    // #pragma omp parallel for schedule(dynamic, 8) num_threads(8)
-    // for (const auto &[idx, qsos] : idx_quasars_pairs) {
-    //     double coord[3];
-    //     for (const auto &qso : qsos) {
-    //         for (int i = 0; i < qso->N; ++i) {
-    //             qso->getCartesianCoords(i, coord);
-    //             mesh.reverseInterpolateNGP(coord, idx, qso->in[i]);
-    //         }
-    //     }
-    // }
 }
 
 
