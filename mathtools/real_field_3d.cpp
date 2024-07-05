@@ -12,7 +12,7 @@ void RealField3D::initRngs(std::seed_seq *seq) {
     rngs.resize(N);
     std::vector<size_t> seeds(N);
     seq->generate(seeds.begin(), seeds.end());
-    for (size_t i = 0; i < N; ++i)
+    for (int i = 0; i < N; ++i)
         rngs[i].seed(seeds[i]);
 }
 
@@ -99,14 +99,14 @@ void RealField3D::fftK2X() {
     fftw_execute(p_k2x);
 
     #pragma omp parallel for
-    for (int ij = 0; ij < ngrid_xy; ++ij)
+    for (size_t ij = 0; ij < ngrid_xy; ++ij)
         cblas_dscal(ngrid[2], invtotalvol, field_x + ngrid_z * ij, 1);
 }
 
 
 void RealField3D::fillRndNormal() {
     #pragma omp parallel for
-    for (int ij = 0; ij < ngrid_xy; ++ij)
+    for (size_t ij = 0; ij < ngrid_xy; ++ij)
         rngs[myomp::getThreadNum()].fillVectorNormal(
             field_x + ngrid_z * ij, ngrid[2]);
 }
@@ -114,7 +114,7 @@ void RealField3D::fillRndNormal() {
 
 void RealField3D::fillRndOnes() {
     #pragma omp parallel for
-    for (int ij = 0; ij < ngrid_xy; ++ij)
+    for (size_t ij = 0; ij < ngrid_xy; ++ij)
         rngs[myomp::getThreadNum()].fillVectorOnes(
             field_x + ngrid_z * ij, ngrid[2]);
 }
@@ -124,7 +124,7 @@ double RealField3D::dot(const RealField3D &other) {
     double result = 0;
 
     #pragma omp parallel for reduction(+:result)
-    for (int ij = 0; ij < ngrid_xy; ++ij)
+    for (size_t ij = 0; ij < ngrid_xy; ++ij)
         result += cblas_ddot(
             ngrid[2], field_x + ngrid_z * ij, 1,
             other.field_x + ngrid_z * ij, 1);
