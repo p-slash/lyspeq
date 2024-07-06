@@ -677,10 +677,12 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2) {
         int(bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] / mesh.k_fund[2]),
         mesh.ngrid_kz);
     static auto _lout = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    double *lout = _lout.get();
+    double *lout;
 
     if (o2 == nullptr)
         lout = o1;
+    else
+        lout = _lout.get();
 
     std::fill_n(lout, NUMBER_OF_K_BANDS_2, 0);
 
