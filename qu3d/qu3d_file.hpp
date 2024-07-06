@@ -64,6 +64,9 @@ namespace ioh {
         }
 
         void flush() {
+            if (fits_file == nullptr)
+                return;
+
             fits_flush_buffer(fits_file, 0, &status);
             checkFitsStatus(status);
         }
