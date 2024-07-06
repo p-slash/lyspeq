@@ -322,8 +322,7 @@ void Qu3DEstimator::_openResultsFile() {
     result_file = std::make_unique<ioh::Qu3dFile>(
         process::FNAME_BASE, mympi::this_pe);
 
-    if (mympi::this_pe == 0)
-        p3d_model->write(result_file.get());
+    p3d_model->write(result_file.get());
 
     double *kperp_grid = raw_power.get(),
            *kz_grid = filt_power.get(),
@@ -671,14 +670,21 @@ endconjugateGradientDescent:
 }
 
 
-void Qu3DEstimator::multiplyDerivVectors(double *out) {
+void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2) {
     double dt = mytime::timer.getTime();
+
     static int mesh_kz_max = std::min(
         int(bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] / mesh.k_fund[2]),
         mesh.ngrid_kz);
+    static auto _lout = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    double *lout = _lout.get();
 
-    std::fill_n(out, NUMBER_OF_K_BANDS_2, 0);
-    #pragma omp parallel for reduction(+:out[0:NUMBER_OF_K_BANDS_2])
+    if (o2 == nullptr)
+        lout = o1;
+
+    std::fill_n(lout, NUMBER_OF_K_BANDS_2, 0);
+
+    #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_K_BANDS_2])
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         int iperp = mesh.getKperpFromIperp(jxy) / DK_BIN;
 
@@ -686,16 +692,23 @@ void Qu3DEstimator::multiplyDerivVectors(double *out) {
             continue;
 
         size_t jj = mesh.ngrid_kz * jxy;
-        out[iperp * bins::NUMBER_OF_K_BANDS] += std::norm(mesh.field_k[jj]);
+        lout[iperp * bins::NUMBER_OF_K_BANDS] += std::norm(mesh.field_k[jj]);
 
         for (int k = 1; k < mesh_kz_max; ++k) {
             int iz = (k * mesh.k_fund[2]) / DK_BIN;
-            out[iz + iperp * bins::NUMBER_OF_K_BANDS] +=
+            lout[iz + iperp * bins::NUMBER_OF_K_BANDS] +=
                 2.0 * std::norm(mesh.field_k[k + jj]);
         }
     }
 
-    cblas_dscal(NUMBER_OF_K_BANDS_2, mesh.invtotalvol, out, 1);
+    cblas_dscal(NUMBER_OF_K_BANDS_2, mesh.invtotalvol, lout, 1);
+
+    if (o2 != nullptr) {
+        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
+            o1[i] += lout[i];
+            o2[i] += lout[i] * lout[i];
+        }
+    }
 
     dt = mytime::timer.getTime() - dt;
     ++timings["mDeriv"].first;
@@ -711,7 +724,7 @@ void Qu3DEstimator::estimatePower() {
     reverseInterpolate();
     mesh.rawFftX2K();
     LOG::LOGGER.STD("  Multiplying with derivative matrices.\n");
-    multiplyDerivVectors(raw_power.get());
+    multiplyDerivVectors(raw_power.get(), nullptr);
 
     result_file->write(raw_power.get(), NUMBER_OF_K_BANDS_2, "FPOWER");
     result_file->flush();
@@ -719,14 +732,53 @@ void Qu3DEstimator::estimatePower() {
 }
 
 
+bool Qu3DEstimator::_syncMonteCarlo(
+        int nmc, double *o1, double *o2, int ndata, const std::string &ext
+) {
+    bool converged = false;
+    std::fill_n(o1, ndata, 0);
+    std::fill_n(o2, ndata, 0);
+    mympi::reduceToOther(mc1.get(), o1, ndata);
+    mympi::reduceToOther(mc2.get(), o2, ndata);
+
+    if (mympi::this_pe == 0) {
+        nmc *= mympi::total_pes;
+        cblas_dscal(ndata, 1.0 / nmc, o1, 1);
+        cblas_dscal(ndata, 1.0 / nmc, o2, 1);
+        result_file->write(o1, ndata, ext + "-" + std::to_string(nmc), nmc);
+        result_file->write(o2, ndata, ext + "2-" + std::to_string(nmc), nmc);
+        result_file->flush();
+
+        double max_std = 0, mean_std = 0, std_k;
+        for (int i = 0; i < ndata; ++i) {
+            std_k = sqrt(
+                (1 - o1[i] * o1[i] / o2[i]) / (nmc - 1)
+            );
+            max_std = std::max(std_k, max_std);
+            mean_std += std_k / ndata;
+        }
+
+        LOG::LOGGER.STD(
+            "  %d: Estimated relative mean/max std is %.2e/%.2e. "
+            "MC converges when < %.2e\n", nmc, mean_std, max_std, tolerance);
+
+        converged = max_std < tolerance;
+    }
+
+    mympi::bcast(&converged);
+    return converged;
+}
+
+
 void Qu3DEstimator::estimateBiasMc() {
     LOG::LOGGER.STD("Estimating bias.\n");
     verbose = false;
-    auto total_b = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    auto total_b2 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    mc1 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    mc2 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
 
     Progress prog_tracker(max_monte_carlos, 10);
     int nmc = 1;
+    bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* generate random Gaussian vector into y */
         #pragma omp parallel for
@@ -738,54 +790,19 @@ void Qu3DEstimator::estimateBiasMc() {
 
         reverseInterpolate();
         mesh.rawFftX2K();
-        multiplyDerivVectors(total_b.get());
-
-        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
-            raw_bias[i] += total_b[i];
-            total_b2[i] += total_b[i] * total_b[i];
-        }
+        multiplyDerivVectors(mc1.get(), mc2.get());
 
         ++prog_tracker;
 
-        if (nmc % 5 != 0)
+        if ((nmc % 5 != 0) && (nmc != max_monte_carlos))
             continue;
 
-        result_file->write(
-            raw_bias.get(), NUMBER_OF_K_BANDS_2,
-            "FBIAS-" + std::to_string(nmc), nmc);
-        result_file->write(
-            total_b2.get(), NUMBER_OF_K_BANDS_2,
-            "FBIAS2-" + std::to_string(nmc), nmc);
-        result_file->flush();
+        converged = _syncMonteCarlo(
+            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_K_BANDS_2, "FBIAS");
 
-        if (nmc < 20)
-            continue;
-
-        double max_std = 0, mean_std = 0, std_k, b2_k;
-        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
-            b2_k = raw_bias[i] * raw_bias[i];
-            std_k = sqrt(
-                (1 - b2_k / total_b2[i] / nmc) / (nmc - 1)
-            );
-            max_std = std::max(std_k, max_std);
-            mean_std += std_k / NUMBER_OF_K_BANDS_2;
-        }
-
-        LOG::LOGGER.STD(
-            "  %d: Estimated relative mean/max std is %.2e/%.2e. "
-            "MC converges when < %.2e\n", nmc, mean_std, max_std, tolerance);
-
-        if (max_std < tolerance)
+        if (converged)
             break;
     }
-
-    result_file->write(
-        raw_bias.get(), NUMBER_OF_K_BANDS_2, "FBIAS-FINAL", nmc);
-    result_file->write(
-        total_b2.get(), NUMBER_OF_K_BANDS_2, "FBIAS2-FINAL", nmc);
-    result_file->flush();
-
-    cblas_dscal(NUMBER_OF_K_BANDS_2, 1.0 / nmc, raw_bias.get(), 1);
 
     logTimings();
 }
@@ -842,8 +859,8 @@ void Qu3DEstimator::estimateFisher() {
     */
     LOG::LOGGER.STD("Estimating Fisher.\n");
     verbose = false;
-    auto total_f = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    auto total_f2 = std::make_unique<double[]>(bins::FISHER_SIZE);
+    mc1 = std::make_unique<double[]>(bins::FISHER_SIZE);
+    mc2 = std::make_unique<double[]>(bins::FISHER_SIZE);
 
     /* Create another mesh to store random numbers. This way, randoms are
        generated once, and FFTd once. This grid can perform in-place FFTs,
@@ -857,6 +874,7 @@ void Qu3DEstimator::estimateFisher() {
 
     Progress prog_tracker(max_monte_carlos, 5);
     int nmc = 1;
+    bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
         mesh_rnd.fillRndNormal();
         mesh_rnd.fftX2K();
@@ -870,72 +888,52 @@ void Qu3DEstimator::estimateFisher() {
             /* save C^-1 . v (in) into mesh */
             reverseInterpolate();
             mesh.rawFftX2K();
-            multiplyDerivVectors(total_f.get());
-
-            for (int j = 0; j < NUMBER_OF_K_BANDS_2; ++j) {
-                fisher[j + i * NUMBER_OF_K_BANDS_2] += total_f[j];
-                total_f2[j + i * NUMBER_OF_K_BANDS_2] += total_f[j] * total_f[j];
-            }
+            multiplyDerivVectors(
+                mc1.get() + i * NUMBER_OF_K_BANDS_2,
+                mc2.get() + i * NUMBER_OF_K_BANDS_2);
         }
 
         ++prog_tracker;
 
-        if (nmc % 5 != 0)
+        if ((nmc % 5 != 0) && (nmc != max_monte_carlos))
             continue;
 
-        result_file->write(
-            fisher.get(), bins::FISHER_SIZE,
-            "FISHER-" + std::to_string(nmc), nmc);
-        result_file->write(
-            total_f2.get(), bins::FISHER_SIZE,
-            "FISHER2-" + std::to_string(nmc), nmc);
-        result_file->flush();
+        converged = _syncMonteCarlo(
+            nmc, fisher.get(), covariance.get(), bins::FISHER_SIZE, "2FISHER");
 
-        if (nmc < 20)
-            continue;
-
-        double max_std = 0, mean_std = 0, std_k, ff;
-        for (int i = 0; i < bins::FISHER_SIZE; ++i) {
-            ff = fisher[i] * fisher[i];
-            std_k = sqrt(fabs(1 - ff / total_f2[i] / nmc) / (nmc - 1));
-            max_std = std::max(std_k, max_std);
-            mean_std += std_k / bins::FISHER_SIZE;
-        }
-
-        LOG::LOGGER.STD(
-            "    %d: Estimated relative mean/max std is %.2e/%.2e. "
-            "MC converges when < %.2e\n", nmc, mean_std, max_std, tolerance);
-
-        if (max_std < tolerance)
+        if (converged)
             break;
     }
 
     cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
 
-    // Make it symmetric
-    mxhelp::transpose_copy(
-        fisher.get(), covariance.get(),
-        NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
-    cblas_daxpy(bins::FISHER_SIZE, 1.0, covariance.get(), 1, fisher.get(), 1);
-    cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
+    // // Make it symmetric
+    // mxhelp::transpose_copy(
+    //     fisher.get(), covariance.get(),
+    //     NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
+    // cblas_daxpy(bins::FISHER_SIZE, 1.0, covariance.get(), 1, fisher.get(), 1);
+    // cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
 
-    mxhelp::transpose_copy(
-        total_f2.get(), covariance.get(),
-        NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
-    cblas_daxpy(bins::FISHER_SIZE, 1.0, covariance.get(), 1, total_f2.get(), 1);
-    cblas_dscal(bins::FISHER_SIZE, 0.5, total_f2.get(), 1);
+    // mxhelp::transpose_copy(
+    //     total_f2.get(), covariance.get(),
+    //     NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
+    // cblas_daxpy(bins::FISHER_SIZE, 1.0, covariance.get(), 1, total_f2.get(), 1);
+    // cblas_dscal(bins::FISHER_SIZE, 0.5, total_f2.get(), 1);
 
-    // mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
-    result_file->write(fisher.get(), bins::FISHER_SIZE, "FISHER-FINAL", nmc);
-    result_file->write(total_f2.get(), bins::FISHER_SIZE, "FISHER2-FINAL", nmc);
-    result_file->flush();
+    // // mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
+    // result_file->write(fisher.get(), bins::FISHER_SIZE, "FISHER-FINAL", nmc);
+    // result_file->write(total_f2.get(), bins::FISHER_SIZE, "FISHER2-FINAL", nmc);
+    // result_file->flush();
 
-    cblas_dscal(bins::FISHER_SIZE, 1.0 / nmc, fisher.get(), 1);
+    // cblas_dscal(bins::FISHER_SIZE, 1.0 / nmc, fisher.get(), 1);
     logTimings();
 }
 
 
 void Qu3DEstimator::filter() {
+    if (mympi::this_pe != 0)
+        return;
+
     std::copy_n(fisher.get(), bins::FISHER_SIZE, covariance.get());
     mxhelp::LAPACKE_InvertMatrixLU(covariance.get(), NUMBER_OF_K_BANDS_2);
     cblas_dgemv(
@@ -1027,6 +1025,7 @@ void Qu3DEstimator::write() {
 
 
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
+    /* Generated deltas will be different between MPI tasks */
     LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
     double t1 = mytime::timer.getTime(), t2 = 0;
     RealField3D mesh_g;

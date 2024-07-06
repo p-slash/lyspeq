@@ -31,6 +31,7 @@ class Qu3DEstimator
     RealField3D mesh;
 
     std::unique_ptr<double[]>
+        mc1, mc2,
         raw_power, filt_power, raw_bias, filt_bias,
         fisher, covariance;
     // targetid_quasar_map quasars;
@@ -43,6 +44,9 @@ class Qu3DEstimator
     void _setupMesh(double radius);
     void _constructMap();
     void _findNeighbors();
+
+    bool _syncMonteCarlo(int nmc, double *o1, double *o2,
+                         int ndata, const std::string &ext);
 public:
     /* This function reads following keys from config file:
     FileNameList: string
@@ -66,7 +70,7 @@ public:
        (I + N^-1/2 S N^-1/2) z = out */
     void multiplyCovVector();
 
-    void multiplyDerivVectors(double *out);
+    void multiplyDerivVectors(double *o1, double *o2);
 
     /* Return residual^T . residual */
     double calculateResidualNorm2();
