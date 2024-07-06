@@ -40,6 +40,7 @@ class Qu3DEstimator
     void _openResultsFile();
 
     void _calculateBoxDimensions(double L[3], double &z0);
+    void _setupMesh(double radius);
     void _constructMap();
     void _findNeighbors();
 public:

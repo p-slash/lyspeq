@@ -205,8 +205,11 @@ void Qu3DEstimator::_readQSOFiles(
 
 
 void Qu3DEstimator::_calculateBoxDimensions(double L[3], double &z0) {
-    double lxmin=0, lxmax=0, lymin=0, lymax=0, lzmin=1e15, lzmax=0;
-    #pragma omp parallel for reduction(min:lxmin, lymin, lzmin) reduction(max:lxmax, lymax, lzmax)
+    double lxmin = 0, lymin = 0, lzmin=1e15,
+           lxmax = 0, lymax = 0, lzmax = 0;
+
+    #pragma omp parallel for reduction(min:lxmin, lymin, lzmin) \
+                             reduction(max:lxmax, lymax, lzmax)
     for (auto &qso : quasars) {
         lxmin = std::min(lxmin, qso->r[0]);
         lzmin = std::min(lzmin, qso->r[2]);
@@ -221,6 +224,55 @@ void Qu3DEstimator::_calculateBoxDimensions(double L[3], double &z0) {
     L[1] = lymax - lymin;
     L[2] = lzmax - lzmin;
     z0 = lzmin;
+}
+
+
+void Qu3DEstimator::_setupMesh(double radius) {
+    double t1 = mytime::timer.getTime(), t2 = 0;
+
+    _calculateBoxDimensions(mesh.length, mesh.z0);
+
+    mesh.length[1] += 20.0 * radius;
+    mesh.length[2] += 20.0 * radius;
+    mesh.z0 -= 10.0 * radius;
+
+    mesh.ngrid[0] = config.getInteger("NGRID_X");
+    mesh.ngrid[1] = config.getInteger("NGRID_Y");
+    mesh.ngrid[2] = config.getInteger("NGRID_Z");
+
+    double dzl = 1.2 * radius - (mesh.length[2] / mesh.ngrid[2]);
+    if (dzl > 0) {
+        double extra_lz = dzl * mesh.ngrid[2];
+        mesh.length[2] += extra_lz;
+        mesh.z0 -= extra_lz / 2.0;
+    }
+
+    LOG::LOGGER.STD(
+        "Box dimensions are as follows: "
+        "LX = %.0f Mpc, LY = %.0f Mpc, LZ = %.0f Mpc, Z0: %.0f Mpc.\n",
+        mesh.length[0], mesh.length[1], mesh.length[2], mesh.z0);
+
+    mesh.construct(INPLACE_FFT);
+    LOG::LOGGER.STD(
+        "Mesh cell dimensions are as follows: "
+        "dx = %.3f Mpc, dy = %.3f Mpc, dz = %.3f Mpc.\n",
+        mesh.dx[0], mesh.dx[1], mesh.dx[2]);
+
+    // Shift coordinates of quasars
+    LOG::LOGGER.STD("Shifting quasar locations to center the mesh.\n");
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i) {
+            qso->r[1 + 3 * i] += mesh.length[1] / 2;
+            qso->r[2 + 3 * i] -= mesh.z0;
+        }
+        #ifdef COARSE_INTERP
+            qso->setCoarseComovingDistances();
+        #endif
+    }
+
+    t2 = mytime::timer.getTime();
+    LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
 }
 
 
@@ -328,36 +380,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     logPmodel();
 
     _readQSOFiles(flist, findir);
-    _calculateBoxDimensions(mesh.length, mesh.z0);
-
-    mesh.length[1] += 20.0 * radius;
-    mesh.length[2] += 20.0 * radius;
-    mesh.z0 -= 10.0 * radius;
-    LOG::LOGGER.STD(
-        "Box dimensions are as follows: X: %.0f Y: %.0f Z: %.0f Z0: %.0f\n",
-        mesh.length[0], mesh.length[1], mesh.length[2], mesh.z0);
-    mesh.ngrid[0] = config.getInteger("NGRID_X");
-    mesh.ngrid[1] = config.getInteger("NGRID_Y");
-    mesh.ngrid[2] = config.getInteger("NGRID_Z");
-
-    double t1 = mytime::timer.getTime(), t2 = 0;
-    mesh.construct(INPLACE_FFT);
-
-    // Shift coordinates of quasars
-    LOG::LOGGER.STD("Shifting quasar locations to center the mesh.\n");
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i) {
-            qso->r[1 + 3 * i] += mesh.length[1] / 2;
-            qso->r[2 + 3 * i] -= mesh.z0;
-        }
-        #ifdef COARSE_INTERP
-            qso->setCoarseComovingDistances();
-        #endif
-    }
-
-    t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
+    _setupMesh(radius);
 
     if (config.getInteger("TestGaussianField") > 0)
         replaceDeltasWithGaussianField();
