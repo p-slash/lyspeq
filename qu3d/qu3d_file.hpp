@@ -24,18 +24,27 @@ namespace ioh {
     public:
         Qu3dFile(const std::string &base, int thispe) {
             status = 0; fits_file = nullptr;
-            std::string out_fname =
-                "!" + base + "-qu3d-" + std::to_string(thispe) + ".fits";
+
+            if (thispe != 0)
+                return;
+
+            std::string out_fname = "!" + base + "-qu3d.fits";
 
             fits_create_file(&fits_file, out_fname.c_str(), &status);
             checkFitsStatus(status);
         }
-        ~Qu3dFile() { fits_close_file(fits_file, &status); }
+        ~Qu3dFile() {
+            if (fits_file != nullptr)
+                fits_close_file(fits_file, &status);
+        }
 
         void write(
                 const double *data, int ndata, const std::string ext,
                 int num_mc=-1
         ) {
+            if (fits_file == nullptr)
+                return;
+
             int bitpix = DOUBLE_IMG;
             long naxis = 1, naxes[1] = {ndata};
             fits_create_img(fits_file, bitpix, naxis, naxes, &status);
