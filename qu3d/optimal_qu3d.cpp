@@ -566,8 +566,6 @@ void Qu3DEstimator::updateY(double residual_norm2) {
 void Qu3DEstimator::calculateNewDirection(double beta)  {
     #pragma omp parallel for
     for (auto &qso : quasars) {
-        // cblas_dscal(qso->N, beta, qso->search.get(), 1);
-        // cblas_daxpy(qso->N, 1, qso->residual.get(), 1, qso->search.get(), 1);
         #pragma omp simd
         for (int i = 0; i < qso->N; ++i)
             qso->search[i] = beta * qso->search[i] + qso->residual[i];
@@ -774,8 +772,8 @@ void Qu3DEstimator::drawRndDeriv(int i) {
     int iperp = i / bins::NUMBER_OF_K_BANDS,
         iz = i % bins::NUMBER_OF_K_BANDS;
 
-    int mesh_z_1 = bins::KBAND_EDGES[iz] / mesh.k_fund[2],
-        mesh_z_2 = bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2];
+    int mesh_z_1 = ceil(bins::KBAND_EDGES[iz] / mesh.k_fund[2]),
+        mesh_z_2 = ceil(bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2]);
 
     mesh_z_1 = std::min(mesh.ngrid_kz, std::max(0, mesh_z_1));
     mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
