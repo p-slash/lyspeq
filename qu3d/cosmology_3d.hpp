@@ -327,11 +327,13 @@ namespace fidcosmo {
 
         void _getCorrFunc2dS() {
             // constexpr int nk = 502, nlnk2 = nlnk * nlnk;
-            constexpr double k1 = 0, k2 = 5.0, dk = 2 * MY_PI / (20.0 * rscale_long);
-            constexpr int nk = k2 / dk, nk2 = nk * nk;
-            Ps2Cf_2D hankel();
+            const double k2 = 5.0, dk = 2 * MY_PI / (20.0 * rscale_long);
+            const int nk = k2 / dk, nk2 = nk * nk;
+            Ps2Cf_2D hankel{};
 
-            double karr[nk], psarr[nk2];
+            auto karr = std::make_unique<double[]>(nk),
+                 psarr = std::make_unique<double[]>(nk2);
+
             for (int i = 0; i < nk; ++i)
                 karr[i] = i * dk;
 
@@ -339,7 +341,7 @@ namespace fidcosmo {
                 for (int iz = 0; iz < nk; ++iz)
                     psarr[iz + nk * iperp] = evaluateSS(karr[iperp], karr[iz]);
 
-            interp2d_cfS = hankel.transform(psarr, nk, nk, dk);
+            interp2d_cfS = hankel.transform(psarr.get(), nk, nk, dk);
         }
     public:
         /* This function reads following keys from config file:
@@ -457,8 +459,8 @@ namespace fidcosmo {
             out->write(pmarr, nlnk, "PMODEL_1D");
             out->flush();
 
-            constexpr int nr = 500, nr2 = nr * nr;
-            constexpr double r2 = 10 * rscale_long, dr = r2 / nr;
+            const int nr = 500, nr2 = nr * nr;
+            const double r2 = 10 * rscale_long, dr = r2 / nr;
             double rarr[nr], cfsarr[nr2];
 
             out->write(rarr, nr, "RMODEL");
