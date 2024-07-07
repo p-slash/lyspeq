@@ -7,21 +7,15 @@
 
 #include "core/global_numbers.hpp"
 #include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/mathutils.hpp"
 #include "io/config_file.hpp"
 #include "io/io_helper_functions.hpp"
 
+#include "qu3d/ps2cf_2d.hpp"
 #include "qu3d/qu3d_file.hpp"
 
 
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-
-inline double trapz(const double *y, int N, double dx=1.0) {
-    double result = y[N - 1] / 2;
-    for (int i = N - 2; i > 0; --i)
-        result += y[i];
-    result += y[0] / 2;
-    return result * dx;
-}
 
 
 namespace fidcosmo {
@@ -198,7 +192,8 @@ namespace fidcosmo {
         double _varlss;
         double b_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long;
         std::unique_ptr<LinearPowerInterpolator> interp_p;
-        std::unique_ptr<DiscreteInterpolation2D> interp2d_pL, interp2d_pS;
+        std::unique_ptr<DiscreteInterpolation2D>
+            interp2d_pL, interp2d_pS, interp2d_cfS;
         std::unique_ptr<DiscreteInterpolation1D>
             interp_kp_pL, interp_kz_pL, interp_kp_pS, interp_kz_pS,
             interp_p1d;
@@ -329,6 +324,23 @@ namespace fidcosmo {
             interp_p1d = std::make_unique<DiscreteInterpolation1D>(
                 lnk1, dlnk2, nlnk2, &p1d[0]);
         }
+
+        void _getCorrFunc2dS() {
+            // constexpr int nk = 502, nlnk2 = nlnk * nlnk;
+            constexpr double k1 = 0, k2 = 5.0, dk = 2 * MY_PI / (20.0 * rscale_long);
+            constexpr int nk = k2 / dk, nk2 = nk * nk;
+            Ps2Cf_2D hankel();
+
+            double karr[nk], psarr[nk2];
+            for (int i = 0; i < nk; ++i)
+                karr[i] = i * dk;
+
+            for (int iperp = 0; iperp < nk; ++iperp)
+                for (int iz = 0; iz < nk; ++iz)
+                    psarr[iz + nk * iperp] = evaluateSS(karr[iperp], karr[iz]);
+
+            interp2d_cfS = hankel.transform(psarr, nk, nk, dk);
+        }
     public:
         /* This function reads following keys from config file:
         b_F: double
@@ -354,6 +366,7 @@ namespace fidcosmo {
             _construcP1D();
             _calcVarLss();
             _cacheInterp2D();
+            _getCorrFunc2dS();
         }
 
         double evalExplicit(double k, double kz) {
@@ -406,6 +419,10 @@ namespace fidcosmo {
             return exp(interp_p1d->evaluate(log(kz)));
         }
 
+        double evalCorrFunc2dS(double rperp, double rz) {
+            return interp2d_cfS->evaluate(rz, rperp);
+        }
+
         double getVarLss() const { return _varlss; }
 
         void write(ioh::Qu3dFile *out) {
@@ -438,6 +455,22 @@ namespace fidcosmo {
                 pmarr[iz] = evalP1d(karr[iz]);
 
             out->write(pmarr, nlnk, "PMODEL_1D");
+            out->flush();
+
+            constexpr int nr = 500, nr2 = nr * nr;
+            constexpr double r2 = 10 * rscale_long, dr = r2 / nr;
+            double rarr[nr], cfsarr[nr2];
+
+            out->write(rarr, nr, "RMODEL");
+
+            for (int i = 0; i < nr; ++i)
+                rarr[i] = i * dr;
+
+            for (int iperp = 0; iperp < nr; ++iperp)
+                for (int iz = 0; iz < nr; ++iz)
+                    cfsarr[iz + nr * iperp] = evalCorrFunc2dS(rarr[iperp], rarr[iz]);
+
+            out->write(cfsarr, nr2, "CFMODEL_S_2D");
             out->flush();
         }
     };
