@@ -728,6 +728,20 @@ int test_Resolution_osamp()
             printMatrices(truth_row, this_row, 1, nelemperrow);
             r += 1;
         }
+        std::fill_n(this_row, nelemperrow, row);
+    }
+
+    int c1 = 30, n1 = 200;
+    mxhelp::Resolution Rmat1(&rmat, c1, c1 + n1);
+    for (int row = 0; row < n1; ++row) {
+        double *this_row = Rmat1.matrix() + row * nelemperrow;
+        std::vector trow(nelemperrow, c1 + row * 1.0);
+        if (!allClose(trow.data(), this_row, nelemperrow))
+        {
+            fprintf(stderr, "ERROR Resolution::oversample.\n");
+            printMatrices(trow.data(), this_row, 1, nelemperrow);
+            r += 1;
+        }
     }
 
     return r;
