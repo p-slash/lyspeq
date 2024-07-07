@@ -132,11 +132,8 @@ void QSOFile::_cutMaskedBoundary()
     while ((ni2 > 0) && (noise()[ni2-1] > SIGMA_CUT))
         --ni2;
 
-    if ((ni1 == 0) && (ni2 == arr_size)) // no change
-        return;
-
     shift += ni1;
-    arr_size = ni2-ni1;
+    arr_size = ni2 - ni1;
 
     if (arr_size <= 0)
         throw std::runtime_error(
@@ -157,12 +154,9 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
     if ((wi1 == arr_size) || (wi2 == 0)) { // empty
         arr_size = newsize;
-        return;
-    }
-
-    if ((wi1 == 0) && (wi2 == arr_size)) { // no change
-        arr_size = newsize;
-        return;
+        throw std::runtime_error(
+            "Empty spectrum when redshift boundary is applied!"
+        );
     }
 
     arr_size = newsize;
@@ -170,7 +164,8 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
     _cutMaskedBoundary();
 
-    if (Rmat) {
+    bool nochange = (wi1 == 0) && (wi2 == arr_size);
+    if (!nochange && Rmat) {
         process::updateMemory(Rmat->getMinMemUsage());
         Rmat->cutBoundary(shift, shift+arr_size);
         process::updateMemory(-Rmat->getMinMemUsage());
