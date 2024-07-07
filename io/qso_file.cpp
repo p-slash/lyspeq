@@ -150,21 +150,20 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
     wi1 = std::lower_bound(wave(), wave() + size(), l1) - wave();
     wi2 = std::upper_bound(wave(), wave() + size(), l2) - wave();
-    int newsize = wi2 - wi1;
+    bool nochange = (wi1 == 0) && (wi2 == arr_size),
+         isempty = (wi1 == arr_size) || (wi2 == 0);
 
-    if ((wi1 == arr_size) || (wi2 == 0)) { // empty
-        arr_size = newsize;
+    arr_size = wi2 - wi1;
+
+    if (isempty)
         throw std::runtime_error(
             "Empty spectrum when redshift boundary is applied!"
         );
-    }
 
-    arr_size = newsize;
     shift += wi1;
 
     _cutMaskedBoundary();
 
-    bool nochange = (wi1 == 0) && (wi2 == arr_size);
     if (!nochange && Rmat) {
         process::updateMemory(Rmat->getMinMemUsage());
         Rmat->cutBoundary(shift, shift+arr_size);
