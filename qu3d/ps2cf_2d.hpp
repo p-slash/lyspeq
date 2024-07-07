@@ -4,7 +4,7 @@
 #include <memory>
 
 #include <fftw3.h>
-#include <gsl_sf_bessel.h> // gsl_sf_bessel_J0
+#include <gsl/gsl_sf_bessel.h> // gsl_sf_bessel_J0
 
 #include "mathtools/discrete_interpolation.hpp"
 #include "mathtools/mathutils.hpp"
@@ -14,7 +14,7 @@
 class Ps2Cf_2D {
 public:
     // Ps2Cf_2D(int nJzeros=100) : numJzeros(nJzeros) { _setJzeros(); }
-    Ps2Cf_2D();
+    // Ps2Cf_2D();
 
     /* p2d is in kz-first format, that is first nkz elements are
        P(kperp=0, kz) and so on.
@@ -24,7 +24,7 @@ public:
     ) {
         constexpr double MY_PI = 3.14159265359, MY_2PI = 2.0 * MY_PI;
         const int nLz = 2 * nkz - 2;
-        const double rmax = MY_2PI / dk, dz = MY_PI / (nkz * dk);
+        const double dz = MY_PI / (nkz * dk);
 
         RealField rf(nLz, dz);
         if (rf.size_k() != nkz)
@@ -53,13 +53,13 @@ public:
 
         for (int irperp = 1; irperp < nkz; ++irperp) {
             for (int ikperp = 0; ikperp < nkperp; ++ikperp)
-                tmpJ[ikperp] = gsl_sf_bessel_J0(rgrid[iperp] * dk * ikperp);
+                tmpJ[ikperp] = gsl_sf_bessel_J0(rgrid[irperp] * dk * ikperp);
 
             for (int iz = 0; iz < nkz; ++iz) {
                 for (int ikperp = 0; ikperp < nkperp; ++ikperp)
                     row[ikperp] = tmpJ[ikperp] * interm[ikperp + iz * nkperp];
 
-                result[iz + iperp * nkz] = trapz(row.get(), nkperp, dk);
+                result[iz + irperp * nkz] = trapz(row.get(), nkperp, dk);
             }
         }
 
@@ -90,6 +90,6 @@ private:
         for (int i = 0; i < nkz; ++i)
             interm[ikperp + i * nkperp] = rf.field_x[i];
     }
-}
+};
 
 #endif
