@@ -327,8 +327,29 @@ namespace fidcosmo {
 
         void _getCorrFunc2dS() {
             // constexpr int nk = 502, nlnk2 = nlnk * nlnk;
-            const double k2 = 5.0, dk = 2 * MY_PI / (20.0 * rscale_long);
-            const int nk = k2 / dk, nk2 = nk * nk;
+            constexpr double k2 = 5.0;
+            double dk = 2 * MY_PI / (20.0 * rscale_long);
+
+            double nk_d = k2 / dk, log2nk = log2(nk_d);
+            int log2nk_ceil = ceil(log2nk), nk = 0;
+
+            // If the nearest power of two is >= 2^10
+            if (log2nk_ceil > 9) {
+                double rem = log2nk - int(log2nk);
+                constexpr double y = log(2.0) / log(4.0 / 3.0);
+                int m = floor((1.0 - rem) * y);
+                nk = 1 << (log2nk_ceil - 2 * m);
+                for (int i = 0; i < m; ++i)
+                    m *= 3;
+            }
+            else {
+                nk = 1 << log2nk_ceil;
+            }
+
+            int nk2 = nk * nk;
+
+
+            dk = k2 / (nk - 1);
             Ps2Cf_2D hankel{};
 
             auto karr = std::make_unique<double[]>(nk),
