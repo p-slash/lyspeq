@@ -11,8 +11,7 @@ namespace conv
     // void convertLambdaToVelocity(double &median_z, double *v_array, const double *lambda, int size);
     void convertLambdaToRedshift(double *lambda, int size);
 
-    extern void (*convertFluxToDeltaF)(const double *lambda, double *flux, double *noise, int size);
-    // void convertFluxToDeltafLee12(const double *lambda, double *flux, double *noise, int size);
+    extern void (*convertFluxToDeltaF)(const double *lambda, double *flux, double *ivar, int size);
 
     const config_map conversion_default_parameters ({
         {"UseChunksMeanFlux", "-1"}, {"InputIsDeltaFlux", "1"}, 

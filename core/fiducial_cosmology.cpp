@@ -83,30 +83,30 @@ namespace conv
         #undef booltostr
     }
 
-    void noConversion(const double *lambda, double *flux, double *noise, int size)
+    void noConversion(const double *lambda, double *flux, double *ivar, int size)
     {
         const double *l __attribute__((unused)) = lambda;
         double *f __attribute__((unused)) = flux;
-        double *n __attribute__((unused)) = noise;
+        double *n __attribute__((unused)) = ivar;
         int s __attribute__((unused)) = size;
     }
 
-    void chunkMeanConversion(const double *lambda, double *flux, double *noise, int size)
+    void chunkMeanConversion(const double *lambda, double *flux, double *ivar, int size)
     {
         const double *l __attribute__((unused)) = lambda;
         double chunk_mean = std::accumulate(flux, flux+size, 0.) / size;
 
         std::for_each(flux, flux+size, [chunk_mean](double &f) { f = f/chunk_mean-1; });
-        std::for_each(noise, noise+size, [chunk_mean](double &n) { n /= chunk_mean; });
+        std::for_each(ivar, ivar+size, [chunk_mean](double &n) { n *= chunk_mean * chunk_mean; });
     }
 
-    void fullConversion(const double *lambda, double *flux, double *noise, int size)
+    void fullConversion(const double *lambda, double *flux, double *ivar, int size)
     {
         for (int i = 0; i < size; ++i)
         {
             double tmp_meanf = interp_mean_flux->evaluate(lambda[i]/LYA_REST-1);
-            *(flux+i)   = *(flux+i)/tmp_meanf - 1;
-            *(noise+i) /= tmp_meanf;
+            flux[i] = flux[i] / tmp_meanf - 1;
+            ivar[i] /= tmp_meanf * tmp_meanf;
         }
     }
 
