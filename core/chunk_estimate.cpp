@@ -17,15 +17,15 @@
 
 
 #ifdef DEBUG
-void CHECK_ISNAN(double *mat, int size, std::string msg)
-{
-    if (std::any_of(mat, mat+size, [](double x) {return std::isnan(x);}))
-        throw std::runtime_error(std::string("NAN in ") + msg);
-    std::string line = std::string("No nans in ") + msg + '\n';
-    DEBUG_LOG(line.c_str());
-}
+    void CHECK_ISNAN(double *mat, int size, std::string msg)
+    {
+        if (std::any_of(mat, mat+size, [](double x) {return std::isnan(x);}))
+            throw std::runtime_error(std::string("NAN in ") + msg);
+        std::string line = std::string("No nans in ") + msg + '\n';
+        DEBUG_LOG(line.c_str());
+    }
 #else
-#define CHECK_ISNAN(X, Y, Z)
+    #define CHECK_ISNAN(X, Y, Z)
 #endif
 
 inline
@@ -567,14 +567,14 @@ void Chunk::_addMarginalizations() {
     marg_mat = temp_matrix[0];
 
     #ifdef DEBUG
-    DEBUG_LOG("Mags before:");
-    for (int i = 0; i < specifics::CONT_NVECS; ++i) {
-        double tt = mxhelp::my_cblas_dsymvdot(
-            marg_mat + i * size(), inverse_covariance_matrix,
-            glmemory::temp_vector.get(), size());
-        DEBUG_LOG("  %.3e", tt);
-    } DEBUG_LOG("\n");
-    std::copy_n(marg_mat, size() * specifics::CONT_NVECS, temp_matrix[1]);
+        DEBUG_LOG("Mags before:");
+        for (int i = 0; i < specifics::CONT_NVECS; ++i) {
+            double tt = mxhelp::my_cblas_dsymvdot(
+                marg_mat + i * size(), inverse_covariance_matrix,
+                glmemory::temp_vector.get(), size());
+            DEBUG_LOG("  %.3e", tt);
+        } DEBUG_LOG("\n");
+        std::copy_n(marg_mat, size() * specifics::CONT_NVECS, temp_matrix[1]);
     #endif
 
     // SVD to get orthogonal marg vectors
@@ -593,17 +593,17 @@ void Chunk::_addMarginalizations() {
             glmemory::temp_vector.get(), inverse_covariance_matrix);
 
     #ifdef DEBUG
-    DEBUG_LOG("SVD:");
-    for (int i = 0; i < specifics::CONT_NVECS; ++i)
-        DEBUG_LOG("  %.3e", svals[i]);
-    DEBUG_LOG("\nUsing first %d/%d vectors.\nMags after:",
-              nvecs_to_use, specifics::CONT_NVECS);
-    for (int i = 0; i < specifics::CONT_NVECS; ++i) {
-        double tt = mxhelp::my_cblas_dsymvdot(
-            temp_matrix[1] + i * size(), inverse_covariance_matrix,
-            glmemory::temp_vector.get(), size());
-        DEBUG_LOG("  %.3e", tt);
-    } DEBUG_LOG("\n");
+        DEBUG_LOG("SVD:");
+        for (int i = 0; i < specifics::CONT_NVECS; ++i)
+            DEBUG_LOG("  %.3e", svals[i]);
+        DEBUG_LOG("\nUsing first %d/%d vectors.\nMags after:",
+                  nvecs_to_use, specifics::CONT_NVECS);
+        for (int i = 0; i < specifics::CONT_NVECS; ++i) {
+            double tt = mxhelp::my_cblas_dsymvdot(
+                temp_matrix[1] + i * size(), inverse_covariance_matrix,
+                glmemory::temp_vector.get(), size());
+            DEBUG_LOG("  %.3e", tt);
+        } DEBUG_LOG("\n");
     #endif
 }
 
