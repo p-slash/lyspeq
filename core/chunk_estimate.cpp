@@ -522,8 +522,8 @@ void _getUnitVectorLogLam(const double *w, int size, int cmo, double *out)
         w, w+size, out,
         [cmo](const double &l) { return pow(log(l), cmo); }
     );
-    double norm = sqrt(cblas_dnrm2(size, out, 1));
-    cblas_dscal(size, 1./norm, out, 1);
+    double norm = 1.0 / cblas_dnrm2(size, out, 1);
+    cblas_dscal(size, norm, out, 1);
 }
 
 void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
@@ -532,8 +532,8 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
         w, w+size, out,
         [cmo](const double &l) { return pow(l, cmo); }
     );
-    double norm = sqrt(cblas_dnrm2(size, out, 1));
-    cblas_dscal(size, 1./norm, out, 1);
+    double norm = 1.0 / cblas_dnrm2(size, out, 1);
+    cblas_dscal(size, norm, out, 1);
 }
 
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
@@ -541,8 +541,8 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
     cblas_dsymv(
         CblasRowMajor, CblasUpper, size, 1.,
         cinv, size, v, 1, 0, y, 1);
-    double norm = cblas_ddot(size, v, 1, y, 1);
-    cblas_dger(CblasRowMajor, size, size, -1. / norm, y, 1, y, 1, cinv, size);
+    double norm = -1.0 / cblas_ddot(size, v, 1, y, 1);
+    cblas_dger(CblasRowMajor, size, size, norm, y, 1, y, 1, cinv, size);
 }
 
 void Chunk::_addMarginalizations() {
