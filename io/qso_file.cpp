@@ -1,6 +1,7 @@
 #include "io/qso_file.hpp"
 #include "mathtools/stats.hpp"
 
+#include <cassert>
 #include <cmath>
 #include <algorithm>
 #include <numeric> // std::adjacent_difference
@@ -146,12 +147,13 @@ void QSOFile::_cutMaskedBoundary()
 void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 {
     double l1 = LYA_REST * (1+z_lower_edge), l2 = LYA_REST * (1+z_upper_edge);
-    int wi1, wi2;
+    int wi1, wi2, org_arrsize = arr_size, org_shift = shift;
+
+    assert (org_shift == 0);
 
     wi1 = std::lower_bound(wave(), wave() + size(), l1) - wave();
     wi2 = std::upper_bound(wave(), wave() + size(), l2) - wave();
-    bool nochange = (wi1 == 0) && (wi2 == arr_size),
-         isempty = (wi1 == arr_size) || (wi2 == 0);
+    bool isempty = (wi1 == arr_size) || (wi2 == 0);
 
     arr_size = wi2 - wi1;
 
@@ -164,6 +166,7 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
     _cutMaskedBoundary();
 
+    bool nochange = (shift == org_shift) && (arr_size == org_arrsize);
     if (!nochange && Rmat) {
         process::updateMemory(Rmat->getMinMemUsage());
         Rmat->cutBoundary(shift, shift+arr_size);
