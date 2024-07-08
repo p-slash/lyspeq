@@ -10,7 +10,6 @@
 
 namespace qio
 {
-const double SIGMA_CUT = 1e6;
 static std::vector<double> temp_arr;
 
 double _getMediandv(const double *wave, int size) {
