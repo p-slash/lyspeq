@@ -73,14 +73,12 @@ public:
             }
         );
 
-        qFile->convertNoiseToIvar();
-
         if (specifics::DOWNSAMPLE_FACTOR > 1)
             qFile->downsample(specifics::DOWNSAMPLE_FACTOR);
 
         N = qFile->size();
         z1 = qFile->wave();
-        isig = qFile->noise();
+        isig = qFile->ivar();
 
         r = std::make_unique<double[]>(3 * N);
         y = std::make_unique<double[]>(N);

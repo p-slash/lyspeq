@@ -17,15 +17,15 @@
 
 
 #ifdef DEBUG
-void CHECK_ISNAN(double *mat, int size, std::string msg)
-{
-    if (std::any_of(mat, mat+size, [](double x) {return std::isnan(x);}))
-        throw std::runtime_error(std::string("NAN in ") + msg);
-    std::string line = std::string("No nans in ") + msg + '\n';
-    DEBUG_LOG(line.c_str());
-}
+    void CHECK_ISNAN(double *mat, int size, std::string msg)
+    {
+        if (std::any_of(mat, mat+size, [](double x) {return std::isnan(x);}))
+            throw std::runtime_error(std::string("NAN in ") + msg);
+        std::string line = std::string("No nans in ") + msg + '\n';
+        DEBUG_LOG(line.c_str());
+    }
 #else
-#define CHECK_ISNAN(X, Y, Z)
+    #define CHECK_ISNAN(X, Y, Z)
 #endif
 
 inline
@@ -208,11 +208,6 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
     KBIN_UPP = _getMaxKindex(MY_PI / qFile->dv_kms);
 
     _findRedshiftBin();
-
-    // Keep noise as error squared (variance)
-    std::for_each(
-        qFile->noise(), qFile->noise() + size(),
-        [](double &n) { n *= n; });
 
     // Divide wave by LYA_REST
     std::for_each(
@@ -479,51 +474,14 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     mytime::time_spent_on_q_copy += t - t_interp;
 }
 
-void Chunk::setCovarianceMatrix(const double *ps_estimate)
-{
-    DEBUG_LOG("Setting cov matrix\n");
-
-    // Set fiducial signal matrix
-    if (!specifics::TURN_OFF_SFID)
-        std::copy_n(glmemory::stored_sfid.get(), DATA_SIZE_2, covariance_matrix);
-    else
-        std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
-
-    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        cblas_daxpy(
-            DATA_SIZE_2, ps_estimate[fisher_index_start + i_kz], 
-            Q_ikz_matrix, 1, covariance_matrix, 1
-        );
-
-    // add noise matrix diagonally
-    // but smooth before adding
-    double *nvec = qFile->noise();
-    if (process::smoother->isSmoothingOn()) {
-        process::smoother->smoothNoise(
-            qFile->noise(), glmemory::temp_vector.get(), size());
-        nvec = glmemory::temp_vector.get();
-    }
-
-    cblas_daxpy(size(), 1., nvec, 1, covariance_matrix, size() + 1);
-
-    CHECK_ISNAN(covariance_matrix, DATA_SIZE_2, "CovMat");
-
-    // When compiled with debugging feature
-    // save matrices to files, break
-    // #ifdef DEBUG_MATRIX_OUT
-    // it->fprintfMatrices(fname_base);
-    // throw std::runtime_error("DEBUGGING QUIT.");
-    // #endif
-}
-
 void _getUnitVectorLogLam(const double *w, int size, int cmo, double *out)
 {
     std::transform(
         w, w+size, out,
         [cmo](const double &l) { return pow(log(l), cmo); }
     );
-    double norm = sqrt(cblas_dnrm2(size, out, 1));
-    cblas_dscal(size, 1./norm, out, 1);
+    double norm = 1.0 / cblas_dnrm2(size, out, 1);
+    cblas_dscal(size, norm, out, 1);
 }
 
 void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
@@ -532,8 +490,8 @@ void _getUnitVectorLam(const double *w, int size, int cmo, double *out)
         w, w+size, out,
         [cmo](const double &l) { return pow(l, cmo); }
     );
-    double norm = sqrt(cblas_dnrm2(size, out, 1));
-    cblas_dscal(size, 1./norm, out, 1);
+    double norm = 1.0 / cblas_dnrm2(size, out, 1);
+    cblas_dscal(size, norm, out, 1);
 }
 
 void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
@@ -541,8 +499,8 @@ void _remShermanMorrison(const double *v, int size, double *y, double *cinv)
     cblas_dsymv(
         CblasRowMajor, CblasUpper, size, 1.,
         cinv, size, v, 1, 0, y, 1);
-    double norm = cblas_ddot(size, v, 1, y, 1);
-    cblas_dger(CblasRowMajor, size, size, -1. / norm, y, 1, y, 1, cinv, size);
+    double norm = -1.0 / cblas_ddot(size, v, 1, y, 1);
+    cblas_dger(CblasRowMajor, size, size, norm, y, 1, y, 1, cinv, size);
 }
 
 void Chunk::_addMarginalizations() {
@@ -567,14 +525,14 @@ void Chunk::_addMarginalizations() {
     marg_mat = temp_matrix[0];
 
     #ifdef DEBUG
-    DEBUG_LOG("Mags before:");
-    for (int i = 0; i < specifics::CONT_NVECS; ++i) {
-        double tt = mxhelp::my_cblas_dsymvdot(
-            marg_mat + i * size(), inverse_covariance_matrix,
-            glmemory::temp_vector.get(), size());
-        DEBUG_LOG("  %.3e", tt);
-    } DEBUG_LOG("\n");
-    std::copy_n(marg_mat, size() * specifics::CONT_NVECS, temp_matrix[1]);
+        DEBUG_LOG("Mags before:");
+        for (int i = 0; i < specifics::CONT_NVECS; ++i) {
+            double tt = mxhelp::my_cblas_dsymvdot(
+                marg_mat + i * size(), inverse_covariance_matrix,
+                glmemory::temp_vector.get(), size());
+            DEBUG_LOG("  %.3e", tt);
+        } DEBUG_LOG("\n");
+        std::copy_n(marg_mat, size() * specifics::CONT_NVECS, temp_matrix[1]);
     #endif
 
     // SVD to get orthogonal marg vectors
@@ -593,31 +551,65 @@ void Chunk::_addMarginalizations() {
             glmemory::temp_vector.get(), inverse_covariance_matrix);
 
     #ifdef DEBUG
-    DEBUG_LOG("SVD:");
-    for (int i = 0; i < specifics::CONT_NVECS; ++i)
-        DEBUG_LOG("  %.3e", svals[i]);
-    DEBUG_LOG("\nUsing first %d/%d vectors.\nMags after:",
-              nvecs_to_use, specifics::CONT_NVECS);
-    for (int i = 0; i < specifics::CONT_NVECS; ++i) {
-        double tt = mxhelp::my_cblas_dsymvdot(
-            temp_matrix[1] + i * size(), inverse_covariance_matrix,
-            glmemory::temp_vector.get(), size());
-        DEBUG_LOG("  %.3e", tt);
-    } DEBUG_LOG("\n");
+        DEBUG_LOG("SVD:");
+        for (int i = 0; i < specifics::CONT_NVECS; ++i)
+            DEBUG_LOG("  %.3e", svals[i]);
+        DEBUG_LOG("\nUsing first %d/%d vectors.\nMags after:",
+                  nvecs_to_use, specifics::CONT_NVECS);
+        for (int i = 0; i < specifics::CONT_NVECS; ++i) {
+            double tt = mxhelp::my_cblas_dsymvdot(
+                temp_matrix[1] + i * size(), inverse_covariance_matrix,
+                glmemory::temp_vector.get(), size());
+            DEBUG_LOG("  %.3e", tt);
+        } DEBUG_LOG("\n");
     #endif
 }
 
 // Calculate the inverse into temp_matrix[0]
 // Then swap the pointer with covariance matrix
-void Chunk::invertCovarianceMatrix()
+void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
 {
-    DEBUG_LOG("Inverting cov matrix\n");
-
     double t = mytime::timer.getTime();
+    DEBUG_LOG("Setting cov matrix\n");
+
+    // Set fiducial signal matrix
+    if (!specifics::TURN_OFF_SFID)
+        std::copy_n(glmemory::stored_sfid.get(), DATA_SIZE_2, covariance_matrix);
+    else
+        std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
+
+    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
+        cblas_daxpy(
+            DATA_SIZE_2, ps_estimate[fisher_index_start + i_kz], 
+            Q_ikz_matrix, 1, covariance_matrix, 1
+        );
+
+    // add noise matrix diagonally
+    // but smooth before adding
+    double *ivec = qFile->ivar();
+    if (process::smoother->isSmoothingOn()) {
+        process::smoother->smoothIvar(
+            qFile->ivar(), glmemory::temp_vector.get(), size());
+        ivec = glmemory::temp_vector.get();
+    }
+
+    #pragma omp parallel for
+    for (int i = 0; i < size(); ++i) {
+        cblas_dscal(size(), ivec[i], covariance_matrix + i * size(), 1);
+        covariance_matrix[i * (size() + 1)] += 1.0;
+    }
+
+    CHECK_ISNAN(covariance_matrix, DATA_SIZE_2, "CovMat");
+    DEBUG_LOG("Inverting cov matrix\n");
 
     mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, size());
 
     inverse_covariance_matrix = covariance_matrix;
+
+    #pragma omp parallel for
+    for (int i = 0; i < size(); ++i)
+        for (int j = 0; j < size(); ++j)
+            inverse_covariance_matrix[j + i * size()] *= ivec[j];
 
     if (specifics::CONT_NVECS > 0)
         _addMarginalizations();
@@ -677,11 +669,17 @@ void Chunk::computePSbeforeFvector()
     double *weighted_noise_matrix = temp_matrix[0];
     std::fill_n(weighted_noise_matrix, DATA_SIZE_2, 0);
     #pragma omp parallel for
-    for (int i = 0; i < size(); ++i)
+    for (int i = 0; i < size(); ++i) {
+        double iv = qFile->ivar()[i];
+        if (iv == 0)
+            continue;
+
+        iv = 1.0 / iv;
         cblas_daxpy(
-            size(), qFile->noise()[i],
+            size(), iv,
             inverse_covariance_matrix + i * size(), 1,
             weighted_noise_matrix + i * size(), 1);
+    }
 
     // Get Noise contribution: Tr(C-1 Qi C-1 N)
     #pragma omp parallel for
@@ -750,7 +748,7 @@ void Chunk::oneQSOiteration(
 
     CHECK_ISNAN(qFile->wave(), size(), "qFile->wave");
     CHECK_ISNAN(qFile->delta(), size(), "qFile->delta");
-    CHECK_ISNAN(qFile->noise(), size(), "qFile->noise");
+    CHECK_ISNAN(qFile->ivar(), size(), "qFile->ivar");
 
     if (qFile->Rmat) {
         CHECK_ISNAN(qFile->Rmat->matrix(), qFile->Rmat->getSize(), "Rmat");
@@ -781,11 +779,9 @@ void Chunk::oneQSOiteration(
     if (!specifics::TURN_OFF_SFID)
         _setFiducialSignalMatrix(glmemory::stored_sfid.get());
 
-    setCovarianceMatrix(ps_estimate);
-
     try
     {
-        invertCovarianceMatrix();
+        setInvertCovarianceMatrix(ps_estimate);
 
         computePSbeforeFvector();
 
