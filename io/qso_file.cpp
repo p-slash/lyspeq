@@ -65,9 +65,9 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
     ivar_head = new double[arr_size];
     process::updateMemory(-process::getMemoryMB(_fullsize * 3));
 
-    std::copy(qmaster.wave()+i1, qmaster.wave()+i2, wave());
-    std::copy(qmaster.delta()+i1, qmaster.delta()+i2, delta());
-    std::copy(qmaster.ivar()+i1, qmaster.ivar()+i2, ivar());
+    std::copy(qmaster.wave()+i1, qmaster.wave()+i2, wave_head);
+    std::copy(qmaster.delta()+i1, qmaster.delta()+i2, delta_head);
+    std::copy(qmaster.ivar()+i1, qmaster.ivar()+i2, ivar_head);
 
     _cutMaskedBoundary();
 
