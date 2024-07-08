@@ -104,8 +104,7 @@ public:
 
     int realSize() const { return qFile->realSize(); };
     int size() const { return qFile->size(); };
-    void setCovarianceMatrix(const double *ps_estimate);
-    void invertCovarianceMatrix();
+    void setInvertCovarianceMatrix(const double *ps_estimate);
 
     void computePSbeforeFvector();
 
