@@ -52,7 +52,7 @@ public:
         int &data_number, double &z, double &dec, double &ra,
         int &fwhm_resolution,  double &sig2noi, double &dv_kms);
 
-    void readData(double *lambda, double *fluxfluctuations, double *noise);
+    void readData(double *lambda, double *fluxfluctuations, double *ivar);
 };
 
 class PiccaFile
@@ -91,7 +91,7 @@ public:
         int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
         int &expid, int &night, int &fiber, int& petal);
 
-    void readData(double *lambda, double *delta, double *noise);
+    void readData(double *lambda, double *delta, double *ivar);
     std::unique_ptr<mxhelp::Resolution> readAllocResolutionMatrix();
 };
 
@@ -101,7 +101,7 @@ class QSOFile
     std::unique_ptr<PiccaFile> pfile;
     std::unique_ptr<BQFile> bqfile;
 
-    double *wave_head, *delta_head, *noise_head;
+    double *wave_head, *delta_head, *ivar_head;
     int arr_size, _fullsize, shift, num_masked_pixels;
     // count num_masked_pixels after cutting
     void _cutMaskedBoundary();
@@ -125,7 +125,7 @@ public:
         closeFile();
         delete [] wave_head;
         delete [] delta_head;
-        delete [] noise_head;
+        delete [] ivar_head;
     };
 
     void closeFile() { pfile.reset(); bqfile.reset(); };
@@ -134,7 +134,7 @@ public:
     int realSize() const { return arr_size-num_masked_pixels; };
     double* wave() const  { return wave_head+shift; };
     double* delta() const { return delta_head+shift; };
-    double* noise() const { return noise_head+shift; };
+    double* ivar() const { return ivar_head+shift; };
 
     double getMinMemUsage() {
         double mem = 0;

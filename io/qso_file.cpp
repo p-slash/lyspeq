@@ -35,10 +35,10 @@ double _getMediandlambda(const double *wave, int size) {
 
 // double size, z_qso, snr, dv_kms, dlambda;
 // int R_fwhm;
-// double *wave, *delta, *noise;
+// double *wave, *delta, *ivar;
 // mxhelp::Resolution *Rmat;
 QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
-        : PB(p_or_b), wave_head(nullptr), delta_head(nullptr), noise_head(nullptr),
+        : PB(p_or_b), wave_head(nullptr), delta_head(nullptr), ivar_head(nullptr),
           arr_size(0), _fullsize(0), shift(0), num_masked_pixels(0), fname(fname_qso),
           expid(-1), night(-1), fiber(-1), petal(-1)
 {
@@ -63,12 +63,12 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 
     wave_head  = new double[arr_size];
     delta_head = new double[arr_size];
-    noise_head = new double[arr_size];
+    ivar_head = new double[arr_size];
     process::updateMemory(-process::getMemoryMB(_fullsize * 3));
 
     std::copy(qmaster.wave()+i1, qmaster.wave()+i2, wave());
     std::copy(qmaster.delta()+i1, qmaster.delta()+i2, delta());
-    std::copy(qmaster.noise()+i1, qmaster.noise()+i2, noise());
+    std::copy(qmaster.ivar()+i1, qmaster.ivar()+i2, ivar());
 
     _cutMaskedBoundary();
 
@@ -99,13 +99,13 @@ void QSOFile::readData()
 
     wave_head  = new double[arr_size];
     delta_head = new double[arr_size];
-    noise_head = new double[arr_size];
+    ivar_head = new double[arr_size];
     process::updateMemory(-process::getMemoryMB(_fullsize * 3));
 
     if (pfile)
-        pfile->readData(wave(), delta(), noise());
+        pfile->readData(wave(), delta(), ivar());
     else
-        bqfile->readData(wave(), delta(), noise());
+        bqfile->readData(wave(), delta(), ivar());
 
     // _zeroMaskedFlux();
 
@@ -120,7 +120,7 @@ void QSOFile::_countMaskedPixels()
 {
     num_masked_pixels = 0;
     for (int i = 0; i < size(); ++i)
-        if (noise()[i] > SIGMA_CUT)
+        if (ivar()[i] == 0)
             ++num_masked_pixels;
 }
 
@@ -128,9 +128,9 @@ void QSOFile::_cutMaskedBoundary()
 {
     int ni1 = 0, ni2 = size();
 
-    while ((ni1 < size()) && (noise()[ni1] > SIGMA_CUT))
+    while ((ni1 < size()) && (ivar()[ni1] == 0))
         ++ni1;
-    while ((ni2 > 0) && (noise()[ni2-1] > SIGMA_CUT))
+    while ((ni2 > 0) && (ivar()[ni2-1] == 0))
         --ni2;
 
     shift += ni1;
@@ -178,10 +178,10 @@ void QSOFile::maskOutliers() {
     int j = 0, nall = size();
     temp_arr.resize(realSize());
 
-    double *n = noise(), *f = delta();
+    double *iv = ivar(), *f = delta();
 
     for (int i = 0; i < nall; ++i) {
-        if (n[i] > SIGMA_CUT)
+        if (iv[i] == 0)
             continue;
 
         temp_arr[j] = f[i];
@@ -198,11 +198,11 @@ void QSOFile::maskOutliers() {
     mad = std::max(3.5, mad);
 
     for (int i = 0; i < nall; ++i) {
-        if (n[i] > SIGMA_CUT)
+        if (iv[i] == 0)
             continue;
 
-        if (fabs(f[i] - median) > std::max(mad, 3.5 * n[i])) {
-            f[i] = 0;  n[i] = 1. / DOUBLE_EPSILON;
+        if (fabs(f[i] - median) > std::max(mad, 3.5 / sqrt(iv[i]))) {
+            f[i] = 0;  iv[i] = 0;
         }
     }
 }
@@ -213,13 +213,13 @@ void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
     {
         wave_head  = new double[size()];
         delta_head = new double[size()];
-        noise_head = new double[size()];
+        ivar_head = new double[size()];
         process::updateMemory(-process::getMemoryMB(size() * 3));
 
         if (pfile)
-            pfile->readData(wave(), delta(), noise());
+            pfile->readData(wave(), delta(), ivar());
         else
-            bqfile->readData(wave(), delta(), noise());
+            bqfile->readData(wave(), delta(), ivar());
 
         _cutMaskedBoundary();
     }
@@ -266,17 +266,23 @@ void BQFile::readParameters(
     dv_kms = header.pixel_width;
 }
 
-void BQFile::readData(double *lambda, double *fluxfluctuations, double *noise)
+void BQFile::readData(double *lambda, double *fluxfluctuations, double *ivar)
 {
     int rl, rf, rn;
     fseek(qso_file, sizeof(qso_io_header), SEEK_SET);
 
     rl = fread(lambda,             sizeof(double), header.data_size, qso_file);
     rf = fread(fluxfluctuations,   sizeof(double), header.data_size, qso_file);
-    rn = fread(noise,              sizeof(double), header.data_size, qso_file);
+    rn = fread(ivar,               sizeof(double), header.data_size, qso_file);
 
     if (rl != header.data_size || rf != header.data_size || rn != header.data_size)
         throw std::runtime_error("fread error in data BQFile!");
+
+    std::for_each(ivar, ivar + header.data_size, [](double &iv) {
+        iv = 1.0 / (iv * iv);
+        if (iv < DOUBLE_EPSILON)
+            iv = 0;
+    });
 }
 
 // ============================================================================
@@ -489,7 +495,7 @@ int PiccaFile::_getColNo(char *tmplt)
     return colnum;
 }
 
-void PiccaFile::readData(double *lambda, double *delta, double *noise)
+void PiccaFile::readData(double *lambda, double *delta, double *ivar)
 {
     int nonull, colnum;
     status = 0;
@@ -529,15 +535,11 @@ void PiccaFile::readData(double *lambda, double *delta, double *noise)
     // Read inverse variance
     char ivartmp[]="IVAR";
     colnum = _getColNo(ivartmp);
-    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, noise, &nonull, 
+    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, ivar, &nonull, 
         &status);
 
     if (status != 0)
         _handleStatus();
-
-    std::for_each(noise, noise+curr_N, [](double &ld)
-        { ld = 1. / (sqrt(ld) + DOUBLE_EPSILON); }
-    );
 }
 
 std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix() {
