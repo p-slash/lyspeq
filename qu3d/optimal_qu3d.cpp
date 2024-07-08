@@ -671,19 +671,14 @@ endconjugateGradientDescent:
 
 
 void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2) {
-    double dt = mytime::timer.getTime();
-
     static int mesh_kz_max = std::min(
-        int(bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] / mesh.k_fund[2]),
+        int(ceil(bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] / mesh.k_fund[2])),
         mesh.ngrid_kz);
     static auto _lout = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    double *lout;
 
-    if (o2 == nullptr)
-        lout = o1;
-    else
-        lout = _lout.get();
+    double dt = mytime::timer.getTime();
 
+    double *lout = (o2 == nullptr) ? o1 : _lout.get();
     std::fill_n(lout, NUMBER_OF_K_BANDS_2, 0);
 
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_K_BANDS_2])
