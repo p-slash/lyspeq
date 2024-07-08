@@ -106,7 +106,7 @@ namespace conv
         {
             double tmp_meanf = interp_mean_flux->evaluate(lambda[i]/LYA_REST-1);
             flux[i] = flux[i] / tmp_meanf - 1;
-            ivar[i] /= tmp_meanf * tmp_meanf;
+            ivar[i] *= tmp_meanf * tmp_meanf;
         }
     }
 
