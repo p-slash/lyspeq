@@ -25,7 +25,7 @@ public:
     Smoother(Smoother &&rhs) = delete;
     Smoother(const Smoother &rhs) = delete;
 
-    void smoothNoise(const double *n2, double *out, int size);
+    void smoothIvar(const double *ivar, double *out, int size);
     void smooth1D(double *inplace, int size, int ndim=1);
     bool isSmoothingOn() const { return is_smoothing_on; }
     bool isSmoothingOnRmat() const { return is_smoothing_on_rmat; }
