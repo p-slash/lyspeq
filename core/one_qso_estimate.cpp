@@ -112,6 +112,9 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
         qio::QSOFile qtemp(fname_qso, specifics::INPUT_QSO_FILE);
 
         qtemp.readParameters();
+        if (qtemp.snr < specifics::MIN_SNR_CUT)
+            return 0;
+
         qtemp.readData();
         qtemp.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
