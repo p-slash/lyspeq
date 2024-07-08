@@ -43,7 +43,7 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(const std::string &f_
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
     conv::convertFluxToDeltaF(
-        qFile->wave(), qFile->delta(), qFile->noise(), qFile->size());
+        qFile->wave(), qFile->delta(), qFile->ivar(), qFile->size());
     qFile->maskOutliers();
 
     // If using resolution matrix, read resolution matrix from picca file

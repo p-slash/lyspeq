@@ -469,8 +469,7 @@ int OneQsoExposures::oneQSOiteration(
     for (auto &expo : exposures) {
         try {
             expo->initMatrices();
-            expo->setCovarianceMatrix();
-            expo->invertCovarianceMatrix();
+            expo->setInvertCovarianceMatrix();
             expo->weightDataVector();
         }
         catch (std::exception& e) {

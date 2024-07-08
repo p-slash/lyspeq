@@ -128,26 +128,34 @@ void Smoother::smooth1D(double *inplace, int size, int ndim) {
 }
 
 
-void Smoother::smoothNoise(const double *n2, double *out, int size) {
-    DEBUG_LOG("Smoothing noise.\n");
+void Smoother::smoothIvar(const double *ivar, double *out, int size) {
+    DEBUG_LOG("Smoothing ivar.\n");
     double median, mad, mean;
 
-    std::copy_n(n2, size, out);
+    // measure old statistics "n2"
+    std::transform(
+        ivar, ivar + size, out, [](const double &iv) {
+            if (iv == 0)
+                return 1e15;
+            return 1.0 / iv;
+        });
     _findMedianStatistics(out, size, median, mean, mad);
+    mean = 1.0 / mean;
     mad *= 3.5;
+    mad = 1.0 / (median + mad);
 
     // Isolate masked pixels as they have high noise
     // n->0 should be smoothed
     std::vector<int> mask_idx;
     for (int i = 0; i < size; ++i)
-        if ((n2[i] - median) > mad)
+        if (ivar[i] < mad)
             mask_idx.push_back(i);
 
     if (use_mean) {
         std::fill_n(out, size, mean);
     } else {
         std::vector<double> tempvector;
-        padArray(n2, size, HWSIZE, tempvector);
+        padArray(ivar, size, HWSIZE, tempvector);
 
         _fillMaskedRegion(mask_idx, HWSIZE, mean, size, tempvector);
 
@@ -159,5 +167,5 @@ void Smoother::smoothNoise(const double *n2, double *out, int size) {
 
     // Restore original noise for masked pixels
     for (const int &idx : mask_idx)
-        out[idx] = n2[idx];
+        out[idx] = ivar[idx];
 }
