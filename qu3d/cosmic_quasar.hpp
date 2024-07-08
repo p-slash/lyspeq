@@ -87,7 +87,7 @@ public:
         search = std::make_unique<double[]>(N);
 
         #ifdef COARSE_INTERP
-            coarse_N = N / M_LOS + 1;
+            coarse_N = ceil(N / M_LOS);
             coarse_r = std::make_unique<double[]>(3 * coarse_N);
             coarse_in = std::make_unique<double[]>(coarse_N);
         #endif
