@@ -259,23 +259,13 @@ void timeOsampLeft(int ndim, int oversampling=3) {
     tgemv = (t2 - t1) / N_LOOPS;
     printf("\tOsamp gemv: %.3e\tRatio %.3f\n", tgemv, tloops / tgemv);
 
-    R.freeBuffer();
     t1 = mytime::timer.getTime();
     for (int loop = 0; loop < N_LOOPS; ++loop)
         R.sandwich(A.get(), B.get());
 
     t2 = mytime::timer.getTime();
     tloops = (t2 - t1) / N_LOOPS;
-    printf("%d::sandwichHgRes:: Osamp New: %.3e", ndim, tloops);
-
-    R.freeBuffer();
-    t1 = mytime::timer.getTime();
-    for (int loop = 0; loop < N_LOOPS; ++loop)
-        R.oldSandwich(A.get(), B.get());
-
-    t2 = mytime::timer.getTime();
-    tgemv = (t2 - t1) / N_LOOPS;
-    printf("\tOsamp Old: %.3e\tRatio %.3f\n--------\n", tgemv, tloops / tgemv);
+    printf("%d::sandwichHgRes:: Osamp New: %.3e\n", ndim, tloops);
 }
 
 
