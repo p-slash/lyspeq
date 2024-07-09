@@ -44,7 +44,13 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(const std::string &f_
     // Otherwise assume input data is fluctuations
     conv::convertFluxToDeltaF(
         qFile->wave(), qFile->delta(), qFile->ivar(), qFile->size());
-    qFile->maskOutliers();
+
+    int num_outliers = qFile->maskOutliers();
+    if (num_outliers > 0)
+        LOG::LOGGER.ERR(
+            "WARNING::OneQSOEstimate::_readQsoFile::"
+            "Found %d outlier pixels in %s.\n",
+            num_outliers, f_qso.c_str());
 
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
