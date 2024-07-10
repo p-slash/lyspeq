@@ -173,7 +173,12 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
     }
 }
 
-void QSOFile::maskOutliers() {
+int QSOFile::maskOutliers(double factor) {
+    // more conservative (higher) upper bound compared to Turner24
+    static auto mockMeanFluxRecip = [](double l) {
+        return exp(1.663e-03 * pow(l / LYA_REST, 4.107));
+    };
+
     int j = 0, nall = size();
     temp_arr.resize(realSize());
 
@@ -192,18 +197,23 @@ void QSOFile::maskOutliers() {
         temp_arr.begin(), temp_arr.end(),
         [median](double &x) { x = fabs(x - median); });
 
-    double mad = 3.5 * 1.4826 * (1. + 1. / sqrt(realSize()))
+    double mad = 1.4826 * (1. + 1. / sqrt(realSize()))
                  * stats::medianOfUnsortedVector(temp_arr);
-    mad = std::max(3.5, mad);
+    mad = std::max(1.0, mad);
 
+    j = 0;
     for (int i = 0; i < nall; ++i) {
         if (iv[i] == 0)
             continue;
 
-        if (fabs(f[i] - median) > std::max(mad, 3.5 / sqrt(iv[i]))) {
-            f[i] = 0;  iv[i] = 0;
+        double s = factor * std::max(1.0 / sqrt(iv[i]), mad);
+        double fup = mockMeanFluxRecip(wave()[i]);
+        if ( (f[i] < (-1.0 - s)) || (f[i] > (fup + s)) ) {
+            f[i] = 0;  iv[i] = 0;  ++j;
         }
     }
+
+    return j;
 }
 
 void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)

@@ -331,11 +331,10 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
             if (kn < _kncut) ++real_nq_mat;
         }
 
-        // +1 for noise matrix dot product
         #ifdef FISHER_OPTIMIZATION
-        const int N_M_COMBO = 11 + 1;
+        const int N_M_COMBO = 11;
         #else
-        int N_M_COMBO = real_nq_mat + 1 + 1;
+        int N_M_COMBO = real_nq_mat + 1;
         #endif
 
         double res = (
@@ -665,26 +664,14 @@ void Chunk::computePSbeforeFvector()
 
     mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
 
-    // N C-1
-    double *weighted_noise_matrix = temp_matrix[0];
-    std::fill_n(weighted_noise_matrix, DATA_SIZE_2, 0);
+    // Get total bias contribution: Tr(C-1 Qi)
+    // Not accurate for iterations > 1
     #pragma omp parallel for
-    for (int i = 0; i < size(); ++i) {
-        double iv = qFile->ivar()[i];
-        if (iv == 0)
-            continue;
-
-        iv = 1.0 / iv;
-        cblas_daxpy(
-            size(), iv,
-            inverse_covariance_matrix + i * size(), 1,
-            weighted_noise_matrix + i * size(), 1);
+    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
+        #pragma omp simd
+        for (int j = 0; j < size(); ++j)
+            nk0[i_kz] += Q_ikz_matrix[j * (size() + 1)];
     }
-
-    // Get Noise contribution: Tr(C-1 Qi C-1 N)
-    #pragma omp parallel for
-    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        nk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_noise_matrix, 1);
 
     // Fiducial matrix, Sfid C-1
     if (!specifics::TURN_OFF_SFID) {
@@ -700,8 +687,10 @@ void Chunk::computePSbeforeFvector()
             inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
 
         #pragma omp parallel for
-        for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
+        for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
             tk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_sfid_matrix, 1);
+            nk0[i_kz] -= tk0[i_kz];
+        }
     }
 
     // Do not compute fisher matrix if it is precomputed
@@ -712,7 +701,8 @@ void Chunk::computePSbeforeFvector()
 
     // I am not sure if we can parallize the outer loop here.
     // Seems to speed things up though. Enabling nested loops slow things down.
-    #pragma omp parallel for num_threads(glmemory::temp_matrices.size()) schedule(static, 1)
+    int nmats = glmemory::temp_matrices.size();
+    #pragma omp parallel for num_threads(nmats) schedule(static, 1)
     for (auto iqt = stored_ikz_qi.cbegin(); iqt != stored_ikz_qi.cend(); ++iqt) {
         int idx_fji_0 = N_Q_MATRICES * iqt->first;
         double *Q_ikz_matrix_T = temp_matrix[myomp::getThreadNum()];
