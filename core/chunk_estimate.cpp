@@ -424,7 +424,7 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     bins::getFisherMatrixBinNoFromIndex(i_kz + fisher_index_start, kn, zm);
 
     if (i_kz > kn) {
-        const double *qorg = stored_ikz_qi[i_kz - bins::NUMBER_OF_K_BANDS].second;
+        const double *qorg = stored_ikz_qi[kn].second;
         std::copy_n(qorg, DATA_SIZE_2, qi);
     }
     else {
@@ -446,10 +446,10 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 
         double *inter_mat = (on_oversampling) ? glmemory::finer_matrix.get() : qi;
 
-        #pragma omp parallel for simd schedule(static, 1)
+        #pragma omp parallel for simd collapse(2)
         for (int i = 0; i < _matrix_n; ++i)
             for (int j = i; j < _matrix_n; ++j)
-                inter_mat[j + i * _matrix_n] *= eval_deriv_kn(_vmatrix[j + i * _matrix_n]);
+                inter_mat[j + i * _matrix_n] = eval_deriv_kn(_vmatrix[j + i * _matrix_n]);
 
         t_interp = mytime::timer.getTime() - t;
         mxhelp::copyUpperToLower(inter_mat, _matrix_n);
@@ -470,16 +470,19 @@ void Chunk::_applyRedshiftInterp() {
     int zm_old = -1, kn = 0, zm_new = 0, low = 0, up = 0;
     double zcm = 0;
 
-    // convert _zmatrix (temp[1]) to zij
-    #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < size(); ++i)
-        for (int j = i; j < size(); ++j)
-            _zmatrix[j + i * size()] = sqrt(qFile->wave()[j] * qFile->wave()[i]) - 1.0;
+    if (on_oversampling) {
+        // convert _zmatrix (temp[1]) to zij
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < size(); ++i)
+            for (int j = i; j < size(); ++j)
+                _zmatrix[j + i * size()] = sqrt(qFile->wave()[j] * qFile->wave()[i]) - 1.0;
 
+        mxhelp::copyUpperToLower(_zmatrix, size());
+    }
+
+    // Convert wave (1+z) array to z
     for (int i = 0; i < size(); ++i)
         qFile->wave()[i] -= 1.0;
-
-    mxhelp::copyUpperToLower(_zmatrix, size());
 
     for (auto &iqt : stored_ikz_qi) {
         bins::getFisherMatrixBinNoFromIndex(
@@ -497,7 +500,8 @@ void Chunk::_applyRedshiftInterp() {
             for (int i = 0; i < up; ++i)
                 bins::redshiftBinningFunction(
                     _zmatrix + i * (size() + 1), size() - i, zm_new,
-                    temp_matrix[0] + i * (size() + 1), low, up);
+                    temp_matrix[0] + i * (size() + 1), low, kn);
+
             mxhelp::copyUpperToLower(temp_matrix[0], size());
         }
 
@@ -824,21 +828,15 @@ void Chunk::oneQSOiteration(
     // i_kz = N_Q_MATRICES - j_kz - 1
     DEBUG_LOG("Setting qi matrices\n");
 
-    for (int i = 0; i < _matrix_n; ++i)
-        _matrix_lambda[i] -= 1;
-
     for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
         _setQiMatrix(iqt->second, iqt->first);
-
-    _applyRedshiftInterp();
-
-    for (int i = 0; i < _matrix_n; ++i)
-        _matrix_lambda[i] += 1;
 
     // Preload fiducial signal matrix if memory allows
     // !! Keep it here. _vmatrix will be destroyed by dgemm later !!
     if (!specifics::TURN_OFF_SFID)
         _setFiducialSignalMatrix(glmemory::stored_sfid.get());
+
+    _applyRedshiftInterp();
 
     if (specifics::REDSHIFT_GROWTH_ON)
         _scaleDerivativesWithRedshiftGrowth();
