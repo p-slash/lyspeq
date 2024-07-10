@@ -467,6 +467,8 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 
 
 void Chunk::_applyRedshiftInterp() {
+    double t = mytime::timer.getTime();
+
     int zm_old = -1, kn = 0, zm_new = 0, low = 0, up = 0;
     double zcm = 0;
 
@@ -512,10 +514,17 @@ void Chunk::_applyRedshiftInterp() {
 
     for (int i = 0; i < size(); ++i)
         qFile->wave()[i] += 1.0;
+
+    t = mytime::timer.getTime() - t; 
+
+    mytime::time_spent_set_qs += t;
+    mytime::time_spent_on_q_interp += t_interp;
 }
 
 
 void Chunk::_scaleDerivativesWithRedshiftGrowth() {
+    double t = mytime::timer.getTime();
+
     int zm_old = -1, kn = 0, zm_new = 0;
     double zcm = 0;
 
@@ -541,6 +550,11 @@ void Chunk::_scaleDerivativesWithRedshiftGrowth() {
         for (int i = 0; i < DATA_SIZE_2; ++i)
             iqt.second[i] *= temp_matrix[0][i];
     }
+
+    t = mytime::timer.getTime() - t; 
+
+    mytime::time_spent_set_qs += t;
+    mytime::time_spent_on_q_interp += t_interp;
 }
 
 
