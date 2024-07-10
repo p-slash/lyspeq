@@ -519,6 +519,11 @@ void Chunk::_scaleDerivativesWithRedshiftGrowth() {
     int zm_old = -1, kn = 0, zm_new = 0;
     double zcm = 0;
 
+    // convert _zmatrix (temp[1]) to 1 + zij
+    #pragma omp parallel for simd
+    for (int i = 0; i < DATA_SIZE_2; ++i)
+        _zmatrix[i] += 1.0;
+
     for (auto &iqt : stored_ikz_qi) {
         bins::getFisherMatrixBinNoFromIndex(
             iqt.first + fisher_index_start, kn, zm_new);
