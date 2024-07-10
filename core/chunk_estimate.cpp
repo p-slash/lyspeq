@@ -701,7 +701,8 @@ void Chunk::computePSbeforeFvector()
 
     // I am not sure if we can parallize the outer loop here.
     // Seems to speed things up though. Enabling nested loops slow things down.
-    #pragma omp parallel for num_threads(glmemory::temp_matrices.size()) schedule(static, 1)
+    int nmats = glmemory::temp_matrices.size();
+    #pragma omp parallel for num_threads(nmats) schedule(static, 1)
     for (auto iqt = stored_ikz_qi.cbegin(); iqt != stored_ikz_qi.cend(); ++iqt) {
         int idx_fji_0 = N_Q_MATRICES * iqt->first;
         double *Q_ikz_matrix_T = temp_matrix[myomp::getThreadNum()];
