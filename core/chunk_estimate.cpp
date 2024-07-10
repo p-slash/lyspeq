@@ -521,7 +521,7 @@ void Chunk::_applyRedshiftInterp() {
     t = mytime::timer.getTime() - t; 
 
     mytime::time_spent_set_qs += t;
-    mytime::time_spent_on_q_interp += t_interp;
+    mytime::time_spent_on_q_interp += t;
 }
 
 
@@ -557,7 +557,7 @@ void Chunk::_scaleDerivativesWithRedshiftGrowth() {
     t = mytime::timer.getTime() - t; 
 
     mytime::time_spent_set_qs += t;
-    mytime::time_spent_on_q_interp += t_interp;
+    mytime::time_spent_on_q_interp += t;
 }
 
 
