@@ -159,10 +159,16 @@ void Smoother::smoothIvar(const double *ivar, double *out, int size) {
 
         _fillMaskedRegion(mask_idx, HWSIZE, mean, size, tempvector);
 
+        // Smooth variance to preserve total variance as much as possible.
+        std::for_each(
+            tempvector.begin(), tempvector.end(), [](double &t) {
+                t = 1.0 / t;
+            });
+
         // Convolve
         // std::fill_n(out, size, 0);
         for (int i = 0; i < size; ++i)
-            out[i] = cblas_ddot(KS, gaussian_kernel, 1, tempvector.data() + i, 1);
+            out[i] = 1.0 / cblas_ddot(KS, gaussian_kernel, 1, tempvector.data() + i, 1);
     }
 
     // Restore original noise for masked pixels
