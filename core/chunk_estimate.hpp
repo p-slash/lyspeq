@@ -78,6 +78,8 @@ protected:
     void _setFiducialSignalMatrix(double *sm);
     void _setVZMatrices();
     void _setQiMatrix(double *qi, int i_kz);
+    void _applyRedshiftInterp();
+    void _scaleDerivativesWithRedshiftGrowth();
     void _addMarginalizations();
     void _getWeightedMatrix(double *&m);
 
