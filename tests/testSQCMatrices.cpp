@@ -29,9 +29,6 @@ public:
         glmemory::allocMemory();
         chunks[0]->_initMatrices();
         chunks[0]->_setVZMatrices();
-
-        for (int i = 0; i < chunks[0]->_matrix_n; ++i)
-            chunks[0]->_matrix_lambda[i] -= 1;
     };
 
     int test_setFiducialSignalMatrix();
@@ -67,6 +64,7 @@ int TestOneQSOEstimate::test_setFiducialSignalMatrix()
 int TestOneQSOEstimate::test_setQiMatrix()
 {
     chunks[0]->_setQiMatrix(chunks[0]->stored_ikz_qi[0].second, 0);
+    chunks[0]->_applyRedshiftInterp();
 
     const std::string
     fname_q0_matrix = std::string(SRCDIR) + "/tests/truth/q0_matrix.txt";
@@ -83,7 +81,7 @@ int TestOneQSOEstimate::test_setQiMatrix()
     if (not allClose(A.data(), chunks[0]->stored_ikz_qi[0].second, ndim))
     {
         fprintf(stderr, "ERROR Chunk::_setQiMatrix.\n");
-        printMatrices(A.data(), chunks[0]->stored_ikz_qi[0].second, 50, ndim);
+        // printMatrices(A.data(), chunks[0]->stored_ikz_qi[0].second, 50, ndim);
         return 1;
     }
 
