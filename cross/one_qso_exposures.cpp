@@ -168,7 +168,10 @@ namespace xeutils {
                    dk = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn];
 
             eval_deriv_kn = [kc, dk](double v) {
-                double x = dk * v / 2 + DOUBLE_EPSILON;
+                if (v == 0)
+                    return dk / MY_PI;
+
+                double x = dk * v / 2;
                 return (dk / MY_PI) * cos(kc * v) * (sin(x) / x);
             };
         } else {
