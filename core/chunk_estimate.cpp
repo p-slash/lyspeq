@@ -519,14 +519,6 @@ void Chunk::_scaleDerivativesWithRedshiftGrowth() {
     int zm_old = -1, kn = 0, zm_new = 0;
     double zcm = 0;
 
-    // convert _zmatrix (temp[1]) to 1 + zij
-    #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < size(); ++i)
-        for (int j = i; j < size(); ++j)
-            _zmatrix[j + i * size()] = sqrt(qFile->wave()[j] * qFile->wave()[i]);
-
-    mxhelp::copyUpperToLower(_zmatrix, size());
-
     for (auto &iqt : stored_ikz_qi) {
         bins::getFisherMatrixBinNoFromIndex(
             iqt.first + fisher_index_start, kn, zm_new);
@@ -539,6 +531,7 @@ void Chunk::_scaleDerivativesWithRedshiftGrowth() {
                 temp_matrix[0][i] = pow(
                     _zmatrix[i] / zcm, fidpd13::FIDUCIAL_PD13_PARAMS.B);
         }
+
         #pragma omp parallel for simd
         for (int i = 0; i < DATA_SIZE_2; ++i)
             iqt.second[i] *= temp_matrix[0][i];
