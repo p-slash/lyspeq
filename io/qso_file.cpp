@@ -150,8 +150,8 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
     assert (org_shift == 0);
 
-    wi1 = std::lower_bound(wave(), wave() + size(), l1) - wave();
-    wi2 = std::upper_bound(wave(), wave() + size(), l2) - wave();
+    wi1 = std::lower_bound(wave(), wave() + arr_size, l1) - wave();
+    wi2 = std::upper_bound(wave(), wave() + arr_size, l2) - wave();
     bool isempty = (wi1 == arr_size) || (wi2 == 0);
 
     arr_size = wi2 - wi1;
