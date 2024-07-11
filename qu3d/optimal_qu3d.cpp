@@ -315,7 +315,9 @@ void Qu3DEstimator::_findNeighbors() {
 
             (*qso)->neighbors.insert(
                 kumap_itr->second.cbegin(), kumap_itr->second.cend());
-        }
+        } 
+
+        (*qso)->assertThis();
     }
 
     idx_quasar_map.clear();
