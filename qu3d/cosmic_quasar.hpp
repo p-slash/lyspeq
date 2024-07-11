@@ -236,6 +236,9 @@ public:
     }
 
     void trimNeighbors() {
+        if (neighbors.empty())
+            return;
+
         /* Remove neighbors with targetid < id_this */
         long this_id = qFile->id;
         std::erase_if(neighbors, [this_id](const CosmicQuasar *x) {
