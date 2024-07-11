@@ -260,6 +260,9 @@ public:
     }
 
     void multCovNeighbors(const fidcosmo::ArinyoP3DModel *p3d_model) {
+        if (neighbors.empty())
+            return;
+
         int max_N = (*std::max_element(
             neighbors.cbegin(), neighbors.cend(),
             [](CosmicQuasar *q1, CosmicQuasar *q2) {
