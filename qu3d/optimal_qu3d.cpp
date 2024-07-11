@@ -517,7 +517,7 @@ void Qu3DEstimator::multMeshComp() {
 void Qu3DEstimator::multParticleComp() {
     double t1 = mytime::timer.getTime(), dt = 0;
 
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
         qso->multCovNeighbors(p3d_model.get());
 
