@@ -795,6 +795,28 @@ int test_cubic_interpolate() {
     return 0;
 }
 
+
+int test_lowerupper_bound() {
+    int narr = 1000;
+    double dz = 0.0003, zc = 2.0, Deltaz = 0.2;
+    auto zarr = std::make_unique<double[]>(narr);
+    const double *zpt = zarr.get();
+    for (int i = 0; i < narr; ++i)
+        zarr[i] = 1.96 + i * dz;
+
+    int low = std::lower_bound(zpt, zpt + narr, zc) - zpt;
+    int up = std::upper_bound(zpt, zpt + narr, zc + Deltaz) - zpt;
+
+    int r = 0;
+    for (int i = 0; i < low; ++i)
+        r += zarr[i] > zc;
+    for (int i = low; i < up; ++i)
+        r += zarr[i] > zc + Deltaz;
+
+    return r;
+}
+
+
 int main()
 {
     int r = 0;
@@ -820,6 +842,7 @@ int main()
     r += test_LAPACKE_SVD();
     r += test_Resolution_osamp();
     r += test_cubic_interpolate();
+    r += test_lowerupper_bound();
 
     if (r == 0)
         printf("Matrix operations work!\n");

@@ -6,7 +6,7 @@
 #include "mathtools/discrete_interpolation.hpp"
 
 const int
-MIN_PIXELS_IN_CHUNK = 20;
+MIN_PIXELS_IN_CHUNK = 40;
 
 /*
 This object creates and computes C, S, Q, Q-slash matrices,
@@ -78,6 +78,8 @@ protected:
     void _setFiducialSignalMatrix(double *sm);
     void _setVZMatrices();
     void _setQiMatrix(double *qi, int i_kz);
+    void _applyRedshiftInterp();
+    void _scaleDerivativesWithRedshiftGrowth();
     void _addMarginalizations();
     void _getWeightedMatrix(double *&m);
 
