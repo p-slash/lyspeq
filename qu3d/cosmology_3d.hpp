@@ -480,14 +480,14 @@ namespace fidcosmo {
             out->write(pmarr, nlnk, "PMODEL_1D");
             out->flush();
 
-            const int nr = 500, nr2 = nr * nr;
-            const double r2 = 10 * rscale_long, dr = r2 / nr;
+            constexpr int nr = 500, nr2 = nr * nr;
+            const double r2 = 10.0 * rscale_long, dr = r2 / nr;
             double rarr[nr], cfsarr[nr2];
-
-            out->write(rarr, nr, "RMODEL");
 
             for (int i = 0; i < nr; ++i)
                 rarr[i] = i * dr;
+
+            out->write(rarr, nr, "RMODEL");
 
             for (int iperp = 0; iperp < nr; ++iperp)
                 for (int iz = 0; iz < nr; ++iz)
