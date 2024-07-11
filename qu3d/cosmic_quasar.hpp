@@ -29,6 +29,12 @@ namespace specifics {
     static int DOWNSAMPLE_FACTOR;
 }
 
+template <class T>
+struct CompareCosmicQuasarPtr {
+    bool operator()(const T *lhs, const T *rhs) const {
+        return lhs->qFile->id < rhs->qFile->id;
+    }
+};
 
 class CosmicQuasar {
 public:
@@ -40,7 +46,7 @@ public:
     std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r, coarse_in;
 
     std::set<size_t> grid_indices;
-    std::set<const CosmicQuasar*> neighbors;
+    std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
     size_t min_x_idx;
 
     CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
@@ -105,6 +111,11 @@ public:
         truth = qFile->delta();
         out = Cy.get();
     }
+    CosmicQuasar(CosmicQuasar &&rhs) = delete;
+    CosmicQuasar(const CosmicQuasar &rhs) = delete;
+    // bool operator< (const CosmicQuasar *rhs) const noexcept {
+    //     return qFile->id < rhs->qFile->id;
+    // }
 
     void setComovingDistances(const fidcosmo::FlatLCDM *cosmo) {
         /* Equirectangular projection */
