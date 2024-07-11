@@ -193,7 +193,7 @@ void Qu3DEstimator::_readQSOFiles(
 
 
     #pragma omp parallel for reduction(+:num_all_pixels)
-    for (auto &qso : quasars)
+    for (const auto &qso : quasars)
         num_all_pixels += qso->N;
 
     LOG::LOGGER.STD(
@@ -209,7 +209,8 @@ void Qu3DEstimator::_calculateBoxDimensions(double L[3], double &z0) {
 
     #pragma omp parallel for reduction(min:lxmin, lymin, lzmin) \
                              reduction(max:lxmax, lymax, lzmax)
-    for (auto &qso : quasars) {
+    for (auto it = quasars.begin(); it != quasars.end(); ++it) {
+        CosmicQuasar *qso = it->get();
         lxmin = std::min(lxmin, qso->r[0]);
         lzmin = std::min(lzmin, qso->r[2]);
         lxmax = std::max(lxmax, qso->r[3 * (qso->N - 1)]);
@@ -260,7 +261,9 @@ void Qu3DEstimator::_setupMesh(double radius) {
     // Shift coordinates of quasars
     LOG::LOGGER.STD("Shifting quasar locations to center the mesh.\n");
     #pragma omp parallel for
-    for (auto &qso : quasars) {
+    for (auto it = quasars.begin(); it != quasars.end(); ++it) {
+        CosmicQuasar *qso = it->get();
+
         for (int i = 0; i < qso->N; ++i) {
             qso->r[1 + 3 * i] += mesh.length[1] / 2;
             qso->r[2 + 3 * i] -= mesh.z0;
@@ -279,8 +282,10 @@ void Qu3DEstimator::_constructMap() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     #pragma omp parallel for
-    for (auto &qso : quasars)
+    for (auto it = quasars.begin(); it != quasars.end(); ++it) {
+        CosmicQuasar *qso = it->get();
         qso->findGridPoints(mesh);
+    }
 
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("findGridPoints took %.2f m.\n", t2 - t1);
@@ -291,9 +296,9 @@ void Qu3DEstimator::_constructMap() {
             return q1->min_x_idx < q2->min_x_idx; }
     );
 
-    for (auto qso = quasars.cbegin(); qso != quasars.cend(); ++qso)
-        for (const auto &i : (*qso)->grid_indices)
-            idx_quasar_map[i].push_back(qso->get());
+    for (auto &qso : quasars)
+        for (const auto &i : qso->grid_indices)
+            idx_quasar_map[i].push_back(qso.get());
 
     t1 = mytime::timer.getTime();
     LOG::LOGGER.STD("Appending map took %.2f m.\n", t1 - t2);
