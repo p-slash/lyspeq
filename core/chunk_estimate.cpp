@@ -472,8 +472,8 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
 void Chunk::_applyRedshiftInterp() {
     double t = mytime::timer.getTime();
 
-    int zm_old = -1, kn = 0, zm_new = 0, low = 0, up = 0;
-    double zcm = 0;
+    int zm_new = 0, low = 0, up = 0, tmp;
+    int Nz = stored_ikz_qi.size() / KBIN_UPP;
 
     if (on_oversampling) {
         // convert _zmatrix (temp[1]) to zij
@@ -489,30 +489,30 @@ void Chunk::_applyRedshiftInterp() {
     for (int i = 0; i < size(); ++i)
         qFile->wave()[i] -= 1.0;
 
-    for (auto &iqt : stored_ikz_qi) {
-        bins::getFisherMatrixBinNoFromIndex(
-            iqt.first + fisher_index_start, kn, zm_new);
+    for (int iz = 0; iz < Nz; ++iz) {
+        zm_new = fisher_index_start / bins::NUMBER_OF_K_BANDS + iz;
+        bins::setRedshiftBinningFunction(zm_new);
+        bins::redshiftBinningFunction(
+            qFile->wave(), size(), zm_new,
+            glmemory::temp_vector.get(), low, up);
 
-        if (zm_new != zm_old) {
-            bins::setRedshiftBinningFunction(zm_new);
+        std::fill_n(temp_matrix[0], DATA_SIZE_2, 0);
+
+        #pragma omp parallel for
+        for (int i = 0; i < up; ++i)
             bins::redshiftBinningFunction(
-                qFile->wave(), size(), zm_new,
-                glmemory::temp_vector.get(), low, up);
+                _zmatrix + i * (size() + 1), size() - i, zm_new,
+                temp_matrix[0] + i * (size() + 1), low, tmp);
 
-            std::fill_n(temp_matrix[0], DATA_SIZE_2, 0);
+        mxhelp::copyUpperToLower(temp_matrix[0], size());
 
-            #pragma omp parallel for
-            for (int i = 0; i < up; ++i)
-                bins::redshiftBinningFunction(
-                    _zmatrix + i * (size() + 1), size() - i, zm_new,
-                    temp_matrix[0] + i * (size() + 1), low, kn);
-
-            mxhelp::copyUpperToLower(temp_matrix[0], size());
+        auto stk = stored_ikz_qi.begin() + KBIN_UPP * iz;
+        #pragma omp parallel for
+        for (auto iqt = stk; iqt != stk + KBIN_UPP; ++iqt) {
+            #pragma omp simd
+            for (int j = 0; j < DATA_SIZE_2; ++j)
+                iqt->second[j] *= temp_matrix[0][j];
         }
-
-        #pragma omp parallel for simd
-        for (int i = 0; i < DATA_SIZE_2; ++i)
-            iqt.second[i] *= temp_matrix[0][i];
     }
 
     for (int i = 0; i < size(); ++i)
@@ -528,7 +528,8 @@ void Chunk::_applyRedshiftInterp() {
 void Chunk::_scaleDerivativesWithRedshiftGrowth() {
     double t = mytime::timer.getTime();
 
-    int zm_old = -1, kn = 0, zm_new = 0;
+    int zm_new = 0;
+    int Nz = stored_ikz_qi.size() / KBIN_UPP;
     double zcm = 0;
 
     // convert _zmatrix (temp[1]) to 1 + zij
@@ -536,22 +537,22 @@ void Chunk::_scaleDerivativesWithRedshiftGrowth() {
     for (int i = 0; i < DATA_SIZE_2; ++i)
         _zmatrix[i] += 1.0;
 
-    for (auto &iqt : stored_ikz_qi) {
-        bins::getFisherMatrixBinNoFromIndex(
-            iqt.first + fisher_index_start, kn, zm_new);
-
-        if (zm_new != zm_old) {
-            zcm = bins::ZBIN_CENTERS[zm_new] + 1;
-
-            #pragma omp parallel for simd
-            for (int i = 0; i < DATA_SIZE_2; ++i)
-                temp_matrix[0][i] = pow(
-                    _zmatrix[i] / zcm, fidpd13::FIDUCIAL_PD13_PARAMS.B);
-        }
+    for (int iz = 0; iz < Nz; ++iz) {
+        zm_new = fisher_index_start / bins::NUMBER_OF_K_BANDS + iz;
+        zcm = bins::ZBIN_CENTERS[zm_new] + 1;        
 
         #pragma omp parallel for simd
         for (int i = 0; i < DATA_SIZE_2; ++i)
-            iqt.second[i] *= temp_matrix[0][i];
+            temp_matrix[0][i] = pow(
+                _zmatrix[i] / zcm, fidpd13::FIDUCIAL_PD13_PARAMS.B);
+
+        auto stk = stored_ikz_qi.begin() + KBIN_UPP * iz;
+        #pragma omp parallel for
+        for (auto iqt = stk; iqt != stk + KBIN_UPP; ++iqt) {
+            #pragma omp simd
+            for (int j = 0; j < DATA_SIZE_2; ++j)
+                iqt->second[j] *= temp_matrix[0][j];
+        }
     }
 
     t = mytime::timer.getTime() - t; 
@@ -843,8 +844,14 @@ void Chunk::oneQSOiteration(
     // i_kz = N_Q_MATRICES - j_kz - 1
     DEBUG_LOG("Setting qi matrices\n");
 
-    for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt)
-        _setQiMatrix(iqt->second, iqt->first);
+    for (int i = 0; i < KBIN_UPP; ++i)
+        _setQiMatrix(stored_ikz_qi[i].second, stored_ikz_qi[i].first);
+
+    #pragma omp parallel for
+    for (auto iqt = stored_ikz_qi.begin() + KBIN_UPP; iqt != stored_ikz_qi.end(); ++iqt) {
+        int kn = iqt->first % bins::NUMBER_OF_K_BANDS;
+        std::copy_n(stored_ikz_qi[kn].second, DATA_SIZE_2, iqt->second);
+    }
 
     // Preload fiducial signal matrix if memory allows
     // !! Keep it here. _vmatrix will be destroyed by dgemm later !!
