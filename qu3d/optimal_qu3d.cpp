@@ -17,7 +17,6 @@ std::unordered_map<std::string, std::pair<int, double>> timings{
 
 /* Internal variables */
 std::unordered_map<size_t, std::vector<CosmicQuasar*>> idx_quasar_map;
-std::vector<std::pair<size_t, std::vector<CosmicQuasar*>>> idx_quasars_pairs;
 
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
@@ -407,11 +406,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     );
 
     _findNeighbors();
-    // idx_quasars_pairs.reserve(idx_quasar_map.size());
-    // for (auto &[idx, qsos] : idx_quasar_map)
-    //     idx_quasars_pairs.push_back(std::make_pair(idx, std::move(qsos)));
-    // std::sort(idx_quasars_pairs.begin(), idx_quasars_pairs.end());
-    idx_quasar_map.clear();
     _openResultsFile();
 }
 
