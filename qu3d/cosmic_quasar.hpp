@@ -2,6 +2,7 @@
 #define COSMIC_QUASAR_H
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <set>
 #include <sstream>
@@ -273,9 +274,16 @@ public:
         }
     }
 
+    void assertThis() {
+        for (const auto &q : neighbors)
+            assert ((q->N > 0) && (q->N < 500));
+    }
+
     void multCovNeighbors(const fidcosmo::ArinyoP3DModel *p3d_model) {
         if (neighbors.empty())
             return;
+
+        assertThis();
 
         int max_N = (*std::max_element(
             neighbors.cbegin(), neighbors.cend(),
