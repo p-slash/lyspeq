@@ -442,7 +442,7 @@ namespace fidcosmo {
             return exp(interp_p1d->evaluate(log(kz)));
         }
 
-        double evalCorrFunc2dS(double rperp, double rz) {
+        double evalCorrFunc2dS(double rperp, double rz) const {
             return interp2d_cfS->evaluate(rz, rperp);
         }
 

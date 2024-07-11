@@ -13,6 +13,7 @@
 
 const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
+    {"TurnOnPpCovariance", "-1"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"ConvergenceTolerance", "1e-6"}, {"LongScale", "50"}, {"ScaleFactor", "4"},
     {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"}
@@ -22,10 +23,13 @@ const config_map qu3d_default_parameters ({
 class Qu3DEstimator
 {
     ConfigFile &config;
-    std::vector<std::unique_ptr<CosmicQuasar>> quasars;
-    size_t num_all_pixels;
+
+    bool pp_enabled;
     int max_conj_grad_steps, max_monte_carlos;
     double tolerance, radius, rscale_factor;
+    size_t num_all_pixels;
+
+    std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     std::unique_ptr<std::seed_seq> seed_generator;
     std::unique_ptr<ioh::Qu3dFile> result_file;
     RealField3D mesh;

@@ -12,12 +12,12 @@
 std::unordered_map<std::string, std::pair<int, double>> timings{
     {"rInterp", std::make_pair(0, 0.0)}, {"interp", std::make_pair(0, 0.0)},
     {"CGD", std::make_pair(0, 0.0)}, {"mDeriv", std::make_pair(0, 0.0)},
-    {"mCov", std::make_pair(0, 0.0)}
+    {"mCov", std::make_pair(0, 0.0)}, {"PPcomp", std::make_pair(0, 0.0)}
 };
 
 /* Internal variables */
-std::unordered_map<size_t, std::vector<const CosmicQuasar*>> idx_quasar_map;
-std::vector<std::pair<size_t, std::vector<const CosmicQuasar*>>> idx_quasars_pairs;
+std::unordered_map<size_t, std::vector<CosmicQuasar*>> idx_quasar_map;
+std::vector<std::pair<size_t, std::vector<CosmicQuasar*>>> idx_quasars_pairs;
 
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
@@ -311,6 +311,8 @@ void Qu3DEstimator::_findNeighbors() {
             qso->neighbors.insert(
                 kumap_itr->second.cbegin(), kumap_itr->second.cend());
         }
+
+        qso->trimNeighbors();
     }
 
     t2 = mytime::timer.getTime();
@@ -364,6 +366,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     if (findir.back() != '/')
         findir += '/';
 
+    pp_enabled = config.getInteger("TurnOnPpCovariance") > 0;
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
     tolerance = config.getDouble("ConvergenceTolerance");
@@ -517,6 +520,21 @@ void Qu3DEstimator::multMeshComp() {
 }
 
 
+void Qu3DEstimator::multParticleComp() {
+    double t1 = mytime::timer.getTime(), dt = 0;
+
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        qso->multCovNeighbors(p3d_model.get());
+
+    dt = mytime::timer.getTime() - t1;
+    ++timings["PPcomp"].first;
+    timings["PPcomp"].second += dt;
+
+    if (verbose)
+        LOG::LOGGER.STD("    multParticleComp took %.2f s.\n", 60.0 * dt);
+}
+
 void Qu3DEstimator::multiplyCovVector() {
     /* Multiply each quasar's *in pointer and save to *out pointer.
        (I + N^-1/2 S N^-1/2) z = out
@@ -530,7 +548,10 @@ void Qu3DEstimator::multiplyCovVector() {
 
     // Add long wavelength mode to Cy
     multMeshComp();
-    // multParticleComp();
+
+    if (pp_enabled)
+        multParticleComp();
+
     dt = mytime::timer.getTime() - dt;
     ++timings["mCov"].first;
     timings["mCov"].second += dt;
