@@ -40,7 +40,7 @@ public:
     std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r, coarse_in;
 
     std::set<size_t> grid_indices;
-    std::set<const CosmicQuasar*> neighbors;
+    std::set<CosmicQuasar*> neighbors;
     size_t min_x_idx;
 
     CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
@@ -233,6 +233,51 @@ public:
         std::set<size_t> unique_neighboring_pixels(
             neighboring_pixels.begin(), neighboring_pixels.end());
         return unique_neighboring_pixels;
+    }
+
+    void trimNeighbors() {
+        /* Remove neighbors with targetid < id_this */
+        long this_id = qFile->id;
+        std::erase_if(neighbors, [this_id](const CosmicQuasar *x) {
+            return x->qFile->id < this_id;
+        });
+    }
+
+    void setCrossCov(
+            const CosmicQuasar *q, const fidcosmo::ArinyoP3DModel *p3d_model,
+            double *ccov
+    ) {
+        for (int i = 0; i < q->N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                double dx = r[3 * i] - q->r[3 * j],
+                       dy = r[3 * i + 1] - q->r[3 * j + 1];
+
+                double rz = fabs(r[3 * i + 2] - q->r[3 * j + 2]),
+                       rperp = sqrt(dx * dx + dy * dy);
+                ccov[j + i * N] = p3d_model->evalCorrFunc2dS(rperp, rz);
+            }
+        }
+    }
+
+    void multCovNeighbors(const fidcosmo::ArinyoP3DModel *p3d_model) {
+        int max_N = (*std::max_element(
+            neighbors.cbegin(), neighbors.cend(),
+            [](CosmicQuasar *q1, CosmicQuasar *q2) {
+                return q1-> N < q2 -> N;
+            }))->N;
+
+        auto ccov = std::make_unique<double[]>(N * max_N);
+
+        for (auto q : neighbors) {
+            setCrossCov(q, p3d_model, ccov.get());
+            cblas_dgemv(
+                CblasRowMajor, CblasNoTrans, q->N, N, 1.0,
+                ccov.get(), N, in, 1, 1, out, 1);
+
+            cblas_dgemv(
+                CblasRowMajor, CblasTrans, q->N, N, 1.0,
+                ccov.get(), N, q->in, 1, 1, q->out, 1);
+        }
     }
 };
 
