@@ -291,9 +291,9 @@ void Qu3DEstimator::_constructMap() {
             return q1->min_x_idx < q2->min_x_idx; }
     );
 
-    for (const auto &qso : quasars)
-        for (const auto &i : qso->grid_indices)
-            idx_quasar_map[i].push_back(qso.get());
+    for (auto qso = quasars.cbegin(); qso != quasars.cend(); ++qso)
+        for (const auto &i : (*qso)->grid_indices)
+            idx_quasar_map[i].push_back(qso->get());
 
     t1 = mytime::timer.getTime();
     LOG::LOGGER.STD("Appending map took %.2f m.\n", t1 - t2);
@@ -304,8 +304,8 @@ void Qu3DEstimator::_findNeighbors() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     #pragma omp parallel for schedule(dynamic, 4)
-    for (auto &qso : quasars) {
-        auto neighboring_pixels = qso->findNeighborPixels(mesh, radius);
+    for (auto qso = quasars.begin(); qso != quasars.end(); ++qso) {
+        auto neighboring_pixels = (*qso)->findNeighborPixels(mesh, radius);
 
         for (const size_t &ipix : neighboring_pixels) {
             auto kumap_itr = idx_quasar_map.find(ipix);
@@ -313,7 +313,7 @@ void Qu3DEstimator::_findNeighbors() {
             if (kumap_itr == idx_quasar_map.end())
                 continue;
 
-            qso->neighbors.insert(
+            (*qso)->neighbors.insert(
                 kumap_itr->second.cbegin(), kumap_itr->second.cend());
         }
     }
