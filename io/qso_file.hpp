@@ -166,7 +166,7 @@ public:
     // Cuts masked boundaries as well
     // Counts the num_masked_pixels
     void cutBoundary(double z_lower_edge, double z_upper_edge);
-    void maskOutliers();
+    int maskOutliers(double factor=5.0);
 
     void readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed);
     void readAllocResolutionMatrix();

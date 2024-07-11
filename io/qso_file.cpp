@@ -73,9 +73,9 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
     ivar_head = new double[arr_size];
     process::updateMemory(-process::getMemoryMB(_fullsize * 3));
 
-    std::copy(qmaster.wave()+i1, qmaster.wave()+i2, wave());
-    std::copy(qmaster.delta()+i1, qmaster.delta()+i2, delta());
-    std::copy(qmaster.ivar()+i1, qmaster.ivar()+i2, ivar());
+    std::copy(qmaster.wave()+i1, qmaster.wave()+i2, wave_head);
+    std::copy(qmaster.delta()+i1, qmaster.delta()+i2, delta_head);
+    std::copy(qmaster.ivar()+i1, qmaster.ivar()+i2, ivar_head);
 
     _cutMaskedBoundary();
 
@@ -158,8 +158,8 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
 
     assert (org_shift == 0);
 
-    wi1 = std::lower_bound(wave(), wave() + size(), l1) - wave();
-    wi2 = std::upper_bound(wave(), wave() + size(), l2) - wave();
+    wi1 = std::lower_bound(wave(), wave() + arr_size, l1) - wave();
+    wi2 = std::upper_bound(wave(), wave() + arr_size, l2) - wave();
     bool isempty = (wi1 == arr_size) || (wi2 == 0);
 
     arr_size = wi2 - wi1;
@@ -181,7 +181,12 @@ void QSOFile::cutBoundary(double z_lower_edge, double z_upper_edge)
     }
 }
 
-void QSOFile::maskOutliers() {
+int QSOFile::maskOutliers(double factor) {
+    // more conservative (higher) upper bound compared to Turner24
+    static auto mockMeanFluxRecip = [](double l) {
+        return exp(1.663e-03 * pow(l / LYA_REST, 4.107));
+    };
+
     int j = 0, nall = size();
     std::vector<double> temp_arr(realSize());
 
@@ -200,18 +205,23 @@ void QSOFile::maskOutliers() {
         temp_arr.begin(), temp_arr.end(),
         [median](double &x) { x = fabs(x - median); });
 
-    double mad = 3.5 * 1.4826 * (1. + 1. / sqrt(realSize()))
+    double mad = 1.4826 * (1. + 1. / sqrt(realSize()))
                  * stats::medianOfUnsortedVector(temp_arr);
-    mad = std::max(3.5, mad);
+    mad = std::max(1.0, mad);
 
+    j = 0;
     for (int i = 0; i < nall; ++i) {
         if (iv[i] == 0)
             continue;
 
-        if (fabs(f[i] - median) > std::max(mad, 3.5 / sqrt(iv[i]))) {
-            f[i] = 0;  iv[i] = 0;
+        double s = factor * std::max(1.0 / sqrt(iv[i]), mad);
+        double fup = mockMeanFluxRecip(wave()[i]);
+        if ( (f[i] < (-1.0 - s)) || (f[i] > (fup + s)) ) {
+            f[i] = 0;  iv[i] = 0;  ++j;
         }
     }
+
+    return j;
 }
 
 

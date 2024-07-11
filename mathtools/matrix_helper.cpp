@@ -918,8 +918,10 @@ namespace mxhelp
             dia_matrix = std::make_unique<DiaMatrix>(newsize, ndiags);
 
             for (int d = 0; d < ndiags; ++d)
-                std::copy_n(rmaster->matrix()+(rmaster->ncols*d)+i1, 
-                    newsize, matrix()+newsize*d);
+                std::copy_n(
+                    rmaster->matrix() + (d * rmaster->ncols) + i1, 
+                    newsize,
+                    matrix() + newsize * d);
 
             ncols = newsize;
         }
@@ -928,10 +930,14 @@ namespace mxhelp
             int nelemprow = rmaster->osamp_matrix->nelem_per_row, 
                 osamp     = rmaster->osamp_matrix->oversampling;
 
-            osamp_matrix = std::make_unique<OversampledMatrix>(newsize, nelemprow, osamp, 1.);
+            osamp_matrix = std::make_unique<OversampledMatrix>(
+                newsize, nelemprow, osamp, 1.);
             osamp_matrix->fine_dlambda = rmaster->osamp_matrix->fine_dlambda;
 
-            std::copy_n(rmaster->matrix()+(i1*nelemprow), newsize*nelemprow, matrix());
+            std::copy_n(
+                rmaster->matrix() + (i1 * nelemprow),
+                newsize * nelemprow,
+                matrix());
 
             ncols = osamp_matrix->getNCols();
         }
@@ -943,23 +949,29 @@ namespace mxhelp
 
         if (is_dia_matrix)
         {
-            auto new_dia_matrix = std::make_unique<DiaMatrix>(newsize, dia_matrix->ndiags);
+            auto new_dia_matrix = std::make_unique<DiaMatrix>(
+                newsize, dia_matrix->ndiags);
 
             for (int d = 0; d < dia_matrix->ndiags; ++d)
-                std::copy_n(dia_matrix->matrix()+(ncols*d)+i1, newsize, 
-                    new_dia_matrix->matrix()+newsize*d);
+                std::copy_n(
+                    dia_matrix->matrix() + (ncols * d) + i1,
+                    newsize, 
+                    new_dia_matrix->matrix() + newsize * d);
 
             dia_matrix = std::move(new_dia_matrix);
             ncols  = newsize;
         }
         else
         {
-            auto new_osamp_matrix = std::make_unique<OversampledMatrix>(newsize, 
-                osamp_matrix->nelem_per_row, osamp_matrix->oversampling, 1.);
+            auto new_osamp_matrix = std::make_unique<OversampledMatrix>(
+                newsize, osamp_matrix->nelem_per_row,
+                osamp_matrix->oversampling, 1.);
             new_osamp_matrix->fine_dlambda = osamp_matrix->fine_dlambda;
 
-            std::copy_n(osamp_matrix->matrix()+(i1*osamp_matrix->nelem_per_row),
-                newsize*osamp_matrix->nelem_per_row, new_osamp_matrix->matrix());
+            std::copy_n(
+                osamp_matrix->matrix() + (i1 * osamp_matrix->nelem_per_row),
+                newsize * osamp_matrix->nelem_per_row,
+                new_osamp_matrix->matrix());
 
             osamp_matrix = std::move(new_osamp_matrix);
             ncols  = osamp_matrix->getNCols();
