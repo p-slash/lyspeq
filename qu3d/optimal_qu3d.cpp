@@ -406,7 +406,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
             return q1->min_x_idx < q2->min_x_idx; }
     );
 
-    // _findNeighbors();
+    _findNeighbors();
     // idx_quasars_pairs.reserve(idx_quasar_map.size());
     // for (auto &[idx, qsos] : idx_quasar_map)
     //     idx_quasars_pairs.push_back(std::make_pair(idx, std::move(qsos)));
