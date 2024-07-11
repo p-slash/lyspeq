@@ -285,6 +285,12 @@ void Qu3DEstimator::_constructMap() {
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("findGridPoints took %.2f m.\n", t2 - t1);
 
+    LOG::LOGGER.STD("Sorting quasars by mininum NGP index.\n");
+    std::sort(
+        quasars.begin(), quasars.end(), [](const auto &q1, const auto &q2) {
+            return q1->min_x_idx < q2->min_x_idx; }
+    );
+
     for (const auto &qso : quasars)
         for (const auto &i : qso->grid_indices)
             idx_quasar_map[i].push_back(qso.get());
@@ -399,12 +405,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     _openResultsFile();
     _constructMap();
-    LOG::LOGGER.STD("Sorting quasars by mininum NGP index.\n");
-    std::sort(
-        quasars.begin(), quasars.end(), [](const auto &q1, const auto &q2) {
-            return q1->min_x_idx < q2->min_x_idx; }
-    );
-
     _findNeighbors();
 }
 
