@@ -398,6 +398,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
     covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
 
+    _openResultsFile();
     _constructMap();
     LOG::LOGGER.STD("Sorting quasars by mininum NGP index.\n");
     std::sort(
@@ -406,7 +407,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     );
 
     _findNeighbors();
-    _openResultsFile();
 }
 
 void Qu3DEstimator::reverseInterpolate() {
