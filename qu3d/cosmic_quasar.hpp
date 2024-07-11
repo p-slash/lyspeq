@@ -274,12 +274,14 @@ public:
 
         for (auto q : neighbors) {
             setCrossCov(q, p3d_model, ccov.get());
+            int M = q->N;
+
             cblas_dgemv(
-                CblasRowMajor, CblasNoTrans, q->N, N, 1.0,
+                CblasRowMajor, CblasNoTrans, M, N, 1.0,
                 ccov.get(), N, in, 1, 1, out, 1);
 
             cblas_dgemv(
-                CblasRowMajor, CblasTrans, q->N, N, 1.0,
+                CblasRowMajor, CblasTrans, M, N, 1.0,
                 ccov.get(), N, q->in, 1, 1, q->out, 1);
         }
     }
