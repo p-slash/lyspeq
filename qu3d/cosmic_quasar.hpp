@@ -249,10 +249,10 @@ public:
     ) {
         for (int i = 0; i < q->N; ++i) {
             for (int j = 0; j < N; ++j) {
-                double dx = r[3 * i] - q->r[3 * j],
-                       dy = r[3 * i + 1] - q->r[3 * j + 1];
+                double dx = r[3 * j] - q->r[3 * i],
+                       dy = r[3 * j + 1] - q->r[3 * i + 1];
 
-                double rz = fabs(r[3 * i + 2] - q->r[3 * j + 2]),
+                double rz = fabs(r[3 * j + 2] - q->r[3 * i + 2]),
                        rperp = sqrt(dx * dx + dy * dy);
                 ccov[j + i * N] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
@@ -266,8 +266,9 @@ public:
         int max_N = (*std::max_element(
             neighbors.cbegin(), neighbors.cend(),
             [](CosmicQuasar *q1, CosmicQuasar *q2) {
-                return q1-> N < q2 -> N;
-            }))->N;
+                return q1->N < q2->N;
+            })
+        )->N;
 
         auto ccov = std::make_unique<double[]>(N * max_N);
 
