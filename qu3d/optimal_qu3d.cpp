@@ -16,7 +16,7 @@ std::unordered_map<std::string, std::pair<int, double>> timings{
 };
 
 /* Internal variables */
-std::unordered_map<size_t, std::vector<CosmicQuasar*>> idx_quasar_map;
+std::unordered_map<size_t, std::vector<const CosmicQuasar*>> idx_quasar_map;
 
 std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
@@ -310,10 +310,9 @@ void Qu3DEstimator::_findNeighbors() {
             qso->neighbors.insert(
                 kumap_itr->second.cbegin(), kumap_itr->second.cend());
         }
-
-        qso->trimNeighbors();
     }
 
+    idx_quasar_map.clear();
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("_findNeighbors took %.2f m.\n", t2 - t1);
 }

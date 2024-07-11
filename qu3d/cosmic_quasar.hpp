@@ -40,7 +40,7 @@ public:
     std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r, coarse_in;
 
     std::set<size_t> grid_indices;
-    std::set<CosmicQuasar*> neighbors;
+    std::set<const CosmicQuasar*> neighbors;
     size_t min_x_idx;
 
     CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
@@ -235,21 +235,21 @@ public:
         return unique_neighboring_pixels;
     }
 
-    void trimNeighbors() {
-        if (neighbors.empty())
-            return;
+    // void trimNeighbors() {
+    //     if (neighbors.empty())
+    //         return;
 
-        /* Remove neighbors with targetid < id_this */
-        long this_id = qFile->id;
-        std::erase_if(neighbors, [this_id](const CosmicQuasar *x) {
-            return x->qFile->id < this_id;
-        });
-    }
+    //     /* Remove neighbors with targetid < id_this */
+    //     long this_id = qFile->id;
+    //     std::erase_if(neighbors, [this_id](const CosmicQuasar *x) {
+    //         return x->qFile->id < this_id;
+    //     });
+    // }
 
     void setCrossCov(
             const CosmicQuasar *q, const fidcosmo::ArinyoP3DModel *p3d_model,
             double *ccov
-    ) {
+    ) const {
         for (int i = 0; i < q->N; ++i) {
             for (int j = 0; j < N; ++j) {
                 double dx = r[3 * j] - q->r[3 * i],
@@ -268,14 +268,14 @@ public:
 
         int max_N = (*std::max_element(
             neighbors.cbegin(), neighbors.cend(),
-            [](CosmicQuasar *q1, CosmicQuasar *q2) {
+            [](const CosmicQuasar *q1, const CosmicQuasar *q2) {
                 return q1->N < q2->N;
             })
         )->N;
 
         auto ccov = std::make_unique<double[]>(N * max_N);
 
-        for (auto q : neighbors) {
+        for (const auto &q : neighbors) {
             setCrossCov(q, p3d_model, ccov.get());
             int M = q->N;
 
@@ -283,9 +283,10 @@ public:
                 CblasRowMajor, CblasNoTrans, M, N, 1.0,
                 ccov.get(), N, in, 1, 1, out, 1);
 
-            cblas_dgemv(
-                CblasRowMajor, CblasTrans, M, N, 1.0,
-                ccov.get(), N, q->in, 1, 1, q->out, 1);
+            // The following creates race conditions
+            // cblas_dgemv(
+            //     CblasRowMajor, CblasTrans, M, N, 1.0,
+            //     ccov.get(), N, q->in, 1, 1, q->out, 1);
         }
     }
 };
