@@ -121,12 +121,8 @@ public:
         truth = qFile->delta();
         out = Cy.get();
     }
-    ~CosmicQuasar() { LOG::LOGGER.ERR("Deleting."); }
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
-    // bool operator< (const CosmicQuasar *rhs) const noexcept {
-    //     return qFile->id < rhs->qFile->id;
-    // }
 
     void setComovingDistances(const fidcosmo::FlatLCDM *cosmo) {
         /* Equirectangular projection */
@@ -257,17 +253,6 @@ public:
         return unique_neighboring_pixels;
     }
 
-    // void trimNeighbors() {
-    //     if (neighbors.empty())
-    //         return;
-
-    //     /* Remove neighbors with targetid < id_this */
-    //     long this_id = qFile->id;
-    //     std::erase_if(neighbors, [this_id](const CosmicQuasar *x) {
-    //         return x->qFile->id < this_id;
-    //     });
-    // }
-
     void setCrossCov(
             const CosmicQuasar *q, const fidcosmo::ArinyoP3DModel *p3d_model,
             double *ccov
@@ -284,16 +269,11 @@ public:
         }
     }
 
-    void assertThis() {
-        for (const auto &q : neighbors)
-            assert ((q->N > 0) && (q->N < 500));
-    }
-
     void multCovNeighbors(const fidcosmo::ArinyoP3DModel *p3d_model) {
+        /* We cannot use symmetry (update neighbor's out with C^T) here
+           since it will cause race condition for the neighboring quasar. */
         if (neighbors.empty())
             return;
-
-        assertThis();
 
         int max_N = (*std::max_element(
             neighbors.cbegin(), neighbors.cend(),

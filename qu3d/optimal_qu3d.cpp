@@ -258,9 +258,7 @@ void Qu3DEstimator::_setupMesh(double radius) {
     // Shift coordinates of quasars
     LOG::LOGGER.STD("Shifting quasar locations to center the mesh.\n");
     #pragma omp parallel for
-    for (auto it = quasars.begin(); it != quasars.end(); ++it) {
-        CosmicQuasar *qso = it->get();
-
+    for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->r[1 + 3 * i] += mesh.length[1] / 2;
             qso->r[2 + 3 * i] -= mesh.z0;
@@ -279,10 +277,8 @@ void Qu3DEstimator::_constructMap() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     #pragma omp parallel for
-    for (auto it = quasars.begin(); it != quasars.end(); ++it) {
-        CosmicQuasar *qso = it->get();
+    for (auto &qso : quasars)
         qso->findGridPoints(mesh);
-    }
 
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("findGridPoints took %.2f m.\n", t2 - t1);
@@ -306,8 +302,8 @@ void Qu3DEstimator::_findNeighbors() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     #pragma omp parallel for schedule(dynamic, 4)
-    for (auto qso = quasars.begin(); qso != quasars.end(); ++qso) {
-        auto neighboring_pixels = (*qso)->findNeighborPixels(mesh, radius);
+    for (auto &qso : quasars) {
+        auto neighboring_pixels = qso->findNeighborPixels(mesh, radius);
 
         for (const size_t &ipix : neighboring_pixels) {
             auto kumap_itr = idx_quasar_map.find(ipix);
@@ -315,11 +311,9 @@ void Qu3DEstimator::_findNeighbors() {
             if (kumap_itr == idx_quasar_map.end())
                 continue;
 
-            (*qso)->neighbors.insert(
+            qso->neighbors.insert(
                 kumap_itr->second.cbegin(), kumap_itr->second.cend());
-        } 
-
-        (*qso)->assertThis();
+        }
     }
 
     idx_quasar_map.clear();
@@ -521,8 +515,8 @@ void Qu3DEstimator::multParticleComp() {
     double t1 = mytime::timer.getTime(), dt = 0;
 
     #pragma omp parallel for schedule(dynamic, 4)
-    for (auto qso = quasars.begin(); qso != quasars.end(); ++qso)
-        (*qso)->multCovNeighbors(p3d_model.get());
+    for (auto &qso : quasars)
+        qso->multCovNeighbors(p3d_model.get());
 
     dt = mytime::timer.getTime() - t1;
     ++timings["PPcomp"].first;
