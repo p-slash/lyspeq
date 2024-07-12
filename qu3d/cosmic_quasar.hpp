@@ -63,7 +63,13 @@ public:
         }
 
         qFile->readData();
-        qFile->maskOutliers();
+        int num_outliers = qFile->maskOutliers();
+        if (num_outliers > 0)
+            LOG::LOGGER.ERR(
+                "WARNING::CosmicQuasar::CosmicQuasar::"
+                "Found %d outlier pixels in %d.\n",
+                num_outliers, qFile->id);
+
         qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
         if (qFile->realSize() < 20) {
