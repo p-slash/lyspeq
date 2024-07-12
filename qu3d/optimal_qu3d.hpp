@@ -16,7 +16,9 @@ const config_map qu3d_default_parameters ({
     {"TurnOnPpCovariance", "-1"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"ConvergenceTolerance", "1e-6"}, {"LongScale", "50"}, {"ScaleFactor", "4"},
-    {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"}
+    {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"},
+    {"EstimateTotalBias", "1"}, {"EstimateNoiseBias", "1"},
+    {"EstimateFisherFromRandomDerivatives", "-1"}
 });
 
 
@@ -51,7 +53,10 @@ class Qu3DEstimator
 
     bool _syncMonteCarlo(int nmc, double *o1, double *o2,
                          int ndata, const std::string &ext);
+
 public:
+    bool total_bias_enabled, noise_bias_enabled, fisher_rnd_enabled;
+
     /* This function reads following keys from config file:
     FileNameList: string
         File to spectra to list. Filenames are wrt FileInputDir.

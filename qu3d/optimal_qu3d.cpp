@@ -385,6 +385,10 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
     radius = config.getDouble("LongScale");
     rscale_factor = config.getDouble("ScaleFactor");
+    total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
+    noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
+    fisher_rnd_enabled = config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
+
     seed_generator = std::make_unique<std::seed_seq>(seed.begin(), seed.end());
     _initRngs(seed_generator.get());
 
@@ -836,7 +840,8 @@ void Qu3DEstimator::estimateNoiseBiasMc() {
 
 
 void Qu3DEstimator::estimateTotalBiasMc() {
-    /* Saves every Monte Carlo simulation */
+    /* Saves every Monte Carlo simulation. The results need to be
+       post-processed to get the Fisher matrix. */
     LOG::LOGGER.STD("Estimating total bias (S_L + N).\n");
     constexpr int M_MCS = 5;
     verbose = false;
@@ -975,9 +980,6 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
         
             ++prog_tracker;
         }
-
-        // if ((nmc % 5 != 0) && (nmc != max_monte_carlos))
-        //     continue;
 
         converged = _syncMonteCarlo(
             nmc, fisher.get(), covariance.get(), bins::FISHER_SIZE, "2FISHER");
