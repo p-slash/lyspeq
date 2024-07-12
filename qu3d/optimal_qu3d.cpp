@@ -885,7 +885,7 @@ void Qu3DEstimator::estimateFisher() {
     mesh_rnd.initRngs(seed_generator.get());
     mesh_rnd.construct();
 
-    Progress prog_tracker(max_monte_carlos, 5);
+    Progress prog_tracker(max_monte_carlos * NUMBER_OF_K_BANDS_2, 5);
     int nmc = 1;
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
@@ -904,12 +904,12 @@ void Qu3DEstimator::estimateFisher() {
             multiplyDerivVectors(
                 mc1.get() + i * NUMBER_OF_K_BANDS_2,
                 mc2.get() + i * NUMBER_OF_K_BANDS_2);
+        
+            ++prog_tracker;
         }
 
-        ++prog_tracker;
-
-        if ((nmc % 5 != 0) && (nmc != max_monte_carlos))
-            continue;
+        // if ((nmc % 5 != 0) && (nmc != max_monte_carlos))
+        //     continue;
 
         converged = _syncMonteCarlo(
             nmc, fisher.get(), covariance.get(), bins::FISHER_SIZE, "2FISHER");
