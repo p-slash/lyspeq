@@ -783,7 +783,7 @@ bool Qu3DEstimator::_syncMonteCarlo(
 }
 
 
-void Qu3DEstimator::estimateBiasMc() {
+void Qu3DEstimator::estimateNoiseBiasMc() {
     LOG::LOGGER.STD("Estimating bias.\n");
     verbose = false;
     mc1 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
@@ -859,7 +859,7 @@ void Qu3DEstimator::drawRndDeriv(int i) {
 }
 
 
-void Qu3DEstimator::estimateFisher() {
+void Qu3DEstimator::estimateFisherFromRndDeriv() {
     /* Tr[C^-1 . Qk . C^-1 Qk'] = <qk^T . C^-1 . Qk' . C^-1 . qk>
 
     1. Generate qk on the grid.
