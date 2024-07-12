@@ -37,9 +37,7 @@ namespace fidcosmo {
         FlatLCDM(ConfigFile &config);
 
         /* in km/s/Mpc */
-        double getHubble(double z1) const {
-            return hubble_z->evaluate(z1);
-        }
+        double getHubble(double z1) const { return hubble_z->evaluate(z1); }
 
         double getInvHubble(double z1) const {
             return 1 / hubble_z->evaluate(z1);
@@ -90,8 +88,9 @@ namespace fidcosmo {
     };
 
     const config_map arinyo_default_parameters ({
-        // Some parameters from vega and DESI Y1 fits.
-        // Need to confirm if k_p and k_nu are in Mpc units or in Mpc/h units.
+        /* These defaults are obtained from Chabanier+24 Table A3.
+           b_F fitted to all redshift ranges accounting for errors.
+           Two redshift bins are averaged for others. */
         {"b_F", "0.1195977"}, {"alpha_F", "3.37681"},
         {"beta_F", "1.69"}, {"k_p", "17.625"},
         {"q_1", "0.7935"}, {"nu_0", "1.253"}, {"nu_1", "1.625"},
@@ -101,13 +100,17 @@ namespace fidcosmo {
     class ArinyoP3DModel {
         double _varlss, _D_pivot, _z1_pivot;
         double b_F, alpha_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long;
+
         std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
+
         std::unique_ptr<DiscreteInterpolation2D>
             interp2d_pL, interp2d_pS, interp2d_cfS;
+
         std::unique_ptr<DiscreteInterpolation1D>
             interp_kp_pL, interp_kz_pL, interp_kp_pS, interp_kz_pS,
             interp_p1d;
+
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
         void _calcVarLss();
@@ -118,11 +121,12 @@ namespace fidcosmo {
     public:
         /* This function reads following keys from config file:
         b_F: double
+        alpha_F (double): Redshift growth power of b_F.
         beta_F: double
         k_p: double
         q_1: double
-        nu_0: double  == b_nu - a_nu of arinyo
-        nu_1: double  == b_nu of arinyo
+        nu_0 (double): b_nu - a_nu of arinyo
+        nu_1 (double): b_nu of arinyo
         k_nu: double
         */
         ArinyoP3DModel(ConfigFile &config);
@@ -136,6 +140,7 @@ namespace fidcosmo {
         double evalExplicit(double k, double kz);
 
         double evaluate(double kperp, double kz) const {
+            /* Evaluate large-scale P3D using interpolation. */
             if ((kz == 0) && (kperp == 0))
                 return 0;
             else if (kz == 0)
@@ -147,6 +152,7 @@ namespace fidcosmo {
         }
 
         double evaluateSS(double kperp, double kz) const {
+            /* Evaluate small-scale P3D using interpolation. */
             if ((kz == 0) && (kperp == 0))
                 return 0;
             else if (kz == 0)
@@ -163,6 +169,7 @@ namespace fidcosmo {
         }
 
         double evalCorrFunc2dS(double rperp, double rz) const {
+            /* Evaluate small-scale CF using interpolation. */
             return interp2d_cfS->evaluate(rz, rperp);
         }
 
