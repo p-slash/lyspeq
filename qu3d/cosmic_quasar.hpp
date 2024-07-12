@@ -80,6 +80,9 @@ public:
             throw std::runtime_error(err_msg.str());
         }
 
+        if (qFile->size() > 500)
+            throw std::runtime_error("Large N.");
+
         // Convert wave to 1 + z
         std::for_each(
             qFile->wave(), qFile->wave() + qFile->size(), [](double &ld) {
@@ -118,6 +121,9 @@ public:
         in = y.get();
         truth = qFile->delta();
         out = Cy.get();
+
+        if (N > 500)
+            throw std::runtime_error("Large N.");
     }
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;

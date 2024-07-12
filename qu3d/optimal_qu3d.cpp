@@ -65,7 +65,7 @@ void logPmodel() {
         double k = 0.02 + i * 0.02;
         DEBUG_LOG(
             " P3d(kperp=%.2f, kz=%.2f) = %.2f",
-            k, kz, p3d_model->evaluate(kperp, kz));
+            k, kz, p3d_model->evaluate(k, kz));
     }
     DEBUG_LOG("\n");
     DEBUG_LOG("VarLss: %.5e\n", p3d_model->getVarLss());
