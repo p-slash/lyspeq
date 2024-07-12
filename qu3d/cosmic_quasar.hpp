@@ -257,12 +257,12 @@ public:
             const CosmicQuasar *q, const fidcosmo::ArinyoP3DModel *p3d_model,
             double *ccov
     ) const {
-        for (int i = 0; i < q->N; ++i) {
-            for (int j = 0; j < N; ++j) {
-                double dx = r[3 * j] - q->r[3 * i],
-                       dy = r[3 * j + 1] - q->r[3 * i + 1];
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < q->N; ++j) {
+                double dx = r[3 * i] - q->r[3 * j],
+                       dy = r[3 * i + 1] - q->r[3 * j + 1];
 
-                double rz = fabs(r[3 * j + 2] - q->r[3 * i + 2]),
+                double rz = fabs(r[3 * i + 2] - q->r[3 * j + 2]),
                        rperp = sqrt(dx * dx + dy * dy);
                 ccov[j + i * N] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
@@ -289,8 +289,8 @@ public:
             int M = q->N;
 
             cblas_dgemv(
-                CblasRowMajor, CblasNoTrans, M, N, 1.0,
-                ccov.get(), N, in, 1, 1, out, 1);
+                CblasRowMajor, CblasNoTrans, N, M, 1.0,
+                ccov.get(), M, q->in, 1, 1, out, 1);
 
             // The following creates race conditions
             // cblas_dgemv(
