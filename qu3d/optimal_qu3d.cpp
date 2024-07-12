@@ -858,7 +858,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
     int nmc = 1;
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
-        /* generate random Gaussian vector into y */
+        /* generate random Gaussian vector into truth */
         replaceDeltasWithGaussianField();
 
         /* calculate Cinv . n into y */
