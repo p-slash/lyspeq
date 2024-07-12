@@ -189,9 +189,14 @@ void Qu3DEstimator::_readQSOFiles(
     if (quasars.empty())
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
 
-    #pragma omp parallel for reduction(+:num_all_pixels)
-    for (auto it = quasars.cbegin(); it != quasars.cend(); ++it)
-        num_all_pixels += (*it)->N;
+    int max_qN = 0;
+    #pragma omp parallel for reduction(+:num_all_pixels) reduction(max:max_qN)
+    for (const auto &qso : quasars) {
+        num_all_pixels += qso->N;
+        max_qN = std::max(qso->N, max_qN);
+    }
+
+    CosmicQuasar::allocCcov(max_qN * max_qN);
 
     LOG::LOGGER.STD(
         "There are %d quasars and %ld number of pixels. "
