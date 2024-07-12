@@ -10,6 +10,7 @@
 #include <string>
 #include <memory>
 
+#include "io/logger.hpp"
 #include "io/qso_file.hpp"
 #include "mathtools/real_field_3d.hpp"
 #include "qu3d/cosmology_3d.hpp"
