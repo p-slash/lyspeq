@@ -28,7 +28,6 @@ int main(int argc, char *argv[]) {
     gsl_set_error_handler_off();
 
     ConfigFile config = ConfigFile();
-    std::unique_ptr<Qu3DEstimator> qps;
 
     try
     {
@@ -62,16 +61,23 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-
-    qps = std::make_unique<Qu3DEstimator>(config);
+    Qu3DEstimator qps(config);
     config.checkUnusedKeys();
 
-    qps->estimatePower();
-    qps->estimateNoiseBiasMc();
-    qps->estimateFisherFromRndDeriv();
-    qps->filter();
-    qps->write();
-    qps.reset();
+    qps.estimatePower();
+
+    if (qps.total_bias_enabled)
+        qps.estimateTotalBiasMc();
+
+    if (qps.noise_bias_enabled)
+        qps.estimateNoiseBiasMc();
+
+    if (qps.fisher_rnd_enabled) {
+        qps.estimateFisherFromRndDeriv();
+        qps.filter();
+    }
+
+    qps.write();
     myomp::clean_fftw();
     mympi::finalize();
     return 0;
