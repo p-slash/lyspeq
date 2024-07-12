@@ -10,6 +10,7 @@
 #include <string>
 #include <memory>
 
+#include "core/omp_manager.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 #include "mathtools/real_field_3d.hpp"
@@ -276,29 +277,31 @@ public:
         if (neighbors.empty())
             return;
 
-        int max_N = (*std::max_element(
-            neighbors.cbegin(), neighbors.cend(),
-            [](const CosmicQuasar *q1, const CosmicQuasar *q2) {
-                return q1->N < q2->N;
-            })
-        )->N;
-
-        auto ccov = std::make_unique<double[]>(N * max_N);
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
 
         for (const auto &q : neighbors) {
-            setCrossCov(q, p3d_model, ccov.get());
+            setCrossCov(q, p3d_model, ccov);
             int M = q->N;
 
             cblas_dgemv(
                 CblasRowMajor, CblasNoTrans, N, M, 1.0,
-                ccov.get(), M, q->in, 1, 1, out, 1);
+                ccov, M, q->in, 1, 1, out, 1);
 
             // The following creates race conditions
             // cblas_dgemv(
             //     CblasRowMajor, CblasTrans, M, N, 1.0,
-            //     ccov.get(), N, q->in, 1, 1, q->out, 1);
+            //     ccov, N, q->in, 1, 1, q->out, 1);
         }
     }
+
+    static void allocCcov(size_t size) {
+        GL_CCOV.resize(myomp::getMaxNumThreads());
+        for (auto it = GL_CCOV.begin(); it != GL_CCOV.end(); ++it)
+            *it = std::make_unique<double[]>(size);
+    }
+
+private:
+    inline static std::vector<std::unique_ptr<double[]>> GL_CCOV;
 };
 
 #endif
