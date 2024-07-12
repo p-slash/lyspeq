@@ -11,27 +11,84 @@ constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
 
 using namespace fidcosmo;
 
-double _integrand_LinearGrowth(double z1, void *Hz_interp)
-{
-    DiscreteCubicInterpolation1D *Hz = (DiscreteCubicInterpolation1D *) Hz_interp;
+/* Fitted to astropy Planck18.nu_relative_density function based on
+   Komatsu et al. 2011, eq 26
+*/
+constexpr double _nu_relative_density(
+        double z1, double A=0.3173, double nu_y0=357.91212097,
+        double p=1.83, double invp=0.54644808743,
+        double nmassless=2, double B=0.23058962986246165
+) {
+    return B * (nmassless + pow(1 + pow(A * nu_y0 / z1, p), invp));
+}
 
-    double hub = Hz->evaluate(z1);
+
+/* in km/s/Mpc */
+double _calcHubble(double z1, struct CosmoParams *params) {
+    double z3 = z1 * z1 * z1;
+    double nu = 1.0 + _nu_relative_density(z1);
+    return params->H0 * sqrt(
+            params->Omega_L + (params->Omega_m + params->Omega_r * nu * z1) * z3
+    );
+}
+
+
+double _calcInvHubble(double z1, void *params) {
+    struct CosmoParams *cosmo_params = (struct CosmoParams *) params;
+    return 1.0 / _calcHubble(z1, cosmo_params);
+}
+
+
+double _integrand_LinearGrowth(double z1, void *params)
+{
+    struct CosmoParams *cosmo_params = (struct CosmoParams *) params;
+
+    double hub = _calcHubble(z1, cosmo_params);
     hub *= hub * hub;
 
     return z1 / hub;
 }
 
 
+#define ABS_ERROR 0
+#define REL_ERROR 1E-8
+#define WORKSPACE_SIZE 3000
+
+void FlatLCDM::_integrateComovingDist(
+        int nz, const double *z1arr, double *cDist
+) {
+    gsl_function F;
+    F.function = _calcInvHubble;
+    F.params = &cosmo_params;
+
+    gsl_integration_workspace *w =
+        gsl_integration_workspace_alloc(WORKSPACE_SIZE);
+
+    if (w == NULL)
+        throw std::bad_alloc();
+
+    for (int i = 0; i < nz; ++i) {
+        double error = 0;
+
+        gsl_integration_qag(
+            &F, 0, z1arr[i],
+            ABS_ERROR, REL_ERROR,
+            WORKSPACE_SIZE, GSL_INTEG_GAUSS31, w,
+            cDist + i, &error);
+
+        cDist[i] *= SPEED_OF_LIGHT;
+    }
+
+    gsl_integration_workspace_free(w);
+}
+
+
 void FlatLCDM::_integrateLinearGrowth(
         int nz, const double *z1arr, double *linD
 ) {
-    #define ABS_ERROR 0
-    #define REL_ERROR 1E-8
-    #define WORKSPACE_SIZE 3000
-
     gsl_function F;
     F.function = _integrand_LinearGrowth;
-    F.params = hubble_z.get();
+    F.params = &cosmo_params;
 
     gsl_integration_workspace *w =
         gsl_integration_workspace_alloc(WORKSPACE_SIZE);
@@ -52,48 +109,41 @@ void FlatLCDM::_integrateLinearGrowth(
     }
 
     gsl_integration_workspace_free(w);
-    #undef ABS_ERROR
-    #undef REL_ERROR
-    #undef WORKSPACE_SIZE
 }
+
+#undef ABS_ERROR
+#undef REL_ERROR
+#undef WORKSPACE_SIZE
 
 
 FlatLCDM::FlatLCDM(ConfigFile &config) {
     config.addDefaults(planck18_default_parameters);
-    Omega_m = config.getDouble("OmegaMatter");
-    Omega_r = config.getDouble("OmegaRadiation");
-    H0 = config.getDouble("Hubble");
-    Omega_L = 1.0 - Omega_m - Omega_r * (1 + _nu_relative_density(1));
+    cosmo_params.H0 = config.getDouble("Hubble");
+    cosmo_params.Omega_m = config.getDouble("OmegaMatter");
+    cosmo_params.Omega_r = config.getDouble("OmegaRadiation");
+    cosmo_params.Omega_L =
+        1.0 - cosmo_params.Omega_m
+        - cosmo_params.Omega_r * (1 + _nu_relative_density(1));
 
     // Cache
     const int nz = 300;
     const double dz = 0.02;
-    double z1arr[nz], Hz[nz], cDist[nz], linD[nz];
+    double z1arr[nz], temparr[nz];
     for (int i = 0; i < nz; ++i) {
         z1arr[i] = 1.0 + dz * i;
-        Hz[i] = _calcHubble(z1arr[i]);
+        temparr[i] = _calcHubble(z1arr[i], &cosmo_params);
     }
 
     hubble_z = std::make_unique<DiscreteCubicInterpolation1D>(
-        z1arr[0], dz, nz, &Hz[0]);
+        z1arr[0], dz, nz, temparr);
 
-    const int nz2 = 3100;
-    const double dz2 = 0.002;
-    double invHz[nz2];
-    for (int i = 0; i < nz2; ++i)
-        invHz[i] = getInvHubble(1 + i * dz2);
-
-    for (int i = 0; i < nz; ++i) {
-        int N = (z1arr[i] - 1) / dz2 + 1.01;
-        cDist[i] = SPEED_OF_LIGHT * trapz(&invHz[0], N, dz2);
-    }
-
+    _integrateComovingDist(nz, z1arr, temparr);
     interp_comov_dist = std::make_unique<DiscreteCubicInterpolation1D>(
-        z1arr[0], dz, nz, &cDist[0]);
+        z1arr[0], dz, nz, temparr);
 
-    _integrateLinearGrowth(nz, z1arr, linD);
+    _integrateLinearGrowth(nz, z1arr, temparr);
     linear_growth_unnorm = std::make_unique<DiscreteCubicInterpolation1D>(
-        z1arr[0], dz, nz, &linD[0]);
+        z1arr[0], dz, nz, temparr);
 }
 
 

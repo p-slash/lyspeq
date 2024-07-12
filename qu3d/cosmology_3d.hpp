@@ -16,11 +16,16 @@ namespace fidcosmo {
         {"Hubble", "67.66"}
     });
 
+    struct CosmoParams {
+        double H0, Omega_m, Omega_L, Omega_r;
+    };
+
     class FlatLCDM {
-        double Omega_m, Omega_r, H0, Omega_L;
+        struct CosmoParams cosmo_params;
         std::unique_ptr<DiscreteCubicInterpolation1D>
             interp_comov_dist, hubble_z, linear_growth_unnorm;
 
+        void _integrateComovingDist(int nz, const double *z1arr, double *cDist);
         void _integrateLinearGrowth(int nz, const double *z1arr, double *linD);
 
     public:
@@ -30,24 +35,6 @@ namespace fidcosmo {
         Hubble: double
         */
         FlatLCDM(ConfigFile &config);
-    
-        /* Fitted to astropy Planck18.nu_relative_density function based on
-           Komatsu et al. 2011, eq 26
-        */
-        double _nu_relative_density(
-                double z1, double A=0.3173, double nu_y0=357.91212097,
-                double p=1.83, double invp=0.54644808743,
-                double nmassless=2, double B=0.23058962986246165
-        ) const {
-            return B * (nmassless + pow(1 + pow(A * nu_y0 / z1, p), invp));
-        }
-
-        /* in km/s/Mpc */
-        double _calcHubble(double z1) {
-            double z3 = z1 * z1 * z1;
-            double nu = 1.0 + _nu_relative_density(z1);
-            return H0 * sqrt(Omega_L + (Omega_m + Omega_r * nu * z1) * z3);
-        }
 
         /* in km/s/Mpc */
         double getHubble(double z1) const {
