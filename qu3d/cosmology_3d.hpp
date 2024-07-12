@@ -115,6 +115,7 @@ namespace fidcosmo {
         double _varlss, _D_pivot, _z1_pivot;
         double b_F, alpha_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long;
         std::unique_ptr<LinearPowerInterpolator> interp_p;
+        std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
         std::unique_ptr<DiscreteInterpolation2D>
             interp2d_pL, interp2d_pS, interp2d_cfS;
         std::unique_ptr<DiscreteInterpolation1D>
@@ -142,9 +143,7 @@ namespace fidcosmo {
         const fidcosmo::FlatLCDM* getCosmoPtr() const { return cosmo.get(); }
 
         double getRedshiftEvolution(double z1) {
-            double D = cosmo->getUnnormLinearGrowth(z1) / _D_pivot;
-            D *= pow(z1 / _z1_pivot, alpha_F);
-            return D;
+            return interp_growth->evaluate(z1);
         }
 
         double evalExplicit(double k, double kz);
