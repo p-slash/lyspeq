@@ -158,8 +158,6 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
         std::move(std::begin(local_quasars), std::end(local_quasars),
                   std::back_inserter(quasars));
     }
-
-    local_quasars.clear();
 }
 
 
@@ -203,7 +201,7 @@ void Qu3DEstimator::_readQSOFiles(
 
 
 void Qu3DEstimator::_calculateBoxDimensions(double L[3], double &z0) {
-    double lxmin = 0, lymin = 0, lzmin=1e15,
+    double lxmin = 0, lymin = 0, lzmin = 1e15,
            lxmax = 0, lymax = 0, lzmax = 0;
 
     #pragma omp parallel for reduction(min:lxmin, lymin, lzmin) \
