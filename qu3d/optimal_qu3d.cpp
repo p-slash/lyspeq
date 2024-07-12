@@ -12,7 +12,8 @@
 std::unordered_map<std::string, std::pair<int, double>> timings{
     {"rInterp", std::make_pair(0, 0.0)}, {"interp", std::make_pair(0, 0.0)},
     {"CGD", std::make_pair(0, 0.0)}, {"mDeriv", std::make_pair(0, 0.0)},
-    {"mCov", std::make_pair(0, 0.0)}, {"PPcomp", std::make_pair(0, 0.0)}
+    {"mCov", std::make_pair(0, 0.0)}, {"PPcomp", std::make_pair(0, 0.0)},
+    {"GenGauss", std::make_pair(0, 0.0)}
 };
 
 /* Internal variables */
@@ -272,6 +273,11 @@ void Qu3DEstimator::_setupMesh(double radius) {
             qso->setCoarseComovingDistances();
         #endif
     }
+
+    LOG::LOGGER.STD("Constructing another mesh for randoms.\n");
+    mesh_rnd.copy(mesh);
+    mesh_rnd.initRngs(seed_generator.get());
+    mesh_rnd.construct(INPLACE_FFT);
 
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
@@ -784,7 +790,45 @@ bool Qu3DEstimator::_syncMonteCarlo(
 
 
 void Qu3DEstimator::estimateNoiseBiasMc() {
-    LOG::LOGGER.STD("Estimating bias.\n");
+    LOG::LOGGER.STD("Estimating noise bias.\n");
+    verbose = false;
+    mc1 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    mc2 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+
+    Progress prog_tracker(max_monte_carlos, 10);
+    int nmc = 1;
+    bool converged = false;
+    for (; nmc <= max_monte_carlos; ++nmc) {
+        /* generate random Gaussian vector into y */
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->fillRngNoise(rngs[myomp::getThreadNum()]);
+
+        /* calculate Cinv . n into y */
+        conjugateGradientDescent();
+
+        reverseInterpolate();
+        mesh.rawFftX2K();
+        multiplyDerivVectors(mc1.get(), mc2.get());
+
+        ++prog_tracker;
+
+        if ((nmc % 5 != 0) && (nmc != max_monte_carlos))
+            continue;
+
+        converged = _syncMonteCarlo(
+            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_K_BANDS_2, "FBIAS");
+
+        if (converged)
+            break;
+    }
+
+    logTimings();
+}
+
+
+void Qu3DEstimator::estimateTotalBiasMc() {
+    LOG::LOGGER.STD("Estimating total bias (S_L + N).\n");
     verbose = false;
     mc1 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
     mc2 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
@@ -879,11 +923,12 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
        generated once, and FFTd once. This grid can perform in-place FFTs,
        since it is only needed in Fourier space, which is equivalent between
        in-place and out-of-place transforms.
+
+       LOG::LOGGER.STD("  Constructing another mesh.\n");
+       mesh_rnd.copy(mesh);
+       mesh_rnd.initRngs(seed_generator.get());
+       mesh_rnd.construct();
     */
-    LOG::LOGGER.STD("  Constructing another mesh.\n");
-    mesh_rnd.copy(mesh);
-    mesh_rnd.initRngs(seed_generator.get());
-    mesh_rnd.construct();
 
     Progress prog_tracker(max_monte_carlos * NUMBER_OF_K_BANDS_2, 5);
     int nmc = 1;
@@ -919,26 +964,6 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
     }
 
     cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
-
-    // // Make it symmetric
-    // mxhelp::transpose_copy(
-    //     fisher.get(), covariance.get(),
-    //     NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
-    // cblas_daxpy(bins::FISHER_SIZE, 1.0, covariance.get(), 1, fisher.get(), 1);
-    // cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
-
-    // mxhelp::transpose_copy(
-    //     total_f2.get(), covariance.get(),
-    //     NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
-    // cblas_daxpy(bins::FISHER_SIZE, 1.0, covariance.get(), 1, total_f2.get(), 1);
-    // cblas_dscal(bins::FISHER_SIZE, 0.5, total_f2.get(), 1);
-
-    // // mxhelp::copyUpperToLower(fisher.get(), NUMBER_OF_K_BANDS_2);
-    // result_file->write(fisher.get(), bins::FISHER_SIZE, "FISHER-FINAL", nmc);
-    // result_file->write(total_f2.get(), bins::FISHER_SIZE, "FISHER2-FINAL", nmc);
-    // result_file->flush();
-
-    // cblas_dscal(bins::FISHER_SIZE, 1.0 / nmc, fisher.get(), 1);
     logTimings();
 }
 
@@ -1039,38 +1064,49 @@ void Qu3DEstimator::write() {
 
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
     /* Generated deltas will be different between MPI tasks */
-    LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
+    if (verbose)
+        LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
+
     double t1 = mytime::timer.getTime(), t2 = 0;
-    RealField3D mesh_g;
-    mesh_g.initRngs(seed_generator.get());
-    mesh_g.copy(mesh);
-    // mesh_g.length[1] *= 1.25; mesh_g.length[2] *= 1.25;
-    // mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
-    mesh_g.construct();
-    mesh_g.fillRndNormal();
-    mesh_g.fftX2K();
+    /* We could generate a higher resolution grid for truth testing in the
+       future. Old code for reference:
+
+       RealField3D mesh_g;
+       mesh_g.initRngs(seed_generator.get());
+       mesh_g.copy(mesh);
+       mesh_g.length[1] *= 1.25; mesh_g.length[2] *= 1.25;
+       mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
+       mesh_rnd.construct();
+    */
+
+    mesh_rnd.fillRndNormal();
+    mesh_rnd.fftX2K();
 
     #pragma omp parallel for
-    for (size_t ij = 0; ij < mesh_g.ngrid_xy; ++ij) {
-        double kperp = mesh_g.getKperpFromIperp(ij);
+    for (size_t ij = 0; ij < mesh_rnd.ngrid_xy; ++ij) {
+        double kperp = mesh_rnd.getKperpFromIperp(ij);
 
-        for (int k = 0; k < mesh_g.ngrid_kz; ++k)
-            mesh_g.field_k[k + mesh_g.ngrid_kz * ij] *=
-                mesh_g.invsqrtcellvol * sqrt(
-                    p3d_model->evaluate(kperp, k * mesh_g.k_fund[2])
+        for (int k = 0; k < mesh_rnd.ngrid_kz; ++k)
+            mesh_rnd.field_k[k + mesh_rnd.ngrid_kz * ij] *=
+                mesh_rnd.invsqrtcellvol * sqrt(
+                    p3d_model->evaluate(kperp, k * mesh_rnd.k_fund[2])
             );
     }
 
-    mesh_g.fftK2X();
+    mesh_rnd.fftK2X();
 
     #pragma omp parallel for
     for (auto &qso : quasars) {
         qso->fillRngNoise(rngs[myomp::getThreadNum()]);
         for (int i = 0; i < qso->N; ++i)
-            qso->truth[i] += qso->isig[i] * mesh_g.interpolate(
+            qso->truth[i] += qso->isig[i] * mesh_rnd.interpolate(
                 qso->r.get() + 3 * i);
     }
 
-    t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("It took %.2f m.\n", t2 - t1);
+    t2 = mytime::timer.getTime() - t1;
+    ++timings["GenGauss"].first;
+    timings["GenGauss"].second += t2;
+
+    if (verbose)
+        LOG::LOGGER.STD("It took %.2f m.\n", t2);
 }

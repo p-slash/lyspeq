@@ -88,6 +88,7 @@ public:
 
     void estimatePower();
     void estimateNoiseBiasMc();
+    void estimateTotalBiasMc();
 
 
     void drawRndDeriv(int i);
