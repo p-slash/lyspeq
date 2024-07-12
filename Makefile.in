@@ -28,8 +28,8 @@ global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
 sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
 discrete_interpolation.o interpolation.o interpolation_2d.o
 cross_objs=cross_exposure.o one_qso_exposures.o
-qu3d_objs=optimal_qu3d.o real_field.o real_field_3d.o qso_file.o matrix_helper.o \
-discrete_interpolation.o stats.o
+qu3d_objs=optimal_qu3d.o cosmology_3d.o real_field.o real_field_3d.o qso_file.o \
+matrix_helper.o discrete_interpolation.o stats.o
 test_objects=test_utils.o testPointRef.o test-fftconvolve.o
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d) optimal_qu3d.d real_field_3d.d)
 
