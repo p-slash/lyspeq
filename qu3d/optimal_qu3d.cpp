@@ -19,7 +19,7 @@ std::unordered_map<std::string, std::pair<int, double>> timings{
 /* Internal variables */
 std::unordered_map<size_t, std::vector<const CosmicQuasar*>> idx_quasar_map;
 
-std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
+const fidcosmo::FlatLCDM *cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 
 RealField3D mesh_rnd;
@@ -149,7 +149,7 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
         return;
 
     for (auto &qso : local_quasars) {
-        qso->setComovingDistances(cosmo.get());
+        qso->setComovingDistances(cosmo);
         CHECK_ISNAN(qso->r.get(), qso->N, "comovingdist");
     }
 
@@ -392,10 +392,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     seed_generator = std::make_unique<std::seed_seq>(seed.begin(), seed.end());
     _initRngs(seed_generator.get());
 
-    cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
-    logCosmoDist(); logCosmoHubble();
     p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
-    logPmodel();
+    cosmo = p3d_model->getCosmoPtr();
+    logCosmoDist(); logCosmoHubble(); logPmodel();
 
     _readQSOFiles(flist, findir);
     _setupMesh(radius);

@@ -5,17 +5,9 @@
 #include <memory>
 #include <string>
 
-#include "core/global_numbers.hpp"
 #include "mathtools/discrete_interpolation.hpp"
-#include "mathtools/mathutils.hpp"
 #include "io/config_file.hpp"
-#include "io/io_helper_functions.hpp"
-
-#include "qu3d/ps2cf_2d.hpp"
 #include "qu3d/qu3d_file.hpp"
-
-
-constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
 
 
 namespace fidcosmo {
@@ -27,46 +19,17 @@ namespace fidcosmo {
     class FlatLCDM {
         double Omega_m, Omega_r, H0, Omega_L;
         std::unique_ptr<DiscreteCubicInterpolation1D>
-            interp_comov_dist, hubble_z;
+            interp_comov_dist, hubble_z, linear_growth_unnorm;
+
+        void _integrateLinearGrowth(int nz, const double *z1arr, double *linD);
+
     public:
         /* This function reads following keys from config file:
         OmegaMatter: double
         OmegaRadiation: double
         Hubble: double
         */
-        FlatLCDM(ConfigFile &config) {
-            config.addDefaults(planck18_default_parameters);
-            Omega_m = config.getDouble("OmegaMatter");
-            Omega_r = config.getDouble("OmegaRadiation");
-            H0 = config.getDouble("Hubble");
-            Omega_L = 1.0 - Omega_m - Omega_r * (1 + _nu_relative_density(1));
-
-            // Cache
-            const int nz = 300;
-            const double dz = 0.02;
-            double z1arr[nz], Hz[nz], cDist[nz];
-            for (int i = 0; i < nz; ++i) {
-                z1arr[i] = 1.0 + dz * i;
-                Hz[i] = _calcHubble(z1arr[i]);
-            }
-
-            hubble_z = std::make_unique<DiscreteCubicInterpolation1D>(
-                z1arr[0], dz, nz, &Hz[0]);
-
-            const int nz2 = 3100;
-            const double dz2 = 0.002;
-            double invHz[nz2];
-            for (int i = 0; i < nz2; ++i)
-                invHz[i] = getInvHubble(1 + i * dz2);
-
-            for (int i = 0; i < nz; ++i) {
-                int N = (z1arr[i] - 1) / dz2 + 1.01;
-                cDist[i] = SPEED_OF_LIGHT * trapz(&invHz[0], N, dz2);
-            }
-
-            interp_comov_dist = std::make_unique<DiscreteCubicInterpolation1D>(
-                z1arr[0], dz, nz, &cDist[0]);
-        }
+        FlatLCDM(ConfigFile &config);
     
         /* Fitted to astropy Planck18.nu_relative_density function based on
            Komatsu et al. 2011, eq 26
@@ -75,7 +38,7 @@ namespace fidcosmo {
                 double z1, double A=0.3173, double nu_y0=357.91212097,
                 double p=1.83, double invp=0.54644808743,
                 double nmassless=2, double B=0.23058962986246165
-        ) {
+        ) const {
             return B * (nmassless + pow(1 + pow(A * nu_y0 / z1, p), invp));
         }
 
@@ -98,6 +61,10 @@ namespace fidcosmo {
         double getComovingDist(double z1) const {
             return interp_comov_dist->evaluate(z1);
         }
+
+        double getUnnormLinearGrowth(double z1) const {
+            return linear_growth_unnorm->evaluate(z1);
+        }
     };
 
     class LinearPowerInterpolator {
@@ -105,55 +72,12 @@ namespace fidcosmo {
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_lnp;
 
         std::unique_ptr<double[]> _appendLinearExtrapolation(
-                double lnk1, double lnk2, double dlnk, int N,
-                const std::vector<double> &lnP, double &newlnk1,
-                double lnkmin=log(1e-5), double lnkmax=log(5.0)
-        ) {
-            double m1 = lnP[1] - lnP[0],
-                   m2 = lnP[N - 1] - lnP[N - 2];
+            double lnk1, double lnk2, double dlnk, int N,
+            const std::vector<double> &lnP, double &newlnk1,
+            double lnkmin=log(1e-5), double lnkmax=log(5.0)
+        );
 
-            int n1 = std::max(0, int((lnk1 - lnkmin) / dlnk)),
-                n2 = std::max(0, int((lnkmax - lnk2) / dlnk));
-
-            newlnk1 = lnk1 - n1 * dlnk;
-            auto result = std::make_unique<double[]>(n1 + N + n2);
-
-            for (int i = 0; i < n1; ++i)
-                result[i] = lnP[0] + m1 * (i - n1);
-
-            std::copy(lnP.begin(), lnP.end(), result.get() + n1);
-
-            for (int i = 0; i < n2; ++i)
-                result[n1 + N + i] = lnP.back() + m2 * (i + 1);
-
-            return result;
-        }
-
-        void _readFile(const std::string &fname) {
-            std::ifstream toRead = ioh::open_fstream<std::ifstream>(fname);
-            std::vector<double> lnk, lnP;
-            double lnk1, lnP1;
-
-            while (toRead >> lnk1 >> lnP1) {
-                lnk.push_back(lnk1);
-                lnP.push_back(lnP1);
-            }
-
-            toRead.close();
-
-            int N = lnk.size();
-            double dlnk = lnk[1] - lnk[0];
-
-            for (int i = 1; i < N - 1; ++i)
-                if (fabs(lnk[i + 1] - lnk[i] - dlnk) > 1e-8)
-                    throw std::runtime_error(
-                        "Input PlinearFilename does not have equal ln k spacing.");
-
-            auto appendLnp = _appendLinearExtrapolation(
-                lnk[0], lnk.back(), dlnk, N, lnP, lnk1);
-            interp_lnp = std::make_unique<DiscreteCubicInterpolation1D>(
-                lnk1, dlnk, N, appendLnp.get());
-        }
+        void _readFile(const std::string &fname);
     public:
         double z_pivot;
 
@@ -173,9 +97,7 @@ namespace fidcosmo {
         }
 
         double evaluate(double k) {
-            if (k == 0)
-                return 0;
-
+            if (k == 0)  return 0;
             return exp(interp_lnp->evaluate(log(k)));
         }
     };
@@ -183,187 +105,28 @@ namespace fidcosmo {
     const config_map arinyo_default_parameters ({
         // Some parameters from vega and DESI Y1 fits.
         // Need to confirm if k_p and k_nu are in Mpc units or in Mpc/h units.
-        {"b_F", "0.11"}, {"beta_F", "1.74"}, {"k_p", "13.17"},
-        {"q_1", "0.8558"}, {"nu_0", "1.07"}, {"nu_1", "1.61"},
-        {"k_nu", "0.7541"}
+        {"b_F", "0.1195977"}, {"alpha_F", "3.37681"},
+        {"beta_F", "1.69"}, {"k_p", "17.625"},
+        {"q_1", "0.7935"}, {"nu_0", "1.253"}, {"nu_1", "1.625"},
+        {"k_nu", "0.3701"}
     });
 
     class ArinyoP3DModel {
-        double _varlss;
-        double b_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long;
+        double _varlss, _D_pivot, _z1_pivot;
+        double b_F, alpha_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long;
         std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteInterpolation2D>
             interp2d_pL, interp2d_pS, interp2d_cfS;
         std::unique_ptr<DiscreteInterpolation1D>
             interp_kp_pL, interp_kz_pL, interp_kp_pS, interp_kz_pS,
             interp_p1d;
+        std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
-        void _calcVarLss() {
-            constexpr int nlnk = 5001;
-            constexpr double lnk1 = log(1e-6), lnk2 = log(5.0);
-            constexpr double dlnk = (lnk2 - lnk1) / (nlnk - 1);
-            double powers_kz[nlnk], powers_kperp[nlnk];
+        void _calcVarLss();
+        void _cacheInterp2D();
+        void _construcP1D();
+        void _getCorrFunc2dS();
 
-            for (int i = 0; i < nlnk; ++i) {
-                double kperp2 = exp(lnk1 + i * dlnk);
-                kperp2 *= kperp2;
-                for (int j = 0; j < nlnk; ++j) {
-                    double kz = exp(lnk1 + j * dlnk),
-                           k = sqrt(kperp2 + kz * kz);
-                    double k_rL = k * rscale_long;
-                    k_rL *= -k_rL;
-                    powers_kz[j] = kz * evalExplicit(k, kz) * exp(k_rL);
-                }
-                powers_kperp[i] = kperp2 * trapz(powers_kz, nlnk, dlnk);
-            }
-
-            _varlss = trapz(powers_kperp, nlnk, dlnk) / TWO_PI2;
-        }
-
-        void _cacheInterp2D() {
-            constexpr double lnk1 = log(1e-6), lnk2 = log(5.0), dlnk = 0.02;
-            constexpr int N = ceil((lnk2 - lnk1) / dlnk);
-            auto lnP = std::make_unique<double[]>(N * N);
-
-            /* Large-scale 2D */
-            for (int iperp = 0; iperp < N; ++iperp) {
-                double kperp = exp(lnk1 + iperp * dlnk);
-
-                for (int iz = 0; iz < N; ++iz) {
-                    double kz = exp(lnk1 + iz * dlnk),
-                           k = sqrt(kperp * kperp + kz * kz),
-                           k_rL = k * rscale_long;
-
-                    k_rL *= -k_rL;
-                    lnP[iz + N * iperp] = log(evalExplicit(k, kz)) + k_rL;
-                }
-            }
-            interp2d_pL = std::make_unique<DiscreteInterpolation2D>(
-                lnk1, dlnk, lnk1, dlnk, lnP.get(), N, N);
-
-            /* Small-scale 2D */
-            for (int iperp = 0; iperp < N; ++iperp) {
-                double kperp = exp(lnk1 + iperp * dlnk);
-
-                for (int iz = 0; iz < N; ++iz) {
-                    double kz = exp(lnk1 + iz * dlnk),
-                           k = sqrt(kperp * kperp + kz * kz),
-                           k_rL = k * rscale_long;
-
-                    k_rL = 1.0 - exp(-k_rL * k_rL);
-                    lnP[iz + N * iperp] = log(evalExplicit(k, kz) * k_rL);
-                }
-            }
-            interp2d_pS = std::make_unique<DiscreteInterpolation2D>(
-                lnk1, dlnk, lnk1, dlnk, lnP.get(), N, N);
-
-            /* Large-scale 1Ds */
-            for (int iperp = 0; iperp < N; ++iperp) {
-                double k = exp(lnk1 + iperp * dlnk), k_rL = k * rscale_long;
-                k_rL *= -k_rL;
-
-                lnP[iperp] = log(evalExplicit(k, 0)) + k_rL;
-            }
-
-            interp_kp_pL = std::make_unique<DiscreteInterpolation1D>(
-                lnk1, dlnk, N, lnP.get());
-
-            for (int iz = 0; iz < N; ++iz) {
-                double kz = exp(lnk1 + iz * dlnk), k_rL = kz * rscale_long;
-                k_rL *= -k_rL;
-
-                lnP[iz] = log(evalExplicit(kz, kz)) + k_rL;
-            }
-            interp_kz_pL = std::make_unique<DiscreteInterpolation1D>(
-                lnk1, dlnk, N, lnP.get());
-
-
-            /* Small-scale 1Ds */
-            for (int iperp = 0; iperp < N; ++iperp) {
-                double k = exp(lnk1 + iperp * dlnk), k_rL = k * rscale_long;
-                k_rL = 1.0 - exp(-k_rL * k_rL);
-
-                lnP[iperp] = log(evalExplicit(k, 0) * k_rL);
-            }
-
-            interp_kp_pS = std::make_unique<DiscreteInterpolation1D>(
-                lnk1, dlnk, N, lnP.get());
-
-            for (int iz = 0; iz < N; ++iz) {
-                double k = exp(lnk1 + iz * dlnk), k_rL = k * rscale_long;
-                k_rL = 1.0 - exp(-k_rL * k_rL);
-
-                lnP[iz] = log(evalExplicit(k, k) * k_rL);
-            }
-            interp_kz_pS = std::make_unique<DiscreteInterpolation1D>(
-                lnk1, dlnk, N, lnP.get());
-        }
-
-        void _construcP1D() {
-            constexpr int nlnk = 10001;
-            constexpr double lnk1 = log(1e-6), lnk2 = log(5.0);
-            constexpr double dlnk = (lnk2 - lnk1) / (nlnk - 1), dlnk2 = 0.02;
-            constexpr int nlnk2 = ceil((lnk2 - lnk1) / dlnk);
-            double p1d_integrand[nlnk], p1d[nlnk2];
-
-            for (int i = 0; i < nlnk2; ++i) {
-                double kz = exp(lnk1 + i * dlnk2);
-
-                for (int j = 0; j < nlnk; ++j) {
-                    double kperp2 = exp(lnk1 + j * dlnk);
-                    kperp2 *= kperp2;
-                    double k = sqrt(kperp2 + kz * kz);
-                    double k_rL = k * rscale_long;
-                    k_rL = 1.0 - exp(-k_rL * k_rL);
-
-                    p1d_integrand[j] = kperp2 * evalExplicit(k, kz) * k_rL;
-                }
-                p1d[i] = log(trapz(p1d_integrand, nlnk, dlnk) / (2.0 * MY_PI));
-            }
-
-            interp_p1d = std::make_unique<DiscreteInterpolation1D>(
-                lnk1, dlnk2, nlnk2, &p1d[0]);
-        }
-
-        void _getCorrFunc2dS() {
-            // constexpr int nk = 502, nlnk2 = nlnk * nlnk;
-            constexpr double k2 = 5.0;
-            double dk = 2 * MY_PI / (20.0 * rscale_long);
-
-            double nk_d = k2 / dk, log2nk = log2(nk_d);
-            int log2nk_ceil = ceil(log2nk), nk = 0;
-
-            // If the nearest power of two is >= 2^10
-            if (log2nk_ceil > 9) {
-                double rem = log2nk - int(log2nk);
-                constexpr double y = log(2.0) / log(4.0 / 3.0);
-                int m = floor((1.0 - rem) * y);
-                nk = 1 << (log2nk_ceil - 2 * m);
-                for (int i = 0; i < m; ++i)
-                    m *= 3;
-            }
-            else {
-                nk = 1 << log2nk_ceil;
-            }
-
-            int nk2 = nk * nk;
-
-
-            dk = k2 / (nk - 1);
-            Ps2Cf_2D hankel{};
-
-            auto karr = std::make_unique<double[]>(nk),
-                 psarr = std::make_unique<double[]>(nk2);
-
-            for (int i = 0; i < nk; ++i)
-                karr[i] = i * dk;
-
-            for (int iperp = 0; iperp < nk; ++iperp)
-                for (int iz = 0; iz < nk; ++iz)
-                    psarr[iz + nk * iperp] = evaluateSS(karr[iperp], karr[iz]);
-
-            interp2d_cfS = hankel.transform(psarr.get(), nk, nk, dk);
-        }
     public:
         /* This function reads following keys from config file:
         b_F: double
@@ -374,46 +137,19 @@ namespace fidcosmo {
         nu_1: double  == b_nu of arinyo
         k_nu: double
         */
-        ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
-            config.addDefaults(arinyo_default_parameters);
-            b_F = config.getDouble("b_F");
-            beta_F = config.getDouble("beta_F");
-            k_p = config.getDouble("k_p");
-            q_1 = config.getDouble("q_1");
-            nu_0 = config.getDouble("nu_0");
-            nu_1 = config.getDouble("nu_1");
-            k_nu = config.getDouble("k_nu");
-            interp_p = std::make_unique<LinearPowerInterpolator>(config);
-            rscale_long = config.getDouble("LongScale");
+        ArinyoP3DModel(ConfigFile &config);
 
-            _construcP1D();
-            _calcVarLss();
-            _cacheInterp2D();
-            _getCorrFunc2dS();
+        const fidcosmo::FlatLCDM* getCosmoPtr() const { return cosmo.get(); }
+
+        double getRedshiftEvolution(double z1) {
+            double D = cosmo->getUnnormLinearGrowth(z1) / _D_pivot;
+            D *= pow(z1 / _z1_pivot, alpha_F);
+            return D;
         }
 
-        double evalExplicit(double k, double kz) {
-            if (k == 0)
-                return 0;
+        double evalExplicit(double k, double kz);
 
-            double
-            plin = interp_p->evaluate(k),
-            delta2_L = plin * k * k * k / TWO_PI2,
-            k_kp = k / k_p,
-            mu = kz / k,
-            result, lnD;
-
-            result = b_F * (1 + beta_F * mu * mu);
-            result *= result;
-
-            lnD = (q_1 * delta2_L) * (
-                    1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0)
-            ) - k_kp * k_kp;
-
-            return result * plin * exp(lnD);
-        }
-
-        double evaluate(double kperp, double kz) {
+        double evaluate(double kperp, double kz) const {
             if ((kz == 0) && (kperp == 0))
                 return 0;
             else if (kz == 0)
@@ -424,7 +160,7 @@ namespace fidcosmo {
             return exp(interp2d_pL->evaluate(log(kz), log(kperp)));
         }
 
-        double evaluateSS(double kperp, double kz) {
+        double evaluateSS(double kperp, double kz) const {
             if ((kz == 0) && (kperp == 0))
                 return 0;
             else if (kz == 0)
@@ -435,10 +171,8 @@ namespace fidcosmo {
             return exp(interp2d_pS->evaluate(log(kz), log(kperp)));
         }
 
-        double evalP1d(double kz) {
-            if (kz < 1e-6)
-                return exp(interp_p1d->evaluate(-13.8155));
-
+        double evalP1d(double kz) const {
+            if (kz < 1e-6) return exp(interp_p1d->evaluate(-13.8155));
             return exp(interp_p1d->evaluate(log(kz)));
         }
 
@@ -448,54 +182,7 @@ namespace fidcosmo {
 
         double getVarLss() const { return _varlss; }
 
-        void write(ioh::Qu3dFile *out) {
-            constexpr int nlnk = 502, nlnk2 = nlnk * nlnk;
-            constexpr double lnk1 = log(1e-6), lnk2 = log(5.0);
-            constexpr double dlnk = (lnk2 - lnk1) / (nlnk - 2);
-            double karr[nlnk], pmarr[nlnk2];
-
-            karr[0] = 0;
-            for (int i = 1; i < nlnk; ++i)
-                karr[i] = exp(lnk1 + (i - 1) * dlnk);
-
-            out->write(karr, nlnk, "KMODEL");
-
-            for (int iperp = 0; iperp < nlnk; ++iperp)
-                for (int iz = 0; iz < nlnk; ++iz)
-                    pmarr[iz + nlnk * iperp] = evaluate(karr[iperp], karr[iz]);
-
-            out->write(pmarr, nlnk2, "PMODEL_L");
-            out->flush();
-
-            for (int iperp = 0; iperp < nlnk; ++iperp)
-                for (int iz = 0; iz < nlnk; ++iz)
-                    pmarr[iz + nlnk * iperp] = evaluateSS(karr[iperp], karr[iz]);
-
-            out->write(pmarr, nlnk2, "PMODEL_S");
-            out->flush();
-
-            for (int iz = 0; iz < nlnk; ++iz)
-                pmarr[iz] = evalP1d(karr[iz]);
-
-            out->write(pmarr, nlnk, "PMODEL_1D");
-            out->flush();
-
-            constexpr int nr = 500, nr2 = nr * nr;
-            const double r2 = 10.0 * rscale_long, dr = r2 / nr;
-            double rarr[nr], cfsarr[nr2];
-
-            for (int i = 0; i < nr; ++i)
-                rarr[i] = i * dr;
-
-            out->write(rarr, nr, "RMODEL");
-
-            for (int iperp = 0; iperp < nr; ++iperp)
-                for (int iz = 0; iz < nr; ++iz)
-                    cfsarr[iz + nr * iperp] = evalCorrFunc2dS(rarr[iperp], rarr[iz]);
-
-            out->write(cfsarr, nr2, "CFMODEL_S_2D");
-            out->flush();
-        }
+        void write(ioh::Qu3dFile *out);
     };
 }
 
