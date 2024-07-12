@@ -71,7 +71,7 @@ void FlatLCDM::_integrateComovingDist(
         double error = 0;
 
         gsl_integration_qag(
-            &F, 0, z1arr[i],
+            &F, 1.0, z1arr[i],
             ABS_ERROR, REL_ERROR,
             WORKSPACE_SIZE, GSL_INTEG_GAUSS31, w,
             cDist + i, &error);
