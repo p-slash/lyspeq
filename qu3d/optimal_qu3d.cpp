@@ -289,7 +289,7 @@ void Qu3DEstimator::_constructMap() {
             return q1->min_x_idx < q2->min_x_idx; }
     );
 
-    for (auto &qso : quasars)
+    for (const auto &qso : quasars)
         for (const auto &i : qso->grid_indices)
             idx_quasar_map[i].push_back(qso.get());
 
@@ -316,7 +316,6 @@ void Qu3DEstimator::_findNeighbors() {
         }
     }
 
-    idx_quasar_map.clear();
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("_findNeighbors took %.2f m.\n", t2 - t1);
 }
@@ -385,6 +384,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     _readQSOFiles(flist, findir);
     _setupMesh(radius);
+    _constructMap();
+    _findNeighbors();
 
     if (config.getInteger("TestGaussianField") > 0)
         replaceDeltasWithGaussianField();
@@ -402,8 +403,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
 
     _openResultsFile();
-    _constructMap();
-    _findNeighbors();
 }
 
 void Qu3DEstimator::reverseInterpolate() {

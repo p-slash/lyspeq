@@ -67,7 +67,7 @@ public:
         qFile->readData();
         int num_outliers = qFile->maskOutliers();
         if (num_outliers > 0)
-            LOG::LOGGER.ERR(
+            LOG::LOGGER.STD(
                 "WARNING::CosmicQuasar::CosmicQuasar::"
                 "Found %d outlier pixels in %d.\n",
                 num_outliers, qFile->id);
