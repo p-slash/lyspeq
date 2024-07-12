@@ -87,11 +87,11 @@ public:
     void conjugateGradientDescent();
 
     void estimatePower();
-    void estimateBiasMc();
+    void estimateNoiseBiasMc();
 
 
     void drawRndDeriv(int i);
-    void estimateFisher();
+    void estimateFisherFromRndDeriv();
 
     void filter();
     void write();

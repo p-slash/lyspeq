@@ -67,8 +67,8 @@ int main(int argc, char *argv[]) {
     config.checkUnusedKeys();
 
     qps->estimatePower();
-    qps->estimateBiasMc();
-    qps->estimateFisher();
+    qps->estimateNoiseBiasMc();
+    qps->estimateFisherFromRndDeriv();
     qps->filter();
     qps->write();
     qps.reset();
