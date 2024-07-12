@@ -692,7 +692,13 @@ endconjugateGradientDescent:
 }
 
 
-void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2) {
+void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
+    /* Adds current results into o1 (+=). If o2 is nullptr, the operations is
+       directly performed on o1. Otherwise, current results first saved into
+       a local array, then o1 += lout, and o2 += lout * lout.
+
+       If you pass lout != nullptr, current results are saved into this array.
+    */
     static int mesh_kz_max = std::min(
         int(ceil(bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] / mesh.k_fund[2])),
         mesh.ngrid_kz);
@@ -700,7 +706,9 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2) {
 
     double dt = mytime::timer.getTime();
 
-    double *lout = (o2 == nullptr) ? o1 : _lout.get();
+    if (lout == nullptr)
+        lout = (o2 == nullptr) ? o1 : _lout.get();
+
     std::fill_n(lout, NUMBER_OF_K_BANDS_2, 0);
 
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_K_BANDS_2])
@@ -828,34 +836,49 @@ void Qu3DEstimator::estimateNoiseBiasMc() {
 
 
 void Qu3DEstimator::estimateTotalBiasMc() {
+    /* Saves every Monte Carlo simulation */
     LOG::LOGGER.STD("Estimating total bias (S_L + N).\n");
+    constexpr int M_MCS = 5;
     verbose = false;
     mc1 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
     mc2 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+
+    // Every task saves their own Monte Carlos
+    ioh::Qu3dFile monte_carlos_file(
+        process::FNAME_BASE + "-montecarlos-" + std::to_string(mympi::this_pe),
+        0);
+    auto all_mcs = std::make_unique<double[]>(M_MCS * NUMBER_OF_K_BANDS_2);
 
     Progress prog_tracker(max_monte_carlos, 10);
     int nmc = 1;
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* generate random Gaussian vector into y */
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            qso->fillRngNoise(rngs[myomp::getThreadNum()]);
+        replaceDeltasWithGaussianField();
 
         /* calculate Cinv . n into y */
         conjugateGradientDescent();
 
         reverseInterpolate();
         mesh.rawFftX2K();
-        multiplyDerivVectors(mc1.get(), mc2.get());
+        int jj = (nmc - 1) % M_MCS;
+        multiplyDerivVectors(
+            mc1.get(), mc2.get(),
+            all_mcs.get() + jj * NUMBER_OF_K_BANDS_2
+        );
 
         ++prog_tracker;
 
-        if ((nmc % 5 != 0) && (nmc != max_monte_carlos))
+        if ((nmc % M_MCS != 0) && (nmc != max_monte_carlos))
             continue;
 
+        monte_carlos_file.write(
+            all_mcs.get(), (jj + 1) * NUMBER_OF_K_BANDS_2,
+            "TOTBIAS_MCS-" + std::to_string(nmc), jj + 1);
+
         converged = _syncMonteCarlo(
-            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_K_BANDS_2, "FBIAS");
+            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_K_BANDS_2,
+            "FTOTALBIAS");
 
         if (converged)
             break;
