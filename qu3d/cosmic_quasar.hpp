@@ -257,14 +257,15 @@ public:
             const CosmicQuasar *q, const fidcosmo::ArinyoP3DModel *p3d_model,
             double *ccov
     ) const {
+        int M = q->N;
         for (int i = 0; i < N; ++i) {
-            for (int j = 0; j < q->N; ++j) {
+            for (int j = 0; j < M; ++j) {
                 double dx = r[3 * i] - q->r[3 * j],
                        dy = r[3 * i + 1] - q->r[3 * j + 1];
 
                 double rz = fabs(r[3 * i + 2] - q->r[3 * j + 2]),
                        rperp = sqrt(dx * dx + dy * dy);
-                ccov[j + i * N] = p3d_model->evalCorrFunc2dS(rperp, rz);
+                ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
         }
     }
