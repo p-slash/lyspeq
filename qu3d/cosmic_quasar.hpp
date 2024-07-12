@@ -53,7 +53,8 @@ public:
 
     CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
         qFile = std::make_unique<qio::QSOFile>(pf, hdunum);
-        // qFile->fname = fpath.str();
+        N = 0;  coarse_N = 0;
+
         qFile->readParameters();
 
         if (qFile->snr < specifics::MIN_SNR_CUT) {
@@ -79,9 +80,6 @@ public:
                     << qFile->id;
             throw std::runtime_error(err_msg.str());
         }
-
-        if (qFile->size() > 500)
-            throw std::runtime_error("Large N.");
 
         // Convert wave to 1 + z
         std::for_each(
@@ -121,10 +119,8 @@ public:
         in = y.get();
         truth = qFile->delta();
         out = Cy.get();
-
-        if (N > 500)
-            throw std::runtime_error("Large N.");
     }
+    ~CosmicQuasar() { LOG::LOGGER.ERR("Deleting."); }
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
     // bool operator< (const CosmicQuasar *rhs) const noexcept {
