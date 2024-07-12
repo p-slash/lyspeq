@@ -88,7 +88,7 @@ namespace fidcosmo {
     };
 
     const config_map arinyo_default_parameters ({
-        /* These defaults are obtained from Chabanier+24 Table A3.
+        /* These defaults are obtained from Chabanier+24 Table A3 for z=2.4.
            b_F fitted to all redshift ranges accounting for errors.
            Two redshift bins are averaged for others. */
         {"b_F", "0.1195977"}, {"alpha_F", "3.37681"},
