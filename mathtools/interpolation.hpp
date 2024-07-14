@@ -5,8 +5,8 @@
 
 enum GSL_INTERPOLATION_TYPE
 {
-	GSL_LINEAR_INTERPOLATION,
-	GSL_CUBIC_INTERPOLATION
+    GSL_LINEAR_INTERPOLATION,
+    GSL_CUBIC_INTERPOLATION
 };
 
 // Intepolation for given x and y arrays with size many elements.
@@ -17,26 +17,25 @@ enum GSL_INTERPOLATION_TYPE
 //     double x[10], y[10];
 //     Interpolation tmp_interp(GSL_LINEAR_INTERPOLATION, x, y, 10);
 //     double r = tmp_interp.evaluate((x[5]+x[6])/2.);
-class Interpolation
-{
-	double normalization;
-	
-	gsl_interp_accel *accelerator;
-	gsl_spline *spline;
-	
+class Interpolation {   
+    gsl_interp_accel *accelerator;
+    gsl_spline *spline;
+    
 public:
-	double lowest_x, highest_x;
-	
-	Interpolation(GSL_INTERPOLATION_TYPE interp_type,
-		const double *x, const double *y, long size);
-	Interpolation(const Interpolation &itp);
+    double lowest_x, highest_x;
+    
+    Interpolation(
+        GSL_INTERPOLATION_TYPE interp_type,
+        const double *x, const double *y, long size);
+    Interpolation(const Interpolation &itp);
 
-	~Interpolation();
+    ~Interpolation() {
+        gsl_spline_free(spline);
+        gsl_interp_accel_free(accelerator);
+    }
 
-	void setNormalization(double norm);
-
-	double evaluate(double x) const;
-	double derivative(double x) const;
+    double evaluate(double x) const;
+    double derivative(double x) const;
 };
 
 #endif
