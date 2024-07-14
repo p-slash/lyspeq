@@ -5,7 +5,6 @@
 
 #include <fftw3.h>
 #include <gsl/gsl_dht.h>
-#include <gsl/gsl_sf_bessel.h>
 
 #include "mathtools/discrete_interpolation.hpp"
 #include "mathtools/mathutils.hpp"
@@ -15,11 +14,11 @@
 class Ps2Cf_2D {
 public:
     Ps2Cf_2D(int nk, double Lk) : nkperp(nk), L(Lk), dht(nullptr) {
-        _setJzeros();
         dht = gsl_dht_alloc(nk);
         if (dht == nullptr)
             throw "ERROR in Ps2Cf_2D::gsl_dht_alloc";
         gsl_dht_init(dht, 0, L);
+        _setJzeros();
     }
     Ps2Cf_2D() { gsl_dht_free(dht); }
 
@@ -72,22 +71,25 @@ public:
 
 private:
     int nkperp;  double L;
-    std::unique_ptr<double[]> zerosJ0, kperp, rperp, interm, result, row;
+    std::unique_ptr<double[]> kperp, rperp, interm, result, row;
     gsl_dht *dht;
 
     void _setJzeros() {
-        zerosJ0 = std::make_unique<double[]>(nkperp);
         kperp = std::make_unique<double[]>(nkperp);
         rperp = std::make_unique<double[]>(nkperp);
 
-        // GSL zeros start from 1
+        for (int i = 0; i < nkperp; ++i) {
+            kperp[i] = gsl_dht_x_sample(dht, i);
+            rperp[i] = gsl_dht_k_sample(dht, i);
+        }
+
+        /* GSL zeros start from 1
         for (int i = 0; i < nkperp; ++i)
             zerosJ0[i] = gsl_sf_bessel_zero_J0(i + 1);
 
-        for (int i = 0; i < nkperp; ++i) {
+         for (int i = 0; i < nkperp; ++i) {
             kperp[i] = L * (zerosJ0[i] / zerosJ0[nkperp - 1]);
-            rperp[i] = zerosJ0[i] / L;
-        }
+            rperp[i] = zerosJ0[i] / L; */
     }
 
     void _fftZ(RealField &rf, const double *pkz, int ikperp, int nkperp) {
