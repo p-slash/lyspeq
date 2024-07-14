@@ -22,7 +22,6 @@ std::unordered_map<size_t, std::vector<const CosmicQuasar*>> idx_quasar_map;
 const fidcosmo::FlatLCDM *cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 
-RealField3D mesh_rnd;
 std::vector<MyRNG> rngs;
 int NUMBER_OF_K_BANDS_2 = 0;
 double DK_BIN = 0;
@@ -242,6 +241,7 @@ void Qu3DEstimator::_setupMesh(double radius) {
     mesh.ngrid[0] = config.getInteger("NGRID_X");
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
     mesh.ngrid[2] = config.getInteger("NGRID_Z");
+    mesh_z1_values = std::make_unique<double[]>(mesh.ngrid[2]);
 
     double dzl = 1.2 * radius - (mesh.length[2] / mesh.ngrid[2]);
     if (dzl > 0) {
@@ -249,6 +249,10 @@ void Qu3DEstimator::_setupMesh(double radius) {
         mesh.length[2] += extra_lz;
         mesh.z0 -= extra_lz / 2.0;
     }
+
+    for (int i = 0; i < mesh.ngrid[2]; ++i)
+        mesh_z1_values[i] = cosmo->getZ1FromComovingDist(
+            mesh.z0 + i * mesh.dx[2]);
 
     LOG::LOGGER.STD(
         "Box dimensions are as follows: "

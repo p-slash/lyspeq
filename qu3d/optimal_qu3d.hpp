@@ -34,10 +34,10 @@ class Qu3DEstimator
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     std::unique_ptr<std::seed_seq> seed_generator;
     std::unique_ptr<ioh::Qu3dFile> result_file;
-    RealField3D mesh;
+    RealField3D mesh, mesh_rnd;
 
     std::unique_ptr<double[]>
-        mc1, mc2,
+        mc1, mc2, mesh_z1_values,
         raw_power, filt_power, raw_bias, filt_bias,
         fisher, covariance;
     // targetid_quasar_map quasars;
