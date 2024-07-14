@@ -377,7 +377,6 @@ void ArinyoP3DModel::_construcP1D() {
 
 
 void ArinyoP3DModel::_getCorrFunc2dS() {
-    // constexpr int nk = 502, nlnk2 = nlnk * nlnk;
     constexpr double k2 = 5.0;
     double dk = 2 * MY_PI / (20.0 * rscale_long);
 
@@ -399,21 +398,21 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
 
     int nk2 = nk * nk;
 
-
     dk = k2 / (nk - 1);
-    Ps2Cf_2D hankel{};
+    Ps2Cf_2D hankel{nk, k2};
 
-    auto karr = std::make_unique<double[]>(nk),
+    auto kzarr = std::make_unique<double[]>(nk),
          psarr = std::make_unique<double[]>(nk2);
+    const double *kperparr = hankel.getKperp();
 
     for (int i = 0; i < nk; ++i)
-        karr[i] = i * dk;
+        kzarr[i] = i * dk;
 
     for (int iperp = 0; iperp < nk; ++iperp)
         for (int iz = 0; iz < nk; ++iz)
-            psarr[iz + nk * iperp] = evaluateSS(karr[iperp], karr[iz]);
+            psarr[iz + nk * iperp] = evaluateSS(kperparr[iperp], kzarr[iz]);
 
-    interp2d_cfS = hankel.transform(psarr.get(), nk, nk, dk);
+    interp2d_cfS = hankel.transform(psarr.get(), nk, dk);
 }
 
 
