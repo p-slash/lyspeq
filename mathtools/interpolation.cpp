@@ -23,13 +23,19 @@ Interpolation::Interpolation(
 
 Interpolation::Interpolation(const Interpolation &itp)
 {
-    lowest_x      = itp.lowest_x;
-    highest_x     = itp.highest_x;
+    lowest_x = itp.lowest_x;
+    highest_x = itp.highest_x;
 
     accelerator = gsl_interp_accel_alloc();
     // Copied from source code of GSL 2.5
     spline = gsl_spline_alloc(itp.spline->interp->type, itp.spline->size);
     gsl_spline_init(spline, itp.spline->x, itp.spline->y, itp.spline->size);
+}
+
+
+void Interpolation::reset(const double *yp) {
+    gsl_spline_init(spline, spline->x, yp, spline->size);
+    gsl_interp_accel_reset(accelerator);
 }
 
 

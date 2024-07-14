@@ -34,6 +34,8 @@ public:
         gsl_interp_accel_free(accelerator);
     }
 
+    void reset(const double *yp);
+
     double evaluate(double x) const;
     double derivative(double x) const;
 };
