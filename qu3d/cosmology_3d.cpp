@@ -3,6 +3,7 @@
 
 #include "core/global_numbers.hpp"
 #include "io/io_helper_functions.hpp"
+#include "mathtools/interpolation.hpp"
 #include "mathtools/mathutils.hpp"
 #include "qu3d/ps2cf_2d.hpp"
 
@@ -126,7 +127,7 @@ FlatLCDM::FlatLCDM(ConfigFile &config) {
         - cosmo_params.Omega_r * (1 + _nu_relative_density(1));
 
     // Cache
-    const int nz = 300;
+    const int nz = 301;
     const double dz = 0.02;
     double z1arr[nz], temparr[nz];
     for (int i = 0; i < nz; ++i) {
@@ -140,6 +141,16 @@ FlatLCDM::FlatLCDM(ConfigFile &config) {
     _integrateComovingDist(nz, z1arr, temparr);
     interp_comov_dist = std::make_unique<DiscreteCubicInterpolation1D>(
         z1arr[0], dz, nz, temparr);
+
+    double dchi = (temparr[nz - 1] - temparr[0]) / (nz - 1), chi0 = temparr[0];
+    Interpolation _inv_comoving_interp(
+        GSL_CUBIC_INTERPOLATION, temparr, z1arr, nz);
+
+    for (int i = 0; i < nz; ++i)
+        temparr[i] = _inv_comoving_interp.evaluate(
+            chi0 + i * dchi);
+    interp_invcomov_dist = std::make_unique<DiscreteCubicInterpolation1D>(
+        temparr[0], dchi, nz, temparr);
 
     _integrateLinearGrowth(nz, z1arr, temparr);
     linear_growth_unnorm = std::make_unique<DiscreteCubicInterpolation1D>(
