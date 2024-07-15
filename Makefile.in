@@ -101,8 +101,8 @@ testOMPTiming: testOMPTiming.cpp discrete_interpolation.o
 timeMatrixOps: timeMatrixOps.cpp matrix_helper.o real_field.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-%.o: %.cpp
-	$(CXX) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d $(CXXFLAGS) -c $^ -o $@
+%.o: %.$(SRCEXT)
+	$(CXX) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d $(CXXFLAGS) -c $^
 
 .PHONY: install uninstall clean
 

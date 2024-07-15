@@ -63,8 +63,7 @@ namespace fidcosmo {
 
         std::unique_ptr<double[]> _appendLinearExtrapolation(
             double lnk1, double lnk2, double dlnk, int N,
-            const std::vector<double> &lnP, double &newlnk1,
-            double lnkmin=log(1e-5), double lnkmax=log(5.0)
+            const std::vector<double> &lnP, double &newlnk1
         );
 
         void _readFile(const std::string &fname);
