@@ -55,7 +55,7 @@ namespace ioh {
 
         FILE* _openFile(int fidx) {
             std::string fname = fbase + std::to_string(fidx) + ".dat";
-            FILE *fptr = open_file(fname.c_str(), "rw");
+            FILE *fptr = open_file(fname.c_str(), "wb");
             file_handlers[fidx] = fptr;
             return fptr;
         }
