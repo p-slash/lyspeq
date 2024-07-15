@@ -1,6 +1,7 @@
 #ifndef CONTMARG_FILE_H
 #define CONTMARG_FILE_H
 
+#include <algorithm>
 #include <cstdio>
 #include <memory>
 #include <unordered_map>
@@ -60,7 +61,7 @@ namespace ioh {
         }
     };
 
-    extern std::unique_ptr<ContMargFile> continuumMargFileHandler;
+    std::unique_ptr<ContMargFile> continuumMargFileHandler;
 }
 
 #endif

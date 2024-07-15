@@ -7,6 +7,7 @@
 #include <gsl/gsl_dht.h>
 
 #include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/interpolation.hpp"
 #include "mathtools/mathutils.hpp"
 #include "mathtools/real_field.hpp"
 
