@@ -198,6 +198,8 @@ void Qu3DEstimator::_readQSOFiles(
     }
 
     CosmicQuasar::allocCcov(max_qN * max_qN);
+    if (specifics::CONT_LOGLAM_MARG_ORDER > -1)
+        CosmicQuasar::allocRrmat(max_qN * max_qN);
 
     LOG::LOGGER.STD(
         "There are %d quasars and %ld number of pixels. "
@@ -339,17 +341,17 @@ void Qu3DEstimator::_findNeighbors() {
 
 void Qu3DEstimator::_createRmatFiles() {
     LOG::LOGGER.STD("Calculating R_D matrices for continuum marginalization.\n");
-
-    if (mympi::this_pe == 0)
-    {
-        ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
+    ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
             process::TMP_FOLDER);
-        CosmicQuasar::allocRrmat(max_qN * max_qN);
+
+    if (mympi::this_pe == 0) {
         #pragma omp parallel for
         for (const auto &qso : quasars)
             qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
     }
     mympi::barrier();
+
+    // broadcast fidx, fpos and open all files
 }
 
 
@@ -425,7 +427,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     if (config.getInteger("TestGaussianField") > 0)
         replaceDeltasWithGaussianField();
 
-    if (specifics::CONT_LOGLAM_MARG_ORDER < 0)
+    if (specifics::CONT_LOGLAM_MARG_ORDER > -1)
         _createRmatFiles();
 
     radius *= rscale_factor;
