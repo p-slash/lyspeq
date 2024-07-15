@@ -50,6 +50,7 @@ class Qu3DEstimator
     void _setupMesh(double radius);
     void _constructMap();
     void _findNeighbors();
+    void _createRmatFiles();
 
     bool _syncMonteCarlo(int nmc, double *o1, double *o2,
                          int ndata, const std::string &ext);
