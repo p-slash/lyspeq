@@ -15,8 +15,9 @@
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 #include "mathtools/real_field_3d.hpp"
-#include "qu3d/cosmology_3d.hpp"
 
+#include "qu3d/cosmology_3d.hpp"
+#include "qu3d/contmarg_file.hpp"
 
 // The median of DEC distribution in radians
 constexpr double med_dec = 0.14502735752295168;
@@ -43,7 +44,7 @@ struct CompareCosmicQuasarPtr {
 class CosmicQuasar {
 public:
     std::unique_ptr<qio::QSOFile> qFile;
-    int N, coarse_N;
+    int N, coarse_N, fidx;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth;
@@ -51,7 +52,7 @@ public:
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
-    size_t min_x_idx;
+    size_t min_x_idx, fpos;
 
     CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
         qFile = std::make_unique<qio::QSOFile>(pf, hdunum);
@@ -255,13 +256,13 @@ public:
         return unique_neighboring_pixels;
     }
 
-    std::unique_ptr<double[]> constructMarginalization(int order) {
+    void constructMarginalization(int order) {
         /* assumes order >= 0 */
         int nvecs = order + 1;
 
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+        double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
         auto Emat = std::make_unique<double[]>(nvecs * nvecs);
-        auto Rmat = std::make_unique<double[]>(N * N);
         std::vector<std::unique_ptr<double[]>> uvecs(nvecs);
         for (int a = 0; a < nvecs; ++a) 
             uvecs[a] = std::make_unique<double[]>(N);
@@ -301,9 +302,15 @@ public:
             for (int j = 0; j < N; ++j)
                 ccov[j + i * N] *= isig[j] * isig[i];
 
-        mxhelp::LAPACKE_sym_eigens(ccov, N, uvecs[0].get(), Rmat.get());
+        mxhelp::LAPACKE_sym_eigens(ccov, N, uvecs[0].get(), rrmat);
 
-        return Rmat;
+        fidx = min_x_idx / myomp::getMaxNumThreads();
+        fpos = ioh::continuumMargFileHandler->write(rrmat, N, fidx);
+    }
+
+    void readMarginalization() {
+        double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
+        ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
     }
 
     void setCrossCov(
@@ -352,8 +359,14 @@ public:
             *it = std::make_unique<double[]>(size);
     }
 
+    static void allocRrmat()(size_t size) {
+        GL_RMAT.resize(myomp::getMaxNumThreads());
+        for (auto it = GL_RMAT.begin(); it != GL_RMAT.end(); ++it)
+            *it = std::make_unique<double[]>(size);
+    }
+
 private:
-    inline static std::vector<std::unique_ptr<double[]>> GL_CCOV;
+    inline static std::vector<std::unique_ptr<double[]>> GL_CCOV, GL_RMAT;
 };
 
 #endif
