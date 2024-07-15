@@ -31,7 +31,8 @@ cross_objs=cross_exposure.o one_qso_exposures.o
 qu3d_objs=optimal_qu3d.o cosmology_3d.o real_field.o real_field_3d.o qso_file.o \
 matrix_helper.o interpolation.o discrete_interpolation.o stats.o
 test_objects=test_utils.o testPointRef.o test-fftconvolve.o
-qu3d_only_objs=$(filter-out $(OBJECTS), $(qu3d_objs)
+q3d_headers=cosmic_quasar.hpp contmarg_file.hpp ps2cf_2d.hpp qu3d_file.hpp
+qu3d_only_objs=$(filter-out $(OBJECTS), $(qu3d_objs))
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d) $(qu3d_only_objs:.o=.d))
 
 
@@ -40,10 +41,6 @@ NONX_OBJECTS=$(filter-out $(cross_objs), $(OBJECTS))
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
 CPPFLAGS+=-I$(srcdir) -std=c++20 -DHAVE_INLINE $(MORECPPFLAGS)
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
-
-ifeq (0, $(words $(findstring $(MAKECMDGOALS), clean uninstall deepclean)))
-	-include $(DEPS)
-endif
 
 core: LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats
 
@@ -67,7 +64,7 @@ LyaPowerEstimate: LyaPowerEstimate.o $(NONX_OBJECTS)
 LyaPowerxQmlExposure: LyaPowerxQmlExposure.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-LyaPower3DEstimate: LyaPower3DEstimate.o $(qu3d_objs) $(global_objs) cosmic_quasar.hpp cosmology_3d.hpp
+LyaPower3DEstimate: LyaPower3DEstimate.o $(qu3d_objs) $(global_objs) $(q3d_headers)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
@@ -111,6 +108,8 @@ $(DEPDIR)/%.d: %.$(SRCEXT)
 
 %.o: %.$(SRCEXT) $(DEPDIR)/%.d %.hpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ -c $<
+
+-include $(DEPS)
 
 .PHONY: install uninstall clean
 
