@@ -208,7 +208,8 @@ void Qu3DEstimator::_readQSOFiles(
 
     LOG::LOGGER.STD("Calculating R_D matrices for continuum marginalization.\n");
 
-    continuumMargFileHandler = std::make_unique<ContMargFile>(process::TMP_FOLDER);
+    ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
+        process::TMP_FOLDER);
     CosmicQuasar::allocRrmat(max_qN * max_qN);
     #pragma omp parallel for
     for (const auto &qso : quasars)

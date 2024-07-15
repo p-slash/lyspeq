@@ -359,7 +359,7 @@ public:
             *it = std::make_unique<double[]>(size);
     }
 
-    static void allocRrmat()(size_t size) {
+    static void allocRrmat(size_t size) {
         GL_RMAT.resize(myomp::getMaxNumThreads());
         for (auto it = GL_RMAT.begin(); it != GL_RMAT.end(); ++it)
             *it = std::make_unique<double[]>(size);
