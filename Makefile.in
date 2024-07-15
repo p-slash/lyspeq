@@ -40,6 +40,10 @@ NONX_OBJECTS=$(filter-out $(cross_objs), $(OBJECTS))
 CPPFLAGS+=-I$(srcdir) -std=c++20 -DHAVE_INLINE $(MORECPPFLAGS)
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
+ifeq (0, $(words $(findstring $(MAKECMDGOALS), clean uninstall deepclean)))
+	-include $(DEPS)
+endif
+
 core: LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats
 
 test: core cblas_tests testSQCMatrices
@@ -101,8 +105,11 @@ testOMPTiming: testOMPTiming.cpp discrete_interpolation.o
 timeMatrixOps: timeMatrixOps.cpp matrix_helper.o real_field.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-%.o: %.$(SRCEXT)
-	$(CXX) $(CPPFLAGS) -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d $(CXXFLAGS) -c $^
+$(DEPDIR)/%.d: %.$(SRCEXT)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MM -MT '$(patsubst %.$(SRCEXT), %.o, $<)' $< -MF $@
+
+%.o: %.$(SRCEXT) $(DEPDIR)/%.d %.hpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ -c $<
 
 .PHONY: install uninstall clean
 
@@ -122,5 +129,3 @@ clean:
 
 deepclean: clean
 	$(RM) $(DEPDIR)/*
-
--include $(DEPS)
