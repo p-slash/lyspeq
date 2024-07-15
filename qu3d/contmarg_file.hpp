@@ -61,7 +61,7 @@ namespace ioh {
         }
     };
 
-    std::unique_ptr<ContMargFile> continuumMargFileHandler;
+    extern std::unique_ptr<ContMargFile> continuumMargFileHandler;
 }
 
 #endif

@@ -21,6 +21,7 @@ std::unordered_map<size_t, std::vector<const CosmicQuasar*>> idx_quasar_map;
 
 const fidcosmo::FlatLCDM *cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
+std::unique_ptr<ioh::ContMargFile> ioh::continuumMargFileHandler;
 
 std::vector<MyRNG> rngs;
 int NUMBER_OF_K_BANDS_2 = 0;
