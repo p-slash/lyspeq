@@ -21,7 +21,7 @@
 constexpr double med_dec = 0.14502735752295168;
 // Line of sight coarsing for mesh
 #ifndef M_LOS
-#define M_LOS 5
+#define M_LOS 1
 #endif
 
 #if M_LOS > 1
