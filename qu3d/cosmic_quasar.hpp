@@ -10,6 +10,7 @@
 #include <string>
 #include <memory>
 
+#include "mathtools/matrix_helper.hpp"
 #include "core/omp_manager.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
@@ -252,6 +253,57 @@ public:
         std::set<size_t> unique_neighboring_pixels(
             neighboring_pixels.begin(), neighboring_pixels.end());
         return unique_neighboring_pixels;
+    }
+
+    std::unique_ptr<double[]> constructMarginalization(int order) {
+        /* assumes order >= 0 */
+        int nvecs = order + 1;
+
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+        auto Emat = std::make_unique<double[]>(nvecs * nvecs);
+        auto Rmat = std::make_unique<double[]>(N * N);
+        std::vector<std::unique_ptr<double[]>> uvecs(nvecs);
+        for (int a = 0; a < nvecs; ++a) 
+            uvecs[a] = std::make_unique<double[]>(N);
+
+        std::fill_n(uvecs[0].get(), N, 1.0 / sqrt(N * 1.0));  // Zeroth order
+
+        for (int a = 1; a < nvecs; ++a) {
+            double *out = uvecs[a].get();
+            std::transform(
+                z1, z1 + N, out,
+                [a](const double &l) { return pow(log(l), a); }
+            );
+            double norm = 1.0 / cblas_dnrm2(N, out, 1);
+            cblas_dscal(N, norm, out, 1);
+        }
+
+        for (int a = 0; a < nvecs; ++a)
+            for (int i = 0; i < N; ++i)
+                uvecs[a][i] *= isig[i];
+
+        for (int a = 0; a < nvecs; ++a)
+            for (int b = 0; b < nvecs; ++b)
+                Emat[b + a * nvecs] = cblas_ddot(
+                    N, uvecs[a].get(), 1, uvecs[b].get(), 1);
+
+        mxhelp::LAPACKE_InvertMatrixLU(Emat.get(), nvecs);
+
+        // Get (N + Sigma)^(-1)
+        std::fill_n(ccov, N * N, 0);
+        for (int i = 0; i < N; ++i)
+            ccov[i * (N + 1)] = 1.0;
+        for (int a = 0; a < nvecs; ++a)
+            for (int b = 0; b < nvecs; ++b)
+                cblas_dger(CblasRowMajor, N, N, -1.0 * Emat[b + a * nvecs],
+                           uvecs[a].get(), 1, uvecs[b].get(), 1, ccov, N);
+        for (int i = 0; i < N; ++i)
+            for (int j = 0; j < N; ++j)
+                ccov[j + i * N] *= isig[j] * isig[i];
+
+        mxhelp::LAPACKE_sym_eigens(ccov, N, uvecs[0].get(), Rmat.get());
+
+        return Rmat;
     }
 
     void setCrossCov(
