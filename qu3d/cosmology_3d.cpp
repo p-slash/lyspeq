@@ -9,6 +9,8 @@
 
 
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
+constexpr double KMIN = 1E-6, KMAX = 5.0,
+                 LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
 
@@ -160,14 +162,13 @@ FlatLCDM::FlatLCDM(ConfigFile &config) {
 
 std::unique_ptr<double[]> LinearPowerInterpolator::_appendLinearExtrapolation(
         double lnk1, double lnk2, double dlnk, int N,
-        const std::vector<double> &lnP, double &newlnk1,
-        double lnkmin, double lnkmax
+        const std::vector<double> &lnP, double &newlnk1
 ) {
     double m1 = lnP[1] - lnP[0],
            m2 = lnP[N - 1] - lnP[N - 2];
 
-    int n1 = std::max(0, int((lnk1 - lnkmin) / dlnk)),
-        n2 = std::max(0, int((lnkmax - lnk2) / dlnk));
+    int n1 = std::max(0, int((lnk1 - LNKMIN) / dlnk)),
+        n2 = std::max(0, int((LNKMAX - lnk2) / dlnk));
 
     newlnk1 = lnk1 - n1 * dlnk;
     auto result = std::make_unique<double[]>(n1 + N + n2);
@@ -248,15 +249,14 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
 
 void ArinyoP3DModel::_calcVarLss() {
     constexpr int nlnk = 5001;
-    constexpr double lnk1 = log(1e-6), lnk2 = log(5.0);
-    constexpr double dlnk = (lnk2 - lnk1) / (nlnk - 1);
+    constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1);
     double powers_kz[nlnk], powers_kperp[nlnk];
 
     for (int i = 0; i < nlnk; ++i) {
-        double kperp2 = exp(lnk1 + i * dlnk);
+        double kperp2 = exp(LNKMIN + i * dlnk);
         kperp2 *= kperp2;
         for (int j = 0; j < nlnk; ++j) {
-            double kz = exp(lnk1 + j * dlnk),
+            double kz = exp(LNKMIN + j * dlnk),
                    k = sqrt(kperp2 + kz * kz);
             double k_rL = k * rscale_long;
             k_rL *= -k_rL;
@@ -270,16 +270,16 @@ void ArinyoP3DModel::_calcVarLss() {
 
 
 void ArinyoP3DModel::_cacheInterp2D() {
-    constexpr double lnk1 = log(1e-6), lnk2 = log(5.0), dlnk = 0.02;
-    constexpr int N = ceil((lnk2 - lnk1) / dlnk);
+    constexpr double dlnk = 0.02;
+    constexpr int N = ceil((LNKMAX - LNKMIN) / dlnk);
     auto lnP = std::make_unique<double[]>(N * N);
 
     /* Large-scale 2D */
     for (int iperp = 0; iperp < N; ++iperp) {
-        double kperp = exp(lnk1 + iperp * dlnk);
+        double kperp = exp(LNKMIN + iperp * dlnk);
 
         for (int iz = 0; iz < N; ++iz) {
-            double kz = exp(lnk1 + iz * dlnk),
+            double kz = exp(LNKMIN + iz * dlnk),
                    k = sqrt(kperp * kperp + kz * kz),
                    k_rL = k * rscale_long;
 
@@ -288,14 +288,14 @@ void ArinyoP3DModel::_cacheInterp2D() {
         }
     }
     interp2d_pL = std::make_unique<DiscreteInterpolation2D>(
-        lnk1, dlnk, lnk1, dlnk, lnP.get(), N, N);
+        LNKMIN, dlnk, LNKMIN, dlnk, lnP.get(), N, N);
 
     /* Small-scale 2D */
     for (int iperp = 0; iperp < N; ++iperp) {
-        double kperp = exp(lnk1 + iperp * dlnk);
+        double kperp = exp(LNKMIN + iperp * dlnk);
 
         for (int iz = 0; iz < N; ++iz) {
-            double kz = exp(lnk1 + iz * dlnk),
+            double kz = exp(LNKMIN + iz * dlnk),
                    k = sqrt(kperp * kperp + kz * kz),
                    k_rL = k * rscale_long;
 
@@ -304,63 +304,62 @@ void ArinyoP3DModel::_cacheInterp2D() {
         }
     }
     interp2d_pS = std::make_unique<DiscreteInterpolation2D>(
-        lnk1, dlnk, lnk1, dlnk, lnP.get(), N, N);
+        LNKMIN, dlnk, LNKMIN, dlnk, lnP.get(), N, N);
 
     /* Large-scale 1Ds */
     for (int iperp = 0; iperp < N; ++iperp) {
-        double k = exp(lnk1 + iperp * dlnk), k_rL = k * rscale_long;
+        double k = exp(LNKMIN + iperp * dlnk), k_rL = k * rscale_long;
         k_rL *= -k_rL;
 
         lnP[iperp] = log(evalExplicit(k, 0)) + k_rL;
     }
 
     interp_kp_pL = std::make_unique<DiscreteInterpolation1D>(
-        lnk1, dlnk, N, lnP.get());
+        LNKMIN, dlnk, N, lnP.get());
 
     for (int iz = 0; iz < N; ++iz) {
-        double kz = exp(lnk1 + iz * dlnk), k_rL = kz * rscale_long;
+        double kz = exp(LNKMIN + iz * dlnk), k_rL = kz * rscale_long;
         k_rL *= -k_rL;
 
         lnP[iz] = log(evalExplicit(kz, kz)) + k_rL;
     }
     interp_kz_pL = std::make_unique<DiscreteInterpolation1D>(
-        lnk1, dlnk, N, lnP.get());
+        LNKMIN, dlnk, N, lnP.get());
 
 
     /* Small-scale 1Ds */
     for (int iperp = 0; iperp < N; ++iperp) {
-        double k = exp(lnk1 + iperp * dlnk), k_rL = k * rscale_long;
+        double k = exp(LNKMIN + iperp * dlnk), k_rL = k * rscale_long;
         k_rL = 1.0 - exp(-k_rL * k_rL);
 
         lnP[iperp] = log(evalExplicit(k, 0) * k_rL);
     }
 
     interp_kp_pS = std::make_unique<DiscreteInterpolation1D>(
-        lnk1, dlnk, N, lnP.get());
+        LNKMIN, dlnk, N, lnP.get());
 
     for (int iz = 0; iz < N; ++iz) {
-        double k = exp(lnk1 + iz * dlnk), k_rL = k * rscale_long;
+        double k = exp(LNKMIN + iz * dlnk), k_rL = k * rscale_long;
         k_rL = 1.0 - exp(-k_rL * k_rL);
 
         lnP[iz] = log(evalExplicit(k, k) * k_rL);
     }
     interp_kz_pS = std::make_unique<DiscreteInterpolation1D>(
-        lnk1, dlnk, N, lnP.get());
+        LNKMIN, dlnk, N, lnP.get());
 }
 
 
 void ArinyoP3DModel::_construcP1D() {
     constexpr int nlnk = 10001;
-    constexpr double lnk1 = log(1e-6), lnk2 = log(5.0);
-    constexpr double dlnk = (lnk2 - lnk1) / (nlnk - 1), dlnk2 = 0.02;
-    constexpr int nlnk2 = ceil((lnk2 - lnk1) / dlnk);
+    constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1), dlnk2 = 0.02;
+    constexpr int nlnk2 = ceil((LNKMAX - LNKMIN) / dlnk);
     double p1d_integrand[nlnk], p1d[nlnk2];
 
     for (int i = 0; i < nlnk2; ++i) {
-        double kz = exp(lnk1 + i * dlnk2);
+        double kz = exp(LNKMIN + i * dlnk2);
 
         for (int j = 0; j < nlnk; ++j) {
-            double kperp2 = exp(lnk1 + j * dlnk);
+            double kperp2 = exp(LNKMIN + j * dlnk);
             kperp2 *= kperp2;
             double k = sqrt(kperp2 + kz * kz);
             double k_rL = k * rscale_long;
@@ -372,15 +371,14 @@ void ArinyoP3DModel::_construcP1D() {
     }
 
     interp_p1d = std::make_unique<DiscreteInterpolation1D>(
-        lnk1, dlnk2, nlnk2, &p1d[0]);
+        LNKMIN, dlnk2, nlnk2, &p1d[0]);
 }
 
 
 void ArinyoP3DModel::_getCorrFunc2dS() {
-    constexpr double k2 = 5.0;
-    double dk = 2 * MY_PI / (20.0 * rscale_long);
+    double dk = 2 * MY_PI / (50.0 * rscale_long);
 
-    double nk_d = k2 / dk, log2nk = log2(nk_d);
+    double nk_d = KMAX / dk, log2nk = log2(nk_d);
     int log2nk_ceil = ceil(log2nk), nk = 0;
 
     // If the nearest power of two is >= 2^10
@@ -390,7 +388,7 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
         int m = floor((1.0 - rem) * y);
         nk = 1 << (log2nk_ceil - 2 * m);
         for (int i = 0; i < m; ++i)
-            m *= 3;
+            nk *= 3;
     }
     else {
         nk = 1 << log2nk_ceil;
@@ -398,8 +396,8 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
 
     int nk2 = nk * nk;
 
-    dk = k2 / (nk - 1);
-    Ps2Cf_2D hankel{nk, k2};
+    dk = KMAX / (nk - 1);
+    Ps2Cf_2D hankel{nk, KMAX};
 
     auto kzarr = std::make_unique<double[]>(nk),
          psarr = std::make_unique<double[]>(nk2);
@@ -440,13 +438,12 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) {
 
 void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     constexpr int nlnk = 502, nlnk2 = nlnk * nlnk;
-    constexpr double lnk1 = log(1e-6), lnk2 = log(5.0);
-    constexpr double dlnk = (lnk2 - lnk1) / (nlnk - 2);
+    constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 2);
     double karr[nlnk], pmarr[nlnk2];
 
     karr[0] = 0;
     for (int i = 1; i < nlnk; ++i)
-        karr[i] = exp(lnk1 + (i - 1) * dlnk);
+        karr[i] = exp(LNKMIN + (i - 1) * dlnk);
 
     out->write(karr, nlnk, "KMODEL");
 
