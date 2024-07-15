@@ -73,6 +73,8 @@ namespace mxhelp
     void LAPACKE_InvertMatrixLU(double *A, int N);
     void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp);
 
+    void LAPACKE_sym_eigens(double *A, int N, double *evecs, double *evals);
+
     // Return condition number
     // if sjump != nullptr, finds the adjacent ratio of s values larger than 8
     // fromthe right side

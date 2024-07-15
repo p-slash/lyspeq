@@ -191,8 +191,7 @@ namespace mxhelp
     }
 
     void LAPACKE_InvertMatrixLU(double *A, int N) {
-        static std::vector<lapack_int> ipiv;
-        ipiv.resize(N);
+        std::vector<lapack_int> ipiv(N);
         lapack_int LIN = N, info = 0;
 
         // Factorize A
@@ -267,6 +266,19 @@ namespace mxhelp
             S.get(), N, 0, _Bmat.get(), N);
 
         _Bmat.swap(S);
+    }
+
+
+    void LAPACKE_sym_eigens(double *A, int N, double *evecs, double *evals) {
+        lapack_int mE, info = 0;
+        std::vector<lapack_int> isuppz(2 * N);
+        info = LAPACKE_dsyevr(
+            LAPACK_ROW_MAJOR, 'V', 'A', 'U', N, A, N,
+            0, 1e15, 1, N, N * MY_EPSILON_D,
+            &mE, evecs, evals, N, isuppz.data());
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in LAPACKE_dsyevr.", info);
     }
 
     double LAPACKE_RcondSvd(const double *A, int N, double *sjump) {
