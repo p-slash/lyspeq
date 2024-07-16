@@ -13,21 +13,10 @@ namespace ioh {
     class ContMargFile {
     public:
         ContMargFile(const std::string &base) : fbase(base) {};
-        ~ContMargFile() {
-            std::for_each(
-                file_handlers.begin(), file_handlers.end(),
-                [](const auto &x) { fclose(x.second); }
-            );
-        }
 
-        size_t write(double *data, int N, int fidx) {
-            auto it = file_handlers.find(fidx);
+        std::string write(double *data, int N, long int targetid) {
             FILE *fptr;
-
-            if (it == file_handlers.end())
-                fptr = _openFile(fidx);
-            else
-                fptr = it->second;
+            std::string fname = _openFile(targetid, fptr);
 
             size_t Min = N * N,
                    Mout = fwrite(data, sizeof(double), Min, fptr);
@@ -35,13 +24,13 @@ namespace ioh {
             if (Min != Mout)
                 throw std::runtime_error("ERROR in ContMargFile::write");
 
-            return ftell(fptr);
+            fclose(fptr);
+
+            return std::move(fname);
         }
 
-        void read(int fidx, size_t pos, int N, double *out) {
-            FILE *fptr = file_handlers[fidx];
-            if (fseek(fptr, pos, SEEK_SET) != 0)
-                throw std::runtime_error("ERROR in ContMargFile::read::fseek");
+        void read(const char *fname, int N, double *out) {
+            FILE *fptr = open_file(fname, "rb");
 
             size_t Min = N * N, 
                    Mout = fread(out, sizeof(double), Min, fptr);
@@ -51,13 +40,11 @@ namespace ioh {
 
     private:
         std::string fbase;
-        std::unordered_map<int, FILE*> file_handlers;
 
-        FILE* _openFile(int fidx) {
-            std::string fname = fbase + "/qu3d-rmat-" + std::to_string(fidx) + ".dat";
-            FILE *fptr = open_file(fname.c_str(), "wb");
-            file_handlers[fidx] = fptr;
-            return fptr;
+        std::string _openFile(long int targetid, FILE *fptr) {
+            std::string fname = fbase + "/qu3d-rmat-" + std::to_string(targetid) + ".dat";
+            fptr = open_file(fname.c_str(), "wb");
+            return std::move(fname);
         }
     };
 

@@ -44,7 +44,8 @@ struct CompareCosmicQuasarPtr {
 class CosmicQuasar {
 public:
     std::unique_ptr<qio::QSOFile> qFile;
-    int N, coarse_N, fidx;
+    std::string cfname;
+    int N, coarse_N;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth;
@@ -52,7 +53,7 @@ public:
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
-    size_t min_x_idx, fpos;
+    size_t min_x_idx;
 
     CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
         qFile = std::make_unique<qio::QSOFile>(pf, hdunum);
@@ -304,13 +305,12 @@ public:
 
         mxhelp::LAPACKE_sym_eigens(ccov, N, uvecs[0].get(), rrmat);
 
-        fidx = min_x_idx / myomp::getMaxNumThreads();
-        fpos = ioh::continuumMargFileHandler->write(rrmat, N, fidx);
+        cfname = ioh::continuumMargFileHandler->write(rrmat, N, qFile->id);
     }
 
     void readMarginalization() {
-        double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-        ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
+        ioh::continuumMargFileHandler->read(
+            cfname.c_str(),N, GL_RMAT[myomp::getThreadNum()].get());
     }
 
     void setCrossCov(
