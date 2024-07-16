@@ -305,12 +305,17 @@ public:
 
         mxhelp::LAPACKE_sym_eigens(ccov, N, uvecs[0].get(), rrmat);
 
-        cfname = ioh::continuumMargFileHandler->write(rrmat, N, qFile->id);
+        cfname = ioh::continuumMargFileHandler->write(
+            rrmat, N, qFile->id, uvecs[0].get());
     }
 
     void readMarginalization() {
         ioh::continuumMargFileHandler->read(
             cfname.c_str(),N, GL_RMAT[myomp::getThreadNum()].get());
+    }
+
+    void setMarginalizationFname() {
+        cfname = ioh::continuumMargFileHandler->getFname(qFile->id);
     }
 
     void setCrossCov(

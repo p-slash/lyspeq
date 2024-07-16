@@ -12,9 +12,11 @@
 namespace ioh {
     class ContMargFile {
     public:
-        ContMargFile(const std::string &base) : fbase(base) {};
+        ContMargFile(const std::string &base) : tmpfolder(base) {};
 
-        std::string write(double *data, int N, long int targetid) {
+        std::string write(
+                double *data, int N, long int targetid, double *evecs=nullptr
+        ) {
             FILE *fptr;
             std::string fname = _openFile(targetid, fptr);
 
@@ -23,6 +25,10 @@ namespace ioh {
 
             if (Min != Mout)
                 throw std::runtime_error("ERROR in ContMargFile::write");
+
+            if (evecs != nullptr)
+                if (N != fwrite(evecs, sizeof(double), N, fptr))
+                    throw std::runtime_error("ERROR in ContMargFile::write");
 
             fclose(fptr);
 
@@ -38,11 +44,14 @@ namespace ioh {
                 throw std::runtime_error("ERROR in ContMargFile::read::fread");
         }
 
+        std::string getFname(long int targetid) {
+            return tmpfolder + "/qu3d-rdmat-" + std::to_string(targetid) + ".dat";
+        }
     private:
-        std::string fbase;
+        std::string tmpfolder;
 
         std::string _openFile(long int targetid, FILE *fptr) {
-            std::string fname = fbase + "/qu3d-rmat-" + std::to_string(targetid) + ".dat";
+            std::string fname = getFname(targetid);
             fptr = open_file(fname.c_str(), "wb");
             return std::move(fname);
         }
