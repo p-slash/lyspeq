@@ -34,7 +34,7 @@ namespace ioh {
                 if (N != fwrite(evecs, sizeof(double), N, fptr.get()))
                     throw std::runtime_error("ERROR in ContMargFile::write");
 
-            return std::move(fname);
+            return fname;
         }
 
         void read(const char *fname, int N, double *out) {

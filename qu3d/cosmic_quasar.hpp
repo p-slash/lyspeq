@@ -265,7 +265,7 @@ public:
         double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
         auto Emat = std::make_unique<double[]>(nvecs * nvecs);
         std::vector<std::unique_ptr<double[]>> uvecs(nvecs);
-        for (int a = 0; a < nvecs; ++a) 
+        for (int a = 0; a < nvecs; ++a)
             uvecs[a] = std::make_unique<double[]>(N);
 
         std::fill_n(uvecs[0].get(), N, 1.0 / sqrt(N * 1.0));  // Zeroth order
