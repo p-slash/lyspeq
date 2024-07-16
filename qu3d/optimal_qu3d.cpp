@@ -346,7 +346,7 @@ void Qu3DEstimator::_createRmatFiles() {
 
     if (mympi::this_pe == 0) {
         #pragma omp parallel for
-        for (const auto &qso : quasars)
+        for (auto &qso : quasars)
             qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
     }
     else {
