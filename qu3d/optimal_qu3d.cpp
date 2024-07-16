@@ -349,9 +349,12 @@ void Qu3DEstimator::_createRmatFiles() {
         for (const auto &qso : quasars)
             qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
     }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->setMarginalizationFname();
+    }
     mympi::barrier();
-
-    // broadcast fidx, fpos and open all files
 }
 
 
