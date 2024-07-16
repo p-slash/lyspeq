@@ -17,29 +17,36 @@ namespace ioh {
         std::string write(
                 double *data, int N, long int targetid, double *evecs=nullptr
         ) {
-            FILE *fptr;
-            std::string fname = _openFile(targetid, fptr);
+            std::string fname = getFname(targetid);
+            std::unique_ptr<FILE, decltype(&fclose)> fptr(
+                fopen(fname.c_str(), "wb"), &fclose);
+
+            if (!fptr)
+                throw std::runtime_error(std::string("Cannot open file: ") + fname);
 
             size_t Min = N * N,
-                   Mout = fwrite(data, sizeof(double), Min, fptr);
+                   Mout = fwrite(data, sizeof(double), Min, fptr.get());
 
             if (Min != Mout)
                 throw std::runtime_error("ERROR in ContMargFile::write");
 
             if (evecs != nullptr)
-                if (N != fwrite(evecs, sizeof(double), N, fptr))
+                if (N != fwrite(evecs, sizeof(double), N, fptr.get()))
                     throw std::runtime_error("ERROR in ContMargFile::write");
-
-            fclose(fptr);
 
             return std::move(fname);
         }
 
         void read(const char *fname, int N, double *out) {
-            FILE *fptr = open_file(fname, "rb");
+            std::unique_ptr<FILE, decltype(&fclose)> fptr(
+                fopen(fname, "rb"), &fclose);
+
+            if (!fptr)
+                throw std::runtime_error(std::string("Cannot open file: ") + fname);
 
             size_t Min = N * N, 
-                   Mout = fread(out, sizeof(double), Min, fptr);
+                   Mout = fread(out, sizeof(double), Min, fptr.get());
+
             if (Min != Mout)
                 throw std::runtime_error("ERROR in ContMargFile::read::fread");
         }
@@ -49,12 +56,6 @@ namespace ioh {
         }
     private:
         std::string tmpfolder;
-
-        std::string _openFile(long int targetid, FILE *fptr) {
-            std::string fname = getFname(targetid);
-            fptr = open_file(fname.c_str(), "wb");
-            return std::move(fname);
-        }
     };
 
     extern std::unique_ptr<ContMargFile> continuumMargFileHandler;
