@@ -157,6 +157,16 @@ public:
             in_isig[i] *= isig[i];
     }
 
+    void multTruthWithMarg() {
+        double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
+        ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, N, N, 1.0,
+            rrmat, N, truth, 1, 0, in_isig, 1);
+
+        std::swap(truth, in_isig);
+    }
+
     void interpMesh2Out(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
             out[i] = mesh.interpolate(r.get() + 3 * i);
