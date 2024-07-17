@@ -600,9 +600,9 @@ void Qu3DEstimator::multiplyCovVector() {
     if (specifics::CONT_LOGLAM_MARG_ORDER > -1) {
         #pragma omp parallel for
         for (auto &qso : quasars) {
-            std::swap(truth, out);
+            std::swap(qso->truth, qso->out);
             qso->multTruthWithMarg();
-            std::swap(truth, out);
+            std::swap(qso->truth, qso->out);
         }
     }
 
@@ -754,9 +754,9 @@ endconjugateGradientDescent:
     if (specifics::CONT_LOGLAM_MARG_ORDER > -1) {
         #pragma omp parallel for
         for (auto &qso : quasars) {
-            std::swap(truth, in);
+            std::swap(qso->truth, qso->in);
             qso->multTruthWithMarg();
-            std::swap(truth, in);
+            std::swap(qso->truth, qso->in);
         }
     }
 
