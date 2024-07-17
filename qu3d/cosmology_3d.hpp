@@ -61,7 +61,7 @@ namespace fidcosmo {
         /* Power spectrum interpolator in Mpc units */
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_lnp;
 
-        std::unique_ptr<double[]> _appendLinearExtrapolation(
+        std::vector<double> _appendLinearExtrapolation(
             double lnk1, double lnk2, double dlnk, int N,
             const std::vector<double> &lnP, double &newlnk1
         );

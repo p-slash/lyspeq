@@ -160,7 +160,7 @@ FlatLCDM::FlatLCDM(ConfigFile &config) {
 }
 
 
-std::unique_ptr<double[]> LinearPowerInterpolator::_appendLinearExtrapolation(
+std::vector<double> LinearPowerInterpolator::_appendLinearExtrapolation(
         double lnk1, double lnk2, double dlnk, int N,
         const std::vector<double> &lnP, double &newlnk1
 ) {
@@ -171,12 +171,12 @@ std::unique_ptr<double[]> LinearPowerInterpolator::_appendLinearExtrapolation(
         n2 = std::max(0, int((LNKMAX - lnk2) / dlnk));
 
     newlnk1 = lnk1 - n1 * dlnk;
-    auto result = std::make_unique<double[]>(n1 + N + n2);
+    std::vector<double> result(n1 + N + n2);
 
     for (int i = 0; i < n1; ++i)
         result[i] = lnP[0] + m1 * (i - n1);
 
-    std::copy(lnP.begin(), lnP.end(), result.get() + n1);
+    std::copy(lnP.begin(), lnP.end(), result.begin() + n1);
 
     for (int i = 0; i < n2; ++i)
         result[n1 + N + i] = lnP.back() + m2 * (i + 1);
@@ -208,7 +208,7 @@ void LinearPowerInterpolator::_readFile(const std::string &fname) {
     auto appendLnp = _appendLinearExtrapolation(
         lnk[0], lnk.back(), dlnk, N, lnP, lnk1);
     interp_lnp = std::make_unique<DiscreteCubicInterpolation1D>(
-        lnk1, dlnk, N, appendLnp.get());
+        lnk1, dlnk, appendLnp.size(), appendLnp.data());
 }
 
 
