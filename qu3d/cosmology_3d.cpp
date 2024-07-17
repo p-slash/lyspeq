@@ -213,7 +213,7 @@ void LinearPowerInterpolator::_readFile(const std::string &fname) {
 
 
 void LinearPowerInterpolator::write(ioh::Qu3dFile *out) {
-    out->write(interp_lnp.get(), interp_lnp.size(), "PLIN_APPD");
+    out->write(interp_lnp->get(), interp_lnp->size(), "PLIN_APPD");
 }
 
 
@@ -446,7 +446,7 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 2);
     double karr[nlnk], pmarr[nlnk2];
 
-    cosmo->write(out);
+    interp_p->write(out);
 
     karr[0] = 0;
     for (int i = 1; i < nlnk; ++i)
