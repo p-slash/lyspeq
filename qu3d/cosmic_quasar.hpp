@@ -49,8 +49,8 @@ public:
     int N, coarse_N, fidx;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
-    double *z1, *isig, angles[3], *in, *out, *truth;
-    std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r, coarse_in;
+    double *z1, *isig, angles[3], *in, *out, *truth, *in_isig;
+    std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r, coarse_in, y_isig;
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
@@ -102,6 +102,7 @@ public:
 
         r = std::make_unique<double[]>(3 * N);
         y = std::make_unique<double[]>(N);
+        y_isig = std::make_unique<double[]>(N);
         Cy = std::make_unique<double[]>(N);
         residual = std::make_unique<double[]>(N);
         search = std::make_unique<double[]>(N);
@@ -123,6 +124,7 @@ public:
         angles[2] = 1;
 
         in = y.get();
+        in_isig = y_isig.get();
         truth = qFile->delta();
         out = Cy.get();
     }
@@ -137,6 +139,22 @@ public:
             r[1 + 3 * i] = angles[1] * chi;
             r[2 + 3 * i] = angles[2] * chi;
         }
+    }
+
+    void setInIsigNoMarg() {
+        for (int i = 0; i < N; ++i)
+            in_isig[i] = in[i] * isig[i];
+    }
+
+    void setInIsigWithMarg() {
+        double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
+        ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, N, N, 1.0,
+            rrmat, N, in, 1, 0, in_isig, 1);
+
+        for (int i = 0; i < N; ++i)
+            in_isig[i] = in[i] * isig[i];
     }
 
     void interpAddMesh2OutIsig(const RealField3D &mesh) {
@@ -177,7 +195,7 @@ public:
         void coarseGrainInIsig() {
             std::fill_n(coarse_in.get(), coarse_N, 0);
             for (int i = 0; i < N; ++i)
-                coarse_in[i / M_LOS] += in[i] * isig[i];
+                coarse_in[i / M_LOS] += in_isig[i];
         }
 
         void interpMesh2Coarse(const RealField3D &mesh) {
@@ -300,32 +318,32 @@ public:
             for (int b = 0; b < nvecs; ++b)
                 cblas_dger(CblasRowMajor, N, N, -1.0 * Emat[b + a * nvecs],
                            uvecs[a].get(), 1, uvecs[b].get(), 1, ccov, N);
-        for (int i = 0; i < N; ++i)
-            for (int j = 0; j < N; ++j)
-                ccov[j + i * N] *= isig[j] * isig[i];
+
+        // for (int i = 0; i < N; ++i)
+        //     for (int j = 0; j < N; ++j)
+        //         ccov[j + i * N] *= isig[j] * isig[i];
 
         mxhelp::LAPACKE_sym_eigens(ccov, N, uvecs[0].get(), rrmat);
 
         // D^1/2
         for (int i = 0; i < N; ++i) {
-            if (uvecs[0][i] < 0)
+            if (uvecs[0][i] < N * DOUBLE_EPSILON)
                 uvecs[0][i] = 0;
             else
                 uvecs[0][i] = sqrt(uvecs[0][i]);
         }
 
-        // R_D = R D^1/2
-        for (int i = 0; i < N; ++i)
-            for (int j = 0; j < N; ++j)
-                rrmat[j + i * N] *= uvecs[0][j];
+        // R^1/2 such that N-tilde^-1/2 = N^-1/2 R^1/2
+        mxhelp::transpose_copy(rrmat, ccov, N, N);
+        std::fill_n(rrmat, N * N, 0);
+        for (int a = 0; a < N; ++a)
+            if (uvecs[0][a] != 0)
+                cblas_dsyr(CblasRowMajor, CblasUpper, N,
+                           uvecs[0][a], ccov + a * N, 1, rrmat, N);
+        mxhelp::copyUpperToLower(rrmat, N);
 
         fpos = ioh::continuumMargFileHandler->write(
             rrmat, N, min_x_idx, fidx);
-    }
-
-    void readMarginalization() {
-        ioh::continuumMargFileHandler->read(
-            fidx, fpos, N, GL_RMAT[myomp::getThreadNum()].get());
     }
 
     void setMarginalizationFileParams() {
@@ -363,7 +381,7 @@ public:
 
             cblas_dgemv(
                 CblasRowMajor, CblasNoTrans, N, M, 1.0,
-                ccov, M, q->in, 1, 1, out, 1);
+                ccov, M, q->in_isig, 1, 1, out, 1);
 
             // The following creates race conditions
             // cblas_dgemv(
