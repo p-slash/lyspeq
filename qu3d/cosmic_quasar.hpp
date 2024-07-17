@@ -12,6 +12,7 @@
 
 #include "mathtools/matrix_helper.hpp"
 #include "core/omp_manager.hpp"
+#include "core/mpi_manager.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 #include "mathtools/real_field_3d.hpp"
@@ -45,7 +46,7 @@ class CosmicQuasar {
 public:
     std::unique_ptr<qio::QSOFile> qFile;
     std::string cfname;
-    int N, coarse_N;
+    int N, coarse_N, fidx;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth;
@@ -53,7 +54,7 @@ public:
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
-    size_t min_x_idx;
+    size_t min_x_idx, fpos;
 
     CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
         qFile = std::make_unique<qio::QSOFile>(pf, hdunum);
@@ -305,17 +306,17 @@ public:
 
         mxhelp::LAPACKE_sym_eigens(ccov, N, uvecs[0].get(), rrmat);
 
-        cfname = ioh::continuumMargFileHandler->write(
-            rrmat, N, qFile->id, uvecs[0].get());
+        fpos = ioh::continuumMargFileHandler->write(
+            rrmat, N, min_x_idx, fidx, uvecs[0].get());
     }
 
     void readMarginalization() {
         ioh::continuumMargFileHandler->read(
-            cfname.c_str(),N, GL_RMAT[myomp::getThreadNum()].get());
+            fidx, fpos, N, GL_RMAT[myomp::getThreadNum()].get());
     }
 
-    void setMarginalizationFname() {
-        cfname = ioh::continuumMargFileHandler->getFname(qFile->id);
+    void setMarginalizationFileParams() {
+        mympi::bcast(fidx);  mympi::bcast(fpos);
     }
 
     void setCrossCov(
