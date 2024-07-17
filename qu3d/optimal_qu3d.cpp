@@ -483,6 +483,17 @@ void Qu3DEstimator::reverseInterpolateIsig() {
     double dt = mytime::timer.getTime();
     mesh.zero_field_x();
 
+    if (specifics::CONT_LOGLAM_MARG_ORDER < 0) {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->setInIsigNoMarg();
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->setInIsigWithMarg();
+    }
+
     #ifdef COARSE_INTERP
         #pragma omp parallel for
         for (auto &qso : quasars)
@@ -501,7 +512,7 @@ void Qu3DEstimator::reverseInterpolateIsig() {
         for (const auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
                 mesh.reverseInterpolateCIC(
-                    qso->r.get() + 3 * i, qso->in[i] * qso->isig[i]);
+                    qso->r.get() + 3 * i, qso->in_isig[i]);
         }
     #endif
 
