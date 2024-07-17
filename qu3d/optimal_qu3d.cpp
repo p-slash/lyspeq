@@ -597,6 +597,14 @@ void Qu3DEstimator::multiplyCovVector() {
             qso->out[i] *= qso->isig[i];
 
     // Multiply with marg matrix
+    if (specifics::CONT_LOGLAM_MARG_ORDER > -1) {
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            std::swap(truth, out);
+            qso->multTruthWithMarg();
+            std::swap(truth, out);
+        }
+    }
 
     // Add I.y to out
     #pragma omp parallel for
@@ -742,6 +750,15 @@ endconjugateGradientDescent:
     #pragma omp parallel for
     for (auto &qso : quasars)
         qso->multIsigInVector();
+
+    if (specifics::CONT_LOGLAM_MARG_ORDER > -1) {
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            std::swap(truth, in);
+            qso->multTruthWithMarg();
+            std::swap(truth, in);
+        }
+    }
 
     dt = mytime::timer.getTime() - dt;
     ++timings["CGD"].first;
