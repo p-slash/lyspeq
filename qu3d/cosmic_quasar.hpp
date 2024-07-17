@@ -306,8 +306,21 @@ public:
 
         mxhelp::LAPACKE_sym_eigens(ccov, N, uvecs[0].get(), rrmat);
 
+        // D^1/2
+        for (int i = 0; i < N; ++i) {
+            if (uvecs[0][i] < 0)
+                uvecs[0][i] = 0;
+            else
+                uvecs[0][i] = sqrt(uvecs[0][i]);
+        }
+
+        // R_D = R D^1/2
+        for (int i = 0; i < N; ++i)
+            for (int j = 0; j < N; ++j)
+                rrmat[j + i * N] *= uvecs[0][j];
+
         fpos = ioh::continuumMargFileHandler->write(
-            rrmat, N, min_x_idx, fidx, uvecs[0].get());
+            rrmat, N, min_x_idx, fidx);
     }
 
     void readMarginalization() {
