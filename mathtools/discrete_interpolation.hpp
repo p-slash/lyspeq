@@ -27,6 +27,7 @@ public:
     double evaluate(double x);
     void evaluateVector(const double *xarr, int size, double *out);
     double* get() const { return y; }
+    int size() const { return N; }
 };
 
 
@@ -59,6 +60,7 @@ public:
 
     double evaluate(double x);
     double* get() const { return y; }
+    int size() const { return N; }
 };
 
 // Stores a copy of z array

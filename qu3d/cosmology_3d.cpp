@@ -212,6 +212,11 @@ void LinearPowerInterpolator::_readFile(const std::string &fname) {
 }
 
 
+void LinearPowerInterpolator::write(ioh::Qu3dFile *out) {
+    out->write(interp_lnp.get(), interp_lnp.size(), "PLIN_APPD");
+}
+
+
 ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     config.addDefaults(arinyo_default_parameters);
     b_F = config.getDouble("b_F");
@@ -440,6 +445,8 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     constexpr int nlnk = 502, nlnk2 = nlnk * nlnk;
     constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 2);
     double karr[nlnk], pmarr[nlnk2];
+
+    cosmo->write(out);
 
     karr[0] = 0;
     for (int i = 1; i < nlnk; ++i)

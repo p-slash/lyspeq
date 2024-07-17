@@ -89,6 +89,8 @@ namespace fidcosmo {
             if (k == 0)  return 0;
             return exp(interp_lnp->evaluate(log(k)));
         }
+
+        void write(ioh::Qu3dFile *out);
     };
 
     const config_map arinyo_default_parameters ({
