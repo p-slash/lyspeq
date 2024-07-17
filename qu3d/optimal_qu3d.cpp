@@ -592,26 +592,33 @@ void Qu3DEstimator::multiplyCovVector() {
         multParticleComp();
 
     // Multiply out with isig
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        for (int i = 0; i < qso->N; ++i)
-            qso->out[i] *= qso->isig[i];
-
-    // Multiply with marg matrix
+    // Multiply out with marg. matrix if enabled
+    // Add I.y to out
     if (CONT_MARG_ENABLED) {
         #pragma omp parallel for
         for (auto &qso : quasars) {
+            #pragma omp simd
+            for (int i = 0; i < qso->N; ++i)
+                qso->out[i] *= qso->isig[i];
+
             std::swap(qso->truth, qso->out);
             qso->multTruthWithMarg();
             std::swap(qso->truth, qso->out);
+
+            #pragma omp simd
+            for (int i = 0; i < qso->N; ++i)
+                qso->out[i] += qso->in[i];
         }
     }
-
-    // Add I.y to out
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        for (int i = 0; i < qso->N; ++i)
-            qso->out[i] += qso->in[i];
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            #pragma omp simd
+            for (int i = 0; i < qso->N; ++i) {
+                qso->out[i] *= qso->isig[i];
+                qso->out[i] += qso->in[i];
+            }
+    }
 
     dt = mytime::timer.getTime() - dt;
     ++timings["mCov"].first;
@@ -748,17 +755,19 @@ endconjugateGradientDescent:
         LOG::LOGGER.STD(
             "  conjugateGradientDescent finished in %d iterations.\n", niter);
 
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        qso->multIsigInVector();
-
     if (CONT_MARG_ENABLED) {
         #pragma omp parallel for
         for (auto &qso : quasars) {
             std::swap(qso->truth, qso->in);
             qso->multTruthWithMarg();
             std::swap(qso->truth, qso->in);
+            qso->multIsigInVector();
         }
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->multIsigInVector();
     }
 
     dt = mytime::timer.getTime() - dt;
