@@ -26,7 +26,7 @@ std::unique_ptr<ioh::ContMargFile> ioh::continuumMargFileHandler;
 std::vector<MyRNG> rngs;
 int NUMBER_OF_K_BANDS_2 = 0;
 double DK_BIN = 0;
-bool verbose = true;
+bool verbose = true, CONT_MARG_ENABLED = false;
 constexpr bool INPLACE_FFT = true;
 
 
@@ -198,7 +198,7 @@ void Qu3DEstimator::_readQSOFiles(
     }
 
     CosmicQuasar::allocCcov(max_qN * max_qN);
-    if (specifics::CONT_LOGLAM_MARG_ORDER > -1)
+    if (CONT_MARG_ENABLED)
         CosmicQuasar::allocRrmat(max_qN * max_qN);
 
     LOG::LOGGER.STD(
@@ -413,6 +413,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_rnd_enabled = config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
+    CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
 
     seed_generator = std::make_unique<std::seed_seq>(seed.begin(), seed.end());
     _initRngs(seed_generator.get());
@@ -429,7 +430,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     if (config.getInteger("TestGaussianField") > 0)
         replaceDeltasWithGaussianField();
 
-    if (specifics::CONT_LOGLAM_MARG_ORDER > -1)
+    if (CONT_MARG_ENABLED)
         _createRmatFiles();
 
     radius *= rscale_factor;
@@ -483,15 +484,15 @@ void Qu3DEstimator::reverseInterpolateIsig() {
     double dt = mytime::timer.getTime();
     mesh.zero_field_x();
 
-    if (specifics::CONT_LOGLAM_MARG_ORDER < 0) {
+    if (CONT_MARG_ENABLED) {
         #pragma omp parallel for
         for (auto &qso : quasars)
-            qso->setInIsigNoMarg();
+            qso->setInIsigWithMarg();
     }
     else {
         #pragma omp parallel for
         for (auto &qso : quasars)
-            qso->setInIsigWithMarg();
+            qso->setInIsigNoMarg();
     }
 
     #ifdef COARSE_INTERP
@@ -597,7 +598,7 @@ void Qu3DEstimator::multiplyCovVector() {
             qso->out[i] *= qso->isig[i];
 
     // Multiply with marg matrix
-    if (specifics::CONT_LOGLAM_MARG_ORDER > -1) {
+    if (CONT_MARG_ENABLED) {
         #pragma omp parallel for
         for (auto &qso : quasars) {
             std::swap(qso->truth, qso->out);
@@ -699,7 +700,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
 
-    if (specifics::CONT_LOGLAM_MARG_ORDER > -1) {
+    if (CONT_MARG_ENABLED) {
         #pragma omp parallel for
         for (auto &qso : quasars)
             qso->multTruthWithMarg();
@@ -751,7 +752,7 @@ endconjugateGradientDescent:
     for (auto &qso : quasars)
         qso->multIsigInVector();
 
-    if (specifics::CONT_LOGLAM_MARG_ORDER > -1) {
+    if (CONT_MARG_ENABLED) {
         #pragma omp parallel for
         for (auto &qso : quasars) {
             std::swap(qso->truth, qso->in);
