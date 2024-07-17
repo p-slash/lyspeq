@@ -691,6 +691,12 @@ void Qu3DEstimator::conjugateGradientDescent() {
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
 
+    if (specifics::CONT_LOGLAM_MARG_ORDER > -1) {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->multTruthWithMarg();
+    }
+
     /* Initial guess */
     initGuessDiag();
 
