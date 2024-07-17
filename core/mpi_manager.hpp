@@ -25,6 +25,7 @@ namespace mympi {
     template<> inline MPI_Datatype getMpiDataType<double>() { return MPI_DOUBLE; }
     template<> inline MPI_Datatype getMpiDataType<int>() { return MPI_INT; }
     template<> inline MPI_Datatype getMpiDataType<bool>() { return MPI_CXX_BOOL; }
+    template<> inline MPI_Datatype getMpiDataType<size_t>() { return MPI_UNSIGNED_LONG; }
     // template<> inline MPI_Datatype getMpiDataType<unsigned long>() { return MPI_UNSIGNED_LONG; }
 
     template<class T>
