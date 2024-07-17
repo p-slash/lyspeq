@@ -546,12 +546,12 @@ void Qu3DEstimator::multMeshComp() {
         #pragma omp parallel for
         for (auto &qso : quasars) {
             qso->interpMesh2Coarse(mesh);
-            qso->interpNgpCoarse2OutIsig();
+            qso->interpNgpCoarse2Out();
         }
     #else
         #pragma omp parallel for
         for (auto &qso : quasars)
-            qso->interpAddMesh2OutIsig(mesh);
+            qso->interpMesh2Out(mesh);
     #endif
 
     t2 = mytime::timer.getTime();
@@ -584,16 +584,25 @@ void Qu3DEstimator::multiplyCovVector() {
     */
     double dt = mytime::timer.getTime();
 
-    // init new results to Cy = I.y
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        std::copy_n(qso->in, qso->N, qso->out);
-
     // Add long wavelength mode to Cy
     multMeshComp();
 
     if (pp_enabled)
         multParticleComp();
+
+    // Multiply out with isig
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        for (int i = 0; i < qso->N; ++i)
+            qso->out[i] *= qso->isig[i];
+
+    // Multiply with marg matrix
+
+    // Add I.y to out
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        for (int i = 0; i < qso->N; ++i)
+            qso->out[i] += qso->in[i];
 
     dt = mytime::timer.getTime() - dt;
     ++timings["mCov"].first;

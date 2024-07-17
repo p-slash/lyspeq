@@ -157,9 +157,9 @@ public:
             in_isig[i] = in[i] * isig[i];
     }
 
-    void interpAddMesh2OutIsig(const RealField3D &mesh) {
+    void interpMesh2Out(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
-            out[i] += isig[i] * mesh.interpolate(r.get() + 3 * i);
+            out[i] = mesh.interpolate(r.get() + 3 * i);
     }
 
     void interpMesh2TruthIsig(const RealField3D &mesh) {
@@ -203,9 +203,9 @@ public:
                 coarse_in[i] = mesh.interpolate(coarse_r.get() + 3 * i);
         }
 
-        void interpNgpCoarse2OutIsig() {
+        void interpNgpCoarse2Out() {
             for (int i = 0; i < N; ++i)
-                out[i] += isig[i] * coarse_in[i / M_LOS];
+                out[i] = coarse_in[i / M_LOS];
         }
 
         void interpNgpCoarse2TruthIsig() {
