@@ -154,7 +154,7 @@ public:
             rrmat, N, in, 1, 0, in_isig, 1);
 
         for (int i = 0; i < N; ++i)
-            in_isig[i] = in[i] * isig[i];
+            in_isig[i] *= isig[i];
     }
 
     void interpMesh2Out(const RealField3D &mesh) {
