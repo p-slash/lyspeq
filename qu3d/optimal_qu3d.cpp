@@ -960,6 +960,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
         monte_carlos_file.write(
             all_mcs.get(), (jj + 1) * NUMBER_OF_K_BANDS_2,
             "TOTBIAS_MCS-" + std::to_string(nmc), jj + 1);
+        monte_carlos_file.flush();
 
         converged = _syncMonteCarlo(
             nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_K_BANDS_2,
