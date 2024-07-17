@@ -316,7 +316,7 @@ public:
     }
 
     void setMarginalizationFileParams() {
-        mympi::bcast(fidx);  mympi::bcast(fpos);
+        mympi::bcast(&fidx);  mympi::bcast(&fpos);
     }
 
     void setCrossCov(
