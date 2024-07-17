@@ -21,15 +21,15 @@ namespace ioh {
 
     class ContMargFile {
     public:
-        ContMargFile(const std::string &base, int nf)
-        : num_files(nf), tmpfolder(base) {};
+        ContMargFile(const std::string &base, int g)
+        : grouping(g), tmpfolder(base) {};
 
         size_t write(
                 double *data, int N, int xidx, int &fidx, double *evecs=nullptr
         ) {
             assert(myomp::getNumThreads() == 1);
 
-            fidx = xidx / num_files;
+            fidx = xidx / grouping;
             auto fw_it = file_writers.find(fidx);
 
             if (fw_it == file_writers.end())
@@ -83,7 +83,7 @@ namespace ioh {
             return tmpfolder + "/qu3d-rdmat-" + std::to_string(fidx) + ".dat";
         }
     private:
-        int num_files;
+        int grouping;
         std::string tmpfolder;
 
         std::unordered_map<int, unique_file_ptr> file_writers;
