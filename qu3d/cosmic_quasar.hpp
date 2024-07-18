@@ -12,7 +12,6 @@
 
 #include "mathtools/matrix_helper.hpp"
 #include "core/omp_manager.hpp"
-#include "core/mpi_manager.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 #include "mathtools/real_field_3d.hpp"
@@ -353,10 +352,6 @@ public:
         mxhelp::copyUpperToLower(rrmat, N);
 
         fpos = ioh::continuumMargFileHandler->write(rrmat, N, fidx);
-    }
-
-    void setMarginalizationFileParams() {
-        mympi::bcast(&fidx);  mympi::bcast(&fpos);
     }
 
     void setCrossCov(
