@@ -343,7 +343,7 @@ public:
                 uvecs[0][i] = sqrt(uvecs[0][i]);
         }
 
-        // R^1/2 such that N-tilde^-1/2 = N^-1/2 R^1/2
+        // R^-1/2 such that S D^1/2 S^T
         mxhelp::transpose_copy(rrmat, ccov, N, N);
         std::fill_n(rrmat, N * N, 0);
         for (int a = 0; a < N; ++a)
@@ -352,8 +352,7 @@ public:
                            uvecs[0][a], ccov + a * N, 1, rrmat, N);
         mxhelp::copyUpperToLower(rrmat, N);
 
-        fpos = ioh::continuumMargFileHandler->write(
-            rrmat, N, min_x_idx, fidx);
+        fpos = ioh::continuumMargFileHandler->write(rrmat, N, fidx);
     }
 
     void setMarginalizationFileParams() {

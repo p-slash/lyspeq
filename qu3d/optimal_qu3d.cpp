@@ -342,7 +342,7 @@ void Qu3DEstimator::_findNeighbors() {
 void Qu3DEstimator::_createRmatFiles() {
     LOG::LOGGER.STD("Calculating R_D matrices for continuum marginalization.\n");
     ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
-            process::TMP_FOLDER, 16);
+            process::TMP_FOLDER);
 
     if (mympi::this_pe == 0) {
         for (auto &qso : quasars)
