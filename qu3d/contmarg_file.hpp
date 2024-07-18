@@ -21,21 +21,17 @@ namespace ioh {
 
     class ContMargFile {
     public:
-        ContMargFile(const std::string &base, int g)
-        : grouping(g), tmpfolder(base) {};
+        ContMargFile(const std::string &base)
+        : tmpfolder(base) {
+            for (int i = 0; i < myomp::getMaxNumThreads(); ++i)
+                file_writers[i] = _openFile(i, "wb");
+        };
 
         size_t write(
-                double *data, int N, int xidx, int &fidx, double *evecs=nullptr
+                double *data, size_t N, int &fidx, double *evecs=nullptr
         ) {
-            assert(myomp::getNumThreads() == 1);
-
-            fidx = xidx / grouping;
-            auto fw_it = file_writers.find(fidx);
-
-            if (fw_it == file_writers.end())
-                fw_it = file_writers.emplace(fidx, _openFile(fidx, "wb")).first;
-
-            FILE *fptr = fw_it->second.get();
+            fidx = myomp::getThreadNum();
+            FILE *fptr = file_writers[fidx].get();
 
             size_t fpos = ftell(fptr);
             size_t Min = N * N,
@@ -66,7 +62,7 @@ namespace ioh {
                     rdr.emplace(fidx, _openFile(fidx, "rb"));
         }
 
-        void read(int fidx, size_t fpos, int N, double *out) {
+        void read(int fidx, size_t fpos, size_t N, double *out) {
             FILE *fptr = file_readers_vec[myomp::getThreadNum()][fidx].get();
 
             if (fseek(fptr, fpos, SEEK_SET) != 0)
@@ -83,7 +79,6 @@ namespace ioh {
             return tmpfolder + "/qu3d-rdmat-" + std::to_string(fidx) + ".dat";
         }
     private:
-        int grouping;
         std::string tmpfolder;
 
         std::unordered_map<int, unique_file_ptr> file_writers;
