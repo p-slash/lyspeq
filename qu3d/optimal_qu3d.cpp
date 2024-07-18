@@ -6,6 +6,7 @@
 #include "core/global_numbers.hpp"
 #include "core/mpi_manager.hpp"
 #include "core/progress.hpp"
+#include "mathtools/stats.hpp"
 #include "io/logger.hpp"
 
 /* Timing map */
@@ -123,6 +124,22 @@ void _initRngs(std::seed_seq *seq) {
         rngs[i].seed(seeds[i]);
 }
 
+
+void _shiftByMedianDec(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
+    std::vector<double> decs;
+    decs.reserve(quasars.size());
+
+    for (const auto &qso : quasars)
+        decs.push_back(qso->angles[1]);
+
+    double median_dec = stats::medianOfUnsortedVector(decs);
+
+    LOG::LOGGER.STD("Shifting quasar DECs by %.4f radians\n", median_dec);
+
+    for (auto &qso : quasars)
+        qso->angles[1] -= median_dec;
+}
+
 void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     qio::PiccaFile pFile(fname);
     int number_of_spectra = pFile.getNumberSpectra();
@@ -185,10 +202,12 @@ void Qu3DEstimator::_readQSOFiles(
         _readOneDeltaFile(fq);
     }
 
-    t2 = mytime::timer.getTime();
-
     if (quasars.empty())
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
+
+    _shiftByMedianDec(quasars);
+
+    t2 = mytime::timer.getTime();
 
     int max_qN = 0;
     #pragma omp parallel for reduction(+:num_all_pixels) reduction(max:max_qN)

@@ -19,8 +19,9 @@
 #include "qu3d/cosmology_3d.hpp"
 #include "qu3d/contmarg_file.hpp"
 
-// The median of DEC distribution in radians
-constexpr double med_dec = 0.14502735752295168;
+// The shift of RA to have continous regions in the sky (for eBOSS)
+constexpr double ra_shift = 1.0;
+
 // Line of sight coarsing for mesh
 #ifndef M_LOS
 #define M_LOS 1
@@ -118,8 +119,11 @@ public:
             qFile->delta()[i] *= isig[i];
         }
 
-        angles[0] = qFile->ra;
-        angles[1] = qFile->dec - med_dec;
+        angles[0] = qFile->ra + ra_shift;
+        if (angles[0] >= 2 * MY_PI)
+            angles[0] -= 2 * MY_PI;
+
+        angles[1] = qFile->dec;
         angles[2] = 1;
 
         in = y.get();
