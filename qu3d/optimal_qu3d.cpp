@@ -304,6 +304,9 @@ void Qu3DEstimator::_constructMap() {
     LOG::LOGGER.STD("Sorting quasars by mininum NGP index.\n");
     std::sort(
         quasars.begin(), quasars.end(), [](const auto &q1, const auto &q2) {
+            if (q1->min_x_idx == q2->min_x_idx)
+                return q1->qFile->id < q2->qFile->id;
+
             return q1->min_x_idx < q2->min_x_idx; }
     );
 
@@ -344,15 +347,30 @@ void Qu3DEstimator::_createRmatFiles() {
     ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
             process::TMP_FOLDER);
 
+    std::vector<int> q_fidx;
+    std::vector<long> q_fpos;
+    size_t nquasars = quasars.size();
+
     if (mympi::this_pe == 0) {
         #pragma omp parallel for
         for (auto &qso : quasars)
             qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
+
+        q_fidx.reserve(nquasars);  q_fpos.reserve(nquasars);
+        for (auto it = quasars.cbegin(); it != quasars.cend(); ++it) {
+            q_fidx.push_back((*it)->fidx);  q_fpos.push_back((*it)->fpos);
+        }
+    }
+    else {
+        q_fidx.resize(nquasars);  q_fpos.resize(nquasars);
     }
 
     mympi::barrier();
-    for (auto &qso : quasars)
-        qso->setMarginalizationFileParams();
+    mympi::bcast(q_fidx.data(), nquasars);
+    mympi::bcast(q_fpos.data(), nquasars);
+    for (size_t i = 0; i < nquasars; ++i) {
+        quasars[i]->fidx = q_fidx[i];  quasars[i]->fpos = q_fpos[i];
+    }
 
     ioh::continuumMargFileHandler->openAllReaders();
 }
