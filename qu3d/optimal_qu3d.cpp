@@ -26,7 +26,7 @@ std::unique_ptr<ioh::ContMargFile> ioh::continuumMargFileHandler;
 std::vector<MyRNG> rngs;
 int NUMBER_OF_K_BANDS_2 = 0;
 double DK_BIN = 0;
-bool verbose = true;
+bool verbose = true, CONT_MARG_ENABLED = false;
 constexpr bool INPLACE_FFT = true;
 
 
@@ -198,7 +198,7 @@ void Qu3DEstimator::_readQSOFiles(
     }
 
     CosmicQuasar::allocCcov(max_qN * max_qN);
-    if (specifics::CONT_LOGLAM_MARG_ORDER > -1)
+    if (CONT_MARG_ENABLED)
         CosmicQuasar::allocRrmat(max_qN * max_qN);
 
     LOG::LOGGER.STD(
@@ -304,6 +304,9 @@ void Qu3DEstimator::_constructMap() {
     LOG::LOGGER.STD("Sorting quasars by mininum NGP index.\n");
     std::sort(
         quasars.begin(), quasars.end(), [](const auto &q1, const auto &q2) {
+            if (q1->min_x_idx == q2->min_x_idx)
+                return q1->qFile->id < q2->qFile->id;
+
             return q1->min_x_idx < q2->min_x_idx; }
     );
 
@@ -342,16 +345,32 @@ void Qu3DEstimator::_findNeighbors() {
 void Qu3DEstimator::_createRmatFiles() {
     LOG::LOGGER.STD("Calculating R_D matrices for continuum marginalization.\n");
     ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
-            process::TMP_FOLDER, 16);
+            process::TMP_FOLDER);
+
+    std::vector<int> q_fidx;
+    std::vector<long> q_fpos;
+    size_t nquasars = quasars.size();
 
     if (mympi::this_pe == 0) {
+        #pragma omp parallel for
         for (auto &qso : quasars)
             qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
+
+        q_fidx.reserve(nquasars);  q_fpos.reserve(nquasars);
+        for (auto it = quasars.cbegin(); it != quasars.cend(); ++it) {
+            q_fidx.push_back((*it)->fidx);  q_fpos.push_back((*it)->fpos);
+        }
+    }
+    else {
+        q_fidx.resize(nquasars);  q_fpos.resize(nquasars);
     }
 
     mympi::barrier();
-    for (auto &qso : quasars)
-        qso->setMarginalizationFileParams();
+    mympi::bcast(q_fidx.data(), nquasars);
+    mympi::bcast(q_fpos.data(), nquasars);
+    for (size_t i = 0; i < nquasars; ++i) {
+        quasars[i]->fidx = q_fidx[i];  quasars[i]->fpos = q_fpos[i];
+    }
 
     ioh::continuumMargFileHandler->openAllReaders();
 }
@@ -413,6 +432,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_rnd_enabled = config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
+    CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
 
     seed_generator = std::make_unique<std::seed_seq>(seed.begin(), seed.end());
     _initRngs(seed_generator.get());
@@ -429,7 +449,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     if (config.getInteger("TestGaussianField") > 0)
         replaceDeltasWithGaussianField();
 
-    if (specifics::CONT_LOGLAM_MARG_ORDER > -1)
+    if (CONT_MARG_ENABLED)
         _createRmatFiles();
 
     radius *= rscale_factor;
@@ -483,6 +503,17 @@ void Qu3DEstimator::reverseInterpolateIsig() {
     double dt = mytime::timer.getTime();
     mesh.zero_field_x();
 
+    if (CONT_MARG_ENABLED) {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->setInIsigWithMarg();
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->setInIsigNoMarg();
+    }
+
     #ifdef COARSE_INTERP
         #pragma omp parallel for
         for (auto &qso : quasars)
@@ -501,7 +532,7 @@ void Qu3DEstimator::reverseInterpolateIsig() {
         for (const auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
                 mesh.reverseInterpolateCIC(
-                    qso->r.get() + 3 * i, qso->in[i] * qso->isig[i]);
+                    qso->r.get() + 3 * i, qso->in_isig[i]);
         }
     #endif
 
@@ -535,12 +566,12 @@ void Qu3DEstimator::multMeshComp() {
         #pragma omp parallel for
         for (auto &qso : quasars) {
             qso->interpMesh2Coarse(mesh);
-            qso->interpNgpCoarse2OutIsig();
+            qso->interpNgpCoarse2Out();
         }
     #else
         #pragma omp parallel for
         for (auto &qso : quasars)
-            qso->interpAddMesh2OutIsig(mesh);
+            qso->interpMesh2Out(mesh);
     #endif
 
     t2 = mytime::timer.getTime();
@@ -573,16 +604,40 @@ void Qu3DEstimator::multiplyCovVector() {
     */
     double dt = mytime::timer.getTime();
 
-    // init new results to Cy = I.y
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        std::copy_n(qso->in, qso->N, qso->out);
-
     // Add long wavelength mode to Cy
     multMeshComp();
 
     if (pp_enabled)
         multParticleComp();
+
+    // Multiply out with isig
+    // Multiply out with marg. matrix if enabled
+    // Add I.y to out
+    if (CONT_MARG_ENABLED) {
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            #pragma omp simd
+            for (int i = 0; i < qso->N; ++i)
+                qso->out[i] *= qso->isig[i];
+
+            std::swap(qso->truth, qso->out);
+            qso->multTruthWithMarg();
+            std::swap(qso->truth, qso->out);
+
+            #pragma omp simd
+            for (int i = 0; i < qso->N; ++i)
+                qso->out[i] += qso->in[i];
+        }
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            #pragma omp simd
+            for (int i = 0; i < qso->N; ++i) {
+                qso->out[i] *= qso->isig[i];
+                qso->out[i] += qso->in[i];
+            }
+    }
 
     dt = mytime::timer.getTime() - dt;
     ++timings["mCov"].first;
@@ -671,6 +726,12 @@ void Qu3DEstimator::conjugateGradientDescent() {
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
 
+    if (CONT_MARG_ENABLED) {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->multTruthWithMarg();
+    }
+
     /* Initial guess */
     initGuessDiag();
 
@@ -713,9 +774,20 @@ endconjugateGradientDescent:
         LOG::LOGGER.STD(
             "  conjugateGradientDescent finished in %d iterations.\n", niter);
 
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        qso->multIsigInVector();
+    if (CONT_MARG_ENABLED) {
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            std::swap(qso->truth, qso->in);
+            qso->multTruthWithMarg();
+            std::swap(qso->truth, qso->in);
+            qso->multIsigInVector();
+        }
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->multIsigInVector();
+    }
 
     dt = mytime::timer.getTime() - dt;
     ++timings["CGD"].first;
@@ -907,6 +979,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
         monte_carlos_file.write(
             all_mcs.get(), (jj + 1) * NUMBER_OF_K_BANDS_2,
             "TOTBIAS_MCS-" + std::to_string(nmc), jj + 1);
+        monte_carlos_file.flush();
 
         converged = _syncMonteCarlo(
             nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_K_BANDS_2,

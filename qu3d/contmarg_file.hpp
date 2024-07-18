@@ -13,39 +13,35 @@
 
 namespace ioh {
     struct file_deleter {
-        void operator()(FILE* fptr) { fclose(fptr); }
+        void operator()(std::FILE* fptr) { std::fclose(fptr); }
     };
 
-    using unique_file_ptr = std::unique_ptr<FILE, file_deleter>;
+    using unique_file_ptr = std::unique_ptr<std::FILE, file_deleter>;
 
 
     class ContMargFile {
     public:
-        ContMargFile(const std::string &base, int g)
-        : grouping(g), tmpfolder(base) {};
+        ContMargFile(const std::string &base)
+        : tmpfolder(base) {
+            for (int i = 0; i < myomp::getMaxNumThreads(); ++i)
+                file_writers[i] = _openFile(i, "wb");
+        };
 
-        size_t write(
-                double *data, int N, int xidx, int &fidx, double *evecs=nullptr
+        long write(
+                double *data, size_t N, int &fidx, double *evecs=nullptr
         ) {
-            assert(myomp::getNumThreads() == 1);
+            fidx = myomp::getThreadNum();
+            std::FILE *fptr = file_writers[fidx].get();
 
-            fidx = xidx / grouping;
-            auto fw_it = file_writers.find(fidx);
-
-            if (fw_it == file_writers.end())
-                fw_it = file_writers.emplace(fidx, _openFile(fidx, "wb")).first;
-
-            FILE *fptr = fw_it->second.get();
-
-            size_t fpos = ftell(fptr);
+            long fpos = std::ftell(fptr);
             size_t Min = N * N,
-                   Mout = fwrite(data, sizeof(double), Min, fptr);
+                   Mout = std::fwrite(data, sizeof(double), Min, fptr);
 
             if (Min != Mout)
                 throw std::runtime_error("ERROR in ContMargFile::write");
 
             if (evecs != nullptr)
-                if (N != fwrite(evecs, sizeof(double), N, fptr))
+                if (N != std::fwrite(evecs, sizeof(double), N, fptr))
                     throw std::runtime_error("ERROR in ContMargFile::write");
 
             return fpos;
@@ -66,14 +62,14 @@ namespace ioh {
                     rdr.emplace(fidx, _openFile(fidx, "rb"));
         }
 
-        void read(int fidx, size_t fpos, int N, double *out) {
-            FILE *fptr = file_readers_vec[myomp::getThreadNum()][fidx].get();
+        void read(int fidx, long fpos, size_t N, double *out) {
+            std::FILE *fptr = file_readers_vec[myomp::getThreadNum()][fidx].get();
 
-            if (fseek(fptr, fpos, SEEK_SET) != 0)
+            if (std::fseek(fptr, fpos, SEEK_SET) != 0)
                 throw std::runtime_error("ERROR in ContMargFile::read::fseek");
 
             size_t Min = N * N, 
-                   Mout = fread(out, sizeof(double), Min, fptr);
+                   Mout = std::fread(out, sizeof(double), Min, fptr);
 
             if (Min != Mout)
                 throw std::runtime_error("ERROR in ContMargFile::read::fread");
@@ -83,7 +79,6 @@ namespace ioh {
             return tmpfolder + "/qu3d-rdmat-" + std::to_string(fidx) + ".dat";
         }
     private:
-        int grouping;
         std::string tmpfolder;
 
         std::unordered_map<int, unique_file_ptr> file_writers;
@@ -94,7 +89,7 @@ namespace ioh {
         unique_file_ptr _openFile(int fidx, const char *mode) {
             std::string fname = getFname(fidx);
 
-            unique_file_ptr fptr(fopen(fname.c_str(), mode));
+            unique_file_ptr fptr(std::fopen(fname.c_str(), mode));
 
             if (!fptr)
                 throw std::runtime_error(

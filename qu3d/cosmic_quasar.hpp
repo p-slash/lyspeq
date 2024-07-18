@@ -12,7 +12,6 @@
 
 #include "mathtools/matrix_helper.hpp"
 #include "core/omp_manager.hpp"
-#include "core/mpi_manager.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 #include "mathtools/real_field_3d.hpp"
@@ -45,16 +44,16 @@ struct CompareCosmicQuasarPtr {
 class CosmicQuasar {
 public:
     std::unique_ptr<qio::QSOFile> qFile;
-    std::string cfname;
     int N, coarse_N, fidx;
+    long fpos;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
-    double *z1, *isig, angles[3], *in, *out, *truth;
-    std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r, coarse_in;
+    double *z1, *isig, angles[3], *in, *out, *truth, *in_isig;
+    std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r, coarse_in, y_isig;
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
-    size_t min_x_idx, fpos;
+    size_t min_x_idx;
 
     CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
         qFile = std::make_unique<qio::QSOFile>(pf, hdunum);
@@ -102,6 +101,7 @@ public:
 
         r = std::make_unique<double[]>(3 * N);
         y = std::make_unique<double[]>(N);
+        y_isig = std::make_unique<double[]>(N);
         Cy = std::make_unique<double[]>(N);
         residual = std::make_unique<double[]>(N);
         search = std::make_unique<double[]>(N);
@@ -123,6 +123,7 @@ public:
         angles[2] = 1;
 
         in = y.get();
+        in_isig = y_isig.get();
         truth = qFile->delta();
         out = Cy.get();
     }
@@ -139,9 +140,35 @@ public:
         }
     }
 
-    void interpAddMesh2OutIsig(const RealField3D &mesh) {
+    void setInIsigNoMarg() {
         for (int i = 0; i < N; ++i)
-            out[i] += isig[i] * mesh.interpolate(r.get() + 3 * i);
+            in_isig[i] = in[i] * isig[i];
+    }
+
+    void setInIsigWithMarg() {
+        double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
+        ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, N, N, 1.0,
+            rrmat, N, in, 1, 0, in_isig, 1);
+
+        for (int i = 0; i < N; ++i)
+            in_isig[i] *= isig[i];
+    }
+
+    void multTruthWithMarg() {
+        double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
+        ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, N, N, 1.0,
+            rrmat, N, truth, 1, 0, in_isig, 1);
+
+        std::swap(truth, in_isig);
+    }
+
+    void interpMesh2Out(const RealField3D &mesh) {
+        for (int i = 0; i < N; ++i)
+            out[i] = mesh.interpolate(r.get() + 3 * i);
     }
 
     void interpMesh2TruthIsig(const RealField3D &mesh) {
@@ -177,7 +204,7 @@ public:
         void coarseGrainInIsig() {
             std::fill_n(coarse_in.get(), coarse_N, 0);
             for (int i = 0; i < N; ++i)
-                coarse_in[i / M_LOS] += in[i] * isig[i];
+                coarse_in[i / M_LOS] += in_isig[i];
         }
 
         void interpMesh2Coarse(const RealField3D &mesh) {
@@ -185,9 +212,9 @@ public:
                 coarse_in[i] = mesh.interpolate(coarse_r.get() + 3 * i);
         }
 
-        void interpNgpCoarse2OutIsig() {
+        void interpNgpCoarse2Out() {
             for (int i = 0; i < N; ++i)
-                out[i] += isig[i] * coarse_in[i / M_LOS];
+                out[i] = coarse_in[i / M_LOS];
         }
 
         void interpNgpCoarse2TruthIsig() {
@@ -300,36 +327,31 @@ public:
             for (int b = 0; b < nvecs; ++b)
                 cblas_dger(CblasRowMajor, N, N, -1.0 * Emat[b + a * nvecs],
                            uvecs[a].get(), 1, uvecs[b].get(), 1, ccov, N);
-        for (int i = 0; i < N; ++i)
-            for (int j = 0; j < N; ++j)
-                ccov[j + i * N] *= isig[j] * isig[i];
+
+        // for (int i = 0; i < N; ++i)
+        //     for (int j = 0; j < N; ++j)
+        //         ccov[j + i * N] *= isig[j] * isig[i];
 
         mxhelp::LAPACKE_sym_eigens(ccov, N, uvecs[0].get(), rrmat);
 
         // D^1/2
         for (int i = 0; i < N; ++i) {
-            if (uvecs[0][i] < 0)
+            if (uvecs[0][i] < N * DOUBLE_EPSILON)
                 uvecs[0][i] = 0;
             else
                 uvecs[0][i] = sqrt(uvecs[0][i]);
         }
 
-        // R_D = R D^1/2
-        for (int i = 0; i < N; ++i)
-            for (int j = 0; j < N; ++j)
-                rrmat[j + i * N] *= uvecs[0][j];
+        // R^-1/2 such that S D^1/2 S^T
+        mxhelp::transpose_copy(rrmat, ccov, N, N);
+        std::fill_n(rrmat, N * N, 0);
+        for (int a = 0; a < N; ++a)
+            if (uvecs[0][a] != 0)
+                cblas_dsyr(CblasRowMajor, CblasUpper, N,
+                           uvecs[0][a], ccov + a * N, 1, rrmat, N);
+        mxhelp::copyUpperToLower(rrmat, N);
 
-        fpos = ioh::continuumMargFileHandler->write(
-            rrmat, N, min_x_idx, fidx);
-    }
-
-    void readMarginalization() {
-        ioh::continuumMargFileHandler->read(
-            fidx, fpos, N, GL_RMAT[myomp::getThreadNum()].get());
-    }
-
-    void setMarginalizationFileParams() {
-        mympi::bcast(&fidx);  mympi::bcast(&fpos);
+        fpos = ioh::continuumMargFileHandler->write(rrmat, N, fidx);
     }
 
     void setCrossCov(
@@ -363,7 +385,7 @@ public:
 
             cblas_dgemv(
                 CblasRowMajor, CblasNoTrans, N, M, 1.0,
-                ccov, M, q->in, 1, 1, out, 1);
+                ccov, M, q->in_isig, 1, 1, out, 1);
 
             // The following creates race conditions
             // cblas_dgemv(
