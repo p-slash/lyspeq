@@ -228,23 +228,21 @@ void Qu3DEstimator::_readQSOFiles(
 
 
 void Qu3DEstimator::_calculateBoxDimensions(double L[3], double &z0) {
-    double lxmin = 0, lymin = 0, lzmin = 1e15,
-           lxmax = 0, lymax = 0, lzmax = 0;
+    double lymin = 0, lzmin = 1e15,
+           lymax = 0, lzmax = 0;
 
-    #pragma omp parallel for reduction(min:lxmin, lymin, lzmin) \
-                             reduction(max:lxmax, lymax, lzmax)
+    #pragma omp parallel for reduction(min:lymin, lzmin) \
+                             reduction(max:lymax, lzmax)
     for (auto it = quasars.cbegin(); it != quasars.cend(); ++it) {
         const CosmicQuasar *qso = it->get();
-        lxmin = std::min(lxmin, qso->r[0]);
         lzmin = std::min(lzmin, qso->r[2]);
-        lxmax = std::max(lxmax, qso->r[3 * (qso->N - 1)]);
         lzmax = std::max(lzmax, qso->r[3 * qso->N - 1]);
 
         lymin = std::min(lymin, std::min(qso->r[1], qso->r[3 * qso->N - 2]));
         lymax = std::max(lymax, std::max(qso->r[1], qso->r[3 * qso->N - 2]));
     }
 
-    L[0] = lxmax - lxmin;
+    L[0] = lzmax * 2 * MY_PI;
     L[1] = lymax - lymin;
     L[2] = lzmax - lzmin;
     z0 = lzmin;
