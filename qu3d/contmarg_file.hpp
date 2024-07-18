@@ -89,7 +89,7 @@ namespace ioh {
         unique_file_ptr _openFile(int fidx, const char *mode) {
             std::string fname = getFname(fidx);
 
-            unique_file_ptr fptr(fopen(fname.c_str(), mode));
+            unique_file_ptr fptr(std::fopen(fname.c_str(), mode));
 
             if (!fptr)
                 throw std::runtime_error(
