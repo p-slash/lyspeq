@@ -89,6 +89,7 @@ void FlatLCDM::_integrateComovingDist(
 void FlatLCDM::_integrateLinearGrowth(
         int nz, const double *z1arr, double *linD
 ) {
+    double error = 0, linD0 = 0;
     gsl_function F;
     F.function = _integrand_LinearGrowth;
     F.params = &cosmo_params;
@@ -99,16 +100,22 @@ void FlatLCDM::_integrateLinearGrowth(
     if (w == NULL)
         throw std::bad_alloc();
 
-    for (int i = 0; i < nz; ++i) {
-        double error = 0;
+    gsl_integration_qagiu(
+        &F, 1.0,
+        ABS_ERROR, REL_ERROR,
+        WORKSPACE_SIZE, w,
+        &linD0, &error);
 
+    linD0 *= getHubble(1.0);
+
+    for (int i = 0; i < nz; ++i) {
         gsl_integration_qagiu(
             &F, z1arr[i],
             ABS_ERROR, REL_ERROR,
             WORKSPACE_SIZE, w,
             linD + i, &error);
 
-        linD[i] *= getHubble(z1arr[i]);
+        linD[i] *= getHubble(z1arr[i]) / linD0;
     }
 
     gsl_integration_workspace_free(w);
@@ -129,8 +136,8 @@ FlatLCDM::FlatLCDM(ConfigFile &config) {
         - cosmo_params.Omega_r * (1 + _nu_relative_density(1));
 
     // Cache
-    const int nz = 301;
-    const double dz = 0.02;
+    constexpr int nz = 601;
+    constexpr double dz = 0.01;
     double z1arr[nz], temparr[nz];
     for (int i = 0; i < nz; ++i) {
         z1arr[i] = 1.0 + dz * i;
@@ -149,13 +156,13 @@ FlatLCDM::FlatLCDM(ConfigFile &config) {
         GSL_CUBIC_INTERPOLATION, temparr, z1arr, nz);
 
     for (int i = 0; i < nz; ++i)
-        temparr[i] = _inv_comoving_interp.evaluate(
-            chi0 + i * dchi);
+        temparr[i] = _inv_comoving_interp.evaluate(chi0 + i * dchi);
+
     interp_invcomov_dist = std::make_unique<DiscreteCubicInterpolation1D>(
-        temparr[0], dchi, nz, temparr);
+        chi0, dchi, nz, temparr);
 
     _integrateLinearGrowth(nz, z1arr, temparr);
-    linear_growth_unnorm = std::make_unique<DiscreteCubicInterpolation1D>(
+    linear_growth = std::make_unique<DiscreteCubicInterpolation1D>(
         z1arr[0], dz, nz, temparr);
 }
 
@@ -237,18 +244,18 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     _cacheInterp2D();
     _getCorrFunc2dS();
 
-    _D_pivot = cosmo->getUnnormLinearGrowth(_z1_pivot);
-    const int nz = 200;
-    const double dz = 0.02;
+    _D_pivot = cosmo->getLinearGrowth(_z1_pivot);
+    constexpr int nz = 401;
+    constexpr double dz = 0.01, z1_i = 2.9;
     double growth[nz];
 
     for (int i = 0; i < nz; ++i) {
-        double z1 = 2.0 + dz * i;
-        growth[i] = cosmo->getUnnormLinearGrowth(z1) / _D_pivot
+        double z1 = z1_i + dz * i;
+        growth[i] = cosmo->getLinearGrowth(z1) / _D_pivot
                     * pow(z1 / 3.4, alpha_F);
     }
     interp_growth = std::make_unique<DiscreteCubicInterpolation1D>(
-        2.0, dz, nz, &growth[0]);
+        z1_i, dz, nz, &growth[0]);
 }
 
 

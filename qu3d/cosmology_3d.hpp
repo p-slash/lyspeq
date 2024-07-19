@@ -23,8 +23,7 @@ namespace fidcosmo {
     class FlatLCDM {
         struct CosmoParams cosmo_params;
         std::unique_ptr<DiscreteCubicInterpolation1D>
-            interp_comov_dist, hubble_z, linear_growth_unnorm,
-            interp_invcomov_dist;
+            interp_comov_dist, hubble_z, linear_growth, interp_invcomov_dist;
 
         void _integrateComovingDist(int nz, const double *z1arr, double *cDist);
         void _integrateLinearGrowth(int nz, const double *z1arr, double *linD);
@@ -52,8 +51,8 @@ namespace fidcosmo {
             return interp_invcomov_dist->evaluate(chi);
         }
 
-        double getUnnormLinearGrowth(double z1) const {
-            return linear_growth_unnorm->evaluate(z1);
+        double getLinearGrowth(double z1) const {
+            return linear_growth->evaluate(z1);
         }
     };
 
