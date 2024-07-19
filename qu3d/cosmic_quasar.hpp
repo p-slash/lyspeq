@@ -144,9 +144,16 @@ public:
         }
     }
 
-    void setInIsigNoMarg() {
+    void transformZ1toG(const fidcosmo::ArinyoP3DModel *p3d_model) {
+        #pragma omp simd
         for (int i = 0; i < N; ++i)
-            in_isig[i] = in[i] * isig[i];
+            z1[i] = p3d_model->getRedshiftEvolution(z1[i]);
+    }
+
+    void setInIsigNoMarg() {
+        #pragma omp simd
+        for (int i = 0; i < N; ++i)
+            in_isig[i] = in[i] * isig[i] * z1[i];
     }
 
     void setInIsigWithMarg() {
@@ -156,8 +163,9 @@ public:
             CblasRowMajor, CblasNoTrans, N, N, 1.0,
             rrmat, N, in, 1, 0, in_isig, 1);
 
+        #pragma omp simd
         for (int i = 0; i < N; ++i)
-            in_isig[i] *= isig[i];
+            in_isig[i] *= isig[i] * z1[i];
     }
 
     void multTruthWithMarg() {
@@ -177,7 +185,7 @@ public:
 
     void interpMesh2TruthIsig(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
-            truth[i] = isig[i] * mesh.interpolate(r.get() + 3 * i);
+            truth[i] = isig[i] * z1[i] * mesh.interpolate(r.get() + 3 * i);
     }
 
     #ifdef COARSE_INTERP
@@ -202,7 +210,7 @@ public:
         void coarseGrainIn() {
             std::fill_n(coarse_in.get(), coarse_N, 0);
             for (int i = 0; i < N; ++i)
-                coarse_in[i / M_LOS] += in[i];
+                coarse_in[i / M_LOS] += in[i] * z1[i];
         }
 
         void coarseGrainInIsig() {
@@ -223,7 +231,7 @@ public:
 
         void interpNgpCoarse2TruthIsig() {
             for (int i = 0; i < N; ++i)
-                truth[i] = isig[i] * coarse_in[i / M_LOS];
+                truth[i] = isig[i] * z1[i] * coarse_in[i / M_LOS];
         }
 
         void interpLinCoarseIsig() {
