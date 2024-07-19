@@ -360,6 +360,7 @@ void Qu3DEstimator::_findNeighbors() {
 
 
 void Qu3DEstimator::_createRmatFiles() {
+    /* This function needs z1 to be 1 + z */
     LOG::LOGGER.STD("Calculating R_D matrices for continuum marginalization.\n");
     ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
             process::TMP_FOLDER);
@@ -463,11 +464,15 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     _constructMap();
     _findNeighbors();
 
-    if (config.getInteger("TestGaussianField") > 0)
-        replaceDeltasWithGaussianField();
-
     if (CONT_MARG_ENABLED)
         _createRmatFiles();
+
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        qso->transformZ1toG(p3d_model.get());
+
+    if (config.getInteger("TestGaussianField") > 0)
+        replaceDeltasWithGaussianField();
 
     radius *= rscale_factor;
     NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
@@ -506,7 +511,7 @@ void Qu3DEstimator::reverseInterpolate() {
         for (const auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
                 mesh.reverseInterpolateCIC(
-                    qso->r.get() + 3 * i, qso->in[i]);
+                    qso->r.get() + 3 * i, qso->in[i] * qso->z1[i]);
         }
     #endif
 
@@ -519,17 +524,6 @@ void Qu3DEstimator::reverseInterpolate() {
 void Qu3DEstimator::reverseInterpolateIsig() {
     double dt = mytime::timer.getTime();
     mesh.zero_field_x();
-
-    if (CONT_MARG_ENABLED) {
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            qso->setInIsigWithMarg();
-    }
-    else {
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            qso->setInIsigNoMarg();
-    }
 
     #ifdef COARSE_INTERP
         #pragma omp parallel for
@@ -617,9 +611,23 @@ void Qu3DEstimator::multParticleComp() {
 
 void Qu3DEstimator::multiplyCovVector() {
     /* Multiply each quasar's *in pointer and save to *out pointer.
-       (I + N^-1/2 S N^-1/2) z = out
+       (I + R^-1/2 N^-1/2 G^1/2 S G^1/2 N^-1/2 R^-1/2) z = out
     */
     double dt = mytime::timer.getTime();
+
+    // Multiply out with marg. matrix if enabled
+    // Multiply out with isig
+    // Evolve with redshift growth
+    if (CONT_MARG_ENABLED) {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->setInIsigWithMarg();
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->setInIsigNoMarg();
+    }
 
     // Add long wavelength mode to Cy
     multMeshComp();
@@ -627,7 +635,8 @@ void Qu3DEstimator::multiplyCovVector() {
     if (pp_enabled)
         multParticleComp();
 
-    // Multiply out with isig
+    // Evolve out with redshift growth
+    // Multiply out with isig (These are saved to z1)
     // Multiply out with marg. matrix if enabled
     // Add I.y to out
     if (CONT_MARG_ENABLED) {
@@ -635,7 +644,7 @@ void Qu3DEstimator::multiplyCovVector() {
         for (auto &qso : quasars) {
             #pragma omp simd
             for (int i = 0; i < qso->N; ++i)
-                qso->out[i] *= qso->isig[i];
+                qso->out[i] *= qso->isig[i] * qso->z1[i];
 
             std::swap(qso->truth, qso->out);
             qso->multTruthWithMarg();
@@ -651,7 +660,7 @@ void Qu3DEstimator::multiplyCovVector() {
         for (auto &qso : quasars)
             #pragma omp simd
             for (int i = 0; i < qso->N; ++i) {
-                qso->out[i] *= qso->isig[i];
+                qso->out[i] *= qso->isig[i] * qso->z1[i];
                 qso->out[i] += qso->in[i];
             }
     }
@@ -729,8 +738,8 @@ void Qu3DEstimator::initGuessDiag() {
     #pragma omp parallel for
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            double isig = qso->isig[i];
-            qso->in[i] = qso->truth[i] / (1.0 + isig * isig * varlss);
+            double isigG = qso->isig[i] * qso->z1[i];
+            qso->in[i] = qso->truth[i] / (1.0 + isigG * isigG * varlss);
         }
     }
 }
@@ -826,6 +835,10 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
 
     double dt = mytime::timer.getTime();
 
+    /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
+    reverseInterpolate();
+    mesh.rawFftX2K();
+
     if (lout == nullptr)
         lout = (o2 == nullptr) ? o1 : _lout.get();
 
@@ -868,9 +881,8 @@ void Qu3DEstimator::estimatePower() {
     /* calculate Cinv . delta into y */
     conjugateGradientDescent();
 
-    reverseInterpolate();
-    mesh.rawFftX2K();
     LOG::LOGGER.STD("  Multiplying with derivative matrices.\n");
+    /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
     multiplyDerivVectors(raw_power.get(), nullptr);
 
     result_file->write(raw_power.get(), NUMBER_OF_K_BANDS_2, "FPOWER");
@@ -934,9 +946,7 @@ void Qu3DEstimator::estimateNoiseBiasMc() {
 
         /* calculate Cinv . n into y */
         conjugateGradientDescent();
-
-        reverseInterpolate();
-        mesh.rawFftX2K();
+        /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
         multiplyDerivVectors(mc1.get(), mc2.get());
 
         ++prog_tracker;
@@ -980,9 +990,8 @@ void Qu3DEstimator::estimateTotalBiasMc() {
         /* calculate Cinv . n into y */
         conjugateGradientDescent();
 
-        reverseInterpolate();
-        mesh.rawFftX2K();
         int jj = (nmc - 1) % M_MCS;
+        /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
         multiplyDerivVectors(
             mc1.get(), mc2.get(),
             all_mcs.get() + jj * NUMBER_OF_K_BANDS_2
@@ -1088,13 +1097,11 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
 
             /* calculate C^-1 . qk into in */
             conjugateGradientDescent();
-            /* save C^-1 . v (in) into mesh */
-            reverseInterpolate();
-            mesh.rawFftX2K();
+            /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
             multiplyDerivVectors(
                 mc1.get() + i * NUMBER_OF_K_BANDS_2,
                 mc2.get() + i * NUMBER_OF_K_BANDS_2);
-        
+
             ++prog_tracker;
         }
 
@@ -1241,7 +1248,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     for (auto &qso : quasars) {
         qso->fillRngNoise(rngs[myomp::getThreadNum()]);
         for (int i = 0; i < qso->N; ++i)
-            qso->truth[i] += qso->isig[i] * mesh_rnd.interpolate(
+            qso->truth[i] += qso->isig[i] * qso->z1[i] * mesh_rnd.interpolate(
                 qso->r.get() + 3 * i);
     }
 
