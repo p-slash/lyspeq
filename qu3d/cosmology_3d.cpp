@@ -245,7 +245,7 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     for (int i = 0; i < nz; ++i) {
         double z1 = 2.0 + dz * i;
         growth[i] = cosmo->getUnnormLinearGrowth(z1) / _D_pivot
-                    * pow(z1 / _z1_pivot, alpha_F);
+                    * pow(z1 / 3.4, alpha_F);
     }
     interp_growth = std::make_unique<DiscreteCubicInterpolation1D>(
         2.0, dz, nz, &growth[0]);

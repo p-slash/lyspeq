@@ -145,13 +145,11 @@ public:
     }
 
     void transformZ1toG(const fidcosmo::ArinyoP3DModel *p3d_model) {
-        #pragma omp simd
         for (int i = 0; i < N; ++i)
             z1[i] = p3d_model->getRedshiftEvolution(z1[i]);
     }
 
     void setInIsigNoMarg() {
-        #pragma omp simd
         for (int i = 0; i < N; ++i)
             in_isig[i] = in[i] * isig[i] * z1[i];
     }
@@ -163,7 +161,6 @@ public:
             CblasRowMajor, CblasNoTrans, N, N, 1.0,
             rrmat, N, in, 1, 0, in_isig, 1);
 
-        #pragma omp simd
         for (int i = 0; i < N; ++i)
             in_isig[i] *= isig[i] * z1[i];
     }
