@@ -642,7 +642,6 @@ void Qu3DEstimator::multiplyCovVector() {
     if (CONT_MARG_ENABLED) {
         #pragma omp parallel for
         for (auto &qso : quasars) {
-            #pragma omp simd
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] *= qso->isig[i] * qso->z1[i];
 
@@ -658,7 +657,6 @@ void Qu3DEstimator::multiplyCovVector() {
     else {
         #pragma omp parallel for
         for (auto &qso : quasars)
-            #pragma omp simd
             for (int i = 0; i < qso->N; ++i) {
                 qso->out[i] *= qso->isig[i] * qso->z1[i];
                 qso->out[i] += qso->in[i];
