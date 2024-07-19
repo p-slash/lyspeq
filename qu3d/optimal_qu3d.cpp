@@ -1084,6 +1084,7 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
        mesh_rnd.construct();
     */
 
+    max_monte_carlos = 5;
     Progress prog_tracker(max_monte_carlos * NUMBER_OF_K_BANDS_2, 5);
     int nmc = 1;
     bool converged = false;
