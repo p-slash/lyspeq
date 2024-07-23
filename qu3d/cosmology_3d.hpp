@@ -103,7 +103,7 @@ namespace fidcosmo {
     });
 
     class ArinyoP3DModel {
-        double _varlss, _D_pivot, _z1_pivot;
+        double _varlss, _D_pivot, _z1_pivot, _sigma_mpc, _deltar_mpc;
         double b_F, alpha_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long;
 
         std::unique_ptr<LinearPowerInterpolator> interp_p;
@@ -135,6 +135,11 @@ namespace fidcosmo {
         k_nu: double
         */
         ArinyoP3DModel(ConfigFile &config);
+        void setSpectroParams(double sigma, double delta_r) {
+            _sigma_mpc = sigma;  _deltar_mpc = delta_r;
+        }
+
+        double getSpectroWindow2(double kz) const;
 
         const fidcosmo::FlatLCDM* getCosmoPtr() const { return cosmo.get(); }
 
@@ -142,7 +147,7 @@ namespace fidcosmo {
             return interp_growth->evaluate(z1);
         }
 
-        double evalExplicit(double k, double kz);
+        double evalExplicit(double k, double kz) const;
 
         double evaluate(double kperp, double kz) const {
             /* Evaluate large-scale P3D using interpolation. */
