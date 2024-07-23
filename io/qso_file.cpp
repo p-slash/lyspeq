@@ -60,10 +60,10 @@ QSOFile::QSOFile(const PiccaFile* pf, int hdunum)
 
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         : PB(qmaster.PB), shift(0), num_masked_pixels(0), fname(qmaster.fname), 
-          z_qso(qmaster.z_qso), snr(qmaster.snr),
+          z_qso(qmaster.z_qso), snr(qmaster.snr), R_kms(qmaster.R_kms),
           ra(qmaster.ra), dec(qmaster.dec), id(qmaster.id),
-          R_fwhm(qmaster.R_fwhm), expid(qmaster.expid), night(qmaster.night),
-          fiber(qmaster.fiber), petal(qmaster.petal)
+          R_fwhm(qmaster.R_fwhm), expid(qmaster.expid),
+          night(qmaster.night), fiber(qmaster.fiber), petal(qmaster.petal)
 {
     arr_size = i2 - i1;
     _fullsize = arr_size;
@@ -89,13 +89,17 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 
 void QSOFile::readParameters()
 {
-    if (pfile)
+    if (pfile) {
         pfile->readParameters(
-            id, arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms, dlambda,
+            id, arr_size, z_qso, dec, ra, R_kms, snr, dv_kms, dlambda,
             expid, night, fiber, petal);
-    else
+        R_fwhm = int(SPEED_OF_LIGHT / R_kms / ONE_SIGMA_2_FWHM / 100 + 0.5) * 100;
+    }
+    else {
         bqfile->readParameters(
             arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms);
+        R_kms = SPEED_OF_LIGHT / R_fwhm / ONE_SIGMA_2_FWHM;
+    }
     _fullsize = arr_size;
 }
 
@@ -532,7 +536,7 @@ void PiccaFile::_readOptionalInt(const std::string &key, int &output) {
 
 void PiccaFile::readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
-        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
+        double &R_kms, double &sig2noi, double &dv_kms, double &dlambda,
         int &expid, int &night, int &fiber, int &petal
 ) {
     status = 0;
@@ -556,9 +560,7 @@ void PiccaFile::readParameters(
     fits_read_key(fits_file, TDOUBLE, "RA", &ra, NULL, &status);
     fits_read_key(fits_file, TDOUBLE, "DEC", &dec, NULL, &status);
 
-    double r_kms;
-    fits_read_key(fits_file, TDOUBLE, "MEANRESO", &r_kms, NULL, &status);
-    fwhm_resolution = int(SPEED_OF_LIGHT/r_kms/ONE_SIGMA_2_FWHM/100 + 0.5)*100;
+    fits_read_key(fits_file, TDOUBLE, "MEANRESO", &R_kms, NULL, &status);
 
     fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
 

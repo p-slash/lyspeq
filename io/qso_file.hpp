@@ -95,7 +95,7 @@ public:
 
     void readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
-        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
+        double &R_kms, double &sig2noi, double &dv_kms, double &dlambda,
         int &expid, int &night, int &fiber, int& petal);
 
     void readData(double *lambda, double *delta, double *ivar);
@@ -116,7 +116,7 @@ class QSOFile
 
 public:
     std::string fname;
-    double z_qso, snr, dv_kms, dlambda, ra, dec;
+    double z_qso, snr, dv_kms, R_kms, dlambda, ra, dec;
     long id;
     int R_fwhm, expid, night, fiber, petal;
     std::unique_ptr<mxhelp::Resolution> Rmat;
