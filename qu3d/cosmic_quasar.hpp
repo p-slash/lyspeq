@@ -144,6 +144,16 @@ public:
         }
     }
 
+    void getSpectroWindowParams(
+            const fidcosmo::FlatLCDM *cosmo, double &sigma, double &delta_r
+    ) {
+        /* Spectrograph window function params. Assumes r is set. */
+        double mean_z1 = std::accumulate(z1, z1 + N, 0.0) / N,
+               Mpc2kms = cosmo->getHubble(mean_z1) / mean_z1;
+        sigma = qFile->R_kms / Mpc2kms;
+        delta_r = (r[3 * N - 1] - r[2]) / (N - 1);
+    }
+
     void transformZ1toG(const fidcosmo::ArinyoP3DModel *p3d_model) {
         for (int i = 0; i < N; ++i)
             z1[i] = p3d_model->getRedshiftEvolution(z1[i]);

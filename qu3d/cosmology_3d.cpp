@@ -238,6 +238,8 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
     rscale_long = config.getDouble("LongScale");
     _z1_pivot = 1.0 + interp_p->z_pivot;
+    _sigma_mpc = 0;
+    _deltar_mpc = 0;
 
     _construcP1D();
     _calcVarLss();
@@ -256,6 +258,15 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     }
     interp_growth = std::make_unique<DiscreteCubicInterpolation1D>(
         z1_i, dz, nz, &growth[0]);
+}
+
+
+double ArinyoP3DModel::getSpectroWindow2(double kz) const {
+    if (kz == 0)  return 1;
+    double kr = kz * _sigma_mpc, kv = kz * _deltar_mpc / 2.0;
+    kr *= kr;
+    kv = sin(kv) / kv;
+    return exp(-kr) * kv * kv;
 }
 
 
@@ -426,7 +437,7 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
 }
 
 
-double ArinyoP3DModel::evalExplicit(double k, double kz) {
+double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     if (k == 0)
         return 0;
 
@@ -444,7 +455,11 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) {
             1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0)
     ) - k_kp * k_kp;
 
-    return result * plin * exp(lnD);
+    result *= plin * exp(lnD);
+    if ((_sigma_mpc == 0) && (_deltar_mpc == 0))
+        return result;
+
+    return result * getSpectroWindow2(kz);
 }
 
 

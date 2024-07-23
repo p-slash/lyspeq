@@ -140,6 +140,25 @@ void _shiftByMedianDec(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
         qso->angles[1] -= median_dec;
 }
 
+
+void _setSpectroMeanParams(
+        const std::vector<std::unique_ptr<CosmicQuasar>> &quasars
+) {
+    double mean_sigma = 0, mean_delta_r = 0;
+    for (const auto &qso : quasars) {
+        double sigma, delta_r;
+        qso->getSpectroWindowParams(cosmo, sigma, delta_r);
+        mean_sigma += sigma;
+        mean_delta_r += delta_r;
+    }
+
+    mean_sigma /= quasars.size();
+    mean_delta_r /= quasars.size();
+
+    p3d_model->setSpectroParams(mean_sigma, mean_delta_r);
+}
+
+
 void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     qio::PiccaFile pFile(fname);
     int number_of_spectra = pFile.getNumberSpectra();
@@ -206,6 +225,7 @@ void Qu3DEstimator::_readQSOFiles(
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
 
     _shiftByMedianDec(quasars);
+    _setSpectroMeanParams(quasars);
 
     t2 = mytime::timer.getTime();
 
@@ -853,9 +873,11 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
         lout[iperp * bins::NUMBER_OF_K_BANDS] += std::norm(mesh.field_k[jj]);
 
         for (int k = 1; k < mesh_kz_max; ++k) {
-            int iz = (k * mesh.k_fund[2]) / DK_BIN;
+            double kz = k * mesh.k_fund[2];
+            int iz = kz / DK_BIN;
             lout[iz + iperp * bins::NUMBER_OF_K_BANDS] +=
-                2.0 * std::norm(mesh.field_k[k + jj]);
+                2.0 * std::norm(mesh.field_k[k + jj])
+                * p3d_model->getSpectroWindow2(kz);
         }
     }
 
