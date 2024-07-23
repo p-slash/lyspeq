@@ -393,7 +393,7 @@ void Qu3DEstimator::_createRmatFiles() {
     size_t nquasars = quasars.size();
 
     if (mympi::this_pe == 0) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars)
             qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
 
@@ -620,7 +620,7 @@ void Qu3DEstimator::multMeshComp() {
 void Qu3DEstimator::multParticleComp() {
     double t1 = mytime::timer.getTime(), dt = 0;
 
-    #pragma omp parallel for schedule(dynamic, 16)
+    #pragma omp parallel for schedule(dynamic, 8)
     for (auto &qso : quasars)
         qso->multCovNeighbors(p3d_model.get());
 
@@ -642,7 +642,7 @@ void Qu3DEstimator::multiplyCovVector() {
     // Multiply out with isig
     // Evolve with redshift growth
     if (CONT_MARG_ENABLED) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars)
             qso->setInIsigWithMarg();
     }
@@ -663,7 +663,7 @@ void Qu3DEstimator::multiplyCovVector() {
     // Multiply out with marg. matrix if enabled
     // Add I.y to out
     if (CONT_MARG_ENABLED) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] *= qso->isig[i] * qso->z1[i];
@@ -774,7 +774,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
 
     if (CONT_MARG_ENABLED) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars)
             qso->multTruthWithMarg();
     }
@@ -822,7 +822,7 @@ endconjugateGradientDescent:
             "  conjugateGradientDescent finished in %d iterations.\n", niter);
 
     if (CONT_MARG_ENABLED) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars) {
             std::swap(qso->truth, qso->in);
             qso->multTruthWithMarg();
