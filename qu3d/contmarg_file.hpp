@@ -33,6 +33,9 @@ namespace ioh {
             fidx = myomp::getThreadNum();
             std::FILE *fptr = file_writers[fidx].get();
 
+            if (std::fwrite(&N, sizeof(size_t), 1, fptr) != 1)
+                throw std::runtime_error("ERROR in ContMargFile::write");
+
             long fpos = std::ftell(fptr);
             size_t Min = N * N,
                    Mout = std::fwrite(data, sizeof(double), Min, fptr);
