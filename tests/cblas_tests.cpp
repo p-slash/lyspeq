@@ -1,14 +1,24 @@
-#include "mathtools/matrix_helper.hpp"
-#include "tests/test_utils.hpp"
-
-#include "mathtools/discrete_interpolation.hpp"
-
 #include <unordered_map>
 #include <string>
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
 #include <cassert>
+
+#ifdef USE_MKL_CBLAS
+#include "mkl_lapacke.h"
+#else
+// These three lines somehow fix OpenBLAS compilation error on macos
+// #include <complex.h>
+// #define lapack_complex_float    float _Complex
+// #define lapack_complex_double   double _Complex
+#include "lapacke.h"
+#endif
+
+#include "mathtools/matrix_helper.hpp"
+#include "tests/test_utils.hpp"
+
+#include "mathtools/discrete_interpolation.hpp"
 
 const double
 sym_matrix_A[] = {
@@ -763,6 +773,76 @@ int test_Resolution_osamp()
 }
 
 
+int test_eigenvalue_decomp_intel_example() {
+    /* Set il, iu to compute NSELECT smallest eigenvalues */
+    constexpr lapack_int
+        N_e = 5, Nselect_e = 3, Lda = N_e, Ldz = Nselect_e,
+        il = 1, iu = Nselect_e;
+
+    constexpr double
+        truth_evals[] = {0.43, 2.14, 3.37},
+        truth_evecs[] = {-0.98, -0.01, -0.08,
+                          0.01,  0.02, -0.93,
+                          0.04, -0.69, -0.07,
+                         -0.18,  0.19,  0.31,
+                          0.07,  0.69, -0.13};
+
+    double abstol, vl = 0, vu = 10.0;
+    /* Negative abstol means using the default value */
+    abstol = -1.0;
+
+    lapack_int m, info;
+    lapack_int isuppz[N_e];
+    double w[N_e], z[Ldz * N_e];
+    double EIGEN_INPUT_A[Lda * N_e] = {
+        0.67, -0.20, 0.19, -1.06, 0.46,
+        0.00,  3.82, -0.13,  1.06, -0.48,
+        0.00,  0.00, 3.27,  0.11, 1.10,
+        0.00,  0.00, 0.00,  5.86, -0.98,
+        0.00,  0.00, 0.00,  0.00, 3.54
+    };
+
+    /* Solve eigenproblem */
+    info = LAPACKE_dsyevr(
+        LAPACK_ROW_MAJOR, 'V', 'I', 'U', N_e, EIGEN_INPUT_A, Lda,
+        vl, vu, il, iu, abstol, &m, w, z, Ldz, isuppz);
+
+    /* Check for convergence */
+    if(info > 0) {
+        fprintf(stderr, "ERROR LAPACKE_dsyevr convergence.\n");
+        return 1;
+    }
+
+    printMatrices(truth_evals, w, 1, m);
+    printMatrices(truth_evecs, z, N_e, Ldz);
+
+    return 0;
+}
+
+
+int test_eigenvalue_decomp() {
+    double input_A[NA * NA], evals[NA], evecs[NA * NA], output[NA * NA];
+    std::copy_n(sym_matrix_A, NA * NA, input_A);
+    std::fill_n(output, NA * NA, 0);
+
+    mxhelp::LAPACKE_sym_eigens(input_A, NA, evals, evecs);
+
+    mxhelp::transpose_copy(evecs, input_A, NA, NA);
+    for (int a = 0; a < NA; ++a)
+        cblas_dsyr(CblasRowMajor, CblasUpper, NA,
+                   evals[a], input_A + a * NA, 1, output, NA);
+    mxhelp::copyUpperToLower(output, NA);
+
+    if (!allClose(sym_matrix_A, output, NA * NA)) {
+        fprintf(stderr, "ERROR test_eigenvalue_decomp.\n");
+        printMatrices(sym_matrix_A, output, NA, NA);
+        return 1;
+    }
+
+    return 0;
+}
+
+
 int test_cubic_interpolate() {
     double dv = 2.0;
     int narr = 25;
@@ -843,6 +923,7 @@ int main()
     r += test_Resolution_osamp();
     r += test_cubic_interpolate();
     r += test_lowerupper_bound();
+    r += test_eigenvalue_decomp();
 
     if (r == 0)
         printf("Matrix operations work!\n");
