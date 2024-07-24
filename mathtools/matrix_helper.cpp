@@ -269,13 +269,13 @@ namespace mxhelp
     }
 
 
-    void LAPACKE_sym_eigens(double *A, int N, double *evecs, double *evals) {
+    void LAPACKE_sym_eigens(double *A, int N, double *evals, double *evecs) {
         lapack_int mE, info = 0;
         std::vector<lapack_int> isuppz(2 * N);
         info = LAPACKE_dsyevr(
             LAPACK_ROW_MAJOR, 'V', 'A', 'U', N, A, N,
             0, 1e15, 1, N, N * MY_EPSILON_D,
-            &mE, evecs, evals, N, isuppz.data());
+            &mE, evals, evecs, N, isuppz.data());
 
         if (info != 0)
             LAPACKErrorHandle("ERROR in LAPACKE_dsyevr.", info);
