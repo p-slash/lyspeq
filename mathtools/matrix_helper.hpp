@@ -43,6 +43,11 @@ namespace mxhelp
             out[i] = x[i] * y[i];
     }
 
+    inline void normalize_vector(int N, double *x) {
+        double norm = 1.0 / cblas_dnrm2(N, x, 1);
+        cblas_dscal(N, norm, x, 1);
+    }
+
     // Trace of A.B
     // Both are assumed to general and square NxN
     double trace_dgemm(const double *A, const double *B, int N);
@@ -73,7 +78,7 @@ namespace mxhelp
     void LAPACKE_InvertMatrixLU(double *A, int N);
     void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp);
 
-    void LAPACKE_sym_eigens(double *A, int N, double *evecs, double *evals);
+    void LAPACKE_sym_eigens(double *A, int N, double *evals, double *evecs);
 
     // Return condition number
     // if sjump != nullptr, finds the adjacent ratio of s values larger than 8
