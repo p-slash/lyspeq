@@ -167,8 +167,8 @@ public:
     void setInIsigWithMarg() {
         double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
         ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
-        cblas_dgemv(
-            CblasRowMajor, CblasNoTrans, N, N, 1.0,
+        cblas_dsymv(
+            CblasRowMajor, CblasUpper, N, 1.0,
             rrmat, N, in, 1, 0, in_isig, 1);
 
         for (int i = 0; i < N; ++i)
@@ -178,8 +178,8 @@ public:
     void multTruthWithMarg() {
         double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
         ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
-        cblas_dgemv(
-            CblasRowMajor, CblasNoTrans, N, N, 1.0,
+        cblas_dsymv(
+            CblasRowMajor, CblasUpper, N, 1.0,
             rrmat, N, truth, 1, 0, in_isig, 1);
 
         std::swap(truth, in_isig);
@@ -308,33 +308,30 @@ public:
         /* assumes order >= 0 */
         int nvecs = order + 1;
 
-        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
-        double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get(),
+               *rrmat = GL_RMAT[myomp::getThreadNum()].get();
         auto Emat = std::make_unique<double[]>(nvecs * nvecs);
         std::vector<std::unique_ptr<double[]>> uvecs(nvecs);
         for (int a = 0; a < nvecs; ++a)
             uvecs[a] = std::make_unique<double[]>(N);
 
-        std::fill_n(uvecs[0].get(), N, 1.0 / sqrt(N * 1.0));  // Zeroth order
-
-        for (int a = 1; a < nvecs; ++a) {
-            double *out = uvecs[a].get();
-            std::transform(
-                z1, z1 + N, out,
-                [a](const double &l) { return pow(log(l), a); }
-            );
-            double norm = 1.0 / cblas_dnrm2(N, out, 1);
-            cblas_dscal(N, norm, out, 1);
-        }
-
-        for (int a = 0; a < nvecs; ++a)
+        std::copy_n(isig, N, uvecs[0].get());  // Zeroth order
+        for (int a = 1; a < nvecs; ++a)
             for (int i = 0; i < N; ++i)
-                uvecs[a][i] *= isig[i];
+                uvecs[a][i] = isig[i] * pow(log(z1[i]), a);
 
         for (int a = 0; a < nvecs; ++a)
-            for (int b = 0; b < nvecs; ++b)
+            mxhelp::normalize_vector(N, uvecs[a].get());
+
+        for (int a = 0; a < nvecs; ++a) {
+            for (int b = 0; b < nvecs; ++b) {
                 Emat[b + a * nvecs] = cblas_ddot(
                     N, uvecs[a].get(), 1, uvecs[b].get(), 1);
+
+                if (a == b)
+                    assert(fabs(Emat[a * (1 + nvecs)] - 1) < DOUBLE_EPSILON);
+            }
+        }
 
         mxhelp::LAPACKE_InvertMatrixLU(Emat.get(), nvecs);
 
@@ -346,10 +343,6 @@ public:
             for (int b = 0; b < nvecs; ++b)
                 cblas_dger(CblasRowMajor, N, N, -1.0 * Emat[b + a * nvecs],
                            uvecs[a].get(), 1, uvecs[b].get(), 1, ccov, N);
-
-        // for (int i = 0; i < N; ++i)
-        //     for (int j = 0; j < N; ++j)
-        //         ccov[j + i * N] *= isig[j] * isig[i];
 
         mxhelp::LAPACKE_sym_eigens(ccov, N, uvecs[0].get(), rrmat);
 
