@@ -286,7 +286,10 @@ void Qu3DEstimator::_setupMesh(double radius) {
     mesh.ngrid[2] = config.getInteger("NGRID_Z");
     mesh_z1_values = std::make_unique<double[]>(mesh.ngrid[2]);
 
-    double dzl = 1.2 * radius - (mesh.length[2] / mesh.ngrid[2]);
+    double dzl = (
+        mesh.length[0] / mesh.ngrid[0] + mesh.length[1] / mesh.ngrid[1]
+    ) / 2 - (mesh.length[2] / mesh.ngrid[2]);
+
     if (dzl > 0) {
         double extra_lz = dzl * mesh.ngrid[2];
         mesh.length[2] += extra_lz;
