@@ -28,12 +28,12 @@ namespace ioh {
         };
 
         long write(
-                double *data, size_t N, int &fidx, double *evecs=nullptr
+                double *data, int N, int &fidx, double *evecs=nullptr
         ) {
             fidx = myomp::getThreadNum();
             std::FILE *fptr = file_writers[fidx].get();
 
-            if (std::fwrite(&N, sizeof(size_t), 1, fptr) != 1)
+            if (std::fwrite(&N, sizeof(int), 1, fptr) != 1)
                 throw std::runtime_error("ERROR in ContMargFile::write");
 
             long fpos = std::ftell(fptr);
@@ -44,7 +44,7 @@ namespace ioh {
                 throw std::runtime_error("ERROR in ContMargFile::write");
 
             if (evecs != nullptr)
-                if (N != std::fwrite(evecs, sizeof(double), N, fptr))
+                if (size_t(N) != std::fwrite(evecs, sizeof(double), N, fptr))
                     throw std::runtime_error("ERROR in ContMargFile::write");
 
             return fpos;
