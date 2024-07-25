@@ -118,7 +118,6 @@ namespace fidcosmo {
 
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
-        void _calcVarLss();
         void _cacheInterp2D();
         void _construcP1D();
         void _getCorrFunc2dS();
@@ -138,6 +137,8 @@ namespace fidcosmo {
         void setSpectroParams(double sigma, double delta_r) {
             _sigma_mpc = sigma;  _deltar_mpc = delta_r;
         }
+
+        void calcVarLss(bool pp_enabled);
 
         double getSpectroWindow2(double kz) const;
 
