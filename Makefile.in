@@ -22,7 +22,7 @@ stats.cpp cross_exposure.cpp one_qso_exposures.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o lyspeqBootStats.o \
-LyaPowerxQmlExposure.o LyaPower3DEstimate.o \
+LyaPowerxQmlExposure.o \
 cblas_tests.o testPointRef.o testSQCMatrices.o test-fftconvolve.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
 sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
@@ -41,7 +41,7 @@ NONX_OBJECTS=$(filter-out $(cross_objs), $(OBJECTS))
 CPPFLAGS+=-I$(srcdir) -std=c++20 -DHAVE_INLINE $(MORECPPFLAGS)
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
-core: LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats
+core: LyaPowerEstimate LyaPowerxQmlExposure LyaPower3DEstimate CreateSQLookUpTable lyspeqBootStats
 
 test: core cblas_tests testSQCMatrices
 	mkdir -p $(srcdir)/tests/output
@@ -63,7 +63,7 @@ LyaPowerEstimate: LyaPowerEstimate.o $(NONX_OBJECTS)
 LyaPowerxQmlExposure: LyaPowerxQmlExposure.o $(OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
-LyaPower3DEstimate: LyaPower3DEstimate.o $(qu3d_objs) $(global_objs)
+LyaPower3DEstimate: $(qu3d_objs) $(global_objs)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
