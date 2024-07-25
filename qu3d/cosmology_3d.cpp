@@ -1,6 +1,8 @@
-#include "cosmology_3d.hpp"
+#include <functional>
+
 #include <gsl/gsl_integration.h>
 
+#include "qu3d/cosmology_3d.hpp"
 #include "core/global_numbers.hpp"
 #include "io/io_helper_functions.hpp"
 #include "mathtools/interpolation.hpp"
@@ -270,9 +272,21 @@ double ArinyoP3DModel::getSpectroWindow2(double kz) const {
 
 
 void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
-    constexpr int nlnk = 10001;
+    constexpr int nlnk = 6001;
     constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1);
     double powers_kz[nlnk], powers_kperp[nlnk];
+
+    std::function<double(double)> eval_ls_supp;
+    if (pp_enabled)
+        eval_ls_supp = [](double k) { return 1; };
+    else {
+        double rl = rscale_long;
+        eval_ls_supp = [rl](double k) {
+            double k_rL = k * rl;
+            k_rL *= -k_rL;
+            return exp(k_rL);
+        };
+    }
 
     for (int i = 0; i < nlnk; ++i) {
         double kperp2 = exp(LNKMIN + i * dlnk);
@@ -280,13 +294,9 @@ void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
         for (int j = 0; j < nlnk; ++j) {
             double kz = exp(LNKMIN + j * dlnk), k = sqrt(kperp2 + kz * kz);
             powers_kz[j] = kz * evalExplicit(k, kz);
-
-            if (!pp_enabled) {
-                double k_rL = k * rscale_long;
-                k_rL *= -k_rL;
-                powers_kz[j] *= exp(k_rL);
-            }
+            powers_kz[j] *= eval_ls_supp(k);
         }
+
         powers_kperp[i] = kperp2 * trapz(powers_kz, nlnk, dlnk);
     }
 
@@ -377,7 +387,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
 void ArinyoP3DModel::_construcP1D() {
     constexpr int nlnk = 10001;
     constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1), dlnk2 = 0.02;
-    constexpr int nlnk2 = ceil((LNKMAX - LNKMIN) / dlnk);
+    constexpr int nlnk2 = ceil((LNKMAX - LNKMIN) / dlnk2);
     double p1d_integrand[nlnk], p1d[nlnk2];
 
     for (int i = 0; i < nlnk2; ++i) {
