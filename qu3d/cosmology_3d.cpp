@@ -9,7 +9,7 @@
 
 
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 5.0,
+constexpr double KMIN = 1E-6, KMAX = 1E2,
                  LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
@@ -271,7 +271,7 @@ double ArinyoP3DModel::getSpectroWindow2(double kz) const {
 
 
 void ArinyoP3DModel::_calcVarLss() {
-    constexpr int nlnk = 5001;
+    constexpr int nlnk = 10001;
     constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1);
     double powers_kz[nlnk], powers_kperp[nlnk];
 
