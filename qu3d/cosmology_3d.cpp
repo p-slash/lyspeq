@@ -242,7 +242,6 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     _deltar_mpc = 0;
 
     _construcP1D();
-    _calcVarLss();
     _cacheInterp2D();
     _getCorrFunc2dS();
 
@@ -270,7 +269,7 @@ double ArinyoP3DModel::getSpectroWindow2(double kz) const {
 }
 
 
-void ArinyoP3DModel::_calcVarLss() {
+void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
     constexpr int nlnk = 10001;
     constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1);
     double powers_kz[nlnk], powers_kperp[nlnk];
@@ -279,11 +278,14 @@ void ArinyoP3DModel::_calcVarLss() {
         double kperp2 = exp(LNKMIN + i * dlnk);
         kperp2 *= kperp2;
         for (int j = 0; j < nlnk; ++j) {
-            double kz = exp(LNKMIN + j * dlnk),
-                   k = sqrt(kperp2 + kz * kz);
-            double k_rL = k * rscale_long;
-            k_rL *= -k_rL;
-            powers_kz[j] = kz * evalExplicit(k, kz) * exp(k_rL);
+            double kz = exp(LNKMIN + j * dlnk), k = sqrt(kperp2 + kz * kz);
+            powers_kz[j] = kz * evalExplicit(k, kz);
+
+            if (!pp_enabled) {
+                double k_rL = k * rscale_long;
+                k_rL *= -k_rL;
+                powers_kz[j] *= exp(k_rL);
+            }
         }
         powers_kperp[i] = kperp2 * trapz(powers_kz, nlnk, dlnk);
     }

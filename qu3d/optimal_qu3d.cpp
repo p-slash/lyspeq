@@ -484,6 +484,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     _initRngs(seed_generator.get());
 
     p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
+    p3d_model->calcVarLss(pp_enabled);
     cosmo = p3d_model->getCosmoPtr();
     logCosmoDist(); logCosmoHubble(); logPmodel();
 
