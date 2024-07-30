@@ -411,41 +411,17 @@ void ArinyoP3DModel::_construcP1D() {
 
 
 void ArinyoP3DModel::_getCorrFunc2dS() {
-    double dk = 2 * MY_PI / (50.0 * rscale_long);
+    constexpr int Nhankel = 512;
+    Ps2Cf_2D hankel{Nhankel, KMIN, KMAX};
 
-    double nk_d = KMAX / dk, log2nk = log2(nk_d);
-    int log2nk_ceil = ceil(log2nk), nk = 0;
+    auto psarr = std::make_unique<double[]>(Nhankel * Nhankel);
+    const double *kperparr = hankel.getKperp(), *kzarr = hankel.getKz();
 
-    // If the nearest power of two is >= 2^10
-    if (log2nk_ceil > 9) {
-        double rem = log2nk - int(log2nk);
-        constexpr double y = log(2.0) / log(4.0 / 3.0);
-        int m = floor((1.0 - rem) * y);
-        nk = 1 << (log2nk_ceil - 2 * m);
-        for (int i = 0; i < m; ++i)
-            nk *= 3;
-    }
-    else {
-        nk = 1 << log2nk_ceil;
-    }
+    for (int iperp = 0; iperp < Nhankel; ++iperp)
+        for (int iz = 0; iz < Nhankel; ++iz)
+            psarr[iz + Nhankel * iperp] = evaluateSS(kperparr[iperp], kzarr[iz]);
 
-    int nk2 = nk * nk;
-
-    dk = KMAX / (nk - 1);
-    Ps2Cf_2D hankel{nk, KMAX};
-
-    auto kzarr = std::make_unique<double[]>(nk),
-         psarr = std::make_unique<double[]>(nk2);
-    const double *kperparr = hankel.getKperp();
-
-    for (int i = 0; i < nk; ++i)
-        kzarr[i] = i * dk;
-
-    for (int iperp = 0; iperp < nk; ++iperp)
-        for (int iz = 0; iz < nk; ++iz)
-            psarr[iz + nk * iperp] = evaluateSS(kperparr[iperp], kzarr[iz]);
-
-    interp2d_cfS = hankel.transform(psarr.get(), nk, dk);
+    interp2d_cfS = hankel.transform(psarr.get());
 }
 
 
