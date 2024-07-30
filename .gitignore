@@ -19,6 +19,7 @@ cblas_tests
 testPointRef
 testSQCMatrices
 myfitsread
+test_fftlog
 test-fftconvolve
 testBootstrapTime
 testReadingBootRealizations
