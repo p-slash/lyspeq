@@ -17,8 +17,8 @@ public:
         fht_z = std::make_unique<FFTLog>(N);
         fht_xy = std::make_unique<FFTLog>(N);
 
-        fht_z->construct(-0.5, k1, k2, 0, log(k1 * k2));
-        fht_xy->construct(0, k1, k2, 0, log(k1 * k2));
+        fht_z->construct(-0.5, k1, k2);
+        fht_xy->construct(0, k1, k2);
     }
 
     const double* getKperp() const { return fht_xy->r.get(); }
