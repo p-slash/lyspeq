@@ -11,7 +11,7 @@
 
 
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 1E2,
+constexpr double KMIN = 1E-6, KMAX = 1E3,
                  LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
@@ -412,7 +412,7 @@ void ArinyoP3DModel::_construcP1D() {
 
 void ArinyoP3DModel::_getCorrFunc2dS() {
     constexpr int Nhankel = 512;
-    Ps2Cf_2D hankel{Nhankel, KMIN, KMAX};
+    Ps2Cf_2D hankel{Nhankel, KMIN, std::max(KMAX, 20 * rscale_long)};
 
     auto psarr = std::make_unique<double[]>(Nhankel * Nhankel);
     const double *kperparr = hankel.getKperp(), *kzarr = hankel.getKz();
