@@ -28,12 +28,12 @@ int test_fftlog() {
     fht.transform();
 
     printf("lnkcrc: %.5e\n", fht.getLnKcRc());
-    printf("k \t exp \t FHT.real\n");
+    printf("i \t k \t Tr \t FHT\n");
     for (int i = 0; i < N; ++i)
         printf(
-            "%d %.3e \t %.3e \t %.3e\n",
+            "%d\t%.3e\t%.3e\t%.3e\n",
                i, fht.k[i], fht.k[i] * std::exp(-fht.k[i] * fht.k[i] / 2.0),
-               std::real(fht.field[i]));
+               fht.field[i]);
 
     return 0;
 }
