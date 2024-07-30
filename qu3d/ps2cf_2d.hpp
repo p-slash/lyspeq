@@ -31,7 +31,6 @@ public:
         /* Intermediate array will be transposed */
         interm = std::make_unique<double[]>(N * N);
         result = std::make_unique<double[]>(N * N);
-        row = std::make_unique<double[]>(N);
 
         for (int i = 0; i < N; ++i)
             _fhtZ(p2d + i * N, i);
@@ -58,7 +57,7 @@ public:
 
 private:
     int N;
-    std::unique_ptr<double[]> kperp, rperp, interm, result, row;
+    std::unique_ptr<double[]> kperp, rperp, interm, result;
     std::unique_ptr<FFTLog> fht_z, fht_xy;
 
     void _fhtZ(const double *pkz, int i) {

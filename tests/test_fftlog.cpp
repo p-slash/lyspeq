@@ -17,10 +17,11 @@ int test_rotate() {
 
 int test_fftlog() {
     constexpr int N = 128;
+    constexpr double r1 = 1e-7, r2 = 1e3;
     FFTLog fht(N);
 
     // r^(mu + 1) * exp(-r^2/2) -> k^mu+1 exp(-k^2/2)
-    fht.construct(0, 1e-7, 1e1, 0, -6.0 * log(10.0));
+    fht.construct(0, r1, r2, 0, log(r1 * r2));
     for (int i = 0; i < N; ++i)
         fht.field[i] = fht.r[i] * std::exp(-fht.r[i] * fht.r[i] / 2.0);
 
