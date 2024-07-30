@@ -11,7 +11,7 @@
 
 
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 1E3,
+constexpr double KMIN = 1E-6, KMAX = 2E2,
                  LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
