@@ -40,6 +40,7 @@ public:
     void transform();
 
     double getLnKcRc() const { return lnkcrc; }
+    double getDLn() const { return dlnr; }
 };
 
 

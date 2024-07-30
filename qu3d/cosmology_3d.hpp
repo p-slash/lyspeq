@@ -181,7 +181,7 @@ namespace fidcosmo {
 
         double evalCorrFunc2dS(double rperp, double rz) const {
             /* Evaluate small-scale CF using interpolation. */
-            return interp2d_cfS->evaluate(rz, rperp);
+            return interp2d_cfS->evaluate(log(rz), log(rperp));
         }
 
         double getVarLss() const { return _varlss; }
