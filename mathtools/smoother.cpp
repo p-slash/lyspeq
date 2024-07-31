@@ -76,6 +76,19 @@ void _fillMaskedRegion(
 }
 
 
+void Smoother::_constructFilter() {
+    double sum = 0, *g = &gaussian_kernel[0];
+    for (int i = -HWSIZE; i < HWSIZE + 1; ++i, ++g) {
+        *g = exp(-pow(i * 1. / sigmapix, 2) / 2);
+        sum += *g;
+    }
+
+    std::for_each(
+        &gaussian_kernel[0], &gaussian_kernel[0] + KS, 
+        [sum](double &x) { x /= sum; });
+}
+
+
 Smoother::Smoother(ConfigFile &config)
 {
     LOG::LOGGER.STD("###############################################\n");
@@ -90,18 +103,18 @@ Smoother::Smoother(ConfigFile &config)
     is_smoothing_on_rmat =
         (config.getInteger("SmoothResolutionMatrix") > 0) && is_smoothing_on;
 
-    if (!is_smoothing_on || use_mean)
-        return;
+    if (is_smoothing_on && !use_mean)
+        _constructFilter();
+}
 
-    double sum = 0, *g = &gaussian_kernel[0];
-    for (int i = -HWSIZE; i < HWSIZE + 1; ++i, ++g) {
-        *g = exp(-pow(i * 1. / sigmapix, 2) / 2);
-        sum += *g;
-    }
 
-    std::for_each(
-        &gaussian_kernel[0], &gaussian_kernel[0] + KS, 
-        [sum](double &x) { x /= sum; });
+Smoother::Smoother(int _sigmapix) : sigmapix(_sigmapix) {
+    is_smoothing_on = (sigmapix >= 0);
+    use_mean = (sigmapix == 0);
+    is_smoothing_on_rmat = false;
+
+    if (is_smoothing_on && !use_mean)
+        _constructFilter();
 }
 
 
