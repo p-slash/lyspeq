@@ -1,0 +1,46 @@
+FileInputDir /dvs_ro/cfs/cdirs/desicollab/users/naimgk/eBossDesiFormat
+FileNameList fname_list-3d.txt
+OutputFileBase qu3d-test
+OutputDir tests/output/
+
+
+NGRID_X 2048
+NGRID_Y 512
+NGRID_Z 192
+LongScale 10.0
+ScaleFactor 6
+EstimateNoiseBias -1
+EstimateFisherFromRandomDerivatives -1
+
+MinimumSnrCut 2
+DownsampleFactor 2
+
+NumberOfLinearBins 16
+LinearKBinWidth 4.0E-3
+
+TurnOnPpCovariance 1
+ContinuumLogLambdaMargOrder -1
+
+MaxConjGradSteps 100
+MaxMonteCarlos 50
+ConvergenceTolerance 1e-5
+TestGaussianField 1
+PlinearFilename /Users/nk452/repos/data/Planck2018/camb_planck18_power_spectrum_z24.txt
+PlinearPivotRedshift 2.4
+
+
+K0 0.
+NumberOfLog10Bins 0
+Log10KBinWidth 0.0
+FirstRedshiftBinCenter 2.4
+RedshiftBinWidth 0.8
+NumberOfRedshiftBins 1
+InputIsPicca 1
+DynamicChunkNumber 1
+UseResoMatrix 0
+OversampleRmat -1
+ResoMatDeconvolutionM -1
+ContinuumLambdaMargOrder -1
+
+AllocatedMemoryMB 200000.
+TemporaryFolder /pscratch/sd/n/naimgk/tmpfiles
