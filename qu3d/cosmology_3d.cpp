@@ -484,18 +484,19 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     out->write(pmarr, nlnk, "PMODEL_1D");
     out->flush();
 
-    constexpr int nr = 1000, nr2 = nr * nr;
-    const double r2 = 50.0 * rscale_long, dr = r2 / nr;
+    constexpr int nr = 500, nr2 = nr * nr;
+    const double r2 = 50.0 * rscale_long, r1 = 1e-4, dlnr = log(r2 / r1) / nr;
     double rarr[nr], cfsarr[nr2];
 
     for (int i = 0; i < nr; ++i)
-        rarr[i] = i * dr;
+        rarr[i] = r1 * exp(i * dr);
 
     out->write(rarr, nr, "RMODEL");
 
     for (int iperp = 0; iperp < nr; ++iperp)
         for (int iz = 0; iz < nr; ++iz)
-            cfsarr[iz + nr * iperp] = evalCorrFunc2dS(rarr[iperp] * rarr[iperp], rarr[iz]);
+            cfsarr[iz + nr * iperp] = evalCorrFunc2dS(
+                rarr[iperp] * rarr[iperp], rarr[iz]);
 
     out->write(cfsarr, nr2, "CFMODEL_S_2D");
     out->flush();
