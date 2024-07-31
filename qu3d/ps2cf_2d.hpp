@@ -8,9 +8,6 @@
 #include "mathtools/fftlog.hpp"
 
 
-constexpr double MY_2PI = 2.0 * 3.14159265358979323846;
-
-
 class Ps2Cf_2D {
 public:
     Ps2Cf_2D(int nk, double k1, double k2) : N(nk) {
@@ -50,10 +47,13 @@ public:
 
             for (int iperp = 0; iperp < Nres; ++iperp)
                 result[iz + Nres * iperp] = fht_xy->field[iperp + truncate];
+                //  / fht_xy->k[iperp + truncate];
         }
 
-        for (int i = 0; i < N * N; ++i)
-            result[i] /= MY_2PI;
+        constexpr double MY_2PI = 2.0 * 3.14159265358979323846;
+        constexpr double NORM = MY_2PI * sqrt(MY_2PI);
+        for (int i = 0; i < Nres * Nres; ++i)
+            result[i] /= NORM;
 
         return std::make_unique<DiscreteInterpolation2D>(
             log(fht_z->k[truncate]), fht_z->getDLn(),
@@ -71,7 +71,7 @@ private:
         fht_z->transform();
 
         for (int j = 0; j < N; ++j)
-            interm[i + j * N] = fht_z->field[j] / sqrt(MY_2PI);
+            interm[i + j * N] = fht_z->field[j];
             // interm[i + j * N] = fht_z->field[j] / sqrt(MY_2PI * fht_z->k[j]);
     }
 };
