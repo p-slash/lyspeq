@@ -103,7 +103,7 @@ timeMatrixOps: timeMatrixOps.cpp matrix_helper.o real_field.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 $(DEPDIR)/%.d: %.$(SRCEXT)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MM -MT '$(patsubst %.$(SRCEXT), %.o, $<)' $< -MF $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MM -MT '$(notdir $(patsubst %.$(SRCEXT), %.o, $<))' $< -MF $@
 
 %.o: %.$(SRCEXT) $(DEPDIR)/%.d %.hpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ -c $<
