@@ -24,7 +24,7 @@ public:
     /* p2d must be in kz-first format, that is first N elements are
        P(kperp[0], kz) and so on. Transformation kperp values must be used.
 
-       Returns: rperp * sqrt(rz) * xi_SS interpolator in log(r)
+       Returns: rperp^2 * rz * xi_SS interpolator in ln(rz), ln(rperp2)
     */
     std::unique_ptr<DiscreteInterpolation2D> transform(
             const double *p2d, int truncate
@@ -46,8 +46,8 @@ public:
             fht_xy->transform();
 
             for (int iperp = 0; iperp < Nres; ++iperp)
-                result[iz + Nres * iperp] = fht_xy->field[iperp + truncate];
-                //  / fht_xy->k[iperp + truncate];
+                result[iz + Nres * iperp] =
+                    fht_xy->field[iperp + truncate] * fht_xy->k[iperp + truncate];
         }
 
         constexpr double MY_2PI = 2.0 * 3.14159265358979323846;
@@ -57,7 +57,7 @@ public:
 
         return std::make_unique<DiscreteInterpolation2D>(
             log(fht_z->k[truncate]), fht_z->getDLn(),
-            log(fht_xy->k[truncate]), fht_xy->getDLn(),
+            2.0 * log(fht_xy->k[truncate]), 2.0 * fht_xy->getDLn(),
             result.get(), Nres, Nres);
     }
 
@@ -71,7 +71,7 @@ private:
         fht_z->transform();
 
         for (int j = 0; j < N; ++j)
-            interm[i + j * N] = fht_z->field[j];
+            interm[i + j * N] = fht_z->field[j] * sqrt(fht_z->k[j]);
             // interm[i + j * N] = fht_z->field[j] / sqrt(MY_2PI * fht_z->k[j]);
     }
 };

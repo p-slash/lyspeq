@@ -377,8 +377,8 @@ public:
                        dy = r[3 * i + 1] - q->r[3 * j + 1];
 
                 double rz = fabs(r[3 * i + 2] - q->r[3 * j + 2]),
-                       rperp = sqrt(dx * dx + dy * dy);
-                ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
+                       rperp2 = dx * dx + dy * dy;
+                ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp2, rz);
             }
         }
     }
