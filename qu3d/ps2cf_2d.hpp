@@ -26,33 +26,39 @@ public:
 
     /* p2d must be in kz-first format, that is first N elements are
        P(kperp[0], kz) and so on. Transformation kperp values must be used.
+
+       Returns: rperp * sqrt(rz) * xi_SS interpolator in log(r)
     */
-    std::unique_ptr<DiscreteInterpolation2D> transform(const double *p2d) {
+    std::unique_ptr<DiscreteInterpolation2D> transform(
+            const double *p2d, int truncate
+    ) {
+        int Nres = N - 2 * truncate;
         /* Intermediate array will be transposed */
         interm = std::make_unique<double[]>(N * N);
-        result = std::make_unique<double[]>(N * N);
+        result = std::make_unique<double[]>(Nres * Nres);
 
         for (int i = 0; i < N; ++i)
             _fhtZ(p2d + i * N, i);
 
         const double *kperp = getKperp();
 
-        for (int iz = 0; iz < N; ++iz) {
+        for (int iz = 0; iz < Nres; ++iz) {
             for (int j = 0; j < N; ++j)
-                fht_xy->field[j] = interm[j + iz * N] * kperp[j];
+                fht_xy->field[j] = interm[j + (iz + truncate) * N] * kperp[j];
 
             fht_xy->transform();
 
-            for (int j = 0; j < N; ++j)
-                result[iz + N * j] = fht_xy->field[j] / fht_xy->k[j];
+            for (int iperp = 0; iperp < Nres; ++iperp)
+                result[iz + Nres * iperp] = fht_xy->field[iperp + truncate];
         }
 
         for (int i = 0; i < N * N; ++i)
             result[i] /= MY_2PI;
 
         return std::make_unique<DiscreteInterpolation2D>(
-            log(fht_z->k[0]), fht_z->getDLn(), log(fht_xy->k[0]), fht_xy->getDLn(),
-            result.get(), N, N);
+            log(fht_z->k[truncate]), fht_z->getDLn(),
+            log(fht_xy->k[truncate]), fht_xy->getDLn(),
+            result.get(), Nres, Nres);
     }
 
 private:
@@ -65,7 +71,8 @@ private:
         fht_z->transform();
 
         for (int j = 0; j < N; ++j)
-            interm[i + j * N] = fht_z->field[j] / sqrt(MY_2PI * fht_z->k[j]);
+            interm[i + j * N] = fht_z->field[j] / sqrt(MY_2PI);
+            // interm[i + j * N] = fht_z->field[j] / sqrt(MY_2PI * fht_z->k[j]);
     }
 };
 

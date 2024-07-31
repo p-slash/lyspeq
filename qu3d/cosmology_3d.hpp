@@ -183,7 +183,8 @@ namespace fidcosmo {
             /* Evaluate small-scale CF using interpolation. */
             if (rperp < 1e-2)  rperp = 1e-2;
             if (rz < 1e-2)  rz = 1e-2;
-            return interp2d_cfS->evaluate(log(rz), log(rperp));
+            double a = rperp * sqrt(rz);
+            return interp2d_cfS->evaluate(log(rz), log(rperp)) / a;
         }
 
         double getVarLss() const { return _varlss; }
