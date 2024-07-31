@@ -412,8 +412,7 @@ void ArinyoP3DModel::_construcP1D() {
 
 void ArinyoP3DModel::_getCorrFunc2dS() {
     constexpr int Nhankel = 512;
-    double kmax = std::max(KMAX, 50 * rscale_long);
-    Ps2Cf_2D hankel{Nhankel, 1 / kmax, kmax};
+    Ps2Cf_2D hankel{Nhankel, KMIN, std::max(KMAX, 50 * rscale_long)};
 
     auto psarr = std::make_unique<double[]>(Nhankel * Nhankel);
     const double *kperparr = hankel.getKperp(), *kzarr = hankel.getKz();
@@ -485,8 +484,8 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     out->write(pmarr, nlnk, "PMODEL_1D");
     out->flush();
 
-    constexpr int nr = 500, nr2 = nr * nr;
-    const double r2 = 10.0 * rscale_long, dr = r2 / nr;
+    constexpr int nr = 1000, nr2 = nr * nr;
+    const double r2 = 50.0 * rscale_long, dr = r2 / nr;
     double rarr[nr], cfsarr[nr2];
 
     for (int i = 0; i < nr; ++i)

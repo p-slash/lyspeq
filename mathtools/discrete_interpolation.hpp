@@ -85,6 +85,8 @@ public:
     { return ! (*this==rhs); };
 
     double evaluate(double x, double y);
+    inline double getX1() const { return x1; }
+    inline double getY1() const { return y1; }
 };
 
 typedef std::shared_ptr<DiscreteInterpolation1D> shared_interp_1d;
