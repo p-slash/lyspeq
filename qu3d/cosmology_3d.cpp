@@ -489,7 +489,7 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     double rarr[nr], cfsarr[nr2];
 
     for (int i = 0; i < nr; ++i)
-        rarr[i] = r1 * exp(i * dr);
+        rarr[i] = r1 * exp(i * dlnr);
 
     out->write(rarr, nr, "RMODEL");
 
