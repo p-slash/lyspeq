@@ -495,7 +495,7 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
 
     for (int iperp = 0; iperp < nr; ++iperp)
         for (int iz = 0; iz < nr; ++iz)
-            cfsarr[iz + nr * iperp] = evalCorrFunc2dS(rarr[iperp], rarr[iz]);
+            cfsarr[iz + nr * iperp] = evalCorrFunc2dS(rarr[iperp] * rarr[iperp], rarr[iz]);
 
     out->write(cfsarr, nr2, "CFMODEL_S_2D");
     out->flush();
