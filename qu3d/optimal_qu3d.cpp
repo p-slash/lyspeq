@@ -488,6 +488,19 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     cosmo = p3d_model->getCosmoPtr();
     logCosmoDist(); logCosmoHubble(); logPmodel();
 
+    NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
+    DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
+    bins::FISHER_SIZE = NUMBER_OF_K_BANDS_2 * NUMBER_OF_K_BANDS_2;
+
+    raw_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    filt_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    raw_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    filt_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
+    covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
+
+    _openResultsFile();
+
     _readQSOFiles(flist, findir);
     _setupMesh(radius);
     _constructMap();
@@ -504,18 +517,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         replaceDeltasWithGaussianField();
 
     radius *= rscale_factor;
-    NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
-    DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
-    bins::FISHER_SIZE = NUMBER_OF_K_BANDS_2 * NUMBER_OF_K_BANDS_2;
-
-    raw_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    filt_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    raw_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    filt_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
-    covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
-
-    _openResultsFile();
 }
 
 void Qu3DEstimator::reverseInterpolate() {
