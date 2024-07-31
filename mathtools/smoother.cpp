@@ -15,7 +15,6 @@
 
 std::unique_ptr<Smoother> process::smoother;
 
-
 void padArray(
         const double *arr, int size, int hwsize, std::vector<double> &out
 ) {
@@ -24,6 +23,30 @@ void padArray(
     std::copy_n(arr, size, out.begin() + hwsize);
     std::fill_n(out.begin(), hwsize, arr[0]);
     std::fill_n(out.begin() + size, hwsize, arr[size - 1]);
+}
+
+
+void padArrayReflectLeft(
+        const double *arr, int size, int hwsize, std::vector<double> &out
+) {
+    out.resize(size + 2 * hwsize, 0);
+
+    for (int i = 0; i < hwsize; ++i) {
+        int d = i / size, j = (i + 1) % size;
+        if (d % 2 != 0)
+            j = size - 1 - j;
+
+        out[hwsize - 1 - i] = arr[j];
+    }
+    std::copy_n(arr, size, out.begin() + hwsize);
+    std::fill_n(out.begin() + size, hwsize, arr[size - 1]);
+
+    // for (int i = 0; i < hwsize; ++i) {
+    //     int d = i / size, j = (i + 1) % size;
+    //     if (d % 2 != 0)
+    //         j = size - 1 - j;
+    //     out[size + i] = arr[size - 1 - j];
+    // }
 }
 
 
@@ -118,18 +141,22 @@ Smoother::Smoother(int _sigmapix) : sigmapix(_sigmapix) {
 }
 
 
-void Smoother::smooth1D(double *inplace, int size, int ndim) {
+void Smoother::smooth1D(double *inplace, int size, int ndim, bool reflectLeft) {
     std::vector<double> tempvector(size + 2 * HWSIZE, 0);
-    double median __attribute__((unused)), mad __attribute__((unused)),
-           mean;
-
-    std::copy_n(inplace, size, tempvector.begin());
-    _findMedianStatistics(tempvector.data(), size, median, mean, mad);
 
     if (use_mean) {
+        double median __attribute__((unused)), mad __attribute__((unused)),
+               mean;
+
+        std::copy_n(inplace, size, tempvector.begin());
+        _findMedianStatistics(tempvector.data(), size, median, mean, mad);
         std::fill_n(inplace, size, mean);
-    } else {
-        padArray(inplace, size, HWSIZE, tempvector);
+    }
+    else {
+        if (reflectLeft)
+            padArrayReflectLeft(inplace, size, HWSIZE, tempvector);
+        else
+            padArray(inplace, size, HWSIZE, tempvector);
 
         // Convolve
         for (int i = 0; i < size; ++i)
