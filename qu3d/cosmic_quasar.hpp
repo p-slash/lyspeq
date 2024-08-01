@@ -185,7 +185,7 @@ public:
         std::swap(truth, in_isig);
     }
 
-    void multInWithSelfInvCov(const fidcosmo::ArinyoP3DModel *p3d_model) {
+    void setInvCovGuessIn(const fidcosmo::ArinyoP3DModel *p3d_model) {
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
         for (int i = 0; i < N; ++i) {
             double isigG = isig[i] * z1[i];
@@ -203,8 +203,7 @@ public:
         mxhelp::LAPACKE_InvertMatrixLU(ccov, N);
         cblas_dsymv(
             CblasRowMajor, CblasUpper, N, 1.0,
-            ccov, N, in, 1, 0, in_isig, 1);
-        std::swap(in, in_isig);
+            ccov, N, truth, 1, 0, in, 1);
     }
 
     void interpMesh2Out(const RealField3D &mesh) {
