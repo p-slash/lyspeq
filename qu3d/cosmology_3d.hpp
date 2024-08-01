@@ -123,7 +123,7 @@ namespace fidcosmo {
         void _getCorrFunc2dS();
 
     public:
-        static constexpr double MAX_R_FACTOR = 10.0;
+        static constexpr double MAX_R_FACTOR = 20.0;
         /* This function reads following keys from config file:
         b_F: double
         alpha_F (double): Redshift growth power of b_F.
@@ -182,10 +182,23 @@ namespace fidcosmo {
             return exp(interp_p1d->evaluate(log(kz)));
         }
 
-        double evalCorrFunc2dS(double rperp, double rz) const {
-            /* Evaluate small-scale CF using interpolation. */
-            return interp2d_cfS->evaluate(rz, rperp);
-        }
+        #ifdef USE_LOGR_INTERP
+            double evalCorrFunc2dS(double rperp, double rz) const {
+                /* Evaluate small-scale CF using interpolation. */
+                const static double
+                    rz_min = exp(interp2d_cfS->getX1()),
+                    rperp_min = exp(interp2d_cfS->getY1());
+
+                if (rz < rz_min)  rz = rz_min;
+                if (rperp < rperp_min)  rperp = rperp_min;
+                return interp2d_cfS->evaluate(log(rz), log(rperp));
+            }
+        #else
+            double evalCorrFunc2dS(double rperp, double rz) const {
+                /* Evaluate small-scale CF using interpolation. */
+                return interp2d_cfS->evaluate(rz, rperp);
+            }
+        #endif
 
         double getVarLss() const { return _varlss; }
 
