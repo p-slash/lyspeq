@@ -415,7 +415,7 @@ void ArinyoP3DModel::_construcP1D() {
 
 
 void ArinyoP3DModel::_getCorrFunc2dS() {
-    constexpr int Nhankel = 1024;
+    constexpr int Nhankel = 1536;
     Ps2Cf_2D hankel{Nhankel, KMIN, 1 / KMIN};
 
     auto psarr = std::make_unique<double[]>(Nhankel * Nhankel);
@@ -425,7 +425,8 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
         for (int iz = 0; iz < Nhankel; ++iz)
             psarr[iz + Nhankel * iperp] = evaluateSS(kperparr[iperp], kzarr[iz]);
 
-    interp2d_cfS = hankel.transform(psarr.get(), 256, 15.0 * rscale_long);
+    interp2d_cfS = hankel.transform(
+        psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
 }
 
 
@@ -489,11 +490,15 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     out->flush();
 
     constexpr int nr = 500, nr2 = nr * nr;
-    const double r2 = 15.0 * rscale_long, dr = r2 / nr;
     double rarr[nr], cfsarr[nr2];
 
+    const double r2 = ArinyoP3DModel::MAX_R_FACTOR * rscale_long, dr = r2 / nr;
     for (int i = 0; i < nr; ++i)
         rarr[i] = i * dr;
+
+    // const double r2 = 1e6, r1 = 1e-6, dlnr = log(r2/r1) / nr;
+    // for (int i = 0; i < nr; ++i)
+        // rarr[i] = r1 * exp(i * dlnr);
 
     out->write(rarr, nr, "RMODEL");
 

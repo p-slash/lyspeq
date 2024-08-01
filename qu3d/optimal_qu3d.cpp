@@ -475,6 +475,11 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
     radius = config.getDouble("LongScale");
     rscale_factor = config.getDouble("ScaleFactor");
+    if (rscale_factor > fidcosmo::ArinyoP3DModel::MAX_R_FACTOR)
+        throw std::invalid_argument(
+            "ScaleFactor cannot exceed "
+            + std::to_string(fidcosmo::ArinyoP3DModel::MAX_R_FACTOR));
+
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_rnd_enabled = config.getInteger("EstimateFisherFromRandomDerivatives") > 0;

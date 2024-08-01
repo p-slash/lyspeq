@@ -123,6 +123,7 @@ namespace fidcosmo {
         void _getCorrFunc2dS();
 
     public:
+        static constexpr double MAX_R_FACTOR = 10.0;
         /* This function reads following keys from config file:
         b_F: double
         alpha_F (double): Redshift growth power of b_F.
