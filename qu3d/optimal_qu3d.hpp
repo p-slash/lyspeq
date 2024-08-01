@@ -68,6 +68,7 @@ public:
 
     void replaceDeltasWithGaussianField();
     void initGuessDiag();
+    void initGuessBlockDiag();
     void multMeshComp();
     void multParticleComp();
 

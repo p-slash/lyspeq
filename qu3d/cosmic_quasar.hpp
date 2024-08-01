@@ -185,6 +185,28 @@ public:
         std::swap(truth, in_isig);
     }
 
+    void multInWithSelfInvCov(const fidcosmo::ArinyoP3DModel *p3d_model) {
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+        for (int i = 0; i < N; ++i) {
+            double isigG = isig[i] * z1[i];
+
+            ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
+
+            for (int j = i + 1; j < N; ++j) {
+                double rz = r[3 * j + 2] - r[3 * i + 2],
+                       isigG_ij = isigG * isig[j] * z1[j];
+                ccov[j + i * N] = p3d_model->evalCorrFunc2dS(0, rz) * isigG_ij;
+            }
+        }
+
+        mxhelp::copyUpperToLower(ccov, N);
+        mxhelp::LAPACKE_InvertMatrixLU(ccov, N);
+        cblas_dsymv(
+            CblasRowMajor, CblasUpper, N, 1.0,
+            ccov, N, in, 1, 0, in_isig, 1);
+        std::swap(in, in_isig);
+    }
+
     void interpMesh2Out(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
             out[i] = mesh.interpolate(r.get() + 3 * i);
