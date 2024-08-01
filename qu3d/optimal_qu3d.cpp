@@ -776,6 +776,13 @@ void Qu3DEstimator::initGuessDiag() {
 }
 
 
+void Qu3DEstimator::initGuessBlockDiag() {
+    #pragma omp parallel for schedule(dynamic, 8)
+    for (auto &qso : quasars)
+        qso->multInWithSelfInvCov(p3d_model.get());
+}
+
+
 void Qu3DEstimator::conjugateGradientDescent() {
     double dt = mytime::timer.getTime();
     int niter = 1;
@@ -790,7 +797,10 @@ void Qu3DEstimator::conjugateGradientDescent() {
     }
 
     /* Initial guess */
-    initGuessDiag();
+    if (pp_enabled)
+        initGuessBlockDiag();
+    else
+        initGuessDiag();
 
     multiplyCovVector();
 
