@@ -483,8 +483,10 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     seed_generator = std::make_unique<std::seed_seq>(seed.begin(), seed.end());
     _initRngs(seed_generator.get());
 
+    LOG::LOGGER.STD("Calculating cosmology model.\n");
     p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
     p3d_model->calcVarLss(pp_enabled);
+    LOG::LOGGER.STD("VarLSS: %.3e.\n", p3d_model->getVarLss());
     cosmo = p3d_model->getCosmoPtr();
     logCosmoDist(); logCosmoHubble(); logPmodel();
 
@@ -759,9 +761,6 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
 
 void Qu3DEstimator::initGuessDiag() {
     double varlss = p3d_model->getVarLss();
-
-    if (verbose)
-        LOG::LOGGER.STD("  VarLSS: %.2e.\n", varlss);
 
     #pragma omp parallel for
     for (auto &qso : quasars) {
