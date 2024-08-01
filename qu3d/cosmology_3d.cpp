@@ -242,7 +242,10 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     _z1_pivot = 1.0 + interp_p->z_pivot;
     _sigma_mpc = 0;
     _deltar_mpc = 0;
+}
 
+
+void ArinyoP3DModel::construct() {
     _construcP1D();
     _cacheInterp2D();
     _getCorrFunc2dS();
