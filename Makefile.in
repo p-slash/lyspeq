@@ -29,7 +29,8 @@ sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_int
 discrete_interpolation.o interpolation.o interpolation_2d.o
 cross_objs=cross_exposure.o one_qso_exposures.o
 qu3d_objs=optimal_qu3d.o cosmology_3d.o real_field.o real_field_3d.o qso_file.o \
-matrix_helper.o interpolation.o discrete_interpolation.o stats.o
+matrix_helper.o interpolation.o interpolation_2d.o discrete_interpolation.o \
+stats.o smoother.o fftlog.o
 test_objects=test_utils.o testPointRef.o test-fftconvolve.o
 qu3d_only_objs=$(filter-out $(OBJECTS), $(qu3d_objs))
 DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d) $(qu3d_only_objs:.o=.d))
@@ -103,7 +104,7 @@ timeMatrixOps: timeMatrixOps.cpp matrix_helper.o real_field.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 $(DEPDIR)/%.d: %.$(SRCEXT)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MM -MT '$(patsubst %.$(SRCEXT), %.o, $<)' $< -MF $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MM -MT '$(notdir $(patsubst %.$(SRCEXT), %.o, $<))' $< -MF $@
 
 %.o: %.$(SRCEXT) $(DEPDIR)/%.d %.hpp
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ -c $<

@@ -15,7 +15,6 @@
 
 std::unique_ptr<Smoother> process::smoother;
 
-
 void padArray(
         const double *arr, int size, int hwsize, std::vector<double> &out
 ) {
@@ -24,6 +23,30 @@ void padArray(
     std::copy_n(arr, size, out.begin() + hwsize);
     std::fill_n(out.begin(), hwsize, arr[0]);
     std::fill_n(out.begin() + size, hwsize, arr[size - 1]);
+}
+
+
+void padArrayReflectLeft(
+        const double *arr, int size, int hwsize, std::vector<double> &out
+) {
+    out.resize(size + 2 * hwsize, 0);
+
+    for (int i = 0; i < hwsize; ++i) {
+        int d = i / size, j = (i + 1) % size;
+        if (d % 2 != 0)
+            j = size - 1 - j;
+
+        out[hwsize - 1 - i] = arr[j];
+    }
+    std::copy_n(arr, size, out.begin() + hwsize);
+    std::fill_n(out.begin() + size, hwsize, arr[size - 1]);
+
+    // for (int i = 0; i < hwsize; ++i) {
+    //     int d = i / size, j = (i + 1) % size;
+    //     if (d % 2 != 0)
+    //         j = size - 1 - j;
+    //     out[size + i] = arr[size - 1 - j];
+    // }
 }
 
 
@@ -76,6 +99,19 @@ void _fillMaskedRegion(
 }
 
 
+void Smoother::_constructFilter() {
+    double sum = 0, *g = &gaussian_kernel[0];
+    for (int i = -HWSIZE; i < HWSIZE + 1; ++i, ++g) {
+        *g = exp(-pow(i * 1. / sigmapix, 2) / 2);
+        sum += *g;
+    }
+
+    std::for_each(
+        &gaussian_kernel[0], &gaussian_kernel[0] + KS, 
+        [sum](double &x) { x /= sum; });
+}
+
+
 Smoother::Smoother(ConfigFile &config)
 {
     LOG::LOGGER.STD("###############################################\n");
@@ -90,33 +126,37 @@ Smoother::Smoother(ConfigFile &config)
     is_smoothing_on_rmat =
         (config.getInteger("SmoothResolutionMatrix") > 0) && is_smoothing_on;
 
-    if (!is_smoothing_on || use_mean)
-        return;
-
-    double sum = 0, *g = &gaussian_kernel[0];
-    for (int i = -HWSIZE; i < HWSIZE + 1; ++i, ++g) {
-        *g = exp(-pow(i * 1. / sigmapix, 2) / 2);
-        sum += *g;
-    }
-
-    std::for_each(
-        &gaussian_kernel[0], &gaussian_kernel[0] + KS, 
-        [sum](double &x) { x /= sum; });
+    if (is_smoothing_on && !use_mean)
+        _constructFilter();
 }
 
 
-void Smoother::smooth1D(double *inplace, int size, int ndim) {
-    std::vector<double> tempvector(size + 2 * HWSIZE, 0);
-    double median __attribute__((unused)), mad __attribute__((unused)),
-           mean;
+Smoother::Smoother(int _sigmapix) : sigmapix(_sigmapix) {
+    is_smoothing_on = (sigmapix >= 0);
+    use_mean = (sigmapix == 0);
+    is_smoothing_on_rmat = false;
 
-    std::copy_n(inplace, size, tempvector.begin());
-    _findMedianStatistics(tempvector.data(), size, median, mean, mad);
+    if (is_smoothing_on && !use_mean)
+        _constructFilter();
+}
+
+
+void Smoother::smooth1D(double *inplace, int size, int ndim, bool reflectLeft) {
+    std::vector<double> tempvector(size + 2 * HWSIZE, 0);
 
     if (use_mean) {
+        double median __attribute__((unused)), mad __attribute__((unused)),
+               mean;
+
+        std::copy_n(inplace, size, tempvector.begin());
+        _findMedianStatistics(tempvector.data(), size, median, mean, mad);
         std::fill_n(inplace, size, mean);
-    } else {
-        padArray(inplace, size, HWSIZE, tempvector);
+    }
+    else {
+        if (reflectLeft)
+            padArrayReflectLeft(inplace, size, HWSIZE, tempvector);
+        else
+            padArray(inplace, size, HWSIZE, tempvector);
 
         // Convolve
         for (int i = 0; i < size; ++i)

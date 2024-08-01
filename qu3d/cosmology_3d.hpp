@@ -138,6 +138,8 @@ namespace fidcosmo {
             _sigma_mpc = sigma;  _deltar_mpc = delta_r;
         }
 
+        void construct();
+
         void calcVarLss(bool pp_enabled);
 
         double getSpectroWindow2(double kz) const;
