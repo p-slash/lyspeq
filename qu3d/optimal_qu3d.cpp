@@ -484,11 +484,30 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     _initRngs(seed_generator.get());
 
     p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
-    p3d_model->calcVarLss(pp_enabled);
     cosmo = p3d_model->getCosmoPtr();
-    logCosmoDist(); logCosmoHubble(); logPmodel();
+    logCosmoDist(); logCosmoHubble(); 
+
+    NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
+    DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
+    bins::FISHER_SIZE = NUMBER_OF_K_BANDS_2 * NUMBER_OF_K_BANDS_2;
+
+    raw_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    filt_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    raw_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    filt_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
+    covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
 
     _readQSOFiles(flist, findir);
+
+    LOG::LOGGER.STD("Calculating cosmology model.\n");
+    p3d_model->construct();
+    p3d_model->calcVarLss(pp_enabled);
+    LOG::LOGGER.STD("VarLSS: %.3e.\n", p3d_model->getVarLss());
+    logPmodel();
+
+    _openResultsFile();
+
     _setupMesh(radius);
     _constructMap();
     _findNeighbors();
@@ -504,18 +523,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         replaceDeltasWithGaussianField();
 
     radius *= rscale_factor;
-    NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
-    DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
-    bins::FISHER_SIZE = NUMBER_OF_K_BANDS_2 * NUMBER_OF_K_BANDS_2;
-
-    raw_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    filt_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    raw_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    filt_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
-    covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
-
-    _openResultsFile();
 }
 
 void Qu3DEstimator::reverseInterpolate() {
@@ -758,9 +765,6 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
 
 void Qu3DEstimator::initGuessDiag() {
     double varlss = p3d_model->getVarLss();
-
-    if (verbose)
-        LOG::LOGGER.STD("  VarLSS: %.2e.\n", varlss);
 
     #pragma omp parallel for
     for (auto &qso : quasars) {
