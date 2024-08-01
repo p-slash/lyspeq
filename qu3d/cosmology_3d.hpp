@@ -182,7 +182,7 @@ namespace fidcosmo {
             return exp(interp_p1d->evaluate(log(kz)));
         }
 
-        #ifdef USE_LOGR_INTERP
+        #ifndef NUSE_LOGR_INTERP
             double evalCorrFunc2dS(double rperp, double rz) const {
                 /* Evaluate small-scale CF using interpolation. */
                 const static double

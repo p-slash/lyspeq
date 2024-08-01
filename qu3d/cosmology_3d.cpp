@@ -425,7 +425,7 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
         for (int iz = 0; iz < Nhankel; ++iz)
             psarr[iz + Nhankel * iperp] = evaluateSS(kperparr[iperp], kzarr[iz]);
 
-    #ifdef USE_LOGR_INTERP
+    #ifndef NUSE_LOGR_INTERP
         interp2d_cfS = hankel.transform(psarr.get(), 256, 0, true);
     #else
         interp2d_cfS = hankel.transform(
@@ -493,10 +493,10 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     out->write(pmarr, nlnk, "PMODEL_1D");
     out->flush();
 
-    constexpr int nr = 500, nr2 = nr * nr;
+    constexpr int nr = 512, nr2 = nr * nr;
     double rarr[nr], cfsarr[nr2];
 
-    #ifdef USE_LOGR_INTERP
+    #ifndef NUSE_LOGR_INTERP
         const double r2 = 1e6, r1 = 1e-6, dlnr = log(r2/r1) / nr;
         for (int i = 0; i < nr; ++i)
             rarr[i] = r1 * exp(i * dlnr);
