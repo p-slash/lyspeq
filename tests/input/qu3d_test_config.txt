@@ -1,5 +1,5 @@
-FileInputDir /dvs_ro/cfs/cdirs/desicollab/users/naimgk/eBossDesiFormat
-FileNameList fname_list-3d.txt
+FileInputDir /Users/nk452/repos/data/P3D-Lya-Optimal/eboss
+FileNameList /Users/nk452/repos/data/P3D-Lya-Optimal/eboss/fname.txt
 OutputFileBase qu3d-test
 OutputDir tests/output/
 
