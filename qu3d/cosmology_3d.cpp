@@ -10,6 +10,7 @@
 #include "qu3d/ps2cf_2d.hpp"
 
 
+constexpr double SAFE_ZERO = 1E-36;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
 constexpr double KMIN = 1E-6, KMAX = 2E2,
                  LNKMIN = log(KMIN), LNKMAX = log(KMAX);
@@ -322,7 +323,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
                    k_rL = k * rscale_long;
 
             k_rL *= -k_rL;
-            lnP[iz + N * iperp] = log(evalExplicit(k, kz)) + k_rL;
+            lnP[iz + N * iperp] = log(evalExplicit(k, kz) + SAFE_ZERO) + k_rL;
         }
     }
     interp2d_pL = std::make_unique<DiscreteInterpolation2D>(
@@ -338,7 +339,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
                    k_rL = k * rscale_long;
 
             k_rL = 1.0 - exp(-k_rL * k_rL);
-            lnP[iz + N * iperp] = log(evalExplicit(k, kz) * k_rL);
+            lnP[iz + N * iperp] = log(evalExplicit(k, kz) * k_rL + SAFE_ZERO);
         }
     }
     interp2d_pS = std::make_unique<DiscreteInterpolation2D>(
@@ -349,7 +350,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
         double k = exp(LNKMIN + iperp * dlnk), k_rL = k * rscale_long;
         k_rL *= -k_rL;
 
-        lnP[iperp] = log(evalExplicit(k, 0)) + k_rL;
+        lnP[iperp] = log(evalExplicit(k, 0) + SAFE_ZERO) + k_rL;
     }
 
     interp_kp_pL = std::make_unique<DiscreteInterpolation1D>(
@@ -359,7 +360,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
         double kz = exp(LNKMIN + iz * dlnk), k_rL = kz * rscale_long;
         k_rL *= -k_rL;
 
-        lnP[iz] = log(evalExplicit(kz, kz)) + k_rL;
+        lnP[iz] = log(evalExplicit(kz, kz) + SAFE_ZERO) + k_rL;
     }
     interp_kz_pL = std::make_unique<DiscreteInterpolation1D>(
         LNKMIN, dlnk, N, lnP.get());
@@ -370,7 +371,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
         double k = exp(LNKMIN + iperp * dlnk), k_rL = k * rscale_long;
         k_rL = 1.0 - exp(-k_rL * k_rL);
 
-        lnP[iperp] = log(evalExplicit(k, 0) * k_rL);
+        lnP[iperp] = log(evalExplicit(k, 0) * k_rL + SAFE_ZERO);
     }
 
     interp_kp_pS = std::make_unique<DiscreteInterpolation1D>(
@@ -380,7 +381,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
         double k = exp(LNKMIN + iz * dlnk), k_rL = k * rscale_long;
         k_rL = 1.0 - exp(-k_rL * k_rL);
 
-        lnP[iz] = log(evalExplicit(k, k) * k_rL);
+        lnP[iz] = log(evalExplicit(k, k) * k_rL + SAFE_ZERO);
     }
     interp_kz_pS = std::make_unique<DiscreteInterpolation1D>(
         LNKMIN, dlnk, N, lnP.get());
@@ -405,7 +406,7 @@ void ArinyoP3DModel::_construcP1D() {
 
             p1d_integrand[j] = kperp2 * evalExplicit(k, kz) * k_rL;
         }
-        p1d[i] = log(trapz(p1d_integrand, nlnk, dlnk) / (2.0 * MY_PI));
+        p1d[i] = log(trapz(p1d_integrand, nlnk, dlnk) / (2.0 * MY_PI) + SAFE_ZERO);
     }
 
     interp_p1d = std::make_unique<DiscreteInterpolation1D>(
