@@ -181,16 +181,9 @@ namespace fidcosmo {
             return exp(interp_p1d->evaluate(log(kz)));
         }
 
-        double evalCorrFunc2dS(double rperp2, double rz) const {
+        double evalCorrFunc2dS(double rperp, double rz) const {
             /* Evaluate small-scale CF using interpolation. */
-            const static double
-                rz_min = exp(interp2d_cfS->getX1()),
-                rperp2_min = exp(interp2d_cfS->getY1());
-
-            if (rz < rz_min)  rz = rz_min;
-            if (rperp2 < rperp2_min)  rperp2 = rperp2_min;
-
-            return interp2d_cfS->evaluate(log(rz), log(rperp2));
+            return interp2d_cfS->evaluate(rz, rperp);
         }
 
         double getVarLss() const { return _varlss; }
