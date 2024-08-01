@@ -425,8 +425,12 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
         for (int iz = 0; iz < Nhankel; ++iz)
             psarr[iz + Nhankel * iperp] = evaluateSS(kperparr[iperp], kzarr[iz]);
 
-    interp2d_cfS = hankel.transform(
-        psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
+    #ifdef USE_LOGR_INTERP
+        interp2d_cfS = hankel.transform(psarr.get(), 256, 0, true);
+    #else
+        interp2d_cfS = hankel.transform(
+            psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
+    #endif
 }
 
 
