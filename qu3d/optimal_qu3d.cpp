@@ -485,10 +485,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     LOG::LOGGER.STD("Calculating cosmology model.\n");
     p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
-    p3d_model->calcVarLss(pp_enabled);
-    LOG::LOGGER.STD("VarLSS: %.3e.\n", p3d_model->getVarLss());
     cosmo = p3d_model->getCosmoPtr();
-    logCosmoDist(); logCosmoHubble(); logPmodel();
+    logCosmoDist(); logCosmoHubble(); 
 
     NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
     DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
@@ -501,9 +499,15 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
     covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
 
+    _readQSOFiles(flist, findir);
+
+    p3d_model->construct();
+    p3d_model->calcVarLss(pp_enabled);
+    LOG::LOGGER.STD("VarLSS: %.3e.\n", p3d_model->getVarLss());
+    logPmodel();
+
     _openResultsFile();
 
-    _readQSOFiles(flist, findir);
     _setupMesh(radius);
     _constructMap();
     _findNeighbors();
