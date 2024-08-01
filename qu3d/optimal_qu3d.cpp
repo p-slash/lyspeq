@@ -784,7 +784,7 @@ void Qu3DEstimator::initGuessDiag() {
 void Qu3DEstimator::initGuessBlockDiag() {
     #pragma omp parallel for schedule(dynamic, 8)
     for (auto &qso : quasars)
-        qso->multInWithSelfInvCov(p3d_model.get());
+        qso->setInvCovGuessIn(p3d_model.get());
 }
 
 
