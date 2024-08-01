@@ -1,7 +1,11 @@
 #ifndef FFTLOG_H
 #define FFTLOG_H
 
-#include "mathtools/real_field_3d.hpp"
+#include <complex>
+#include <memory>
+#include <vector>
+
+#include <fftw3.h>
 
 
 class FFTLog {
