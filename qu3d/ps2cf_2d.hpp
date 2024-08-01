@@ -67,6 +67,7 @@ public:
         if (smoother)
             smoother->smooth1D(result.get(), Nres, Nres, true);
 
+        // Evaluting log for all coordinates is too expensive.
         // Convert input rs to log r
         for (int i = 0; i < N; ++i) {
             fht_z->k[i] = log(fht_z->k[i]);
