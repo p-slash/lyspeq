@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/interpolation_2d.hpp"
 #include "mathtools/mathutils.hpp"
 #include "mathtools/fftlog.hpp"
 #include "mathtools/smoother.hpp"
@@ -27,10 +28,11 @@ public:
     /* p2d must be in kz-first format, that is first N elements are
        P(kperp[0], kz) and so on. Transformation kperp values must be used.
 
-       Returns: xi_SS interpolator in ln(rz), ln(rperp2)
+        First creates interpolator in ln(rz), ln(rperp). Then:
+       Returns: xi_SS interpolator in rz, rperp
     */
     std::unique_ptr<DiscreteInterpolation2D> transform(
-            const double *p2d, int truncate
+            const double *p2d, int truncate, double rmax
     ) {
         int Nres = N - 2 * truncate;
         /* Intermediate array will be transposed */
@@ -65,10 +67,30 @@ public:
         if (smoother)
             smoother->smooth1D(result.get(), Nres, Nres, true);
 
+        // Convert input rs to log r
+        for (int i = 0; i < N; ++i) {
+            fht_z->k[i] = log(fht_z->k[i]);
+            fht_xy->k[i] = log(fht_xy->k[i]);
+        }
+
+        Interpolation2D logr_interp(
+            GSL_BICUBIC_INTERPOLATION,
+            fht_z->k.get() + truncate, fht_xy->k.get() + truncate, result.get(),
+            Nres, Nres);
+
+        auto lnrlin = std::make_unique<double[]>(Nres);
+        double dr = rmax / Nres;
+
+        lnrlin[0] = std::max(fht_z->k[truncate], fht_xy->k[truncate]);
+        for (int i = 1; i < Nres; ++i)
+            lnrlin[i] = log(i * dr);
+
+        for (int i = 0; i < Nres; ++i)
+            for (int j = 0; j < Nres; ++j)
+                result[j + Nres * i] = logr_interp.evaluate(lnrlin[j], lnrlin[i]);
+
         return std::make_unique<DiscreteInterpolation2D>(
-            log(fht_z->k[truncate]), fht_z->getDLn(),
-            2.0 * log(fht_xy->k[truncate]), 2.0 * fht_xy->getDLn(),
-            result.get(), Nres, Nres);
+            0, dr, 0, dr, result.get(), Nres, Nres);
     }
 
 private:
