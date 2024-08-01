@@ -96,7 +96,7 @@ public:
             Nres, Nres);
 
         auto lnrlin = std::make_unique<double[]>(Nres);
-        double dr = rmax / Nres;
+        double dr = rmax / (Nres - 1);
 
         lnrlin[0] = std::max(fht_z->k[truncate], fht_xy->k[truncate]);
         for (int i = 1; i < Nres; ++i)
