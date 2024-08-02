@@ -183,16 +183,16 @@ namespace fidcosmo {
         }
 
         #ifndef NUSE_LOGR_INTERP
-            double evalCorrFunc2dS(float rperp, float rz) const {
+            double evalCorrFunc2dS(float rperp2, float rz) const {
                 /* Evaluate small-scale CF using interpolation. */
                 const static float
                     rz_min = expf(interp2d_cfS->getX1()),
-                    rperp_min = expf(interp2d_cfS->getY1());
+                    rperp2_min = expf(interp2d_cfS->getY1());
 
                 if (rz < rz_min)  rz = rz_min;
-                if (rperp < rperp_min)  rperp = rperp_min;
-                rz = logf(rz);  rperp = logf(rperp);
-                return interp2d_cfS->evaluate(rz, rperp);
+                if (rperp2 < rperp2_min)  rperp2 = rperp2_min;
+                rz = logf(rz);  rperp2 = logf(rperp2);
+                return interp2d_cfS->evaluate(rz, rperp2);
             }
         #else
             double evalCorrFunc2dS(float rperp, float rz) const {

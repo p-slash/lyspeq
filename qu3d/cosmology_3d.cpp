@@ -497,7 +497,7 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     double rarr[nr], cfsarr[nr2];
 
     #ifndef NUSE_LOGR_INTERP
-        const double r2 = 1e6, r1 = 1e-6, dlnr = log(r2/r1) / nr;
+        const double r2 = 1e4, r1 = 1e-4, dlnr = log(r2/r1) / nr;
         for (int i = 0; i < nr; ++i)
             rarr[i] = r1 * exp(i * dlnr);
     #else
@@ -510,7 +510,11 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
 
     for (int iperp = 0; iperp < nr; ++iperp)
         for (int iz = 0; iz < nr; ++iz)
+            #ifndef NUSE_LOGR_INTERP
+            cfsarr[iz + nr * iperp] = evalCorrFunc2dS(rarr[iperp] * rarr[iperp], rarr[iz]);
+            #else
             cfsarr[iz + nr * iperp] = evalCorrFunc2dS(rarr[iperp], rarr[iz]);
+            #endif
 
     out->write(cfsarr, nr2, "CFMODEL_S_2D");
     out->flush();

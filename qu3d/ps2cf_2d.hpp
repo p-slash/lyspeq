@@ -37,8 +37,9 @@ public:
     /* p2d must be in kz-first format, that is first N elements are
        P(kperp[0], kz) and so on. Transformation kperp values must be used.
 
-        First creates interpolator in ln(rz), ln(rperp). Then:
-       Returns: xi_SS interpolator in rz, rperp
+        First creates interpolator in ln(rz), ln(rperp2). Then:
+       Returns: xi_SS interpolator in rz, rperp if return_log_interp=false
+       Returns: xi_SS interpolator in ln(rz), ln(rperp2) if return_log_interp=true
     */
     std::unique_ptr<DiscreteInterpolation2D> transform(
             const double *p2d, int truncate, double rmax,
@@ -80,7 +81,7 @@ public:
         if (return_log_interp)
             return std::make_unique<DiscreteInterpolation2D>(
                 log(fht_z->k[truncate]), fht_z->getDLn(),
-                log(fht_xy->k[truncate]), fht_xy->getDLn(),
+                2.0 * log(fht_xy->k[truncate]), 2.0 * fht_xy->getDLn(),
                 result.get(), Nres, Nres);
 
         // Evaluting log for all coordinates is too expensive.
