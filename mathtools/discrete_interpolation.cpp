@@ -241,7 +241,7 @@ double DiscreteInterpolation2D::evaluate(double x, double y)
     if (ny < 0) ny = 0;
     else if (ny >= Ny - 1) ny = Ny - 2;
 
-    int ind = _getIndex(nx, ny);
+    size_t ind = _getIndex(nx, ny);
     double dnx = xx - nx, dny = yy - ny;
 
     double result =
