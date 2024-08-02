@@ -6,6 +6,7 @@
 #include <string>
 
 #include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/mathutils.hpp"
 #include "io/config_file.hpp"
 #include "qu3d/qu3d_file.hpp"
 
@@ -191,7 +192,7 @@ namespace fidcosmo {
 
                 if (rz < rz_min)  rz = rz_min;
                 if (rperp2 < rperp2_min)  rperp2 = rperp2_min;
-                rz = log2f(rz);  rperp2 = log2f(rperp2);
+                rz = fastlog2(rz);  rperp2 = fastlog2(rperp2);
                 return interp2d_cfS->evaluate(rz, rperp2);
             }
         #else

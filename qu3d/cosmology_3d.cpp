@@ -6,7 +6,6 @@
 #include "core/global_numbers.hpp"
 #include "io/io_helper_functions.hpp"
 #include "mathtools/interpolation.hpp"
-#include "mathtools/mathutils.hpp"
 #include "qu3d/ps2cf_2d.hpp"
 
 
@@ -497,7 +496,7 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     double rarr[nr], cfsarr[nr2];
 
     #ifndef NUSE_LOGR_INTERP
-        const double r2 = 1e4, r1 = 1e-4, dlnr = log(r2/r1) / nr;
+        const double r1 = exp2(interp2d_cfS->getX1()), r2 = 1.0 / r1, dlnr = log(r2/r1) / nr;
         for (int i = 0; i < nr; ++i)
             rarr[i] = r1 * exp(i * dlnr);
     #else

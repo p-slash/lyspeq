@@ -75,6 +75,15 @@ fastlog2 (float x)
 }
 
 static inline float
+fasterlog2 (float x)
+{
+  union { float f; uint32_t i; } vx = { x };
+  float y = vx.i;
+  y *= 1.1920928955078125e-7f;
+  return y - 126.94269504f;
+}
+
+static inline float
 fastlog (float x)
 {
   return 0.69314718f * fastlog2 (x);
@@ -95,43 +104,57 @@ fasterlog (float x)
 
 int time_log_log2() {
     int N = 1000;  int nloop = 100000;
-    float dl = 12.0 / N;
+    float dl = 12.0 / N, result = 0.0f;
+    auto input = std::make_unique<float[]>(N);
+    for (int i = 0; i < N; ++i)
+        input[i] = expf(-6.0f + i * dl);
 
     double t1 = mytime::timer.getTime(), t2 = 0;
     for (int i = 0; i < nloop; ++i) {
         for (int j = 0; j < N; ++j) {
-            float result = logf(-6.0f + j * dl);
+            result += logf(expf(-6.0f + j * dl));
         }
     }
     t2 = mytime::timer.getTime();
 
-    printf("Time spent in logf: %.4f sec\n", 60.0 * (t2 - t1));
+    printf("Time spent in logf: %.4f sec\t\tres %.1f\n", 60.0 * (t2 - t1), result);
 
     t1 = mytime::timer.getTime();
     for (int i = 0; i < nloop; ++i) {
         for (int j = 0; j < N; ++j) {
-            float result = log2f(-6.0f + j * dl);
+            result += log2f(input[j]);
         }
     }
 
     t2 = mytime::timer.getTime();
-    printf("Time spent in log2f: %.4f sec\n", 60.0 * (t2 - t1));
+    printf("Time spent in log2f: %.4f sec\t\tres %.1f\n", 60.0 * (t2 - t1), result);
 
 
     t1 = mytime::timer.getTime();
     for (int i = 0; i < nloop; ++i) {
         for (int j = 0; j < N; ++j) {
-            float result = fastlog2(-6.0f + j * dl);
+            result += fastlog2(input[j]);
         }
     }
 
     t2 = mytime::timer.getTime();
-    printf("Time spent in fastlog2: %.4f sec\n", 60.0 * (t2 - t1));
+    printf("Time spent in fastlog2: %.4f sec\t\tres %.1f\n", 60.0 * (t2 - t1), result);
+
 
     t1 = mytime::timer.getTime();
     for (int i = 0; i < nloop; ++i) {
         for (int j = 0; j < N; ++j) {
-            float result = sqrtf(j * dl + i * dl);
+            result += fasterlog2(input[j]);
+        }
+    }
+
+    t2 = mytime::timer.getTime();
+    printf("Time spent in fasterlog2: %.4f sec\t\tres %.1f\n", 60.0 * (t2 - t1), result);
+
+    t1 = mytime::timer.getTime();
+    for (int i = 0; i < nloop; ++i) {
+        for (int j = 0; j < N; ++j) {
+            result = sqrtf(j * dl + i * dl);
         }
     }
 
@@ -142,12 +165,25 @@ int time_log_log2() {
 }
 
 
+int printFastlog() {
+    int N = 10;
+    float dl = 12.0 / N, result;
+    printf("log2\t flog2 \t ftlog2\n");
+    for (int j = 0; j < N; ++j) {
+        float f = expf(-6.0f + j * dl);
+        printf("%.4f\t%.4f\t%.4f\n", log2(f), fastlog2(f), fastlog2(f));
+    }
+
+    return 0;
+}
+
 int main() {
     int r = 0;
 
     r += test_rotate();
     r += test_fftlog();
     r += time_log_log2();
+    r += printFastlog();
 
     return r;
 }
