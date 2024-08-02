@@ -396,9 +396,9 @@ public:
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < M; ++j) {
                 float dx = r[3 * i] - q->r[3 * j],
-                       dy = r[3 * i + 1] - q->r[3 * j + 1];
+                      dy = r[3 * i + 1] - q->r[3 * j + 1];
 
-                float rz = fabs(r[3 * i + 2] - q->r[3 * j + 2]),
+                float rz = fabsf(r[3 * i + 2] - q->r[3 * j + 2]),
                       rperp = sqrtf(dx * dx + dy * dy);
                 ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
