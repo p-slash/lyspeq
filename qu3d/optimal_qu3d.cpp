@@ -253,7 +253,7 @@ void Qu3DEstimator::_readQSOFiles(
 
 
 void Qu3DEstimator::_calculateBoxDimensions(double L[3], double &z0) {
-    double lymin = 0, lzmin = 1e15,
+    float lymin = 0, lzmin = 1e15,
            lymax = 0, lzmax = 0;
 
     #pragma omp parallel for reduction(min:lymin, lzmin) \
