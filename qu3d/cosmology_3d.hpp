@@ -186,12 +186,12 @@ namespace fidcosmo {
             double evalCorrFunc2dS(float rperp2, float rz) const {
                 /* Evaluate small-scale CF using interpolation. */
                 const static float
-                    rz_min = expf(interp2d_cfS->getX1()),
-                    rperp2_min = expf(interp2d_cfS->getY1());
+                    rz_min = exp2f(interp2d_cfS->getX1()),
+                    rperp2_min = exp2f(interp2d_cfS->getY1());
 
                 if (rz < rz_min)  rz = rz_min;
                 if (rperp2 < rperp2_min)  rperp2 = rperp2_min;
-                rz = logf(rz);  rperp2 = logf(rperp2);
+                rz = log2f(rz);  rperp2 = log2f(rperp2);
                 return interp2d_cfS->evaluate(rz, rperp2);
             }
         #else

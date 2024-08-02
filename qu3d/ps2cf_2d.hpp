@@ -78,10 +78,11 @@ public:
         if (smoother)
             smoother->smooth1D(result.get(), Nres, Nres, true);
 
+        constexpr double log2_e = log2(exp(1.0));
         if (return_log_interp)
             return std::make_unique<DiscreteInterpolation2D>(
-                log(fht_z->k[truncate]), fht_z->getDLn(),
-                2.0 * log(fht_xy->k[truncate]), 2.0 * fht_xy->getDLn(),
+                log2(fht_z->k[truncate]), log2_e * fht_z->getDLn(),
+                2.0 * log2(fht_xy->k[truncate]), 2.0 * log2_e * fht_xy->getDLn(),
                 result.get(), Nres, Nres);
 
         // Evaluting log for all coordinates is too expensive.
