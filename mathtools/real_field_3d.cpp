@@ -240,9 +240,9 @@ size_t RealField3D::getIndex(int nx, int ny, int nz) const {
 size_t RealField3D::getNgpIndex(float coord[3]) const {
     int n[3];
 
-    n[0] = round(coord[0] / dx[0]);
-    n[1] = round(coord[1] / dx[1]);
-    n[2] = round(coord[2] / dx[2]);
+    n[0] = roundf(coord[0] / dx[0]);
+    n[1] = roundf(coord[1] / dx[1]);
+    n[2] = roundf(coord[2] / dx[2]);
 
     return getIndex(n[0], n[1], n[2]);
 }
