@@ -399,8 +399,13 @@ public:
                       dy = r[3 * i + 1] - q->r[3 * j + 1];
 
                 float rz = fabsf(r[3 * i + 2] - q->r[3 * j + 2]),
-                      rperp = sqrtf(dx * dx + dy * dy);
-                ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
+                #ifndef NUSE_LOGR_INTERP
+                    rperp2 = dx * dx + dy * dy;
+                    ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp2, rz);
+                #else
+                    rperp = sqrtf(dx * dx + dy * dy);
+                    ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
+                #endif
             }
         }
     }
