@@ -50,7 +50,8 @@ public:
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth, *in_isig;
-    std::unique_ptr<double[]> r, y, Cy, residual, search, coarse_r, coarse_in, y_isig;
+    std::unique_ptr<float[]> r, coarse_r;
+    std::unique_ptr<double[]> y, Cy, residual, search, coarse_in, y_isig;
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
@@ -100,7 +101,7 @@ public:
         z1 = qFile->wave();
         isig = qFile->ivar();
 
-        r = std::make_unique<double[]>(3 * N);
+        r = std::make_unique<float[]>(3 * N);
         y = std::make_unique<double[]>(N);
         y_isig = std::make_unique<double[]>(N);
         Cy = std::make_unique<double[]>(N);
@@ -110,7 +111,7 @@ public:
         #ifdef COARSE_INTERP
             coarse_N = N / M_LOS;
             coarse_N += N % M_LOS != 0;
-            coarse_r = std::make_unique<double[]>(3 * coarse_N);
+            coarse_r = std::make_unique<float[]>(3 * coarse_N);
             coarse_in = std::make_unique<double[]>(coarse_N);
         #endif
         // Convert to inverse sigma and weight deltas
@@ -193,8 +194,8 @@ public:
             ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
 
             for (int j = i + 1; j < N; ++j) {
-                double rz = r[3 * j + 2] - r[3 * i + 2],
-                       isigG_ij = isigG * isig[j] * z1[j];
+                float rz = r[3 * j + 2] - r[3 * i + 2];
+                double isigG_ij = isigG * isig[j] * z1[j];
                 ccov[j + i * N] = p3d_model->evalCorrFunc2dS(0, rz) * isigG_ij;
             }
         }
@@ -227,11 +228,11 @@ public:
 
             int rem = N % M_LOS;
             if (rem == 0) {
-                cblas_dscal(3 * coarse_N, 1.0 / M_LOS, coarse_r.get(), 1);
+                cblas_sscal(3 * coarse_N, 1.0 / M_LOS, coarse_r.get(), 1);
             }
             else{
-                cblas_dscal(3 * coarse_N - 3, 1.0 / M_LOS, coarse_r.get(), 1);
-                cblas_dscal(3, 1.0 / rem, coarse_r.get() + 3 * coarse_N - 3, 1);
+                cblas_sscal(3 * coarse_N - 3, 1.0 / M_LOS, coarse_r.get(), 1);
+                cblas_sscal(3, 1.0 / rem, coarse_r.get() + 3 * coarse_N - 3, 1);
             }
         }
 
@@ -394,11 +395,11 @@ public:
         int M = q->N;
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < M; ++j) {
-                double dx = r[3 * i] - q->r[3 * j],
+                float dx = r[3 * i] - q->r[3 * j],
                        dy = r[3 * i + 1] - q->r[3 * j + 1];
 
-                double rz = fabs(r[3 * i + 2] - q->r[3 * j + 2]),
-                       rperp = sqrt(dx * dx + dy * dy);
+                float rz = fabs(r[3 * i + 2] - q->r[3 * j + 2]),
+                      rperp = sqrtf(dx * dx + dy * dy);
                 ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
         }

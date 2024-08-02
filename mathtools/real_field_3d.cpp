@@ -169,9 +169,10 @@ std::vector<size_t> RealField3D::findNeighboringPixels(
 }
 
 
-double RealField3D::interpolate(double coord[3]) const {
+double RealField3D::interpolate(float coord[3]) const {
     int n[3];
-    double d[3], r = 0;
+    float d[3];
+    double r = 0;
     size_t idx0 = 0;
 
     for (int axis = 0; axis < 3; ++axis) {
@@ -196,9 +197,10 @@ double RealField3D::interpolate(double coord[3]) const {
 }
 
 
-void RealField3D::reverseInterpolateCIC(double coord[3], double val) {
+void RealField3D::reverseInterpolateCIC(float coord[3], double val) {
     int n[3];
-    double d[3], tmp;
+    float d[3];
+    double tmp;
 
     for (int axis = 0; axis < 3; ++axis) {
         d[axis] = coord[axis] / dx[axis];
@@ -235,7 +237,7 @@ size_t RealField3D::getIndex(int nx, int ny, int nz) const {
     return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
 }
 
-size_t RealField3D::getNgpIndex(double coord[3]) const {
+size_t RealField3D::getNgpIndex(float coord[3]) const {
     int n[3];
 
     n[0] = round(coord[0] / dx[0]);
@@ -245,9 +247,9 @@ size_t RealField3D::getNgpIndex(double coord[3]) const {
     return getIndex(n[0], n[1], n[2]);
 }
 
-void RealField3D::getCicIndices(double coord[3], size_t idx[8]) const {
+void RealField3D::getCicIndices(float coord[3], size_t idx[8]) const {
     int n[3];
-    double d[3];
+    float d[3];
 
     for (int axis = 0; axis < 3; ++axis) {
         d[axis] = coord[axis] / dx[axis];
