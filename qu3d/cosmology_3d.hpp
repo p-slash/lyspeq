@@ -6,6 +6,7 @@
 #include <string>
 
 #include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/mathutils.hpp"
 #include "io/config_file.hpp"
 #include "qu3d/qu3d_file.hpp"
 
@@ -183,18 +184,19 @@ namespace fidcosmo {
         }
 
         #ifndef NUSE_LOGR_INTERP
-            double evalCorrFunc2dS(double rperp, double rz) const {
+            double evalCorrFunc2dS(float rperp2, float rz) const {
                 /* Evaluate small-scale CF using interpolation. */
-                const static double
-                    rz_min = exp(interp2d_cfS->getX1()),
-                    rperp_min = exp(interp2d_cfS->getY1());
+                const static float
+                    rz_min = exp2f(interp2d_cfS->getX1()),
+                    rperp2_min = exp2f(interp2d_cfS->getY1());
 
                 if (rz < rz_min)  rz = rz_min;
-                if (rperp < rperp_min)  rperp = rperp_min;
-                return interp2d_cfS->evaluate(log(rz), log(rperp));
+                if (rperp2 < rperp2_min)  rperp2 = rperp2_min;
+                rz = fastlog2(rz);  rperp2 = fastlog2(rperp2);
+                return interp2d_cfS->evaluate(rz, rperp2);
             }
         #else
-            double evalCorrFunc2dS(double rperp, double rz) const {
+            double evalCorrFunc2dS(float rperp, float rz) const {
                 /* Evaluate small-scale CF using interpolation. */
                 return interp2d_cfS->evaluate(rz, rperp);
             }

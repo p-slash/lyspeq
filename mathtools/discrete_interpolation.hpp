@@ -71,10 +71,10 @@ class DiscreteInterpolation2D
 {
     double x1, x2, dx, y1, y2, dy;
     double *z;
-    int Nx, Ny, size;
+    size_t Nx, Ny, size;
 
     inline
-    int _getIndex(int nx, int ny) {  return nx + Nx * ny; };
+    size_t _getIndex(int nx, int ny) {  return nx + Nx * ny; };
 public:
     DiscreteInterpolation2D(
         double x_start, double delta_x, double y_start, double delta_y,
