@@ -40,10 +40,10 @@ class RealField3D {
     bool _inplace;
     std::unique_ptr<double[]> _field_x;
 public:
-    size_t size_complex, size_real, ngrid_xy;
-    int ngrid[3], ngrid_kz, ngrid_z;
-    double length[3], dx[3], k_fund[3], z0,
-           cellvol, invtotalvol, invsqrtcellvol;
+    size_t size_complex, size_real, ngrid_xy, ngrid_z, ngrid_kz;
+    int ngrid[3];
+    float dx[3], length[3], z0;
+    double k_fund[3], cellvol, invtotalvol, invsqrtcellvol;
     std::vector<std::complex<double>> field_k;
     double *field_x;
 
@@ -79,8 +79,8 @@ public:
     double dot(const RealField3D &other);
 
     size_t getIndex(int nx, int ny, int nz) const;
-    size_t getNgpIndex(double coord[3]) const;
-    void getCicIndices(double coord[3], size_t idx[8]) const;
+    size_t getNgpIndex(float coord[3]) const;
+    void getCicIndices(float coord[3], size_t idx[8]) const;
     inline size_t getCorrectIndexX(size_t j) {
         return j + (j / ngrid[2]) * (ngrid[2] - ngrid_z);
     }
@@ -93,13 +93,13 @@ public:
     std::unique_ptr<double[]> getKperpArray() const;
 
     std::vector<size_t> findNeighboringPixels(size_t i, double radius) const;
-    double interpolate(double coord[3]) const;
-    void reverseInterpolateCIC(double coord[3], double val);
-    void reverseInterpolateNGP(double coord[3], double val) {
+    double interpolate(float coord[3]) const;
+    void reverseInterpolateCIC(float coord[3], double val);
+    void reverseInterpolateNGP(float coord[3], double val) {
         field_x[getNgpIndex(coord)] += val;
     }
 
-    void reverseInterpolateNGP_safe(double coord[3], size_t idx, double val) {
+    void reverseInterpolateNGP_safe(float coord[3], size_t idx, double val) {
         if (idx != getNgpIndex(coord))
             return;
         field_x[idx] += val;

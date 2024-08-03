@@ -6,7 +6,6 @@
 #include "core/global_numbers.hpp"
 #include "io/io_helper_functions.hpp"
 #include "mathtools/interpolation.hpp"
-#include "mathtools/mathutils.hpp"
 #include "qu3d/ps2cf_2d.hpp"
 
 
@@ -426,7 +425,7 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
             psarr[iz + Nhankel * iperp] = evaluateSS(kperparr[iperp], kzarr[iz]);
 
     #ifndef NUSE_LOGR_INTERP
-        interp2d_cfS = hankel.transform(psarr.get(), 256, 0, true);
+        interp2d_cfS = hankel.transform(psarr.get(), 420, 0, true);
     #else
         interp2d_cfS = hankel.transform(
             psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
@@ -497,7 +496,7 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     double rarr[nr], cfsarr[nr2];
 
     #ifndef NUSE_LOGR_INTERP
-        const double r2 = 1e6, r1 = 1e-6, dlnr = log(r2/r1) / nr;
+        const double r1 = exp2(interp2d_cfS->getX1()), r2 = 1.0 / r1, dlnr = log(r2/r1) / nr;
         for (int i = 0; i < nr; ++i)
             rarr[i] = r1 * exp(i * dlnr);
     #else
@@ -510,7 +509,11 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
 
     for (int iperp = 0; iperp < nr; ++iperp)
         for (int iz = 0; iz < nr; ++iz)
+            #ifndef NUSE_LOGR_INTERP
+            cfsarr[iz + nr * iperp] = evalCorrFunc2dS(rarr[iperp] * rarr[iperp], rarr[iz]);
+            #else
             cfsarr[iz + nr * iperp] = evalCorrFunc2dS(rarr[iperp], rarr[iz]);
+            #endif
 
     out->write(cfsarr, nr2, "CFMODEL_S_2D");
     out->flush();
