@@ -11,6 +11,13 @@
 #include "mathtools/stats.hpp"
 #include "io/logger.hpp"
 
+
+// Assume 2-4 threads will not encounter race conditions
+#ifndef RINTERP_NTHREADS
+#define RINTERP_NTHREADS 3
+#endif
+
+
 /* Timing map */
 std::unordered_map<std::string, std::pair<int, double>> timings{
     {"rInterp", std::make_pair(0, 0.0)}, {"interp", std::make_pair(0, 0.0)},
@@ -538,16 +545,14 @@ void Qu3DEstimator::reverseInterpolate() {
         for (auto &qso : quasars)
             qso->coarseGrainIn();
 
-        // Assume 2 threads will not encounter race conditions
-        #pragma omp parallel for num_threads(2)
+        #pragma omp parallel for num_threads(RINTERP_NTHREADS)
         for (const auto &qso : quasars) {
             for (int i = 0; i < qso->coarse_N; ++i)
                 mesh.reverseInterpolateCIC(
                     qso->coarse_r.get() + 3 * i, qso->coarse_in[i]);
         }
     #else
-        // Assume 2 threads will not encounter race conditions
-        #pragma omp parallel for num_threads(2)
+        #pragma omp parallel for num_threads(RINTERP_NTHREADS)
         for (const auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
                 mesh.reverseInterpolateCIC(
@@ -570,16 +575,14 @@ void Qu3DEstimator::reverseInterpolateIsig() {
         for (auto &qso : quasars)
             qso->coarseGrainInIsig();
 
-        // Assume 2 threads will not encounter race conditions
-        #pragma omp parallel for num_threads(2)
+        #pragma omp parallel for num_threads(RINTERP_NTHREADS)
         for (const auto &qso : quasars) {
             for (int i = 0; i < qso->coarse_N; ++i)
                 mesh.reverseInterpolateCIC(
                     qso->coarse_r.get() + 3 * i, qso->coarse_in[i]);
         }
     #else
-        // Assume 2 threads will not encounter race conditions
-        #pragma omp parallel for num_threads(2)
+        #pragma omp parallel for num_threads(RINTERP_NTHREADS)
         for (const auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
                 mesh.reverseInterpolateCIC(
