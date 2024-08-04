@@ -287,7 +287,7 @@ DiscreteBicubicSpline::DiscreteBicubicSpline(
 
 double DiscreteBicubicSpline::evaluate(double x, double y) {
     double yy = (y - y1) / dy;
-    int i1 = yy - halfm;
+    int i1 = yy - (halfm - 1);
 
     if (i1 < 0)
         i1 = 0;
