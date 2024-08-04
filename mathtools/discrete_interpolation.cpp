@@ -265,8 +265,42 @@ bool DiscreteInterpolation2D::operator==(const DiscreteInterpolation2D &rhs) con
 
 
 
+DiscreteBicubicSpline::DiscreteBicubicSpline(
+        double x_start, double delta_x, double y_start, double delta_y,
+        const double *z_arr, int Nxsize, int Nysize, int halfn
+) : y1(y_start), dy(delta_y), Ny(Nysize), halfm(halfn), m(2 * halfn)
+{
+    _spl_local = std::make_unique<DiscreteCubicInterpolation1D>(0, dy, m);
+    _zy = _spl_local->get();
+
+    z = std::make_unique<double[]>(Nxsize * Ny);
+    std::copy_n(z_arr, Nxsize * Ny, z.get());
+    _spls_y.reserve(Ny);
+    for (int i = 0; i < Ny; ++i)
+        _spls_y.push_back(
+            std::make_unique<DiscreteCubicInterpolation1D>(
+                x_start, delta_x, Nxsize, z.get() + i * Nxsize, false
+            )
+        );
+}
 
 
+double DiscreteBicubicSpline::evaluate(double x, double y) {
+    double yy = (y - y1) / dy;
+    int i1 = yy - halfm;
+
+    if (i1 < 0)
+        i1 = 0;
+
+    if (i1 > (Ny - m))
+        i1 = Ny - m;
+
+    for (int i = 0; i < m; ++i)
+        _zy[i] = _spls_y[i + i1]->evaluate(x);
+
+    _spl_local->construct_notaknot();
+    return _spl_local->evaluate(y - i1 * dy);
+}
 
 
 
