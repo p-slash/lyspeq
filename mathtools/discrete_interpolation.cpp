@@ -268,9 +268,10 @@ bool DiscreteInterpolation2D::operator==(const DiscreteInterpolation2D &rhs) con
 DiscreteBicubicSpline::DiscreteBicubicSpline(
         double x_start, double delta_x, double y_start, double delta_y,
         const double *z_arr, int Nxsize, int Nysize, int halfn
-) : y1(y_start), dy(delta_y), Ny(Nysize), halfm(halfn), m(2 * halfn)
+) : y1(y_start), dy(delta_y), Ny(Nysize), halfm(halfn)
 {
-    _spl_local = std::make_unique<DiscreteCubicInterpolation1D>(0, dy, m);
+    m = std::min(2 * halfn, Ny);
+    _spl_local = std::make_unique<DiscreteCubicInterpolation1D>(y1, dy, m);
     _zy = _spl_local->get();
 
     z = std::make_unique<double[]>(Nxsize * Ny);
