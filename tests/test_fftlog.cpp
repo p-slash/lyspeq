@@ -105,6 +105,7 @@ fasterlog (float x)
 int time_log_log2() {
     int N = 1000;  int nloop = 100000;
     float dl = 12.0 / N, result = 0.0f;
+    double result2 = 0;
     auto input = std::make_unique<float[]>(N);
     for (int i = 0; i < N; ++i)
         input[i] = expf(-6.0f + i * dl);
@@ -112,13 +113,25 @@ int time_log_log2() {
     double t1 = mytime::timer.getTime(), t2 = 0;
     for (int i = 0; i < nloop; ++i) {
         for (int j = 0; j < N; ++j) {
-            result += logf(expf(-6.0f + j * dl));
+            result += logf(input[j]);
         }
     }
     t2 = mytime::timer.getTime();
 
     printf("Time spent in logf: %.4f sec\t\tres %.1f\n", 60.0 * (t2 - t1), result);
 
+    result = 0;
+    t1 = mytime::timer.getTime();
+    for (int i = 0; i < nloop; ++i) {
+        for (int j = 0; j < N; ++j) {
+            result2 = log(input[j]);
+        }
+    }
+
+    t2 = mytime::timer.getTime();
+    printf("Time spent in log: %.4f sec\t\tres %.1f\n", 60.0 * (t2 - t1), result2);
+
+    result = 0;
     t1 = mytime::timer.getTime();
     for (int i = 0; i < nloop; ++i) {
         for (int j = 0; j < N; ++j) {
@@ -129,7 +142,7 @@ int time_log_log2() {
     t2 = mytime::timer.getTime();
     printf("Time spent in log2f: %.4f sec\t\tres %.1f\n", 60.0 * (t2 - t1), result);
 
-
+    result = 0;
     t1 = mytime::timer.getTime();
     for (int i = 0; i < nloop; ++i) {
         for (int j = 0; j < N; ++j) {
@@ -140,7 +153,7 @@ int time_log_log2() {
     t2 = mytime::timer.getTime();
     printf("Time spent in fastlog2: %.4f sec\t\tres %.1f\n", 60.0 * (t2 - t1), result);
 
-
+    result = 0;
     t1 = mytime::timer.getTime();
     for (int i = 0; i < nloop; ++i) {
         for (int j = 0; j < N; ++j) {
@@ -151,10 +164,11 @@ int time_log_log2() {
     t2 = mytime::timer.getTime();
     printf("Time spent in fasterlog2: %.4f sec\t\tres %.1f\n", 60.0 * (t2 - t1), result);
 
+    result = 0;
     t1 = mytime::timer.getTime();
     for (int i = 0; i < nloop; ++i) {
         for (int j = 0; j < N; ++j) {
-            result = sqrtf(j * dl + i * dl);
+            result += sqrtf(j * dl + i * dl);
         }
     }
 
