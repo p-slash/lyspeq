@@ -2,6 +2,7 @@
 #define DISCRETE_INTERPOLATION_H
 
 #include <memory>
+#include <vector>
 
 // Stores a copy of y array.
 // Assumes evenly spaced x.
@@ -45,10 +46,11 @@ class DiscreteCubicInterpolation1D {
     int N;
 
     std::unique_ptr<double[]> _y2p;
+
+public:
     void construct_natural();
     void construct_notaknot();
 
-public:
     DiscreteCubicInterpolation1D(
         double x_start, double delta_x, int Nsize,
         double *y_arr=nullptr, bool alloc=true, bool notaknot=true);
@@ -88,6 +90,26 @@ public:
     inline double getX1() const { return x1; }
     inline double getY1() const { return y1; }
 };
+
+
+class DiscreteBicubicSpline {
+    double y1, dy;
+    int Ny, halfm, m;
+
+    std::unique_ptr<DiscreteCubicInterpolation1D> _spl_local;
+    double *_zy;
+
+    std::unique_ptr<double[]> z;
+    std::vector<std::unique_ptr<DiscreteCubicInterpolation1D>> _spls_y;
+
+public:
+    DiscreteBicubicSpline(
+        double x_start, double delta_x, double y_start, double delta_y,
+        const double *z_arr, int Nxsize, int Nysize, int halfn=5);
+
+    double evaluate(double x, double y);
+};
+
 
 typedef std::shared_ptr<DiscreteInterpolation1D> shared_interp_1d;
 typedef std::shared_ptr<DiscreteInterpolation2D> shared_interp_2d;
