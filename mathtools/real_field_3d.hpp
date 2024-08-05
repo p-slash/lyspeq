@@ -9,6 +9,7 @@
 
 #include "core/omp_manager.hpp"
 #include "mathtools/my_random.hpp"
+#include "mathtools/discrete_interpolation.hpp"
 
 #if defined(ENABLE_OMP)
 namespace myomp {
@@ -76,6 +77,8 @@ public:
     void rawFftK2X() { fftw_execute(p_k2x); }
     void fftX2K();
     void fftK2X();
+    void convolvePk(const DiscreteLogInterpolation2D &Pk);
+    void convolveSqrtPk(const DiscreteLogInterpolation2D &Pk);
     double dot(const RealField3D &other);
 
     size_t getIndex(int nx, int ny, int nz) const;
