@@ -110,12 +110,8 @@ namespace fidcosmo {
         std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
 
-        std::unique_ptr<DiscreteInterpolation2D>
-            interp2d_pL, interp2d_pS, interp2d_cfS;
-
-        std::unique_ptr<DiscreteInterpolation1D>
-            interp_kp_pL, interp_kz_pL, interp_kp_pS, interp_kz_pS,
-            interp_p1d;
+        std::unique_ptr<DiscreteInterpolation2D> interp2d_cfS;
+        std::unique_ptr<DiscreteInterpolation1D> interp_p1d;
 
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
@@ -125,6 +121,7 @@ namespace fidcosmo {
 
     public:
         static constexpr double MAX_R_FACTOR = 20.0;
+        DiscreteLogInterpolation2D interp2d_pL, interp2d_pS;
         /* This function reads following keys from config file:
         b_F: double
         alpha_F (double): Redshift growth power of b_F.
@@ -153,30 +150,6 @@ namespace fidcosmo {
         }
 
         double evalExplicit(double k, double kz) const;
-
-        double evaluate(double kperp, double kz) const {
-            /* Evaluate large-scale P3D using interpolation. */
-            if ((kz == 0) && (kperp == 0))
-                return 0;
-            else if (kz == 0)
-                return exp(interp_kp_pL->evaluate(log(kperp)));
-            else if (kperp == 0)
-                return exp(interp_kz_pL->evaluate(log(kz)));
-
-            return exp(interp2d_pL->evaluate(log(kz), log(kperp)));
-        }
-
-        double evaluateSS(double kperp, double kz) const {
-            /* Evaluate small-scale P3D using interpolation. */
-            if ((kz == 0) && (kperp == 0))
-                return 0;
-            else if (kz == 0)
-                return exp(interp_kp_pS->evaluate(log(kperp)));
-            else if (kperp == 0)
-                return exp(interp_kz_pS->evaluate(log(kz)));
-
-            return exp(interp2d_pS->evaluate(log(kz), log(kperp)));
-        }
 
         double evalP1d(double kz) const {
             if (kz < 1e-6) return exp(interp_p1d->evaluate(-13.8155));

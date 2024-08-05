@@ -325,7 +325,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
             lnP[iz + N * iperp] = log(evalExplicit(k, kz) + SAFE_ZERO) + k_rL;
         }
     }
-    interp2d_pL = std::make_unique<DiscreteInterpolation2D>(
+    interp2d_pL.interp_2d = std::make_unique<DiscreteInterpolation2D>(
         LNKMIN, dlnk, LNKMIN, dlnk, lnP.get(), N, N);
 
     /* Small-scale 2D */
@@ -341,7 +341,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
             lnP[iz + N * iperp] = log(evalExplicit(k, kz) * k_rL + SAFE_ZERO);
         }
     }
-    interp2d_pS = std::make_unique<DiscreteInterpolation2D>(
+    interp2d_pS.interp_2d = std::make_unique<DiscreteInterpolation2D>(
         LNKMIN, dlnk, LNKMIN, dlnk, lnP.get(), N, N);
 
     /* Large-scale 1Ds */
@@ -352,7 +352,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
         lnP[iperp] = log(evalExplicit(k, 0) + SAFE_ZERO) + k_rL;
     }
 
-    interp_kp_pL = std::make_unique<DiscreteInterpolation1D>(
+    interp2d_pL.interp_x = std::make_unique<DiscreteInterpolation1D>(
         LNKMIN, dlnk, N, lnP.get());
 
     for (int iz = 0; iz < N; ++iz) {
@@ -361,7 +361,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
 
         lnP[iz] = log(evalExplicit(kz, kz) + SAFE_ZERO) + k_rL;
     }
-    interp_kz_pL = std::make_unique<DiscreteInterpolation1D>(
+    interp2d_pL.interp_y = std::make_unique<DiscreteInterpolation1D>(
         LNKMIN, dlnk, N, lnP.get());
 
 
@@ -373,7 +373,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
         lnP[iperp] = log(evalExplicit(k, 0) * k_rL + SAFE_ZERO);
     }
 
-    interp_kp_pS = std::make_unique<DiscreteInterpolation1D>(
+    interp2d_pS.interp_x = std::make_unique<DiscreteInterpolation1D>(
         LNKMIN, dlnk, N, lnP.get());
 
     for (int iz = 0; iz < N; ++iz) {
@@ -382,7 +382,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
 
         lnP[iz] = log(evalExplicit(k, k) * k_rL + SAFE_ZERO);
     }
-    interp_kz_pS = std::make_unique<DiscreteInterpolation1D>(
+    interp2d_pS.interp_y = std::make_unique<DiscreteInterpolation1D>(
         LNKMIN, dlnk, N, lnP.get());
 }
 
@@ -422,7 +422,7 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
 
     for (int iperp = 0; iperp < Nhankel; ++iperp)
         for (int iz = 0; iz < Nhankel; ++iz)
-            psarr[iz + Nhankel * iperp] = evaluateSS(kperparr[iperp], kzarr[iz]);
+            psarr[iz + Nhankel * iperp] = interp2d_pS.evaluate(kperparr[iperp], kzarr[iz]);
 
     #ifndef NUSE_LOGR_INTERP
         interp2d_cfS = hankel.transform(psarr.get(), 420, 0, true);
@@ -474,14 +474,14 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
 
     for (int iperp = 0; iperp < nlnk; ++iperp)
         for (int iz = 0; iz < nlnk; ++iz)
-            pmarr[iz + nlnk * iperp] = evaluate(karr[iperp], karr[iz]);
+            pmarr[iz + nlnk * iperp] = interp2d_pL.evaluate(karr[iperp], karr[iz]);
 
     out->write(pmarr, nlnk2, "PMODEL_L");
     out->flush();
 
     for (int iperp = 0; iperp < nlnk; ++iperp)
         for (int iz = 0; iz < nlnk; ++iz)
-            pmarr[iz + nlnk * iperp] = evaluateSS(karr[iperp], karr[iz]);
+            pmarr[iz + nlnk * iperp] = interp2d_pS.evaluate(karr[iperp], karr[iz]);
 
     out->write(pmarr, nlnk2, "PMODEL_S");
     out->flush();
