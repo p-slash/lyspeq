@@ -1,6 +1,7 @@
 #ifndef DISCRETE_INTERPOLATION_H
 #define DISCRETE_INTERPOLATION_H
 
+#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -25,7 +26,7 @@ public:
     bool operator!=(const DiscreteInterpolation1D &rhs) const
     { return ! (*this==rhs); };
 
-    double evaluate(double x);
+    double evaluate(double x) const;
     void evaluateVector(const double *xarr, int size, double *out);
     double* get() const { return y; }
     int size() const { return N; }
@@ -60,7 +61,7 @@ public:
     bool operator!=(const DiscreteCubicInterpolation1D &rhs) const
     { return ! (*this==rhs); };
 
-    double evaluate(double x);
+    double evaluate(double x) const;
     double* get() const { return y; }
     int size() const { return N; }
 };
@@ -76,7 +77,7 @@ class DiscreteInterpolation2D
     size_t Nx, Ny, size;
 
     inline
-    size_t _getIndex(int nx, int ny) {  return nx + Nx * ny; };
+    size_t _getIndex(int nx, int ny) const {  return nx + Nx * ny; };
 public:
     DiscreteInterpolation2D(
         double x_start, double delta_x, double y_start, double delta_y,
@@ -86,10 +87,27 @@ public:
     bool operator!=(const DiscreteInterpolation2D &rhs) const
     { return ! (*this==rhs); };
 
-    double evaluate(double x, double y);
+    double evaluate(double x, double y) const;
     inline double getX1() const { return x1; }
     inline double getY1() const { return y1; }
 };
+
+
+typedef struct {
+    /* Note interp_2d must be defined y, x due to legacy code */
+    std::unique_ptr<DiscreteInterpolation2D> interp_2d;
+    std::unique_ptr<DiscreteInterpolation1D> interp_x, interp_y;
+    double evaluate(double x, double y) const {
+        if ((x == 0) && (y == 0))
+            return 0;
+        else if (x == 0)
+            return exp(interp_y->evaluate(log(y)));
+        else if (y == 0)
+            return exp(interp_x->evaluate(log(x)));
+
+        return exp(interp_2d->evaluate(log(y), log(x)));
+    }
+} DiscreteLogInterpolation2D;
 
 
 class DiscreteBicubicSpline {

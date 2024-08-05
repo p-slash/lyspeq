@@ -1,7 +1,6 @@
 #include "discrete_interpolation.hpp"
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 
 constexpr double
 cubic_notaknot_u[] = {
@@ -67,7 +66,7 @@ void DiscreteInterpolation1D::resetPointer(
     y = y_arr;
 }
 
-double DiscreteInterpolation1D::evaluate(double x)
+double DiscreteInterpolation1D::evaluate(double x) const
 {
     double xx = (x - x1) / dx;
     int n = (int) xx;
@@ -189,7 +188,7 @@ void DiscreteCubicInterpolation1D::resetPointer(
         construct_natural();
 }
 
-double DiscreteCubicInterpolation1D::evaluate(double x)
+double DiscreteCubicInterpolation1D::evaluate(double x) const
 {
     double xx = (x - x1) / dx;
     int n = (int) xx;
@@ -230,7 +229,7 @@ DiscreteInterpolation2D::DiscreteInterpolation2D(
     std::copy(z_arr, z_arr+size, z);
 }
 
-double DiscreteInterpolation2D::evaluate(double x, double y)
+double DiscreteInterpolation2D::evaluate(double x, double y) const
 {
     double xx = (x - x1) / dx, yy = (y - y1) / dy;
     int nx = (int) xx, ny = (int) yy;
