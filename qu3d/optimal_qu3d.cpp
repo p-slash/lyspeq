@@ -76,7 +76,7 @@ void logPmodel() {
         double k = 0.02 + i * 0.02;
         DEBUG_LOG(
             " P3d(kperp=%.2f, kz=%.2f) = %.2f",
-            k, kz, p3d_model->evaluate(k, kz));
+            k, kz, p3d_model->interp2d_pL.evaluate(k, kz));
     }
     DEBUG_LOG("\n");
     DEBUG_LOG("VarLss: %.5e\n", p3d_model->getVarLss());
@@ -443,7 +443,7 @@ void Qu3DEstimator::_openResultsFile() {
             size_t i = iz + bins::NUMBER_OF_K_BANDS * iperp;
             kperp_grid[i] = bins::KBAND_CENTERS[iperp];
             kz_grid[i] = bins::KBAND_CENTERS[iz];
-            pfid_grid[i] = p3d_model->evaluate(kperp_grid[i], kz_grid[i]);
+            pfid_grid[i] = p3d_model->interp2d_pL.evaluate(kperp_grid[i], kz_grid[i]);
         }
     }
 
@@ -600,19 +600,7 @@ void Qu3DEstimator::multMeshComp() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     reverseInterpolateIsig();
-    // Convolve power. Normalization including cellvol and N^3 yields inverse
-    // total volume
-    mesh.rawFftX2K();
-    #pragma omp parallel for
-    for (size_t ij = 0; ij < mesh.ngrid_xy; ++ij) {
-        double kperp = mesh.getKperpFromIperp(ij);
-
-        for (size_t k = 0; k < mesh.ngrid_kz; ++k)
-            mesh.field_k[k + mesh.ngrid_kz * ij] *=
-                mesh.invtotalvol
-                * p3d_model->evaluate(kperp, k * mesh.k_fund[2]);
-    }
-    mesh.rawFftK2X();
+    mesh.convolvePk(p3d_model->interp2d_pL);
 
     double dt = mytime::timer.getTime();
     // Interpolate and Weight by isig
@@ -1239,7 +1227,7 @@ void Qu3DEstimator::write() {
                    kz = bins::KBAND_CENTERS[iz],
                    P3D = filt_power[i] - filt_bias[i],
                    e_P3D = sqrt(covariance[i * (NUMBER_OF_K_BANDS_2 + 1)]),
-                   Pfid = p3d_model->evaluate(kperp, kz),
+                   Pfid = p3d_model->interp2d_pL.evaluate(kperp, kz),
                    d = filt_power[i],
                    b = filt_bias[i],
                    Fd = raw_power[i],
@@ -1280,20 +1268,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     */
 
     mesh_rnd.fillRndNormal();
-    mesh_rnd.fftX2K();
-
-    #pragma omp parallel for
-    for (size_t ij = 0; ij < mesh_rnd.ngrid_xy; ++ij) {
-        double kperp = mesh_rnd.getKperpFromIperp(ij);
-
-        for (size_t k = 0; k < mesh_rnd.ngrid_kz; ++k)
-            mesh_rnd.field_k[k + mesh_rnd.ngrid_kz * ij] *=
-                mesh_rnd.invsqrtcellvol * sqrt(
-                    p3d_model->evaluate(kperp, k * mesh_rnd.k_fund[2])
-            );
-    }
-
-    mesh_rnd.fftK2X();
+    mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pL);
 
     #pragma omp parallel for
     for (auto &qso : quasars) {
