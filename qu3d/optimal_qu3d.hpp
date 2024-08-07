@@ -85,7 +85,7 @@ public:
 
     /* Return residual^T . residual */
     double calculateResidualNorm2();
-    void updateY(double residual_norm2);
+    void updateY(double residual_norm2, bool rng_mode=false);
     void calculateNewDirection(double beta);
 
     /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
@@ -96,6 +96,7 @@ public:
     void estimatePower();
     void estimateNoiseBiasMc();
     void estimateTotalBiasMc();
+    void conjugateGradientSampler();
 
 
     void drawRndDeriv(int i);
