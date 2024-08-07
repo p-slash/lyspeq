@@ -717,10 +717,6 @@ void Qu3DEstimator::updateY(double residual_norm2, bool rng_mode) {
 
     double pTCp = 0, alpha = 0;
 
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        qso->in = qso->search.get();
-
     /* Multiply C x search into Cy => C. p(in) = out*/
     multiplyCovVector();
 
@@ -739,7 +735,6 @@ void Qu3DEstimator::updateY(double residual_norm2, bool rng_mode) {
             /* in is search.get() */
             cblas_daxpy(qso->N, zrnd, qso->in, 1, qso->y.get(), 1);
             cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
-            qso->in = qso->y.get();
         }
     }
     else {
@@ -750,7 +745,6 @@ void Qu3DEstimator::updateY(double residual_norm2, bool rng_mode) {
             /* in is search.get() */
             cblas_daxpy(qso->N, alpha, qso->in, 1, qso->y.get(), 1);
             cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
-            qso->in = qso->y.get();
         }
     }
 
@@ -816,6 +810,8 @@ void Qu3DEstimator::conjugateGradientDescent() {
         for (int i = 0; i < qso->N; ++i) {
             qso->residual[i] = qso->truth[i] - qso->out[i];
             qso->search[i] = qso->residual[i];
+            // Only seached multiplied from here until endconjugateGradientDescent
+            qso->in = qso->search.get();
         }
     }
 
@@ -851,6 +847,7 @@ endconjugateGradientDescent:
     if (CONT_MARG_ENABLED) {
         #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars) {
+            qso->in = qso->y.get();
             std::swap(qso->truth, qso->in);
             qso->multTruthWithMarg();
             std::swap(qso->truth, qso->in);
@@ -859,8 +856,10 @@ endconjugateGradientDescent:
     }
     else {
         #pragma omp parallel for
-        for (auto &qso : quasars)
+        for (auto &qso : quasars) {
+            qso->in = qso->y.get();
             qso->multIsigInVector();
+        }
     }
 
     dt = mytime::timer.getTime() - dt;
@@ -1039,7 +1038,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
 
         /* calculate Cinv . n into y */
         // conjugateGradientDescent();
-        verbose = nmc < 4;
+
         conjugateGradientSampler();
         cgsGetY();
 
@@ -1090,6 +1089,8 @@ void Qu3DEstimator::conjugateGradientSampler() {
     for (auto &qso : quasars) {
         std::copy_n(qso->truth, qso->N, qso->residual.get());
         std::copy_n(qso->truth, qso->N, qso->search.get());
+        // Only seached multiplied from here until endconjugateGradientSampler
+        qso->in = qso->search.get();
     }
 
     double old_residual_norm2 = calculateResidualNorm2(),
@@ -1131,6 +1132,7 @@ void Qu3DEstimator::cgsGetY() {
     if (CONT_MARG_ENABLED) {
         #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars) {
+            qso->in = qso->y.get();
             std::swap(qso->truth, qso->in);
             qso->multTruthWithMarg();
             std::swap(qso->truth, qso->in);
@@ -1140,6 +1142,7 @@ void Qu3DEstimator::cgsGetY() {
     else {
         #pragma omp parallel for
         for (auto &qso : quasars) {
+            qso->in = qso->y.get();
             qso->multIsigInVector();
         }
     }
@@ -1369,8 +1372,10 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     */
     conjugateGradientSampler();
     /* Get m vector into truth by multiplying with C(tilde) */
-    for (auto &qso : quasars)
+    for (auto &qso : quasars) {
+        qso->in = qso->y.get();
         std::swap(qso->truth, qso->out);
+    }
 
     multiplyCovVector();
 
