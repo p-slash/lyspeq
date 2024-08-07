@@ -9,6 +9,7 @@ public:
 
     void seed(size_t in) { rng_engine.seed(in); }
 
+    double normal() { return n_dist(rng_engine); }
     void fillVectorNormal(double *v, unsigned int size) {
         for (unsigned int i = 0; i < size; ++i)
             v[i] = n_dist(rng_engine);
