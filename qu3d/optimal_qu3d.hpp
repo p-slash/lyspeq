@@ -97,6 +97,7 @@ public:
     void estimateNoiseBiasMc();
     void estimateTotalBiasMc();
     void conjugateGradientSampler();
+    void cgsGetY();
 
 
     void drawRndDeriv(int i);

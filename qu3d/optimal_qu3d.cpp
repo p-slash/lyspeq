@@ -522,6 +522,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     _setupMesh(radius);
     _constructMap();
     _findNeighbors();
+    radius *= rscale_factor;
 
     if (CONT_MARG_ENABLED)
         _createRmatFiles();
@@ -532,8 +533,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     if (config.getInteger("TestGaussianField") > 0)
         replaceDeltasWithGaussianField();
-
-    radius *= rscale_factor;
 }
 
 void Qu3DEstimator::reverseInterpolate() {
@@ -1042,6 +1041,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
         // conjugateGradientDescent();
         verbose = nmc < 4;
         conjugateGradientSampler();
+        cgsGetY();
 
         int jj = (nmc - 1) % M_MCS;
         /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
@@ -1120,6 +1120,14 @@ endconjugateGradientSampler:
         LOG::LOGGER.STD(
             "  conjugateGradientSampler finished in %d iterations.\n", niter);
 
+    dt = mytime::timer.getTime() - dt;
+    ++timings["CGS"].first;
+    timings["CGS"].second += dt;
+}
+
+
+
+void Qu3DEstimator::cgsGetY() {
     if (CONT_MARG_ENABLED) {
         #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars) {
@@ -1135,10 +1143,7 @@ endconjugateGradientSampler:
             qso->multIsigInVector();
         }
     }
-
-    dt = mytime::timer.getTime() - dt;
-    ++timings["CGD"].first;
-    timings["CGD"].second += dt;
+    
 }
 
 
@@ -1350,7 +1355,6 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
        mesh_g.length[1] *= 1.25; mesh_g.length[2] *= 1.25;
        mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
        mesh_rnd.construct();
-    */
 
     mesh_rnd.fillRndNormal();
     mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pL);
@@ -1362,6 +1366,16 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
             qso->truth[i] += qso->isig[i] * qso->z1[i] * mesh_rnd.interpolate(
                 qso->r.get() + 3 * i);
     }
+    */
+    conjugateGradientSampler();
+    /* Get m vector into truth by multiplying with C(tilde) */
+    for (auto &qso : quasars)
+        std::swap(qso->truth, qso->out);
+
+    multiplyCovVector();
+
+    for (auto &qso : quasars)
+        std::swap(qso->truth, qso->out);
 
     t2 = mytime::timer.getTime() - t1;
     ++timings["GenGauss"].first;
