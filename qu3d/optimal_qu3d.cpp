@@ -1037,13 +1037,13 @@ void Qu3DEstimator::estimateTotalBiasMc() {
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* generate random Gaussian vector into truth */
-        // replaceDeltasWithGaussianField();
+        replaceDeltasWithGaussianField();
 
         /* calculate Cinv . n into y */
-        // conjugateGradientDescent();
+        conjugateGradientDescent();
 
-        conjugateGradientSampler();
-        cgsGetY();
+        // conjugateGradientSampler();
+        // cgsGetY();
 
         int jj = (nmc - 1) % M_MCS;
         /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
@@ -1363,7 +1363,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
        mesh_g.length[1] *= 1.25; mesh_g.length[2] *= 1.25;
        mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
        mesh_rnd.construct();
-
+    */
     mesh_rnd.fillRndNormal();
     mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pL);
 
@@ -1374,9 +1374,10 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
             qso->truth[i] += qso->isig[i] * qso->z1[i] * mesh_rnd.interpolate(
                 qso->r.get() + 3 * i);
     }
-    */
+
+    /*
     conjugateGradientSampler();
-    /* Get m vector into truth by multiplying with C(tilde) */
+    * Get m vector into truth by multiplying with C(tilde) *
     for (auto &qso : quasars) {
         qso->in = qso->y.get();
         std::swap(qso->truth, qso->out);
@@ -1386,7 +1387,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
 
     for (auto &qso : quasars)
         std::swap(qso->truth, qso->out);
-
+    */
     t2 = mytime::timer.getTime() - t1;
     ++timings["GenGauss"].first;
     timings["GenGauss"].second += t2;
