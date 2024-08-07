@@ -713,33 +713,46 @@ double Qu3DEstimator::calculateResidualNorm2() {
 }
 
 
-void Qu3DEstimator::updateY(double residual_norm2) {
+void Qu3DEstimator::updateY(double residual_norm2, bool rng_mode) {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
-    double a_down = 0, alpha = 0;
+    double pTCp = 0, alpha = 0;
 
     #pragma omp parallel for
     for (auto &qso : quasars)
         qso->in = qso->search.get();
 
-    /* Multiply C x search into Cy*/
+    /* Multiply C x search into Cy => C. p(in) = out*/
     multiplyCovVector();
 
-    // get a_down
-    #pragma omp parallel for reduction(+:a_down)
+    // Get pT . C . p
+    #pragma omp parallel for reduction(+:pTCp)
     for (const auto &qso : quasars)
-        a_down += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+        pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
-    alpha = residual_norm2 / a_down;
+    alpha = residual_norm2 / pTCp;
 
-    /* Update y in the search direction, restore qso->in
-       Update residual */
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
-        /* in is search.get() */
-        cblas_daxpy(qso->N, alpha, qso->in, 1, qso->y.get(), 1);
-        cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
-        qso->in = qso->y.get();
+    if (rng_mode) {
+        double zrnd = rngs[0].normal() / sqrt(pTCp);
+
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            /* in is search.get() */
+            cblas_daxpy(qso->N, zrnd, qso->in, 1, qso->y.get(), 1);
+            cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
+            qso->in = qso->y.get();
+        }
+    }
+    else {
+        /* Update y in the search direction, restore qso->in
+           Update residual */
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            /* in is search.get() */
+            cblas_daxpy(qso->N, alpha, qso->in, 1, qso->y.get(), 1);
+            cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
+            qso->in = qso->y.get();
+        }
     }
 
     t2 = mytime::timer.getTime() - t1;
@@ -1023,10 +1036,12 @@ void Qu3DEstimator::estimateTotalBiasMc() {
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* generate random Gaussian vector into truth */
-        replaceDeltasWithGaussianField();
+        // replaceDeltasWithGaussianField();
 
         /* calculate Cinv . n into y */
-        conjugateGradientDescent();
+        // conjugateGradientDescent();
+        verbose = nmc < 4;
+        conjugateGradientSampler();
 
         int jj = (nmc - 1) % M_MCS;
         /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
@@ -1054,6 +1069,76 @@ void Qu3DEstimator::estimateTotalBiasMc() {
     }
 
     logTimings();
+}
+
+
+void Qu3DEstimator::conjugateGradientSampler() {
+    double dt = mytime::timer.getTime();
+    int niter = 1;
+
+    if (verbose)
+        LOG::LOGGER.STD("  Entered conjugateGradientSampler.\n");
+
+    /* Truth is always random. Initial guess is always zero */
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        qso->fillRngNoise(rngs[myomp::getThreadNum()]);
+        std::fill_n(qso->in, qso->N, 0);
+    }
+
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        std::copy_n(qso->truth, qso->N, qso->residual.get());
+        std::copy_n(qso->truth, qso->N, qso->search.get());
+    }
+
+    double old_residual_norm2 = calculateResidualNorm2(),
+           init_residual_norm = sqrt(old_residual_norm2);
+
+    if (hasConverged(init_residual_norm, tolerance))
+        goto endconjugateGradientSampler;
+
+    for (; niter <= max_conj_grad_steps; ++niter) {
+        updateY(old_residual_norm2, true);
+
+        double new_residual_norm2 = calculateResidualNorm2(),
+               new_residual_norm = sqrt(new_residual_norm2);
+
+        bool end_iter = hasConverged(
+            new_residual_norm / init_residual_norm, tolerance);
+
+        if (end_iter)
+            goto endconjugateGradientSampler;
+
+        double beta = new_residual_norm2 / old_residual_norm2;
+        old_residual_norm2 = new_residual_norm2;
+        calculateNewDirection(beta);
+    }
+
+endconjugateGradientSampler:
+    if (verbose)
+        LOG::LOGGER.STD(
+            "  conjugateGradientSampler finished in %d iterations.\n", niter);
+
+    if (CONT_MARG_ENABLED) {
+        #pragma omp parallel for schedule(dynamic, 8)
+        for (auto &qso : quasars) {
+            std::swap(qso->truth, qso->in);
+            qso->multTruthWithMarg();
+            std::swap(qso->truth, qso->in);
+            qso->multIsigInVector();
+        }
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            qso->multIsigInVector();
+        }
+    }
+
+    dt = mytime::timer.getTime() - dt;
+    ++timings["CGD"].first;
+    timings["CGD"].second += dt;
 }
 
 
