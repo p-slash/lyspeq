@@ -117,7 +117,7 @@ inline bool hasConverged(double norm, double tolerance) {
     if (verbose)
         LOG::LOGGER.STD(
             "    Current norm(residuals) / norm(initial residuals) is %.8e. "
-            "conjugateGradientDescent converges when this is < %.2e\n",
+            "Conjugate Gradient converges when this is < %.2e\n",
             norm, tolerance);
 
     return norm < tolerance;
@@ -478,6 +478,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
     tolerance = config.getDouble("ConvergenceTolerance");
+    absolute_tolerance = config.getInteger("AbsoluteTolerance") > 0;
     specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
     radius = config.getDouble("LongScale");
     rscale_factor = config.getDouble("ScaleFactor");
@@ -821,6 +822,8 @@ void Qu3DEstimator::conjugateGradientDescent() {
     if (hasConverged(init_residual_norm, tolerance))
         goto endconjugateGradientDescent;
 
+    if (absolute_tolerance) init_residual_norm = 1;
+
     for (; niter <= max_conj_grad_steps; ++niter) {
         updateY(old_residual_norm2);
 
@@ -1098,6 +1101,8 @@ void Qu3DEstimator::conjugateGradientSampler() {
 
     if (hasConverged(init_residual_norm, tolerance))
         goto endconjugateGradientSampler;
+
+    if (absolute_tolerance) init_residual_norm = 1;
 
     for (; niter <= max_conj_grad_steps; ++niter) {
         updateY(old_residual_norm2, true);
