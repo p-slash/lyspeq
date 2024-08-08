@@ -372,8 +372,10 @@ void Qu3DEstimator::_constructMap() {
 
 void Qu3DEstimator::_findNeighbors() {
     double t1 = mytime::timer.getTime(), t2 = 0;
+    float radius2 = radius * radius;
+    double mean_num_neighbors = 0;
 
-    #pragma omp parallel for schedule(dynamic, 4)
+    #pragma omp parallel for schedule(dynamic, 4) reduction(+:mean_num_neighbors)
     for (auto &qso : quasars) {
         auto neighboring_pixels = qso->findNeighborPixels(mesh, radius);
 
@@ -386,10 +388,30 @@ void Qu3DEstimator::_findNeighbors() {
             qso->neighbors.insert(
                 kumap_itr->second.cbegin(), kumap_itr->second.cend());
         }
+
+        qso->trimNeighbors(radius2);
+
+        /* Check if self is in. Should be.
+        long id = qso->qFile->id;
+        const auto it = std::find_if(
+            qso->neighbors.cbegin(), qso->neighbors.cend(),
+            [&id](const auto &q) { return id == q->qFile->id; }
+        );
+
+        if (it == qso->neighbors.cend())
+            LOG::LOGGER.STD("Self not in\n"); */
+
+        mean_num_neighbors += qso->neighbors.size();
     }
 
+    mean_num_neighbors /= quasars.size();
     t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("_findNeighbors took %.2f m.\n", t2 - t1);
+    LOG::LOGGER.STD(
+        "_findNeighbors took %.2f m. Average number of neighbors: %.3f\n",
+        t2 - t1, mean_num_neighbors);
+
+    if (mean_num_neighbors == 0)
+        throw std::runtime_error("No neighbors detected even though PP is enabled.");
 }
 
 
@@ -522,7 +544,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     _setupMesh(radius);
     _constructMap();
-    _findNeighbors();
+    if (pp_enabled)
+        _findNeighbors();
     radius *= rscale_factor;
 
     if (CONT_MARG_ENABLED)

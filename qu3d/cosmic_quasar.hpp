@@ -326,6 +326,35 @@ public:
         return unique_neighboring_pixels;
     }
 
+    void trimNeighbors(float radius2, float ratio=0.4) {
+        auto lowOverlap = [this, &radius2, &ratio](const CosmicQuasar* const &q) {
+            int M = q->N, ninc_i = 0, ninc_j = 0;
+            std::set<int> jdxs;
+            for (int i = 0; i < N; ++i) {
+                bool _in_i = false;
+                for (int j = 0; j < M; ++j) {
+                    float dx = q->r[3 * j] - r[3 * i],
+                          dy = q->r[3 * j + 1] - r[3 * i + 1],
+                          dz = q->r[3 * j + 2] - r[3 * i + 2];
+                    float r2 = dx * dx + dy * dy + dz * dz;
+
+                    if (r2 <= radius2) {
+                        jdxs.insert(j);
+                        _in_i = true;
+                    }
+                }
+
+                if (_in_i)
+                    ++ninc_i;
+            }
+
+            ninc_j = jdxs.size();
+            return ninc_i < (N * ratio) || ninc_j < (M * ratio);
+        };
+
+        std::erase_if(neighbors, lowOverlap);
+    }
+
     void constructMarginalization(int order) {
         /* assumes order >= 0 */
         int nvecs = order + 1;
@@ -395,10 +424,10 @@ public:
         int M = q->N;
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < M; ++j) {
-                float dx = r[3 * i] - q->r[3 * j],
-                      dy = r[3 * i + 1] - q->r[3 * j + 1];
+                float dx = q->r[3 * j] - r[3 * i],
+                      dy = q->r[3 * j + 1] - r[3 * i + 1];
 
-                float rz = fabsf(r[3 * i + 2] - q->r[3 * j + 2]),
+                float rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]),
                 #ifndef NUSE_LOGR_INTERP
                     rperp2 = dx * dx + dy * dy;
                     ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp2, rz);
@@ -412,9 +441,12 @@ public:
 
     void multCovNeighbors(const fidcosmo::ArinyoP3DModel *p3d_model) {
         /* We cannot use symmetry (update neighbor's out with C^T) here
-           since it will cause race condition for the neighboring quasar. */
+           since it will cause race condition for the neighboring quasar.
+
+        Impossible (self is always included)
         if (neighbors.empty())
             return;
+        */
 
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
 
