@@ -719,7 +719,16 @@ void Qu3DEstimator::updateY(double residual_norm2, bool rng_mode) {
     double pTCp = 0, alpha = 0;
 
     /* Multiply C x search into Cy => C. p(in) = out*/
-    multiplyCovVector();
+    if (rng_mode) {
+        // This is called only for small-scale direct multiplication.
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            std::fill_n(qso->out, qso->N, 0);
+
+        multParticleComp();
+    }
+    else
+        multiplyCovVector();
 
     // Get pT . C . p
     #pragma omp parallel for reduction(+:pTCp)
@@ -1042,9 +1051,6 @@ void Qu3DEstimator::estimateTotalBiasMc() {
         /* calculate Cinv . n into y */
         conjugateGradientDescent();
 
-        // conjugateGradientSampler();
-        // cgsGetY();
-
         int jj = (nmc - 1) % M_MCS;
         /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
         multiplyDerivVectors(
@@ -1085,15 +1091,12 @@ void Qu3DEstimator::conjugateGradientSampler() {
     #pragma omp parallel for
     for (auto &qso : quasars) {
         qso->fillRngNoise(rngs[myomp::getThreadNum()]);
-        std::fill_n(qso->in, qso->N, 0);
-    }
-
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
         std::copy_n(qso->truth, qso->N, qso->residual.get());
         std::copy_n(qso->truth, qso->N, qso->search.get());
+        std::fill_n(qso->in, qso->N, 0);
         // Only seached multiplied from here until endconjugateGradientSampler
         qso->in = qso->search.get();
+        qso->in_isig = qso->in;
     }
 
     double old_residual_norm2 = calculateResidualNorm2(),
@@ -1126,14 +1129,25 @@ endconjugateGradientSampler:
         LOG::LOGGER.STD(
             "  conjugateGradientSampler finished in %d iterations.\n", niter);
 
+    /* Multiply y with S_s, save to out, restore in_isig to y_isig.get() */
+    for (auto &qso : quasars) {
+        qso->in = qso->y.get();
+        qso->in_isig = qso->in;
+        std::fill_n(qso->out, qso->N, 0);
+    }
+
+    multParticleComp();
+
+    for (auto &qso : quasars)
+        qso->in_isig = qso->y_isig.get();
+
     dt = mytime::timer.getTime() - dt;
     ++timings["CGS"].first;
     timings["CGS"].second += dt;
 }
 
 
-
-void Qu3DEstimator::cgsGetY() {
+/* void Qu3DEstimator::cgsGetY() {
     if (CONT_MARG_ENABLED) {
         #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars) {
@@ -1151,8 +1165,7 @@ void Qu3DEstimator::cgsGetY() {
             qso->multIsigInVector();
         }
     }
-    
-}
+} */
 
 
 void Qu3DEstimator::drawRndDeriv(int i) {
@@ -1364,30 +1377,32 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
        mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
        mesh_rnd.construct();
     */
+
     mesh_rnd.fillRndNormal();
     mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pL);
 
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
-        qso->fillRngNoise(rngs[myomp::getThreadNum()]);
-        for (int i = 0; i < qso->N; ++i)
-            qso->truth[i] += qso->isig[i] * qso->z1[i] * mesh_rnd.interpolate(
-                qso->r.get() + 3 * i);
+    if (pp_enabled) {
+        /* Add small-scale clusting with conjugateGradientSampler
+           This function fills truth with rng noise,
+           Cy (out) with random vector with covariance S_s*/
+        conjugateGradientSampler();
+
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            for (int i = 0; i < qso->N; ++i)
+                qso->truth[i] += qso->isig[i] * qso->z1[i] * (
+                    mesh_rnd.interpolate(qso->r.get() + 3 * i) + qso->out[i]);
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            qso->fillRngNoise(rngs[myomp::getThreadNum()]);
+            for (int i = 0; i < qso->N; ++i)
+                qso->truth[i] += qso->isig[i] * qso->z1[i]
+                    * mesh_rnd.interpolate(qso->r.get() + 3 * i);
+        }
     }
 
-    /*
-    conjugateGradientSampler();
-    * Get m vector into truth by multiplying with C(tilde) *
-    for (auto &qso : quasars) {
-        qso->in = qso->y.get();
-        std::swap(qso->truth, qso->out);
-    }
-
-    multiplyCovVector();
-
-    for (auto &qso : quasars)
-        std::swap(qso->truth, qso->out);
-    */
     t2 = mytime::timer.getTime() - t1;
     ++timings["GenGauss"].first;
     timings["GenGauss"].second += t2;
