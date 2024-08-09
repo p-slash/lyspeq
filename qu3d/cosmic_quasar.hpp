@@ -326,7 +326,7 @@ public:
         return unique_neighboring_pixels;
     }
 
-    void trimNeighbors(float radius2, float ratio=0.4) {
+    void trimNeighbors(float radius2, float ratio=0.2) {
         auto lowOverlap = [this, &radius2, &ratio](const CosmicQuasar* const &q) {
             int M = q->N, ninc_i = 0, ninc_j = 0;
             std::set<int> jdxs;
@@ -446,6 +446,9 @@ public:
         Impossible (self is always included)
         if (neighbors.empty())
             return;
+
+        Single precision ccov (and DiscreteInterpolation2D) does not yield
+        significant speed improvement. They result in numerical instability.
         */
 
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
