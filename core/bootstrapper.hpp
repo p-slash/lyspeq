@@ -71,7 +71,7 @@ public:
         if (mympi::this_pe == 0)
             allpowers = std::make_unique<double[]>(nboots * bins::TOTAL_KZ_BINS);
 
-        outlier = std::make_unique<bool[]>(nboots);
+        // outlier = std::make_unique<bool[]>(nboots);
     }
 
     PoissonBootstrapper(const std::string &fname) {
@@ -99,7 +99,7 @@ public:
         pcoeff = std::make_unique<double[]>(nboots * bins::TOTAL_KZ_BINS);
         tempfisher = std::make_unique<double[]>(bins::FISHER_SIZE);
         temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
-        outlier = std::make_unique<bool[]>(nboots);
+        // outlier = std::make_unique<bool[]>(nboots);
 
         invfisher = slvF.get();
     }
@@ -164,7 +164,7 @@ private:
     double *invfisher;
     std::unique_ptr<PoissonRNG> pgenerator;
     std::unique_ptr<double[]> temppower, tempfisher, allpowers, pcoeff, slvF;
-    std::unique_ptr<bool[]> outlier;
+    // std::unique_ptr<bool[]> outlier;
 
     double getMinMemUsage() {
         double memfull = process::getMemoryMB(nboots * bins::TOTAL_KZ_BINS);
@@ -284,7 +284,7 @@ private:
 
         std::fill_n(mean, bins::TOTAL_KZ_BINS, 0);
         for (unsigned int jj = 0; jj < nboots; ++jj) {
-            if (outlier[jj]) continue;
+            // if (outlier[jj]) continue;
 
             cblas_daxpy(
                 bins::TOTAL_KZ_BINS,
@@ -351,7 +351,7 @@ private:
 
         std::fill_n(cov, bins::FISHER_SIZE, 0);
         for (unsigned int jj = 0; jj < nboots; ++jj) {
-            if (outlier[jj]) continue;
+            // if (outlier[jj]) continue;
 
             double *x = allpowers.get() + jj * bins::TOTAL_KZ_BINS;
             for (int i = 0; i < bins::TOTAL_KZ_BINS; ++i)
@@ -373,7 +373,79 @@ private:
         LOG::LOGGER.STD("covariance is %.2f mins.\n", t2 - t1);
     }
 
+    void _medianBootstrap() {
+        LOG::LOGGER.STD("Calculating median bootstrap covariance.\n");
 
+        double t1 = mytime::timer.getTime(), t2 = 0;
+        mxhelp::transpose_copy(
+            allpowers.get(), pcoeff.get(), nboots, bins::TOTAL_KZ_BINS);
+        allpowers.swap(pcoeff);
+        t2 = mytime::timer.getTime();
+        LOG::LOGGER.STD("  Total time spent in transpose_copy is %.2f mins, ", t2 - t1);
+
+        _calcuateMedian(temppower.get());
+        _calcuateMadCovariance(temppower.get(), tempfisher.get());
+
+        _saveData("median");
+    }
+
+    void _meanBootstrap() {
+        LOG::LOGGER.STD("Calculating mean bootstrap covariance.\n");
+        // Calculate mean power, store into temppower
+        _calcuateMean(temppower.get());
+        // Calculate the covariance matrix into tempfisher
+        _calcuateCovariance(temppower.get(), tempfisher.get());
+        _saveData("mean");
+
+        /* Find outliers not useful.
+        for (int n = 0; n < 5; ++n) {
+            LOG::LOGGER.STD("  Iteration %d...", n + 1);
+
+            // Find outliers
+            unsigned int new_remains = _findOutliers(temppower.get(), tempfisher.get());
+
+            LOG::LOGGER.STD("Removed outliers. Remaining %d.\n  ", new_remains);
+            if (new_remains == remaining_boots)
+                break;
+
+            remaining_boots = new_remains;
+
+            _calcuateMean(temppower.get());
+            _calcuateCovariance(temppower.get(), tempfisher.get());
+        }
+        
+        _saveData("mean_pruned"); */
+    }
+
+
+    void _saveData(const std::string &t) {
+        std::string buffer = 
+            process::FNAME_BASE + std::string("_bootstrap_") + t
+            + std::string(".txt");
+        mxhelp::fprintfMatrix(
+            buffer.c_str(), temppower.get(),
+            1, bins::TOTAL_KZ_BINS);
+
+        if (specifics::FAST_BOOTSTRAP) {
+            buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
+                     + std::string("_fisher_matrix.txt");
+
+            cblas_dscal(bins::FISHER_SIZE, 0.25, tempfisher.get(), 1);
+            mxhelp::fprintfMatrix(
+                buffer.c_str(), tempfisher.get(),
+                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+
+            _sandwichInvFisher();
+        }
+
+        buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
+                 + std::string("_covariance.txt");
+        mxhelp::fprintfMatrix(
+            buffer.c_str(), tempfisher.get(),
+            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    }
+
+    /* Find outliers not useful.
     unsigned int _findOutliers(
             const double *mean, const double *invcov
     ) {
@@ -406,82 +478,7 @@ private:
         LOG::LOGGER.STD(
             "\n    Time spent in finding outliers is %.2f mins. ", t2 - t1);
         return new_remains;
-    }
-
-
-    void _medianBootstrap() {
-        LOG::LOGGER.STD("Calculating median bootstrap covariance.\n");
-
-        double t1 = mytime::timer.getTime(), t2 = 0;
-        mxhelp::transpose_copy(
-            allpowers.get(), pcoeff.get(), nboots, bins::TOTAL_KZ_BINS);
-        allpowers.swap(pcoeff);
-        t2 = mytime::timer.getTime();
-        LOG::LOGGER.STD("  Total time spent in transpose_copy is %.2f mins, ", t2 - t1);
-
-        _calcuateMedian(temppower.get());
-        _calcuateMadCovariance(temppower.get(), tempfisher.get());
-
-        _saveData("median");
-    }
-
-    void _meanBootstrap() {
-        LOG::LOGGER.STD("Calculating mean bootstrap covariance.\n");
-        // Calculate mean power, store into temppower
-        _calcuateMean(temppower.get());
-        // Calculate the covariance matrix into tempfisher
-        _calcuateCovariance(temppower.get(), tempfisher.get());
-        _saveData("mean");
-
-        return;
-
-        // Find outliers not useful.
-        for (int n = 0; n < 5; ++n) {
-            LOG::LOGGER.STD("  Iteration %d...", n + 1);
-
-            // Find outliers
-            unsigned int new_remains = _findOutliers(temppower.get(), tempfisher.get());
-
-            LOG::LOGGER.STD("Removed outliers. Remaining %d.\n  ", new_remains);
-            if (new_remains == remaining_boots)
-                break;
-
-            remaining_boots = new_remains;
-
-            _calcuateMean(temppower.get());
-            _calcuateCovariance(temppower.get(), tempfisher.get());
-        }
-        
-        _saveData("mean_pruned");
-    }
-
-
-    void _saveData(const std::string &t) {
-        std::string buffer = 
-            process::FNAME_BASE + std::string("_bootstrap_") + t
-            + std::string(".txt");
-        mxhelp::fprintfMatrix(
-            buffer.c_str(), temppower.get(),
-            1, bins::TOTAL_KZ_BINS);
-
-        if (specifics::FAST_BOOTSTRAP) {
-            buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
-                     + std::string("_fisher_matrix.txt");
-
-            cblas_dscal(bins::FISHER_SIZE, 0.25, tempfisher.get(), 1);
-            mxhelp::fprintfMatrix(
-                buffer.c_str(), tempfisher.get(),
-                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-
-            _sandwichInvFisher();
-        }
-
-        buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
-                 + std::string("_covariance.txt");
-        mxhelp::fprintfMatrix(
-            buffer.c_str(), tempfisher.get(),
-            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    }
+    } */
 };
 
 #endif
