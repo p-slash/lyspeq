@@ -249,6 +249,10 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
     if (process::SAVE_EACH_CHUNK_RESULT)
         _saveQuasarResults(quasars);
 
+    // clear exposures
+    for (auto &[targetid, qso] : quasars)
+        qso->trim(specifics::FAST_BOOTSTRAP);
+
     if (specifics::NUMBER_OF_BOOTS > 0) {
         PoissonBootstrapper pbooter(
             specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());

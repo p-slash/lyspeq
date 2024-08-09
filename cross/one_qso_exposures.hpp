@@ -56,6 +56,14 @@ public:
     int oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dt_sum_vector, 
         double *fisher_sum);
+    void trim(bool fastboot) {
+        unique_expid_set.clear();
+        exposure_combos.clear();
+        exposures.clear();
+        dbt_estimate_before_fisher_vector.clear();
+        if (fastboot)
+            fisher_matrix.reset();
+    }
 };
 
 #endif
