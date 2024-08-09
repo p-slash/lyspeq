@@ -326,7 +326,7 @@ public:
         return unique_neighboring_pixels;
     }
 
-    void trimNeighbors(float radius2, float ratio=0.2) {
+    void trimNeighbors(float radius2, float ratio=0.1) {
         auto lowOverlap = [this, &radius2, &ratio](const CosmicQuasar* const &q) {
             int M = q->N, ninc_i = 0, ninc_j = 0;
             std::set<int> jdxs;
