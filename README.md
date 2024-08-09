@@ -88,7 +88,7 @@ You can smooth lnk, lnP instead of k, P for better behaviour.
 
     SmoothLnkLnP      1
 
-The maximum number of iterations are
+The maximum number of iterations are (> 1 will yield inaccurate noise bias)
 
     NumberOfIterations    5
 
