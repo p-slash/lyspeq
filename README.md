@@ -88,6 +88,10 @@ You can smooth lnk, lnP instead of k, P for better behaviour.
 
     SmoothLnkLnP      1
 
+The maximum number of iterations are
+
+    NumberOfIterations    5
+
 Config file has one file list for qso spectra. This file should start with number of qsos, and then have their relative file paths (see [example file](tests/input/flist.txt)). The location of the file list, and the directory where those files live:
 
     FileNameList      ./data/qso_dir/qso_list.txt
