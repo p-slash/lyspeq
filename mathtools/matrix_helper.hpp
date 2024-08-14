@@ -76,6 +76,7 @@ namespace mxhelp
     // LAPACKE functions
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
+    void LAPACKE_InvertMatrixCholesky(double *U, int N);
     void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp);
 
     void LAPACKE_sym_eigens(double *A, int N, double *evals, double *evecs);
