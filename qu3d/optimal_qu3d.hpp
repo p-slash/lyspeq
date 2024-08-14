@@ -86,7 +86,7 @@ public:
 
     /* Return residual^T . residual */
     double calculateResidualNorm2();
-    void updateY(double residual_norm2);
+    double updateY(double residual_norm2);
     /* This is called only for small-scale direct multiplication. */
     void updateRng(double residual_norm2);
     void calculateNewDirection(double beta);
