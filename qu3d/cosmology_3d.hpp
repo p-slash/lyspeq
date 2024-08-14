@@ -98,14 +98,16 @@ namespace fidcosmo {
            b_F fitted to all redshift ranges accounting for errors.
            Two redshift bins are averaged for others. */
         {"b_F", "0.1195977"}, {"alpha_F", "3.37681"},
-        {"beta_F", "1.69"}, {"k_p", "17.625"},
-        {"q_1", "0.7935"}, {"nu_0", "1.253"}, {"nu_1", "1.625"},
-        {"k_nu", "0.3701"}
+        {"beta_F", "1.6633"}, {"k_p", "16.802"},
+        {"q_1", "0.796"}, {"nu_0", "1.267"}, {"nu_1", "1.65"},
+        {"k_nu", "0.3922"},
+        {"b_HCD", "0.05"}, {"beta_HCD", "0.7"}, {"L_HCD", "14.8"}
     });
 
     class ArinyoP3DModel {
         double _varlss, _D_pivot, _z1_pivot, _sigma_mpc, _deltar_mpc;
         double b_F, alpha_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long;
+        double b_HCD, beta_HCD, L_HCD;
 
         std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
