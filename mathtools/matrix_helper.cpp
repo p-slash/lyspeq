@@ -212,6 +212,20 @@ namespace mxhelp
         // the Cholesky factorization of a symmetric positive-definite matrix
     }
 
+    void LAPACKE_InvertMatrixCholesky(double *U, int N) {
+        lapack_int LIN = N, info = 0;
+
+        info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', LIN, U, LIN);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in Cholesky decomposition.", info);
+
+        info = LAPACKE_dpotri(LAPACK_ROW_MAJOR, 'U', LIN, U, LIN);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in Cholesky invert.", info);
+    }
+
     std::vector<int> _setEmptyIndices(double *S, int N) {
         std::vector<int> empty_indx;
 
