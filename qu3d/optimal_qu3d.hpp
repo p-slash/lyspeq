@@ -84,11 +84,9 @@ public:
 
     void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr);
 
-    /* Return residual^T . residual */
-    double calculateResidualNorm2();
     double updateY(double residual_norm2);
     /* This is called only for small-scale direct multiplication. */
-    void updateRng(double residual_norm2);
+    double updateRng(double residual_norm2);
     void calculateNewDirection(double beta);
 
     /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
