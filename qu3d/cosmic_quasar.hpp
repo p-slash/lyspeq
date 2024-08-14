@@ -186,7 +186,10 @@ public:
         std::swap(truth, in_isig);
     }
 
-    void setInvCovGuessIn(const fidcosmo::ArinyoP3DModel *p3d_model) {
+    void multInvCov2(
+            const fidcosmo::ArinyoP3DModel *p3d_model,
+            const double *input, double *output
+    ) {
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
         for (int i = 0; i < N; ++i) {
             double isigG = isig[i] * z1[i];
@@ -205,7 +208,11 @@ public:
         mxhelp::LAPACKE_InvertMatrixCholesky(ccov, N);
         cblas_dsymv(
             CblasRowMajor, CblasUpper, N, 1.0,
-            ccov, N, truth, 1, 0, in, 1);
+            ccov, N, input, 1, 0, output, 1);
+    }
+
+    void setInvCovGuessIn(const fidcosmo::ArinyoP3DModel *p3d_model) {
+        multInvCov2(p3d_model, truth, in);
     }
 
     void interpMesh2Out(const RealField3D &mesh) {
