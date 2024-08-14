@@ -736,22 +736,13 @@ double Qu3DEstimator::calculateResidualNorm2() {
 }
 
 
-void Qu3DEstimator::updateY(double residual_norm2, bool rng_mode) {
+void Qu3DEstimator::updateY(double residual_norm2) {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     double pTCp = 0, alpha = 0;
 
     /* Multiply C x search into Cy => C. p(in) = out*/
-    if (rng_mode) {
-        // This is called only for small-scale direct multiplication.
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            std::fill_n(qso->out, qso->N, 0);
-
-        multParticleComp();
-    }
-    else
-        multiplyCovVector();
+    multiplyCovVector();
 
     // Get pT . C . p
     #pragma omp parallel for reduction(+:pTCp)
@@ -760,25 +751,13 @@ void Qu3DEstimator::updateY(double residual_norm2, bool rng_mode) {
 
     alpha = residual_norm2 / pTCp;
 
-    if (rng_mode) {
-        double zrnd = rngs[0].normal() / sqrt(pTCp);
-
-        #pragma omp parallel for
-        for (auto &qso : quasars) {
-            /* in is search.get() */
-            cblas_daxpy(qso->N, zrnd, qso->in, 1, qso->y.get(), 1);
-            cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
-        }
-    }
-    else {
-        /* Update y in the search direction, restore qso->in
-           Update residual */
-        #pragma omp parallel for
-        for (auto &qso : quasars) {
-            /* in is search.get() */
-            cblas_daxpy(qso->N, alpha, qso->in, 1, qso->y.get(), 1);
-            cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
-        }
+    /* Update y in the search direction, restore qso->in
+       Update residual */
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        /* in is search.get() */
+        cblas_daxpy(qso->N, alpha, qso->in, 1, qso->y.get(), 1);
+        cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
     }
 
     t2 = mytime::timer.getTime() - t1;
@@ -1103,6 +1082,43 @@ void Qu3DEstimator::estimateTotalBiasMc() {
 }
 
 
+
+void Qu3DEstimator::updateRng(double residual_norm2) {
+    /* This is called only for small-scale direct multiplication
+       in conjugateGradientSampler. */
+    double t1 = mytime::timer.getTime(), t2 = 0;
+
+    double pTCp = 0, alpha = 0;
+
+    /* Multiply C x search into Cy => C. p(in) = out*/
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        std::fill_n(qso->out, qso->N, 0);
+
+    multParticleComp();
+
+    // Get pT . C . p
+    #pragma omp parallel for reduction(+:pTCp)
+    for (const auto &qso : quasars)
+        pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+
+    alpha = residual_norm2 / pTCp;
+
+    double zrnd = rngs[0].normal() / sqrt(pTCp);
+
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        /* in is search.get() */
+        cblas_daxpy(qso->N, zrnd, qso->in, 1, qso->y.get(), 1);
+        cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
+    }
+
+    t2 = mytime::timer.getTime() - t1;
+    if (verbose)
+        LOG::LOGGER.STD("    updateRng took %.2f s.\n", 60.0 * t2);
+}
+
+
 void Qu3DEstimator::conjugateGradientSampler() {
     double dt = mytime::timer.getTime();
     int niter = 1;
@@ -1131,7 +1147,7 @@ void Qu3DEstimator::conjugateGradientSampler() {
     if (absolute_tolerance) init_residual_norm = 1;
 
     for (; niter <= max_conj_grad_steps; ++niter) {
-        updateY(old_residual_norm2, true);
+        updateRng(old_residual_norm2);
 
         double new_residual_norm2 = calculateResidualNorm2(),
                new_residual_norm = sqrt(new_residual_norm2);

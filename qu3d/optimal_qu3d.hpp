@@ -86,7 +86,9 @@ public:
 
     /* Return residual^T . residual */
     double calculateResidualNorm2();
-    void updateY(double residual_norm2, bool rng_mode=false);
+    void updateY(double residual_norm2);
+    /* This is called only for small-scale direct multiplication. */
+    void updateRng(double residual_norm2);
     void calculateNewDirection(double beta);
 
     /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
