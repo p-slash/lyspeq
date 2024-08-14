@@ -196,12 +196,13 @@ public:
             for (int j = i + 1; j < N; ++j) {
                 float rz = r[3 * j + 2] - r[3 * i + 2];
                 double isigG_ij = isigG * isig[j] * z1[j];
-                ccov[j + i * N] = p3d_model->evalCorrFunc2dS(0, rz) * isigG_ij;
+                ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz) * isigG_ij;
             }
         }
 
-        mxhelp::copyUpperToLower(ccov, N);
-        mxhelp::LAPACKE_InvertMatrixLU(ccov, N);
+        // mxhelp::copyUpperToLower(ccov, N);
+        // mxhelp::LAPACKE_InvertMatrixLU(ccov, N);
+        mxhelp::LAPACKE_InvertMatrixCholesky(ccov, N);
         cblas_dsymv(
             CblasRowMajor, CblasUpper, N, 1.0,
             ccov, N, truth, 1, 0, in, 1);
