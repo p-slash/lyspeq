@@ -723,19 +723,6 @@ void Qu3DEstimator::multiplyCovVector() {
 }
 
 
-double Qu3DEstimator::calculateResidualNorm2() {
-    double residual_norm2 = 0;
-
-    #pragma omp parallel for reduction(+:residual_norm2)
-    for (const auto &qso : quasars) {
-        double rn = cblas_dnrm2(qso->N, qso->residual.get(), 1);
-        residual_norm2 += rn * rn;
-    }
-
-    return residual_norm2;
-}
-
-
 double Qu3DEstimator::updateY(double residual_norm2) {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
@@ -759,8 +746,8 @@ double Qu3DEstimator::updateY(double residual_norm2) {
         cblas_daxpy(qso->N, alpha, qso->in, 1, qso->y.get(), 1);
         cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
 
-        double rn = cblas_dnrm2(qso->N, qso->residual.get(), 1);
-        new_residual_norm += rn * rn;
+        new_residual_norm += cblas_ddot(
+            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
     }
 
     t2 = mytime::timer.getTime() - t1;
@@ -785,37 +772,41 @@ void Qu3DEstimator::conjugateGradientDescent() {
     double dt = mytime::timer.getTime();
     int niter = 1;
 
+    double init_residual_norm = 0, old_residual_prec = 0,
+           new_residual_norm = 0;
+
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
 
     if (CONT_MARG_ENABLED) {
+        /* Marginalize. Then, initial guess */
+        #pragma omp parallel for schedule(dynamic, 8)
+        for (auto &qso : quasars) {
+            qso->multTruthWithMarg();
+            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
+        }
+    }
+    else {
+        /* Initial guess */
         #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars)
-            qso->multTruthWithMarg();
+            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
     }
 
-    /* Initial guess */
-    #pragma omp parallel for schedule(dynamic, 8)
-    for (auto &qso : quasars)
-        qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
-
     multiplyCovVector();
-
-
-    double init_residual_norm = 0, old_residual_prec = 0,
-           new_residual_norm = 0;
 
     #pragma omp parallel for reduction(+:init_residual_norm, old_residual_prec)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->residual[i] = qso->truth[i] - qso->out[i];
-            // Only seached multiplied from here until endconjugateGradientDescent
+            // Only search is multiplied from here until endconjugateGradientDescent
             qso->in = qso->search.get();
         }
         // set search = InvCov . residual
         qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in, pp_enabled);
-        double rn = cblas_dnrm2(qso->N, qso->residual.get(), 1);
-        init_residual_norm += rn * rn;
+
+        init_residual_norm += cblas_ddot(
+            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
         old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->in, 1);
     }
 
@@ -1086,12 +1077,12 @@ void Qu3DEstimator::estimateTotalBiasMc() {
 
 
 
-void Qu3DEstimator::updateRng(double residual_norm2) {
+double Qu3DEstimator::updateRng(double residual_norm2) {
     /* This is called only for small-scale direct multiplication
        in conjugateGradientSampler. */
     double t1 = mytime::timer.getTime(), t2 = 0;
 
-    double pTCp = 0, alpha = 0;
+    double pTCp = 0, alpha = 0, new_residual_norm2 = 0;
 
     /* Multiply C x search into Cy => C. p(in) = out*/
     #pragma omp parallel for
@@ -1109,16 +1100,21 @@ void Qu3DEstimator::updateRng(double residual_norm2) {
 
     double zrnd = rngs[0].normal() / sqrt(pTCp);
 
-    #pragma omp parallel for
+    #pragma omp parallel for reduction(+:new_residual_norm2)
     for (auto &qso : quasars) {
         /* in is search.get() */
         cblas_daxpy(qso->N, zrnd, qso->in, 1, qso->y.get(), 1);
         cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
+
+        new_residual_norm2 += cblas_ddot(
+            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
     }
 
     t2 = mytime::timer.getTime() - t1;
     if (verbose)
         LOG::LOGGER.STD("    updateRng took %.2f s.\n", 60.0 * t2);
+
+    return new_residual_norm2;
 }
 
 
@@ -1129,8 +1125,10 @@ void Qu3DEstimator::conjugateGradientSampler() {
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientSampler.\n");
 
+    double old_residual_norm2 = 0, init_residual_norm = 0;
+
     /* Truth is always random. Initial guess is always zero */
-    #pragma omp parallel for
+    #pragma omp parallel for reduction(+:old_residual_norm2)
     for (auto &qso : quasars) {
         qso->fillRngNoise(rngs[myomp::getThreadNum()]);
         std::copy_n(qso->truth, qso->N, qso->residual.get());
@@ -1139,10 +1137,12 @@ void Qu3DEstimator::conjugateGradientSampler() {
         // Only seached multiplied from here until endconjugateGradientSampler
         qso->in = qso->search.get();
         qso->in_isig = qso->in;
+
+        old_residual_norm2 += cblas_ddot(
+            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
     }
 
-    double old_residual_norm2 = calculateResidualNorm2(),
-           init_residual_norm = sqrt(old_residual_norm2);
+    init_residual_norm = sqrt(old_residual_norm2);
 
     if (hasConverged(init_residual_norm, tolerance))
         goto endconjugateGradientSampler;
@@ -1150,13 +1150,10 @@ void Qu3DEstimator::conjugateGradientSampler() {
     if (absolute_tolerance) init_residual_norm = 1;
 
     for (; niter <= max_conj_grad_steps; ++niter) {
-        updateRng(old_residual_norm2);
-
-        double new_residual_norm2 = calculateResidualNorm2(),
-               new_residual_norm = sqrt(new_residual_norm2);
+        double new_residual_norm2 = updateRng(old_residual_norm2);
 
         bool end_iter = hasConverged(
-            new_residual_norm / init_residual_norm, tolerance);
+            sqrt(new_residual_norm2) / init_residual_norm, tolerance);
 
         if (end_iter)
             goto endconjugateGradientSampler;
