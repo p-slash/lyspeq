@@ -236,6 +236,10 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     nu_0 = config.getDouble("nu_0");
     nu_1 = config.getDouble("nu_1");
     k_nu = config.getDouble("k_nu");
+    b_HCD = config.getDouble("b_HCD");
+    beta_HCD = config.getDouble("beta_HCD");
+    L_HCD = config.getDouble("L_HCD");
+
     interp_p = std::make_unique<LinearPowerInterpolator>(config);
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
     rscale_long = config.getDouble("LongScale");
@@ -442,9 +446,10 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     delta2_L = plin * k * k * k / TWO_PI2,
     k_kp = k / k_p,
     mu = kz / k,
+    bhcd_kz = b_HCD * exp(-L_HCD * kz),
     result, lnD;
 
-    result = b_F * (1 + beta_F * mu * mu);
+    result = (b_F + bhcd_kz) + (b_F * beta_F + beta_HCD * bhcd_kz) * mu * mu;
     result *= result;
 
     lnD = (q_1 * delta2_L) * (
