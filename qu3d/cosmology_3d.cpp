@@ -434,6 +434,8 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
         interp2d_cfS = hankel.transform(
             psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
     #endif
+
+    interp1d_cf = interp2d_cfS->get1dSliceX(interp2d_cfS->getY1());
 }
 
 

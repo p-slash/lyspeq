@@ -110,7 +110,7 @@ namespace fidcosmo {
         double b_HCD, beta_HCD, L_HCD;
 
         std::unique_ptr<LinearPowerInterpolator> interp_p;
-        std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
+        std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth, interp1d_cf;
 
         std::unique_ptr<DiscreteInterpolation2D> interp2d_cfS;
         std::unique_ptr<DiscreteInterpolation1D> interp_p1d;
@@ -156,6 +156,12 @@ namespace fidcosmo {
         double evalP1d(double kz) const {
             if (kz < 1e-6) return exp(interp_p1d->evaluate(-13.8155));
             return exp(interp_p1d->evaluate(log(kz)));
+        }
+
+        double evalCorrFunc1dS(float rz) const {
+            /* Evaluate small-scale CF using interpolation. */
+            rz = fastlog2(rz);
+            return interp1d_cf->evaluate(rz);
         }
 
         #ifndef NUSE_LOGR_INTERP
