@@ -781,26 +781,6 @@ void Qu3DEstimator::calculateNewDirection(double beta)  {
 }
 
 
-void Qu3DEstimator::initGuessDiag() {
-    double varlss = p3d_model->getVarLss();
-
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i) {
-            double isigG = qso->isig[i] * qso->z1[i];
-            qso->in[i] = qso->truth[i] / (1.0 + isigG * isigG * varlss);
-        }
-    }
-}
-
-
-void Qu3DEstimator::initGuessBlockDiag() {
-    #pragma omp parallel for schedule(dynamic, 8)
-    for (auto &qso : quasars)
-        qso->setInvCovGuessIn(p3d_model.get());
-}
-
-
 void Qu3DEstimator::conjugateGradientDescent() {
     double dt = mytime::timer.getTime();
     int niter = 1;
@@ -815,10 +795,9 @@ void Qu3DEstimator::conjugateGradientDescent() {
     }
 
     /* Initial guess */
-    if (pp_enabled)
-        initGuessBlockDiag();
-    else
-        initGuessDiag();
+    #pragma omp parallel for schedule(dynamic, 8)
+    for (auto &qso : quasars)
+        qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
 
     multiplyCovVector();
 
@@ -834,7 +813,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
             qso->in = qso->search.get();
         }
         // set search = InvCov . residual
-        qso->multInvCov2(p3d_model.get(), qso->residual.get(), qso->in);
+        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in, pp_enabled);
         double rn = cblas_dnrm2(qso->N, qso->residual.get(), 1);
         init_residual_norm += rn * rn;
         old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->in, 1);
@@ -861,7 +840,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
         #pragma omp parallel for reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = InvCov . residual
-            qso->multInvCov2(p3d_model.get(), qso->residual.get(), qso->out);
+            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out, pp_enabled);
             new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->out, 1);
         }
 

@@ -186,33 +186,38 @@ public:
         std::swap(truth, in_isig);
     }
 
-    void multInvCov2(
+    void multInvCov(
             const fidcosmo::ArinyoP3DModel *p3d_model,
-            const double *input, double *output
+            const double *input, double *output, bool pp
     ) {
-        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
-        for (int i = 0; i < N; ++i) {
-            double isigG = isig[i] * z1[i];
-
-            ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
-
-            for (int j = i + 1; j < N; ++j) {
-                float rz = r[3 * j + 2] - r[3 * i + 2];
-                double isigG_ij = isigG * isig[j] * z1[j];
-                ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz) * isigG_ij;
+        if (!pp) {
+            double varlss = p3d_model->getVarLss();
+            for (int i = 0; i < N; ++i) {
+                double isigG = isig[i] * z1[i];
+                output[i] = input[i] / (1.0 + isigG * isigG * varlss);
             }
         }
+        else {
+            double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+            for (int i = 0; i < N; ++i) {
+                double isigG = isig[i] * z1[i];
 
-        // mxhelp::copyUpperToLower(ccov, N);
-        // mxhelp::LAPACKE_InvertMatrixLU(ccov, N);
-        mxhelp::LAPACKE_InvertMatrixCholesky(ccov, N);
-        cblas_dsymv(
-            CblasRowMajor, CblasUpper, N, 1.0,
-            ccov, N, input, 1, 0, output, 1);
-    }
+                ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
 
-    void setInvCovGuessIn(const fidcosmo::ArinyoP3DModel *p3d_model) {
-        multInvCov2(p3d_model, truth, in);
+                for (int j = i + 1; j < N; ++j) {
+                    float rz = r[3 * j + 2] - r[3 * i + 2];
+                    double isigG_ij = isigG * isig[j] * z1[j];
+                    ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz) * isigG_ij;
+                }
+            }
+
+            // mxhelp::copyUpperToLower(ccov, N);
+            // mxhelp::LAPACKE_InvertMatrixLU(ccov, N);
+            mxhelp::LAPACKE_InvertMatrixCholesky(ccov, N);
+            cblas_dsymv(
+                CblasRowMajor, CblasUpper, N, 1.0,
+                ccov, N, input, 1, 0, output, 1);
+        }
     }
 
     void interpMesh2Out(const RealField3D &mesh) {
