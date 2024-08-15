@@ -10,15 +10,6 @@
 
 #include <gsl/gsl_interp.h>
 
-#ifdef USE_MKL_CBLAS
-#include "mkl_lapacke.h"
-#else
-// These three lines somehow fix OpenBLAS compilation error on macos
-// #include <complex.h>
-// #define lapack_complex_float    float _Complex
-// #define lapack_complex_double   double _Complex
-#include "lapacke.h"
-#endif
 
 const double
 MY_SQRT_2 = 1.41421356237,
@@ -210,6 +201,20 @@ namespace mxhelp
 
         // dpotrf(CblasUpper, N, A, N); 
         // the Cholesky factorization of a symmetric positive-definite matrix
+    }
+
+    void LAPACKE_InvertMatrixCholesky(double *U, int N) {
+        lapack_int LIN = N, info = 0;
+
+        info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', LIN, U, LIN);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in Cholesky decomposition.", info);
+
+        info = LAPACKE_dpotri(LAPACK_ROW_MAJOR, 'U', LIN, U, LIN);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in Cholesky invert.", info);
     }
 
     std::vector<int> _setEmptyIndices(double *S, int N) {

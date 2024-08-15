@@ -6,8 +6,14 @@
 
 #ifdef USE_MKL_CBLAS
 #include "mkl_cblas.h"
+#include "mkl_lapacke.h"
 #else
 #include "cblas.h"
+// These three lines somehow fix OpenBLAS compilation error on macos
+// #include <complex.h>
+// #define lapack_complex_float    float _Complex
+// #define lapack_complex_double   double _Complex
+#include "lapacke.h"
 #endif
 
 #include "core/omp_manager.hpp"
@@ -76,6 +82,7 @@ namespace mxhelp
     // LAPACKE functions
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
+    void LAPACKE_InvertMatrixCholesky(double *U, int N);
     void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp);
 
     void LAPACKE_sym_eigens(double *A, int N, double *evals, double *evecs);

@@ -64,6 +64,7 @@ public:
     double evaluate(double x) const;
     double* get() const { return y; }
     int size() const { return N; }
+    inline double getX1() const { return x1; }
 };
 
 // Stores a copy of z array
@@ -90,6 +91,14 @@ public:
     double evaluate(double x, double y) const;
     inline double getX1() const { return x1; }
     inline double getY1() const { return y1; }
+
+    std::unique_ptr<DiscreteCubicInterpolation1D> get1dSliceX(double y) const {
+        auto sl = std::make_unique<double[]>(Nx);
+        for (int i = 0; i < Nx; ++i)
+            sl[i] = evaluate(x1 + i * dx, y);
+
+        return std::make_unique<DiscreteCubicInterpolation1D>(x1, dx, Nx, sl.get());
+    }
 };
 
 

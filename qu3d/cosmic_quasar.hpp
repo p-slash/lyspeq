@@ -168,9 +168,8 @@ public:
     void setInIsigWithMarg() {
         double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
         ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
-        cblas_dsymv(
-            CblasRowMajor, CblasUpper, N, 1.0,
-            rrmat, N, in, 1, 0, in_isig, 1);
+        cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
+                    rrmat, N, in, 1, 0, in_isig, 1);
 
         for (int i = 0; i < N; ++i)
             in_isig[i] *= isig[i] * z1[i];
@@ -179,32 +178,49 @@ public:
     void multTruthWithMarg() {
         double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
         ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
-        cblas_dsymv(
-            CblasRowMajor, CblasUpper, N, 1.0,
-            rrmat, N, truth, 1, 0, in_isig, 1);
+        cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
+                    rrmat, N, truth, 1, 0, in_isig, 1);
 
         std::swap(truth, in_isig);
     }
 
-    void setInvCovGuessIn(const fidcosmo::ArinyoP3DModel *p3d_model) {
-        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
-        for (int i = 0; i < N; ++i) {
-            double isigG = isig[i] * z1[i];
+    void multInvCov(
+            const fidcosmo::ArinyoP3DModel *p3d_model,
+            const double *input, double *output, bool pp
+    ) {
+        double varlss = p3d_model->getVarLss();
+        auto appDiagonalEst = [this, &varlss](const double *x_, double *y_) {
+            for (int i = 0; i < N; ++i) {
+                double isigG = isig[i] * z1[i];
+                y_[i] = x_[i] / (1.0 + isigG * isigG * varlss);
+            }
+        };
 
-            ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
+        if (!pp) {
+            appDiagonalEst(input, output);
+        }
+        else {
+            double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+            for (int i = 0; i < N; ++i) {
+                double isigG = isig[i] * z1[i];
 
-            for (int j = i + 1; j < N; ++j) {
-                float rz = r[3 * j + 2] - r[3 * i + 2];
-                double isigG_ij = isigG * isig[j] * z1[j];
-                ccov[j + i * N] = p3d_model->evalCorrFunc2dS(0, rz) * isigG_ij;
+                ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
+
+                for (int j = i + 1; j < N; ++j) {
+                    float rz = r[3 * j + 2] - r[3 * i + 2];
+                    double isigG_ij = isigG * isig[j] * z1[j];
+                    ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz) * isigG_ij;
+                }
+            }
+
+            std::copy_n(input, N, output);
+            lapack_int info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1,
+                                            ccov, N, output, 1);
+            if (info != 0) {
+                LOG::LOGGER.STD("Error in CosmicQuasar::multInvCov::LAPACKE_dposv");
+                appDiagonalEst(input, output);
             }
         }
-
-        mxhelp::copyUpperToLower(ccov, N);
-        mxhelp::LAPACKE_InvertMatrixLU(ccov, N);
-        cblas_dsymv(
-            CblasRowMajor, CblasUpper, N, 1.0,
-            ccov, N, truth, 1, 0, in, 1);
     }
 
     void interpMesh2Out(const RealField3D &mesh) {
@@ -327,6 +343,9 @@ public:
     }
 
     void trimNeighbors(float radius2, float ratio=0.1) {
+        /* Removes self from neighbors. Self will be treated specially. */
+        neighbors.erase(this);
+
         auto lowOverlap = [this, &radius2, &ratio](const CosmicQuasar* const &q) {
             int M = q->N, ninc_i = 0, ninc_j = 0;
             std::set<int> jdxs;
@@ -453,13 +472,26 @@ public:
 
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
 
-        for (const auto &q : neighbors) {
+        /* Multiply self */
+        for (int i = 0; i < N; ++i) {
+            ccov[i * (N + 1)] = p3d_model->getVar1dS();
+
+            for (int j = i + 1; j < N; ++j) {
+                float rz = r[3 * j + 2] - r[3 * i + 2];
+                ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz);
+            }
+        }
+
+        cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
+                    ccov, N, in_isig, 1, 1.0, out, 1);
+
+        /* Multiply others */
+        for (const CosmicQuasar* q : neighbors) {
             setCrossCov(q, p3d_model, ccov);
             int M = q->N;
 
-            cblas_dgemv(
-                CblasRowMajor, CblasNoTrans, N, M, 1.0,
-                ccov, M, q->in_isig, 1, 1, out, 1);
+            cblas_dgemv(CblasRowMajor, CblasNoTrans, N, M, 1.0,
+                        ccov, M, q->in_isig, 1, 1.0, out, 1);
 
             // The following creates race conditions
             // cblas_dgemv(
