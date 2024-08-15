@@ -64,6 +64,7 @@ public:
     double evaluate(double x) const;
     double* get() const { return y; }
     int size() const { return N; }
+    inline double getX1() const { return x1; }
 };
 
 // Stores a copy of z array
