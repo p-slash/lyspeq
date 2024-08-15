@@ -6,8 +6,10 @@
 
 #ifdef USE_MKL_CBLAS
 #include "mkl_cblas.h"
+#include "mkl_lapacke.h"
 #else
 #include "cblas.h"
+#include "lapacke.h"
 #endif
 
 #include "core/omp_manager.hpp"
