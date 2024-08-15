@@ -160,10 +160,12 @@ namespace fidcosmo {
 
         double evalCorrFunc1dS(float rz) const {
             /* Evaluate small-scale CF using interpolation. */
-            const static float rz_min = exp2f(interp1d_cf->getX1());
-            if (rz < rz_min)  rz = rz_min;
             rz = fastlog2(rz);
             return interp1d_cf->evaluate(rz);
+        }
+
+        double getVar1dS() const {
+            return interp1d_cf->get()[0];
         }
 
         #ifndef NUSE_LOGR_INTERP

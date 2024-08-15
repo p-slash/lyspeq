@@ -468,7 +468,7 @@ public:
 
         /* Multiply self */
         for (int i = 0; i < N; ++i) {
-            ccov[i * (N + 1)] = p3d_model->evalCorrFunc1dS(0.f);
+            ccov[i * (N + 1)] = p3d_model->getVar1dS();
 
             for (int j = i + 1; j < N; ++j) {
                 float rz = r[3 * j + 2] - r[3 * i + 2];
