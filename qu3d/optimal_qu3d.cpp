@@ -196,10 +196,8 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
     if (local_quasars.empty())
         return;
 
-    for (auto &qso : local_quasars) {
+    for (auto &qso : local_quasars)
         qso->setComovingDistances(cosmo);
-        CHECK_ISNAN(qso->r.get(), qso->N, "comovingdist");
-    }
 
     #pragma omp critical
     {
@@ -736,6 +734,11 @@ double Qu3DEstimator::updateY(double residual_norm2) {
     for (const auto &qso : quasars)
         pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
+    if (pTCp <= 0) {
+        LOG::LOGGER.ERR("Negative pTCp. End CGD.\n");
+        return 0;
+    }
+
     alpha = residual_norm2 / pTCp;
 
     /* Update y in the search direction, restore qso->in
@@ -1095,6 +1098,8 @@ double Qu3DEstimator::updateRng(double residual_norm2) {
     #pragma omp parallel for reduction(+:pTCp)
     for (const auto &qso : quasars)
         pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+
+    if (pTCp <= 0)  return 0;
 
     alpha = residual_norm2 / pTCp;
 
