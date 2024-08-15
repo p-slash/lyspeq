@@ -9,6 +9,10 @@
 #include "mkl_lapacke.h"
 #else
 #include "cblas.h"
+// These three lines somehow fix OpenBLAS compilation error on macos
+// #include <complex.h>
+// #define lapack_complex_float    float _Complex
+// #define lapack_complex_double   double _Complex
 #include "lapacke.h"
 #endif
 
