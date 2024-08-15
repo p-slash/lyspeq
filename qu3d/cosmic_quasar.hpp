@@ -188,12 +188,16 @@ public:
             const fidcosmo::ArinyoP3DModel *p3d_model,
             const double *input, double *output, bool pp
     ) {
-        if (!pp) {
-            double varlss = p3d_model->getVarLss();
+        double varlss = p3d_model->getVarLss();
+        auto appDiagonalEst = [this, &varlss](const double *x_, double *y_) {
             for (int i = 0; i < N; ++i) {
                 double isigG = isig[i] * z1[i];
-                output[i] = input[i] / (1.0 + isigG * isigG * varlss);
+                y_[i] = x_[i] / (1.0 + isigG * isigG * varlss);
             }
+        };
+
+        if (!pp) {
+            appDiagonalEst(input, output);
         }
         else {
             double *ccov = GL_CCOV[myomp::getThreadNum()].get();
@@ -210,7 +214,12 @@ public:
             }
 
             std::copy_n(input, N, output);
-            LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1, ccov, N, output, 1);
+            lapack_int info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1,
+                                            ccov, N, output, 1);
+            if (info != 0) {
+                LOG::LOGGER.STD("Error in CosmicQuasar::multInvCov::LAPACKE_dposv");
+                appDiagonalEst(input, output);
+            }
         }
     }
 
