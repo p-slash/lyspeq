@@ -293,6 +293,24 @@ public:
                 truth[i] = 0;
     }
 
+    void blockRandom(MyRNG &rng, const fidcosmo::ArinyoP3DModel *p3d_model) {
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+
+        for (int i = 0; i < N; ++i) {
+            ccov[i * (N + 1)] = p3d_model->getVar1dS();
+
+            for (int j = i + 1; j < N; ++j) {
+                float rz = r[3 * j + 2] - r[3 * i + 2];
+                ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz);
+            }
+        }
+
+        LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
+        rng.fillVectorNormal(truth, N);
+        cblas_dtrmv(CblasRowMajor, CblasUpper, CblasNoTrans, CblasNonUnit,
+                    N, ccov, N, truth, 1);
+    }
+
     void fillRngOnes(MyRNG &rng) {
         rng.fillVectorOnes(truth, N);
         for (int i = 0; i < N; ++i)

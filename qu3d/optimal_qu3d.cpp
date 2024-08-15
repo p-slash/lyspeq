@@ -1429,13 +1429,17 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
         /* Add small-scale clusting with conjugateGradientSampler
            This function fills truth with rng noise,
            Cy (out) with random vector with covariance S_s*/
-        conjugateGradientSampler();
+        // conjugateGradientSampler();
 
         #pragma omp parallel for
-        for (auto &qso : quasars)
-            for (int i = 0; i < qso->N; ++i)
-                qso->truth[i] += qso->isig[i] * qso->z1[i] * (
-                    mesh_rnd.interpolate(qso->r.get() + 3 * i) + qso->out[i]);
+        for (auto &qso : quasars) {
+            qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
+            for (int i = 0; i < qso->N; ++i) {
+                qso->truth[i] += mesh_rnd.interpolate(qso->r.get() + 3 * i);
+                qso->truth[i] *= qso->isig[i] * qso->z1[i];
+            }
+            rngs[myomp::getThreadNum()].addVectorNormal(qso->truth, qso->N);
+        }
     }
     else {
         #pragma omp parallel for
