@@ -209,11 +209,8 @@ public:
                 }
             }
 
-            // mxhelp::copyUpperToLower(ccov, N);
-            // mxhelp::LAPACKE_InvertMatrixLU(ccov, N);
-            mxhelp::LAPACKE_InvertMatrixCholesky(ccov, N);
-            cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
-                        ccov, N, input, 1, 0, output, 1);
+            std::copy_n(input, N, output);
+            LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1, ccov, N, output, 1);
         }
     }
 
