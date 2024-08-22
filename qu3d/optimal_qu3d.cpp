@@ -1440,6 +1440,39 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
             }
             rngs[myomp::getThreadNum()].addVectorNormal(qso->truth, qso->N);
         }
+
+        // if (refine_small_scale)
+        {
+            conjugateGradientDescent();
+
+            // multiply neighbors-only, add 0.5 times out to truth
+            double t1_pp = mytime::timer.getTime(), dt_pp = 0;
+
+            #pragma omp parallel for
+            for (auto &qso : quasars) {
+                if (qso->neighbors.empty())
+                    continue;
+
+                for (int i = 0; i < qso->N; ++i)
+                    qso->in[i] *= qso->z1[i];
+            }
+
+            double max_rtruth = 0, mean_rtruth = 0;
+            #pragma omp parallel for schedule(dynamic, 8) \
+                    reduction(max:max_rtruth) reduction(+:mean_rtruth)
+            for (auto &qso : quasars) {
+                double drt = qso->multCovNeighborsOnlyUpdateTruth(p3d_model.get());
+                max_rtruth = std::max(drt, max_rtruth);
+                mean_rtruth += drt;
+            }
+
+            mean_rtruth /= quasars.size();
+            LOG::LOGGER.STD("Mean/Max relative change: %.5e / %.5e\n", mean_rtruth, max_rtruth);
+
+            dt_pp = mytime::timer.getTime() - t1_pp;
+            ++timings["PPcomp"].first;
+            timings["PPcomp"].second += dt_pp;
+        }
     }
     else {
         #pragma omp parallel for
