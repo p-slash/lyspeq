@@ -447,18 +447,19 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     plin = interp_p->evaluate(k),
     delta2_L = plin * k * k * k / TWO_PI2,
     k_kp = k / k_p,
-    mu = kz / k,
-    bhcd_kz = b_HCD * exp(-L_HCD * kz),
+    mu = kz / k, mu2 = mu * mu,
+    bbeta_lya = b_F * (1.0 + beta_F * mu2),
+    bbeta_hcd_kz = b_HCD * (1 + beta_HCD * mu2) * exp(-L_HCD * kz),
     result, lnD;
-
-    result = (b_F + bhcd_kz) + (b_F * beta_F + beta_HCD * bhcd_kz) * mu * mu;
-    result *= result;
 
     lnD = (q_1 * delta2_L) * (
             1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0)
     ) - k_kp * k_kp;
 
-    result *= plin * exp(lnD);
+    result = plin * (bbeta_lya * bbeta_lya * exp(lnD)
+                     + 2.0 * bbeta_lya * bbeta_hcd_kz
+                     + bbeta_hcd_kz * bbeta_hcd_kz);
+
     if ((_sigma_mpc == 0) && (_deltar_mpc == 0))
         return result;
 
