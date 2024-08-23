@@ -800,11 +800,12 @@ void Qu3DEstimator::conjugateGradientDescent() {
 
     #pragma omp parallel for reduction(+:init_residual_norm, old_residual_prec)
     for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i) {
+        for (int i = 0; i < qso->N; ++i)
             qso->residual[i] = qso->truth[i] - qso->out[i];
-            // Only search is multiplied from here until endconjugateGradientDescent
-            qso->in = qso->search.get();
-        }
+
+        // Only search is multiplied from here until endconjugateGradientDescent
+        qso->in = qso->search.get();
+
         // set search = InvCov . residual
         qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in, pp_enabled);
 
@@ -1429,13 +1430,50 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
         /* Add small-scale clusting with conjugateGradientSampler
            This function fills truth with rng noise,
            Cy (out) with random vector with covariance S_s*/
-        conjugateGradientSampler();
+        // conjugateGradientSampler();
 
         #pragma omp parallel for
-        for (auto &qso : quasars)
-            for (int i = 0; i < qso->N; ++i)
-                qso->truth[i] += qso->isig[i] * qso->z1[i] * (
-                    mesh_rnd.interpolate(qso->r.get() + 3 * i) + qso->out[i]);
+        for (auto &qso : quasars) {
+            qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
+            for (int i = 0; i < qso->N; ++i) {
+                qso->truth[i] += mesh_rnd.interpolate(qso->r.get() + 3 * i);
+                qso->truth[i] *= qso->isig[i] * qso->z1[i];
+            }
+            rngs[myomp::getThreadNum()].addVectorNormal(qso->truth, qso->N);
+        }
+
+        // if (refine_small_scale)
+        {
+            conjugateGradientDescent();
+
+            // multiply neighbors-only, add 0.5 times out to truth
+            double t1_pp = mytime::timer.getTime(), dt_pp = 0;
+
+            #pragma omp parallel for
+            for (auto &qso : quasars) {
+                if (qso->neighbors.empty())
+                    continue;
+
+                for (int i = 0; i < qso->N; ++i)
+                    qso->in[i] *= qso->z1[i];
+            }
+
+            double max_rtruth = 0, mean_rtruth = 0;
+            #pragma omp parallel for schedule(dynamic, 8) \
+                    reduction(max:max_rtruth) reduction(+:mean_rtruth)
+            for (auto &qso : quasars) {
+                double drt = qso->multCovNeighborsOnlyUpdateTruth(p3d_model.get());
+                max_rtruth = std::max(drt, max_rtruth);
+                mean_rtruth += drt;
+            }
+
+            mean_rtruth /= quasars.size();
+            LOG::LOGGER.STD("Mean/Max relative change: %.5e / %.5e\n", mean_rtruth, max_rtruth);
+
+            dt_pp = mytime::timer.getTime() - t1_pp;
+            ++timings["PPcomp"].first;
+            timings["PPcomp"].second += dt_pp;
+        }
     }
     else {
         #pragma omp parallel for

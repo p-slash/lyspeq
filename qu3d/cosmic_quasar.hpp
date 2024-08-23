@@ -27,6 +27,10 @@ constexpr double ra_shift = 1.0;
 #define M_LOS 1
 #endif
 
+#ifndef SHRINKAGE
+#define SHRINKAGE 0.9
+#endif
+
 #if M_LOS > 1
 #define COARSE_INTERP
 #endif
@@ -299,6 +303,24 @@ public:
                 truth[i] = 0;
     }
 
+    void blockRandom(MyRNG &rng, const fidcosmo::ArinyoP3DModel *p3d_model) {
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+
+        for (int i = 0; i < N; ++i) {
+            ccov[i * (N + 1)] = p3d_model->getVar1dS();
+
+            for (int j = i + 1; j < N; ++j) {
+                float rz = r[3 * j + 2] - r[3 * i + 2];
+                ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz);
+            }
+        }
+
+        LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
+        rng.fillVectorNormal(truth, N);
+        cblas_dtrmv(CblasRowMajor, CblasUpper, CblasNoTrans, CblasNonUnit,
+                    N, ccov, N, truth, 1);
+    }
+
     void fillRngOnes(MyRNG &rng) {
         rng.fillVectorOnes(truth, N);
         for (int i = 0; i < N; ++i)
@@ -469,7 +491,6 @@ public:
         Single precision ccov (and DiscreteInterpolation2D) does not yield
         significant speed improvement. They result in numerical instability.
         */
-
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
 
         /* Multiply self */
@@ -492,12 +513,37 @@ public:
 
             cblas_dgemv(CblasRowMajor, CblasNoTrans, N, M, 1.0,
                         ccov, M, q->in_isig, 1, 1.0, out, 1);
-
-            // The following creates race conditions
-            // cblas_dgemv(
-            //     CblasRowMajor, CblasTrans, M, N, 1.0,
-            //     ccov, N, q->in, 1, 1, q->out, 1);
         }
+    }
+
+    double multCovNeighborsOnlyUpdateTruth(
+            const fidcosmo::ArinyoP3DModel *p3d_model
+    ) {
+        /* See comments in multCovNeighbors */
+        if (neighbors.empty())
+            return 0;
+
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+        std::fill_n(out, N, 0);
+
+        for (const CosmicQuasar* q : neighbors) {
+            setCrossCov(q, p3d_model, ccov);
+            int M = q->N;
+
+            cblas_dgemv(CblasRowMajor, CblasNoTrans, N, M, 1.0,
+                        ccov, M, q->in, 1, 1.0, out, 1);
+        }
+
+        double init_truth_norm = cblas_dnrm2(N, truth, 1);
+
+        for (int i = 0; i < N; ++i) {
+            residual[i] = 0.5 * isig[i] * z1[i] * out[i];
+            truth[i] += residual[i];
+        }
+
+        double resnorm = cblas_dnrm2(N, residual.get(), 1);
+
+        return resnorm / init_truth_norm;
     }
 
     static void allocCcov(size_t size) {
