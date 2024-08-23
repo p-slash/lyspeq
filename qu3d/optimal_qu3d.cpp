@@ -800,11 +800,12 @@ void Qu3DEstimator::conjugateGradientDescent() {
 
     #pragma omp parallel for reduction(+:init_residual_norm, old_residual_prec)
     for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i) {
+        for (int i = 0; i < qso->N; ++i)
             qso->residual[i] = qso->truth[i] - qso->out[i];
-            // Only search is multiplied from here until endconjugateGradientDescent
-            qso->in = qso->search.get();
-        }
+
+        // Only search is multiplied from here until endconjugateGradientDescent
+        qso->in = qso->search.get();
+
         // set search = InvCov . residual
         qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in, pp_enabled);
 
