@@ -474,6 +474,13 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
 
     interp_p->write(out);
 
+    for (int i = 0; i < nlnk; ++i) {
+        karr[i] = 2.9 + i * 0.008;
+        pmarr[i] = getRedshiftEvolution(karr[i]);
+    }
+    out->write(karr, nlnk, "ZMODEL");
+    out->write(pmarr, nlnk, "G12");
+
     karr[0] = 0;
     for (int i = 1; i < nlnk; ++i)
         karr[i] = exp(LNKMIN + (i - 1) * dlnk);
