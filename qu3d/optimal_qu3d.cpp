@@ -371,9 +371,8 @@ void Qu3DEstimator::_constructMap() {
 void Qu3DEstimator::_findNeighbors() {
     double t1 = mytime::timer.getTime(), t2 = 0;
     float radius2 = radius * radius;
-    double mean_num_neighbors = 0;
 
-    #pragma omp parallel for schedule(dynamic, 4) reduction(+:mean_num_neighbors)
+    #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         auto neighboring_pixels = qso->findNeighborPixels(mesh, radius);
 
@@ -387,8 +386,6 @@ void Qu3DEstimator::_findNeighbors() {
                 kumap_itr->second.cbegin(), kumap_itr->second.cend());
         }
 
-        qso->trimNeighbors(radius2);
-
         /* Check if self is in. Should be.
         long id = qso->qFile->id;
         const auto it = std::find_if(
@@ -397,8 +394,22 @@ void Qu3DEstimator::_findNeighbors() {
         );
 
         if (it == qso->neighbors.cend())
-            LOG::LOGGER.STD("Self not in\n"); */
+            LOG::LOGGER.STD("Self not in\n");
+        if (qso->neighbors.contains(qso.get()))
+            LOG::LOGGER.STD("Self is in\n"); */
 
+        qso->trimNeighbors(radius2);
+    }
+
+    // symmetrize neighbors
+    double mean_num_neighbors = 0;
+    for (auto &qso : quasars) {
+        CosmicQuasar* qso_ptr = qso.get();
+        auto notInNeighbor = [&qso_ptr](const CosmicQuasar* const &q) {
+            return !q->neighbors.contains(qso_ptr);
+        };
+
+        std::erase_if(qso->neighbors, notInNeighbor);
         mean_num_neighbors += qso->neighbors.size();
     }
 
