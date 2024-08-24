@@ -106,7 +106,7 @@ namespace fidcosmo {
 
     class ArinyoP3DModel {
         double _varlss, _D_pivot, _z1_pivot, _sigma_mpc, _deltar_mpc;
-        double b_F, alpha_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long;
+        double b_F, alpha_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long, rmax;
         double b_HCD, beta_HCD, L_HCD;
 
         std::unique_ptr<LinearPowerInterpolator> interp_p;
@@ -160,6 +160,9 @@ namespace fidcosmo {
 
         double evalCorrFunc1dS(float rz) const {
             /* Evaluate small-scale CF using interpolation. */
+            if (rz > rmax)
+                return 0;
+
             rz = fastlog2(rz);
             return interp1d_cf->evaluate(rz);
         }
@@ -173,7 +176,11 @@ namespace fidcosmo {
                 /* Evaluate small-scale CF using interpolation. */
                 const static float
                     rz_min = exp2f(interp2d_cfS->getX1()),
-                    rperp2_min = exp2f(interp2d_cfS->getY1());
+                    rperp2_min = exp2f(interp2d_cfS->getY1()),
+                    rmax2f = rmax * rmax;
+
+                if ((rperp2 + rz * rz) > rmax2f)
+                    return 0;
 
                 if (rz < rz_min)  rz = rz_min;
                 if (rperp2 < rperp2_min)  rperp2 = rperp2_min;
@@ -183,6 +190,8 @@ namespace fidcosmo {
         #else
             double evalCorrFunc2dS(float rperp, float rz) const {
                 /* Evaluate small-scale CF using interpolation. */
+                if (rz > rmax || rperp > rmax)
+                    return 0;
                 return interp2d_cfS->evaluate(rz, rperp);
             }
         #endif

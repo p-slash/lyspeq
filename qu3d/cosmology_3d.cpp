@@ -243,6 +243,7 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     interp_p = std::make_unique<LinearPowerInterpolator>(config);
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
     rscale_long = config.getDouble("LongScale");
+    rmax = rscale_long * config.getDouble("ScaleFactor");
     _z1_pivot = 1.0 + interp_p->z_pivot;
     _sigma_mpc = 0;
     _deltar_mpc = 0;
