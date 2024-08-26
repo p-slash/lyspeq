@@ -47,6 +47,8 @@ struct CompareCosmicQuasarPtr {
 };
 
 class CosmicQuasar {
+private:
+    double _quasar_dist;
 public:
     std::unique_ptr<qio::QSOFile> qFile;
     int N, coarse_N, fidx;
@@ -140,6 +142,7 @@ public:
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
 
     void setComovingDistances(const fidcosmo::FlatLCDM *cosmo) {
+        _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
         /* Equirectangular projection */
         for (int i = 0; i < N; ++i) {
             double chi = cosmo->getComovingDist(z1[i]);
@@ -364,11 +367,34 @@ public:
         return unique_neighboring_pixels;
     }
 
-    void trimNeighbors(float radius2, float ratio=0.1) {
+    void trimNeighbors(
+                float radius2, float ratio=0.1, double sep_arcsec=20.0,
+                float dist_Mpc=60.0
+        ) {
+        /* Removes neighbors with low overlap and self. Also removes neighbors
+        that are suspected be identical. Correct way to tackle identical
+        objects would be to coadd them, but this is hard and left for later.
+        */
         /* Removes self from neighbors. Self will be treated specially. */
         neighbors.erase(this);
 
-        auto lowOverlap = [this, &radius2, &ratio](const CosmicQuasar* const &q) {
+        auto isSameQuasar = [this, &sep_arcsec, &dist_Mpc](
+                    const CosmicQuasar* const &q
+        ) {
+            double sep = acos(
+                sin(angles[1]) * sin(q->angles[1])
+                + cos(angles[1]) * cos(q->angles[1]) * cos(q->angles[0] - angles[0])
+            ) * 3600.0 * 180.0 / MY_PI;
+
+            double delta_dis = fabs(_quasar_dist - q->_quasar_dist);
+            return (sep < sep_arcsec) && (delta_dis < dist_Mpc);
+        };
+
+        std::erase_if(neighbors, isSameQuasar);
+
+        auto lowOverlap = [this, &radius2, &ratio](
+                const CosmicQuasar* const &q
+        ) {
             int M = q->N, ninc_i = 0, ninc_j = 0;
             std::set<int> jdxs;
             for (int i = 0; i < N; ++i) {
