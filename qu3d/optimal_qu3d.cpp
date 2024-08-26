@@ -369,6 +369,7 @@ void Qu3DEstimator::_constructMap() {
 
 
 void Qu3DEstimator::_findNeighbors() {
+    /* Assumes radius is multiplied by factor. */
     double t1 = mytime::timer.getTime(), t2 = 0;
     float radius2 = radius * radius;
 
@@ -553,9 +554,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     _setupMesh(radius);
     _constructMap();
+    radius *= rscale_factor;
     if (pp_enabled)
         _findNeighbors();
-    radius *= rscale_factor;
 
     if (CONT_MARG_ENABLED)
         _createRmatFiles();
