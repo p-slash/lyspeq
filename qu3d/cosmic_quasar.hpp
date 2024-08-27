@@ -378,6 +378,7 @@ public:
         /* Removes self from neighbors. Self will be treated specially. */
         neighbors.erase(this);
 
+        /*
         auto isSameQuasar = [this, &sep_arcsec, &dist_Mpc](
                     const CosmicQuasar* const &q
         ) {
@@ -391,6 +392,7 @@ public:
         };
 
         std::erase_if(neighbors, isSameQuasar);
+        */
 
         auto lowOverlap = [this, &radius2, &ratio](
                 const CosmicQuasar* const &q
