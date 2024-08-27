@@ -405,15 +405,13 @@ void ArinyoP3DModel::_construcP1D() {
             double kperp2 = exp(LNKMIN + j * dlnk);
             kperp2 *= kperp2;
             double k = sqrt(kperp2 + kz * kz);
-            double k_rL = k * rscale_long;
-            k_rL = 1.0 - exp(-k_rL * k_rL);
 
-            p1d_integrand[j] = kperp2 * evalExplicit(k, kz) * k_rL;
+            p1d_integrand[j] = kperp2 * evalExplicit(k, kz);
         }
         p1d[i] = log(trapz(p1d_integrand, nlnk, dlnk) / (2.0 * MY_PI) + SAFE_ZERO);
     }
 
-    interp_p1d = std::make_unique<DiscreteInterpolation1D>(
+    interp1d_pT = std::make_unique<DiscreteInterpolation1D>(
         LNKMIN, dlnk2, nlnk2, &p1d[0]);
 }
 
@@ -436,7 +434,7 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
             psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
     #endif
 
-    interp1d_cf = interp2d_cfS->get1dSliceX(interp2d_cfS->getY1());
+    interp1d_cfS = interp2d_cfS->get1dSliceX(interp2d_cfS->getY1());
 }
 
 
