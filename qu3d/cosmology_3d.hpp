@@ -110,10 +110,11 @@ namespace fidcosmo {
         double b_HCD, beta_HCD, L_HCD;
 
         std::unique_ptr<LinearPowerInterpolator> interp_p;
-        std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth, interp1d_cf;
+        std::unique_ptr<DiscreteCubicInterpolation1D>
+            interp_growth, interp1d_cfS, interp1d_cfT;
 
         std::unique_ptr<DiscreteInterpolation2D> interp2d_cfS;
-        std::unique_ptr<DiscreteInterpolation1D> interp_p1d;
+        std::unique_ptr<DiscreteInterpolation1D> interp1d_pT;
 
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
@@ -154,8 +155,14 @@ namespace fidcosmo {
         double evalExplicit(double k, double kz) const;
 
         double evalP1d(double kz) const {
-            if (kz < 1e-6) return exp(interp_p1d->evaluate(-13.8155));
-            return exp(interp_p1d->evaluate(log(kz)));
+            if (kz < 1e-6) return exp(interp1d_pT->evaluate(-13.8155));
+            return exp(interp1d_pT->evaluate(log(kz)));
+        }
+
+        double evalCorrFunc1dT(float rz) const {
+            /* Evaluate total (L + S) 1D CF using interpolation. */
+            rz = fastlog2(rz);
+            return interp1d_cfT->evaluate(rz);
         }
 
         double evalCorrFunc1dS(float rz) const {
@@ -164,11 +171,11 @@ namespace fidcosmo {
                 return 0;
 
             rz = fastlog2(rz);
-            return interp1d_cf->evaluate(rz);
+            return interp1d_cfS->evaluate(rz);
         }
 
         double getVar1dS() const {
-            return interp1d_cf->get()[0];
+            return interp1d_cfS->get()[0];
         }
 
         #ifndef NUSE_LOGR_INTERP
