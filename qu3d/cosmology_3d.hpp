@@ -110,11 +110,11 @@ namespace fidcosmo {
         double b_HCD, beta_HCD, L_HCD;
 
         std::unique_ptr<LinearPowerInterpolator> interp_p;
-        std::unique_ptr<DiscreteCubicInterpolation1D>
-            interp_growth, interp1d_cfS, interp1d_cfT;
+        std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
 
         std::unique_ptr<DiscreteInterpolation2D> interp2d_cfS;
-        std::unique_ptr<DiscreteInterpolation1D> interp1d_pT;
+        std::unique_ptr<DiscreteInterpolation1D>
+            interp1d_pT, interp1d_cfS, interp1d_cfT;
 
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
