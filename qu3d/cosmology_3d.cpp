@@ -413,6 +413,31 @@ void ArinyoP3DModel::_construcP1D() {
 
     interp1d_pT = std::make_unique<DiscreteInterpolation1D>(
         LNKMIN, dlnk2, nlnk2, &p1d[0]);
+
+    /* Quasar forest length can be a maximum of 650 Mpc.
+       Truncating 1e-6--1e6 logspaced array of 1536 points by 380 on each end
+       gives approximately 1e-3--1e3 Mpc span. */
+    constexpr int Nhankel = 1536, truncate = 380;
+    constexpr double log2_e = log2(exp(1.0)),
+                     SQRT_2PI = sqrt(2.0 * 3.14159265358979323846);
+
+    FFTLog fht_z(Nhankel);
+    Smoother smoother(1);
+    fht_z.construct(-0.5, KMIN, 1 / KMIN, -0.25, 0);
+
+    for (int iz = 0; iz < Nhankel; ++iz)
+        fht_z.field[iz] = evalP1d(fht_z.r[iz]) * sqrt(fht_z.r[iz]);
+
+    fht_z.transform();
+
+    for (int iz = 0; iz < Nhankel; ++iz)
+        fht_z.field[iz] /= SQRT_2PI * sqrt(fht_z.k[iz]);
+
+    smoother.smooth1D(fht_z.field + truncate, Nhankel - 2 * truncate, 1, true);
+
+    interp1d_cfT = std::make_unique<DiscreteInterpolation1D>(
+        log2(fht_z.k[truncate]), log2_e * fht_z.getDLn(),
+        Nhankel - 2 * truncate, fht_z.field + truncate);
 }
 
 
@@ -530,5 +555,9 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
             #endif
 
     out->write(cfsarr, nr2, "CFMODEL_S_2D");
+    for (int iz = 0; iz < nr; ++iz)
+        cfsarr[iz] = evalCorrFunc1dT(rarr[iz]);
+
+    out->write(cfsarr, nr, "CFMODEL_T_1D");
     out->flush();
 }
