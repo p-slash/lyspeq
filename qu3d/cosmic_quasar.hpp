@@ -55,9 +55,9 @@ public:
     long fpos;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
-    double *z1, *isig, angles[3], *in, *out, *truth, *in_isig;
+    double *z1, *isig, angles[3], *in, *out, *truth, *in_isig, *in_storage;
     std::unique_ptr<float[]> r, coarse_r;
-    std::unique_ptr<double[]> y, Cy, residual, search, coarse_in, y_isig;
+    std::unique_ptr<double[]> y, Cy, C2y, residual, search, coarse_in, y_isig;
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
@@ -111,6 +111,7 @@ public:
         y = std::make_unique<double[]>(N);
         y_isig = std::make_unique<double[]>(N);
         Cy = std::make_unique<double[]>(N);
+        C2y = std::make_unique<double[]>(N);
         residual = std::make_unique<double[]>(N);
         search = std::make_unique<double[]>(N);
 
@@ -134,6 +135,7 @@ public:
         angles[2] = 1;
 
         in = y.get();
+        in_storage = C2y.get();
         in_isig = y_isig.get();
         truth = qFile->delta();
         out = Cy.get();

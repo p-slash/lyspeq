@@ -736,8 +736,11 @@ void Qu3DEstimator::multiplyCovVector() {
 void Qu3DEstimator::multiplyCov2Vector() {
     multiplyCovVector();
 
-    for (auto &qso : quasars)
+    // #pragma omp parallel for
+    for (auto &qso : quasars) {
+        // std::copy_n(qso->in, qso->N, qso->in_storage);
         std::swap(qso->in, qso->out);
+    }
 
     multiplyCovVector();
 }
@@ -755,6 +758,8 @@ double Qu3DEstimator::updateY(double residual_norm2) {
     #pragma omp parallel for reduction(+:pTCp)
     for (const auto &qso : quasars) {
         pTCp += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
+        std::copy_n(qso->in, qso->N, qso->in_storage);
+        std::swap(qso->in, qso->in_storage);
         std::swap(qso->in, qso->out);
     }
 
@@ -765,6 +770,7 @@ double Qu3DEstimator::updateY(double residual_norm2) {
        Update residual */
     #pragma omp parallel for reduction(+:new_residual_norm)
     for (auto &qso : quasars) {
+        std::swap(qso->in, qso->in_storage);
         /* in is search.get() */
         cblas_daxpy(qso->N, alpha, qso->in, 1, qso->y.get(), 1);
         cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
