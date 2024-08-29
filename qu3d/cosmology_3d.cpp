@@ -315,9 +315,10 @@ void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
 void ArinyoP3DModel::_cacheInterp2D() {
     constexpr double dlnk = 0.02;
     constexpr int N = ceil((LNKMAX - LNKMIN) / dlnk);
-    auto lnP = std::make_unique<double[]>(N * N);
+    auto lnP_L = std::make_unique<double[]>(N * N),
+         lnP_S = std::make_unique<double[]>(N * N);
 
-    /* Large-scale 2D */
+    /* Large-scale and small-scale 2Ds */
     for (int iperp = 0; iperp < N; ++iperp) {
         double kperp = exp(LNKMIN + iperp * dlnk);
 
@@ -326,69 +327,51 @@ void ArinyoP3DModel::_cacheInterp2D() {
                    k = sqrt(kperp * kperp + kz * kz),
                    k_rL = k * rscale_long;
 
+            double ptot = log(evalExplicit(k, kz) + SAFE_ZERO);
+
+            /* Large-scale 2D */
             k_rL *= -k_rL;
-            lnP[iz + N * iperp] = log(evalExplicit(k, kz) + SAFE_ZERO) + k_rL;
+            lnP_L[iz + N * iperp] = ptot + k_rL;
+            /* Small-scale 2D */
+            k_rL = log(1.0 - exp(k_rL) + SAFE_ZERO);
+            lnP_S[iz + N * iperp] = ptot + k_rL;
         }
     }
     interp2d_pL.interp_2d = std::make_unique<DiscreteInterpolation2D>(
-        LNKMIN, dlnk, LNKMIN, dlnk, lnP.get(), N, N);
+        LNKMIN, dlnk, LNKMIN, dlnk, lnP_L.get(), N, N);
 
-    /* Small-scale 2D */
-    for (int iperp = 0; iperp < N; ++iperp) {
-        double kperp = exp(LNKMIN + iperp * dlnk);
-
-        for (int iz = 0; iz < N; ++iz) {
-            double kz = exp(LNKMIN + iz * dlnk),
-                   k = sqrt(kperp * kperp + kz * kz),
-                   k_rL = k * rscale_long;
-
-            k_rL = 1.0 - exp(-k_rL * k_rL);
-            lnP[iz + N * iperp] = log(evalExplicit(k, kz) * k_rL + SAFE_ZERO);
-        }
-    }
     interp2d_pS.interp_2d = std::make_unique<DiscreteInterpolation2D>(
-        LNKMIN, dlnk, LNKMIN, dlnk, lnP.get(), N, N);
+        LNKMIN, dlnk, LNKMIN, dlnk, lnP_S.get(), N, N);
 
-    /* Large-scale 1Ds */
-    for (int iperp = 0; iperp < N; ++iperp) {
-        double k = exp(LNKMIN + iperp * dlnk), k_rL = k * rscale_long;
+    /* Large-scale and small-scale 1Ds */
+    for (int i = 0; i < N; ++i) {
+        double k = exp(LNKMIN + i * dlnk), k_rL = k * rscale_long;
         k_rL *= -k_rL;
 
-        lnP[iperp] = log(evalExplicit(k, 0) + SAFE_ZERO) + k_rL;
+        double pperp = log(evalExplicit(k, 0) + SAFE_ZERO),
+               pz = log(evalExplicit(k, k) + SAFE_ZERO);
+
+        /* Large-scale 1D */
+        lnP_L[i] = pperp + k_rL;
+        lnP_L[i + N] = pz + k_rL;
+
+        /* Small-scale 1D */
+        k_rL = log(1.0 - exp(k_rL) + SAFE_ZERO);
+        lnP_L[i + 2 * N] = pperp + k_rL;
+        lnP_L[i + 3 * N] = pz + k_rL;
     }
 
     interp2d_pL.interp_x = std::make_unique<DiscreteInterpolation1D>(
-        LNKMIN, dlnk, N, lnP.get());
+        LNKMIN, dlnk, N, lnP_L.get());
 
-    for (int iz = 0; iz < N; ++iz) {
-        double kz = exp(LNKMIN + iz * dlnk), k_rL = kz * rscale_long;
-        k_rL *= -k_rL;
-
-        lnP[iz] = log(evalExplicit(kz, kz) + SAFE_ZERO) + k_rL;
-    }
     interp2d_pL.interp_y = std::make_unique<DiscreteInterpolation1D>(
-        LNKMIN, dlnk, N, lnP.get());
-
-
-    /* Small-scale 1Ds */
-    for (int iperp = 0; iperp < N; ++iperp) {
-        double k = exp(LNKMIN + iperp * dlnk), k_rL = k * rscale_long;
-        k_rL = 1.0 - exp(-k_rL * k_rL);
-
-        lnP[iperp] = log(evalExplicit(k, 0) * k_rL + SAFE_ZERO);
-    }
+        LNKMIN, dlnk, N, lnP_L.get() + N);
 
     interp2d_pS.interp_x = std::make_unique<DiscreteInterpolation1D>(
-        LNKMIN, dlnk, N, lnP.get());
+        LNKMIN, dlnk, N, lnP_L.get() + 2 * N);
 
-    for (int iz = 0; iz < N; ++iz) {
-        double k = exp(LNKMIN + iz * dlnk), k_rL = k * rscale_long;
-        k_rL = 1.0 - exp(-k_rL * k_rL);
-
-        lnP[iz] = log(evalExplicit(k, k) * k_rL + SAFE_ZERO);
-    }
     interp2d_pS.interp_y = std::make_unique<DiscreteInterpolation1D>(
-        LNKMIN, dlnk, N, lnP.get());
+        LNKMIN, dlnk, N, lnP_L.get() + 3 * N);
 }
 
 
