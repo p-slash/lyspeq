@@ -733,24 +733,32 @@ void Qu3DEstimator::multiplyCovVector() {
 }
 
 
+void Qu3DEstimator::multiplyCov2Vector() {
+    multiplyCovVector();
+
+    for (auto &qso : quasars)
+        std::swap(qso->in, qso->out);
+
+    multiplyCovVector();
+}
+
+
 double Qu3DEstimator::updateY(double residual_norm2) {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     double pTCp = 0, alpha = 0, new_residual_norm = 0;
 
-    /* Multiply C x search into Cy => C. p(in) = out*/
+    /* Multiply C^2 x search into Cy => C . (C . p)(in) = out*/
     multiplyCovVector();
 
-    // Get pT . C . p
+    // Get pT . C^2 . p
     #pragma omp parallel for reduction(+:pTCp)
-    for (const auto &qso : quasars)
-        pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
-
-    if (pTCp <= 0) {
-        LOG::LOGGER.ERR("Negative pTCp. End CGD.\n");
-        return 0;
+    for (const auto &qso : quasars) {
+        pTCp += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
+        std::swap(qso->in, qso->out);
     }
 
+    multiplyCovVector();
     alpha = residual_norm2 / pTCp;
 
     /* Update y in the search direction, restore qso->in
@@ -793,22 +801,24 @@ void Qu3DEstimator::conjugateGradientDescent() {
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
 
+    /* Marginalize */
     if (CONT_MARG_ENABLED) {
-        /* Marginalize. Then, initial guess */
-        #pragma omp parallel for schedule(dynamic, 8)
-        for (auto &qso : quasars) {
-            qso->multTruthWithMarg();
-            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
-        }
-    }
-    else {
-        /* Initial guess */
         #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars)
-            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
+            qso->multTruthWithMarg();
     }
 
+    /* Get C.b. Then initial guess */
+    for (auto &qso : quasars)
+        std::swap(qso->in, qso->truth);
     multiplyCovVector();
+    #pragma omp parallel for schedule(dynamic, 8)
+    for (auto &qso : quasars) {
+        std::swap(qso->truth, qso->out);
+        qso->multInvCov2(p3d_model.get(), qso->truth, qso->in, pp_enabled);
+    }
+
+    multiplyCov2Vector();
 
     #pragma omp parallel for reduction(+:init_residual_norm, old_residual_prec)
     for (auto &qso : quasars) {
@@ -819,7 +829,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
         qso->in = qso->search.get();
 
         // set search = InvCov . residual
-        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in, pp_enabled);
+        qso->multInvCov2(p3d_model.get(), qso->residual.get(), qso->in, pp_enabled);
 
         init_residual_norm += cblas_ddot(
             qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
@@ -843,18 +853,18 @@ void Qu3DEstimator::conjugateGradientDescent() {
             goto endconjugateGradientDescent;
 
         double new_residual_prec = 0;
-        // Calculate InvCov . residual into out
+        // Calculate InvCov2 . residual into out
         #pragma omp parallel for reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
-            // set z (out) = InvCov . residual
-            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out, pp_enabled);
+            // set z (out) = InvCov2 . residual
+            qso->multInvCov2(p3d_model.get(), qso->residual.get(), qso->out, pp_enabled);
             new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->out, 1);
         }
 
         double beta = new_residual_prec / old_residual_prec;
         old_residual_prec = new_residual_prec;
 
-        // New direction using preconditioned z = InvCov . residual
+        // New direction using preconditioned z = InvCov2 . residual
         #pragma omp parallel for
         for (auto &qso : quasars) {
             #pragma omp simd

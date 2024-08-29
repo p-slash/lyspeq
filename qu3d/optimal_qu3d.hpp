@@ -81,6 +81,7 @@ public:
     /* Multiply each quasar's *in pointer and save to *out pointer.
        (I + N^-1/2 S N^-1/2) z = out */
     void multiplyCovVector();
+    void multiplyCov2Vector();
 
     void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr);
 

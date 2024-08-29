@@ -230,6 +230,49 @@ public:
         }
     }
 
+    void multInvCov2(
+            const fidcosmo::ArinyoP3DModel *p3d_model,
+            const double *input, double *output, bool pp
+    ) {
+        double varlss = p3d_model->getVarLss();
+        auto appDiagonalEst = [this, &varlss](const double *x_, double *y_) {
+            for (int i = 0; i < N; ++i) {
+                double isigG = isig[i] * z1[i];
+                isigG = 1.0 + isigG * isigG * varlss;
+                y_[i] = x_[i] / (isigG * isigG);
+            }
+        };
+
+        if (!pp) {
+            appDiagonalEst(input, output);
+        }
+        else {
+            double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+            for (int i = 0; i < N; ++i) {
+                double isigG = isig[i] * z1[i];
+
+                ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
+
+                for (int j = i + 1; j < N; ++j) {
+                    float rz = r[3 * j + 2] - r[3 * i + 2];
+                    double isigG_ij = isigG * isig[j] * z1[j];
+                    ccov[j + i * N] = p3d_model->evalCorrFunc1dT(rz) * isigG_ij;
+                }
+            }
+
+            std::copy_n(input, N, output);
+            lapack_int info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1,
+                                            ccov, N, output, 1);
+            if (info != 0) {
+                LOG::LOGGER.STD("Error in CosmicQuasar::multInvCov::LAPACKE_dposv");
+                appDiagonalEst(input, output);
+                return;
+            }
+
+            LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1, ccov, N, output, 1);
+        }
+    }
+
     void interpMesh2Out(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
             out[i] = mesh.interpolate(r.get() + 3 * i);
