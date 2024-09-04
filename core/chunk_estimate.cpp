@@ -498,7 +498,7 @@ void Chunk::_applyRedshiftInterp() {
 
         std::fill_n(temp_matrix[0], DATA_SIZE_2, 0);
 
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(static, 1)
         for (int i = 0; i < up; ++i)
             bins::redshiftBinningFunction(
                 _zmatrix + i * (size() + 1), size() - i, zm_new,
@@ -653,8 +653,7 @@ void Chunk::_addMarginalizations() {
     #endif
 }
 
-// Calculate the inverse into temp_matrix[0]
-// Then swap the pointer with covariance matrix
+
 void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
 {
     double t = mytime::timer.getTime();
@@ -672,8 +671,7 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
             Q_ikz_matrix, 1, covariance_matrix, 1
         );
 
-    // add noise matrix diagonally
-    // but smooth before adding
+    // add noise matrix diagonally, but smooth before adding
     double *ivec = qFile->ivar();
     if (process::smoother->isSmoothingOn()) {
         process::smoother->smoothIvar(
@@ -681,6 +679,7 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
         ivec = glmemory::temp_vector.get();
     }
 
+    // (N^-1 . S + I)
     #pragma omp parallel for
     for (int i = 0; i < size(); ++i) {
         cblas_dscal(size(), ivec[i], covariance_matrix + i * size(), 1);
@@ -694,6 +693,7 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
 
     inverse_covariance_matrix = covariance_matrix;
 
+    // (N^-1 . S + I)^-1 . N^-1
     #pragma omp parallel for
     for (int i = 0; i < size(); ++i)
         for (int j = 0; j < size(); ++j)

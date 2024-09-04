@@ -187,8 +187,6 @@ void OneQSOEstimate::collapseBootstrap() {
     ndim = fisher_index_end - istart;
 
     theta_vector = std::make_unique<double[]>(ndim);
-    if (!specifics::FAST_BOOTSTRAP)
-        fisher_matrix = std::make_unique<double[]>(ndim * ndim);
 
     for (const auto &chunk : chunks) {
         int offset = chunk->fisher_index_start - istart;
@@ -199,14 +197,18 @@ void OneQSOEstimate::collapseBootstrap() {
         cblas_daxpy(chunk->N_Q_MATRICES, -1, nk, 1, pk, 1);
         cblas_daxpy(chunk->N_Q_MATRICES, -1, tk, 1, pk, 1);
         cblas_daxpy(chunk->N_Q_MATRICES, 1, pk, 1, theta_vector.get() + offset, 1);
-        if (specifics::FAST_BOOTSTRAP)
-            continue;
+    }
 
-        for (int i = 0; i < chunk->N_Q_MATRICES; ++i) {
-            for (int j = i; j < chunk->N_Q_MATRICES; ++j) {
-                fisher_matrix[j + i * ndim + (ndim + 1) * offset] +=
-                    chunk->fisher_matrix[j + i * chunk->N_Q_MATRICES];
-            } 
+    if (!specifics::FAST_BOOTSTRAP) {
+        fisher_matrix = std::make_unique<double[]>(ndim * ndim);
+
+        for (const auto &chunk : chunks) {
+            int offset = chunk->fisher_index_start - istart;
+
+            for (int i = 0; i < chunk->N_Q_MATRICES; ++i)
+                for (int j = i; j < chunk->N_Q_MATRICES; ++j)
+                    fisher_matrix[j + i * ndim + (ndim + 1) * offset] +=
+                        chunk->fisher_matrix[j + i * chunk->N_Q_MATRICES];
         }
     }
 
