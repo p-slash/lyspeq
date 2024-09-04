@@ -70,11 +70,11 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
     : config(con)
 {
     Z_BIN_COUNTS.assign(bins::NUMBER_OF_Z_BINS+2, 0);
-    NUMBER_OF_ITERATIONS = 1;
-    if (config.getInteger("NumberOfIterations", 1) > 1)
+    NUMBER_OF_ITERATIONS = config.getInteger("NumberOfIterations", 1);
+    if (NUMBER_OF_ITERATIONS > 1)
         LOG::LOGGER.STD(
-            "WARNING: Running more than one iteration is deprecated. "
-            "Performing a single iteration!\n");
+            "WARNING: Running more than one iteration could yield "
+            "wrong noise and signal biases!\n");
 
     // Allocate memory
     dbt_estimate_sum_before_fisher_vector.reserve(3);
