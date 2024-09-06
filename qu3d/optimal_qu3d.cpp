@@ -375,7 +375,7 @@ void Qu3DEstimator::_findNeighbors() {
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
-        auto neighboring_pixels = qso->findNeighborPixels(mesh, radius);
+        auto neighboring_pixels = qso->findNeighborPixels(mesh, 2 * radius);
 
         for (const size_t &ipix : neighboring_pixels) {
             auto kumap_itr = idx_quasar_map.find(ipix);
