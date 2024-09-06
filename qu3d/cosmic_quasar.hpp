@@ -368,9 +368,10 @@ public:
     }
 
     void trimNeighbors(
-                float radius2, float ratio=0.1, double sep_arcsec=20.0,
-                float dist_Mpc=60.0
-        ) {
+            float radius2, float ratio=0.1, double sep_arcsec=20.0,
+            float dist_Mpc=60.0, bool remove_low_overlap=false,
+            bool remove_identicals=false, bool remove_no_overlap=true
+    ) {
         /* Removes neighbors with low overlap and self. Also removes neighbors
         that are suspected be identical. Correct way to tackle identical
         objects would be to coadd them, but this is hard and left for later.
@@ -378,7 +379,6 @@ public:
         /* Removes self from neighbors. Self will be treated specially. */
         neighbors.erase(this);
 
-        /*
         auto isSameQuasar = [this, &sep_arcsec, &dist_Mpc](
                     const CosmicQuasar* const &q
         ) {
@@ -391,12 +391,12 @@ public:
             return (sep < sep_arcsec) && (delta_dis < dist_Mpc);
         };
 
-        std::erase_if(neighbors, isSameQuasar);
-        */
+        if (remove_identicals)
+            std::erase_if(neighbors, isSameQuasar);
 
-        auto lowOverlap = [this, &radius2, &ratio](
-                const CosmicQuasar* const &q
-        ) {
+        auto lowOverlap = [
+            this, &radius2, &ratio, &remove_low_overlap, &remove_no_overlap
+        ](const CosmicQuasar* const &q) {
             int M = q->N, ninc_i = 0, ninc_j = 0;
             std::set<int> jdxs;
             for (int i = 0; i < N; ++i) {
@@ -418,7 +418,13 @@ public:
             }
 
             ninc_j = jdxs.size();
-            return ninc_i < (N * ratio) || ninc_j < (M * ratio);
+            bool low_overlap = remove_low_overlap;
+            low_overlap &= ninc_i < (N * ratio) || ninc_j < (M * ratio);
+
+            if (remove_no_overlap)
+                low_overlap |= ninc_i == 0;
+
+            return low_overlap;
         };
 
         std::erase_if(neighbors, lowOverlap);
