@@ -156,8 +156,8 @@ namespace fidcosmo {
 
         double evalP1d(double kz) const {
             const static double
-                p1d0 = exp(interp1d_pT->evaluate(-9.21034037198));
-            if (kz < 1e-4) return p1d0;
+                p1d0 = exp(interp1d_pT->evaluate(-13.81551055796));
+            if (kz < 1e-6) return p1d0;
             return exp(interp1d_pT->evaluate(log(kz)));
         }
 

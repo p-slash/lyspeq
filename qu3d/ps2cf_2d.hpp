@@ -12,7 +12,7 @@
 
 class Ps2Cf_2D {
 public:
-    Ps2Cf_2D(int nk, double k1, double k2, int smooth_sigma=1) : N(nk) {
+    Ps2Cf_2D(int nk, double k1, double k2, int smooth_sigma=0) : N(nk) {
         fht_z = std::make_unique<FFTLog>(N);
         fht_xy = std::make_unique<FFTLog>(N);
 
