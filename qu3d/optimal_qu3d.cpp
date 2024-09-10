@@ -218,11 +218,19 @@ void Qu3DEstimator::_readQSOFiles(
     qio::PiccaFile::use_cache = false;
 
     int number_of_files = ioh::readList(flist.c_str(), filepaths);
+
+    std::vector<long> targetid_to_remove;
+    std::string fname_t2ig = config.get("Targetids2Ignore");
+    if (!fname_t2ig.empty()) {
+        ioh::readList(fname_t2ig.c_str(), targetid_to_remove, false);
+        LOG::LOGGER.STD("Reading TARGETIDs to remove. There are %zu items.\n",
+                        targetid_to_remove.size());
+    }
+
     if (mympi::total_pes > 1) {
         int nrot = mympi::this_pe * number_of_files / mympi::total_pes;
-        std::rotate(
-            filepaths.begin(), filepaths.begin() + nrot,
-            filepaths.end());
+        std::rotate(filepaths.begin(), filepaths.begin() + nrot,
+                    filepaths.end());
     }
 
     #pragma omp parallel for num_threads(8)
@@ -233,6 +241,16 @@ void Qu3DEstimator::_readQSOFiles(
 
     if (quasars.empty())
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
+
+    if (!targetid_to_remove.empty()) {
+        int nerased = std::erase_if(quasars, [&targetid_to_remove](auto &qso) {
+            long id = qso->qFile->id;
+            auto it = std::find(
+                targetid_to_remove.cbegin(), targetid_to_remove.cend(), id);
+            return it != targetid_to_remove.cend();
+        });
+        LOG::LOGGER.STD("Removed %d quasars using TARGETID list.\n", nerased);
+    }
 
     _shiftByMedianDec(quasars);
     _setSpectroMeanParams(quasars);
@@ -372,7 +390,7 @@ void Qu3DEstimator::_findNeighbors() {
     /* Assumes radius is multiplied by factor. */
     double t1 = mytime::timer.getTime(), t2 = 0;
     float radius2 = radius * radius;
-    double radius_p = radius + 2.0 * (*std::max_element(mesh.dx, mesh.dx + 3));
+    double radius_p = radius + 3.0 * (*std::max_element(mesh.dx, mesh.dx + 3));
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
