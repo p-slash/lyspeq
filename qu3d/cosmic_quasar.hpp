@@ -373,7 +373,7 @@ public:
     void trimNeighbors(
             float radius2, float ratio=0.1, double sep_arcsec=20.0,
             float dist_Mpc=60.0, bool remove_low_overlap=false,
-            bool remove_identicals=false
+            bool remove_identicals=true
     ) {
         /* Removes neighbors with low overlap and self. Also removes neighbors
         that are suspected be identical. Correct way to tackle identical
