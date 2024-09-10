@@ -372,10 +372,11 @@ void Qu3DEstimator::_findNeighbors() {
     /* Assumes radius is multiplied by factor. */
     double t1 = mytime::timer.getTime(), t2 = 0;
     float radius2 = radius * radius;
+    double radius_p = radius + 2.0 * (*std::max_element(mesh.dx, mesh.dx + 3));
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
-        auto neighboring_pixels = qso->findNeighborPixels(mesh, 2 * radius);
+        auto neighboring_pixels = qso->findNeighborPixels(mesh, radius_p);
 
         for (const size_t &ipix : neighboring_pixels) {
             auto kumap_itr = idx_quasar_map.find(ipix);
@@ -402,15 +403,16 @@ void Qu3DEstimator::_findNeighbors() {
         qso->trimNeighbors(radius2);
     }
 
-    // symmetrize neighbors
+    // symmetrize neighbors. Should not erase anything.
     double mean_num_neighbors = 0;
     for (auto &qso : quasars) {
         CosmicQuasar* qso_ptr = qso.get();
-        auto notInNeighbor = [&qso_ptr](const CosmicQuasar* const &q) {
-            return !q->neighbors.contains(qso_ptr);
-        };
+        int num_erased = std::erase_if(
+            qso->neighbors, [&qso_ptr](const CosmicQuasar* const &q) {
+                return !q->neighbors.contains(qso_ptr);
+        });
 
-        std::erase_if(qso->neighbors, notInNeighbor);
+        if (num_erased > 0)  LOG::LOGGER.STD("WARNING: Erased neighbors.\n");
         mean_num_neighbors += qso->neighbors.size();
     }
 
