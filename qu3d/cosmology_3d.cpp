@@ -11,7 +11,7 @@
 
 constexpr double SAFE_ZERO = 1E-36;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 2E2,
+constexpr double KMIN = 1E-4, KMAX = 2E2,
                  LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
@@ -398,9 +398,10 @@ void ArinyoP3DModel::_construcP1D() {
         LNKMIN, dlnk2, nlnk2, &p1d[0]);
 
     /* Quasar forest length can be a maximum of 650 Mpc.
-       Truncating 1e-6--1e6 logspaced array of 1536 points by 380 on each end
+       Truncating 1e-6--1e6 logspaced array of 1536 points by 380 on each end,
+       Truncating 1e-4--1e4 logspaced array of 1536 points by 190 on each end,
        gives approximately 1e-3--1e3 Mpc span. */
-    constexpr int Nhankel = 1536, truncate = 380;
+    constexpr int Nhankel = 1536, truncate = 190;
     constexpr double log2_e = log2(exp(1.0)),
                      SQRT_2PI = sqrt(2.0 * 3.14159265358979323846);
 
@@ -436,13 +437,27 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
             psarr[iz + Nhankel * iperp] = interp2d_pS.evaluate(kperparr[iperp], kzarr[iz]);
 
     #ifndef NUSE_LOGR_INTERP
-        interp2d_cfS = hankel.transform(psarr.get(), 420, 0, true);
+        interp2d_cfS = hankel.transform(psarr.get(), 240, 0, true);
     #else
         interp2d_cfS = hankel.transform(
             psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
     #endif
 
     interp1d_cfS = interp2d_cfS->get1dSliceX(interp2d_cfS->getY1());
+
+    // Apodize interp2d_cfS only
+    double _rmax_half = rmax / 2;
+    interp2d_cfS->applyFunction(
+        [_rmax_half](double log2rz, double log2rperp2) {
+            double r = sqrt(exp2(2.0 * log2rz) + exp2(log2rperp2));
+            if (r > 2.0 * _rmax_half)   return 0.0;
+            /* r /= _rmax_half; return 1.0 - 0.75 * r + r * r * r / 16.0; */
+
+            if (r < _rmax_half) return 1.0;
+            r = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
+            r *= r;
+            return r;
+    });
 }
 
 
