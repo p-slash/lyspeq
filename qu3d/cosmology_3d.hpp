@@ -155,7 +155,9 @@ namespace fidcosmo {
         double evalExplicit(double k, double kz) const;
 
         double evalP1d(double kz) const {
-            if (kz < 1e-6) return exp(interp1d_pT->evaluate(-13.8155));
+            const static double
+                p1d0 = exp(interp1d_pT->evaluate(-9.21034037198));
+            if (kz < 1e-4) return p1d0;
             return exp(interp1d_pT->evaluate(log(kz)));
         }
 
@@ -167,9 +169,6 @@ namespace fidcosmo {
 
         double evalCorrFunc1dS(float rz) const {
             /* Evaluate small-scale CF using interpolation. */
-            if (rz > rmax)
-                return 0;
-
             rz = fastlog2(rz);
             return interp1d_cfS->evaluate(rz);
         }
