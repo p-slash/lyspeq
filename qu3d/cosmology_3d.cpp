@@ -398,14 +398,15 @@ void ArinyoP3DModel::_construcP1D() {
         LNKMIN, dlnk2, nlnk2, &p1d[0]);
 
     /* Quasar forest length can be a maximum of 650 Mpc.
-       Truncating 1e-6--1e6 logspaced array of 1536 points by 380 on each end
+       Truncating 1e-6--1e6 logspaced array of 1536 points by 380 on each end,
+       Truncating 1e-6--1e6 logspaced array of 2048 points by 512 on each end,
+       Truncating 1e-4--1e4 logspaced array of 1536 points by 190 on each end,
        gives approximately 1e-3--1e3 Mpc span. */
-    constexpr int Nhankel = 1536, truncate = 380;
+    constexpr int Nhankel = 2048, ltrunc = 460, rtrunc = 512;
     constexpr double log2_e = log2(exp(1.0)),
                      SQRT_2PI = sqrt(2.0 * 3.14159265358979323846);
 
     FFTLog fht_z(Nhankel);
-    Smoother smoother(1);
     fht_z.construct(-0.5, KMIN, 1 / KMIN, -0.25, 0);
 
     for (int iz = 0; iz < Nhankel; ++iz)
@@ -416,16 +417,17 @@ void ArinyoP3DModel::_construcP1D() {
     for (int iz = 0; iz < Nhankel; ++iz)
         fht_z.field[iz] /= SQRT_2PI * sqrt(fht_z.k[iz]);
 
-    smoother.smooth1D(fht_z.field + truncate, Nhankel - 2 * truncate, 1, true);
+    // Smoother smoother(1);
+    // smoother.smooth1D(fht_z.field + truncate, Nhankel - 2 * truncate, 1, true);
 
     interp1d_cfT = std::make_unique<DiscreteInterpolation1D>(
-        log2(fht_z.k[truncate]), log2_e * fht_z.getDLn(),
-        Nhankel - 2 * truncate, fht_z.field + truncate);
+        log2(fht_z.k[ltrunc]), log2_e * fht_z.getDLn(),
+        Nhankel - (ltrunc + rtrunc), fht_z.field + ltrunc);
 }
 
 
 void ArinyoP3DModel::_getCorrFunc2dS() {
-    constexpr int Nhankel = 1536;
+    constexpr int Nhankel = 2048;
     Ps2Cf_2D hankel{Nhankel, KMIN, 1 / KMIN};
 
     auto psarr = std::make_unique<double[]>(Nhankel * Nhankel);
@@ -436,13 +438,27 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
             psarr[iz + Nhankel * iperp] = interp2d_pS.evaluate(kperparr[iperp], kzarr[iz]);
 
     #ifndef NUSE_LOGR_INTERP
-        interp2d_cfS = hankel.transform(psarr.get(), 420, 0, true);
+        interp2d_cfS = hankel.transform(psarr.get(), 460, 512, 0, true);
     #else
         interp2d_cfS = hankel.transform(
             psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
     #endif
 
     interp1d_cfS = interp2d_cfS->get1dSliceX(interp2d_cfS->getY1());
+
+    // Apodize interp2d_cfS only
+    double _rmax_half = rmax / 2;
+    interp2d_cfS->applyFunction(
+        [_rmax_half](double log2rz, double log2rperp2) {
+            double r = sqrt(exp2(2.0 * log2rz) + exp2(log2rperp2));
+            if (r > 2.0 * _rmax_half)   return 0.0;
+            /* r /= _rmax_half; return 1.0 - 0.75 * r + r * r * r / 16.0; */
+
+            if (r < _rmax_half) return 1.0;
+            r = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
+            r *= r;
+            return r;
+    });
 }
 
 

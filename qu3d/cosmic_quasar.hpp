@@ -319,6 +319,9 @@ public:
         }
 
         LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
+        /*if (info != 0) {
+            LOG::LOGGER.STD("Error in CosmicQuasar::blockRandom::LAPACKE_dpotrf");
+        }*/
         rng.fillVectorNormal(truth, N);
         cblas_dtrmv(CblasRowMajor, CblasUpper, CblasNoTrans, CblasNonUnit,
                     N, ccov, N, truth, 1);
@@ -368,9 +371,10 @@ public:
     }
 
     void trimNeighbors(
-                float radius2, float ratio=0.1, double sep_arcsec=20.0,
-                float dist_Mpc=60.0
-        ) {
+            float radius2, float ratio=0.1, double sep_arcsec=20.0,
+            float dist_Mpc=60.0, bool remove_low_overlap=false,
+            bool remove_identicals=false
+    ) {
         /* Removes neighbors with low overlap and self. Also removes neighbors
         that are suspected be identical. Correct way to tackle identical
         objects would be to coadd them, but this is hard and left for later.
@@ -378,23 +382,23 @@ public:
         /* Removes self from neighbors. Self will be treated specially. */
         neighbors.erase(this);
 
-        /*
-        auto isSameQuasar = [this, &sep_arcsec, &dist_Mpc](
+        if (remove_identicals) {
+            auto isSameQuasar = [this, &sep_arcsec, &dist_Mpc](
                     const CosmicQuasar* const &q
-        ) {
-            double sep = acos(
-                sin(angles[1]) * sin(q->angles[1])
-                + cos(angles[1]) * cos(q->angles[1]) * cos(q->angles[0] - angles[0])
-            ) * 3600.0 * 180.0 / MY_PI;
+            ) {
+                double sep = acos(
+                    sin(angles[1]) * sin(q->angles[1])
+                    + cos(angles[1]) * cos(q->angles[1]) * cos(q->angles[0] - angles[0])
+                ) * 3600.0 * 180.0 / MY_PI;
 
-            double delta_dis = fabs(_quasar_dist - q->_quasar_dist);
-            return (sep < sep_arcsec) && (delta_dis < dist_Mpc);
-        };
+                double delta_dis = fabs(_quasar_dist - q->_quasar_dist);
+                return (sep < sep_arcsec) && (delta_dis < dist_Mpc);
+            };
 
-        std::erase_if(neighbors, isSameQuasar);
-        */
+            std::erase_if(neighbors, isSameQuasar);
+        }
 
-        auto lowOverlap = [this, &radius2, &ratio](
+        auto lowOverlap = [this, &radius2, &ratio, &remove_low_overlap](
                 const CosmicQuasar* const &q
         ) {
             int M = q->N, ninc_i = 0, ninc_j = 0;
@@ -418,7 +422,11 @@ public:
             }
 
             ninc_j = jdxs.size();
-            return ninc_i < (N * ratio) || ninc_j < (M * ratio);
+            bool low_overlap = remove_low_overlap;
+            low_overlap &= ninc_i < (N * ratio) || ninc_j < (M * ratio);
+            low_overlap |= ninc_i == 0;
+
+            return low_overlap;
         };
 
         std::erase_if(neighbors, lowOverlap);
