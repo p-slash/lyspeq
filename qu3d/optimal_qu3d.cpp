@@ -542,6 +542,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_rnd_enabled = config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
+    max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
 
     seed_generator = std::make_unique<std::seed_seq>(seed.begin(), seed.end());
@@ -584,9 +585,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     #pragma omp parallel for
     for (auto &qso : quasars)
         qso->transformZ1toG(p3d_model.get());
-
-    if (config.getInteger("TestGaussianField") > 0)
-        replaceDeltasWithGaussianField();
 }
 
 void Qu3DEstimator::reverseInterpolate() {
@@ -1494,7 +1492,8 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
             #pragma omp parallel for schedule(dynamic, 8) \
                     reduction(max:max_rtruth) reduction(+:mean_rtruth)
             for (auto &qso : quasars) {
-                double drt = qso->multCovNeighborsOnlyUpdateTruth(p3d_model.get());
+                qso->multCovNeighborsOnly(p3d_model.get(), qso->out);
+                double drt = qso->updateTruth(qso->out);
                 max_rtruth = std::max(drt, max_rtruth);
                 mean_rtruth += drt;
             }
@@ -1523,6 +1522,84 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
 
     if (verbose)
         LOG::LOGGER.STD("It took %.2f m.\n", t2);
+}
+
+
+void Qu3DEstimator::estimateMaxEvals() {
+    int niter = 1;
+    double n_in, n_out, n_inout, new_eval_max, old_eval_max = 1e-12;
+
+    LOG::LOGGER.STD("Estimating maximum eigenvalue of C.\n");
+    /* Initial vector */
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
+
+    for (; niter <= max_conj_grad_steps; ++niter) {
+        multiplyCovVector();
+        n_in = 0;  n_out = 0;  n_inout = 0;
+
+        #pragma omp parallel for reduction(+:n_in, n_out, n_inout)
+        for (const auto &qso : quasars) {
+            n_in += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+            n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
+            n_inout += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+        }
+
+        new_eval_max = n_inout / n_in;
+        LOG::LOGGER.STD("  New eval: %.5e\n", new_eval_max);
+        if (fabs(new_eval_max - old_eval_max) < tolerance * std::max(old_eval_max, new_eval_max)) {
+            LOG::LOGGER.STD("Converged.\n");  break;
+        }
+
+        old_eval_max = new_eval_max;
+        n_out = sqrt(n_out);
+        for (const auto &qso : quasars)
+            for (int i = 0; i < qso->N; ++i)
+                qso->in[i] = qso->out[i] / n_out;
+    }
+
+    LOG::LOGGER.STD("Estimating maximum eigenvalue of off-diagonal.\n");
+    old_eval_max = 1e-12;
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
+
+    for (; niter <= max_conj_grad_steps; ++niter) {
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            if (qso->neighbors.empty())
+                continue;
+
+            for (int i = 0; i < qso->N; ++i)
+                qso->in[i] *= qso->z1[i];
+        }
+
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->multCovNeighborsOnly(p3d_model.get(), qso->out);
+
+        n_in = 0;  n_out = 0;  n_inout = 0;
+
+        #pragma omp parallel for reduction(+:n_in, n_out, n_inout)
+        for (const auto &qso : quasars) {
+            n_in += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+            n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
+            n_inout += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+        }
+
+        new_eval_max = n_inout / n_in;
+        LOG::LOGGER.STD("  New eval: %.5e\n", new_eval_max);
+        if (fabs(new_eval_max - old_eval_max) < tolerance * std::max(old_eval_max, new_eval_max)) {
+            LOG::LOGGER.STD("Converged.\n");  break;
+        }
+
+        old_eval_max = new_eval_max;
+        n_out = sqrt(n_out);
+        for (const auto &qso : quasars)
+            for (int i = 0; i < qso->N; ++i)
+                qso->in[i] = qso->out[i] / n_out;
+    }
 }
 
 
@@ -1574,7 +1651,14 @@ int main(int argc, char *argv[]) {
     }
 
     Qu3DEstimator qps(config);
+    bool test_gaussian_field = config.getInteger("TestGaussianField") > 0;
     config.checkUnusedKeys();
+
+    if (qps.max_eval_enabled)
+        qps.estimateMaxEvals();
+
+    if (test_gaussian_field)
+        qps.replaceDeltasWithGaussianField();
 
     qps.estimatePower();
 
