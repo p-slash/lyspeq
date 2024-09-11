@@ -2,6 +2,7 @@
 #define DISCRETE_INTERPOLATION_H
 
 #include <cmath>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -75,7 +76,7 @@ class DiscreteInterpolation2D
 {
     double x1, x2, dx, y1, y2, dy;
     double *z;
-    size_t Nx, Ny, size;
+    int Nx, Ny, size;
 
     inline
     size_t _getIndex(int nx, int ny) const {  return nx + Nx * ny; };
@@ -98,6 +99,16 @@ public:
             sl[i] = evaluate(x1 + i * dx, y);
 
         return std::make_unique<DiscreteInterpolation1D>(x1, dx, Nx, sl.get());
+    }
+
+    void applyFunction(std::function<double(double, double)> &&func) {
+        for (int i = 0; i < Ny; ++i) {
+            double y = y1 + i * dy;
+            for (int j = 0; j < Nx; ++j) {
+                double x = x1 + j * dx;
+                z[_getIndex(j, i)] *= func(x, y);
+            }
+        }
     }
 };
 

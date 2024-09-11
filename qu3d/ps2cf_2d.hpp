@@ -12,7 +12,7 @@
 
 class Ps2Cf_2D {
 public:
-    Ps2Cf_2D(int nk, double k1, double k2, int smooth_sigma=1) : N(nk) {
+    Ps2Cf_2D(int nk, double k1, double k2, int smooth_sigma=0) : N(nk) {
         fht_z = std::make_unique<FFTLog>(N);
         fht_xy = std::make_unique<FFTLog>(N);
 
@@ -42,10 +42,10 @@ public:
        Returns: xi_SS interpolator in ln(rz), ln(rperp2) if return_log_interp=true
     */
     std::unique_ptr<DiscreteInterpolation2D> transform(
-            const double *p2d, int truncate, double rmax,
+            const double *p2d, int ltrunc, int rtrunc, double rmax,
             bool return_log_interp=false
     ) {
-        int Nres = N - 2 * truncate;
+        int Nres = N - (ltrunc + rtrunc);
         /* Intermediate array will be transposed */
         interm = std::make_unique<double[]>(N * N);
         result = std::make_unique<double[]>(Nres * Nres);
@@ -57,17 +57,17 @@ public:
 
         for (int iz = 0; iz < Nres; ++iz) {
             for (int j = 0; j < N; ++j)
-                fht_xy->field[j] = interm[j + (iz + truncate) * N] * kperp[j];
+                fht_xy->field[j] = interm[j + (iz + ltrunc) * N] * kperp[j];
 
             fht_xy->transform();
             for (int j = 0; j < N; ++j)
                 fht_xy->field[j] /= fht_xy->k[j];
 
             if (smoother)
-                smoother->smooth1D(fht_xy->field + truncate, Nres, 1, true);
+                smoother->smooth1D(fht_xy->field + ltrunc, Nres, 1, true);
 
             for (int iperp = 0; iperp < Nres; ++iperp)
-                result[iz + Nres * iperp] = fht_xy->field[iperp + truncate];
+                result[iz + Nres * iperp] = fht_xy->field[iperp + ltrunc];
         }
 
         constexpr double MY_2PI = 2.0 * 3.14159265358979323846;
@@ -81,8 +81,8 @@ public:
         constexpr double log2_e = log2(exp(1.0));
         if (return_log_interp)
             return std::make_unique<DiscreteInterpolation2D>(
-                log2(fht_z->k[truncate]), log2_e * fht_z->getDLn(),
-                2.0 * log2(fht_xy->k[truncate]), 2.0 * log2_e * fht_xy->getDLn(),
+                log2(fht_z->k[ltrunc]), log2_e * fht_z->getDLn(),
+                2.0 * log2(fht_xy->k[ltrunc]), 2.0 * log2_e * fht_xy->getDLn(),
                 result.get(), Nres, Nres);
 
         // Evaluting log for all coordinates is too expensive.
@@ -94,13 +94,13 @@ public:
 
         Interpolation2D logr_interp(
             GSL_BICUBIC_INTERPOLATION,
-            fht_z->k.get() + truncate, fht_xy->k.get() + truncate, result.get(),
+            fht_z->k.get() + ltrunc, fht_xy->k.get() + ltrunc, result.get(),
             Nres, Nres);
 
         auto lnrlin = std::make_unique<double[]>(Nres);
         double dr = rmax / (Nres - 1);
 
-        lnrlin[0] = std::max(fht_z->k[truncate], fht_xy->k[truncate]);
+        lnrlin[0] = std::max(fht_z->k[ltrunc], fht_xy->k[ltrunc]);
         for (int i = 1; i < Nres; ++i)
             lnrlin[i] = log(i * dr);
 

@@ -107,19 +107,19 @@ template std::ofstream ioh::open_fstream<std::ofstream>(const std::string&, char
 template std::fstream  ioh::open_fstream<std::fstream>(const std::string&, char);
 
 template <class T>
-int ioh::readList(const char *fname, std::vector<T> &list_values)
+int ioh::readList(const char *fname, std::vector<T> &list_values, bool hdr)
 {
-    int nr, ic=0;
+    int nr = 2000000, ic = 0;
 
     std::ifstream toRead = ioh::open_fstream<std::ifstream>(fname);
-    
-    toRead >> nr;
 
-    list_values.reserve(nr);
-    
+    if (hdr) {
+        toRead >> nr;
+        list_values.reserve(nr);
+    }
+
     T tmp;
-    while (toRead >> tmp && ic < nr)
-    {
+    while (toRead.good() && toRead >> tmp && ic < nr) {
         list_values.push_back(tmp);
         ++ic;
     }
@@ -129,8 +129,9 @@ int ioh::readList(const char *fname, std::vector<T> &list_values)
     return nr;
 }
 
-template int ioh::readList(const char *fname, std::vector<int> &list_values);
-template int ioh::readList(const char *fname, std::vector<std::string> &list_values);
+template int ioh::readList(const char *fname, std::vector<int> &list_values, bool hdr);
+template int ioh::readList(const char *fname, std::vector<long> &list_values, bool hdr);
+template int ioh::readList(const char *fname, std::vector<std::string> &list_values, bool hdr);
 
 int ioh::readListRdv(const char *fname, std::vector<std::pair<int, double>> &list_values)
 {
