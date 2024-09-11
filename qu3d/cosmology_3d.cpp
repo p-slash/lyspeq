@@ -402,7 +402,7 @@ void ArinyoP3DModel::_construcP1D() {
        Truncating 1e-6--1e6 logspaced array of 2048 points by 512 on each end,
        Truncating 1e-4--1e4 logspaced array of 1536 points by 190 on each end,
        gives approximately 1e-3--1e3 Mpc span. */
-    constexpr int Nhankel = 2048, truncate = 512;
+    constexpr int Nhankel = 2048, ltrunc = 460, rtrunc = 512;
     constexpr double log2_e = log2(exp(1.0)),
                      SQRT_2PI = sqrt(2.0 * 3.14159265358979323846);
 
@@ -421,8 +421,8 @@ void ArinyoP3DModel::_construcP1D() {
     // smoother.smooth1D(fht_z.field + truncate, Nhankel - 2 * truncate, 1, true);
 
     interp1d_cfT = std::make_unique<DiscreteInterpolation1D>(
-        log2(fht_z.k[truncate]), log2_e * fht_z.getDLn(),
-        Nhankel - 2 * truncate, fht_z.field + truncate);
+        log2(fht_z.k[ltrunc]), log2_e * fht_z.getDLn(),
+        Nhankel - (ltrunc + rtrunc), fht_z.field + ltrunc);
 }
 
 
@@ -438,7 +438,7 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
             psarr[iz + Nhankel * iperp] = interp2d_pS.evaluate(kperparr[iperp], kzarr[iz]);
 
     #ifndef NUSE_LOGR_INTERP
-        interp2d_cfS = hankel.transform(psarr.get(), 512, 0, true);
+        interp2d_cfS = hankel.transform(psarr.get(), 460, 512, 0, true);
     #else
         interp2d_cfS = hankel.transform(
             psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
