@@ -1,4 +1,5 @@
-#include "discrete_interpolation.hpp"
+#include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/mathutils.hpp"
 #include <algorithm>
 #include <cassert>
 
@@ -23,14 +24,6 @@ cubic_notaknot_p[] = {
     2.679491924311226958e-01};
 
 constexpr int cubic_u_size = 16, cubic_p_size = 15;
-
-// inlines solve duplicate symbol error in tests/test_utils.cpp
-inline
-bool isClose(double a, double b, double relerr=1e-5, double abserr=1e-8)
-{
-    double mag = std::max(fabs(a),fabs(b));
-    return fabs(a-b) < (abserr + relerr * mag);
-}
 
 inline
 bool allClose(const double *a, const double *b, int size)

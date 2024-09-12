@@ -1548,7 +1548,7 @@ void Qu3DEstimator::estimateMaxEvals() {
 
         new_eval_max = n_inout / n_in;
         LOG::LOGGER.STD("  New eval: %.5e\n", new_eval_max);
-        if (fabs(new_eval_max - old_eval_max) < tolerance * std::max(old_eval_max, new_eval_max)) {
+        if (isClose(old_eval_max, new_eval_max, tolerance)) {
             LOG::LOGGER.STD("Converged.\n");  break;
         }
 
@@ -1590,7 +1590,7 @@ void Qu3DEstimator::estimateMaxEvals() {
 
         new_eval_max = n_inout / n_in;
         LOG::LOGGER.STD("  New eval: %.5e\n", new_eval_max);
-        if (fabs(new_eval_max - old_eval_max) < tolerance * std::max(old_eval_max, new_eval_max)) {
+        if (isClose(old_eval_max, new_eval_max, tolerance)) {
             LOG::LOGGER.STD("Converged.\n");  break;
         }
 
