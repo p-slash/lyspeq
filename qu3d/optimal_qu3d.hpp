@@ -19,7 +19,8 @@ const config_map qu3d_default_parameters ({
     {"LongScale", "50"}, {"ScaleFactor", "4"},
     {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"},
     {"EstimateTotalBias", "1"}, {"EstimateNoiseBias", "1"},
-    {"EstimateFisherFromRandomDerivatives", "-1"}
+    {"EstimateFisherFromRandomDerivatives", "-1"},
+    {"EstimateMaxEigenValues", "-1"}
 });
 
 
@@ -57,7 +58,8 @@ class Qu3DEstimator
                          int ndata, const std::string &ext);
 
 public:
-    bool total_bias_enabled, noise_bias_enabled, fisher_rnd_enabled;
+    bool total_bias_enabled, noise_bias_enabled, fisher_rnd_enabled,
+         max_eval_enabled;
 
     /* This function reads following keys from config file:
     FileNameList: string
@@ -100,6 +102,7 @@ public:
     void conjugateGradientSampler();
     void cgsGetY();
 
+    void estimateMaxEvals();
 
     void drawRndDeriv(int i);
     void estimateFisherFromRndDeriv();
