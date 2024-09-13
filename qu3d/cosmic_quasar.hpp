@@ -552,28 +552,32 @@ public:
         }
     }
 
-    double multCovNeighborsOnlyUpdateTruth(
-            const fidcosmo::ArinyoP3DModel *p3d_model
+    void multCovNeighborsOnly(
+            const fidcosmo::ArinyoP3DModel *p3d_model, double *output
     ) {
         /* See comments in multCovNeighbors */
         if (neighbors.empty())
-            return 0;
+            return;
 
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
-        std::fill_n(out, N, 0);
+        std::fill_n(output, N, 0);
 
         for (const CosmicQuasar* q : neighbors) {
             setCrossCov(q, p3d_model, ccov);
             int M = q->N;
 
             cblas_dgemv(CblasRowMajor, CblasNoTrans, N, M, 1.0,
-                        ccov, M, q->in, 1, 1.0, out, 1);
+                        ccov, M, q->in, 1, 1.0, output, 1);
         }
+    }
 
+    double updateTruth(const double *input) {
+        if (neighbors.empty())
+            return 0;
         double init_truth_norm = cblas_dnrm2(N, truth, 1);
 
         for (int i = 0; i < N; ++i) {
-            residual[i] = 0.5 * isig[i] * z1[i] * out[i];
+            residual[i] = 0.5 * isig[i] * z1[i] * input[i];
             truth[i] += residual[i];
         }
 
