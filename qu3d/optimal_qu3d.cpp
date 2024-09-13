@@ -1499,7 +1499,9 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
             }
 
             mean_rtruth /= quasars.size();
-            LOG::LOGGER.STD("Mean/Max relative change: %.5e / %.5e\n", mean_rtruth, max_rtruth);
+            if (verbose)
+                LOG::LOGGER.STD("Mean/Max relative change: %.5e / %.5e\n",
+                                mean_rtruth, max_rtruth);
 
             dt_pp = mytime::timer.getTime() - t1_pp;
             ++timings["PPcomp"].first;
