@@ -394,7 +394,7 @@ void ArinyoP3DModel::_construcP1D() {
         p1d[i] = log(trapz(p1d_integrand, nlnk, dlnk) / (2.0 * MY_PI) + SAFE_ZERO);
     }
 
-    interp1d_pT = std::make_unique<DiscreteInterpolation1D>(
+    interp1d_pT = std::make_unique<DiscreteCubicInterpolation1D>(
         LNKMIN, dlnk2, nlnk2, &p1d[0]);
 
     /* Quasar forest length can be a maximum of 650 Mpc.
@@ -404,7 +404,7 @@ void ArinyoP3DModel::_construcP1D() {
        gives approximately 1e-3--1e3 Mpc span. */
     constexpr int Nhankel = 2048, ltrunc = 460, rtrunc = 512;
     constexpr double log2_e = log2(exp(1.0)),
-                     SQRT_2PI = sqrt(2.0 * 3.14159265358979323846);
+                     SQRT_2PI = sqrt(2.0 * MY_PI);
 
     FFTLog fht_z(Nhankel);
     fht_z.construct(-0.5, KMIN, 1 / KMIN, -0.25, 0);
@@ -420,7 +420,7 @@ void ArinyoP3DModel::_construcP1D() {
     // Smoother smoother(1);
     // smoother.smooth1D(fht_z.field + truncate, Nhankel - 2 * truncate, 1, true);
 
-    interp1d_cfT = std::make_unique<DiscreteInterpolation1D>(
+    interp1d_cfT = std::make_unique<DiscreteCubicInterpolation1D>(
         log2(fht_z.k[ltrunc]), log2_e * fht_z.getDLn(),
         Nhankel - (ltrunc + rtrunc), fht_z.field + ltrunc);
 }
@@ -459,6 +459,8 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
             r *= r;
             return r;
     });
+
+    interp2d_cfS->trim(log2(rmax * 1.05), 2.0 * log2(rmax * 1.05));
 }
 
 
