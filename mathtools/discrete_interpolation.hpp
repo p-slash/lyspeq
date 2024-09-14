@@ -96,6 +96,7 @@ public:
     { return ! (*this==rhs); };
 
     double evaluate(double x, double y) const;
+    double evaluateHermite(double x, double y) const { return evaluate(x, y); }
     inline double getX1() const { return x1; }
     inline double getY1() const { return y1; }
 
@@ -117,23 +118,6 @@ public:
         }
     }
 };
-
-
-typedef struct {
-    /* Note interp_2d must be defined y, x due to legacy code */
-    std::unique_ptr<DiscreteInterpolation2D> interp_2d;
-    std::unique_ptr<DiscreteInterpolation1D> interp_x, interp_y;
-    double evaluate(double x, double y) const {
-        if ((x == 0) && (y == 0))
-            return 0;
-        else if (x == 0)
-            return exp(interp_y->evaluate(log(y)));
-        else if (y == 0)
-            return exp(interp_x->evaluate(log(x)));
-
-        return exp(interp_2d->evaluate(log(y), log(x)));
-    }
-} DiscreteLogInterpolation2D;
 
 
 class DiscreteBicubicSpline {
@@ -158,6 +142,7 @@ public:
     inline double getY1() const { return y1; }
 
     double evaluate(double x, double y);
+    double evaluateHermite(double x, double y);
 
     std::unique_ptr<DiscreteCubicInterpolation1D> get1dSliceX(double y) {
         auto sl = std::make_unique<double[]>(Nx);
@@ -179,6 +164,29 @@ public:
     }
 
     void trim(double xmax, double ymax);
+};
+
+
+template<class T1, class T2>
+class DiscreteLogInterpolation2D {
+    /* T1: 1D interpolator class DiscreteInterpolation1D or
+           DiscreteCubicInterpolation1D */
+    /* T2: 2D interpolator class DiscreteInterpolation2D or
+           DiscreteBicubicSpline */
+public:
+    /* Note interp_2d must be defined y, x due to legacy code */
+    std::unique_ptr<T2> interp_2d;
+    std::unique_ptr<T1> interp_x, interp_y;
+    double evaluate(double x, double y) const {
+        if ((x == 0) && (y == 0))
+            return 0;
+        else if (x == 0)
+            return exp(interp_y->evaluate(log(y)));
+        else if (y == 0)
+            return exp(interp_x->evaluate(log(x)));
+
+        return exp(interp_2d->evaluateHermite(log(y), log(x)));
+    }
 };
 
 
