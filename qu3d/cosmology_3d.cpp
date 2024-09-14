@@ -337,11 +337,9 @@ void ArinyoP3DModel::_cacheInterp2D() {
             lnP_S[iz + N * iperp] = ptot + k_rL;
         }
     }
-    interp2d_pL.interp_2d = std::make_unique<DiscreteBicubicSpline>(
-        LNKMIN, dlnk, LNKMIN, dlnk, lnP_L.get(), N, N);
 
-    interp2d_pS.interp_2d = std::make_unique<DiscreteBicubicSpline>(
-        LNKMIN, dlnk, LNKMIN, dlnk, lnP_S.get(), N, N);
+    interp2d_pL.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_L.get(), N, N);
+    interp2d_pS.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_S.get(), N, N);
 
     /* Large-scale and small-scale 1Ds */
     for (int i = 0; i < N; ++i) {
@@ -361,17 +359,10 @@ void ArinyoP3DModel::_cacheInterp2D() {
         lnP_L[i + 3 * N] = pz + k_rL;
     }
 
-    interp2d_pL.interp_x = std::make_unique<DiscreteCubicInterpolation1D>(
-        LNKMIN, dlnk, N, lnP_L.get());
-
-    interp2d_pL.interp_y = std::make_unique<DiscreteCubicInterpolation1D>(
-        LNKMIN, dlnk, N, lnP_L.get() + N);
-
-    interp2d_pS.interp_x = std::make_unique<DiscreteCubicInterpolation1D>(
-        LNKMIN, dlnk, N, lnP_L.get() + 2 * N);
-
-    interp2d_pS.interp_y = std::make_unique<DiscreteCubicInterpolation1D>(
-        LNKMIN, dlnk, N, lnP_L.get() + 3 * N);
+    interp2d_pL.setInterpX(LNKMIN, dlnk, N, lnP_L.get());
+    interp2d_pL.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + N);
+    interp2d_pS.setInterpX(LNKMIN, dlnk, N, lnP_L.get() + 2 * N);
+    interp2d_pS.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + 3 * N);
 }
 
 
