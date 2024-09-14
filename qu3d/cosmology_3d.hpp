@@ -124,7 +124,9 @@ namespace fidcosmo {
 
     public:
         static constexpr double MAX_R_FACTOR = 20.0;
-        DiscreteLogInterpolation2D interp2d_pL, interp2d_pS;
+        DiscreteLogInterpolation2D<
+            DiscreteCubicInterpolation1D, DiscreteBicubicSpline
+        > interp2d_pL, interp2d_pS;
         /* This function reads following keys from config file:
         b_F: double
         alpha_F (double): Redshift growth power of b_F.
@@ -191,7 +193,7 @@ namespace fidcosmo {
                 if (rz < rz_min)  rz = rz_min;
                 if (rperp2 < rperp2_min)  rperp2 = rperp2_min;
                 rz = fastlog2(rz);  rperp2 = fastlog2(rperp2);
-                return interp2d_cfS->evaluate(rz, rperp2);
+                return interp2d_cfS->evaluateHermite(rz, rperp2);
             }
         #else
             double evalCorrFunc2dS(float rperp, float rz) const {
