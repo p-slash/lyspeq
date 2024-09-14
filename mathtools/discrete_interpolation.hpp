@@ -100,12 +100,13 @@ public:
     inline double getX1() const { return x1; }
     inline double getY1() const { return y1; }
 
-    std::unique_ptr<DiscreteInterpolation1D> get1dSliceX(double y) const {
+    template<class T>
+    std::unique_ptr<T> get1dSliceX(double y) const {
         auto sl = std::make_unique<double[]>(Nx);
         for (int i = 0; i < Nx; ++i)
             sl[i] = evaluate(x1 + i * dx, y);
 
-        return std::make_unique<DiscreteInterpolation1D>(x1, dx, Nx, sl.get());
+        return std::make_unique<T>(x1, dx, Nx, sl.get());
     }
 
     void applyFunction(std::function<double(double, double)> &&func) {
