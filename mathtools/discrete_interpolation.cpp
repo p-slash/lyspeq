@@ -175,10 +175,7 @@ void DiscreteCubicInterpolation1D::resetPointer(
     dx = delta_x;
     N = Nsize;
     y = y_arr;
-    if (_notaknot)
-        construct_notaknot();
-    else
-        construct_natural();
+    reconstruct();
 }
 
 double DiscreteCubicInterpolation1D::evaluate(double x) const
@@ -260,19 +257,19 @@ bool DiscreteInterpolation2D::operator==(const DiscreteInterpolation2D &rhs) con
 DiscreteBicubicSpline::DiscreteBicubicSpline(
         double x_start, double delta_x, double y_start, double delta_y,
         const double *z_arr, int Nxsize, int Nysize, int halfn
-) : y1(y_start), dy(delta_y), Ny(Nysize), halfm(halfn)
+) : x1(x_start), dx(delta_x), y1(y_start), dy(delta_y), Nx(Nxsize), Ny(Nysize), halfm(halfn)
 {
     m = std::min(2 * halfn, Ny);
     _spl_local = std::make_unique<DiscreteCubicInterpolation1D>(y1, dy, m);
     _zy = _spl_local->get();
 
-    z = std::make_unique<double[]>(Nxsize * Ny);
-    std::copy_n(z_arr, Nxsize * Ny, z.get());
+    z = std::make_unique<double[]>(Nx * Ny);
+    std::copy_n(z_arr, Nx * Ny, z.get());
     _spls_y.reserve(Ny);
     for (int i = 0; i < Ny; ++i)
         _spls_y.push_back(
             std::make_unique<DiscreteCubicInterpolation1D>(
-                x_start, delta_x, Nxsize, z.get() + i * Nxsize, false
+                x1, dx, Nx, z.get() + i * Nx, false
             )
         );
 }
