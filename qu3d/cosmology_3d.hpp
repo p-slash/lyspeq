@@ -112,7 +112,7 @@ namespace fidcosmo {
         std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
 
-        std::unique_ptr<DiscreteBicubicSpline> interp2d_cfS;
+        std::unique_ptr<DiscreteInterpolation2D> interp2d_cfS;
         std::unique_ptr<DiscreteCubicInterpolation1D>
             interp1d_pT, interp1d_cfS, interp1d_cfT;
 
@@ -125,7 +125,7 @@ namespace fidcosmo {
     public:
         static constexpr double MAX_R_FACTOR = 20.0;
         DiscreteLogInterpolation2D<
-            DiscreteCubicInterpolation1D, DiscreteBicubicSpline
+            DiscreteCubicInterpolation1D, DiscreteInterpolation2D
         > interp2d_pL, interp2d_pS;
         /* This function reads following keys from config file:
         b_F: double
@@ -190,10 +190,18 @@ namespace fidcosmo {
                 if ((rperp2 + rz * rz) > rmax2f)
                     return 0;
 
-                if (rz < rz_min)  rz = rz_min;
-                if (rperp2 < rperp2_min)  rperp2 = rperp2_min;
-                rz = fastlog2(rz);  rperp2 = fastlog2(rperp2);
-                return interp2d_cfS->evaluateHermite(rz, rperp2);
+                double rzin, rperp2in;
+                if (rz < rz_min)
+                    rzin = interp2d_cfS->getX1();
+                else
+                    rzin = fastlog2(rz);
+
+                if (rperp2 < rperp2_min)
+                    rperp2in = interp2d_cfS->getY1();
+                else
+                    rperp2in = fastlog2(rperp2);
+
+                return interp2d_cfS->evaluateHermite(rzin, rperp2in);
             }
         #else
             double evalCorrFunc2dS(float rperp, float rz) const {
