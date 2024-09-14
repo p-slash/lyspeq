@@ -296,8 +296,8 @@ double DiscreteBicubicSpline::evaluate(double x, double y) {
 double _hermiteSplineCasteljau(double beta[], double t) {
     double t1 = 1.0 - t;
     beta[0] = (beta[2] - beta[0]) / 6.0 + beta[1];
-    beta[3] = -(beta[3] - beta[1]) / 6.0 + beta[2];
     std::swap(beta[0], beta[1]);
+    beta[3] = -(beta[3] - beta[1]) / 6.0 + beta[2];
     std::swap(beta[2], beta[3]);
 
     // de Casteljau's algorithm
@@ -311,13 +311,14 @@ double _hermiteSplineCasteljau(double beta[], double t) {
 double DiscreteBicubicSpline::evaluateHermiteY(double x, double y) {
     /* Cubic Hermite spline in y direction using de Casteljau's algorithm
        and the Bernstein form. */
+    double ydata[4];
     double yy = (y - y1) / dy;
     int i0 = yy;  i0 = std::clamp(i0, 1, Ny - 3);  yy -= i0;  --i0;
 
     for (int i = 0; i < 4; ++i)
-        _zy[i] = _spls_y[i + i0]->evaluate(x);
+        ydata[i] = _spls_y[i + i0]->evaluate(x);
 
-    return _hermiteSplineCasteljau(_zy, yy);
+    return _hermiteSplineCasteljau(ydata, yy);
 }
 
 
