@@ -259,6 +259,7 @@ DiscreteBicubicSpline::DiscreteBicubicSpline(
         const double *z_arr, int Nxsize, int Nysize, int halfn
 ) : x1(x_start), dx(delta_x), y1(y_start), dy(delta_y), Nx(Nxsize), Ny(Nysize), halfm(halfn)
 {
+    halfn = std::max(2, halfn);
     m = std::min(2 * halfn, Ny);  halfm = m / 2;  m = halfm * 2;
     _spl_local = std::make_unique<DiscreteCubicInterpolation1D>(y1, dy, m);
     _zy = _spl_local->get();
@@ -290,6 +291,27 @@ double DiscreteBicubicSpline::evaluate(double x, double y) {
 
     _spl_local->construct_notaknot();
     return _spl_local->evaluate(y - i1 * dy);
+}
+
+
+double DiscreteBicubicSpline::evaluateHermite(double x, double y) {
+    /* Cubic Hermite spline in y direction using de Casteljau's algorithm
+       and the Bernstein form. */
+    double yy = (y - y1) / dy;
+    int i0 = yy;  yy -= i0;  --i0;
+
+    for (int i = 0; i < 4; ++i)
+        _zy[i] = _spls_y[std::clamp(i + i0, 0, Ny - 1)]->evaluate(x);
+    _zy[0] = (_zy[2] - _zy[0]) / 6.0 + _zy[1];
+    _zy[3] = -(_zy[3] - _zy[1]) / 6.0 + _zy[2];
+    std::swap(_zy[0], _zy[1]);
+    std::swap(_zy[2], _zy[3]);
+
+    // de Casteljau's algorithm
+    for (int j = 1; j < 4; ++j)
+        for (int i = 0; i < 4 - j; ++i)
+            _zy[i] = _zy[i] * (1 - yy) + _zy[i + 1] * yy;
+    return _zy[0];
 }
 
 
