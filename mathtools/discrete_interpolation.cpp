@@ -327,10 +327,10 @@ double DiscreteBicubicSpline::evaluateHermite2(double x, double y) {
     int j0 = xx;  j0 = std::clamp(j0, 1, Nx - 3);  xx -= j0;  --j0;
     int i0 = yy;  i0 = std::clamp(i0, 1, Ny - 3);  yy -= i0;  --i0;
 
+    const double *zptr = z.get() + j0 + i0 * Nx;
     for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 4; ++j)
-            xdata[j] = z[_getIndex(j + j0, i + i0)];
-            // std::clamp(j + j0, 0, Nx - 1), std::clamp(i + i0, 0, Ny - 1))
+        std::copy_n(zptr + i * Nx, 4, xdata);
+        // std::clamp(j + j0, 0, Nx - 1), std::clamp(i + i0, 0, Ny - 1))
         ydata[i] = _hermiteSplineCasteljau(xdata, xx);
     }
 
