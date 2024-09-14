@@ -433,9 +433,16 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
     auto psarr = std::make_unique<double[]>(Nhankel * Nhankel);
     const double *kperparr = hankel.getKperp(), *kzarr = hankel.getKz();
 
-    for (int iperp = 0; iperp < Nhankel; ++iperp)
-        for (int iz = 0; iz < Nhankel; ++iz)
-            psarr[iz + Nhankel * iperp] = interp2d_pS.evaluate(kperparr[iperp], kzarr[iz]);
+    for (int iperp = 0; iperp < Nhankel; ++iperp) {
+        double kperp2 = kperparr[iperp] * kperparr[iperp];
+
+        for (int iz = 0; iz < Nhankel; ++iz) {
+            double k = sqrt(kperp2 + kzarr[iz] * kzarr[iz]),
+                   k_rL = k * rscale_long;
+            psarr[iz + Nhankel * iperp] = evalExplicit(k, kzarr[iz])
+                                          * (1.0 - exp(-k_rL * k_rL));
+        }
+    }
 
     #ifndef NUSE_LOGR_INTERP
         interp2d_cfS = hankel.transform(psarr.get(), 460, 512, 0, true);
