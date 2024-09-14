@@ -9,7 +9,7 @@
 #include "qu3d/ps2cf_2d.hpp"
 
 
-constexpr double SAFE_ZERO = 1E-36;
+constexpr double SAFE_ZERO = 1E-300;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
 constexpr double KMIN = 1E-6, KMAX = 2E2,
                  LNKMIN = log(KMIN), LNKMAX = log(KMAX);
@@ -393,7 +393,7 @@ void ArinyoP3DModel::_construcP1D() {
        Truncating 1e-6--1e6 logspaced array of 2048 points by 512 on each end,
        Truncating 1e-4--1e4 logspaced array of 1536 points by 190 on each end,
        gives approximately 1e-3--1e3 Mpc span. */
-    constexpr int Nhankel = 2048, ltrunc = 460, rtrunc = 512;
+    constexpr int Nhankel = 2048, ltrunc = 512, rtrunc = 512;
     constexpr double log2_e = log2(exp(1.0)),
                      SQRT_2PI = sqrt(2.0 * MY_PI);
 
@@ -436,13 +436,14 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
     }
 
     #ifndef NUSE_LOGR_INTERP
-        interp2d_cfS = hankel.transform(psarr.get(), 460, 512, 0, true);
+        interp2d_cfS = hankel.transform(psarr.get(), 512, 512, 0, true);
     #else
         interp2d_cfS = hankel.transform(
             psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
     #endif
 
-    interp1d_cfS = interp2d_cfS->get1dSliceX(interp2d_cfS->getY1());
+    interp1d_cfS = interp2d_cfS->get1dSliceX<DiscreteCubicInterpolation1D>(
+        interp2d_cfS->getY1());
 
     // Apodize interp2d_cfS only
     double _rmax_half = rmax / 2;
@@ -458,7 +459,7 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
             return r;
     });
 
-    interp2d_cfS->trim(log2(rmax * 1.05), 2.0 * log2(rmax * 1.05));
+    // interp2d_cfS->trim(log2(rmax * 1.05), 2.0 * log2(rmax * 1.05));
 }
 
 
