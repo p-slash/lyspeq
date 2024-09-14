@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 
+#include "core/global_numbers.hpp"
 #include "mathtools/discrete_interpolation.hpp"
 #include "mathtools/mathutils.hpp"
 #include "io/config_file.hpp"
@@ -112,7 +113,7 @@ namespace fidcosmo {
         std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
 
-        std::unique_ptr<DiscreteInterpolation2D> interp2d_cfS;
+        std::unique_ptr<DiscreteBicubicSpline> interp2d_cfS;
         std::unique_ptr<DiscreteCubicInterpolation1D>
             interp1d_pT, interp1d_cfS, interp1d_cfT;
 
@@ -121,11 +122,23 @@ namespace fidcosmo {
         void _cacheInterp2D();
         void _construcP1D();
         void _getCorrFunc2dS();
+        double apodize(float rperp2, float rz) const {
+            const static double _rmax_half = rmax / 2.0;
+            double r = sqrt(rperp2 + rz * rz);
+
+            // if (r > rmax)   return 0.0;
+            /* r /= _rmax_half; return 1.0 - 0.75 * r + r * r * r / 16.0; */
+
+            if (r < _rmax_half) return 1.0;
+            r = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
+            r *= r;
+            return r;
+        }
 
     public:
         static constexpr double MAX_R_FACTOR = 20.0;
         DiscreteLogInterpolation2D<
-            DiscreteCubicInterpolation1D, DiscreteInterpolation2D
+            DiscreteCubicInterpolation1D, DiscreteBicubicSpline
         > interp2d_pL, interp2d_pS;
         /* This function reads following keys from config file:
         b_F: double
@@ -201,7 +214,8 @@ namespace fidcosmo {
                 else
                     rperp2in = fastlog2(rperp2);
 
-                return interp2d_cfS->evaluateHermite(rzin, rperp2in);
+                return interp2d_cfS->evaluateHermite2(rzin, rperp2in)
+                       * apodize(rperp2, rz);
             }
         #else
             double evalCorrFunc2dS(float rperp, float rz) const {
