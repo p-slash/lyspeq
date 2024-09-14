@@ -3,7 +3,6 @@
 #include <gsl/gsl_integration.h>
 
 #include "qu3d/cosmology_3d.hpp"
-#include "core/global_numbers.hpp"
 #include "io/io_helper_functions.hpp"
 #include "mathtools/interpolation.hpp"
 #include "qu3d/ps2cf_2d.hpp"
@@ -446,18 +445,18 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
         interp2d_cfS->getY1());
 
     // Apodize interp2d_cfS only
-    double _rmax_half = rmax / 2;
-    interp2d_cfS->applyFunction(
-        [_rmax_half](double log2rz, double log2rperp2) {
-            double r = sqrt(exp2(2.0 * log2rz) + exp2(log2rperp2));
-            if (r > 2.0 * _rmax_half)   return 0.0;
-            /* r /= _rmax_half; return 1.0 - 0.75 * r + r * r * r / 16.0; */
+    // double _rmax_half = rmax / 2;
+    // interp2d_cfS->applyFunction(
+    //     [_rmax_half](double log2rz, double log2rperp2) {
+    //         double r = sqrt(exp2(2.0 * log2rz) + exp2(log2rperp2));
+    //         if (r > 2.0 * _rmax_half)   return 0.0;
+    //         /* r /= _rmax_half; return 1.0 - 0.75 * r + r * r * r / 16.0; */
 
-            if (r < _rmax_half) return 1.0;
-            r = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
-            r *= r;
-            return r;
-    });
+    //         if (r < _rmax_half) return 1.0;
+    //         r = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
+    //         r *= r;
+    //         return r;
+    // });
 
     // interp2d_cfS->trim(log2(rmax * 1.05), 2.0 * log2(rmax * 1.05));
 }
