@@ -293,25 +293,48 @@ double DiscreteBicubicSpline::evaluate(double x, double y) {
     return _spl_local->evaluate(y - i1 * dy);
 }
 
-
-double DiscreteBicubicSpline::evaluateHermite(double x, double y) {
-    /* Cubic Hermite spline in y direction using de Casteljau's algorithm
-       and the Bernstein form. */
-    double yy = (y - y1) / dy;
-    int i0 = yy;  yy -= i0;  --i0;
-
-    for (int i = 0; i < 4; ++i)
-        _zy[i] = _spls_y[std::clamp(i + i0, 0, Ny - 1)]->evaluate(x);
-    _zy[0] = (_zy[2] - _zy[0]) / 6.0 + _zy[1];
-    _zy[3] = -(_zy[3] - _zy[1]) / 6.0 + _zy[2];
-    std::swap(_zy[0], _zy[1]);
-    std::swap(_zy[2], _zy[3]);
+double _hermiteSplineCasteljau(double beta[], double t) {
+    double t1 = 1.0 - t;
+    beta[0] = (beta[2] - beta[0]) / 6.0 + beta[1];
+    beta[3] = -(beta[3] - beta[1]) / 6.0 + beta[2];
+    std::swap(beta[0], beta[1]);
+    std::swap(beta[2], beta[3]);
 
     // de Casteljau's algorithm
     for (int j = 1; j < 4; ++j)
         for (int i = 0; i < 4 - j; ++i)
-            _zy[i] = _zy[i] * (1 - yy) + _zy[i + 1] * yy;
-    return _zy[0];
+            beta[i] = beta[i] * t1 + beta[i + 1] * t;
+    return beta[0];
+}
+
+
+double DiscreteBicubicSpline::evaluateHermiteY(double x, double y) {
+    /* Cubic Hermite spline in y direction using de Casteljau's algorithm
+       and the Bernstein form. */
+    double yy = (y - y1) / dy;
+    int i0 = yy;  i0 = std::clamp(i0, 1, Ny - 3);  yy -= i0;  --i0;
+
+    for (int i = 0; i < 4; ++i)
+        _zy[i] = _spls_y[i + i0]->evaluate(x);
+
+    return _hermiteSplineCasteljau(_zy, yy);
+}
+
+
+double DiscreteBicubicSpline::evaluateHermite2(double x, double y) {
+    double xdata[4], ydata[4];
+    double xx = (x - x1) / dx, yy = (y - y1) / dy;
+    int j0 = xx;  j0 = std::clamp(j0, 1, Nx - 3);  xx -= j0;  --j0;
+    int i0 = yy;  i0 = std::clamp(i0, 1, Ny - 3);  yy -= i0;  --i0;
+
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j)
+            xdata[j] = z[_getIndex(j + j0, i + i0)];
+            // std::clamp(j + j0, 0, Nx - 1), std::clamp(i + i0, 0, Ny - 1))
+        ydata[i] = _hermiteSplineCasteljau(xdata, xx);
+    }
+
+    return _hermiteSplineCasteljau(ydata, yy);
 }
 
 

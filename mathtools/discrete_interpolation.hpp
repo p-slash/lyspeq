@@ -96,7 +96,9 @@ public:
     { return ! (*this==rhs); };
 
     double evaluate(double x, double y) const;
-    double evaluateHermite(double x, double y) const { return evaluate(x, y); }
+    inline double evaluateHermite2(double x, double y) const {
+        return evaluate(x, y);
+    }
     inline double getX1() const { return x1; }
     inline double getY1() const { return y1; }
 
@@ -142,15 +144,20 @@ public:
     inline double getX1() const { return x1; }
     inline double getY1() const { return y1; }
 
+    /* Construct cubic spline in y direction */
     double evaluate(double x, double y);
-    double evaluateHermite(double x, double y);
+    /* Use Hermite spline in y direction */
+    double evaluateHermiteY(double x, double y);
+    /* Use Hermite spline in x & y direction */
+    double evaluateHermite2(double x, double y);
 
-    std::unique_ptr<DiscreteCubicInterpolation1D> get1dSliceX(double y) {
+    template<class T>
+    std::unique_ptr<T> get1dSliceX(double y) {
         auto sl = std::make_unique<double[]>(Nx);
         for (int i = 0; i < Nx; ++i)
             sl[i] = evaluate(x1 + i * dx, y);
 
-        return std::make_unique<DiscreteCubicInterpolation1D>(x1, dx, Nx, sl.get());
+        return std::make_unique<T>(x1, dx, Nx, sl.get());
     }
 
     void applyFunction(std::function<double(double, double)> &&func) {
@@ -186,7 +193,7 @@ public:
         else if (y == 0)
             return exp(interp_x->evaluate(log(x)));
 
-        return exp(interp_2d->evaluateHermite(log(y), log(x)));
+        return exp(interp_2d->evaluateHermite2(log(y), log(x)));
     }
 
     void setInterpX(double x1, double dx, int N, double *y) {
