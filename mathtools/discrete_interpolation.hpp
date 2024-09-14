@@ -187,6 +187,21 @@ public:
 
         return exp(interp_2d->evaluateHermite(log(y), log(x)));
     }
+
+    void setInterpX(double x1, double dx, int N, double *y) {
+        interp_x = std::make_unique<T1>(x1, dx, N, y);
+    }
+
+    void setInterpY(double x1, double dx, int N, double *y) {
+        interp_y = std::make_unique<T1>(x1, dx, N, y);
+    }
+
+    void setInterp2D(
+            double x1, double dx, double y1, double dy, double *z,
+            int Nx, int Ny
+    ) {
+        interp_2d = std::make_unique<T2>(x1, dx, y1, dy, z, Nx, Ny);
+    }
 };
 
 
