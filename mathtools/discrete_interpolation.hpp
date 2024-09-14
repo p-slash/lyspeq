@@ -58,6 +58,12 @@ public:
         double *y_arr=nullptr, bool alloc=true, bool notaknot=true);
     ~DiscreteCubicInterpolation1D() { if (_alloc) delete [] y; };
     void resetPointer(double x_start, double delta_x, int Nsize, double *y_arr);
+    void reconstruct() {
+        if (_notaknot)
+            construct_notaknot();
+        else
+            construct_natural();
+    }
     bool operator==(const DiscreteCubicInterpolation1D &rhs) const;
     bool operator!=(const DiscreteCubicInterpolation1D &rhs) const
     { return ! (*this==rhs); };
@@ -131,8 +137,8 @@ typedef struct {
 
 
 class DiscreteBicubicSpline {
-    double y1, dy;
-    int Ny, halfm, m;
+    double x1, dx, y1, dy;
+    int Nx, Ny, halfm, m;
 
     std::unique_ptr<DiscreteCubicInterpolation1D> _spl_local;
     double *_zy;
@@ -140,12 +146,37 @@ class DiscreteBicubicSpline {
     std::unique_ptr<double[]> z;
     std::vector<std::unique_ptr<DiscreteCubicInterpolation1D>> _spls_y;
 
+    inline
+    size_t _getIndex(int nx, int ny) const {  return nx + Nx * ny; };
+
 public:
     DiscreteBicubicSpline(
         double x_start, double delta_x, double y_start, double delta_y,
         const double *z_arr, int Nxsize, int Nysize, int halfn=5);
 
+    inline double getX1() const { return x1; }
+    inline double getY1() const { return y1; }
+
     double evaluate(double x, double y);
+
+    std::unique_ptr<DiscreteCubicInterpolation1D> get1dSliceX(double y) {
+        auto sl = std::make_unique<double[]>(Nx);
+        for (int i = 0; i < Nx; ++i)
+            sl[i] = evaluate(x1 + i * dx, y);
+
+        return std::make_unique<DiscreteCubicInterpolation1D>(x1, dx, Nx, sl.get());
+    }
+
+    void applyFunction(std::function<double(double, double)> &&func) {
+        for (int i = 0; i < Ny; ++i) {
+            double y = y1 + i * dy;
+            for (int j = 0; j < Nx; ++j) {
+                double x = x1 + j * dx;
+                z[_getIndex(j, i)] *= func(x, y);
+            }
+            _spls_y[i]->reconstruct();
+        }
+    }
 };
 
 
