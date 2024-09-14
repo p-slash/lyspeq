@@ -259,7 +259,7 @@ DiscreteBicubicSpline::DiscreteBicubicSpline(
         const double *z_arr, int Nxsize, int Nysize, int halfn
 ) : x1(x_start), dx(delta_x), y1(y_start), dy(delta_y), Nx(Nxsize), Ny(Nysize), halfm(halfn)
 {
-    m = std::min(2 * halfn, Ny);
+    m = std::min(2 * halfn, Ny);  halfm = m / 2;  m = halfm * 2;
     _spl_local = std::make_unique<DiscreteCubicInterpolation1D>(y1, dy, m);
     _zy = _spl_local->get();
 
@@ -292,6 +292,29 @@ double DiscreteBicubicSpline::evaluate(double x, double y) {
     return _spl_local->evaluate(y - i1 * dy);
 }
 
+
+void DiscreteBicubicSpline::trim(double xmax, double ymax) {
+    int Nxtrim = ceil((xmax - x1) / dx), Nytrim = ceil((ymax - y1) / dy);
+    auto trimmed_z = std::make_unique<double[]>(Nxtrim * Nytrim);
+    _spls_y.clear();
+    for (int i = 0; i < Nytrim; ++i) {
+        for (int j = 0; j < Nxtrim; ++j)
+            trimmed_z[j + Nxtrim * i] = z[_getIndex(j, i)];
+
+        _spls_y.push_back(
+            std::make_unique<DiscreteCubicInterpolation1D>(
+                x1, dx, Nxtrim, trimmed_z.get() + i * Nxtrim, false)
+        );
+    }
+
+    if (m > Nytrim) {
+        halfm = Nytrim / 2;  m = halfm * 2;
+        _spl_local = std::make_unique<DiscreteCubicInterpolation1D>(y1, dy, m);
+        _zy = _spl_local->get();
+    }
+
+    z.swap(trimmed_z);  Nx = Nxtrim;  Ny = Nytrim;
+}
 
 
 

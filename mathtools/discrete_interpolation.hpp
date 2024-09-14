@@ -177,6 +177,8 @@ public:
             _spls_y[i]->reconstruct();
         }
     }
+
+    void trim(double xmax, double ymax);
 };
 
 
