@@ -5,7 +5,7 @@
 // #include <algorithm>
 // #include <cassert>
 
-const double MY_PI = 3.14159265359;
+const double MY_PI = 3.14159265358979323846;
 
 void RealField3D::initRngs(std::seed_seq *seq) {
     const int N = myomp::getMaxNumThreads();

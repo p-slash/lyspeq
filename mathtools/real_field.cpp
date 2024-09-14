@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cassert>
 
-const double MY_PI = 3.14159265359;
+const double MY_PI = 3.14159265358979323846;
 
 RealField::RealField(int data_size, double dx1) : p_x2k(nullptr), p_k2x(nullptr)
 {
