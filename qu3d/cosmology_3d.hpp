@@ -158,27 +158,15 @@ namespace fidcosmo {
         void setSpectroParams(double sigma, double delta_r) {
             _sigma_mpc = sigma;  _deltar_mpc = delta_r;
         }
-
         void construct();
-
         void calcVarLss(bool pp_enabled);
-
         double getSpectroWindow2(double kz) const;
-
         const fidcosmo::FlatLCDM* getCosmoPtr() const { return cosmo.get(); }
-
         double getRedshiftEvolution(double z1) const {
             return interp_growth->evaluate(z1);
         }
-
         double evalExplicit(double k, double kz) const;
-
-        double evalP1d(double kz) const {
-            const static double
-                p1d0 = exp(interp1d_pT->evaluate(-13.81551055796));
-            if (kz < 1e-6) return p1d0;
-            return exp(interp1d_pT->evaluate(log(kz)));
-        }
+        double evalP1d(double kz) const;
 
         double evalCorrFunc1dT(float rz) const {
             /* Evaluate total (L + S) 1D CF using interpolation. */
@@ -192,9 +180,7 @@ namespace fidcosmo {
             return interp1d_cfS->evaluate(rz);
         }
 
-        double getVar1dS() const {
-            return interp1d_cfS->get()[0];
-        }
+        double getVar1dS() const { return interp1d_cfS->get()[0]; }
 
         #ifndef NUSE_LOGR_INTERP
             double evalCorrFunc2dS(float rperp2, float rz) const {
@@ -232,7 +218,6 @@ namespace fidcosmo {
         #endif
 
         double getVarLss() const { return _varlss; }
-
         void write(ioh::Qu3dFile *out);
     };
 }
