@@ -126,9 +126,9 @@ namespace fidcosmo {
         void _cacheInterp2D();
         void _construcP1D();
         void _getCorrFunc2dS();
-        double apodize(float rperp2, float rz) const {
+        double apodize(float r2) const {
             const static double _rmax_half = rmax / 2.0;
-            double r = sqrt(rperp2 + rz * rz);
+            double r = sqrt(r2);
 
             // if (r > rmax)   return 0.0;
             /* r /= _rmax_half; return 1.0 - 0.75 * r + r * r * r / 16.0; */
@@ -204,7 +204,8 @@ namespace fidcosmo {
                     rperp2_min = exp2f(interp2d_cfS->getY1()),
                     rmax2f = rmax * rmax;
 
-                if ((rperp2 + rz * rz) > rmax2f)
+                float r2 = rperp2 + rz * rz;
+                if (r2 > rmax2f)
                     return 0;
 
                 double rzin, rperp2in;
@@ -219,7 +220,7 @@ namespace fidcosmo {
                     rperp2in = fastlog2(rperp2);
 
                 return interp2d_cfS->evaluateHermite2(rzin, rperp2in)
-                       * apodize(rperp2, rz);
+                       * apodize(r2);
             }
         #else
             double evalCorrFunc2dS(float rperp, float rz) const {
