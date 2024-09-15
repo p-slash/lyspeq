@@ -43,7 +43,8 @@ public:
        Returns: xi_SS interpolator in rz, rperp if return_log_interp=false
        Returns: xi_SS interpolator in ln(rz), ln(rperp2) if return_log_interp=true
     */
-    std::unique_ptr<DiscreteBicubicSpline> transform(
+    template<class T>
+    std::unique_ptr<T> transform(
             const double *p2d, int ltrunc, int rtrunc, double rmax,
             bool return_log_interp=false
     ) {
@@ -83,7 +84,7 @@ public:
 
         constexpr double log2_e = log2(exp(1.0));
         if (return_log_interp)
-            return std::make_unique<DiscreteBicubicSpline>(
+            return std::make_unique<T>(
                 log2(fht_z->k[ltrunc]), log2_e * fht_z->getDLn(),
                 2.0 * log2(fht_xy->k[ltrunc]), 2.0 * log2_e * fht_xy->getDLn(),
                 result.get(), Nres, Nres);
@@ -111,8 +112,7 @@ public:
             for (int j = 0; j < Nres; ++j)
                 result[j + Nres * i] = logr_interp.evaluate(lnrlin[j], lnrlin[i]);
 
-        return std::make_unique<DiscreteBicubicSpline>(
-            0, dr, 0, dr, result.get(), Nres, Nres);
+        return std::make_unique<T>(0, dr, 0, dr, result.get(), Nres, Nres);
     }
 
 private:

@@ -435,9 +435,10 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
     }
 
     #ifndef NUSE_LOGR_INTERP
-        interp2d_cfS = hankel.transform(psarr.get(), 512, 512, 0, true);
+        interp2d_cfS = hankel.transform<INTERP_COSMO_2D>(
+            psarr.get(), 512, 512, 0, true);
     #else
-        interp2d_cfS = hankel.transform(
+        interp2d_cfS = hankel.transform<INTERP_COSMO_2D>(
             psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
     #endif
 

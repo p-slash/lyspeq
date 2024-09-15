@@ -12,6 +12,10 @@
 #include "qu3d/qu3d_file.hpp"
 
 
+#ifndef INTERP_COSMO_2D
+#define INTERP_COSMO_2D DiscreteBicubicSpline
+#endif
+
 namespace fidcosmo {
     const config_map planck18_default_parameters ({
         {"OmegaMatter", "0.30966"}, {"OmegaRadiation", "5.402015137139352e-05"},
@@ -113,7 +117,7 @@ namespace fidcosmo {
         std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
 
-        std::unique_ptr<DiscreteBicubicSpline> interp2d_cfS;
+        std::unique_ptr<INTERP_COSMO_2D> interp2d_cfS;
         std::unique_ptr<DiscreteCubicInterpolation1D>
             interp1d_pT, interp1d_cfS, interp1d_cfT;
 
@@ -138,7 +142,7 @@ namespace fidcosmo {
     public:
         static constexpr double MAX_R_FACTOR = 20.0;
         DiscreteLogInterpolation2D<
-            DiscreteCubicInterpolation1D, DiscreteBicubicSpline
+            DiscreteCubicInterpolation1D, INTERP_COSMO_2D
         > interp2d_pL, interp2d_pS;
         /* This function reads following keys from config file:
         b_F: double
