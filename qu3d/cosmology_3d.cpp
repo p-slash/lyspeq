@@ -365,6 +365,16 @@ void ArinyoP3DModel::_cacheInterp2D() {
 }
 
 
+double ArinyoP3DModel::evalP1d(double kz) const {
+    const static double p1d0 = exp(interp1d_pT->evaluate(LNKMIN));
+    if (kz < KMIN)  return p1d0;
+    if (kz > KMAX)  return 0;
+    double p1d = exp(interp1d_pT->evaluate(log(kz))) - SAFE_ZERO;
+    if (p1d < 0)  return 0;
+    return p1d;
+}
+
+
 void ArinyoP3DModel::_construcP1D() {
     constexpr int nlnk = 10001;
     constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1), dlnk2 = 0.02;
@@ -393,8 +403,7 @@ void ArinyoP3DModel::_construcP1D() {
        Truncating 1e-4--1e4 logspaced array of 1536 points by 190 on each end,
        gives approximately 1e-3--1e3 Mpc span. */
     constexpr int Nhankel = 2048, ltrunc = 512, rtrunc = 512;
-    constexpr double log2_e = log2(exp(1.0)),
-                     SQRT_2PI = sqrt(2.0 * MY_PI);
+    constexpr double log2_e = log2(exp(1.0)), SQRT_2PI = sqrt(2.0 * MY_PI);
 
     FFTLog fht_z(Nhankel);
     fht_z.construct(-0.5, KMIN, 1 / KMIN, -0.25, 0);
