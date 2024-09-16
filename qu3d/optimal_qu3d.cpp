@@ -738,11 +738,12 @@ void Qu3DEstimator::multiplyCovVector() {
     }
     else {
         #pragma omp parallel for
-        for (auto &qso : quasars)
+        for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i) {
                 qso->out[i] *= qso->isig[i] * qso->z1[i];
                 qso->out[i] += qso->in[i];
             }
+        }
     }
 
     dt = mytime::timer.getTime() - dt;
@@ -765,7 +766,32 @@ double Qu3DEstimator::updateY(double residual_norm2) {
         pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
     if (pTCp <= 0) {
-        LOG::LOGGER.ERR("Negative pTCp. End CGD.\n");
+        LOG::LOGGER.ERR("Negative pTCp = %.9e (All), ", pTCp);
+        dumpSearchDirection();
+
+        pTCp = 0;
+        verbose = false;
+        multMeshComp();
+        #pragma omp parallel for reduction(+:pTCp, alpha)
+        for (auto &qso : quasars) {
+            for (int i = 0; i < qso->N; ++i)
+                qso->out[i] *= qso->isig[i] * qso->z1[i];
+            pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+            alpha += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+        }
+
+        LOG::LOGGER.ERR("pTp = %.9e, pTS_Lp = %.9e, ", alpha, pTCp);
+        pTCp = 0;
+        #pragma omp parallel for schedule(dynamic, 4) reduction(+:pTCp)
+        for (auto &qso : quasars) {
+            std::fill_n(qso->out, qso->N, 0);
+            qso->multCovNeighbors(p3d_model.get());
+            for (int i = 0; i < qso->N; ++i)
+                qso->out[i] *= qso->isig[i] * qso->z1[i];
+            pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+        }
+
+        LOG::LOGGER.ERR("pTS_Sp = %.9e.\n", pTCp);
         return 0;
     }
 
@@ -788,16 +814,6 @@ double Qu3DEstimator::updateY(double residual_norm2) {
         LOG::LOGGER.STD("    updateY took %.2f s.\n", 60.0 * t2);
 
     return sqrt(new_residual_norm);
-}
-
-
-void Qu3DEstimator::calculateNewDirection(double beta)  {
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
-        #pragma omp simd
-        for (int i = 0; i < qso->N; ++i)
-            qso->search[i] = beta * qso->search[i] + qso->residual[i];
-    }
 }
 
 
@@ -1108,139 +1124,6 @@ void Qu3DEstimator::estimateTotalBiasMc() {
 
     logTimings();
 }
-
-
-
-double Qu3DEstimator::updateRng(double residual_norm2) {
-    /* This is called only for small-scale direct multiplication
-       in conjugateGradientSampler. */
-    double t1 = mytime::timer.getTime(), t2 = 0;
-
-    double pTCp = 0, alpha = 0, new_residual_norm2 = 0;
-
-    /* Multiply C x search into Cy => C. p(in) = out*/
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        std::fill_n(qso->out, qso->N, 0);
-
-    multParticleComp();
-
-    // Get pT . C . p
-    #pragma omp parallel for reduction(+:pTCp)
-    for (const auto &qso : quasars)
-        pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
-
-    if (pTCp <= 0)  return 0;
-
-    alpha = residual_norm2 / pTCp;
-
-    double zrnd = rngs[0].normal() / sqrt(pTCp);
-
-    #pragma omp parallel for reduction(+:new_residual_norm2)
-    for (auto &qso : quasars) {
-        /* in is search.get() */
-        cblas_daxpy(qso->N, zrnd, qso->in, 1, qso->y.get(), 1);
-        cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
-
-        new_residual_norm2 += cblas_ddot(
-            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
-    }
-
-    t2 = mytime::timer.getTime() - t1;
-    if (verbose)
-        LOG::LOGGER.STD("    updateRng took %.2f s.\n", 60.0 * t2);
-
-    return new_residual_norm2;
-}
-
-
-void Qu3DEstimator::conjugateGradientSampler() {
-    double dt = mytime::timer.getTime();
-    int niter = 1;
-
-    if (verbose)
-        LOG::LOGGER.STD("  Entered conjugateGradientSampler.\n");
-
-    double old_residual_norm2 = 0, init_residual_norm = 0;
-
-    /* Truth is always random. Initial guess is always zero */
-    #pragma omp parallel for reduction(+:old_residual_norm2)
-    for (auto &qso : quasars) {
-        qso->fillRngNoise(rngs[myomp::getThreadNum()]);
-        std::copy_n(qso->truth, qso->N, qso->residual.get());
-        std::copy_n(qso->truth, qso->N, qso->search.get());
-        std::fill_n(qso->in, qso->N, 0);
-        // Only seached multiplied from here until endconjugateGradientSampler
-        qso->in = qso->search.get();
-        qso->in_isig = qso->in;
-
-        old_residual_norm2 += cblas_ddot(
-            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
-    }
-
-    init_residual_norm = sqrt(old_residual_norm2);
-
-    if (hasConverged(init_residual_norm, tolerance))
-        goto endconjugateGradientSampler;
-
-    if (absolute_tolerance) init_residual_norm = 1;
-
-    for (; niter <= max_conj_grad_steps; ++niter) {
-        double new_residual_norm2 = updateRng(old_residual_norm2);
-
-        bool end_iter = hasConverged(
-            sqrt(new_residual_norm2) / init_residual_norm, tolerance);
-
-        if (end_iter)
-            goto endconjugateGradientSampler;
-
-        double beta = new_residual_norm2 / old_residual_norm2;
-        old_residual_norm2 = new_residual_norm2;
-        calculateNewDirection(beta);
-    }
-
-endconjugateGradientSampler:
-    if (verbose)
-        LOG::LOGGER.STD(
-            "  conjugateGradientSampler finished in %d iterations.\n", niter);
-
-    /* Multiply y with S_s, save to out, restore in_isig to y_isig.get() */
-    for (auto &qso : quasars) {
-        qso->in = qso->y.get();
-        qso->in_isig = qso->in;
-        std::fill_n(qso->out, qso->N, 0);
-    }
-
-    multParticleComp();
-
-    for (auto &qso : quasars)
-        qso->in_isig = qso->y_isig.get();
-
-    dt = mytime::timer.getTime() - dt;
-    ++timings["CGS"].first;
-    timings["CGS"].second += dt;
-}
-
-
-/* void Qu3DEstimator::cgsGetY() {
-    if (CONT_MARG_ENABLED) {
-        #pragma omp parallel for schedule(dynamic, 8)
-        for (auto &qso : quasars) {
-            qso->in = qso->y.get();
-            std::swap(qso->truth, qso->in);
-            qso->multTruthWithMarg();
-            std::swap(qso->truth, qso->in);
-            qso->multIsigInVector();
-        }
-    }
-    else {
-        #pragma omp parallel for
-        for (auto &qso : quasars) {
-            qso->in = qso->y.get();
-            qso->multIsigInVector();
-        }
-    }
-} */
 
 
 void Qu3DEstimator::drawRndDeriv(int i) {
@@ -1604,6 +1487,7 @@ void Qu3DEstimator::estimateMaxEvals() {
     }
 }
 
+#include "qu3d/optimal_qu3d_extra.cpp"
 
 int main(int argc, char *argv[]) {
     mympi::init(argc, argv);
@@ -1654,10 +1538,14 @@ int main(int argc, char *argv[]) {
 
     Qu3DEstimator qps(config);
     bool test_gaussian_field = config.getInteger("TestGaussianField") > 0;
+    bool test_symmetry = config.getInteger("TestSymmetry") > 0;
     config.checkUnusedKeys();
 
     if (qps.max_eval_enabled)
         qps.estimateMaxEvals();
+
+    if (test_symmetry)
+        qps.testSymmetry();
 
     if (test_gaussian_field)
         qps.replaceDeltasWithGaussianField();
