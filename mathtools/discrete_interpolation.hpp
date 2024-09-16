@@ -58,6 +58,12 @@ public:
         double *y_arr=nullptr, bool alloc=true, bool notaknot=true);
     ~DiscreteCubicInterpolation1D() { if (_alloc) delete [] y; };
     void resetPointer(double x_start, double delta_x, int Nsize, double *y_arr);
+    void reconstruct() {
+        if (_notaknot)
+            construct_notaknot();
+        else
+            construct_natural();
+    }
     bool operator==(const DiscreteCubicInterpolation1D &rhs) const;
     bool operator!=(const DiscreteCubicInterpolation1D &rhs) const
     { return ! (*this==rhs); };
@@ -90,15 +96,19 @@ public:
     { return ! (*this==rhs); };
 
     double evaluate(double x, double y) const;
+    inline double evaluateHermite2(double x, double y) const {
+        return evaluate(x, y);
+    }
     inline double getX1() const { return x1; }
     inline double getY1() const { return y1; }
 
-    std::unique_ptr<DiscreteInterpolation1D> get1dSliceX(double y) const {
+    template<class T>
+    std::unique_ptr<T> get1dSliceX(double y) const {
         auto sl = std::make_unique<double[]>(Nx);
         for (int i = 0; i < Nx; ++i)
             sl[i] = evaluate(x1 + i * dx, y);
 
-        return std::make_unique<DiscreteInterpolation1D>(x1, dx, Nx, sl.get());
+        return std::make_unique<T>(x1, dx, Nx, sl.get());
     }
 
     void applyFunction(std::function<double(double, double)> &&func) {
@@ -113,10 +123,68 @@ public:
 };
 
 
-typedef struct {
+class DiscreteBicubicSpline {
+    double x1, dx, y1, dy;
+    int Nx, Ny, halfm, m;
+
+    std::unique_ptr<DiscreteCubicInterpolation1D> _spl_local;
+    double *_zy;
+
+    std::unique_ptr<double[]> z;
+    std::vector<std::unique_ptr<DiscreteCubicInterpolation1D>> _spls_y;
+
+    inline
+    size_t _getIndex(int nx, int ny) const {  return nx + Nx * ny; };
+
+public:
+    DiscreteBicubicSpline(
+        double x_start, double delta_x, double y_start, double delta_y,
+        const double *z_arr, int Nxsize, int Nysize, int halfn=5);
+
+    inline double getX1() const { return x1; }
+    inline double getY1() const { return y1; }
+
+    /* Construct cubic spline in y direction */
+    double evaluate(double x, double y);
+    /* Use Hermite spline in y direction */
+    double evaluateHermiteY(double x, double y);
+    /* Use Hermite spline in x & y direction */
+    double evaluateHermite2(double x, double y);
+
+    template<class T>
+    std::unique_ptr<T> get1dSliceX(double y) {
+        auto sl = std::make_unique<double[]>(Nx);
+        for (int i = 0; i < Nx; ++i)
+            sl[i] = evaluate(x1 + i * dx, y);
+
+        return std::make_unique<T>(x1, dx, Nx, sl.get());
+    }
+
+    void applyFunction(std::function<double(double, double)> &&func) {
+        for (int i = 0; i < Ny; ++i) {
+            double y = y1 + i * dy;
+            for (int j = 0; j < Nx; ++j) {
+                double x = x1 + j * dx;
+                z[_getIndex(j, i)] *= func(x, y);
+            }
+            _spls_y[i]->reconstruct();
+        }
+    }
+
+    void trim(double xmax, double ymax);
+};
+
+
+template<class T1, class T2>
+class DiscreteLogInterpolation2D {
+    /* T1: 1D interpolator class DiscreteInterpolation1D or
+           DiscreteCubicInterpolation1D */
+    /* T2: 2D interpolator class DiscreteInterpolation2D or
+           DiscreteBicubicSpline */
+public:
     /* Note interp_2d must be defined y, x due to legacy code */
-    std::unique_ptr<DiscreteInterpolation2D> interp_2d;
-    std::unique_ptr<DiscreteInterpolation1D> interp_x, interp_y;
+    std::unique_ptr<T2> interp_2d;
+    std::unique_ptr<T1> interp_x, interp_y;
     double evaluate(double x, double y) const {
         if ((x == 0) && (y == 0))
             return 0;
@@ -125,27 +193,23 @@ typedef struct {
         else if (y == 0)
             return exp(interp_x->evaluate(log(x)));
 
-        return exp(interp_2d->evaluate(log(y), log(x)));
+        return exp(interp_2d->evaluateHermite2(log(y), log(x)));
     }
-} DiscreteLogInterpolation2D;
 
+    void setInterpX(double x1, double dx, int N, double *y) {
+        interp_x = std::make_unique<T1>(x1, dx, N, y);
+    }
 
-class DiscreteBicubicSpline {
-    double y1, dy;
-    int Ny, halfm, m;
+    void setInterpY(double x1, double dx, int N, double *y) {
+        interp_y = std::make_unique<T1>(x1, dx, N, y);
+    }
 
-    std::unique_ptr<DiscreteCubicInterpolation1D> _spl_local;
-    double *_zy;
-
-    std::unique_ptr<double[]> z;
-    std::vector<std::unique_ptr<DiscreteCubicInterpolation1D>> _spls_y;
-
-public:
-    DiscreteBicubicSpline(
-        double x_start, double delta_x, double y_start, double delta_y,
-        const double *z_arr, int Nxsize, int Nysize, int halfn=5);
-
-    double evaluate(double x, double y);
+    void setInterp2D(
+            double x1, double dx, double y1, double dy, double *z,
+            int Nx, int Ny
+    ) {
+        interp_2d = std::make_unique<T2>(x1, dx, y1, dy, z, Nx, Ny);
+    }
 };
 
 

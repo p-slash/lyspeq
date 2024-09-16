@@ -3,6 +3,8 @@
 
 #include <memory>
 
+#include "core/global_numbers.hpp"
+
 #include "mathtools/discrete_interpolation.hpp"
 #include "mathtools/interpolation_2d.hpp"
 #include "mathtools/mathutils.hpp"
@@ -41,11 +43,13 @@ public:
        Returns: xi_SS interpolator in rz, rperp if return_log_interp=false
        Returns: xi_SS interpolator in ln(rz), ln(rperp2) if return_log_interp=true
     */
-    std::unique_ptr<DiscreteInterpolation2D> transform(
+    template<class T>
+    std::unique_ptr<T> transform(
             const double *p2d, int ltrunc, int rtrunc, double rmax,
             bool return_log_interp=false
     ) {
         int Nres = N - (ltrunc + rtrunc);
+
         /* Intermediate array will be transposed */
         interm = std::make_unique<double[]>(N * N);
         result = std::make_unique<double[]>(Nres * Nres);
@@ -70,7 +74,7 @@ public:
                 result[iz + Nres * iperp] = fht_xy->field[iperp + ltrunc];
         }
 
-        constexpr double MY_2PI = 2.0 * 3.14159265358979323846;
+        constexpr double MY_2PI = 2.0 * MY_PI;
         constexpr double NORM = MY_2PI * sqrt(MY_2PI);
         for (int i = 0; i < Nres * Nres; ++i)
             result[i] /= NORM;
@@ -80,7 +84,7 @@ public:
 
         constexpr double log2_e = log2(exp(1.0));
         if (return_log_interp)
-            return std::make_unique<DiscreteInterpolation2D>(
+            return std::make_unique<T>(
                 log2(fht_z->k[ltrunc]), log2_e * fht_z->getDLn(),
                 2.0 * log2(fht_xy->k[ltrunc]), 2.0 * log2_e * fht_xy->getDLn(),
                 result.get(), Nres, Nres);
@@ -108,8 +112,7 @@ public:
             for (int j = 0; j < Nres; ++j)
                 result[j + Nres * i] = logr_interp.evaluate(lnrlin[j], lnrlin[i]);
 
-        return std::make_unique<DiscreteInterpolation2D>(
-            0, dr, 0, dr, result.get(), Nres, Nres);
+        return std::make_unique<T>(0, dr, 0, dr, result.get(), Nres, Nres);
     }
 
 private:
