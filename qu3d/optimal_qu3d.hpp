@@ -20,7 +20,7 @@ const config_map qu3d_default_parameters ({
     {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"},
     {"EstimateTotalBias", "1"}, {"EstimateNoiseBias", "1"},
     {"EstimateFisherFromRandomDerivatives", "-1"},
-    {"EstimateMaxEigenValues", "-1"}
+    {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"}
 });
 
 
@@ -109,6 +109,8 @@ public:
 
     void filter();
     void write();
+    void dumpSearchDirection();
+    void testSymmetry();
 };
 
 #endif
