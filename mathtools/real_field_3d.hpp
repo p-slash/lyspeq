@@ -77,8 +77,38 @@ public:
     void rawFftK2X() { fftw_execute(p_k2x); }
     void fftX2K();
     void fftK2X();
-    void convolvePk(const DiscreteLogInterpolation2D &Pk);
-    void convolveSqrtPk(const DiscreteLogInterpolation2D &Pk);
+
+    template<class T1, class T2>
+    void convolvePk(const DiscreteLogInterpolation2D<T1, T2> &Pk) {
+        // S . x multiplication
+        // Normalization including cellvol and N^3 yields inverse total volume
+        fftw_execute(p_x2k);
+        #pragma omp parallel for
+        for (size_t ij = 0; ij < ngrid_xy; ++ij) {
+            double kperp = getKperpFromIperp(ij);
+
+            for (size_t k = 0; k < ngrid_kz; ++k)
+                field_k[k + ngrid_kz * ij] *=
+                    invtotalvol * Pk.evaluate(kperp, k * k_fund[2]);
+        }
+        fftw_execute(p_k2x);
+    }
+
+    template<class T1, class T2>
+    void convolveSqrtPk(const DiscreteLogInterpolation2D<T1, T2> &Pk) {
+        double norm = cellvol * invsqrtcellvol * invtotalvol;
+
+        fftw_execute(p_x2k);
+        #pragma omp parallel for
+        for (size_t ij = 0; ij < ngrid_xy; ++ij) {
+            double kperp = getKperpFromIperp(ij);
+
+            for (size_t k = 0; k < ngrid_kz; ++k)
+                field_k[k + ngrid_kz * ij] *=
+                    norm * sqrt(Pk.evaluate(kperp, k * k_fund[2]));
+        }
+        fftw_execute(p_k2x);
+    }
     double dot(const RealField3D &other);
 
     size_t getIndex(int nx, int ny, int nz) const;

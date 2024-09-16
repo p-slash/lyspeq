@@ -5,11 +5,16 @@
 #include <memory>
 #include <string>
 
+#include "core/global_numbers.hpp"
 #include "mathtools/discrete_interpolation.hpp"
 #include "mathtools/mathutils.hpp"
 #include "io/config_file.hpp"
 #include "qu3d/qu3d_file.hpp"
 
+
+#ifndef INTERP_COSMO_2D
+#define INTERP_COSMO_2D DiscreteBicubicSpline
+#endif
 
 namespace fidcosmo {
     const config_map planck18_default_parameters ({
@@ -112,8 +117,8 @@ namespace fidcosmo {
         std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
 
-        std::unique_ptr<DiscreteInterpolation2D> interp2d_cfS;
-        std::unique_ptr<DiscreteInterpolation1D>
+        std::unique_ptr<INTERP_COSMO_2D> interp2d_cfS;
+        std::unique_ptr<DiscreteCubicInterpolation1D>
             interp1d_pT, interp1d_cfS, interp1d_cfT;
 
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
@@ -121,10 +126,24 @@ namespace fidcosmo {
         void _cacheInterp2D();
         void _construcP1D();
         void _getCorrFunc2dS();
+        double apodize(float r2) const {
+            const static double _rmax_half = rmax / 2.0;
+            double r = sqrt(r2);
+
+            // if (r > rmax)   return 0.0;
+            /* r /= _rmax_half; return 1.0 - 0.75 * r + r * r * r / 16.0; */
+
+            if (r < _rmax_half) return 1.0;
+            r = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
+            r *= r;
+            return r;
+        }
 
     public:
         static constexpr double MAX_R_FACTOR = 20.0;
-        DiscreteLogInterpolation2D interp2d_pL, interp2d_pS;
+        DiscreteLogInterpolation2D<
+            DiscreteCubicInterpolation1D, INTERP_COSMO_2D
+        > interp2d_pL, interp2d_pS;
         /* This function reads following keys from config file:
         b_F: double
         alpha_F (double): Redshift growth power of b_F.
@@ -139,27 +158,15 @@ namespace fidcosmo {
         void setSpectroParams(double sigma, double delta_r) {
             _sigma_mpc = sigma;  _deltar_mpc = delta_r;
         }
-
         void construct();
-
         void calcVarLss(bool pp_enabled);
-
         double getSpectroWindow2(double kz) const;
-
         const fidcosmo::FlatLCDM* getCosmoPtr() const { return cosmo.get(); }
-
         double getRedshiftEvolution(double z1) const {
             return interp_growth->evaluate(z1);
         }
-
         double evalExplicit(double k, double kz) const;
-
-        double evalP1d(double kz) const {
-            const static double
-                p1d0 = exp(interp1d_pT->evaluate(-13.81551055796));
-            if (kz < 1e-6) return p1d0;
-            return exp(interp1d_pT->evaluate(log(kz)));
-        }
+        double evalP1d(double kz) const;
 
         double evalCorrFunc1dT(float rz) const {
             /* Evaluate total (L + S) 1D CF using interpolation. */
@@ -173,9 +180,7 @@ namespace fidcosmo {
             return interp1d_cfS->evaluate(rz);
         }
 
-        double getVar1dS() const {
-            return interp1d_cfS->get()[0];
-        }
+        double getVar1dS() const { return interp1d_cfS->get()[0]; }
 
         #ifndef NUSE_LOGR_INTERP
             double evalCorrFunc2dS(float rperp2, float rz) const {
@@ -185,13 +190,23 @@ namespace fidcosmo {
                     rperp2_min = exp2f(interp2d_cfS->getY1()),
                     rmax2f = rmax * rmax;
 
-                if ((rperp2 + rz * rz) > rmax2f)
+                float r2 = rperp2 + rz * rz;
+                if (r2 > rmax2f)
                     return 0;
 
-                if (rz < rz_min)  rz = rz_min;
-                if (rperp2 < rperp2_min)  rperp2 = rperp2_min;
-                rz = fastlog2(rz);  rperp2 = fastlog2(rperp2);
-                return interp2d_cfS->evaluate(rz, rperp2);
+                double rzin, rperp2in;
+                if (rz < rz_min)
+                    rzin = interp2d_cfS->getX1();
+                else
+                    rzin = fastlog2(rz);
+
+                if (rperp2 < rperp2_min)
+                    rperp2in = interp2d_cfS->getY1();
+                else
+                    rperp2in = fastlog2(rperp2);
+
+                return interp2d_cfS->evaluateHermite2(rzin, rperp2in)
+                       * apodize(r2);
             }
         #else
             double evalCorrFunc2dS(float rperp, float rz) const {
@@ -203,7 +218,6 @@ namespace fidcosmo {
         #endif
 
         double getVarLss() const { return _varlss; }
-
         void write(ioh::Qu3dFile *out);
     };
 }

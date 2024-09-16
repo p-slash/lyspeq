@@ -3,13 +3,12 @@
 #include <gsl/gsl_integration.h>
 
 #include "qu3d/cosmology_3d.hpp"
-#include "core/global_numbers.hpp"
 #include "io/io_helper_functions.hpp"
 #include "mathtools/interpolation.hpp"
 #include "qu3d/ps2cf_2d.hpp"
 
 
-constexpr double SAFE_ZERO = 1E-36;
+constexpr double SAFE_ZERO = 1E-300;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
 constexpr double KMIN = 1E-6, KMAX = 2E2,
                  LNKMIN = log(KMIN), LNKMAX = log(KMAX);
@@ -337,11 +336,9 @@ void ArinyoP3DModel::_cacheInterp2D() {
             lnP_S[iz + N * iperp] = ptot + k_rL;
         }
     }
-    interp2d_pL.interp_2d = std::make_unique<DiscreteInterpolation2D>(
-        LNKMIN, dlnk, LNKMIN, dlnk, lnP_L.get(), N, N);
 
-    interp2d_pS.interp_2d = std::make_unique<DiscreteInterpolation2D>(
-        LNKMIN, dlnk, LNKMIN, dlnk, lnP_S.get(), N, N);
+    interp2d_pL.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_L.get(), N, N);
+    interp2d_pS.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_S.get(), N, N);
 
     /* Large-scale and small-scale 1Ds */
     for (int i = 0; i < N; ++i) {
@@ -361,17 +358,20 @@ void ArinyoP3DModel::_cacheInterp2D() {
         lnP_L[i + 3 * N] = pz + k_rL;
     }
 
-    interp2d_pL.interp_x = std::make_unique<DiscreteInterpolation1D>(
-        LNKMIN, dlnk, N, lnP_L.get());
+    interp2d_pL.setInterpX(LNKMIN, dlnk, N, lnP_L.get());
+    interp2d_pL.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + N);
+    interp2d_pS.setInterpX(LNKMIN, dlnk, N, lnP_L.get() + 2 * N);
+    interp2d_pS.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + 3 * N);
+}
 
-    interp2d_pL.interp_y = std::make_unique<DiscreteInterpolation1D>(
-        LNKMIN, dlnk, N, lnP_L.get() + N);
 
-    interp2d_pS.interp_x = std::make_unique<DiscreteInterpolation1D>(
-        LNKMIN, dlnk, N, lnP_L.get() + 2 * N);
-
-    interp2d_pS.interp_y = std::make_unique<DiscreteInterpolation1D>(
-        LNKMIN, dlnk, N, lnP_L.get() + 3 * N);
+double ArinyoP3DModel::evalP1d(double kz) const {
+    const static double p1d0 = exp(interp1d_pT->evaluate(LNKMIN));
+    if (kz < KMIN)  return p1d0;
+    if (kz > KMAX)  return 0;
+    double p1d = exp(interp1d_pT->evaluate(log(kz))) - SAFE_ZERO;
+    if (p1d < 0)  return 0;
+    return p1d;
 }
 
 
@@ -394,7 +394,7 @@ void ArinyoP3DModel::_construcP1D() {
         p1d[i] = log(trapz(p1d_integrand, nlnk, dlnk) / (2.0 * MY_PI) + SAFE_ZERO);
     }
 
-    interp1d_pT = std::make_unique<DiscreteInterpolation1D>(
+    interp1d_pT = std::make_unique<DiscreteCubicInterpolation1D>(
         LNKMIN, dlnk2, nlnk2, &p1d[0]);
 
     /* Quasar forest length can be a maximum of 650 Mpc.
@@ -402,9 +402,8 @@ void ArinyoP3DModel::_construcP1D() {
        Truncating 1e-6--1e6 logspaced array of 2048 points by 512 on each end,
        Truncating 1e-4--1e4 logspaced array of 1536 points by 190 on each end,
        gives approximately 1e-3--1e3 Mpc span. */
-    constexpr int Nhankel = 2048, ltrunc = 460, rtrunc = 512;
-    constexpr double log2_e = log2(exp(1.0)),
-                     SQRT_2PI = sqrt(2.0 * 3.14159265358979323846);
+    constexpr int Nhankel = 2048, ltrunc = 512, rtrunc = 512;
+    constexpr double log2_e = log2(exp(1.0)), SQRT_2PI = sqrt(2.0 * MY_PI);
 
     FFTLog fht_z(Nhankel);
     fht_z.construct(-0.5, KMIN, 1 / KMIN, -0.25, 0);
@@ -420,7 +419,7 @@ void ArinyoP3DModel::_construcP1D() {
     // Smoother smoother(1);
     // smoother.smooth1D(fht_z.field + truncate, Nhankel - 2 * truncate, 1, true);
 
-    interp1d_cfT = std::make_unique<DiscreteInterpolation1D>(
+    interp1d_cfT = std::make_unique<DiscreteCubicInterpolation1D>(
         log2(fht_z.k[ltrunc]), log2_e * fht_z.getDLn(),
         Nhankel - (ltrunc + rtrunc), fht_z.field + ltrunc);
 }
@@ -433,32 +432,43 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
     auto psarr = std::make_unique<double[]>(Nhankel * Nhankel);
     const double *kperparr = hankel.getKperp(), *kzarr = hankel.getKz();
 
-    for (int iperp = 0; iperp < Nhankel; ++iperp)
-        for (int iz = 0; iz < Nhankel; ++iz)
-            psarr[iz + Nhankel * iperp] = interp2d_pS.evaluate(kperparr[iperp], kzarr[iz]);
+    for (int iperp = 0; iperp < Nhankel; ++iperp) {
+        double kperp2 = kperparr[iperp] * kperparr[iperp];
+
+        for (int iz = 0; iz < Nhankel; ++iz) {
+            double k = sqrt(kperp2 + kzarr[iz] * kzarr[iz]),
+                   k_rL = k * rscale_long;
+            psarr[iz + Nhankel * iperp] = evalExplicit(k, kzarr[iz])
+                                          * (1.0 - exp(-k_rL * k_rL));
+        }
+    }
 
     #ifndef NUSE_LOGR_INTERP
-        interp2d_cfS = hankel.transform(psarr.get(), 460, 512, 0, true);
+        interp2d_cfS = hankel.transform<INTERP_COSMO_2D>(
+            psarr.get(), 512, 512, 0, true);
     #else
-        interp2d_cfS = hankel.transform(
+        interp2d_cfS = hankel.transform<INTERP_COSMO_2D>(
             psarr.get(), 256, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
     #endif
 
-    interp1d_cfS = interp2d_cfS->get1dSliceX(interp2d_cfS->getY1());
+    interp1d_cfS = interp2d_cfS->get1dSliceX<DiscreteCubicInterpolation1D>(
+        interp2d_cfS->getY1());
 
     // Apodize interp2d_cfS only
-    double _rmax_half = rmax / 2;
-    interp2d_cfS->applyFunction(
-        [_rmax_half](double log2rz, double log2rperp2) {
-            double r = sqrt(exp2(2.0 * log2rz) + exp2(log2rperp2));
-            if (r > 2.0 * _rmax_half)   return 0.0;
-            /* r /= _rmax_half; return 1.0 - 0.75 * r + r * r * r / 16.0; */
+    // double _rmax_half = rmax / 2;
+    // interp2d_cfS->applyFunction(
+    //     [_rmax_half](double log2rz, double log2rperp2) {
+    //         double r = sqrt(exp2(2.0 * log2rz) + exp2(log2rperp2));
+    //         if (r > 2.0 * _rmax_half)   return 0.0;
+    //         /* r /= _rmax_half; return 1.0 - 0.75 * r + r * r * r / 16.0; */
 
-            if (r < _rmax_half) return 1.0;
-            r = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
-            r *= r;
-            return r;
-    });
+    //         if (r < _rmax_half) return 1.0;
+    //         r = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
+    //         r *= r;
+    //         return r;
+    // });
+
+    // interp2d_cfS->trim(log2(rmax * 1.05), 2.0 * log2(rmax * 1.05));
 }
 
 

@@ -5,7 +5,7 @@
 // #include <algorithm>
 // #include <cassert>
 
-const double MY_PI = 3.14159265359;
+const double MY_PI = 3.14159265358979323846;
 
 void RealField3D::initRngs(std::seed_seq *seq) {
     const int N = myomp::getMaxNumThreads();
@@ -130,38 +130,6 @@ double RealField3D::dot(const RealField3D &other) {
             other.field_x + ngrid_z * ij, 1);
 
     return result;
-}
-
-
-void RealField3D::convolvePk(const DiscreteLogInterpolation2D &Pk) {
-    // S . x multiplication
-    // Normalization including cellvol and N^3 yields inverse total volume
-    fftw_execute(p_x2k);
-    #pragma omp parallel for
-    for (size_t ij = 0; ij < ngrid_xy; ++ij) {
-        double kperp = getKperpFromIperp(ij);
-
-        for (size_t k = 0; k < ngrid_kz; ++k)
-            field_k[k + ngrid_kz * ij] *=
-                invtotalvol * Pk.evaluate(kperp, k * k_fund[2]);
-    }
-    fftw_execute(p_k2x);   
-}
-
-
-void RealField3D::convolveSqrtPk(const DiscreteLogInterpolation2D &Pk) {
-    double norm = cellvol * invsqrtcellvol * invtotalvol;
-
-    fftw_execute(p_x2k);
-    #pragma omp parallel for
-    for (size_t ij = 0; ij < ngrid_xy; ++ij) {
-        double kperp = getKperpFromIperp(ij);
-
-        for (size_t k = 0; k < ngrid_kz; ++k)
-            field_k[k + ngrid_kz * ij] *=
-                norm * sqrt(Pk.evaluate(kperp, k * k_fund[2]));
-    }
-    fftw_execute(p_k2x);
 }
 
 
