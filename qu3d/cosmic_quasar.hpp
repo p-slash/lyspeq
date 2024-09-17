@@ -56,6 +56,7 @@ public:
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth, *in_isig;
+    double cos_dec, sin_dec;
     std::unique_ptr<float[]> r, coarse_r;
     std::unique_ptr<double[]> y, Cy, residual, search, coarse_in, y_isig;
 
@@ -132,6 +133,10 @@ public:
 
         angles[1] = qFile->dec;
         angles[2] = 1;
+
+        /* Will be reset in _shiftByMedianDec in optimal_qu3d.cpp */
+        cos_dec = cos(angles[1]);
+        sin_dec = sin(angles[1]);
 
         in = y.get();
         in_isig = y_isig.get();
@@ -387,8 +392,8 @@ public:
                     const CosmicQuasar* const &q
             ) {
                 double sep = acos(
-                    sin(angles[1]) * sin(q->angles[1])
-                    + cos(angles[1]) * cos(q->angles[1]) * cos(q->angles[0] - angles[0])
+                    sin_dec * q->sin_dec
+                    + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0])
                 ) * 3600.0 * 180.0 / MY_PI;
 
                 double delta_dis = fabs(_quasar_dist - q->_quasar_dist);
@@ -499,9 +504,9 @@ public:
             double *ccov
     ) const {
         int M = q->N;
-        double cos_sep = sin(angles[1]) * sin(q->angles[1])
-                         + cos(angles[1]) * cos(q->angles[1])
-                         * cos(q->angles[0] - angles[0]);
+        double cos_sep =
+            sin_dec * q->sin_dec
+            + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
         float cos_half = sqrt((1.0 + cos_sep) / 2.0),
               sin_half = sqrt((1.0 - cos_sep) / 2.0);
 
