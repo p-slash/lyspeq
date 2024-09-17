@@ -41,7 +41,7 @@ public:
 
         First creates interpolator in ln(rz), ln(rperp2). Then:
        Returns: xi_SS interpolator in rz, rperp if return_log_interp=false
-       Returns: xi_SS interpolator in ln(rz), ln(rperp2) if return_log_interp=true
+       Returns: xi_SS interpolator in ln(rz), ln(rperp) if return_log_interp=true
     */
     template<class T>
     std::unique_ptr<T> transform(
@@ -86,7 +86,7 @@ public:
         if (return_log_interp)
             return std::make_unique<T>(
                 log2(fht_z->k[ltrunc]), log2_e * fht_z->getDLn(),
-                2.0 * log2(fht_xy->k[ltrunc]), 2.0 * log2_e * fht_xy->getDLn(),
+                log2(fht_xy->k[ltrunc]), log2_e * fht_xy->getDLn(),
                 result.get(), Nres, Nres);
 
         // Evaluting log for all coordinates is too expensive.
