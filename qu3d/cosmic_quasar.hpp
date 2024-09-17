@@ -499,19 +499,17 @@ public:
             double *ccov
     ) const {
         int M = q->N;
+        double cos_sep = sin(angles[1]) * sin(q->angles[1])
+                         + cos(angles[1]) * cos(q->angles[1])
+                         * cos(q->angles[0] - angles[0]);
+        float cos_half = sqrt((1.0 + cos_sep) / 2.0),
+              sin_half = sqrt((1.0 - cos_sep) / 2.0);
+
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < M; ++j) {
-                float dx = q->r[3 * j] - r[3 * i],
-                      dy = q->r[3 * j + 1] - r[3 * i + 1];
-
-                float rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]),
-                #ifndef NUSE_LOGR_INTERP
-                    rperp2 = dx * dx + dy * dy;
-                    ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp2, rz);
-                #else
-                    rperp = sqrtf(dx * dx + dy * dy);
-                    ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
-                #endif
+                float rperp = (q->r[3 * j + 2] + r[3 * i + 2]) * sin_half,
+                      rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]) * cos_half;
+                ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
         }
     }
