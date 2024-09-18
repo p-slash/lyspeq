@@ -376,8 +376,8 @@ public:
     }
 
     void trimNeighbors(
-            float radius2, float ratio=0.1, double sep_arcsec=20.0,
-            float dist_Mpc=60.0, bool remove_low_overlap=false,
+            double radius2, float ratio=0.1, double sep_arcsec=20.0,
+            float dist_Mpc=60.0, bool remove_low_overlap=true,
             bool remove_identicals=false
     ) {
         /* Removes neighbors with low overlap and self. Also removes neighbors
@@ -408,13 +408,18 @@ public:
         ) {
             int M = q->N, ninc_i = 0, ninc_j = 0;
             std::set<int> jdxs;
+
+            double cos_sep =
+                sin_dec * q->sin_dec
+                + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
+
             for (int i = 0; i < N; ++i) {
                 bool _in_i = false;
                 for (int j = 0; j < M; ++j) {
-                    float dx = q->r[3 * j] - r[3 * i],
-                          dy = q->r[3 * j + 1] - r[3 * i + 1],
-                          dz = q->r[3 * j + 2] - r[3 * i + 2];
-                    float r2 = dx * dx + dy * dy + dz * dz;
+                    double r2 = (
+                        q->r[3 * j + 2] * q->r[3 * j + 2]
+                        + r[3 * i + 2] * r[3 * i + 2]
+                        - 2.0 * r[3 * i + 2] * q->r[3 * j + 2] * cos_sep);
 
                     if (r2 <= radius2) {
                         jdxs.insert(j);
