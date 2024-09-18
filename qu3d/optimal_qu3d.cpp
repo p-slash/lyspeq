@@ -145,10 +145,31 @@ void _shiftByMedianDec(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
 
     LOG::LOGGER.STD("Shifting quasar DECs by %.4f radians\n", median_dec);
 
-    for (auto &qso : quasars)
+    for (auto &qso : quasars) {
         qso->angles[1] -= median_dec;
+        qso->cos_dec = cos(qso->angles[1]);
+        qso->sin_dec = sin(qso->angles[1]);
+    }
 }
 
+
+void _setCosmologicalCoordinates(
+    std::vector<std::unique_ptr<CosmicQuasar>> &quasars
+) {
+    double sum_chi_weights = 0, sum_weights = 0;
+
+    #pragma omp parallel for num_threads(8) reduction(+:sum_chi_weights, sum_weights)
+    for (const auto &qso : quasars)
+        qso->getSumRadialDistance(cosmo, sum_chi_weights, sum_weights);
+
+    sum_chi_weights /= sum_weights;
+
+    LOG::LOGGER.STD("Effective radial distance is %.3f Mpc.\n", sum_chi_weights);
+
+    #pragma omp parallel for num_threads(8)
+    for (auto &qso : quasars)
+        qso->setComovingDistances(cosmo, sum_chi_weights);
+}
 
 void _setSpectroMeanParams(
         const std::vector<std::unique_ptr<CosmicQuasar>> &quasars
@@ -195,9 +216,6 @@ void Qu3DEstimator::_readOneDeltaFile(const std::string &fname) {
 
     if (local_quasars.empty())
         return;
-
-    for (auto &qso : local_quasars)
-        qso->setComovingDistances(cosmo);
 
     #pragma omp critical
     {
@@ -253,6 +271,7 @@ void Qu3DEstimator::_readQSOFiles(
     }
 
     _shiftByMedianDec(quasars);
+    _setCosmologicalCoordinates(quasars);
     _setSpectroMeanParams(quasars);
 
     t2 = mytime::timer.getTime();
@@ -389,8 +408,8 @@ void Qu3DEstimator::_constructMap() {
 void Qu3DEstimator::_findNeighbors() {
     /* Assumes radius is multiplied by factor. */
     double t1 = mytime::timer.getTime(), t2 = 0;
-    float radius2 = radius * radius;
-    double radius_p = radius + 3.0 * (*std::max_element(mesh.dx, mesh.dx + 3));
+    double radius2 = radius * radius;
+    double radius_p = radius + 20.0 * (*std::max_element(mesh.dx, mesh.dx + 3));
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
