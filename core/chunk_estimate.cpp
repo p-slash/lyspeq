@@ -332,10 +332,11 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
             if (kn < _kncut) ++real_nq_mat;
         }
 
+        // +1 for noise matrix dot product
         #ifdef FISHER_OPTIMIZATION
-        const int N_M_COMBO = 11;
+        const int N_M_COMBO = 11 + 1;
         #else
-        int N_M_COMBO = real_nq_mat + 1;
+        int N_M_COMBO = real_nq_mat + 1 + 1;
         #endif
 
         double res = (
