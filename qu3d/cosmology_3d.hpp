@@ -183,29 +183,29 @@ namespace fidcosmo {
         double getVar1dS() const { return interp1d_cfS->get()[0]; }
 
         #ifndef NUSE_LOGR_INTERP
-            double evalCorrFunc2dS(float rperp2, float rz) const {
+            double evalCorrFunc2dS(float rperp, float rz) const {
                 /* Evaluate small-scale CF using interpolation. */
                 const static float
                     rz_min = exp2f(interp2d_cfS->getX1()),
-                    rperp2_min = exp2f(interp2d_cfS->getY1()),
+                    rperp_min = exp2f(interp2d_cfS->getY1()),
                     rmax2f = rmax * rmax;
 
-                float r2 = rperp2 + rz * rz;
+                float r2 = rperp * rperp + rz * rz;
                 if (r2 > rmax2f)
                     return 0;
 
-                double rzin, rperp2in;
+                double rzin, rperpin;
                 if (rz < rz_min)
                     rzin = interp2d_cfS->getX1();
                 else
                     rzin = fastlog2(rz);
 
-                if (rperp2 < rperp2_min)
-                    rperp2in = interp2d_cfS->getY1();
+                if (rperp < rperp_min)
+                    rperpin = interp2d_cfS->getY1();
                 else
-                    rperp2in = fastlog2(rperp2);
+                    rperpin = fastlog2(rperp);
 
-                return interp2d_cfS->evaluateHermite2(rzin, rperp2in)
+                return interp2d_cfS->evaluateHermite2(rzin, rperpin)
                        * apodize(r2);
             }
         #else

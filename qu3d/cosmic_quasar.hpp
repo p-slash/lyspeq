@@ -56,6 +56,7 @@ public:
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth, *in_isig;
+    double cos_dec, sin_dec;
     std::unique_ptr<float[]> r, coarse_r;
     std::unique_ptr<double[]> y, Cy, residual, search, coarse_in, y_isig;
 
@@ -133,6 +134,10 @@ public:
         angles[1] = qFile->dec;
         angles[2] = 1;
 
+        /* Will be reset in _shiftByMedianDec in optimal_qu3d.cpp */
+        cos_dec = cos(angles[1]);
+        sin_dec = sin(angles[1]);
+
         in = y.get();
         in_isig = y_isig.get();
         truth = qFile->delta();
@@ -141,14 +146,13 @@ public:
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
 
-    void setComovingDistances(const fidcosmo::FlatLCDM *cosmo) {
+    void setComovingDistances(const fidcosmo::FlatLCDM *cosmo, double radial) {
         _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
         /* Equirectangular projection */
         for (int i = 0; i < N; ++i) {
-            double chi = cosmo->getComovingDist(z1[i]);
-            r[0 + 3 * i] = angles[0] * chi;
-            r[1 + 3 * i] = angles[1] * chi;
-            r[2 + 3 * i] = angles[2] * chi;
+            r[0 + 3 * i] = angles[0] * radial;
+            r[1 + 3 * i] = angles[1] * radial;
+            r[2 + 3 * i] = cosmo->getComovingDist(z1[i]);
         }
     }
 
@@ -160,6 +164,17 @@ public:
                Mpc2kms = cosmo->getHubble(mean_z1) / mean_z1;
         sigma = qFile->R_kms / Mpc2kms;
         delta_r = (r[3 * N - 1] - r[2]) / (N - 1);
+    }
+
+    void getSumRadialDistance(
+            const fidcosmo::FlatLCDM *cosmo,
+            double &sum_chi_weights, double &sum_weights
+    ) {
+        for (int i = 0; i < N; ++i) {
+            double ivar = isig[i] * isig[i];
+            sum_chi_weights += cosmo->getComovingDist(z1[i]) * ivar;
+            sum_weights += ivar;
+        }
     }
 
     void transformZ1toG(const fidcosmo::ArinyoP3DModel *p3d_model) {
@@ -371,7 +386,7 @@ public:
     }
 
     void trimNeighbors(
-            float radius2, float ratio=0.1, double sep_arcsec=20.0,
+            double radius2, float ratio=0.1, double sep_arcsec=20.0,
             float dist_Mpc=60.0, bool remove_low_overlap=false,
             bool remove_identicals=false
     ) {
@@ -387,8 +402,8 @@ public:
                     const CosmicQuasar* const &q
             ) {
                 double sep = acos(
-                    sin(angles[1]) * sin(q->angles[1])
-                    + cos(angles[1]) * cos(q->angles[1]) * cos(q->angles[0] - angles[0])
+                    sin_dec * q->sin_dec
+                    + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0])
                 ) * 3600.0 * 180.0 / MY_PI;
 
                 double delta_dis = fabs(_quasar_dist - q->_quasar_dist);
@@ -403,13 +418,18 @@ public:
         ) {
             int M = q->N, ninc_i = 0, ninc_j = 0;
             std::set<int> jdxs;
+
+            double cos_sep =
+                sin_dec * q->sin_dec
+                + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
+
             for (int i = 0; i < N; ++i) {
                 bool _in_i = false;
                 for (int j = 0; j < M; ++j) {
-                    float dx = q->r[3 * j] - r[3 * i],
-                          dy = q->r[3 * j + 1] - r[3 * i + 1],
-                          dz = q->r[3 * j + 2] - r[3 * i + 2];
-                    float r2 = dx * dx + dy * dy + dz * dz;
+                    double r2 = (
+                        q->r[3 * j + 2] * q->r[3 * j + 2]
+                        + r[3 * i + 2] * r[3 * i + 2]
+                        - 2.0 * r[3 * i + 2] * q->r[3 * j + 2] * cos_sep);
 
                     if (r2 <= radius2) {
                         jdxs.insert(j);
@@ -499,19 +519,17 @@ public:
             double *ccov
     ) const {
         int M = q->N;
+        double cos_sep =
+            sin_dec * q->sin_dec
+            + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
+        float cos_half = sqrt((1.0 + cos_sep) / 2.0),
+              sin_half = sqrt((1.0 - cos_sep) / 2.0);
+
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < M; ++j) {
-                float dx = q->r[3 * j] - r[3 * i],
-                      dy = q->r[3 * j + 1] - r[3 * i + 1];
-
-                float rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]),
-                #ifndef NUSE_LOGR_INTERP
-                    rperp2 = dx * dx + dy * dy;
-                    ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp2, rz);
-                #else
-                    rperp = sqrtf(dx * dx + dy * dy);
-                    ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
-                #endif
+                float rperp = (q->r[3 * j + 2] + r[3 * i + 2]) * sin_half,
+                      rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]) * cos_half;
+                ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
         }
     }
