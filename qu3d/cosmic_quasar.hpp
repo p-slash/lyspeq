@@ -146,14 +146,13 @@ public:
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
 
-    void setComovingDistances(const fidcosmo::FlatLCDM *cosmo) {
+    void setComovingDistances(const fidcosmo::FlatLCDM *cosmo, double radial) {
         _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
         /* Equirectangular projection */
         for (int i = 0; i < N; ++i) {
-            double chi = cosmo->getComovingDist(z1[i]);
-            r[0 + 3 * i] = angles[0] * chi;
-            r[1 + 3 * i] = angles[1] * chi;
-            r[2 + 3 * i] = angles[2] * chi;
+            r[0 + 3 * i] = angles[0] * radial;
+            r[1 + 3 * i] = angles[1] * radial;
+            r[2 + 3 * i] = cosmo->getComovingDist(z1[i]);
         }
     }
 
@@ -165,6 +164,17 @@ public:
                Mpc2kms = cosmo->getHubble(mean_z1) / mean_z1;
         sigma = qFile->R_kms / Mpc2kms;
         delta_r = (r[3 * N - 1] - r[2]) / (N - 1);
+    }
+
+    void getSumRadialDistance(
+            const fidcosmo::FlatLCDM *cosmo,
+            double &sum_chi_weights, double &sum_weights
+    ) {
+        for (int i = 0; i < N; ++i) {
+            double ivar = isig[i] * isig[i];
+            sum_chi_weights += cosmo->getComovingDist(z1[i]) * ivar;
+            sum_weights += ivar;
+        }
     }
 
     void transformZ1toG(const fidcosmo::ArinyoP3DModel *p3d_model) {
@@ -377,7 +387,7 @@ public:
 
     void trimNeighbors(
             double radius2, float ratio=0.1, double sep_arcsec=20.0,
-            float dist_Mpc=60.0, bool remove_low_overlap=true,
+            float dist_Mpc=60.0, bool remove_low_overlap=false,
             bool remove_identicals=false
     ) {
         /* Removes neighbors with low overlap and self. Also removes neighbors
