@@ -151,9 +151,17 @@ std::vector<size_t> RealField3D::findNeighboringPixels(
         double x2 = x * dx[0];  x2 *= x2;
 
         for (int y = -dn[1]; y <= dn[1]; ++y) {
+            int idx_y = n[1] + y;
+            if ((idx_y >= ngrid[1]) || (idx_y < 0))
+                continue;
+
             double y2 = y * dx[1];  y2 *= y2;
 
             for (int z = -dn[2]; z <= dn[2]; ++z) {
+                int idx_z = n[2] + z;
+                if ((idx_z >= ngrid[2]) || (idx_z < 0))
+                    continue;
+
                 double z2 = z * dx[2];  z2 *= z2;
                 z2 += x2 + y2;
 
