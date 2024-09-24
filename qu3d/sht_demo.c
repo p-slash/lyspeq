@@ -70,7 +70,9 @@ int main(void) {
       printf("Spherical harmonic conversion @ resolution %3ld\n", nsp);
       printf("   |   m= 0     m=1cos  m=1sin etc.\n");
       for(i=0;i<alm1.Nmode;i++) alm1.vector[i]=0.; /* need to initialize this */
-      pixel_analysis_1(&alm1, NULL, f, NULL, alm1.lmax, theta, phi, NULL, NULL, Npix, NULL, NULL, 0, 0, nsp, 6);
+      pixel_analysis_1(
+         &alm1, NULL, f, NULL, alm1.lmax, theta, phi,
+         NULL, NULL, Npix, NULL, NULL, 0, 0, nsp, 6);
       for(l=0;l<=alm1.lmax;l++) {
          printf("%2ld | %7.4lf  ", l, alm1.coefs[l][0]);
          for(m=1;m<=l;m++) printf(" %7.4lf %7.4lf", alm1.coefs[l][m], alm1.coefs[l][-m]);

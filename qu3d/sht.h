@@ -35,13 +35,21 @@ void deallocate_sphere_modes(SPHERE_MODES *A);
  * pm_order = particle-mesh interpolation polynomial order (max=10)
  */
 
-void pixel_synthesis_1(SPHERE_MODES *p_LM, SPHERE_MODES *n_LM, double *component_1, double *component_2,
-   long lmax, double *theta, double *phi, double *psi, long length, double *convolve_kernel_p,
-   double *convolve_kernel_n, int spin, unsigned short int convolve_flag, long nspace, long pm_order);
+void pixel_synthesis_1(
+   SPHERE_MODES *p_LM, SPHERE_MODES *n_LM,
+   double *component_1, double *component_2,
+   long lmax, double *theta, double *phi, double *psi,
+   long length, double *convolve_kernel_p,
+   double *convolve_kernel_n, int spin, unsigned short int convolve_flag,
+   long nspace, long pm_order);
 
-void pixel_analysis_1(SPHERE_MODES *p_LM, SPHERE_MODES *n_LM, double *component_1, double *component_2,
-   long lmax, double *theta, double *phi, double *psi, double *area, long length, double *convolve_kernel_p,
-   double *convolve_kernel_n, int spin, unsigned short int convolve_flag, long nspace, long pm_order);
+void pixel_analysis_1(
+   SPHERE_MODES *p_LM, SPHERE_MODES *n_LM,
+   double *component_1, double *component_2,
+   long lmax, double *theta, double *phi, double *psi,
+   double *area, long length, double *convolve_kernel_p,
+   double *convolve_kernel_n, int spin, unsigned short int convolve_flag,
+   long nspace, long pm_order);
 
 /* All the functions require phi to be in the range [0,2pi). Here's a helper macro that can put
  * a longitude in the right range.
