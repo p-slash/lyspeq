@@ -153,7 +153,7 @@ void _shiftByMedianDec(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
 }
 
 
-void _setCosmologicalCoordinates(
+double _setCosmologicalCoordinates(
     std::vector<std::unique_ptr<CosmicQuasar>> &quasars
 ) {
     double sum_chi_weights = 0, sum_weights = 0;
@@ -169,6 +169,8 @@ void _setCosmologicalCoordinates(
     #pragma omp parallel for num_threads(8)
     for (auto &qso : quasars)
         qso->setComovingDistances(cosmo, sum_chi_weights);
+
+    return sum_chi_weights;
 }
 
 void _setSpectroMeanParams(
@@ -271,7 +273,7 @@ void Qu3DEstimator::_readQSOFiles(
     }
 
     _shiftByMedianDec(quasars);
-    _setCosmologicalCoordinates(quasars);
+    effective_chi = _setCosmologicalCoordinates(quasars);
     _setSpectroMeanParams(quasars);
 
     t2 = mytime::timer.getTime();
@@ -308,7 +310,7 @@ void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
         lymax = std::max(lymax, std::max(qso->r[1], qso->r[3 * qso->N - 2]));
     }
 
-    L[0] = lzmax * 2 * MY_PI;
+    L[0] = effective_chi * 2 * MY_PI;
     L[1] = lymax - lymin;
     L[2] = lzmax - lzmin;
     z0 = lzmin;
@@ -320,28 +322,32 @@ void Qu3DEstimator::_setupMesh(double radius) {
 
     _calculateBoxDimensions(mesh.length, mesh.z0);
 
-    mesh.length[1] += 20.0 * radius;
-    mesh.length[2] += 20.0 * radius;
-    mesh.z0 -= 10.0 * radius;
-
     mesh.ngrid[0] = config.getInteger("NGRID_X");
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
     mesh.ngrid[2] = config.getInteger("NGRID_Z");
-    mesh_z1_values = std::make_unique<double[]>(mesh.ngrid[2]);
 
-    double dzl = (
-        mesh.length[0] / mesh.ngrid[0] + mesh.length[1] / mesh.ngrid[1]
-    ) / 2 - (mesh.length[2] / mesh.ngrid[2]);
+    mesh.length[1] += 4.0 * radius;
+    double dyl = mesh.length[0] / mesh.ngrid[0] - mesh.length[1] / mesh.ngrid[1];
+    if (dyl > 0)
+        mesh.length[1] += dyl * mesh.ngrid[1];
 
-    if (dzl > 0) {
-        double extra_lz = dzl * mesh.ngrid[2];
-        mesh.length[2] += extra_lz;
-        mesh.z0 -= extra_lz / 2.0;
+    mesh.length[2] += 8.0 * mesh.length[2] / mesh.ngrid[2];
+    mesh.z0 -= 4.0 * mesh.length[2] / mesh.ngrid[2];
+
+    if (config.getInteger("MatchCellSizeOfZToXY") > 0) {
+        double dzl = (
+            mesh.length[0] / mesh.ngrid[0] + mesh.length[1] / mesh.ngrid[1]
+        ) / 2 - (mesh.length[2] / mesh.ngrid[2]);
+
+        if (dzl > 0) {
+            double extra_lz = dzl * mesh.ngrid[2];
+            LOG::LOGGER.STD(
+                "Automatically padding z axis to match cell length in x & y "
+                "directions by %.3f Mpc", extra_lz);
+            mesh.length[2] += extra_lz;
+            mesh.z0 -= extra_lz / 2.0;
+        }
     }
-
-    for (int i = 0; i < mesh.ngrid[2]; ++i)
-        mesh_z1_values[i] = cosmo->getZ1FromComovingDist(
-            mesh.z0 + i * mesh.dx[2]);
 
     LOG::LOGGER.STD(
         "Box dimensions are as follows: "

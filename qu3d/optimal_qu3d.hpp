@@ -13,6 +13,7 @@
 
 const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
+    {"MatchCellSizeOfZToXY", "-1"},
     {"TurnOnPpCovariance", "-1"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"ConvergenceTolerance", "1e-6"}, {"AbsoluteTolerance", "-1"},
@@ -30,7 +31,7 @@ class Qu3DEstimator
 
     bool pp_enabled, absolute_tolerance;
     int max_conj_grad_steps, max_monte_carlos;
-    double tolerance, radius, rscale_factor;
+    double tolerance, radius, rscale_factor, effective_chi;
     size_t num_all_pixels;
 
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
