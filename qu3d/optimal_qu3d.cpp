@@ -17,6 +17,8 @@
 #define RINTERP_NTHREADS 3
 #endif
 
+#define NUMBER_OF_MULTIPOLES 3
+
 
 /* Timing map */
 std::unordered_map<std::string, std::pair<int, double>> timings{
@@ -34,7 +36,7 @@ std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 std::unique_ptr<ioh::ContMargFile> ioh::continuumMargFileHandler;
 
 std::vector<MyRNG> rngs;
-int NUMBER_OF_K_BANDS_2 = 0;
+int NUMBER_OF_P_BANDS = 0;
 double DK_BIN = 0;
 bool verbose = true, CONT_MARG_ENABLED = false;
 constexpr bool INPLACE_FFT = true;
@@ -511,26 +513,24 @@ void Qu3DEstimator::_openResultsFile() {
 
     p3d_model->write(result_file.get());
 
-    double *kperp_grid = raw_power.get(),
-           *kz_grid = filt_power.get(),
-           *pfid_grid = raw_bias.get();
+    double *k_grid = raw_power.get();
+           // *pfid_grid = raw_bias.get();
 
-    for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
-        for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
-            size_t i = iz + bins::NUMBER_OF_K_BANDS * iperp;
-            kperp_grid[i] = bins::KBAND_CENTERS[iperp];
-            kz_grid[i] = bins::KBAND_CENTERS[iz];
-            pfid_grid[i] = p3d_model->interp2d_pL.evaluate(kperp_grid[i], kz_grid[i]);
+    for (int imu = 0; imu < NUMBER_OF_MULTIPOLES; ++imu) {
+        for (int ik = 0; ik < bins::NUMBER_OF_K_BANDS; ++ik) {
+            size_t i = ik + bins::NUMBER_OF_K_BANDS * imu;
+            k_grid[i] = bins::KBAND_CENTERS[ik];
+            // pfid_grid[i] = p3d_model->interp2d_pL.evaluate(kperp_grid[i], kz_grid[i]);
         }
     }
 
-    result_file->write(kperp_grid, NUMBER_OF_K_BANDS_2, "KPERP");
-    result_file->write(kz_grid, NUMBER_OF_K_BANDS_2, "KZ");
-    result_file->write(pfid_grid, NUMBER_OF_K_BANDS_2, "PFID");
+    result_file->write(k_grid, NUMBER_OF_P_BANDS, "K");
+    // result_file->write(kz_grid, number_of_k_bands_2, "KZ");
+    // result_file->write(pfid_grid, number_of_k_bands_2, "PFID");
     result_file->flush();
-    std::fill_n(kperp_grid, NUMBER_OF_K_BANDS_2, 0);
-    std::fill_n(kz_grid, NUMBER_OF_K_BANDS_2, 0);
-    std::fill_n(pfid_grid, NUMBER_OF_K_BANDS_2, 0);
+    std::fill_n(k_grid, NUMBER_OF_P_BANDS, 0);
+    // std::fill_n(kz_grid, number_of_k_bands_2, 0);
+    // std::fill_n(pfid_grid, number_of_k_bands_2, 0);
 }
 
 
@@ -577,14 +577,14 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     cosmo = p3d_model->getCosmoPtr();
     logCosmoDist(); logCosmoHubble(); 
 
-    NUMBER_OF_K_BANDS_2 = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_K_BANDS;
+    NUMBER_OF_P_BANDS = bins::NUMBER_OF_K_BANDS * NUMBER_OF_MULTIPOLES;
     DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
-    bins::FISHER_SIZE = NUMBER_OF_K_BANDS_2 * NUMBER_OF_K_BANDS_2;
+    bins::FISHER_SIZE = NUMBER_OF_P_BANDS * NUMBER_OF_P_BANDS;
 
-    raw_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    filt_power = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    raw_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    filt_bias = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    raw_power = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    filt_power = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    raw_bias = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    filt_bias = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
     fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
     covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
 
@@ -961,7 +961,7 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
     static size_t mesh_kz_max = std::min(
         size_t(ceil(bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] / mesh.k_fund[2])),
         mesh.ngrid_kz);
-    static auto _lout = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    static auto _lout = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
 
     double dt = mytime::timer.getTime();
 
@@ -972,31 +972,43 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
     if (lout == nullptr)
         lout = (o2 == nullptr) ? o1 : _lout.get();
 
-    std::fill_n(lout, NUMBER_OF_K_BANDS_2, 0);
+    std::fill_n(lout, NUMBER_OF_P_BANDS, 0);
 
-    #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_K_BANDS_2])
+    #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS])
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
-        int iperp = mesh.getKperpFromIperp(jxy) / DK_BIN;
+        double kperp = mesh.getKperpFromIperp(jxy), temp;
+        int ik = kperp / DK_BIN;
 
-        if (iperp >= bins::NUMBER_OF_K_BANDS)
+        if (ik >= bins::NUMBER_OF_K_BANDS)
             continue;
 
         size_t jj = mesh.ngrid_kz * jxy;
-        lout[iperp * bins::NUMBER_OF_K_BANDS] += std::norm(mesh.field_k[jj]);
+        // mu = 0
+        temp = std::norm(mesh.field_k[jj]);
+        lout[ik] += temp;
+        lout[ik + bins::NUMBER_OF_K_BANDS] += -0.5 * temp;
+        lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += (3.0 / 8.0) * temp;
 
         for (size_t k = 1; k < mesh_kz_max; ++k) {
             double kz = k * mesh.k_fund[2];
-            int iz = kz / DK_BIN;
-            lout[iz + iperp * bins::NUMBER_OF_K_BANDS] +=
-                2.0 * std::norm(mesh.field_k[k + jj])
-                * p3d_model->getSpectroWindow2(kz);
+            double kt = sqrt(kz * kz + kperp * kperp), mu2 = kz / kt;
+
+            mu2 *= mu2;
+            ik = kt / DK_BIN;
+
+            temp = 2.0 * std::norm(mesh.field_k[k + jj])
+                   * p3d_model->getSpectroWindow2(kz);
+            lout[ik] += temp;
+            lout[ik + bins::NUMBER_OF_K_BANDS] += temp * (1.5 * mu2 - 0.5);
+            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] +=
+                temp * (35.0 / 8.0 * mu2 * mu2 - 15.0 / 4.0 * mu2 + 3.0 / 8.0);
         }
     }
 
-    cblas_dscal(NUMBER_OF_K_BANDS_2, mesh.invtotalvol, lout, 1);
+    cblas_dscal(NUMBER_OF_P_BANDS, mesh.invtotalvol, lout, 1);
 
     if (o2 != nullptr) {
-        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
+        for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
             o1[i] += lout[i];
             o2[i] += lout[i] * lout[i];
         }
@@ -1017,7 +1029,7 @@ void Qu3DEstimator::estimatePower() {
     /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
     multiplyDerivVectors(raw_power.get(), nullptr);
 
-    result_file->write(raw_power.get(), NUMBER_OF_K_BANDS_2, "FPOWER");
+    result_file->write(raw_power.get(), NUMBER_OF_P_BANDS, "FPOWER");
     result_file->flush();
     logTimings();
 }
@@ -1064,8 +1076,8 @@ bool Qu3DEstimator::_syncMonteCarlo(
 void Qu3DEstimator::estimateNoiseBiasMc() {
     LOG::LOGGER.STD("Estimating noise bias.\n");
     verbose = false;
-    mc1 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    mc2 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    mc1 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    mc2 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
 
     Progress prog_tracker(max_monte_carlos, 10);
     int nmc = 1;
@@ -1087,7 +1099,7 @@ void Qu3DEstimator::estimateNoiseBiasMc() {
             continue;
 
         converged = _syncMonteCarlo(
-            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_K_BANDS_2, "FBIAS");
+            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_P_BANDS, "FBIAS");
 
         if (converged)
             break;
@@ -1103,14 +1115,14 @@ void Qu3DEstimator::estimateTotalBiasMc() {
     LOG::LOGGER.STD("Estimating total bias (S_L + N).\n");
     constexpr int M_MCS = 5;
     verbose = false;
-    mc1 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
-    mc2 = std::make_unique<double[]>(NUMBER_OF_K_BANDS_2);
+    mc1 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    mc2 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
 
     // Every task saves their own Monte Carlos
     ioh::Qu3dFile monte_carlos_file(
         process::FNAME_BASE + "-montecarlos-" + std::to_string(mympi::this_pe),
         0);
-    auto all_mcs = std::make_unique<double[]>(M_MCS * NUMBER_OF_K_BANDS_2);
+    auto all_mcs = std::make_unique<double[]>(M_MCS * NUMBER_OF_P_BANDS);
 
     Progress prog_tracker(max_monte_carlos, 10);
     int nmc = 1;
@@ -1126,7 +1138,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
         /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
         multiplyDerivVectors(
             mc1.get(), mc2.get(),
-            all_mcs.get() + jj * NUMBER_OF_K_BANDS_2
+            all_mcs.get() + jj * NUMBER_OF_P_BANDS
         );
 
         ++prog_tracker;
@@ -1135,12 +1147,12 @@ void Qu3DEstimator::estimateTotalBiasMc() {
             continue;
 
         monte_carlos_file.write(
-            all_mcs.get(), (jj + 1) * NUMBER_OF_K_BANDS_2,
+            all_mcs.get(), (jj + 1) * NUMBER_OF_P_BANDS,
             "TOTBIAS_MCS-" + std::to_string(nmc), jj + 1);
         monte_carlos_file.flush();
 
         converged = _syncMonteCarlo(
-            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_K_BANDS_2,
+            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_P_BANDS,
             "FTOTALBIAS");
 
         if (converged)
@@ -1217,7 +1229,7 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
     */
 
     max_monte_carlos = 5;
-    Progress prog_tracker(max_monte_carlos * NUMBER_OF_K_BANDS_2, 5);
+    Progress prog_tracker(max_monte_carlos * NUMBER_OF_P_BANDS, 5);
     int nmc = 1;
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
@@ -1225,15 +1237,15 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
         mesh_rnd.fftX2K();
         LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
 
-        for (int i = 0; i < NUMBER_OF_K_BANDS_2; ++i) {
+        for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
             drawRndDeriv(i);
 
             /* calculate C^-1 . qk into in */
             conjugateGradientDescent();
             /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
             multiplyDerivVectors(
-                mc1.get() + i * NUMBER_OF_K_BANDS_2,
-                mc2.get() + i * NUMBER_OF_K_BANDS_2);
+                mc1.get() + i * NUMBER_OF_P_BANDS,
+                mc2.get() + i * NUMBER_OF_P_BANDS);
 
             ++prog_tracker;
         }
@@ -1255,16 +1267,16 @@ void Qu3DEstimator::filter() {
         return;
 
     std::copy_n(fisher.get(), bins::FISHER_SIZE, covariance.get());
-    mxhelp::LAPACKE_InvertMatrixLU(covariance.get(), NUMBER_OF_K_BANDS_2);
+    mxhelp::LAPACKE_InvertMatrixLU(covariance.get(), NUMBER_OF_P_BANDS);
     cblas_dgemv(
-        CblasRowMajor, CblasNoTrans, NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2,
-        0.5, covariance.get(), NUMBER_OF_K_BANDS_2,
+        CblasRowMajor, CblasNoTrans, NUMBER_OF_P_BANDS, NUMBER_OF_P_BANDS,
+        0.5, covariance.get(), NUMBER_OF_P_BANDS,
         raw_power.get(), 1,
         0, filt_power.get(), 1);
 
     cblas_dgemv(
-        CblasRowMajor, CblasNoTrans, NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2,
-        0.5, covariance.get(), NUMBER_OF_K_BANDS_2,
+        CblasRowMajor, CblasNoTrans, NUMBER_OF_P_BANDS, NUMBER_OF_P_BANDS,
+        0.5, covariance.get(), NUMBER_OF_P_BANDS,
         raw_bias.get(), 1,
         0, filt_bias.get(), 1);
 }
@@ -1291,11 +1303,10 @@ void Qu3DEstimator::write() {
         "# File Template\n# Nk\n"
         "# kperp | kz | P3D | e_P3D | Pfid | d | b | Fd | Fb\n"
         "# Nk     : Number of k bins\n"
-        "# kperp  : Perpendicular k bin [Mpc^-1]\n"
-        "# kz     : Line-of-sight k bin [Mpc^-1]\n"
+        "# k      : k bin [Mpc^-1]\n"
+        "# l      : Multipole\n"
         "# P3D    : Estimated P3D [Mpc^3]\n"
         "# e_P3D  : Gaussian error in estimated P3D [Mpc^3]\n"
-        "# Pfid   : Fiducial power [Mpc^3]\n"
         "# d      : Power estimate before noise (b) subtracted [Mpc^3]\n"
         "# b      : Noise estimate [Mpc^3]\n"
         "# Fd     : d before Fisher\n"
@@ -1311,24 +1322,23 @@ void Qu3DEstimator::write() {
     fprintf(toWrite, "# %d\n", bins::NUMBER_OF_K_BANDS);
     fprintf(
         toWrite,
-        "%14s %14s %14s %14s %14s %14s %14s %14s %14s\n", 
-        "kperp", "kz", "P3D", "e_P3D", "Pfid", "d", "b", "Fd", "Fb");
+        "%14s %s %14s %14s %14s %14s %14s %14s\n", 
+        "k", "l", "P3D", "e_P3D", "d", "b", "Fd", "Fb");
 
-    for (int iperp = 0; iperp < bins::NUMBER_OF_K_BANDS; ++iperp) {
-        for (int iz = 0; iz < bins::NUMBER_OF_K_BANDS; ++iz) {
-            size_t i = iz + bins::NUMBER_OF_K_BANDS * iperp;
-            double kperp = bins::KBAND_CENTERS[iperp],
-                   kz = bins::KBAND_CENTERS[iz],
+    for (int imu = 0; imu < NUMBER_OF_MULTIPOLES; ++imu) {
+        for (int ik = 0; ik < bins::NUMBER_OF_K_BANDS; ++ik) {
+            size_t i = ik + bins::NUMBER_OF_K_BANDS * imu;
+            int l = 2 * imu;
+            double k = bins::KBAND_CENTERS[ik],
                    P3D = filt_power[i] - filt_bias[i],
-                   e_P3D = sqrt(covariance[i * (NUMBER_OF_K_BANDS_2 + 1)]),
-                   Pfid = p3d_model->interp2d_pL.evaluate(kperp, kz),
+                   e_P3D = sqrt(covariance[i * (NUMBER_OF_P_BANDS + 1)]),
                    d = filt_power[i],
                    b = filt_bias[i],
                    Fd = raw_power[i],
                    Fb = raw_bias[i];
             fprintf(toWrite,
-                    "%14e %14e %14e %14e %14e %14e %14e %14e %14e\n", 
-                    kperp, kz, P3D, e_P3D, Pfid, d, b, Fd, Fb);
+                    "%14e %d %14e %14e %14e %14e %14e %14e\n", 
+                    k, l, P3D, e_P3D, d, b, Fd, Fb);
         }
     }
 
@@ -1338,7 +1348,7 @@ void Qu3DEstimator::write() {
     fname = _getFname("_fisher");
     mxhelp::fprintfMatrix(
         fname.c_str(), fisher.get(),
-        NUMBER_OF_K_BANDS_2, NUMBER_OF_K_BANDS_2);
+        NUMBER_OF_P_BANDS, NUMBER_OF_P_BANDS);
 
     LOG::LOGGER.STD("Fisher matrix saved as %s.\n", fname.c_str());
 }
