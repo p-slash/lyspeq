@@ -417,7 +417,7 @@ void Qu3DEstimator::_findNeighbors() {
     /* Assumes radius is multiplied by factor. */
     double t1 = mytime::timer.getTime(), t2 = 0;
     double radius2 = radius * radius;
-    double radius_p = radius + 20.0 * (*std::max_element(mesh.dx, mesh.dx + 3));
+    double radius_p = radius + 3.0 * (*std::max_element(mesh.dx, mesh.dx + 3));
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
@@ -445,7 +445,7 @@ void Qu3DEstimator::_findNeighbors() {
         if (qso->neighbors.contains(qso.get()))
             LOG::LOGGER.STD("Self is in\n"); */
 
-        qso->trimNeighbors(radius2);
+        qso->trimNeighbors(radius2, effective_chi);
     }
 
     // symmetrize neighbors. Should not erase anything.
@@ -706,7 +706,7 @@ void Qu3DEstimator::multParticleComp() {
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
-        qso->multCovNeighbors(p3d_model.get());
+        qso->multCovNeighbors(p3d_model.get(), effective_chi);
 
     dt = mytime::timer.getTime() - t1;
     ++timings["PPcomp"].first;
@@ -810,7 +810,7 @@ double Qu3DEstimator::updateY(double residual_norm2) {
         #pragma omp parallel for schedule(dynamic, 4) reduction(+:pTCp)
         for (auto &qso : quasars) {
             std::fill_n(qso->out, qso->N, 0);
-            qso->multCovNeighbors(p3d_model.get());
+            qso->multCovNeighbors(p3d_model.get(), effective_chi);
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] *= qso->isig[i] * qso->z1[i];
             pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
@@ -1410,7 +1410,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
             #pragma omp parallel for schedule(dynamic, 8) \
                     reduction(max:max_rtruth) reduction(+:mean_rtruth)
             for (auto &qso : quasars) {
-                qso->multCovNeighborsOnly(p3d_model.get(), qso->out);
+                qso->multCovNeighborsOnly(p3d_model.get(), effective_chi, qso->out);
                 double drt = qso->updateTruth(qso->out);
                 max_rtruth = std::max(drt, max_rtruth);
                 mean_rtruth += drt;
@@ -1497,7 +1497,7 @@ void Qu3DEstimator::estimateMaxEvals() {
 
         #pragma omp parallel for
         for (auto &qso : quasars)
-            qso->multCovNeighborsOnly(p3d_model.get(), qso->out);
+            qso->multCovNeighborsOnly(p3d_model.get(), effective_chi, qso->out);
 
         n_in = 0;  n_out = 0;  n_inout = 0;
 
