@@ -429,6 +429,9 @@ public:
             double ddec = angles[0] - q->angles[0],
                    dra = angles[1] - q->angles[1];
             double rperp2 = radial * radial * (ddec * ddec + dra * dra);
+            if (rperp2 > radius2)
+                return true;
+            float rz_max = sqrt(radius2 - rperp2);
             #endif
 
             for (int i = 0; i < N; ++i) {
@@ -439,14 +442,17 @@ public:
                         q->r[3 * j + 2] * q->r[3 * j + 2]
                         + r[3 * i + 2] * r[3 * i + 2]
                         - 2.0 * r[3 * i + 2] * q->r[3 * j + 2] * cos_sep);
-                    #else
-                    float rz = q->r[3 * j + 2] - r[3 * i + 2];
-                    double r2 = rperp2 + rz * rz;
-                    #endif
                     if (r2 <= radius2) {
                         jdxs.insert(j);
                         _in_i = true;
                     }
+                    #else
+                    float rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]);
+                    if (rz < rz_max) {
+                        jdxs.insert(j);
+                        _in_i = true;
+                    }
+                    #endif
                 }
 
                 if (_in_i)
