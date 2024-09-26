@@ -17,6 +17,13 @@ bool isClose(double a, double b, double relerr=1e-5, double abserr=1e-8) {
 }
 
 
+static inline double legendre0(double x) { return 1.0; }
+static inline double legendre2(double x) { return (1.5 * x * x - 0.5); }
+static inline double legendre4(double x) {
+    double x2 = x * x;
+    return 35.0 / 8.0 * x2 * x2 - 15.0 / 4.0 * x2 + 3.0 / 8.0;
+}
+
 // Below functions can be found in https://github.com/romeric/fastapprox
 /*=====================================================================*
  *                   Copyright (C) 2011 Paul Mineiro                   *
