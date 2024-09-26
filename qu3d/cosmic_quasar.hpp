@@ -386,7 +386,8 @@ public:
     }
 
     void trimNeighbors(
-            double radius2, float ratio=0.1, double sep_arcsec=20.0,
+            double radius2, double radial,
+            float ratio=0.1, double sep_arcsec=20.0,
             float dist_Mpc=60.0, bool remove_low_overlap=false,
             bool remove_identicals=false
     ) {
@@ -413,24 +414,35 @@ public:
             std::erase_if(neighbors, isSameQuasar);
         }
 
-        auto lowOverlap = [this, &radius2, &ratio, &remove_low_overlap](
+        auto lowOverlap =
+            [this, &radius2, &radial, &ratio, &remove_low_overlap](
                 const CosmicQuasar* const &q
         ) {
             int M = q->N, ninc_i = 0, ninc_j = 0;
             std::set<int> jdxs;
 
+            #ifdef USE_SPHERICAL_DIST
             double cos_sep =
                 sin_dec * q->sin_dec
                 + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
+            #else
+            double ddec = angles[0] - q->angles[0],
+                   dra = angles[1] - q->angles[1];
+            double rperp2 = radial * radial * (ddec * ddec + dra * dra);
+            #endif
 
             for (int i = 0; i < N; ++i) {
                 bool _in_i = false;
                 for (int j = 0; j < M; ++j) {
+                    #ifdef USE_SPHERICAL_DIST
                     double r2 = (
                         q->r[3 * j + 2] * q->r[3 * j + 2]
                         + r[3 * i + 2] * r[3 * i + 2]
                         - 2.0 * r[3 * i + 2] * q->r[3 * j + 2] * cos_sep);
-
+                    #else
+                    float rz = q->r[3 * j + 2] - r[3 * i + 2];
+                    double r2 = rperp2 + rz * rz;
+                    #endif
                     if (r2 <= radius2) {
                         jdxs.insert(j);
                         _in_i = true;
@@ -514,9 +526,10 @@ public:
         fpos = ioh::continuumMargFileHandler->write(rrmat, N, fidx);
     }
 
+    #ifdef USE_SPHERICAL_DIST
     void setCrossCov(
             const CosmicQuasar *q, const fidcosmo::ArinyoP3DModel *p3d_model,
-            double *ccov
+            double radial, double *ccov
     ) const {
         int M = q->N;
         double cos_sep =
@@ -533,8 +546,28 @@ public:
             }
         }
     }
+    #else
+    void setCrossCov(
+            const CosmicQuasar *q, const fidcosmo::ArinyoP3DModel *p3d_model,
+            double radial, double *ccov
+    ) const {
+        int M = q->N;
+        double ddec = angles[0] - q->angles[0],
+               dra = angles[1] - q->angles[1];
+        float rperp = radial * sqrt(ddec * ddec + dra * dra);
 
-    void multCovNeighbors(const fidcosmo::ArinyoP3DModel *p3d_model) {
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < M; ++j) {
+                float rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]);
+                ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
+            }
+        }
+    }
+    #endif
+
+    void multCovNeighbors(
+            const fidcosmo::ArinyoP3DModel *p3d_model, double radial
+    ) {
         /* We cannot use symmetry (update neighbor's out with C^T) here
            since it will cause race condition for the neighboring quasar.
 
@@ -562,7 +595,7 @@ public:
 
         /* Multiply others */
         for (const CosmicQuasar* q : neighbors) {
-            setCrossCov(q, p3d_model, ccov);
+            setCrossCov(q, p3d_model, radial, ccov);
             int M = q->N;
 
             cblas_dgemv(CblasRowMajor, CblasNoTrans, N, M, 1.0,
@@ -571,7 +604,8 @@ public:
     }
 
     void multCovNeighborsOnly(
-            const fidcosmo::ArinyoP3DModel *p3d_model, double *output
+            const fidcosmo::ArinyoP3DModel *p3d_model, double radial,
+            double *output
     ) {
         /* See comments in multCovNeighbors */
         if (neighbors.empty())
@@ -581,7 +615,7 @@ public:
         std::fill_n(output, N, 0);
 
         for (const CosmicQuasar* q : neighbors) {
-            setCrossCov(q, p3d_model, ccov);
+            setCrossCov(q, p3d_model, radial, ccov);
             int M = q->N;
 
             cblas_dgemv(CblasRowMajor, CblasNoTrans, N, M, 1.0,
