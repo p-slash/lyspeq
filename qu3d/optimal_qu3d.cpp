@@ -950,7 +950,6 @@ endconjugateGradientDescent:
     timings["CGD"].second += dt;
 }
 
-
 void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
     /* Adds current results into o1 (+=). If o2 is nullptr, the operations is
        directly performed on o1. Otherwise, current results first saved into
@@ -959,7 +958,9 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
        If you pass lout != nullptr, current results are saved into this array.
     */
     static size_t mesh_kz_max = std::min(
-        size_t(ceil(bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] / mesh.k_fund[2])),
+        size_t(ceil(
+            (bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] - bins::KBAND_EDGES[0])
+            / mesh.k_fund[2])),
         mesh.ngrid_kz);
     static auto _lout = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
 
@@ -977,24 +978,26 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS])
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         double kperp = mesh.getKperpFromIperp(jxy), temp;
-        int ik = kperp / DK_BIN;
+        int ik = (kperp - bins::KBAND_EDGES[0]) / DK_BIN;
 
         if (ik >= bins::NUMBER_OF_K_BANDS)
             continue;
 
         size_t jj = mesh.ngrid_kz * jxy;
-        // mu = 0
-        temp = std::norm(mesh.field_k[jj]);
-        lout[ik] += temp;
-        lout[ik + bins::NUMBER_OF_K_BANDS] += -0.5 * temp;
-        lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += (3.0 / 8.0) * temp;
+        if (ik > 0) {
+            // mu = 0
+            temp = std::norm(mesh.field_k[jj]);
+            lout[ik] += temp;
+            lout[ik + bins::NUMBER_OF_K_BANDS] -= 0.5 * temp;
+            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += (3.0 / 8.0) * temp;
+        }
 
         for (size_t k = 1; k < mesh_kz_max; ++k) {
             double kz = k * mesh.k_fund[2];
             double kt = sqrt(kz * kz + kperp * kperp);
 
-            ik = kt / DK_BIN;
-            if (ik >= bins::NUMBER_OF_K_BANDS)
+            ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
+            if (ik >= bins::NUMBER_OF_K_BANDS || ik < 0)
                 continue;
 
             double mu2 = kz / kt;  mu2 *= mu2;
@@ -1167,14 +1170,16 @@ void Qu3DEstimator::estimateTotalBiasMc() {
 
 
 void Qu3DEstimator::drawRndDeriv(int i) {
-    int iperp = i / bins::NUMBER_OF_K_BANDS,
-        iz = i % bins::NUMBER_OF_K_BANDS;
+    int imu = i / bins::NUMBER_OF_K_BANDS,
+        ik = i % bins::NUMBER_OF_K_BANDS;
 
-    size_t mesh_z_1 = ceil(bins::KBAND_EDGES[iz] / mesh.k_fund[2]),
-           mesh_z_2 = ceil(bins::KBAND_EDGES[iz + 1] / mesh.k_fund[2]);
-
-    mesh_z_1 = std::min(mesh.ngrid_kz, std::max(size_t(0), mesh_z_1));
-    mesh_z_2 = std::min(mesh.ngrid_kz, mesh_z_2);
+    double (*legendre)(double mu);
+    switch (imu) {
+    case 0: legendre = legendre0; break;
+    case 1: legendre = legendre2; break;
+    case 2: legendre = legendre4; break;
+    default: throw std::runtime_error("Qu3DEstimator::drawRndDeriv");
+    }
 
     #pragma omp parallel for
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
@@ -1183,9 +1188,24 @@ void Qu3DEstimator::drawRndDeriv(int i) {
         std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
 
         double kperp = mesh.getKperpFromIperp(jxy);
-        if(isInsideKbin(iperp, kperp))
-            for (size_t zz = mesh_z_1; zz != mesh_z_2; ++zz)
-                mesh.field_k[jj + zz] = mesh.invsqrtcellvol * mesh_rnd.field_k[jj + zz];
+        if (kperp > bins::KBAND_EDGES[ik + 1])
+            continue;
+
+        double kmin = sqrt(std::max(
+            0.0, bins::KBAND_EDGES[ik] * bins::KBAND_EDGES[ik] - kperp * kperp));
+        double kmax = sqrt(std::max(
+            0.0, bins::KBAND_EDGES[ik + 1] * bins::KBAND_EDGES[ik + 1] - kperp * kperp));
+        size_t mesh_z_1 = ceil(kmin / mesh.k_fund[2]),
+               mesh_z_2 = ceil(kmax / mesh.k_fund[2]);
+        mesh_z_1 = std::min(mesh.ngrid_kz, std::max(size_t(0), mesh_z_1));
+        mesh_z_2 = std::min(mesh.ngrid_kz, std::max(size_t(0), mesh_z_2));
+
+        for (size_t zz = mesh_z_1; zz != mesh_z_2; ++zz) {
+            mesh.getK2KzFromIndex(jj + zz, kmin, kmax);
+            kmin = sqrt(kmin) + 1e-300; kmax /= kmin;
+            mesh.field_k[jj + zz] =
+                mesh.invsqrtcellvol * mesh_rnd.field_k[jj + zz] * legendre(kmax);
+        }
     }
 
     mesh.fftK2X();
@@ -1231,7 +1251,7 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
        mesh_rnd.construct();
     */
 
-    max_monte_carlos = 5;
+    // max_monte_carlos = 5;
     Progress prog_tracker(max_monte_carlos * NUMBER_OF_P_BANDS, 5);
     int nmc = 1;
     bool converged = false;
