@@ -141,11 +141,13 @@ std::vector<size_t> RealField3D::findNeighboringPixels(
 
     getNFromIndex(i, n);
     for (int axis = 0; axis < 3; ++axis) {
-        dn[axis] = ceil(radius / dx[axis]) - 1;
+        dn[axis] = ceil(radius / dx[axis] + 2) - 1;
         ntot *= 2 * dn[axis] + 1;
     }
 
+    radius += 2.0 * dx[0];
     radius *= radius;
+
     neighbors.reserve(ntot);
     for (int x = -dn[0]; x <= dn[0]; ++x) {
         double x2 = x * dx[0];  x2 *= x2;

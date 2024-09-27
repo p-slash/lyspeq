@@ -417,11 +417,10 @@ void Qu3DEstimator::_findNeighbors() {
     /* Assumes radius is multiplied by factor. */
     double t1 = mytime::timer.getTime(), t2 = 0;
     double radius2 = radius * radius;
-    double radius_p = radius + 2.0 * (*std::max_element(mesh.dx, mesh.dx + 3));
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
-        auto neighboring_pixels = qso->findNeighborPixels(mesh, radius_p);
+        auto neighboring_pixels = qso->findNeighborPixels(mesh, radius);
 
         for (const size_t &ipix : neighboring_pixels) {
             auto kumap_itr = idx_quasar_map.find(ipix);
