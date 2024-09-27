@@ -417,7 +417,7 @@ void Qu3DEstimator::_findNeighbors() {
     /* Assumes radius is multiplied by factor. */
     double t1 = mytime::timer.getTime(), t2 = 0;
     double radius2 = radius * radius;
-    double radius_p = radius + 3.0 * (*std::max_element(mesh.dx, mesh.dx + 3));
+    double radius_p = radius + 2.0 * (*std::max_element(mesh.dx, mesh.dx + 3));
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
