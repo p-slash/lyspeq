@@ -422,36 +422,36 @@ public:
             std::set<int> jdxs;
 
             #ifdef USE_SPHERICAL_DIST
-            double cos_sep =
-                sin_dec * q->sin_dec
-                + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
+                double cos_sep =
+                    sin_dec * q->sin_dec
+                    + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
             #else
-            double ddec = angles[0] - q->angles[0],
-                   dra = angles[1] - q->angles[1];
-            double rperp2 = radial * radial * (ddec * ddec + dra * dra);
-            if (rperp2 > radius2)
-                return true;
-            float rz_max = sqrt(radius2 - rperp2);
+                double ddec = angles[0] - q->angles[0],
+                       dra = angles[1] - q->angles[1];
+                double rperp2 = radial * radial * (ddec * ddec + dra * dra);
+                if (rperp2 > radius2)
+                    return true;
+                float rz_max = sqrt(radius2 - rperp2);
             #endif
 
             for (int i = 0; i < N; ++i) {
                 bool _in_i = false;
                 for (int j = 0; j < M; ++j) {
                     #ifdef USE_SPHERICAL_DIST
-                    double r2 = (
-                        q->r[3 * j + 2] * q->r[3 * j + 2]
-                        + r[3 * i + 2] * r[3 * i + 2]
-                        - 2.0 * r[3 * i + 2] * q->r[3 * j + 2] * cos_sep);
-                    if (r2 <= radius2) {
-                        jdxs.insert(j);
-                        _in_i = true;
-                    }
+                        double r2 = (
+                            q->r[3 * j + 2] * q->r[3 * j + 2]
+                            + r[3 * i + 2] * r[3 * i + 2]
+                            - 2.0 * r[3 * i + 2] * q->r[3 * j + 2] * cos_sep);
+                        if (r2 <= radius2) {
+                            jdxs.insert(j);
+                            _in_i = true;
+                        }
                     #else
-                    float rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]);
-                    if (rz < rz_max) {
-                        jdxs.insert(j);
-                        _in_i = true;
-                    }
+                        float rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]);
+                        if (rz < rz_max) {
+                            jdxs.insert(j);
+                            _in_i = true;
+                        }
                     #endif
                 }
 
