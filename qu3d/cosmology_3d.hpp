@@ -120,12 +120,14 @@ namespace fidcosmo {
         std::unique_ptr<INTERP_COSMO_2D> interp2d_cfS;
         std::unique_ptr<DiscreteCubicInterpolation1D>
             interp1d_pT, interp1d_cfS, interp1d_cfT;
+        std::unique_ptr<DiscreteCubicInterpolation1D> interp_p3d_l[3];
 
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
         void _cacheInterp2D();
         void _construcP1D();
         void _getCorrFunc2dS();
+        void _calcMultipoles();
         double apodize(float r2) const {
             const static double _rmax_half = rmax / 2.0;
             double r = sqrt(r2);
@@ -167,6 +169,7 @@ namespace fidcosmo {
         }
         double evalExplicit(double k, double kz) const;
         double evalP1d(double kz) const;
+        double evalP3dL(double k, int l) const;
 
         double evalCorrFunc1dT(float rz) const {
             /* Evaluate total (L + S) 1D CF using interpolation. */
