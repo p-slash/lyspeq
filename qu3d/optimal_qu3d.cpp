@@ -513,24 +513,22 @@ void Qu3DEstimator::_openResultsFile() {
 
     p3d_model->write(result_file.get());
 
-    double *k_grid = raw_power.get();
-           // *pfid_grid = raw_bias.get();
+    double *k_grid = raw_power.get(),
+           *pfid_grid = raw_bias.get();
 
     for (int imu = 0; imu < NUMBER_OF_MULTIPOLES; ++imu) {
         for (int ik = 0; ik < bins::NUMBER_OF_K_BANDS; ++ik) {
             size_t i = ik + bins::NUMBER_OF_K_BANDS * imu;
             k_grid[i] = bins::KBAND_CENTERS[ik];
-            // pfid_grid[i] = p3d_model->interp2d_pL.evaluate(kperp_grid[i], kz_grid[i]);
+            pfid_grid[i] = p3d_model->evalP3dL(k_grid[i], imu);
         }
     }
 
     result_file->write(k_grid, NUMBER_OF_P_BANDS, "K");
-    // result_file->write(kz_grid, number_of_k_bands_2, "KZ");
-    // result_file->write(pfid_grid, number_of_k_bands_2, "PFID");
+    result_file->write(pfid_grid, NUMBER_OF_P_BANDS, "PFID");
     result_file->flush();
     std::fill_n(k_grid, NUMBER_OF_P_BANDS, 0);
-    // std::fill_n(kz_grid, number_of_k_bands_2, 0);
-    // std::fill_n(pfid_grid, number_of_k_bands_2, 0);
+    std::fill_n(pfid_grid, NUMBER_OF_P_BANDS, 0);
 }
 
 

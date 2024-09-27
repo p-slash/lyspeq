@@ -253,6 +253,7 @@ void ArinyoP3DModel::construct() {
     _construcP1D();
     _cacheInterp2D();
     _getCorrFunc2dS();
+    _calcMultipoles();
 
     _D_pivot = cosmo->getLinearGrowth(_z1_pivot);
     constexpr int nz = 401;
@@ -375,6 +376,12 @@ double ArinyoP3DModel::evalP1d(double kz) const {
 }
 
 
+double ArinyoP3DModel::evalP3dL(double k, int l) const {
+    if ((k < KMIN) || (k > KMAX))
+        return 0;
+    return interp_p3d_l[l]->evaluate(log(k));
+}
+
 void ArinyoP3DModel::_construcP1D() {
     constexpr int nlnk = 10001;
     constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1), dlnk2 = 0.02;
@@ -472,6 +479,40 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
 }
 
 
+void ArinyoP3DModel::_calcMultipoles() {
+    constexpr int nmu = 501;
+    constexpr double dmu = 1.0 / (nmu - 1), dlnk = 0.02;
+    constexpr int nlnk = ceil((LNKMAX - LNKMIN) / dlnk);
+    double p3d_l_integrand[nmu], p3d_l[nlnk];
+
+    for (int l = 0; l < 3; ++l) {
+        double (*legendre)(double mu);
+
+        switch (l) {
+        case 0: legendre = legendre0; break;
+        case 1: legendre = legendre2; break;
+        case 2: legendre = legendre4; break;
+        default: throw std::runtime_error("ArinyoP3DModel::_calcMultipoles");
+        }
+
+        for (int i = 0; i < nlnk; ++i) {
+            double k = exp(LNKMIN + i * dlnk);
+
+            for (int j = 0; j < nmu; ++j) {
+                double mu = j * dmu;
+
+                p3d_l_integrand[j] = legendre(mu) * evalExplicit(k, k * mu);
+            }
+
+            p3d_l[i] = trapz(p3d_l_integrand, nmu, dmu) * (4 * l + 1);
+        }
+
+        interp_p3d_l[l] = std::make_unique<DiscreteCubicInterpolation1D>(
+            LNKMIN, dlnk, nlnk, &p3d_l[0]);
+    }
+}
+
+
 double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     if (k == 0)
         return 0;
@@ -538,6 +579,16 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
         pmarr[iz] = evalP1d(karr[iz]);
 
     out->write(pmarr, nlnk, "PMODEL_1D");
+
+    for (int iz = 0; iz < nlnk; ++iz) {
+        pmarr[iz] = evalP3dL(karr[iz], 0);
+        pmarr[iz + nlnk] = evalP3dL(karr[iz], 1);
+        pmarr[iz + 2 * nlnk] = evalP3dL(karr[iz], 2);
+    }
+
+    out->write(pmarr, nlnk, "P3D_L0");
+    out->write(pmarr + nlnk, nlnk, "P3D_L2");
+    out->write(pmarr + 2 * nlnk, nlnk, "P3D_L4");
     out->flush();
 
     constexpr int nr = 512, nr2 = nr * nr;
