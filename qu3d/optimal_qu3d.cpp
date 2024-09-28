@@ -981,15 +981,16 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS])
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         double kperp = mesh.getKperpFromIperp(jxy), temp;
-        int ik = (kperp - bins::KBAND_EDGES[0]) / DK_BIN;
 
-        if (ik >= bins::NUMBER_OF_K_BANDS)
+        if (kperp >= bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS])
             continue;
 
+        int ik = (kperp - bins::KBAND_EDGES[0]) / DK_BIN;
+
         size_t jj = mesh.ngrid_kz * jxy;
-        if (ik > 0) {
-            // mu = 0
+        if (kperp >= bins::KBAND_EDGES[0]) {  // mu = 0
             temp = std::norm(mesh.field_k[jj]);
+
             lout[ik] += temp;
             lout[ik + bins::NUMBER_OF_K_BANDS] -= 0.5 * temp;
             lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += 0.375 * temp;
@@ -1002,18 +1003,18 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
             #endif
         }
 
+        kperp *= kperp;
         for (size_t k = 1; k < mesh_kz_max; ++k) {
-            double kz = k * mesh.k_fund[2];
-            double kt = sqrt(kz * kz + kperp * kperp);
-
-            ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
-            if (ik >= bins::NUMBER_OF_K_BANDS || ik < 0)
+            double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp), mu;
+            if (kt >= bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] || kt < bins::KBAND_EDGES[0])
                 continue;
 
-            double mu = kz / kt;
+            ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
+            mu = kz / kt;
 
             temp = 2.0 * std::norm(mesh.field_k[k + jj])
                    * p3d_model->getSpectroWindow2(kz);
+
             lout[ik] += temp;
             lout[ik + bins::NUMBER_OF_K_BANDS] += temp * legendre2(mu);
             lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += temp * legendre4(mu);
@@ -1205,7 +1206,7 @@ void Qu3DEstimator::drawRndDeriv(int i) {
         std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
 
         double kperp = mesh.getKperpFromIperp(jxy);
-        if (kperp > bins::KBAND_EDGES[ik + 1])
+        if (kperp >= bins::KBAND_EDGES[ik + 1])
             continue;
 
         double kmin = sqrt(std::max(
