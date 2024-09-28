@@ -110,6 +110,10 @@ namespace fidcosmo {
     });
 
     class ArinyoP3DModel {
+    public:
+        static constexpr double MAX_R_FACTOR = 20.0;
+        static constexpr int MAX_NUM_L = 10;
+    private:
         double _varlss, _D_pivot, _z1_pivot, _sigma_mpc, _deltar_mpc;
         double b_F, alpha_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long, rmax;
         double b_HCD, beta_HCD, L_HCD;
@@ -120,12 +124,14 @@ namespace fidcosmo {
         std::unique_ptr<INTERP_COSMO_2D> interp2d_cfS;
         std::unique_ptr<DiscreteCubicInterpolation1D>
             interp1d_pT, interp1d_cfS, interp1d_cfT;
+        std::unique_ptr<DiscreteCubicInterpolation1D> interp_p3d_l[MAX_NUM_L];
 
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
         void _cacheInterp2D();
         void _construcP1D();
         void _getCorrFunc2dS();
+        void _calcMultipoles();
         double apodize(float r2) const {
             const static double _rmax_half = rmax / 2.0;
             double r = sqrt(r2);
@@ -140,7 +146,6 @@ namespace fidcosmo {
         }
 
     public:
-        static constexpr double MAX_R_FACTOR = 20.0;
         DiscreteLogInterpolation2D<
             DiscreteCubicInterpolation1D, INTERP_COSMO_2D
         > interp2d_pL, interp2d_pS;
@@ -167,6 +172,7 @@ namespace fidcosmo {
         }
         double evalExplicit(double k, double kz) const;
         double evalP1d(double kz) const;
+        double evalP3dL(double k, int l) const;
 
         double evalCorrFunc1dT(float rz) const {
             /* Evaluate total (L + S) 1D CF using interpolation. */

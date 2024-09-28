@@ -231,7 +231,7 @@ void Qu3DEstimator::testSymmetry() {
     #pragma omp parallel for schedule(dynamic, 4) reduction(+:uTAv)
     for (auto &qso : quasars) {
         std::fill_n(qso->out, qso->N, 0);
-        qso->multCovNeighbors(p3d_model.get());
+        qso->multCovNeighbors(p3d_model.get(), effective_chi);
         for (int i = 0; i < qso->N; ++i)
             qso->out[i] *= qso->isig[i] * qso->z1[i];
         uTAv += cblas_ddot(qso->N, qso->truth, 1, qso->out, 1);
@@ -247,7 +247,7 @@ void Qu3DEstimator::testSymmetry() {
     #pragma omp parallel for schedule(dynamic, 4) reduction(+:vTAu)
     for (auto &qso : quasars) {
         std::fill_n(qso->out, qso->N, 0);
-        qso->multCovNeighbors(p3d_model.get());
+        qso->multCovNeighbors(p3d_model.get(), effective_chi);
         for (int i = 0; i < qso->N; ++i)
             qso->out[i] *= qso->isig[i] * qso->z1[i];
         vTAu += cblas_ddot(qso->N, qso->truth, 1, qso->out, 1);
