@@ -17,7 +17,12 @@
 #define RINTERP_NTHREADS 3
 #endif
 
-#define NUMBER_OF_MULTIPOLES 3
+#define NUMBER_OF_MULTIPOLES 4
+#if NUMBER_OF_MULTIPOLES < 3
+#error 
+#elif NUMBER_OF_MULTIPOLES > 9
+#error
+#endif
 
 
 /* Timing map */
@@ -565,6 +570,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_rnd_enabled = config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
+    // NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
 
     seed_generator = std::make_unique<std::seed_seq>(seed.begin(), seed.end());
@@ -986,7 +992,14 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
             temp = std::norm(mesh.field_k[jj]);
             lout[ik] += temp;
             lout[ik + bins::NUMBER_OF_K_BANDS] -= 0.5 * temp;
-            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += (3.0 / 8.0) * temp;
+            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += 0.375 * temp;
+            #if NUMBER_OF_MULTIPOLES > 3
+            lout[ik + 3 * bins::NUMBER_OF_K_BANDS] -= 0.3125 * temp;
+            #endif
+            #if NUMBER_OF_MULTIPOLES > 4
+            for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l)
+                lout[ik + l * bins::NUMBER_OF_K_BANDS] += temp * legendre(2 * l, 0.0);
+            #endif
         }
 
         for (size_t k = 1; k < mesh_kz_max; ++k) {
@@ -997,14 +1010,20 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
             if (ik >= bins::NUMBER_OF_K_BANDS || ik < 0)
                 continue;
 
-            double mu2 = kz / kt;  mu2 *= mu2;
+            double mu = kz / kt;
 
             temp = 2.0 * std::norm(mesh.field_k[k + jj])
                    * p3d_model->getSpectroWindow2(kz);
             lout[ik] += temp;
-            lout[ik + bins::NUMBER_OF_K_BANDS] += temp * (1.5 * mu2 - 0.5);
-            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] +=
-                temp * (35.0 / 8.0 * mu2 * mu2 - 15.0 / 4.0 * mu2 + 3.0 / 8.0);
+            lout[ik + bins::NUMBER_OF_K_BANDS] += temp * legendre2(mu);
+            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += temp * legendre4(mu);
+            #if NUMBER_OF_MULTIPOLES > 3
+            lout[ik + 3 * bins::NUMBER_OF_K_BANDS] += temp * legendre6(mu);
+            #endif
+            #if NUMBER_OF_MULTIPOLES > 4
+            for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l)
+                lout[ik + l * bins::NUMBER_OF_K_BANDS] += temp * legendre(2 * l, mu);
+            #endif
         }
     }
 
@@ -1170,12 +1189,13 @@ void Qu3DEstimator::drawRndDeriv(int i) {
     int imu = i / bins::NUMBER_OF_K_BANDS,
         ik = i % bins::NUMBER_OF_K_BANDS;
 
-    double (*legendre)(double mu);
+    std::function<double(double)> legendre_w;
     switch (imu) {
-    case 0: legendre = legendre0; break;
-    case 1: legendre = legendre2; break;
-    case 2: legendre = legendre4; break;
-    default: throw std::runtime_error("Qu3DEstimator::drawRndDeriv");
+    case 0: legendre_w = legendre0; break;
+    case 1: legendre_w = legendre2; break;
+    case 2: legendre_w = legendre4; break;
+    case 3: legendre_w = legendre6; break;
+    default: legendre_w = std::bind(legendre, std::placeholders::_1, 2 * imu);
     }
 
     #pragma omp parallel for
@@ -1201,7 +1221,7 @@ void Qu3DEstimator::drawRndDeriv(int i) {
             mesh.getK2KzFromIndex(jj + zz, kmin, kmax);
             kmin = sqrt(kmin) + 1e-300; kmax /= kmin;
             mesh.field_k[jj + zz] =
-                mesh.invsqrtcellvol * mesh_rnd.field_k[jj + zz] * legendre(kmax);
+                mesh.invsqrtcellvol * mesh_rnd.field_k[jj + zz] * legendre_w(kmax);
         }
     }
 

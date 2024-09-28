@@ -18,10 +18,27 @@ bool isClose(double a, double b, double relerr=1e-5, double abserr=1e-8) {
 
 
 static inline double legendre0(double x) { return 1.0; }
+static inline double legendre1(double x) { return x; }
 static inline double legendre2(double x) { return (1.5 * x * x - 0.5); }
+static inline double legendre3(double x) { return 2.5 * x * (x * x - 0.6); }
 static inline double legendre4(double x) {
     double x2 = x * x;
-    return 35.0 / 8.0 * x2 * x2 - 15.0 / 4.0 * x2 + 3.0 / 8.0;
+    return 4.375 * x2 * x2 - 3.75 * x2 + 0.375;
+}
+static inline double legendre6(double x) {
+    double x2 = x * x, x4 = x2 * x2, x6 = x4 * x2;
+    return 14.4375 * x6 - 19.6875 * x4 + 6.5625 * x2 - 0.3125;
+}
+
+static double legendre(int l, double x) {
+    if (l == 0)  return 1.0;
+    if (l == 1)  return x;
+    if (l == 2)  return legendre2(x);
+    if (l == 3)  return legendre3(x);
+    if (l == 4)  return legendre4(x);
+    double il = 1.0 / l;
+    return (2.0 - il) * x * legendre(l - 1, x)
+               - legendre(l - 2, x) * (1.0 - il);
 }
 
 // Below functions can be found in https://github.com/romeric/fastapprox
