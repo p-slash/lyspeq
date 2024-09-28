@@ -485,23 +485,14 @@ void ArinyoP3DModel::_calcMultipoles() {
     constexpr int nlnk = ceil((LNKMAX - LNKMIN) / dlnk);
     double p3d_l_integrand[nmu], p3d_l[nlnk];
 
-    for (int l = 0; l < 3; ++l) {
-        double (*legendre)(double mu);
-
-        switch (l) {
-        case 0: legendre = legendre0; break;
-        case 1: legendre = legendre2; break;
-        case 2: legendre = legendre4; break;
-        default: throw std::runtime_error("ArinyoP3DModel::_calcMultipoles");
-        }
-
+    for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++l) {
         for (int i = 0; i < nlnk; ++i) {
             double k = exp(LNKMIN + i * dlnk);
 
             for (int j = 0; j < nmu; ++j) {
                 double mu = j * dmu;
 
-                p3d_l_integrand[j] = legendre(mu) * evalExplicit(k, k * mu);
+                p3d_l_integrand[j] = legendre(2 * l, mu) * evalExplicit(k, k * mu);
             }
 
             p3d_l[i] = trapz(p3d_l_integrand, nmu, dmu) * (4 * l + 1);
@@ -581,14 +572,13 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     out->write(pmarr, nlnk, "PMODEL_1D");
 
     for (int iz = 0; iz < nlnk; ++iz) {
-        pmarr[iz] = evalP3dL(karr[iz], 0);
-        pmarr[iz + nlnk] = evalP3dL(karr[iz], 1);
-        pmarr[iz + 2 * nlnk] = evalP3dL(karr[iz], 2);
+        for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++ l)
+            pmarr[iz + l * nlnk] = evalP3dL(karr[iz], l);
     }
 
-    out->write(pmarr, nlnk, "P3D_L0");
-    out->write(pmarr + nlnk, nlnk, "P3D_L2");
-    out->write(pmarr + 2 * nlnk, nlnk, "P3D_L4");
+    for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++ l)
+        out->write(pmarr + l * nlnk, nlnk,
+                   std::string("P3D_L") + std::to_string(2 * l));
     out->flush();
 
     constexpr int nr = 512, nr2 = nr * nr;
