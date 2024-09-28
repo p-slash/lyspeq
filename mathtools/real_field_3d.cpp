@@ -141,34 +141,34 @@ std::vector<size_t> RealField3D::findNeighboringPixels(
 
     getNFromIndex(i, n);
     for (int axis = 0; axis < 3; ++axis) {
-        dn[axis] = ceil(radius / dx[axis]) - 1;
+        dn[axis] = ceil(radius / dx[axis] + 2) - 1;
         ntot *= 2 * dn[axis] + 1;
     }
 
+    radius += 2.0 * dx[0];
     radius *= radius;
+
     neighbors.reserve(ntot);
     for (int x = -dn[0]; x <= dn[0]; ++x) {
         double x2 = x * dx[0];  x2 *= x2;
 
-        for (int y = -dn[1]; y <= dn[1]; ++y) {
-            int idx_y = n[1] + y;
-            if ((idx_y >= ngrid[1]) || (idx_y < 0))
-                continue;
+        for (int y = std::max(0, n[1] - dn[1]);
+             y < std::min(ngrid[1], n[1] + dn[1] + 1);
+             ++y
+        ) {
+            double y2 = (y - n[1]) * dx[1];  y2 *= y2;
 
-            double y2 = y * dx[1];  y2 *= y2;
-
-            for (int z = -dn[2]; z <= dn[2]; ++z) {
-                int idx_z = n[2] + z;
-                if ((idx_z >= ngrid[2]) || (idx_z < 0))
-                    continue;
-
-                double z2 = z * dx[2];  z2 *= z2;
+            for (int z = std::max(0, n[2] - dn[2]);
+                 z < std::min(ngrid[2], n[2] + dn[2] + 1);
+                 ++z
+            ) {
+                double z2 = (z - n[2]) * dx[2];  z2 *= z2;
                 z2 += x2 + y2;
 
                 if (z2 > radius)
                     continue;
 
-                neighbors.push_back(getIndex(n[0] + x, n[1] + y, n[2] + z));
+                neighbors.push_back(getIndex(n[0] + x, y, z));
             }
         }
     }
