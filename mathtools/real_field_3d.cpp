@@ -18,6 +18,7 @@ void RealField3D::initRngs(std::seed_seq *seq) {
 
 
 RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr) {
+    _periodic_x = true;
     size_complex = 0;
     size_real = 0;
 
@@ -32,6 +33,7 @@ RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr) {
 void RealField3D::copy(const RealField3D &rhs)
 {
     p_x2k = nullptr; p_k2x = nullptr;
+    _periodic_x = rhs._periodic_x;
     for (int axis = 0; axis < 3; ++axis) {
         ngrid[axis] = rhs.ngrid[axis];
         length[axis] = rhs.length[axis];
@@ -149,7 +151,15 @@ std::vector<size_t> RealField3D::findNeighboringPixels(
     radius *= radius;
 
     neighbors.reserve(ntot);
-    for (int x = -dn[0]; x <= dn[0]; ++x) {
+    int _xi, _xf;
+    if (_periodic_x) {
+        _xi = -dn[0];  _xf = dn[0] + 1;
+    } else {
+        _xi = std::max(0, n[0] - dn[0]) - n[0];
+        _xf = std::min(ngrid[0], n[0] + dn[0] + 1) - n[0];
+    }
+
+    for (int x = _xi; x < _xf; ++x) {
         double x2 = x * dx[0];  x2 *= x2;
 
         for (int y = std::max(0, n[1] - dn[1]);
@@ -232,10 +242,10 @@ void RealField3D::reverseInterpolateCIC(float coord[3], double val) {
 size_t RealField3D::getIndex(int nx, int ny, int nz) const {
     int n[] = {nx, ny, nz};
     // only x direction is Periodic
-    if (n[0] >= ngrid[0])
-        n[0] -= ngrid[0];
-    if (n[0] < 0)
-        n[0] += ngrid[0];
+    if (_periodic_x) {
+        if (n[0] >= ngrid[0])  n[0] -= ngrid[0];
+        if (n[0] < 0)  n[0] += ngrid[0];
+    }
 
     return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
 }
