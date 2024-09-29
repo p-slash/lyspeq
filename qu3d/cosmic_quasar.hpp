@@ -22,6 +22,10 @@
 // The shift of RA to have continous regions in the sky (for eBOSS)
 constexpr double ra_shift = 1.0;
 
+namespace specifics {
+    extern double MIN_RA, MAX_RA, MIN_DEC, MAX_DEC;
+}
+
 // Line of sight coarsing for mesh
 #ifndef M_LOS
 #define M_LOS 1
@@ -77,6 +81,27 @@ public:
             throw std::runtime_error(err_msg.str());
         }
 
+        angles[0] = qFile->ra + ra_shift;
+        if (angles[0] >= 2 * MY_PI)
+            angles[0] -= 2 * MY_PI;
+
+        angles[1] = qFile->dec;
+        angles[2] = 1;
+
+        if ((angles[0] > specifics::MAX_RA) || (angles[0] < specifics::MIN_RA)) {
+            std::ostringstream err_msg;
+            err_msg << "CosmicQuasar::CosmicQuasar::Outside RA range in TARGETID "
+                    << qFile->id;
+            throw std::runtime_error(err_msg.str());
+        }
+
+        if ((angles[1] > specifics::MAX_DEC) || (angles[1] < specifics::MIN_DEC)) {
+            std::ostringstream err_msg;
+            err_msg << "CosmicQuasar::CosmicQuasar::Outside DEC range in TARGETID "
+                    << qFile->id;
+            throw std::runtime_error(err_msg.str());
+        }
+
         qFile->readData();
         int num_outliers = qFile->maskOutliers();
         if (num_outliers > 0)
@@ -126,13 +151,6 @@ public:
             isig[i] = sqrt(isig[i]);
             qFile->delta()[i] *= isig[i];
         }
-
-        angles[0] = qFile->ra + ra_shift;
-        if (angles[0] >= 2 * MY_PI)
-            angles[0] -= 2 * MY_PI;
-
-        angles[1] = qFile->dec;
-        angles[2] = 1;
 
         /* Will be reset in _shiftByMedianDec in optimal_qu3d.cpp */
         cos_dec = cos(angles[1]);

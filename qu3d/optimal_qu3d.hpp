@@ -16,6 +16,8 @@ const config_map qu3d_default_parameters ({
     {"MatchCellSizeOfZToXY", "-1"},
     {"TurnOnPpCovariance", "-1"},  // {"NumberOfMultipoles", "3"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
+    {"MinimumRa", "0.0"}, {"MaximumRa", "360.0"},
+    {"MinimumDec", "-90.0"}, {"MaximumDec", "90.0"},
     {"ConvergenceTolerance", "1e-6"}, {"AbsoluteTolerance", "-1"},
     {"LongScale", "50"}, {"ScaleFactor", "4"},
     {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"},

@@ -38,7 +38,7 @@ class RealField3D {
     fftw_plan p_k2x;
     std::vector<MyRNG> rngs;
 
-    bool _inplace;
+    bool _inplace, _periodic_x;
     std::unique_ptr<double[]> _field_x;
 public:
     size_t size_complex, size_real, ngrid_xy, ngrid_z, ngrid_kz;
@@ -56,6 +56,7 @@ public:
     void copy(const RealField3D &rhs);
     void construct(bool inp=true);
     void initRngs(std::seed_seq *seq);
+    void disablePeriodicityX() { _periodic_x = false; };
 
     ~RealField3D() {
         fftw_destroy_plan(p_x2k);

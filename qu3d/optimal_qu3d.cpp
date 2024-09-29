@@ -11,6 +11,9 @@
 #include "mathtools/stats.hpp"
 #include "io/logger.hpp"
 
+namespace specifics {
+    double MIN_RA = 0, MAX_RA = 0, MIN_DEC = 0, MAX_DEC = 0;
+}
 
 // Assume 2-4 threads will not encounter race conditions
 #ifndef RINTERP_NTHREADS
@@ -317,7 +320,7 @@ void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
         lymax = std::max(lymax, std::max(qso->r[1], qso->r[3 * qso->N - 2]));
     }
 
-    L[0] = effective_chi * 2 * MY_PI;
+    L[0] = effective_chi * (specifics::MAX_RA - specifics::MIN_RA);
     L[1] = lymax - lymin;
     L[2] = lzmax - lzmin;
     z0 = lzmin;
@@ -362,6 +365,10 @@ void Qu3DEstimator::_setupMesh(double radius) {
         mesh.length[0], mesh.length[1], mesh.length[2], mesh.z0);
 
     mesh.construct(INPLACE_FFT);
+    double delta_rad = specifics::MAX_RA - specifics::MIN_RA - 2 * MY_PI;
+    if (fabs(delta_rad) > (2 * MY_PI * DOUBLE_EPSILON))
+        mesh.disablePeriodicityX();
+
     LOG::LOGGER.STD(
         "Mesh cell dimensions are as follows: "
         "dx = %.3f Mpc, dy = %.3f Mpc, dz = %.3f Mpc.\n",
@@ -538,6 +545,16 @@ void Qu3DEstimator::_openResultsFile() {
 
 Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     config.addDefaults(qu3d_default_parameters);
+    double deg2rad = MY_PI / 180.0;
+    specifics::MIN_RA = config.getDouble("MinimumRa") * deg2rad;
+    specifics::MAX_RA = config.getDouble("MaximumRa") * deg2rad;
+    specifics::MIN_DEC = config.getDouble("MinimumDec") * deg2rad;
+    specifics::MAX_DEC = config.getDouble("MaximumDec") * deg2rad;
+
+    LOG::LOGGER.STD(
+        "Sky cut: RA %.3f-%.3f & DEC %.3f-%.3f in radians.\n",
+        specifics::MIN_RA, specifics::MAX_RA,
+        specifics::MIN_DEC, specifics::MAX_DEC);
 
     num_all_pixels = 0;
     std::string
