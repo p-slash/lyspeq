@@ -365,7 +365,8 @@ void Qu3DEstimator::_setupMesh(double radius) {
         mesh.length[0], mesh.length[1], mesh.length[2], mesh.z0);
 
     mesh.construct(INPLACE_FFT);
-    if ((specifics::MAX_RA - specifics::MIN_RA) < 2 * MY_PI)
+    double delta_rad = specifics::MAX_RA - specifics::MIN_RA - 2 * MY_PI;
+    if (fabs(delta_rad) > (2 * MY_PI * DOUBLE_EPSILON))
         mesh.disablePeriodicityX();
 
     LOG::LOGGER.STD(
