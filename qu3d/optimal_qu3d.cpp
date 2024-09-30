@@ -28,6 +28,8 @@ namespace specifics {
 #endif
 
 
+#define OFFDIAGONAL_ORDER 8
+
 /* Timing map */
 std::unordered_map<std::string, std::pair<int, double>> timings{
     {"rInterp", std::make_pair(0, 0.0)}, {"interp", std::make_pair(0, 0.0)},
@@ -1446,13 +1448,24 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
                 qso->truth[i] *= qso->isig[i] * qso->z1[i];
             }
             rngs[myomp::getThreadNum()].addVectorNormal(qso->truth, qso->N);
+            std::copy_n(qso->truth, qso->N, qso->sc_eta);
+            // std::swap(qso->truth, qso->sc_eta);
         }
 
-        // if (refine_small_scale)
-        {
+        if (verbose)
+            LOG::LOGGER.STD("Applying off-diagonal correlations.\n");
+
+        for (int m = 1; m <= OFFDIAGONAL_ORDER; ++m) {
+            double coeff = 1.0;
+            for (int jj = 0; jj < m; ++jj)
+                coeff *= (0.5 + jj) / (jj + 1);
+
+            if (verbose)
+                LOG::LOGGER.STD("  Order %d. Coefficient is %.4f.\n", m, coeff);
+            // Solve C^-1 sc_eta into in
             conjugateGradientDescent();
 
-            // multiply neighbors-only, add 0.5 times out to truth
+            // multiply neighbors-only
             double t1_pp = mytime::timer.getTime(), dt_pp = 0;
 
             #pragma omp parallel for
@@ -1464,25 +1477,40 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
                     qso->in[i] *= qso->z1[i];
             }
 
-            double max_rtruth = 0, mean_rtruth = 0;
+            double nrm_truth_now = 0, nrm_sc_eta = 0;
             #pragma omp parallel for schedule(dynamic, 8) \
-                    reduction(max:max_rtruth) reduction(+:mean_rtruth)
+                reduction(+:nrm_truth_now, nrm_sc_eta)
             for (auto &qso : quasars) {
+                if (qso->neighbors.empty()) {
+                    std::fill_n(qso->truth, qso->N, 0);
+                    continue;
+                }
+
                 qso->multCovNeighborsOnly(p3d_model.get(), effective_chi, qso->out);
-                double drt = qso->updateTruth(qso->out);
-                max_rtruth = std::max(drt, max_rtruth);
-                mean_rtruth += drt;
+                // *out is now (S_OD C^-1)^m eta (BD random)
+
+                // Truth is in *sc_eta
+                nrm_truth_now += cblas_ddot(qso->N, qso->sc_eta, 1, qso->sc_eta, 1);
+
+                qso->updateTruth(coeff);
+
+                // *truth is now N^-1/2 (S_OD C^-1)^m eta (BD random)
+                nrm_sc_eta += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
             }
 
-            mean_rtruth /= quasars.size();
+            nrm_truth_now = sqrt(nrm_truth_now);
+            nrm_sc_eta = coeff * sqrt(nrm_sc_eta);
             if (verbose)
-                LOG::LOGGER.STD("Mean/Max relative change: %.5e / %.5e\n",
-                                mean_rtruth, max_rtruth);
+                LOG::LOGGER.STD("Relative change: %.5e / %.5e = %.5e\n",
+                    nrm_sc_eta, nrm_truth_now, nrm_sc_eta / nrm_truth_now);
 
             dt_pp = mytime::timer.getTime() - t1_pp;
             ++timings["PPcomp"].first;
             timings["PPcomp"].second += dt_pp;
         }
+
+        for (auto &qso : quasars)
+            std::swap(qso->truth, qso->sc_eta);
     }
     else {
         #pragma omp parallel for
@@ -1500,84 +1528,6 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
 
     if (verbose)
         LOG::LOGGER.STD("It took %.2f m.\n", t2);
-}
-
-
-void Qu3DEstimator::estimateMaxEvals() {
-    int niter = 1;
-    double n_in, n_out, n_inout, new_eval_max, old_eval_max = 1e-12;
-
-    LOG::LOGGER.STD("Estimating maximum eigenvalue of C.\n");
-    /* Initial vector */
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
-
-    for (; niter <= max_conj_grad_steps; ++niter) {
-        multiplyCovVector();
-        n_in = 0;  n_out = 0;  n_inout = 0;
-
-        #pragma omp parallel for reduction(+:n_in, n_out, n_inout)
-        for (const auto &qso : quasars) {
-            n_in += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
-            n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
-            n_inout += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
-        }
-
-        new_eval_max = n_inout / n_in;
-        LOG::LOGGER.STD("  New eval: %.5e\n", new_eval_max);
-        if (isClose(old_eval_max, new_eval_max, tolerance)) {
-            LOG::LOGGER.STD("Converged.\n");  break;
-        }
-
-        old_eval_max = new_eval_max;
-        n_out = sqrt(n_out);
-        for (const auto &qso : quasars)
-            for (int i = 0; i < qso->N; ++i)
-                qso->in[i] = qso->out[i] / n_out;
-    }
-
-    LOG::LOGGER.STD("Estimating maximum eigenvalue of off-diagonal.\n");
-    old_eval_max = 1e-12;
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
-
-    for (; niter <= max_conj_grad_steps; ++niter) {
-        #pragma omp parallel for
-        for (auto &qso : quasars) {
-            if (qso->neighbors.empty())
-                continue;
-
-            for (int i = 0; i < qso->N; ++i)
-                qso->in[i] *= qso->z1[i];
-        }
-
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            qso->multCovNeighborsOnly(p3d_model.get(), effective_chi, qso->out);
-
-        n_in = 0;  n_out = 0;  n_inout = 0;
-
-        #pragma omp parallel for reduction(+:n_in, n_out, n_inout)
-        for (const auto &qso : quasars) {
-            n_in += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
-            n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
-            n_inout += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
-        }
-
-        new_eval_max = n_inout / n_in;
-        LOG::LOGGER.STD("  New eval: %.5e\n", new_eval_max);
-        if (isClose(old_eval_max, new_eval_max, tolerance)) {
-            LOG::LOGGER.STD("Converged.\n");  break;
-        }
-
-        old_eval_max = new_eval_max;
-        n_out = sqrt(n_out);
-        for (const auto &qso : quasars)
-            for (int i = 0; i < qso->N; ++i)
-                qso->in[i] = qso->out[i] / n_out;
-    }
 }
 
 #include "qu3d/optimal_qu3d_extra.cpp"
