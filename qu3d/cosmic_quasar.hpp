@@ -59,10 +59,11 @@ public:
     long fpos;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
-    double *z1, *isig, angles[3], *in, *out, *truth, *in_isig;
+    double *z1, *isig, angles[3], *in, *out, *truth, *in_isig, *sc_eta;
     double cos_dec, sin_dec;
     std::unique_ptr<float[]> r, coarse_r;
-    std::unique_ptr<double[]> y, Cy, residual, search, coarse_in, y_isig;
+    std::unique_ptr<double[]> y, Cy, residual, search, coarse_in, y_isig,
+                              sod_cinv_eta;
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
@@ -139,6 +140,7 @@ public:
         Cy = std::make_unique<double[]>(N);
         residual = std::make_unique<double[]>(N);
         search = std::make_unique<double[]>(N);
+        sod_cinv_eta = std::make_unique<double[]>(N);
 
         #ifdef COARSE_INTERP
             coarse_N = N / M_LOS;
@@ -160,6 +162,7 @@ public:
         in_isig = y_isig.get();
         truth = qFile->delta();
         out = Cy.get();
+        sc_eta = sod_cinv_eta.get();
     }
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
@@ -631,10 +634,8 @@ public:
             const fidcosmo::ArinyoP3DModel *p3d_model, double radial,
             double *output
     ) {
-        /* See comments in multCovNeighbors */
-        if (neighbors.empty())
-            return;
-
+        /* See comments in multCovNeighbors. Check for neighbors outside this
+           function. */
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
         std::fill_n(output, N, 0);
 
@@ -645,21 +646,23 @@ public:
             cblas_dgemv(CblasRowMajor, CblasNoTrans, N, M, 1.0,
                         ccov, M, q->in, 1, 1.0, output, 1);
         }
+
+        for (int i = 0; i < N; ++i)
+            output[i] *= z1[i];
     }
 
-    double updateTruth(const double *input) {
-        if (neighbors.empty())
-            return 0;
-        double init_truth_norm = cblas_dnrm2(N, truth, 1);
+    void updateTruth(double cf) {
+        /* To be used in correlated Gaussian field. Check for neighbors outside
+           this function. */
+        std::swap(truth, sc_eta);
+        std::swap(sc_eta, out);
 
         for (int i = 0; i < N; ++i) {
-            residual[i] = 0.5 * isig[i] * z1[i] * input[i];
-            truth[i] += residual[i];
+            sc_eta[i] *= isig[i];
+            truth[i] += cf * sc_eta[i];
         }
 
-        double resnorm = cblas_dnrm2(N, residual.get(), 1);
-
-        return resnorm / init_truth_norm;
+        std::swap(truth, sc_eta);
     }
 
     static void allocCcov(size_t size) {
