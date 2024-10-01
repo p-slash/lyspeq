@@ -13,6 +13,7 @@
 
 namespace specifics {
     double MIN_RA = 0, MAX_RA = 0, MIN_DEC = 0, MAX_DEC = 0;
+    double MIN_KERP = 0;
 }
 
 // Assume 2-4 threads will not encounter race conditions
@@ -1003,6 +1004,8 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
 
         if (kperp >= bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS])
             continue;
+        else if (kperp < specifics::MIN_KERP)
+            continue;
 
         int ik = (kperp - bins::KBAND_EDGES[0]) / DK_BIN;
 
@@ -1226,6 +1229,8 @@ void Qu3DEstimator::drawRndDeriv(int i) {
 
         double kperp = mesh.getKperpFromIperp(jxy);
         if (kperp >= bins::KBAND_EDGES[ik + 1])
+            continue;
+        else if (kperp < specifics::MIN_KERP)
             continue;
 
         double kmin = sqrt(std::max(
@@ -1567,6 +1572,7 @@ int main(int argc, char *argv[]) {
         process::readProcess(config);
         bins::readBins(config);
         specifics::readSpecifics(config);
+        specifics::MIN_KERP = config.getDouble("MinimumKperp");
         // conv::readConversion(config);
         // fidcosmo::readFiducialCosmo(config);
     }
