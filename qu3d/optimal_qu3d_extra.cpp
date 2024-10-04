@@ -315,10 +315,9 @@ void Qu3DEstimator::estimateMaxEvals() {
         #pragma omp parallel for schedule(dynamic, 8) \
                                  reduction(+:n_in, n_out, n_inout)
         for (auto &qso : quasars) {
-            if (qso->neighbors.empty())
-                std::fill_n(qso->out, qso->N, 0);
-            else
-                qso->multCovNeighborsOnly(p3d_model.get(), effective_chi, qso->out);
+            std::fill_n(qso->out, qso->N, 0);
+            if (!qso->neighbors.empty())
+                qso->multCovNeighborsOnly(p3d_model.get(), effective_chi);
 
             n_in += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
             n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
@@ -403,10 +402,9 @@ void Qu3DEstimator::estimateMaxEvals() {
         #pragma omp parallel for schedule(dynamic, 8) \
                                  reduction(+:n_in, n_out, n_inout)
         for (auto &qso : quasars) {
-            if (qso->neighbors.empty())
-                std::fill_n(qso->out, qso->N, 0);
-            else
-                qso->multCovNeighborsOnly(p3d_model.get(), effective_chi, qso->out);
+            std::fill_n(qso->out, qso->N, 0);
+            if (!qso->neighbors.empty())
+                qso->multCovNeighborsOnly(p3d_model.get(), effective_chi);
 
             n_in += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
             n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
