@@ -36,7 +36,8 @@ std::unordered_map<std::string, std::pair<int, double>> timings{
     {"rInterp", std::make_pair(0, 0.0)}, {"interp", std::make_pair(0, 0.0)},
     {"CGD", std::make_pair(0, 0.0)}, {"mDeriv", std::make_pair(0, 0.0)},
     {"mCov", std::make_pair(0, 0.0)}, {"PPcomp", std::make_pair(0, 0.0)},
-    {"GenGauss", std::make_pair(0, 0.0)}
+    {"GenGauss", std::make_pair(0, 0.0)}, {"mIpH", std::make_pair(0, 0.0)},
+    {"cgdIpH", std::make_pair(0, 0.0)}
 };
 
 /* Internal variables */
@@ -807,7 +808,7 @@ double Qu3DEstimator::updateY(double residual_norm2) {
     double pTCp = 0, alpha = 0, new_residual_norm = 0;
 
     /* Multiply C x search into Cy => C. p(in) = out*/
-    multiplyCovVector();
+    updateYMatrixVectorFunction();
 
     // Get pT . C . p
     #pragma omp parallel for reduction(+:pTCp)
@@ -872,6 +873,8 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
 
     double init_residual_norm = 0, old_residual_prec = 0,
            new_residual_norm = 0;
+
+    updateYMatrixVectorFunction = [this]() { this->multiplyCovVector(); };
 
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
@@ -1424,120 +1427,7 @@ void Qu3DEstimator::write() {
 }
 
 
-void Qu3DEstimator::replaceDeltasWithGaussianField() {
-    /* Generated deltas will be different between MPI tasks */
-    if (verbose)
-        LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
-
-    double t1 = mytime::timer.getTime(), t2 = 0;
-    /* We could generate a higher resolution grid for truth testing in the
-       future. Old code for reference:
-
-       RealField3D mesh_g;
-       mesh_g.initRngs(seed_generator.get());
-       mesh_g.copy(mesh);
-       mesh_g.length[1] *= 1.25; mesh_g.length[2] *= 1.25;
-       mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
-       mesh_rnd.construct();
-    */
-
-    mesh_rnd.fillRndNormal();
-    mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pL);
-
-    if (pp_enabled) {
-        /* Add small-scale clusting with conjugateGradientSampler
-           This function fills truth with rng noise,
-           Cy (out) with random vector with covariance S_s*/
-        // conjugateGradientSampler();
-
-        #pragma omp parallel for
-        for (auto &qso : quasars) {
-            qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
-            for (int i = 0; i < qso->N; ++i) {
-                qso->truth[i] += mesh_rnd.interpolate(qso->r.get() + 3 * i);
-                qso->truth[i] *= qso->isig[i] * qso->z1[i];
-            }
-            rngs[myomp::getThreadNum()].addVectorNormal(qso->truth, qso->N);
-            std::copy_n(qso->truth, qso->N, qso->sc_eta);
-            // std::swap(qso->truth, qso->sc_eta);
-        }
-
-        if (verbose)
-            LOG::LOGGER.STD("Applying off-diagonal correlations.\n");
-
-        for (int m = 1; m <= OFFDIAGONAL_ORDER; ++m) {
-            double coeff = 1.0;
-            for (int jj = 0; jj < m; ++jj)
-                coeff *= (0.5 + jj) / (jj + 1);
-
-            if (verbose)
-                LOG::LOGGER.STD("  Order %d. Coefficient is %.4f.\n", m, coeff);
-            // Solve C^-1 sc_eta into in
-            conjugateGradientDescent();
-
-            // multiply neighbors-only
-            double t1_pp = mytime::timer.getTime(), dt_pp = 0;
-
-            #pragma omp parallel for
-            for (auto &qso : quasars) {
-                if (qso->neighbors.empty())
-                    continue;
-
-                for (int i = 0; i < qso->N; ++i)
-                    qso->in[i] *= qso->z1[i];
-            }
-
-            double nrm_truth_now = 0, nrm_sc_eta = 0;
-            #pragma omp parallel for schedule(dynamic, 8) \
-                reduction(+:nrm_truth_now, nrm_sc_eta)
-            for (auto &qso : quasars) {
-                if (qso->neighbors.empty())
-                    std::fill_n(qso->out, qso->N, 0);
-                else
-                    qso->multCovNeighborsOnly(p3d_model.get(), effective_chi, qso->out);
-                // *out is now N^-1/2 (S_OD C^-1)^m eta (BD random)
-
-                // Truth is in *sc_eta
-                nrm_truth_now += cblas_ddot(qso->N, qso->sc_eta, 1, qso->sc_eta, 1);
-
-                qso->updateTruth(coeff);
-
-                // *truth is now N^-1/2 (S_OD C^-1)^m eta (BD random)
-                nrm_sc_eta += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
-            }
-
-            nrm_truth_now = sqrt(nrm_truth_now);
-            nrm_sc_eta = coeff * sqrt(nrm_sc_eta);
-            if (verbose)
-                LOG::LOGGER.STD("Relative change: %.5e / %.5e = %.5e\n",
-                    nrm_sc_eta, nrm_truth_now, nrm_sc_eta / nrm_truth_now);
-
-            dt_pp = mytime::timer.getTime() - t1_pp;
-            ++timings["PPcomp"].first;
-            timings["PPcomp"].second += dt_pp;
-        }
-
-        for (auto &qso : quasars)
-            std::swap(qso->truth, qso->sc_eta);
-    }
-    else {
-        #pragma omp parallel for
-        for (auto &qso : quasars) {
-            qso->fillRngNoise(rngs[myomp::getThreadNum()]);
-            for (int i = 0; i < qso->N; ++i)
-                qso->truth[i] += qso->isig[i] * qso->z1[i]
-                    * mesh_rnd.interpolate(qso->r.get() + 3 * i);
-        }
-    }
-
-    t2 = mytime::timer.getTime() - t1;
-    ++timings["GenGauss"].first;
-    timings["GenGauss"].second += t2;
-
-    if (verbose)
-        LOG::LOGGER.STD("It took %.2f m.\n", t2);
-}
-
+#include "qu3d/optimal_qu3d_mc.cpp"
 #include "qu3d/optimal_qu3d_extra.cpp"
 
 int main(int argc, char *argv[]) {

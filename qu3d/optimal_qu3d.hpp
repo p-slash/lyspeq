@@ -37,6 +37,8 @@ class Qu3DEstimator
     double tolerance, radius, rscale_factor, effective_chi;
     size_t num_all_pixels;
 
+    std::function<void()> updateYMatrixVectorFunction;
+
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     std::unique_ptr<std::seed_seq> seed_generator;
     std::unique_ptr<ioh::Qu3dFile> result_file;
@@ -73,6 +75,10 @@ public:
     */
     Qu3DEstimator(ConfigFile &configg);
 
+    /* Multiply (m I + H) (*sc_eta) = (*out) */
+    void multiplyIpHVector(double m);
+    void conjugateGradientIpH();
+    void multiplyHsqrt();
     void replaceDeltasWithGaussianField();
     void initGuessDiag();
     void initGuessBlockDiag();
