@@ -96,9 +96,9 @@ public:
     void calculateNewDirection(double beta);
 
     /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
-    where y = N^-1/2 z and m = N^-1/2 delta. Then get y.
+    where y = N^-1/2 z and m = truth = N^-1/2 delta. Then get y if z2y=true.
     */
-    void conjugateGradientDescent();
+    void conjugateGradientDescent(bool z2y=true);
 
     void estimatePower();
     void estimateNoiseBiasMc();

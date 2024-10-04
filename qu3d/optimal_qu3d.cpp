@@ -553,6 +553,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::MAX_RA = config.getDouble("MaximumRa") * deg2rad;
     specifics::MIN_DEC = config.getDouble("MinimumDec") * deg2rad;
     specifics::MAX_DEC = config.getDouble("MaximumDec") * deg2rad;
+    specifics::MIN_KERP = config.getDouble("MinimumKperp");
 
     LOG::LOGGER.STD(
         "Sky cut: RA %.3f-%.3f & DEC %.3f-%.3f in radians.\n",
@@ -865,7 +866,7 @@ double Qu3DEstimator::updateY(double residual_norm2) {
 }
 
 
-void Qu3DEstimator::conjugateGradientDescent() {
+void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
     double dt = mytime::timer.getTime();
     int niter = 1;
 
@@ -950,7 +951,7 @@ endconjugateGradientDescent:
         LOG::LOGGER.STD(
             "  conjugateGradientDescent finished in %d iterations.\n", niter);
 
-    if (CONT_MARG_ENABLED) {
+    if (z2y and CONT_MARG_ENABLED) {
         #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars) {
             qso->in = qso->y.get();
@@ -960,12 +961,16 @@ endconjugateGradientDescent:
             qso->multIsigInVector();
         }
     }
-    else {
+    else if (z2y) {
         #pragma omp parallel for
         for (auto &qso : quasars) {
             qso->in = qso->y.get();
             qso->multIsigInVector();
         }
+    }
+    else {
+        for (auto &qso : quasars)
+            qso->in = qso->y.get();
     }
 
     dt = mytime::timer.getTime() - dt;
@@ -1486,13 +1491,11 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
             #pragma omp parallel for schedule(dynamic, 8) \
                 reduction(+:nrm_truth_now, nrm_sc_eta)
             for (auto &qso : quasars) {
-                if (qso->neighbors.empty()) {
-                    std::fill_n(qso->truth, qso->N, 0);
-                    continue;
-                }
-
-                qso->multCovNeighborsOnly(p3d_model.get(), effective_chi, qso->out);
-                // *out is now (S_OD C^-1)^m eta (BD random)
+                if (qso->neighbors.empty())
+                    std::fill_n(qso->out, qso->N, 0);
+                else
+                    qso->multCovNeighborsOnly(p3d_model.get(), effective_chi, qso->out);
+                // *out is now N^-1/2 (S_OD C^-1)^m eta (BD random)
 
                 // Truth is in *sc_eta
                 nrm_truth_now += cblas_ddot(qso->N, qso->sc_eta, 1, qso->sc_eta, 1);
@@ -1572,7 +1575,6 @@ int main(int argc, char *argv[]) {
         process::readProcess(config);
         bins::readBins(config);
         specifics::readSpecifics(config);
-        specifics::MIN_KERP = config.getDouble("MinimumKperp");
         // conv::readConversion(config);
         // fidcosmo::readFiducialCosmo(config);
     }

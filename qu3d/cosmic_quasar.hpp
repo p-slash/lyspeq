@@ -648,7 +648,7 @@ public:
         }
 
         for (int i = 0; i < N; ++i)
-            output[i] *= z1[i];
+            output[i] *= isig[i] * z1[i];
     }
 
     void updateTruth(double cf) {
@@ -657,10 +657,8 @@ public:
         std::swap(truth, sc_eta);
         std::swap(sc_eta, out);
 
-        for (int i = 0; i < N; ++i) {
-            sc_eta[i] *= isig[i];
+        for (int i = 0; i < N; ++i)
             truth[i] += cf * sc_eta[i];
-        }
 
         std::swap(truth, sc_eta);
     }
