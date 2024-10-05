@@ -67,7 +67,7 @@ void Qu3DEstimator::conjugateGradientIpH() {
         // Only search is multiplied from here until endconjugateGradientIpH
         qso->in = qso->search.get();
 
-        // set search = InvCov . residual
+        // set search = PreCon . residual
         for (int i = 0; i < qso->N; ++i)
             qso->in[i] = qso->residual[i] / 2.0;
 
@@ -93,10 +93,10 @@ void Qu3DEstimator::conjugateGradientIpH() {
             goto endconjugateGradientIpH;
 
         double new_residual_prec = 0;
-        // Calculate InvCov . residual into out
+        // Calculate PreCon . residual into out
         #pragma omp parallel for reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
-            // set z (out) = InvCov . residual
+            // set z (out) = PreCon . residual
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] = qso->residual[i] / 2.0;
 
@@ -106,7 +106,7 @@ void Qu3DEstimator::conjugateGradientIpH() {
         double beta = new_residual_prec / old_residual_prec;
         old_residual_prec = new_residual_prec;
 
-        // New direction using preconditioned z = InvCov . residual
+        // New direction using preconditioned z = Precon . residual
         #pragma omp parallel for
         for (auto &qso : quasars) {
             #pragma omp simd
@@ -131,32 +131,26 @@ endconjugateGradientIpH:
 
 void Qu3DEstimator::multiplyHsqrt() {
     /* multiply with SquareRootMatrix
-        input is const *truth, output is *truth
+        input is *truth, output is *truth
         uses: *in, *in_isig, *sc_eta, *out
     */
 
     // (1) CG solve I + H from *truth to *in
     //     multiply *in with H, add to *sc_eta
-
     conjugateGradientIpH();
-
     multiplyIpHVector(0.0);
 
-    #pragma omp parallel for
     for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i)
-            qso->sc_eta[i] += qso->out[i];
+        std::swap(qso->out, qso->sc_eta);
         std::swap(qso->truth, qso->in);
     }
 
     // (2) multiply *truth with 0.25 (I + H), add to sc_eta
-    // for (auto &qso : quasars)
-    //     std::swap(qso->truth, qso->in);
-
     multiplyIpHVector(1.0);
 
     #pragma omp parallel for
     for (auto &qso : quasars) {
+        std::swap(qso->truth, qso->in);
         for (int i = 0; i < qso->N; ++i)
             qso->sc_eta[i] += 0.25 * qso->out[i];
         std::swap(qso->truth, qso->sc_eta);
@@ -170,10 +164,8 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
 
     double t1 = mytime::timer.getTime(), t2 = 0;
     #pragma omp parallel for
-    for (auto &qso : quasars) {
+    for (auto &qso : quasars)
         qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
-        std::copy_n(qso->truth, qso->N, qso->sc_eta);
-    }
 
     multiplyHsqrt();
 
@@ -184,6 +176,46 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     if (verbose)
         LOG::LOGGER.STD("It took %.2f m.\n", t2);
 }
+
+
+void Qu3DEstimator::testHSqrt() {
+    double yTy = 0, xTHx = 0, xTx = 0;
+    verbose = false;
+
+    auto yTy_arr = std::make_unique<double[]>(max_monte_carlos);
+    auto xTHx_arr = std::make_unique<double[]>(max_monte_carlos);
+
+    Progress prog_tracker(max_monte_carlos, 5);
+    for (int i = 0; i < max_monte_carlos; ++i) {
+        yTy = 0;  xTHx = 0;  xTx = 0;
+
+        #pragma omp parallel for reduction(+:xTx)
+        for (auto &qso : quasars) {
+            qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
+            std::copy_n(qso->truth, qso->N, qso->in);
+            xTx += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+        }
+
+        multiplyIpHVector(0.0);
+
+        #pragma omp parallel for reduction(+:xTHx)
+        for (auto &qso : quasars)
+            xTHx += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+
+        multiplyHsqrt();
+        #pragma omp parallel for reduction(+:yTy)
+        for (auto &qso : quasars)
+            yTy += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
+
+        xTHx_arr[i] = xTHx / xTx;  yTy_arr[i] = yTy / xTx;
+        ++prog_tracker;
+    }
+
+    result_file->write(xTHx_arr.get(), max_monte_carlos, "TRUE_xTHx");
+    result_file->write(yTy_arr.get(), max_monte_carlos, "EST_yTy");
+    result_file->flush();
+}
+
 
 #if 0
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
