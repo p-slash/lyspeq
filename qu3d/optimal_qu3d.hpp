@@ -24,7 +24,8 @@ const config_map qu3d_default_parameters ({
     {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"},
     {"EstimateTotalBias", "1"}, {"EstimateNoiseBias", "1"},
     {"EstimateFisherFromRandomDerivatives", "-1"},
-    {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"}
+    {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"},
+    {"TestHsqrt", "-1"}
 });
 
 
@@ -75,11 +76,15 @@ public:
     */
     Qu3DEstimator(ConfigFile &configg);
 
-    /* Multiply (m I + H) (*sc_eta) = (*out) */
+    // These functions are in optimal_qu3d_mc.cpp
+    /* Multiply (m I + H) (*sc_eta) = (*out)
+       input is const *in, output is *out, uses: *in_isig */
     void multiplyIpHVector(double m);
     void conjugateGradientIpH();
     void multiplyHsqrt();
     void replaceDeltasWithGaussianField();
+    void testHSqrt();
+
     void initGuessDiag();
     void initGuessBlockDiag();
     void multMeshComp();

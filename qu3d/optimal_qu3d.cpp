@@ -1480,6 +1480,7 @@ int main(int argc, char *argv[]) {
     Qu3DEstimator qps(config);
     bool test_gaussian_field = config.getInteger("TestGaussianField") > 0;
     bool test_symmetry = config.getInteger("TestSymmetry") > 0;
+    bool test_hsqrt = config.getInteger("TestHsqrt") > 0;
     config.checkUnusedKeys();
 
     if (qps.max_eval_enabled)
@@ -1487,6 +1488,9 @@ int main(int argc, char *argv[]) {
 
     if (test_symmetry)
         qps.testSymmetry();
+
+    if (test_hsqrt)
+        qps.testHSqrt();
 
     if (test_gaussian_field)
         qps.replaceDeltasWithGaussianField();
