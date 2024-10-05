@@ -21,7 +21,8 @@ void Qu3DEstimator::multiplyIpHVector(double m) {
     if (pp_enabled) {
         #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars)
-            qso->multCovNeighborsOnly(p3d_model.get(), effective_chi);
+            if (!qso->neighbors.empty())
+                qso->multCovNeighborsOnly(p3d_model.get(), effective_chi);
     }
     // (B)
 
@@ -129,6 +130,7 @@ endconjugateGradientIpH:
 }
 
 
+#if 1
 void Qu3DEstimator::multiplyHsqrt() {
     /* multiply with SquareRootMatrix
         input is *truth, output is *truth
@@ -156,6 +158,22 @@ void Qu3DEstimator::multiplyHsqrt() {
         std::swap(qso->truth, qso->sc_eta);
     }
 }
+#else
+void Qu3DEstimator::multiplyHsqrt() {
+    for (auto &qso : quasars)
+        std::swap(qso->truth, qso->in);
+
+    multiplyIpHVector(1.0);
+
+    for (auto &qso : quasars) {
+        std::swap(qso->truth, qso->in);
+        std::swap(qso->truth, qso->out);
+
+        for (int i = 0; i < qso->N; ++i)
+            qso->truth[i] /= 2.0;
+    }
+}
+#endif
 
 
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
@@ -214,6 +232,125 @@ void Qu3DEstimator::testHSqrt() {
     result_file->write(xTHx_arr.get(), max_monte_carlos, "TRUE_xTHx");
     result_file->write(yTy_arr.get(), max_monte_carlos, "EST_yTy");
     result_file->flush();
+}
+
+
+void Qu3DEstimator::drawRndDeriv(int i) {
+    int imu = i / bins::NUMBER_OF_K_BANDS,
+        ik = i % bins::NUMBER_OF_K_BANDS;
+
+    std::function<double(double)> legendre_w;
+    switch (imu) {
+    case 0: legendre_w = legendre0; break;
+    case 1: legendre_w = legendre2; break;
+    case 2: legendre_w = legendre4; break;
+    case 3: legendre_w = legendre6; break;
+    default: legendre_w = std::bind(legendre, std::placeholders::_1, 2 * imu);
+    }
+
+    #pragma omp parallel for
+    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+        size_t jj = mesh.ngrid_kz * jxy;
+
+        std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
+
+        double kperp = mesh.getKperpFromIperp(jxy);
+        if (kperp >= bins::KBAND_EDGES[ik + 1])
+            continue;
+        else if (kperp < specifics::MIN_KERP)
+            continue;
+
+        double kmin = sqrt(std::max(
+            0.0, bins::KBAND_EDGES[ik] * bins::KBAND_EDGES[ik] - kperp * kperp));
+        double kmax = sqrt(std::max(
+            0.0, bins::KBAND_EDGES[ik + 1] * bins::KBAND_EDGES[ik + 1] - kperp * kperp));
+        size_t mesh_z_1 = ceil(kmin / mesh.k_fund[2]),
+               mesh_z_2 = ceil(kmax / mesh.k_fund[2]);
+        mesh_z_1 = std::min(mesh.ngrid_kz, std::max(size_t(0), mesh_z_1));
+        mesh_z_2 = std::min(mesh.ngrid_kz, std::max(size_t(0), mesh_z_2));
+
+        for (size_t zz = mesh_z_1; zz != mesh_z_2; ++zz) {
+            mesh.getK2KzFromIndex(jj + zz, kmin, kmax);
+            kmin = sqrt(kmin) + 1e-300; kmax /= kmin;
+            mesh.field_k[jj + zz] =
+                mesh.invsqrtcellvol * mesh_rnd.field_k[jj + zz] * legendre_w(kmax);
+        }
+    }
+
+    mesh.fftK2X();
+
+    #ifdef COARSE_INTERP
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            qso->interpMesh2Coarse(mesh);
+            qso->interpNgpCoarse2TruthIsig();
+        }
+    #else
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->interpMesh2TruthIsig(mesh);
+    #endif
+}
+
+
+void Qu3DEstimator::estimateFisherFromRndDeriv() {
+    /* Tr[C^-1 . Qk . C^-1 Qk'] = <qk^T . C^-1 . Qk' . C^-1 . qk>
+
+    1. Generate qk on the grid.
+        - Generate uniform white noise on x. FFT.
+        - Cut out k modes. iFFT.
+    2. Interpolate . isig to each qso->truth
+    3. Solve C^-1 . qk into qso->in
+    4. Reverse interpolate to mesh.
+    5. Multiply with Qk' on mesh.
+    */
+    LOG::LOGGER.STD("Estimating Fisher.\n");
+    verbose = false;
+    mc1 = std::make_unique<double[]>(bins::FISHER_SIZE);
+    mc2 = std::make_unique<double[]>(bins::FISHER_SIZE);
+
+    /* Create another mesh to store random numbers. This way, randoms are
+       generated once, and FFTd once. This grid can perform in-place FFTs,
+       since it is only needed in Fourier space, which is equivalent between
+       in-place and out-of-place transforms.
+
+       LOG::LOGGER.STD("  Constructing another mesh.\n");
+       mesh_rnd.copy(mesh);
+       mesh_rnd.initRngs(seed_generator.get());
+       mesh_rnd.construct();
+    */
+
+    // max_monte_carlos = 5;
+    Progress prog_tracker(max_monte_carlos * NUMBER_OF_P_BANDS, 5);
+    int nmc = 1;
+    bool converged = false;
+    for (; nmc <= max_monte_carlos; ++nmc) {
+        mesh_rnd.fillRndNormal();
+        mesh_rnd.fftX2K();
+        LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
+
+        for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
+            drawRndDeriv(i);
+
+            /* calculate C^-1 . qk into in */
+            conjugateGradientDescent();
+            /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
+            multiplyDerivVectors(
+                mc1.get() + i * NUMBER_OF_P_BANDS,
+                mc2.get() + i * NUMBER_OF_P_BANDS);
+
+            ++prog_tracker;
+        }
+
+        converged = _syncMonteCarlo(
+            nmc, fisher.get(), covariance.get(), bins::FISHER_SIZE, "2FISHER");
+
+        if (converged)
+            break;
+    }
+
+    cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
+    logTimings();
 }
 
 
