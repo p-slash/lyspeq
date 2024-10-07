@@ -377,7 +377,7 @@ void Qu3DEstimator::estimateMaxEvals() {
             for (int i = 0; i < qso->N; ++i)
                 qso->sc_eta[i] = qso->in[i] / n_out;
     }
-*/
+
     LOG::LOGGER.STD("Estimating maximum eigenvalue of S_OD C^-1.\n");
 
     niter = 1;
@@ -424,5 +424,40 @@ void Qu3DEstimator::estimateMaxEvals() {
         for (auto &qso : quasars)
             for (int i = 0; i < qso->N; ++i)
                 qso->truth[i] = qso->out[i] / n_out;
+    }
+*/
+    LOG::LOGGER.STD("Estimating maximum eigenvalue of V A_BD^-1.\n");
+
+    niter = 1;
+    old_eval_max = 1e-12;
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
+
+    for (; niter <= max_conj_grad_steps; ++niter) {
+        multiplyIpHVector(0.0);
+
+        n_in = 0;  n_out = 0;  n_inout = 0;
+        #pragma omp parallel for schedule(dynamic, 8) \
+                                 reduction(+:n_in, n_out, n_inout)
+        for (auto &qso : quasars) {
+            n_in += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+            n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
+            n_inout += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+        }
+
+        new_eval_max = n_inout / n_in;
+        LOG::LOGGER.STD("  New eval: %.5e\n", new_eval_max);
+        if (isClose(old_eval_max, new_eval_max, tolerance)) {
+            LOG::LOGGER.STD("Converged.\n");  break;
+        }
+
+        old_eval_max = new_eval_max;
+        n_out = sqrt(n_out);
+
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            for (int i = 0; i < qso->N; ++i)
+                qso->in[i] = qso->out[i] / n_out;
     }
 }
