@@ -36,7 +36,7 @@ void Qu3DEstimator::multiplyIpHVector(double m) {
     }
     // (B)
 
-    #pragma omp parallel for schedule(dynamic, 8)
+    #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->out[i] *= qso->isig[i] * qso->z1[i];
@@ -59,21 +59,23 @@ void Qu3DEstimator::conjugateGradientIpH() {
 
     updateYMatrixVectorFunction = [this]() { this->multiplyIpHVector(1.0); };
 
-    double precon_diag = 2.0 + (1.0 - p3d_model->getVar1dS() / p3d_model->getVar1dT());
+    const double precon_diag = 2.0 + (
+        1.0 - p3d_model->getVar1dS() / p3d_model->getVar1dT());
 
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientIpH. Preconditioner %.5f\n",
                         precon_diag);
 
     /* Initial guess */
-    #pragma omp parallel for schedule(dynamic, 8)
+    #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
         for (int i = 0; i < qso->N; ++i)
             qso->in[i] = qso->truth[i] / precon_diag;
 
     multiplyIpHVector(1.0);
 
-    #pragma omp parallel for reduction(+:init_residual_norm, old_residual_prec)
+    #pragma omp parallel for schedule(dynamic, 4) \
+                             reduction(+:init_residual_norm, old_residual_prec)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
             qso->residual[i] = qso->truth[i] - qso->out[i];
@@ -108,7 +110,7 @@ void Qu3DEstimator::conjugateGradientIpH() {
 
         double new_residual_prec = 0;
         // Calculate PreCon . residual into out
-        #pragma omp parallel for reduction(+:new_residual_prec)
+        #pragma omp parallel for schedule(dynamic, 4) reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
             for (int i = 0; i < qso->N; ++i)
@@ -121,7 +123,7 @@ void Qu3DEstimator::conjugateGradientIpH() {
         old_residual_prec = new_residual_prec;
 
         // New direction using preconditioned z = Precon . residual
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(dynamic, 4)
         for (auto &qso : quasars) {
             #pragma omp simd
             for (int i = 0; i < qso->N; ++i)
@@ -145,32 +147,29 @@ endconjugateGradientIpH:
 
 #if 1
 void Qu3DEstimator::multiplyHsqrt() {
-    /* multiply with SquareRootMatrix
+    /* multiply with SquareRootMatrix: 0.25 + H (0.25 + (I+H)^-1)
         input is *truth, output is *truth
         uses: *in, *in_isig, *sc_eta, *out
     */
 
     // (1) CG solve I + H from *truth to *in
-    //     multiply *in with H, add to *sc_eta
+    //     add 0.25 *truth to *in
     conjugateGradientIpH();
+
+    #pragma omp parallel for schedule(dynamic, 4)
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i)
+            qso->in[i] += 0.25 * qso->truth[i];
+    }
+
+    // (2) multiply *in with H save to *out
     multiplyIpHVector(0.0);
 
-    #pragma omp parallel for num_threads(2)
-    for (auto &qso : quasars) {
-        std::swap(qso->out, qso->sc_eta);
-        std::swap(qso->truth, qso->in);
-    }
-
-    // (2) multiply *truth with 0.25 (I + H), add to sc_eta
-    multiplyIpHVector(1.0);
-
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
-        std::swap(qso->truth, qso->in);
+    // (3) add 0.25 *truth to *out
+    #pragma omp parallel for schedule(dynamic, 4)
+    for (auto &qso : quasars)
         for (int i = 0; i < qso->N; ++i)
-            qso->sc_eta[i] += 0.25 * qso->out[i];
-        std::swap(qso->truth, qso->sc_eta);
-    }
+            qso->truth[i] = 0.25 * qso->truth[i] + qso->out[i];
 }
 #else
 void Qu3DEstimator::multiplyHsqrt() {
