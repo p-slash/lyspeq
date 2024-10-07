@@ -6,12 +6,13 @@ void Qu3DEstimator::multiplyIpHVector(double m) {
     double dt = mytime::timer.getTime();
 
     /* A_BD^-1. Might not be true if pp_enabled=false */
-    #pragma omp parallel for schedule(dynamic, 8)
+    #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         qso->multInvCov(p3d_model.get(), qso->in, qso->out, pp_enabled);
-        std::swap(qso->in, qso->out);
+        double *tmp_in = qso->in;
+        qso->in = qso->out;
         qso->setInIsigNoMarg();
-        std::swap(qso->in, qso->out);
+        qso->in = tmp_in;
     }
 
     // Add long wavelength mode to Cy
@@ -19,14 +20,23 @@ void Qu3DEstimator::multiplyIpHVector(double m) {
     multMeshComp();
 
     if (pp_enabled) {
-        #pragma omp parallel for schedule(dynamic, 8)
+        double t1_pp = mytime::timer.getTime(), dt_pp = 0;
+
+        #pragma omp parallel for schedule(dynamic, 4)
         for (auto &qso : quasars)
             if (!qso->neighbors.empty())
                 qso->multCovNeighborsOnly(p3d_model.get(), effective_chi);
+
+        dt_pp = mytime::timer.getTime() - t1_pp;
+        ++timings["PPcomp"].first;
+        timings["PPcomp"].second += dt_pp;
+
+        if (verbose)
+            LOG::LOGGER.STD("    multParticleComp took %.2f s.\n", 60.0 * dt_pp);
     }
     // (B)
 
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic, 8)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->out[i] *= qso->isig[i] * qso->z1[i];
@@ -49,14 +59,17 @@ void Qu3DEstimator::conjugateGradientIpH() {
 
     updateYMatrixVectorFunction = [this]() { this->multiplyIpHVector(1.0); };
 
+    double precon_diag = 2.0 + (1.0 - p3d_model->getVar1dS() / p3d_model->getVar1dT());
+
     if (verbose)
-        LOG::LOGGER.STD("  Entered conjugateGradientIpH.\n");
+        LOG::LOGGER.STD("  Entered conjugateGradientIpH. Preconditioner %.5f\n",
+                        precon_diag);
 
     /* Initial guess */
     #pragma omp parallel for schedule(dynamic, 8)
     for (auto &qso : quasars)
         for (int i = 0; i < qso->N; ++i)
-            qso->in[i] = qso->truth[i] / 2.0;
+            qso->in[i] = qso->truth[i] / precon_diag;
 
     multiplyIpHVector(1.0);
 
@@ -70,7 +83,7 @@ void Qu3DEstimator::conjugateGradientIpH() {
 
         // set search = PreCon . residual
         for (int i = 0; i < qso->N; ++i)
-            qso->in[i] = qso->residual[i] / 2.0;
+            qso->in[i] = qso->residual[i] / precon_diag;
 
         init_residual_norm += cblas_ddot(
             qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
@@ -99,7 +112,7 @@ void Qu3DEstimator::conjugateGradientIpH() {
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
             for (int i = 0; i < qso->N; ++i)
-                qso->out[i] = qso->residual[i] / 2.0;
+                qso->out[i] = qso->residual[i] / precon_diag;
 
             new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->out, 1);
         }
@@ -142,6 +155,7 @@ void Qu3DEstimator::multiplyHsqrt() {
     conjugateGradientIpH();
     multiplyIpHVector(0.0);
 
+    #pragma omp parallel for num_threads(2)
     for (auto &qso : quasars) {
         std::swap(qso->out, qso->sc_eta);
         std::swap(qso->truth, qso->in);
@@ -181,7 +195,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
         LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
 
     double t1 = mytime::timer.getTime(), t2 = 0;
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
         qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
 
@@ -289,17 +303,40 @@ void Qu3DEstimator::estimateTotalBiasMc() {
 
 
 void Qu3DEstimator::testHSqrt() {
+    constexpr int M_MCS = 5;
     double yTy = 0, xTHx = 0, xTx = 0;
-    verbose = false;
+    int status = 0;
+    fitsfile *fits_file = nullptr;
+
+    verbose = true;
+
+    std::string out_fname = "!" + process::FNAME_BASE + "-testhqsrt-"
+                            + std::to_string(mympi::this_pe) + ".fits";
+
+    fits_create_file(&fits_file, out_fname.c_str(), &status);
+    ioh::checkFitsStatus(status);
+
+    /* define the name, datatype, and physical units for columns */
+    int ncolumns = 2;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+    char *column_names[] = {"xTHx", "yTy"};
+    char *column_types[] = {"1D", "1D"};
+    #pragma GCC diagnostic pop
+
+    fits_create_tbl(
+        fits_file, BINARY_TBL, max_monte_carlos, ncolumns, column_names,
+        column_types, nullptr, "HSQRT", &status);
+    ioh::checkFitsStatus(status);
 
     auto yTy_arr = std::make_unique<double[]>(max_monte_carlos);
     auto xTHx_arr = std::make_unique<double[]>(max_monte_carlos);
 
     Progress prog_tracker(max_monte_carlos, 5);
-    for (int i = 0; i < max_monte_carlos; ++i) {
+    for (int i = 1; i <= max_monte_carlos; ++i) {
         yTy = 0;  xTHx = 0;  xTx = 0;
 
-        #pragma omp parallel for reduction(+:xTx)
+        #pragma omp parallel for schedule(dynamic, 4) reduction(+:xTx)
         for (auto &qso : quasars) {
             qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
             std::copy_n(qso->truth, qso->N, qso->in);
@@ -317,13 +354,24 @@ void Qu3DEstimator::testHSqrt() {
         for (auto &qso : quasars)
             yTy += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
 
-        xTHx_arr[i] = xTHx / xTx;  yTy_arr[i] = yTy / xTx;
+        xTHx_arr[i - 1] = xTHx / xTx;  yTy_arr[i - 1] = yTy / xTx;
         ++prog_tracker;
+
+        verbose = false;
+        if ((i % M_MCS != 0) && (i != max_monte_carlos))
+            continue;
+
+        int nelems = (i - 1) % M_MCS + 1, irow = i - nelems;
+        fits_write_col(fits_file, TDOUBLE, 1, irow + 1, 1, nelems, xTHx_arr.get() + irow,
+                       &status);
+        fits_write_col(fits_file, TDOUBLE, 2, irow + 1, 1, nelems, yTy_arr.get() + irow,
+                       &status);
+        fits_flush_buffer(fits_file, 0, &status);
+        ioh::checkFitsStatus(status);
     }
 
-    result_file->write(xTHx_arr.get(), max_monte_carlos, "TRUE_xTHx");
-    result_file->write(yTy_arr.get(), max_monte_carlos, "EST_yTy");
-    result_file->flush();
+    fits_close_file(fits_file, &status);
+    ioh::checkFitsStatus(status);
 }
 
 
