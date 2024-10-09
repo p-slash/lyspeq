@@ -346,11 +346,14 @@ public:
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
 
         for (int i = 0; i < N; ++i) {
-            ccov[i * (N + 1)] = p3d_model->getVar1dS();
+            double isigG = isig[i] * z1[i];
+
+            ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
 
             for (int j = i + 1; j < N; ++j) {
                 float rz = r[3 * j + 2] - r[3 * i + 2];
-                ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz);
+                double isigG_ij = isigG * isig[j] * z1[j];
+                ccov[j + i * N] = p3d_model->evalCorrFunc1dT(rz) * isigG_ij;
             }
         }
 
@@ -631,24 +634,19 @@ public:
     }
 
     void multCovNeighborsOnly(
-            const fidcosmo::ArinyoP3DModel *p3d_model, double radial,
-            double *output
+            const fidcosmo::ArinyoP3DModel *p3d_model, double radial
     ) {
         /* See comments in multCovNeighbors. Check for neighbors outside this
            function. */
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
-        std::fill_n(output, N, 0);
 
         for (const CosmicQuasar* q : neighbors) {
             setCrossCov(q, p3d_model, radial, ccov);
             int M = q->N;
 
             cblas_dgemv(CblasRowMajor, CblasNoTrans, N, M, 1.0,
-                        ccov, M, q->in, 1, 1.0, output, 1);
+                        ccov, M, q->in_isig, 1, 1.0, out, 1);
         }
-
-        for (int i = 0; i < N; ++i)
-            output[i] *= z1[i];
     }
 
     void updateTruth(double cf) {
@@ -657,10 +655,8 @@ public:
         std::swap(truth, sc_eta);
         std::swap(sc_eta, out);
 
-        for (int i = 0; i < N; ++i) {
-            sc_eta[i] *= isig[i];
+        for (int i = 0; i < N; ++i)
             truth[i] += cf * sc_eta[i];
-        }
 
         std::swap(truth, sc_eta);
     }
