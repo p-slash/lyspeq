@@ -24,7 +24,8 @@ const config_map qu3d_default_parameters ({
     {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"},
     {"EstimateTotalBias", "1"}, {"EstimateNoiseBias", "1"},
     {"EstimateFisherFromRandomDerivatives", "-1"},
-    {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"}
+    {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"},
+    {"TestHsqrt", "-1"}
 });
 
 
@@ -36,6 +37,8 @@ class Qu3DEstimator
     int max_conj_grad_steps, max_monte_carlos;
     double tolerance, radius, rscale_factor, effective_chi;
     size_t num_all_pixels;
+
+    std::function<void()> updateYMatrixVectorFunction;
 
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     std::unique_ptr<std::seed_seq> seed_generator;
@@ -73,48 +76,49 @@ public:
     */
     Qu3DEstimator(ConfigFile &configg);
 
+    // These functions are in optimal_qu3d_mc.cpp
+    /* Multiply (m I + H) (*sc_eta) = (*out)
+       input is const *in, output is *out, uses: *in_isig */
+    void multiplyIpHVector(double m);
+    void conjugateGradientIpH();
+    void multiplyHsqrt();
     void replaceDeltasWithGaussianField();
-    void initGuessDiag();
-    void initGuessBlockDiag();
+    void estimateNoiseBiasMc();
+    void estimateTotalBiasMc();
+    void testHSqrt();
+    void drawRndDeriv(int i);
+    void estimateFisherFromRndDeriv();
+
+    // These functions are in extra.cpp
+    /* This is called only for small-scale direct multiplication. */
+    double updateRng(double residual_norm2);
+    void calculateNewDirection(double beta);
+    void conjugateGradientSampler();
+    void dumpSearchDirection();
+    void testSymmetry();
+    void estimateMaxEvals();
+
+    // These are in original source file
     void multMeshComp();
     void multParticleComp();
+    /* Multiply each quasar's *in pointer and save to *out pointer.
+       (I + N^-1/2 S N^-1/2) z = out */
+    void multiplyCovVector();
+    void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr);
 
     /* Reverse interopates qso->in onto the mesh */
     void reverseInterpolate();
     /* Reverse interopates qso->in x qso->isig onto the mesh */
     void reverseInterpolateIsig();
-
-    /* Multiply each quasar's *in pointer and save to *out pointer.
-       (I + N^-1/2 S N^-1/2) z = out */
-    void multiplyCovVector();
-
-    void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr);
-
     double updateY(double residual_norm2);
-    /* This is called only for small-scale direct multiplication. */
-    double updateRng(double residual_norm2);
-    void calculateNewDirection(double beta);
-
     /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
-    where y = N^-1/2 z and m = N^-1/2 delta. Then get y.
+    where y = N^-1/2 z and m = truth = N^-1/2 delta. Then get y if z2y=true.
     */
-    void conjugateGradientDescent();
-
+    void conjugateGradientDescent(bool z2y=true);
     void estimatePower();
-    void estimateNoiseBiasMc();
-    void estimateTotalBiasMc();
-    void conjugateGradientSampler();
-    void cgsGetY();
-
-    void estimateMaxEvals();
-
-    void drawRndDeriv(int i);
-    void estimateFisherFromRndDeriv();
 
     void filter();
     void write();
-    void dumpSearchDirection();
-    void testSymmetry();
 };
 
 #endif

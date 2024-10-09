@@ -187,6 +187,7 @@ namespace fidcosmo {
         }
 
         double getVar1dS() const { return interp1d_cfS->get()[0]; }
+        double getVar1dT() const { return interp1d_cfT->get()[0]; }
 
         #ifndef NUSE_LOGR_INTERP
             double evalCorrFunc2dS(float rperp, float rz) const {
