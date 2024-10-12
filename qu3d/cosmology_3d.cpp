@@ -10,7 +10,7 @@
 
 constexpr double SAFE_ZERO = 1E-300;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 2E2,
+constexpr double KMIN = 1E-6, KMAX = 2E2, KMAX_HALO = 1.5,
                  LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
@@ -240,6 +240,7 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     L_HCD = config.getDouble("L_HCD");
     b_SiIII1207 = config.getDouble("b_SiIII-1207");
     beta_metal = config.getDouble("beta_metal");
+    sigma_v = config.getDouble("sigma_v");
 
     interp_p = std::make_unique<LinearPowerInterpolator>(config);
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
@@ -529,22 +530,31 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     bbeta_lya = b_F * (1.0 + beta_F * mu2),
     bbeta_hcd_kz = b_HCD * (1 + beta_HCD * mu2) * exp(-L_HCD * kz),
     bbeta_siIII = b_SiIII1207 * (1 + beta_metal * mu2),
-    result, lnKp, lnD;
+    result, lnD, dfog, apod_halo;
 
-    lnKp = k_kp * k_kp;
     lnD = (q_1 * delta2_L) * (
             1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0)
-    ) - lnKp;
+    ) - k_kp * k_kp;
 
-    if (-lnD > lnKp)
-        lnKp = -lnD;
+    lnD = exp(lnD);
+    dfog = kz * sigma_v;
+    dfog = 1.0 / (1.0 + dfog * dfog);
 
-    lnKp = exp(-lnKp);
-    result = plin * (bbeta_lya * bbeta_lya * exp(lnD)
-                     + 2.0 * bbeta_lya * bbeta_hcd_kz
-                     + bbeta_hcd_kz * bbeta_hcd_kz
-                     + 2.0 * bbeta_lya * bbeta_siIII * cos(kz * dr_SiIII) * lnKp
-                     + bbeta_siIII * bbeta_siIII * lnKp);
+    if (k > KMAX_HALO)
+        apod_halo = 0;
+    else if (k < (KMAX_HALO / 2.0))
+        apod_halo = 1.0;
+    else {
+        apod_halo = cos((2.0 * k / KMAX_HALO - 1.0) * MY_PI / 2.0);
+        apod_halo *= apod_halo;
+    }
+
+    result = plin * (
+        bbeta_lya * bbeta_lya * lnD + apod_halo * (
+            + 2.0 * bbeta_lya * bbeta_hcd_kz
+            + bbeta_hcd_kz * bbeta_hcd_kz
+            + 2.0 * bbeta_lya * bbeta_siIII * cos(kz * dr_SiIII) * sqrt(lnD * dfog)
+            + bbeta_siIII * bbeta_siIII * dfog));
 
     if ((_sigma_mpc == 0) && (_deltar_mpc == 0))
         return result;
