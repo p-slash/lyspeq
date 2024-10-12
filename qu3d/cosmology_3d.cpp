@@ -10,7 +10,7 @@
 
 constexpr double SAFE_ZERO = 1E-300;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 2E2,
+constexpr double KMIN = 1E-6, KMAX = 2E2, KMAX_HALO = 1.5,
                  LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
@@ -238,6 +238,9 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     b_HCD = config.getDouble("b_HCD");
     beta_HCD = config.getDouble("beta_HCD");
     L_HCD = config.getDouble("L_HCD");
+    b_SiIII1207 = config.getDouble("b_SiIII-1207");
+    beta_metal = config.getDouble("beta_metal");
+    sigma_v = config.getDouble("sigma_v");
 
     interp_p = std::make_unique<LinearPowerInterpolator>(config);
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
@@ -246,6 +249,17 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     _z1_pivot = 1.0 + interp_p->z_pivot;
     _sigma_mpc = 0;
     _deltar_mpc = 0;
+
+    constexpr double lambda_siIII1207 = 1206.52;
+    double alpha_si = LYA_REST / lambda_siIII1207;
+    dr_SiIII = cosmo->getComovingDist(_z1_pivot * alpha_si)
+               - cosmo->getComovingDist(_z1_pivot);
+    // This is tiny ~2-3 Mpc
+    // L_metal = (cosmo->getComovingDist((1.0 + bins::Z_LOWER_EDGE) * alpha_si)
+    //            - cosmo->getComovingDist((1.0 + bins::Z_UPPER_EDGE) * alpha_si))
+    //           - (cosmo->getComovingDist(1.0 + bins::Z_LOWER_EDGE)
+    //              - cosmo->getComovingDist(1.0 + bins::Z_UPPER_EDGE));
+    // L_metal = fabs(L_metal);
 }
 
 
@@ -515,15 +529,32 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     mu = kz / k, mu2 = mu * mu,
     bbeta_lya = b_F * (1.0 + beta_F * mu2),
     bbeta_hcd_kz = b_HCD * (1 + beta_HCD * mu2) * exp(-L_HCD * kz),
-    result, lnD;
+    bbeta_siIII = b_SiIII1207 * (1 + beta_metal * mu2),
+    result, lnD, dfog, apod_halo;
 
     lnD = (q_1 * delta2_L) * (
             1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0)
     ) - k_kp * k_kp;
 
-    result = plin * (bbeta_lya * bbeta_lya * exp(lnD)
-                     + 2.0 * bbeta_lya * bbeta_hcd_kz
-                     + bbeta_hcd_kz * bbeta_hcd_kz);
+    lnD = exp(lnD);
+    dfog = kz * sigma_v;
+    dfog = 1.0 / (1.0 + dfog * dfog);
+
+    if (k > KMAX_HALO)
+        apod_halo = 0;
+    else if (k < (KMAX_HALO / 2.0))
+        apod_halo = 1.0;
+    else {
+        apod_halo = cos((2.0 * k / KMAX_HALO - 1.0) * MY_PI / 2.0);
+        apod_halo *= apod_halo;
+    }
+
+    result = plin * (
+        bbeta_lya * bbeta_lya * lnD + apod_halo * (
+            + 2.0 * bbeta_lya * bbeta_hcd_kz
+            + bbeta_hcd_kz * bbeta_hcd_kz
+            + 2.0 * bbeta_lya * bbeta_siIII * cos(kz * dr_SiIII) * sqrt(lnD * dfog)
+            + bbeta_siIII * bbeta_siIII * dfog));
 
     if ((_sigma_mpc == 0) && (_deltar_mpc == 0))
         return result;
