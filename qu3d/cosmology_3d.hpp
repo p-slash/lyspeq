@@ -107,7 +107,7 @@ namespace fidcosmo {
         {"q_1", "0.796"}, {"nu_0", "1.267"}, {"nu_1", "1.65"},
         {"k_nu", "0.3922"},
         {"b_HCD", "0.05"}, {"beta_HCD", "0.7"}, {"L_HCD", "14.8"},
-        {"b_SiIII-1207", "9.8e-3"}, {"beta_metal", "0.5"}
+        {"b_SiIII-1207", "9.8e-3"}, {"beta_metal", "0.5"}, {"sigma_v", "5.0"}
     });
 
     class ArinyoP3DModel {
@@ -117,7 +117,7 @@ namespace fidcosmo {
     private:
         double _varlss, _D_pivot, _z1_pivot, _sigma_mpc, _deltar_mpc;
         double b_F, alpha_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long, rmax;
-        double b_HCD, beta_HCD, L_HCD, b_SiIII1207, dr_SiIII, beta_metal;
+        double b_HCD, beta_HCD, L_HCD, b_SiIII1207, dr_SiIII, beta_metal, sigma_v;
 
         std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
