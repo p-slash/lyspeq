@@ -489,7 +489,8 @@ void Qu3DEstimator::_findNeighbors() {
 
 void Qu3DEstimator::_createRmatFiles() {
     /* This function needs z1 to be 1 + z */
-    LOG::LOGGER.STD("Calculating R_D matrices for continuum marginalization.\n");
+    double t1 = mytime::timer.getTime(), t2 = 0;
+    LOG::LOGGER.STD("Calculating R_D matrices for continuum marginalization. ");
     ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
             process::TMP_FOLDER);
 
@@ -498,7 +499,7 @@ void Qu3DEstimator::_createRmatFiles() {
     size_t nquasars = quasars.size();
 
     if (mympi::this_pe == 0) {
-        #pragma omp parallel for schedule(dynamic, 8)
+        #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars)
             qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
 
@@ -519,6 +520,8 @@ void Qu3DEstimator::_createRmatFiles() {
     }
 
     ioh::continuumMargFileHandler->openAllReaders();
+    t2 = mytime::timer.getTime();
+    LOG::LOGGER.STD("It took %.2f m.\n", t2 - t1);
 }
 
 
@@ -751,7 +754,7 @@ void Qu3DEstimator::multiplyCovVector() {
     // Multiply out with isig
     // Evolve with redshift growth
     if (CONT_MARG_ENABLED) {
-        #pragma omp parallel for schedule(dynamic, 8)
+        #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars)
             qso->setInIsigWithMarg();
     }
@@ -772,7 +775,7 @@ void Qu3DEstimator::multiplyCovVector() {
     // Multiply out with marg. matrix if enabled
     // Add I.y to out
     if (CONT_MARG_ENABLED) {
-        #pragma omp parallel for schedule(dynamic, 8)
+        #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] *= qso->isig[i] * qso->z1[i];
@@ -881,7 +884,7 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
 
     if (CONT_MARG_ENABLED) {
         /* Marginalize. Then, initial guess */
-        #pragma omp parallel for schedule(dynamic, 8)
+        #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars) {
             qso->multTruthWithMarg();
             qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
@@ -955,7 +958,7 @@ endconjugateGradientDescent:
             "  conjugateGradientDescent finished in %d iterations.\n", niter);
 
     if (z2y and CONT_MARG_ENABLED) {
-        #pragma omp parallel for schedule(dynamic, 8)
+        #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars) {
             qso->in = qso->y.get();
             std::swap(qso->truth, qso->in);

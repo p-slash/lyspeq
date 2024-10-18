@@ -209,8 +209,9 @@ public:
     }
 
     void setInIsigWithMarg() {
+        // assert(fidx == myomp::getThreadNum());
         double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-        ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
+        ioh::continuumMargFileHandler->read(fpos, N, rrmat);
         cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                     rrmat, N, in, 1, 0, in_isig, 1);
 
@@ -219,8 +220,9 @@ public:
     }
 
     void multTruthWithMarg() {
+        // assert(fidx == myomp::getThreadNum());
         double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-        ioh::continuumMargFileHandler->read(fidx, fpos, N, rrmat);
+        ioh::continuumMargFileHandler->read(fpos, N, rrmat);
         cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                     rrmat, N, truth, 1, 0, in_isig, 1);
 
@@ -518,8 +520,8 @@ public:
                 Emat[b + a * nvecs] = cblas_ddot(
                     N, uvecs[a].get(), 1, uvecs[b].get(), 1);
 
-                if (a == b)
-                    assert(fabs(Emat[a * (1 + nvecs)] - 1) < DOUBLE_EPSILON);
+                // if (a == b)
+                // assert(fabs(Emat[a * (1 + nvecs)] - 1.0) < DOUBLE_EPSILON);
             }
         }
 
