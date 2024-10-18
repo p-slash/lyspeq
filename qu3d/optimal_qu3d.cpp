@@ -37,7 +37,7 @@ std::unordered_map<std::string, std::pair<int, double>> timings{
     {"CGD", std::make_pair(0, 0.0)}, {"mDeriv", std::make_pair(0, 0.0)},
     {"mCov", std::make_pair(0, 0.0)}, {"PPcomp", std::make_pair(0, 0.0)},
     {"GenGauss", std::make_pair(0, 0.0)}, {"mIpH", std::make_pair(0, 0.0)},
-    {"cgdIpH", std::make_pair(0, 0.0)}
+    {"cgdIpH", std::make_pair(0, 0.0)}, {"Marg", std::make_pair(0, 0.0)}
 };
 
 /* Internal variables */
@@ -757,6 +757,9 @@ void Qu3DEstimator::multiplyCovVector() {
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars)
             qso->setInIsigWithMarg();
+
+        ++timings["Marg"].first;
+        timings["Marg"].second += mytime::timer.getTime() - dt;
     }
     else {
         #pragma omp parallel for
@@ -775,6 +778,8 @@ void Qu3DEstimator::multiplyCovVector() {
     // Multiply out with marg. matrix if enabled
     // Add I.y to out
     if (CONT_MARG_ENABLED) {
+        double tm1 = mytime::timer.getTime();
+
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
@@ -788,6 +793,8 @@ void Qu3DEstimator::multiplyCovVector() {
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] += qso->in[i];
         }
+        ++timings["Marg"].first;
+        timings["Marg"].second += mytime::timer.getTime() - tm1;
     }
     else {
         #pragma omp parallel for
@@ -889,6 +896,8 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
             qso->multTruthWithMarg();
             qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
         }
+        ++timings["Marg"].first;
+        timings["Marg"].second += mytime::timer.getTime() - dt;
     }
     else {
         /* Initial guess */
@@ -958,6 +967,8 @@ endconjugateGradientDescent:
             "  conjugateGradientDescent finished in %d iterations.\n", niter);
 
     if (z2y and CONT_MARG_ENABLED) {
+        double tm1 = mytime::timer.getTime();
+
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars) {
             qso->in = qso->y.get();
@@ -966,6 +977,8 @@ endconjugateGradientDescent:
             std::swap(qso->truth, qso->in);
             qso->multIsigInVector();
         }
+        ++timings["Marg"].first;
+        timings["Marg"].second += mytime::timer.getTime() - tm1;
     }
     else if (z2y) {
         #pragma omp parallel for
