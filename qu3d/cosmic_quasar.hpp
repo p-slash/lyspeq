@@ -219,7 +219,7 @@ public:
             in_isig[i] *= isig[i] * z1[i];
     }
 
-    void multInputWithMarg(double *input) {
+    void multInputWithMarg(const double *input) {
         /* Output is in_isig */
         // assert(fidx == myomp::getThreadNum());
         double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
