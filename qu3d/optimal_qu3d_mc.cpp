@@ -328,6 +328,7 @@ void Qu3DEstimator::testHSqrt() {
         column_types, nullptr, "HSQRT", &status);
     ioh::checkFitsStatus(status);
 
+    auto xTx_arr = std::make_unique<double[]>(max_monte_carlos);
     auto yTy_arr = std::make_unique<double[]>(max_monte_carlos);
     auto xTHx_arr = std::make_unique<double[]>(max_monte_carlos);
 
@@ -353,7 +354,7 @@ void Qu3DEstimator::testHSqrt() {
         for (auto &qso : quasars)
             yTy += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
 
-        xTHx_arr[i - 1] = xTHx / xTx;  yTy_arr[i - 1] = yTy / xTx;
+        xTx_arr[i - 1] = xTx;  xTHx_arr[i - 1] = xTHx;  yTy_arr[i - 1] = yTy;
         ++prog_tracker;
 
         verbose = false;
@@ -364,6 +365,8 @@ void Qu3DEstimator::testHSqrt() {
         fits_write_col(fits_file, TDOUBLE, 1, irow + 1, 1, nelems, xTHx_arr.get() + irow,
                        &status);
         fits_write_col(fits_file, TDOUBLE, 2, irow + 1, 1, nelems, yTy_arr.get() + irow,
+                       &status);
+        fits_write_col(fits_file, TDOUBLE, 3, irow + 1, 1, nelems, xTx_arr.get() + irow,
                        &status);
         fits_flush_buffer(fits_file, 0, &status);
         ioh::checkFitsStatus(status);
