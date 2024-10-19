@@ -894,7 +894,7 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
         for (auto &qso : quasars) {
             qso->multInputWithMarg(qso->truth);
             std::swap(qso->truth, qso->in_isig);
-            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
+            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled, true);
         }
         ++timings["Marg"].first;
         timings["Marg"].second += mytime::timer.getTime() - dt;
@@ -903,7 +903,7 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
         /* Initial guess */
         #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars)
-            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
+            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled, false);
     }
 
     multiplyCovVector();
@@ -917,7 +917,8 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
         qso->in = qso->search.get();
 
         // set search = InvCov . residual
-        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in, pp_enabled);
+        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in,
+                        pp_enabled, CONT_MARG_ENABLED);
 
         init_residual_norm += cblas_ddot(
             qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
@@ -945,7 +946,8 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
         #pragma omp parallel for reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = InvCov . residual
-            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out, pp_enabled);
+            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out,
+                            pp_enabled, CONT_MARG_ENABLED);
             new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->out, 1);
         }
 
