@@ -785,9 +785,8 @@ void Qu3DEstimator::multiplyCovVector() {
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] *= qso->isig[i] * qso->z1[i];
 
-            std::swap(qso->truth, qso->out);
-            qso->multTruthWithMarg();
-            std::swap(qso->truth, qso->out);
+            qso->multInputWithMarg(qso->out);
+            std::swap(qso->out, qso->in_isig);
 
             #pragma omp simd
             for (int i = 0; i < qso->N; ++i)
@@ -893,7 +892,8 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
         /* Marginalize. Then, initial guess */
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars) {
-            qso->multTruthWithMarg();
+            qso->multInputWithMarg(qso->truth);
+            std::swap(qso->truth, qso->in_isig);
             qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
         }
         ++timings["Marg"].first;
@@ -972,9 +972,8 @@ endconjugateGradientDescent:
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars) {
             qso->in = qso->y.get();
-            std::swap(qso->truth, qso->in);
-            qso->multTruthWithMarg();
-            std::swap(qso->truth, qso->in);
+            qso->multInputWithMarg(qso->in);
+            std::copy_n(qso->in_isig, qso->N, qso->in);
             qso->multIsigInVector();
         }
         ++timings["Marg"].first;

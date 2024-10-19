@@ -219,14 +219,13 @@ public:
             in_isig[i] *= isig[i] * z1[i];
     }
 
-    void multTruthWithMarg() {
+    void multInputWithMarg(double *input) {
+        /* Output is in_isig */
         // assert(fidx == myomp::getThreadNum());
         double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
         ioh::continuumMargFileHandler->read(fpos, N, rrmat);
         cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
-                    rrmat, N, truth, 1, 0, in_isig, 1);
-
-        std::swap(truth, in_isig);
+                    rrmat, N, input, 1, 0, in_isig, 1);
     }
 
     void multInvCov(
