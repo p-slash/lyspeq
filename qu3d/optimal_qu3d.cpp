@@ -1024,29 +1024,45 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
 
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS])
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
-        double kperp = mesh.getKperpFromIperp(jxy), temp;
+        double kperp = mesh.getKperpFromIperp(jxy), temp, temp2, temp3;
 
         if (kperp >= bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS])
             continue;
         else if (kperp < specifics::MIN_KERP)
             continue;
 
-        int ik = (kperp - bins::KBAND_EDGES[0]) / DK_BIN;
+        int ik = (kperp - bins::KBAND_EDGES[0]) / DK_BIN, ik2;
 
         size_t jj = mesh.ngrid_kz * jxy;
         if (kperp >= bins::KBAND_EDGES[0]) {  // mu = 0
-            temp = std::norm(mesh.field_k[jj])
-                   * (1.0 - fabs(kperp - bins::KBAND_CENTERS[ik]) / DK_BIN);
+            temp = std::norm(mesh.field_k[jj]);
+            temp2 = (1.0 - fabs(kperp - bins::KBAND_CENTERS[ik]) / DK_BIN);
+            temp3 = temp * (1.0 - temp2);
+            temp *= temp2;
+
+            if (kperp > bins::KBAND_CENTERS[ik])
+                ik2 = std::min(bins::NUMBER_OF_K_BANDS - 1, ik + 1);
+            else
+                ik2 = std::max(0, ik - 1);
 
             lout[ik] += temp;
+            lout[ik2] += temp3;
+
             lout[ik + bins::NUMBER_OF_K_BANDS] -= 0.5 * temp;
+            lout[ik2 + bins::NUMBER_OF_K_BANDS] -= 0.5 * temp3;
+
             lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += 0.375 * temp;
+            lout[ik2 + 2 * bins::NUMBER_OF_K_BANDS] += 0.375 * temp3;
+
             #if NUMBER_OF_MULTIPOLES > 3
             lout[ik + 3 * bins::NUMBER_OF_K_BANDS] -= 0.3125 * temp;
+            lout[ik2 + 3 * bins::NUMBER_OF_K_BANDS] -= 0.3125 * temp3;
             #endif
             #if NUMBER_OF_MULTIPOLES > 4
-            for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l)
+            for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l) {
                 lout[ik + l * bins::NUMBER_OF_K_BANDS] += temp * legendre(2 * l, 0.0);
+                lout[ik2 + l * bins::NUMBER_OF_K_BANDS] += temp3 * legendre(2 * l, 0.0);
+            }
             #endif
         }
 
@@ -1060,18 +1076,38 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
             mu = kz / kt;
 
             temp = 2.0 * std::norm(mesh.field_k[k + jj])
-                   * (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN)
                    * p3d_model->getSpectroWindow2(kz);
+            temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+            temp3 = temp * (1.0 - temp2);
+            temp *= temp2;
+
+            if (kt > bins::KBAND_CENTERS[ik])
+                ik2 = std::min(bins::NUMBER_OF_K_BANDS - 1, ik + 1);
+            else
+                ik2 = std::max(0, ik - 1);
 
             lout[ik] += temp;
-            lout[ik + bins::NUMBER_OF_K_BANDS] += temp * legendre2(mu);
-            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += temp * legendre4(mu);
+            lout[ik2] += temp3;
+
+            temp2 = legendre2(mu);
+            lout[ik + bins::NUMBER_OF_K_BANDS] += temp * temp2;
+            lout[ik2 + bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
+
+            temp2 = legendre4(mu);
+            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += temp * temp2;
+            lout[ik2 + 2 * bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
+
             #if NUMBER_OF_MULTIPOLES > 3
-            lout[ik + 3 * bins::NUMBER_OF_K_BANDS] += temp * legendre6(mu);
+            temp2 = legendre6(mu);
+            lout[ik + 3 * bins::NUMBER_OF_K_BANDS] += temp * temp2;
+            lout[ik2 + 3 * bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
             #endif
             #if NUMBER_OF_MULTIPOLES > 4
-            for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l)
-                lout[ik + l * bins::NUMBER_OF_K_BANDS] += temp * legendre(2 * l, mu);
+            for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l) {
+                temp2 = legendre(2 * l, mu);
+                lout[ik + l * bins::NUMBER_OF_K_BANDS] += temp * temp2;
+                lout[ik2 + l * bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
+            }
             #endif
         }
     }
