@@ -1035,7 +1035,8 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
 
         size_t jj = mesh.ngrid_kz * jxy;
         if (kperp >= bins::KBAND_EDGES[0]) {  // mu = 0
-            temp = std::norm(mesh.field_k[jj]);
+            temp = std::norm(mesh.field_k[jj])
+                   * (1.0 - fabs(kperp - bins::KBAND_CENTERS[ik]) / DK_BIN);
 
             lout[ik] += temp;
             lout[ik + bins::NUMBER_OF_K_BANDS] -= 0.5 * temp;
@@ -1059,6 +1060,7 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
             mu = kz / kt;
 
             temp = 2.0 * std::norm(mesh.field_k[k + jj])
+                   * (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN)
                    * p3d_model->getSpectroWindow2(kz);
 
             lout[ik] += temp;
