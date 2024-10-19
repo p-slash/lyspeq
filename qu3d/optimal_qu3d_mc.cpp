@@ -8,7 +8,7 @@ void Qu3DEstimator::multiplyIpHVector(double m) {
     /* A_BD^-1. Might not be true if pp_enabled=false */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
-        qso->multInvCov(p3d_model.get(), qso->in, qso->out, pp_enabled);
+        qso->multInvCov(p3d_model.get(), qso->in, qso->out, pp_enabled, false);
         double *tmp_in = qso->in;
         qso->in = qso->out;
         qso->setInIsigNoMarg();

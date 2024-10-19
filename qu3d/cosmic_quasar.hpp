@@ -230,7 +230,7 @@ public:
 
     void multInvCov(
             const fidcosmo::ArinyoP3DModel *p3d_model,
-            const double *input, double *output, bool pp
+            const double *input, double *output, bool pp, bool cm
     ) {
         double varlss = p3d_model->getVarLss();
         auto appDiagonalEst = [this, &varlss](const double *x_, double *y_) {
@@ -263,6 +263,14 @@ public:
             if (info != 0) {
                 LOG::LOGGER.STD("Error in CosmicQuasar::multInvCov::LAPACKE_dposv");
                 appDiagonalEst(input, output);
+            }
+
+            if (cm) {
+                std::copy_n(isig, N, in_isig);
+                LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1, ccov, N, in_isig, 1);
+                double alpha = cblas_ddot(N, isig, 1, output, 1)
+                               / cblas_ddot(N, isig, 1, in_isig, 1);
+                cblas_daxpy(N, -alpha, in_isig, 1, output, 1);
             }
         }
     }
