@@ -23,8 +23,9 @@ namespace ioh {
     public:
         ContMargFile(const std::string &base)
         : tmpfolder(base) {
+            file_writers.reserve(myomp::getMaxNumThreads());
             for (int i = 0; i < myomp::getMaxNumThreads(); ++i)
-                file_writers[i] = _openFile(i, "wb");
+                file_writers.push_back(_openFile(i, "wb"));
         };
 
         long write(
@@ -51,22 +52,14 @@ namespace ioh {
         }
 
         void openAllReaders() {
-            std::vector<int> all_fidcs;
-            all_fidcs.resize(file_writers.size());
-
-            for (const auto &[fidx, uptr] : file_writers)
-                all_fidcs.push_back(fidx);
-
+            file_readers.reserve(file_writers.size());
+            for (size_t i = 0; i < file_writers.size(); ++i)
+                file_readers.push_back(_openFile(i, "rb"));
             file_writers.clear();
-            file_readers_vec.resize(myomp::getMaxNumThreads());
-
-            for (auto &rdr : file_readers_vec)
-                for (const int &fidx : all_fidcs)
-                    rdr.emplace(fidx, _openFile(fidx, "rb"));
         }
 
-        void read(int fidx, long fpos, size_t N, double *out) {
-            std::FILE *fptr = file_readers_vec[myomp::getThreadNum()][fidx].get();
+        void read(long fpos, size_t N, double *out) {
+            std::FILE *fptr = file_readers[myomp::getThreadNum()].get();
 
             if (std::fseek(fptr, fpos, SEEK_SET) != 0)
                 throw std::runtime_error("ERROR in ContMargFile::read::fseek");
@@ -83,11 +76,7 @@ namespace ioh {
         }
     private:
         std::string tmpfolder;
-
-        std::unordered_map<int, unique_file_ptr> file_writers;
-        std::vector<
-            std::unordered_map<int, unique_file_ptr>
-        > file_readers_vec;
+        std::vector<unique_file_ptr> file_writers, file_readers;
 
         unique_file_ptr _openFile(int fidx, const char *mode) {
             std::string fname = getFname(fidx);
