@@ -63,7 +63,8 @@ void Qu3DEstimator::conjugateGradientSampler() {
     /* Truth is always random. Initial guess is always zero */
     #pragma omp parallel for reduction(+:old_residual_norm2)
     for (auto &qso : quasars) {
-        qso->fillRngNoise(rngs[myomp::getThreadNum()]);
+        rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
+        // qso->fillRngNoise(rngs[myomp::getThreadNum()]);
         std::copy_n(qso->truth, qso->N, qso->residual.get());
         std::copy_n(qso->truth, qso->N, qso->search.get());
         std::fill_n(qso->in, qso->N, 0);
