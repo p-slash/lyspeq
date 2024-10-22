@@ -387,10 +387,11 @@ void Qu3DEstimator::estimateNoiseBiasMc() {
     int nmc = 1;
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
-        /* generate random Gaussian vector into y */
+        /* generate random Gaussian vector into truth */
         #pragma omp parallel for
         for (auto &qso : quasars)
-            qso->fillRngNoise(rngs[myomp::getThreadNum()]);
+            rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
+            // qso->fillRngNoise(rngs[myomp::getThreadNum()]);
 
         /* calculate Cinv . n into y */
         conjugateGradientDescent();
