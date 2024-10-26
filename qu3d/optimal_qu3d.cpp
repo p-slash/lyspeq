@@ -495,7 +495,7 @@ void Qu3DEstimator::_createRmatFiles() {
             process::TMP_FOLDER);
 
     std::vector<int> q_fidx;
-    std::vector<long> q_fpos;
+    std::vector<long> q_ids;
     size_t nquasars = quasars.size();
 
     if (mympi::this_pe == 0) {
@@ -503,20 +503,22 @@ void Qu3DEstimator::_createRmatFiles() {
         for (auto &qso : quasars)
             qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
 
-        q_fidx.reserve(nquasars);  q_fpos.reserve(nquasars);
+        q_fidx.reserve(nquasars);  q_ids.reserve(nquasars);
         for (auto it = quasars.cbegin(); it != quasars.cend(); ++it) {
-            q_fidx.push_back((*it)->fidx);  q_fpos.push_back((*it)->fpos);
+            q_fidx.push_back((*it)->fidx);  q_ids.push_back((*it)->qFile->id);
         }
     }
     else {
-        q_fidx.resize(nquasars);  q_fpos.resize(nquasars);
+        q_fidx.resize(nquasars);  q_ids.resize(nquasars);
     }
 
     mympi::barrier();
     mympi::bcast(q_fidx.data(), nquasars);
-    mympi::bcast(q_fpos.data(), nquasars);
+    mympi::bcast(q_ids.data(), nquasars);
     for (size_t i = 0; i < nquasars; ++i) {
-        quasars[i]->fidx = q_fidx[i];  quasars[i]->fpos = q_fpos[i];
+        if (quasars[i]->qFile->id != q_ids[i])
+            LOG::LOGGER.ERR("Quasars do no align!!!\n");
+        quasars[i]->fidx = q_fidx[i];
     }
 
     ioh::continuumMargFileHandler->openAllReaders();
@@ -758,6 +760,7 @@ void Qu3DEstimator::multiplyCovVector() {
         for (auto &qso : quasars)
             qso->setInIsigWithMarg();
 
+        ioh::continuumMargFileHandler->rewind();
         ++timings["Marg"].first;
         timings["Marg"].second += mytime::timer.getTime() - dt;
     }
@@ -792,6 +795,7 @@ void Qu3DEstimator::multiplyCovVector() {
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] += qso->in[i];
         }
+        ioh::continuumMargFileHandler->rewind();
         ++timings["Marg"].first;
         timings["Marg"].second += mytime::timer.getTime() - tm1;
     }
@@ -896,6 +900,7 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
             std::swap(qso->truth, qso->in_isig);
             qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
         }
+        ioh::continuumMargFileHandler->rewind();
         ++timings["Marg"].first;
         timings["Marg"].second += mytime::timer.getTime() - dt;
     }
@@ -976,6 +981,7 @@ endconjugateGradientDescent:
             std::copy_n(qso->in_isig, qso->N, qso->in);
             qso->multIsigInVector();
         }
+        ioh::continuumMargFileHandler->rewind();
         ++timings["Marg"].first;
         timings["Marg"].second += mytime::timer.getTime() - tm1;
     }

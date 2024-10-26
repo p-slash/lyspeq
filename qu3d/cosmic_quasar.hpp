@@ -56,7 +56,6 @@ private:
 public:
     std::unique_ptr<qio::QSOFile> qFile;
     int N, coarse_N, fidx;
-    long fpos;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth, *in_isig, *sc_eta;
@@ -211,7 +210,7 @@ public:
     void setInIsigWithMarg() {
         // assert(fidx == myomp::getThreadNum());
         double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-        ioh::continuumMargFileHandler->read(fpos, N, rrmat);
+        ioh::continuumMargFileHandler->read(N, rrmat);
         cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                     rrmat, N, in, 1, 0, in_isig, 1);
 
@@ -223,7 +222,7 @@ public:
         /* Output is in_isig */
         // assert(fidx == myomp::getThreadNum());
         double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-        ioh::continuumMargFileHandler->read(fpos, N, rrmat);
+        ioh::continuumMargFileHandler->read(N, rrmat);
         cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                     rrmat, N, input, 1, 0, in_isig, 1);
     }
@@ -551,7 +550,7 @@ public:
                            uvecs[0][a], ccov + a * N, 1, rrmat, N);
         mxhelp::copyUpperToLower(rrmat, N);
 
-        fpos = ioh::continuumMargFileHandler->write(rrmat, N, fidx);
+        ioh::continuumMargFileHandler->write(rrmat, N, fidx);
     }
 
     #ifdef USE_SPHERICAL_DIST
