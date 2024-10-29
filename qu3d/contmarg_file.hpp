@@ -67,11 +67,20 @@ namespace ioh {
             std::FILE *fptr = file_readers[myomp::getThreadNum()].get();
             int n;
             long id;
-            if (std::fread(&n, sizeof(int), 1, fptr) != 0 || n != N)
+            if (std::fread(&n, sizeof(int), 1, fptr) != 1)
                 throw std::runtime_error("ERROR in ContMargFile::read::N");
 
-            if (std::fread(&id, sizeof(long), 1, fptr) != 0 || id != targetid)
+            if (std::fread(&id, sizeof(long), 1, fptr) != 1)
                 throw std::runtime_error("ERROR in ContMargFile::read::targetid");
+
+            if ((n != N) || (id != targetid)) {
+                std::string err =
+                    "ERROR in ContMargFile::read::n("
+                    + std::to_string(n) + ") vs N(" + std::to_string(N) + ") "
+                    + "and id(" + std::to_string(id) + ") vs targetid("
+                    + std::to_string(targetid) + ")";
+                throw std::runtime_error(err);
+            }
 
             size_t Min = size_t(N) * N, 
                    Mout = std::fread(out, sizeof(double), Min, fptr);
