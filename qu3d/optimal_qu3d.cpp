@@ -487,12 +487,12 @@ void Qu3DEstimator::_findNeighbors() {
 }
 
 
-void Qu3DEstimator::_createRmatFiles() {
+void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
     /* This function needs z1 to be 1 + z */
     double t1 = mytime::timer.getTime(), t2 = 0;
     LOG::LOGGER.STD("Calculating R_D matrices for continuum marginalization. ");
     ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
-            process::TMP_FOLDER);
+            process::TMP_FOLDER, prefix);
 
     std::vector<int> q_fidx;
     std::vector<long> q_ids;
@@ -570,7 +570,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     std::string
         flist = config.get("FileNameList"),
         findir = config.get("FileInputDir"),
-        seed = config.get("Seed") + std::to_string(mympi::this_pe);
+        seed = config.get("Seed") + std::to_string(mympi::this_pe),
+        unique_prefix = config.get("UniquePrefixTmp");
 
     if (flist.empty())
         throw std::invalid_argument("Must pass FileNameList.");
@@ -599,6 +600,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
     // NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
+
+    if (CONT_MARG_ENABLED && unique_prefix.empty())
+        throw std::invalid_argument("Need UniquePrefixTmp when marginalizing.");
 
     seed_generator = std::make_unique<std::seed_seq>(seed.begin(), seed.end());
     _initRngs(seed_generator.get());
@@ -635,7 +639,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         _findNeighbors();
 
     if (CONT_MARG_ENABLED)
-        _createRmatFiles();
+        _createRmatFiles(unique_prefix);
 
     #pragma omp parallel for
     for (auto &qso : quasars)
