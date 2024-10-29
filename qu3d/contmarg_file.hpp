@@ -29,12 +29,15 @@ namespace ioh {
         };
 
         void write(
-                double *data, int N, int &fidx, double *evecs=nullptr
+                double *data, int N, long targetid, int &fidx,
+                double *evecs=nullptr
         ) {
             fidx = myomp::getThreadNum();
             std::FILE *fptr = file_writers[fidx].get();
 
             if (std::fwrite(&N, sizeof(int), 1, fptr) != 1)
+                throw std::runtime_error("ERROR in ContMargFile::write");
+            if (std::fwrite(&targetid, sizeof(long), 1, fptr) != 1)
                 throw std::runtime_error("ERROR in ContMargFile::write");
 
             size_t Min = N * N,
@@ -60,11 +63,15 @@ namespace ioh {
                 std::rewind(fptr.get());
         }
 
-        void read(int N, double *out) {
+        void read(int N, long targetid, double *out) {
             std::FILE *fptr = file_readers[myomp::getThreadNum()].get();
             int n;
+            long id;
             if (std::fread(&n, sizeof(int), 1, fptr) != 0 || n != N)
-                throw std::runtime_error("ERROR in ContMargFile::read::fseek");
+                throw std::runtime_error("ERROR in ContMargFile::read::N");
+
+            if (std::fread(&id, sizeof(long), 1, fptr) != 0 || id != targetid)
+                throw std::runtime_error("ERROR in ContMargFile::read::targetid");
 
             size_t Min = size_t(N) * N, 
                    Mout = std::fread(out, sizeof(double), Min, fptr);
