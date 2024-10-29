@@ -68,8 +68,9 @@ namespace ioh {
 
         void read(int N, long targetid, double *out) {
             std::FILE *fptr = file_readers[myomp::getThreadNum()].get();
-            int n;
-            long id;
+            int n;  long id;
+
+            #ifdef DEBUG_IO
             if (std::fread(&n, sizeof(int), 1, fptr) != 1)
                 throw std::runtime_error("ERROR in ContMargFile::read::N");
 
@@ -90,6 +91,11 @@ namespace ioh {
 
             if (Min != Mout)
                 throw std::runtime_error("ERROR in ContMargFile::read::fread");
+            #else
+            std::fread(&n, sizeof(int), 1, fptr);
+            std::fread(&id, sizeof(long), 1, fptr);
+            std::fread(out, sizeof(double), size_t(N) * N, fptr);
+            #endif
         }
 
         std::string getFname(int fidx) {

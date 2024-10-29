@@ -208,8 +208,11 @@ public:
     }
 
     void setInIsigWithMarg() {
+        #ifdef DEBUG_IO
         try {
             assert(fidx == myomp::getThreadNum());
+        #endif
+        // -- core function
             double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
             ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
             cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
@@ -217,28 +220,37 @@ public:
 
             for (int i = 0; i < N; ++i)
                 in_isig[i] *= isig[i] * z1[i];
+        // --
+        #ifdef DEBUG_IO
         }
         catch (std::exception& e) {
             LOG::LOGGER.ERR(
                 "CosmicQuasar::setInIsigWithMarg::%d-%d::%s\n",
                 fidx, myomp::getThreadNum(), e.what());
         }
+        #endif
     }
 
     void multInputWithMarg(const double *input) {
         /* Output is in_isig */
+        #ifdef DEBUG_IO
         try {
             assert(fidx == myomp::getThreadNum());
+        #endif
+        // -- core function
             double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
             ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
             cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                         rrmat, N, input, 1, 0, in_isig, 1);
+        // --
+        #ifdef DEBUG_IO
         }
         catch (std::exception& e) {
             LOG::LOGGER.ERR(
                 "CosmicQuasar::multInputWithMarg::%d-%d::%s\n",
                 fidx, myomp::getThreadNum(), e.what());
         }
+        #endif
     }
 
     void multInvCov(
