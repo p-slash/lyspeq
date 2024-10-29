@@ -22,11 +22,7 @@ namespace ioh {
     class ContMargFile {
     public:
         ContMargFile(const std::string &base, const std::string &prefix)
-        : tmpfolder(base), unique_prefix(prefix) {
-            file_writers.reserve(myomp::getMaxNumThreads());
-            for (int i = 0; i < myomp::getMaxNumThreads(); ++i)
-                file_writers.push_back(_openFile(i, "wb"));
-        };
+        : tmpfolder(base), unique_prefix(prefix) {};
 
         void write(
                 double *data, int N, long targetid, int &fidx,
@@ -52,11 +48,18 @@ namespace ioh {
         }
 
         void openAllReaders() {
-            file_readers.reserve(file_writers.size());
-            for (size_t i = 0; i < file_writers.size(); ++i)
+            file_readers.reserve(myomp::getMaxNumThreads());
+            for (int i = 0; i < myomp::getMaxNumThreads(); ++i)
                 file_readers.push_back(_openFile(i, "rb"));
-            file_writers.clear();
         }
+
+        void openAllWriters() {
+            file_writers.reserve(myomp::getMaxNumThreads());
+            for (int i = 0; i < myomp::getMaxNumThreads(); ++i)
+                file_writers.push_back(_openFile(i, "wb"));
+        }
+
+        void closeAllWriters() { file_writers.clear(); }
 
         void rewind() {
             for (auto &fptr : file_readers)
