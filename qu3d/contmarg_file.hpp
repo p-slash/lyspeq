@@ -21,8 +21,8 @@ namespace ioh {
 
     class ContMargFile {
     public:
-        ContMargFile(const std::string &base)
-        : tmpfolder(base) {
+        ContMargFile(const std::string &base, const std::string &prefix)
+        : tmpfolder(base), unique_prefix(prefix) {
             file_writers.reserve(myomp::getMaxNumThreads());
             for (int i = 0; i < myomp::getMaxNumThreads(); ++i)
                 file_writers.push_back(_openFile(i, "wb"));
@@ -81,10 +81,11 @@ namespace ioh {
         }
 
         std::string getFname(int fidx) {
-            return tmpfolder + "/qu3d-rdmat-" + std::to_string(fidx) + ".dat";
+            return tmpfolder + "/qu3d-rdmat" + unique_prefix + "-"
+                   + std::to_string(fidx) + ".dat";
         }
     private:
-        std::string tmpfolder;
+        std::string tmpfolder, unique_prefix;
         std::vector<unique_file_ptr> file_writers, file_readers;
 
         unique_file_ptr _openFile(int fidx, const char *mode) {
