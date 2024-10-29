@@ -499,9 +499,13 @@ void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
     size_t nquasars = quasars.size();
 
     if (mympi::this_pe == 0) {
+        ioh::continuumMargFileHandler->openAllWriters();
+
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars)
             qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
+
+        ioh::continuumMargFileHandler->closeAllWriters();
 
         q_fidx.reserve(nquasars);  q_ids.reserve(nquasars);
         for (auto it = quasars.cbegin(); it != quasars.cend(); ++it) {
