@@ -487,36 +487,42 @@ void Qu3DEstimator::_findNeighbors() {
 }
 
 
-void Qu3DEstimator::_createRmatFiles() {
+void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
     /* This function needs z1 to be 1 + z */
     double t1 = mytime::timer.getTime(), t2 = 0;
     LOG::LOGGER.STD("Calculating R_D matrices for continuum marginalization. ");
     ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
-            process::TMP_FOLDER);
+            process::TMP_FOLDER, prefix);
 
     std::vector<int> q_fidx;
-    std::vector<long> q_fpos;
+    std::vector<long> q_ids;
     size_t nquasars = quasars.size();
 
     if (mympi::this_pe == 0) {
+        ioh::continuumMargFileHandler->openAllWriters();
+
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars)
             qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
 
-        q_fidx.reserve(nquasars);  q_fpos.reserve(nquasars);
+        ioh::continuumMargFileHandler->closeAllWriters();
+
+        q_fidx.reserve(nquasars);  q_ids.reserve(nquasars);
         for (auto it = quasars.cbegin(); it != quasars.cend(); ++it) {
-            q_fidx.push_back((*it)->fidx);  q_fpos.push_back((*it)->fpos);
+            q_fidx.push_back((*it)->fidx);  q_ids.push_back((*it)->qFile->id);
         }
     }
     else {
-        q_fidx.resize(nquasars);  q_fpos.resize(nquasars);
+        q_fidx.resize(nquasars);  q_ids.resize(nquasars);
     }
 
     mympi::barrier();
     mympi::bcast(q_fidx.data(), nquasars);
-    mympi::bcast(q_fpos.data(), nquasars);
+    mympi::bcast(q_ids.data(), nquasars);
     for (size_t i = 0; i < nquasars; ++i) {
-        quasars[i]->fidx = q_fidx[i];  quasars[i]->fpos = q_fpos[i];
+        if (quasars[i]->qFile->id != q_ids[i])
+            LOG::LOGGER.ERR("Quasars do no align!!!\n");
+        quasars[i]->fidx = q_fidx[i];
     }
 
     ioh::continuumMargFileHandler->openAllReaders();
@@ -568,7 +574,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     std::string
         flist = config.get("FileNameList"),
         findir = config.get("FileInputDir"),
-        seed = config.get("Seed") + std::to_string(mympi::this_pe);
+        seed = config.get("Seed") + std::to_string(mympi::this_pe),
+        unique_prefix = config.get("UniquePrefixTmp");
 
     if (flist.empty())
         throw std::invalid_argument("Must pass FileNameList.");
@@ -597,6 +604,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
     // NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
+
+    if (CONT_MARG_ENABLED && unique_prefix.empty())
+        throw std::invalid_argument("Need UniquePrefixTmp when marginalizing.");
 
     seed_generator = std::make_unique<std::seed_seq>(seed.begin(), seed.end());
     _initRngs(seed_generator.get());
@@ -633,7 +643,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         _findNeighbors();
 
     if (CONT_MARG_ENABLED)
-        _createRmatFiles();
+        _createRmatFiles(unique_prefix);
 
     #pragma omp parallel for
     for (auto &qso : quasars)
@@ -758,6 +768,7 @@ void Qu3DEstimator::multiplyCovVector() {
         for (auto &qso : quasars)
             qso->setInIsigWithMarg();
 
+        ioh::continuumMargFileHandler->rewind();
         ++timings["Marg"].first;
         timings["Marg"].second += mytime::timer.getTime() - dt;
     }
@@ -792,6 +803,7 @@ void Qu3DEstimator::multiplyCovVector() {
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] += qso->in[i];
         }
+        ioh::continuumMargFileHandler->rewind();
         ++timings["Marg"].first;
         timings["Marg"].second += mytime::timer.getTime() - tm1;
     }
@@ -896,6 +908,7 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
             std::swap(qso->truth, qso->in_isig);
             qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
         }
+        ioh::continuumMargFileHandler->rewind();
         ++timings["Marg"].first;
         timings["Marg"].second += mytime::timer.getTime() - dt;
     }
@@ -976,6 +989,7 @@ endconjugateGradientDescent:
             std::copy_n(qso->in_isig, qso->N, qso->in);
             qso->multIsigInVector();
         }
+        ioh::continuumMargFileHandler->rewind();
         ++timings["Marg"].first;
         timings["Marg"].second += mytime::timer.getTime() - tm1;
     }
