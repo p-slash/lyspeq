@@ -534,6 +534,9 @@ void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
 void Qu3DEstimator::_openResultsFile() {
     result_file = std::make_unique<ioh::Qu3dFile>(
         process::FNAME_BASE, mympi::this_pe);
+    convergence_file = std::make_unique<ioh::Qu3dFile>(
+        process::FNAME_BASE + "-convergence-" + std::to_string(mympi::this_pe),
+        0);
 
     p3d_model->write(result_file.get());
 
@@ -895,6 +898,8 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
     double init_residual_norm = 0, old_residual_prec = 0,
            new_residual_norm = 0;
 
+    std::vector<double> conv_vec;
+    conv_vec.reserve(max_conj_grad_steps + 1);
     updateYMatrixVectorFunction = [this]() { this->multiplyCovVector(); };
 
     if (verbose)
@@ -938,17 +943,16 @@ void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
     }
 
     init_residual_norm = sqrt(init_residual_norm);
-
+    conv_vec.push_back(init_residual_norm);
     if (hasConverged(init_residual_norm, tolerance))
         goto endconjugateGradientDescent;
 
     if (absolute_tolerance) init_residual_norm = 1;
 
     for (; niter <= max_conj_grad_steps; ++niter) {
-        new_residual_norm = updateY(old_residual_prec);
-
-        bool end_iter = hasConverged(
-            new_residual_norm / init_residual_norm, tolerance);
+        new_residual_norm = updateY(old_residual_prec) / init_residual_norm;
+        conv_vec.push_back(new_residual_norm);
+        bool end_iter = hasConverged(new_residual_norm, tolerance);
 
         if (end_iter)
             goto endconjugateGradientDescent;
@@ -1005,8 +1009,11 @@ endconjugateGradientDescent:
             qso->in = qso->y.get();
     }
 
-    dt = mytime::timer.getTime() - dt;
     ++timings["CGD"].first;
+    convergence_file->write(conv_vec.data(), conv_vec.size(),
+                            "CGD-" + std::to_string(timings["CGD"].first));
+    convergence_file->flush();
+    dt = mytime::timer.getTime() - dt;
     timings["CGD"].second += dt;
 }
 
@@ -1297,38 +1304,47 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    Qu3DEstimator qps(config);
-    bool test_gaussian_field = config.getInteger("TestGaussianField") > 0;
-    bool test_symmetry = config.getInteger("TestSymmetry") > 0;
-    bool test_hsqrt = config.getInteger("TestHsqrt") > 0;
-    config.checkUnusedKeys();
+    try {
+        Qu3DEstimator qps(config);
+        bool test_gaussian_field = config.getInteger("TestGaussianField") > 0;
+        bool test_symmetry = config.getInteger("TestSymmetry") > 0;
+        bool test_hsqrt = config.getInteger("TestHsqrt") > 0;
+        config.checkUnusedKeys();
 
-    if (qps.max_eval_enabled)
-        qps.estimateMaxEvals();
+        if (qps.max_eval_enabled)
+            qps.estimateMaxEvals();
 
-    if (test_symmetry)
-        qps.testSymmetry();
+        if (test_symmetry)
+            qps.testSymmetry();
 
-    if (test_hsqrt)
-        qps.testHSqrt();
+        if (test_hsqrt)
+            qps.testHSqrt();
 
-    if (test_gaussian_field)
-        qps.replaceDeltasWithGaussianField();
+        if (test_gaussian_field)
+            qps.replaceDeltasWithGaussianField();
 
-    qps.estimatePower();
+        qps.estimatePower();
 
-    if (qps.total_bias_enabled)
-        qps.estimateTotalBiasMc();
+        if (qps.total_bias_enabled)
+            qps.estimateTotalBiasMc();
 
-    if (qps.noise_bias_enabled)
-        qps.estimateNoiseBiasMc();
+        if (qps.noise_bias_enabled)
+            qps.estimateNoiseBiasMc();
 
-    if (qps.fisher_rnd_enabled) {
-        qps.estimateFisherFromRndDeriv();
-        qps.filter();
+        if (qps.fisher_rnd_enabled) {
+            qps.estimateFisherFromRndDeriv();
+            qps.filter();
+        }
+
+        qps.write();
+    }
+    catch (std::exception& e) {
+        LOG::LOGGER.ERR(e.what());
+        myomp::clean_fftw();
+        mympi::finalize();
+        return 1;
     }
 
-    qps.write();
     myomp::clean_fftw();
     mympi::finalize();
     return 0;
