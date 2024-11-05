@@ -160,6 +160,7 @@ void _shiftByMedianDec(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
     LOG::LOGGER.STD("Shifting quasar DECs by %.4f radians\n", median_dec);
 
     for (auto &qso : quasars) {
+        qso->angles[0] -= specifics::MIN_RA;
         qso->angles[1] -= median_dec;
         qso->cos_dec = cos(qso->angles[1]);
         qso->sin_dec = sin(qso->angles[1]);
