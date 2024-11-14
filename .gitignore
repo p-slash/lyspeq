@@ -1,5 +1,7 @@
 CMakeFiles
 cmake_install.cmake
+CTestTestfile.cmake
+DartConfiguration.tcl
 CMakeCache.txt
 .DS_Store
 *.o
