@@ -10,13 +10,18 @@ option(DEBUG "Compile with debugging options" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(COMMAND_EXE ./)
+# message(${CMAKE_SYSTEM})
+# if (APPLE)
+#     message(aplle)
+# endif()
 
 if (DEBUG)
-    add_compile_options(-g)
+    add_compile_options(-g -std=c++20)
     add_definitions(-DDEBUG)
 else()
-    add_compile_options(-O3)
+    add_compile_options(-O3 -std=c++20)
 endif()
 
 find_package(PkgConfig REQUIRED)
@@ -30,7 +35,7 @@ elseif (USE_MKL_LIB)
     add_definitions(-DUSE_MKL_CBLAS)
     pkg_check_modules(BLAS mkl REQUIRED)
 else()
-    pkg_search_module(BLAS mkl openblas atlas libsci)
+    pkg_search_module(BLAS mkl openblas atlas libsci REQUIRED)
 endif()
 
 if (BLAS_MODULE_NAME STREQUAL "mkl")
@@ -38,13 +43,14 @@ if (BLAS_MODULE_NAME STREQUAL "mkl")
 endif()
 
 if (ENABLE_OPENMP)
-    find_package(OPENMP REQUIRED)
+    find_package(OpenMP REQUIRED)
     add_definitions(-DENABLE_OMP)
 endif()
 
 if (ENABLE_MPI)
     add_definitions(-DENABLE_MPI)
-    pkg_search_module(MPI mvapich2 mpich mpi ompi)
+    pkg_check_modules(MPI ompi REQUIRED)
+    pkg_search_module(MPI mvapich2 mpich mpi ompi REQUIRED)
     set(COMMAND_EXE "mpirun -np 1 ")
     # set(MPI_SKIP_COMPILER_WRAPPER ON)
     # find_package(MPI REQUIRED)
@@ -64,7 +70,23 @@ add_definitions(-DHAVE_INLINE)
 
 pkg_check_modules(FFTW3 fftw3 REQUIRED)
 
-list(APPEND SOURCES
+add_compile_options(
+    ${OpenMP_CXX_FLAGS} ${MPI_CFLAGS} ${GSL_CFLAGS}
+    ${BLAS_CFLAGS} ${CFITSIO_CFLAGS} ${FFTW3_CFLAGS}
+)
+
+link_directories(
+    ${MPI_LIBRARY_DIRS} ${GSL_LIBRARY_DIRS} ${BLAS_LIBRARY_DIRS}
+    ${CFITSIO_LIBRARY_DIRS} ${FFTW3_LIBRARY_DIRS}
+)
+link_libraries(
+    ${OpenMP_CXX_LIB_NAMES}  ${MPI_LIBRARIES} gsl ${BLAS_LIBRARIES} ${CFITSIO_LIBRARIES}
+    ${FFTW3_LIBRARIES} m
+)
+
+include_directories(.)
+
+add_library(CoreObjLibs OBJECT
     core/global_numbers.cpp
     core/fiducial_cosmology.cpp
     mathtools/matrix_helper.cpp
@@ -87,53 +109,51 @@ list(APPEND SOURCES
     mathtools/stats.cpp
 )
 
-list(APPEND GLOBAL_SOURCES
+add_library(GlobalObjLibs OBJECT
     core/global_numbers.cpp io/config_file.cpp io/logger.cpp
     io/io_helper_functions.cpp
 )
 
-list(APPEND SQ_TABLE_SOURCES
+add_library(SqTableObjLibs OBJECT
     core/sq_table.cpp io/sq_lookup_table_file.cpp
     core/fiducial_cosmology.cpp mathtools/fourier_integrator.cpp
     mathtools/discrete_interpolation.cpp mathtools/interpolation.cpp
     mathtools/interpolation_2d.cpp
 )
 
-include_directories(.)
-
-add_compile_options(
-    ${MPI_CFLAGS} ${GSL_CFLAGS}
-    ${BLAS_CFLAGS} ${CFITSIO_CFLAGS} ${FFTW3_CFLAGS}
-)
-
-link_directories(
-    ${MPI_LIBRARY_DIRS} ${GSL_LIBRARY_DIRS} ${BLAS_LIBRARY_DIRS}
-    ${CFITSIO_LIBRARY_DIRS} ${FFTW3_LIBRARY_DIRS}
-)
-link_libraries(
-    gsl ${BLAS_LIBRARIES} ${CFITSIO_LIBRARIES} ${FFTW3_LIBRARIES} m
-    ${MPI_LIBRARIES}
+add_custom_target(print_genex
+    COMMAND ${CMAKE_COMMAND} -E echo 'Objects $<FILTER:$<TARGET_OBJECTS:CoreObjLibs>,EXCLUDE,/quadratic_estimate.cpp.o>'
 )
 
 add_executable(LyaPowerEstimate
-    LyaPowerEstimate.cpp ${SOURCES})
+    LyaPowerEstimate.cpp $<TARGET_OBJECTS:CoreObjLibs>)
 add_executable(LyaPowerxQmlExposure
-    LyaPowerxQmlExposure.cpp ${SOURCES}
+    LyaPowerxQmlExposure.cpp $<TARGET_OBJECTS:CoreObjLibs>
     cross/cross_exposure.cpp cross/one_qso_exposures.cpp)
 add_executable(CreateSQLookUpTable
-    CreateSQLookUpTable.cpp ${GLOBAL_SOURCES} ${SQ_TABLE_SOURCES})
+    CreateSQLookUpTable.cpp $<TARGET_OBJECTS:GlobalObjLibs>
+    $<TARGET_OBJECTS:SqTableObjLibs>)
+add_executable(lyspeqBootStats
+    lyspeqBootStats.cpp
+    $<FILTER:$<TARGET_OBJECTS:CoreObjLibs>,EXCLUDE,/quadratic_estimate.cpp.o>)
+
+install(TARGETS LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats
+        RUNTIME DESTINATION bin)
+install(PROGRAMS py/smbivspline.py DESTINATION bin)
 
 # Test exes
 add_executable(cblas_tests
     tests/cblas_tests.cpp tests/test_utils.cpp
     mathtools/matrix_helper.cpp mathtools/real_field.cpp
-    mathtools/discrete_interpolation.cpp)
+    mathtools/discrete_interpolation.cpp
+)
+target_compile_definitions(cblas_tests PRIVATE SRCDIR="${CMAKE_SOURCE_DIR}")
 add_executable(testSQCMatrices
-    tests/testSQCMatrices.cpp tests/test_utils.cpp ${SOURCES})
+    tests/testSQCMatrices.cpp tests/test_utils.cpp $<TARGET_OBJECTS:CoreObjLibs>)
 
-include(CTest)
-add_test(NAME TestCBLAS COMMAND cblas_tests)
-add_test(NAME TestSqMatrices COMMAND testSQCMatrices tests/input/test.config)
+enable_testing()
 file(MAKE_DIRECTORY tests/output)
-add_test(NAME TestQmle COMMAND LyaPowerEstimate tests/input/test.config)
-add_test(NAME NumericalAccuracy COMMAND python tests/compareTestResults.py .)
+add_test(NAME TestCBLAS COMMAND cblas_tests)
+add_test(NAME TestSqMatrices COMMAND testSQCMatrices tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+add_test(NAME TestQmle COMMAND LyaPowerEstimate tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+add_test(NAME NumericalAccuracy COMMAND python tests/compareTestResults.py . WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
