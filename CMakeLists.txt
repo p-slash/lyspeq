@@ -6,10 +6,18 @@ option(ENABLE_OPENMP "Enable OpenMP" ON)
 option(ENABLE_MPI "Enable MPI" ON)
 option(USE_OPENBLAS_BREW "Use OpenBlas brew" OFF)
 option(USE_MKL_LIB "Use MKL library" OFF)
+option(DEBUG "Compile with debugging options" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(COMMAND_EXE ./)
+
+if (DEBUG)
+    add_compile_options(-g)
+    add_definitions(-DDEBUG)
+else()
+    add_compile_options(-O3)
+endif()
 
 find_package(PkgConfig REQUIRED)
 
@@ -49,8 +57,11 @@ if (ENABLE_MPI)
 endif()
 
 pkg_check_modules(CFITSIO cfitsio REQUIRED)
-# message(${CFITSIO_LIBRARY_DIRS})
+
 pkg_check_modules(GSL gsl REQUIRED)
+# GSL inline definition
+add_definitions(-DHAVE_INLINE)
+
 pkg_check_modules(FFTW3 fftw3 REQUIRED)
 
 list(APPEND SOURCES
@@ -100,7 +111,7 @@ link_directories(
     ${CFITSIO_LIBRARY_DIRS} ${FFTW3_LIBRARY_DIRS}
 )
 link_libraries(
-    stdc++ gsl ${BLAS_LIBRARIES} ${CFITSIO_LIBRARIES} ${FFTW3_LIBRARIES} m
+    gsl ${BLAS_LIBRARIES} ${CFITSIO_LIBRARIES} ${FFTW3_LIBRARIES} m
     ${MPI_LIBRARIES}
 )
 
@@ -125,4 +136,4 @@ add_test(NAME TestCBLAS COMMAND cblas_tests)
 add_test(NAME TestSqMatrices COMMAND testSQCMatrices tests/input/test.config)
 file(MAKE_DIRECTORY tests/output)
 add_test(NAME TestQmle COMMAND LyaPowerEstimate tests/input/test.config)
-
+add_test(NAME NumericalAccuracy COMMAND python tests/compareTestResults.py .)
