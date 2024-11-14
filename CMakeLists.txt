@@ -22,7 +22,11 @@ elseif (USE_MKL_LIB)
     add_definitions(-DUSE_MKL_CBLAS)
     pkg_check_modules(BLAS mkl REQUIRED)
 else()
-    find_package(BLAS REQUIRED)
+    pkg_search_module(BLAS mkl openblas atlas libsci)
+endif()
+
+if (BLAS_MODULE_NAME STREQUAL "mkl")
+    add_definitions(-DUSE_MKL_CBLAS)
 endif()
 
 if (ENABLE_OPENMP)

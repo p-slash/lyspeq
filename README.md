@@ -15,6 +15,20 @@ Prerequisites
 
 Compile and Install
 =====
+CMake
+-----
+You can use cmake to create a makefile for you. You will also need PkgConfig and CMake. Create a build directory to absorb many side files cmake generates. Run cmake in this directory. Compiled files can be installed to `$HOME/bin` by passing `--prefix=$HOME`.
+
+```
+mkdir build-aux && cmake .. -DENABLE_MPI=ON -DENABLE_OPENMP=ON
+make && make test
+cd .. && cmake --install . --prefix=$HOME
+```
+
+MPI and OpenMP can be turned off by passing OFF instead.
+
+Legacy
+------
 The gcc & MKL version can be installed by `./configure x64-linux-gnu-mklxe18 && make && make install`. However, this does not enable MPI. 
 
 MPI can be enabled by passing `--enable-mpi`. 
