@@ -20,12 +20,17 @@ CMake
 You can use cmake to create a makefile for you. You will also need PkgConfig and CMake. Create a build directory to absorb many side files cmake generates. Run cmake in this directory. Compiled files can be installed to `$HOME/bin` by passing `--prefix=$HOME`.
 
 ```
-mkdir build-aux && cmake .. -DENABLE_MPI=ON -DENABLE_OPENMP=ON
-make && make test
-cd .. && cmake --install . --prefix=$HOME
+mkdir build-aux && cd build-aux
+cmake .. && cmake --build .
+cmake --install . --prefix=$HOME
 ```
 
-MPI and OpenMP can be turned off by passing OFF instead.
+MPI and OpenMP can be turned off by passing `-DENABLE_MPI=OFF -DENABLE_OPENMP=OFF` instead. You can pass a custom C++ compiler to cmake as follows `CXX=g++-14 cmake --build ..`. For example, on MacOS, I use the following:
+```
+CC=gcc-14 CXX=g++-14 cmake  -DCMAKE_SYSTEM_NAME=LINUX .. -DUSE_OPENBLAS_BREW=ON
+CC=gcc-14  CXX=g++-14 cmake --build .
+ctest .
+```
 
 Legacy
 ------
