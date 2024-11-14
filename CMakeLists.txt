@@ -49,7 +49,7 @@ endif()
 
 if (ENABLE_MPI)
     add_definitions(-DENABLE_MPI)
-    pkg_search_module(MPI mvapich2 mpich mpi ompi REQUIRED)
+    pkg_search_module(MPI mvapich mpich mpi ompi REQUIRED)
     set(COMMAND_EXE "mpirun -np 1 ")
     # set(MPI_SKIP_COMPILER_WRAPPER ON)
     # find_package(MPI REQUIRED)
