@@ -120,8 +120,8 @@ function set_prebuild_system()
             CBLAS_DIR="/opt/homebrew/opt/openblas"
             FFTW_ROOT="/opt/homebrew/opt/fftw"
             ;;
-        arm-macos-gcc13-openblas )
-            CXX="g++-13"
+        arm-macos-gcc14-openblas )
+            CXX="g++-14"
             CFITSIO_DIR="/opt/homebrew/opt/cfitsio"
             CBLAS_DIR="/opt/homebrew/opt/openblas"
             FFTW_ROOT="/opt/homebrew/opt/fftw"
