@@ -25,7 +25,7 @@ const config_map qu3d_default_parameters ({
     {"EstimateTotalBias", "1"}, {"EstimateNoiseBias", "1"},
     {"EstimateFisherFromRandomDerivatives", "-1"},
     {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"},
-    {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}
+    {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""}
 });
 
 
@@ -59,6 +59,8 @@ class Qu3DEstimator
     void _setupMesh(double radius);
     void _constructMap();
     void _findNeighbors();
+    void _saveNeighbors();
+    void _readNeighbors(const std::string &neighbors_file);
     void _createRmatFiles(const std::string &prefix);
 
     bool _syncMonteCarlo(int nmc, double *o1, double *o2,
