@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.10)
-
+cmake_minimum_required(VERSION 3.13)
+enable_testing()
 project(lyspeq)
 
 option(ENABLE_OPENMP "Enable OpenMP" ON)
@@ -25,6 +25,10 @@ else()
 endif()
 
 find_package(PkgConfig REQUIRED)
+if (ENABLE_OPENMP)
+    find_package(OpenMP REQUIRED)
+    add_definitions(-DENABLE_OMP)
+endif()
 
 if (USE_OPENBLAS_BREW)
     # set(ENV{CMAKE_PREFIX_PATH} "/opt/homebrew/opt/openblas")
@@ -33,18 +37,14 @@ if (USE_OPENBLAS_BREW)
     pkg_check_modules(BLAS openblas REQUIRED)
 elseif (USE_MKL_LIB)
     add_definitions(-DUSE_MKL_CBLAS)
-    pkg_check_modules(BLAS mkl REQUIRED)
+    find_package(MKL CONFIG REQUIRED PATHS $ENV{MKLROOT})
+    message(STATUS "Imported oneMKL targets: ${MKL_IMPORTED_TARGETS}")
 else()
-    pkg_search_module(BLAS mkl openblas atlas libsci REQUIRED)
+    pkg_search_module(BLAS openblas atlas libsci REQUIRED)
 endif()
 
 if (BLAS_MODULE_NAME STREQUAL "mkl")
     add_definitions(-DUSE_MKL_CBLAS)
-endif()
-
-if (ENABLE_OPENMP)
-    find_package(OpenMP REQUIRED)
-    add_definitions(-DENABLE_OMP)
 endif()
 
 if (ENABLE_MPI)
@@ -79,8 +79,8 @@ link_directories(
     ${CFITSIO_LIBRARY_DIRS} ${FFTW3_LIBRARY_DIRS}
 )
 link_libraries(
-    ${OpenMP_CXX_LIB_NAMES}  ${MPI_LIBRARIES} gsl ${BLAS_LIBRARIES} ${CFITSIO_LIBRARIES}
-    ${FFTW3_LIBRARIES} m
+    stdc++ ${OpenMP_CXX_LIB_NAMES}  ${MPI_LIBRARIES} gsl ${BLAS_LIBRARIES}
+    ${CFITSIO_LIBRARIES} ${FFTW3_LIBRARIES} m
 )
 
 include_directories(.)
@@ -135,11 +135,6 @@ add_executable(CreateSQLookUpTable
 add_executable(lyspeqBootStats
     lyspeqBootStats.cpp
     $<FILTER:$<TARGET_OBJECTS:CoreObjLibs>,EXCLUDE,/quadratic_estimate.cpp.o>)
-
-install(TARGETS LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats
-        RUNTIME DESTINATION bin)
-install(PROGRAMS py/smbivspline.py DESTINATION bin)
-
 # Test exes
 add_executable(cblas_tests
     tests/cblas_tests.cpp tests/test_utils.cpp
@@ -150,7 +145,20 @@ target_compile_definitions(cblas_tests PRIVATE SRCDIR="${CMAKE_SOURCE_DIR}")
 add_executable(testSQCMatrices
     tests/testSQCMatrices.cpp tests/test_utils.cpp $<TARGET_OBJECTS:CoreObjLibs>)
 
-enable_testing()
+if (USE_MKL_LIB)
+    foreach(X IN ITEMS LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats cblas_tests testSQCMatrices)
+        target_compile_options(${X} PUBLIC
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+        target_include_directories(${X} PUBLIC
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+        target_link_libraries(${X} PUBLIC $<LINK_ONLY:MKL::MKL>)
+    endforeach()
+endif()
+
+install(TARGETS LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats
+        RUNTIME DESTINATION bin)
+install(PROGRAMS py/smbivspline.py DESTINATION bin)
+
 file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/output)
 add_test(NAME TestCBLAS COMMAND cblas_tests)
 add_test(NAME TestSqMatrices COMMAND testSQCMatrices tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
