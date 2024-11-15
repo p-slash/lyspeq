@@ -32,6 +32,14 @@ CC=gcc-14  CXX=g++-14 cmake --build .
 ctest .
 ```
 
+**MKL specifics:** Here are some [instructions](https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2025-0/cmake-config-for-onemkl.html).
+
+```
+cmake .. -DCMAKE_C_COMPILER=icc -DCMAKE_CXX_COMPILER=icx -DUSE_MKL_LIB=ON
+cmake --build .
+ctest .
+```
+
 Legacy
 ------
 The gcc & MKL version can be installed by `./configure x64-linux-gnu-mklxe18 && make && make install`. However, this does not enable MPI. 
