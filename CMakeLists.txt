@@ -108,22 +108,16 @@ include_directories(.)
 # Object libraries
 # ================
 
+add_library(GlobalObjLibs OBJECT
+    core/global_numbers.cpp io/config_file.cpp io/logger.cpp
+    io/io_helper_functions.cpp
+)
+
 add_library(CoreObjLibs OBJECT
-    core/global_numbers.cpp
-    core/fiducial_cosmology.cpp
     mathtools/matrix_helper.cpp
     core/one_qso_estimate.cpp
     core/quadratic_estimate.cpp
-    core/sq_table.cpp
-    mathtools/discrete_interpolation.cpp
-    mathtools/fourier_integrator.cpp
-    mathtools/interpolation.cpp
-    mathtools/interpolation_2d.cpp
-    io/config_file.cpp
-    io/io_helper_functions.cpp
     io/qso_file.cpp
-    io/sq_lookup_table_file.cpp
-    io/logger.cpp
     mathtools/real_field.cpp
     core/chunk_estimate.cpp
     mathtools/smoother.cpp
@@ -134,11 +128,6 @@ target_link_libraries(CoreObjLibs PUBLIC
     OpenMP::OpenMP_CXX MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
     MY_FFTW3_INTERFACE GSL::gsl MPI::MPI_CXX)
 
-add_library(GlobalObjLibs OBJECT
-    core/global_numbers.cpp io/config_file.cpp io/logger.cpp
-    io/io_helper_functions.cpp
-)
-
 add_library(SqTableObjLibs OBJECT
     core/sq_table.cpp io/sq_lookup_table_file.cpp
     core/fiducial_cosmology.cpp mathtools/fourier_integrator.cpp
@@ -146,6 +135,14 @@ add_library(SqTableObjLibs OBJECT
     mathtools/interpolation_2d.cpp
 )
 target_link_libraries(SqTableObjLibs PUBLIC OpenMP::OpenMP_CXX GSL::gsl MPI::MPI_CXX)
+
+add_library(AllObjLibs INTERFACE)
+target_sources(AllObjLibs INTERFACE
+    $<TARGET_OBJECTS:GlobalObjLibs> $<TARGET_OBJECTS:CoreObjLibs>
+    $<TARGET_OBJECTS:SqTableObjLibs>)
+target_link_libraries(AllObjLibs INTERFACE
+    OpenMP::OpenMP_CXX MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
+    MY_FFTW3_INTERFACE GSL::gsl MPI::MPI_CXX)
 
 # custom target to test filtering. Usage: cmake --build . --target print_genex
 add_custom_target(print_genex
@@ -157,18 +154,18 @@ add_custom_target(print_genex
 # ===========
 
 add_executable(LyaPowerEstimate LyaPowerEstimate.cpp)
-target_link_libraries(LyaPowerEstimate PRIVATE CoreObjLibs)
+target_link_libraries(LyaPowerEstimate PRIVATE AllObjLibs)
 
 add_executable(LyaPowerxQmlExposure
     LyaPowerxQmlExposure.cpp cross/cross_exposure.cpp cross/one_qso_exposures.cpp)
-target_link_libraries(LyaPowerxQmlExposure PRIVATE CoreObjLibs)
+target_link_libraries(LyaPowerxQmlExposure PRIVATE AllObjLibs)
 
 add_executable(CreateSQLookUpTable CreateSQLookUpTable.cpp)
 target_link_libraries(CreateSQLookUpTable PRIVATE GlobalObjLibs SqTableObjLibs)
 
 add_executable(lyspeqBootStats lyspeqBootStats.cpp)
 #    $<FILTER:$<TARGET_OBJECTS:CoreObjLibs>,EXCLUDE,/quadratic_estimate.cpp.o>)
-target_link_libraries(lyspeqBootStats PRIVATE CoreObjLibs)
+target_link_libraries(lyspeqBootStats PRIVATE AllObjLibs)
 
 ## ---------
 ## Test exes
@@ -184,7 +181,7 @@ target_link_libraries(cblas_tests PUBLIC
     OpenMP::OpenMP_CXX MY_BLAS_INTERFACE GSL::gsl MY_FFTW3_INTERFACE)
 
 add_executable(testSQCMatrices tests/testSQCMatrices.cpp tests/test_utils.cpp)
-target_link_libraries(testSQCMatrices PRIVATE CoreObjLibs)
+target_link_libraries(testSQCMatrices PRIVATE AllObjLibs)
 
 # ===========
 # Installation
