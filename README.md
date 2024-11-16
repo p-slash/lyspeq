@@ -27,7 +27,7 @@ cmake --install . --prefix=$HOME
 
 MPI and OpenMP can be turned off by passing `-DENABLE_MPI=OFF -DENABLE_OPENMP=OFF` instead. You can pass a custom C++ compiler to cmake as follows:
 ```
-cmake -DCMAKE_SYSTEM_NAME=LINUX .. -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 -DUSE_OPENBLAS_BREW=ON
+cmake .. -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 -DUSE_OPENBLAS_BREW=ON
 cmake --build . -j 3
 ctest .
 ```
@@ -39,6 +39,19 @@ This example also uses the option to locate OpenBLAS library installed by homebr
 cmake .. -DUSE_MKL_LIB=ON
 cmake --build .
 ctest .
+```
+**OSC Instructions (Intel)**:
+```
+module load fftw gsl intel-oneapi-mkl cmake
+cmake .. -DUSE_MKL_LIB=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
+cmake --build -j 2
+```
+
+**OSC Instructions (GNU)**:
+```
+module load gcc fftw gsl intel-oneapi-mkl cmake
+cmake .. -DUSE_MKL_LIB=ON
+cmake --build -j 2
 ```
 
 Legacy
