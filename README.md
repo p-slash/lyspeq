@@ -21,21 +21,22 @@ You can use cmake to create a makefile for you. You will also need PkgConfig and
 
 ```
 mkdir build-aux && cd build-aux
-cmake .. && cmake --build .
+cmake .. && cmake --build . -j 2
 cmake --install . --prefix=$HOME
 ```
 
-MPI and OpenMP can be turned off by passing `-DENABLE_MPI=OFF -DENABLE_OPENMP=OFF` instead. You can pass a custom C++ compiler to cmake as follows `CXX=g++-14 cmake --build ..`. For example, on MacOS, I use the following:
+MPI and OpenMP can be turned off by passing `-DENABLE_MPI=OFF -DENABLE_OPENMP=OFF` instead. You can pass a custom C++ compiler to cmake as follows:
 ```
-CC=gcc-14 CXX=g++-14 cmake  -DCMAKE_SYSTEM_NAME=LINUX .. -DUSE_OPENBLAS_BREW=ON
-CC=gcc-14  CXX=g++-14 cmake --build .
+cmake -DCMAKE_SYSTEM_NAME=LINUX .. -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 -DUSE_OPENBLAS_BREW=ON
+cmake --build . -j 3
 ctest .
 ```
+This example also uses the option to locate OpenBLAS library installed by homebrew on MacOS.
 
 **MKL specifics:** Here are some [instructions](https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2025-0/cmake-config-for-onemkl.html).
 
 ```
-cmake .. -DCMAKE_C_COMPILER=icc -DCMAKE_CXX_COMPILER=icx -DUSE_MKL_LIB=ON
+cmake .. -DUSE_MKL_LIB=ON
 cmake --build .
 ctest .
 ```
