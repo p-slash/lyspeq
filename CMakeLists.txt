@@ -34,13 +34,13 @@ if (USE_OPENBLAS_BREW)
     # set(ENV{CMAKE_PREFIX_PATH} "/opt/homebrew/opt/openblas")
     # set(BLA_VENDOR OpenBLAS)
     set(ENV{PKG_CONFIG_PATH} "/opt/homebrew/opt/openblas/lib/pkgconfig")
-    pkg_check_modules(BLAS openblas REQUIRED)
+    pkg_check_modules(BLAS REQUIRED openblas)
 elseif (USE_MKL_LIB)
     add_definitions(-DUSE_MKL_CBLAS)
     find_package(MKL CONFIG REQUIRED PATHS $ENV{MKLROOT})
     message(STATUS "Imported oneMKL targets: ${MKL_IMPORTED_TARGETS}")
 else()
-    pkg_search_module(BLAS openblas atlas libsci REQUIRED)
+    pkg_search_module(BLAS REQUIRED openblas atlas libsci)
 endif()
 
 if (BLAS_MODULE_NAME STREQUAL "mkl")
@@ -49,7 +49,7 @@ endif()
 
 if (ENABLE_MPI)
     add_definitions(-DENABLE_MPI)
-    pkg_search_module(MPI mvapich mpich mpi ompi REQUIRED)
+    pkg_search_module(MPI REQUIRED mvapich mpich mpi ompi)
     set(COMMAND_EXE "mpirun -np 1 ")
     # set(MPI_SKIP_COMPILER_WRAPPER ON)
     # find_package(MPI REQUIRED)
@@ -61,13 +61,13 @@ if (ENABLE_MPI)
     # set(MPI_LINKS_MINE mpi)
 endif()
 
-pkg_check_modules(CFITSIO cfitsio REQUIRED)
+pkg_check_modules(CFITSIO REQUIRED cfitsio)
 
-pkg_check_modules(GSL gsl REQUIRED)
+pkg_check_modules(GSL REQUIRED gsl)
 # GSL inline definition
 add_definitions(-DHAVE_INLINE)
 
-pkg_check_modules(FFTW3 fftw3 REQUIRED)
+pkg_check_modules(FFTW3 REQUIRED fftw3)
 
 add_compile_options(
     ${OpenMP_CXX_FLAGS} ${MPI_CFLAGS} ${GSL_CFLAGS}
