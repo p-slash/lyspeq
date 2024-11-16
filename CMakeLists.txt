@@ -95,6 +95,13 @@ add_definitions(-DHAVE_INLINE)
 
 pkg_check_modules(FFTW3 REQUIRED fftw3)
 add_library(MY_FFTW3_INTERFACE INTERFACE)
+if (ENABLE_OPENMP)
+    find_library(FFTW3_DOUBLE_OPENMP_LIB fftw3_omp REQUIRED
+        PATHS ${PKG_FFTW3_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
+    )
+    set(FFTW3_LIBRARIES "fftw3_omp;${FFTW3_LIBRARIES}")
+endif()
+
 target_compile_options(MY_FFTW3_INTERFACE INTERFACE ${FFTW3_CFLAGS})
 target_link_directories(MY_FFTW3_INTERFACE INTERFACE ${FFTW3_LIBRARY_DIRS})
 target_link_libraries(MY_FFTW3_INTERFACE INTERFACE ${FFTW3_LIBRARIES})
@@ -108,8 +115,12 @@ include_directories(.)
 # Object libraries
 # ================
 
+add_library(GlobalObjLibs OBJECT
+    core/global_numbers.cpp io/config_file.cpp io/logger.cpp
+    io/io_helper_functions.cpp
+)
+
 add_library(CoreObjLibs OBJECT
-    core/global_numbers.cpp
     core/fiducial_cosmology.cpp
     mathtools/matrix_helper.cpp
     core/one_qso_estimate.cpp
@@ -119,11 +130,8 @@ add_library(CoreObjLibs OBJECT
     mathtools/fourier_integrator.cpp
     mathtools/interpolation.cpp
     mathtools/interpolation_2d.cpp
-    io/config_file.cpp
-    io/io_helper_functions.cpp
     io/qso_file.cpp
     io/sq_lookup_table_file.cpp
-    io/logger.cpp
     mathtools/real_field.cpp
     core/chunk_estimate.cpp
     mathtools/smoother.cpp
@@ -134,11 +142,6 @@ target_link_libraries(CoreObjLibs PUBLIC
     OpenMP::OpenMP_CXX MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
     MY_FFTW3_INTERFACE GSL::gsl MPI::MPI_CXX)
 
-add_library(GlobalObjLibs OBJECT
-    core/global_numbers.cpp io/config_file.cpp io/logger.cpp
-    io/io_helper_functions.cpp
-)
-
 add_library(SqTableObjLibs OBJECT
     core/sq_table.cpp io/sq_lookup_table_file.cpp
     core/fiducial_cosmology.cpp mathtools/fourier_integrator.cpp
@@ -146,6 +149,17 @@ add_library(SqTableObjLibs OBJECT
     mathtools/interpolation_2d.cpp
 )
 target_link_libraries(SqTableObjLibs PUBLIC OpenMP::OpenMP_CXX GSL::gsl MPI::MPI_CXX)
+
+add_library(Qu3dObjLibs OBJECT
+    qu3d/optimal_qu3d.cpp qu3d/cosmology_3d.cpp
+    mathtools/real_field.cpp mathtools/real_field_3d.cpp
+    mathtools/matrix_helper.cpp mathtools/interpolation.cpp
+    mathtools/interpolation_2d.cpp mathtools/discrete_interpolation.cpp
+    mathtools/stats.cpp mathtools/smoother.cpp mathtools/fftlog.cpp
+    io/qso_file.cpp)
+target_link_libraries(Qu3dObjLibs PUBLIC
+    OpenMP::OpenMP_CXX MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
+    MY_FFTW3_INTERFACE GSL::gsl MPI::MPI_CXX)
 
 # custom target to test filtering. Usage: cmake --build . --target print_genex
 add_custom_target(print_genex
@@ -157,18 +171,21 @@ add_custom_target(print_genex
 # ===========
 
 add_executable(LyaPowerEstimate LyaPowerEstimate.cpp)
-target_link_libraries(LyaPowerEstimate PRIVATE CoreObjLibs)
+target_link_libraries(LyaPowerEstimate PRIVATE GlobalObjLibs CoreObjLibs)
 
 add_executable(LyaPowerxQmlExposure
     LyaPowerxQmlExposure.cpp cross/cross_exposure.cpp cross/one_qso_exposures.cpp)
-target_link_libraries(LyaPowerxQmlExposure PRIVATE CoreObjLibs)
+target_link_libraries(LyaPowerxQmlExposure PRIVATE GlobalObjLibs CoreObjLibs)
+
+add_executable(LyaPower3DEstimate)
+target_link_libraries(LyaPower3DEstimate PRIVATE GlobalObjLibs Qu3dObjLibs)
 
 add_executable(CreateSQLookUpTable CreateSQLookUpTable.cpp)
 target_link_libraries(CreateSQLookUpTable PRIVATE GlobalObjLibs SqTableObjLibs)
 
 add_executable(lyspeqBootStats lyspeqBootStats.cpp)
 #    $<FILTER:$<TARGET_OBJECTS:CoreObjLibs>,EXCLUDE,/quadratic_estimate.cpp.o>)
-target_link_libraries(lyspeqBootStats PRIVATE CoreObjLibs)
+target_link_libraries(lyspeqBootStats PRIVATE GlobalObjLibs CoreObjLibs)
 
 ## ---------
 ## Test exes
@@ -184,7 +201,7 @@ target_link_libraries(cblas_tests PUBLIC
     OpenMP::OpenMP_CXX MY_BLAS_INTERFACE GSL::gsl MY_FFTW3_INTERFACE)
 
 add_executable(testSQCMatrices tests/testSQCMatrices.cpp tests/test_utils.cpp)
-target_link_libraries(testSQCMatrices PRIVATE CoreObjLibs)
+target_link_libraries(testSQCMatrices PRIVATE GlobalObjLibs CoreObjLibs)
 
 # ===========
 # Installation
