@@ -11,16 +11,24 @@ option(DEBUG "Compile with debugging options" OFF)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(gcc_like_cxx "$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU,LCC>")
+set(intel_like_cxx "$<COMPILE_LANG_AND_ID:CXX,Intel,IntelLLVM>")
+
 # message(${CMAKE_SYSTEM})
 # if (APPLE)
 #     message(aplle)
 # endif()
 
+add_compile_options(-std=c++20)
+
 if (DEBUG)
-    add_compile_options(-g -std=c++20)
+    add_compile_options(-g)
     add_definitions(-DDEBUG)
 else()
-    add_compile_options(-O3 -std=c++20)
+    add_compile_options(
+        "$<${gcc_like_cxx}:-O3;-march=native>"
+        "$<${intel_like_cxx}:-O3;-xHost>"
+    )
 endif()
 
 find_package(PkgConfig REQUIRED)
@@ -76,21 +84,24 @@ if (ENABLE_MPI)
 endif()
 
 pkg_check_modules(CFITSIO REQUIRED cfitsio)
+add_library(MY_FITSIO_INTERFACE INTERFACE)
+target_compile_options(MY_FITSIO_INTERFACE INTERFACE ${CFITSIO_CFLAGS})
+target_link_directories(MY_FITSIO_INTERFACE INTERFACE ${CFITSIO_LIBRARY_DIRS})
+target_link_libraries(MY_FITSIO_INTERFACE INTERFACE ${CFITSIO_LIBRARIES})
 
 find_package(GSL REQUIRED)
 # GSL inline definition
 add_definitions(-DHAVE_INLINE)
 
 pkg_check_modules(FFTW3 REQUIRED fftw3)
+add_library(MY_FFTW3_INTERFACE INTERFACE)
+target_compile_options(MY_FFTW3_INTERFACE INTERFACE ${FFTW3_CFLAGS})
+target_link_directories(MY_FFTW3_INTERFACE INTERFACE ${FFTW3_LIBRARY_DIRS})
+target_link_libraries(MY_FFTW3_INTERFACE INTERFACE ${FFTW3_LIBRARIES})
 
 # =======================
 # Compile options for all
 # =======================
-
-add_compile_options(${CFITSIO_CFLAGS} ${FFTW3_CFLAGS})
-link_directories(${CFITSIO_LIBRARY_DIRS} ${FFTW3_LIBRARY_DIRS})
-link_libraries(stdc++ ${CFITSIO_LIBRARIES} ${FFTW3_LIBRARIES} m)
-
 include_directories(.)
 
 # ================
@@ -119,7 +130,9 @@ add_library(CoreObjLibs OBJECT
     io/bootstrap_file.cpp
     mathtools/stats.cpp
 )
-target_link_libraries(CoreObjLibs PUBLIC OpenMP::OpenMP_CXX MY_BLAS_INTERFACE GSL::gsl MPI::MPI_CXX)
+target_link_libraries(CoreObjLibs PUBLIC
+    OpenMP::OpenMP_CXX MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
+    MY_FFTW3_INTERFACE GSL::gsl MPI::MPI_CXX)
 
 add_library(GlobalObjLibs OBJECT
     core/global_numbers.cpp io/config_file.cpp io/logger.cpp
@@ -167,7 +180,8 @@ add_executable(cblas_tests
     mathtools/discrete_interpolation.cpp
 )
 target_compile_definitions(cblas_tests PRIVATE SRCDIR="${CMAKE_SOURCE_DIR}")
-target_link_libraries(cblas_tests PUBLIC OpenMP::OpenMP_CXX MY_BLAS_INTERFACE GSL::gsl)
+target_link_libraries(cblas_tests PUBLIC
+    OpenMP::OpenMP_CXX MY_BLAS_INTERFACE GSL::gsl MY_FFTW3_INTERFACE)
 
 add_executable(testSQCMatrices tests/testSQCMatrices.cpp tests/test_utils.cpp)
 target_link_libraries(testSQCMatrices PRIVATE CoreObjLibs)
