@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.18)
 enable_testing()
 project(lyspeq)
 
@@ -11,7 +11,6 @@ option(DEBUG "Compile with debugging options" OFF)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(COMMAND_EXE ./)
 # message(${CMAKE_SYSTEM})
 # if (APPLE)
 #     message(aplle)
@@ -30,29 +29,44 @@ if (ENABLE_OPENMP)
     add_definitions(-DENABLE_OMP)
 endif()
 
+# =======================
+# Create a BLAS interface 
+# =======================
+
+add_library(MY_BLAS_INTERFACE INTERFACE)
 if (USE_OPENBLAS_BREW)
     # set(ENV{CMAKE_PREFIX_PATH} "/opt/homebrew/opt/openblas")
     # set(BLA_VENDOR OpenBLAS)
     set(ENV{PKG_CONFIG_PATH} "/opt/homebrew/opt/openblas/lib/pkgconfig")
     pkg_check_modules(BLAS REQUIRED openblas)
+
+    target_compile_options(MY_BLAS_INTERFACE INTERFACE ${BLAS_CFLAGS})
+    target_link_directories(MY_BLAS_INTERFACE INTERFACE ${BLAS_LIBRARY_DIRS})
+    target_link_libraries(MY_BLAS_INTERFACE INTERFACE ${BLAS_LIBRARIES})
 elseif (USE_MKL_LIB)
     add_definitions(-DUSE_MKL_CBLAS)
     find_package(MKL CONFIG REQUIRED PATHS $ENV{MKLROOT})
     message(STATUS "Imported oneMKL targets: ${MKL_IMPORTED_TARGETS}")
+
+    target_compile_options(MY_BLAS_INTERFACE INTERFACE
+        $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+    target_include_directories(MY_BLAS_INTERFACE INTERFACE
+        $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+    target_link_libraries(MY_BLAS_INTERFACE INTERFACE $<LINK_ONLY:MKL::MKL>)
 else()
-    pkg_search_module(BLAS REQUIRED openblas atlas libsci)
+    find_package(BLAS REQUIRED)
+    target_link_libraries(MY_BLAS_INTERFACE INTERFACE BLAS::BLAS)
 endif()
 
-if (BLAS_MODULE_NAME STREQUAL "mkl")
-    add_definitions(-DUSE_MKL_CBLAS)
-endif()
-
+# ===
+# MPI
+# ===
 if (ENABLE_MPI)
     add_definitions(-DENABLE_MPI)
-    pkg_search_module(MPI REQUIRED mvapich mpich mpi ompi)
-    set(COMMAND_EXE "mpirun -np 1 ")
+    # pkg_search_module(MPI REQUIRED mvapich mpich mpi ompi)
+    # set(COMMAND_EXE "mpirun -np 1 ")
     # set(MPI_SKIP_COMPILER_WRAPPER ON)
-    # find_package(MPI REQUIRED)
+    find_package(MPI REQUIRED)
     # message(${MPI_VERSION})
     # message("com opt" ${MPI_COMPILE_OPTIONS})
     # message("include dir" ${MPI_INCLUDE_DIRS})
@@ -63,27 +77,25 @@ endif()
 
 pkg_check_modules(CFITSIO REQUIRED cfitsio)
 
-pkg_check_modules(GSL REQUIRED gsl)
+find_package(GSL REQUIRED)
 # GSL inline definition
 add_definitions(-DHAVE_INLINE)
 
 pkg_check_modules(FFTW3 REQUIRED fftw3)
 
-add_compile_options(
-    ${OpenMP_CXX_FLAGS} ${MPI_CFLAGS} ${GSL_CFLAGS}
-    ${BLAS_CFLAGS} ${CFITSIO_CFLAGS} ${FFTW3_CFLAGS}
-)
+# =======================
+# Compile options for all
+# =======================
 
-link_directories(
-    ${MPI_LIBRARY_DIRS} ${GSL_LIBRARY_DIRS} ${BLAS_LIBRARY_DIRS}
-    ${CFITSIO_LIBRARY_DIRS} ${FFTW3_LIBRARY_DIRS}
-)
-link_libraries(
-    stdc++ ${OpenMP_CXX_LIB_NAMES}  ${MPI_LIBRARIES} gsl ${BLAS_LIBRARIES}
-    ${CFITSIO_LIBRARIES} ${FFTW3_LIBRARIES} m
-)
+add_compile_options(${CFITSIO_CFLAGS} ${FFTW3_CFLAGS})
+link_directories(${CFITSIO_LIBRARY_DIRS} ${FFTW3_LIBRARY_DIRS})
+link_libraries(stdc++ ${CFITSIO_LIBRARIES} ${FFTW3_LIBRARIES} m)
 
 include_directories(.)
+
+# ================
+# Object libraries
+# ================
 
 add_library(CoreObjLibs OBJECT
     core/global_numbers.cpp
@@ -107,6 +119,7 @@ add_library(CoreObjLibs OBJECT
     io/bootstrap_file.cpp
     mathtools/stats.cpp
 )
+target_link_libraries(CoreObjLibs PUBLIC OpenMP::OpenMP_CXX MY_BLAS_INTERFACE GSL::gsl MPI::MPI_CXX)
 
 add_library(GlobalObjLibs OBJECT
     core/global_numbers.cpp io/config_file.cpp io/logger.cpp
@@ -119,46 +132,56 @@ add_library(SqTableObjLibs OBJECT
     mathtools/discrete_interpolation.cpp mathtools/interpolation.cpp
     mathtools/interpolation_2d.cpp
 )
+target_link_libraries(SqTableObjLibs PUBLIC OpenMP::OpenMP_CXX GSL::gsl MPI::MPI_CXX)
 
+# custom target to test filtering. Usage: cmake --build . --target print_genex
 add_custom_target(print_genex
     COMMAND ${CMAKE_COMMAND} -E echo 'Objects $<FILTER:$<TARGET_OBJECTS:CoreObjLibs>,EXCLUDE,/quadratic_estimate.cpp.o>'
 )
 
-add_executable(LyaPowerEstimate
-    LyaPowerEstimate.cpp $<TARGET_OBJECTS:CoreObjLibs>)
+# ===========
+# Executables
+# ===========
+
+add_executable(LyaPowerEstimate LyaPowerEstimate.cpp)
+target_link_libraries(LyaPowerEstimate PRIVATE CoreObjLibs)
+
 add_executable(LyaPowerxQmlExposure
-    LyaPowerxQmlExposure.cpp $<TARGET_OBJECTS:CoreObjLibs>
-    cross/cross_exposure.cpp cross/one_qso_exposures.cpp)
-add_executable(CreateSQLookUpTable
-    CreateSQLookUpTable.cpp $<TARGET_OBJECTS:GlobalObjLibs>
-    $<TARGET_OBJECTS:SqTableObjLibs>)
-add_executable(lyspeqBootStats
-    lyspeqBootStats.cpp
-    $<FILTER:$<TARGET_OBJECTS:CoreObjLibs>,EXCLUDE,/quadratic_estimate.cpp.o>)
-# Test exes
+    LyaPowerxQmlExposure.cpp cross/cross_exposure.cpp cross/one_qso_exposures.cpp)
+target_link_libraries(LyaPowerxQmlExposure PRIVATE CoreObjLibs)
+
+add_executable(CreateSQLookUpTable CreateSQLookUpTable.cpp)
+target_link_libraries(CreateSQLookUpTable PRIVATE GlobalObjLibs SqTableObjLibs)
+
+add_executable(lyspeqBootStats lyspeqBootStats.cpp)
+#    $<FILTER:$<TARGET_OBJECTS:CoreObjLibs>,EXCLUDE,/quadratic_estimate.cpp.o>)
+target_link_libraries(lyspeqBootStats PRIVATE CoreObjLibs)
+
+## ---------
+## Test exes
+## ---------
+
 add_executable(cblas_tests
     tests/cblas_tests.cpp tests/test_utils.cpp
     mathtools/matrix_helper.cpp mathtools/real_field.cpp
     mathtools/discrete_interpolation.cpp
 )
 target_compile_definitions(cblas_tests PRIVATE SRCDIR="${CMAKE_SOURCE_DIR}")
-add_executable(testSQCMatrices
-    tests/testSQCMatrices.cpp tests/test_utils.cpp $<TARGET_OBJECTS:CoreObjLibs>)
+target_link_libraries(cblas_tests PUBLIC OpenMP::OpenMP_CXX MY_BLAS_INTERFACE GSL::gsl)
 
-if (USE_MKL_LIB)
-    foreach(X IN ITEMS LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats cblas_tests testSQCMatrices)
-        target_compile_options(${X} PUBLIC
-            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
-        target_include_directories(${X} PUBLIC
-            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
-        target_link_libraries(${X} PUBLIC $<LINK_ONLY:MKL::MKL>)
-    endforeach()
-endif()
+add_executable(testSQCMatrices tests/testSQCMatrices.cpp tests/test_utils.cpp)
+target_link_libraries(testSQCMatrices PRIVATE CoreObjLibs)
 
+# ===========
+# Installation
+# ===========
 install(TARGETS LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats
         RUNTIME DESTINATION bin)
 install(PROGRAMS py/smbivspline.py DESTINATION bin)
 
+# ===========
+# Testing
+# ===========
 file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/output)
 add_test(NAME TestCBLAS COMMAND cblas_tests)
 add_test(NAME TestSqMatrices COMMAND testSQCMatrices tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
