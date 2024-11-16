@@ -15,6 +15,47 @@ Prerequisites
 
 Compile and Install
 =====
+CMake
+-----
+You can use cmake to create a makefile for you. You will also need PkgConfig and CMake. Create a build directory to absorb many side files cmake generates. Run cmake in this directory. Compiled files can be installed to `$HOME/bin` by passing `--prefix=$HOME`.
+
+```
+mkdir build-aux && cd build-aux
+cmake .. && cmake --build . -j 2
+cmake --install . --prefix=$HOME
+```
+
+MPI and OpenMP can be turned off by passing `-DENABLE_MPI=OFF -DENABLE_OPENMP=OFF` instead. You can pass a custom C++ compiler to cmake as follows:
+```
+cmake .. -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 -DUSE_OPENBLAS_BREW=ON
+cmake --build . -j 3
+ctest .
+```
+This example also uses the option to locate OpenBLAS library installed by homebrew on MacOS.
+
+**MKL specifics:** Here are some [instructions](https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2025-0/cmake-config-for-onemkl.html).
+
+```
+cmake .. -DUSE_MKL_LIB=ON
+cmake --build .
+ctest .
+```
+**OSC Instructions (Intel)**:
+```
+module load fftw gsl intel-oneapi-mkl cmake
+cmake .. -DUSE_MKL_LIB=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
+cmake --build -j 2
+```
+
+**OSC Instructions (GNU)**:
+```
+module load gcc fftw gsl intel-oneapi-mkl cmake
+cmake .. -DUSE_MKL_LIB=ON
+cmake --build -j 2
+```
+
+Legacy
+------
 The gcc & MKL version can be installed by `./configure x64-linux-gnu-mklxe18 && make && make install`. However, this does not enable MPI. 
 
 MPI can be enabled by passing `--enable-mpi`. 
