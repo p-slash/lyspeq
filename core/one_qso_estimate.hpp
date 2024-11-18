@@ -31,7 +31,7 @@ public:
     OneQSOEstimate(const OneQSOEstimate &rhs) = delete;
 
     static std::vector<int> decideIndices(int size);
-    static double getComputeTimeEst(std::string fname_qso, int &zbin);
+    static double getComputeTimeEst(std::string fname_qso, int &zbin, long &targetid);
 
     // Pass fit values for the power spectrum for numerical stability
     void oneQSOiteration(
