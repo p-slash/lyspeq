@@ -105,7 +105,8 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
         _readPrecomputedFisher(config.get("PrecomputedFisher").c_str());
 
     std::string flist  = config.get("FileNameList"),
-                findir = config.get("FileInputDir");
+                findir = config.get("FileInputDir"),
+                fname_t2ig = config.get("Targetids2Ignore");
 
     if (flist.empty())
         throw std::invalid_argument("Must pass FileNameList.");
@@ -117,7 +118,8 @@ std::vector<std::string>
 OneDQuadraticPowerEstimate::_readQSOFiles()
 {
     std::string flist  = config.get("FileNameList"),
-                findir = config.get("FileInputDir");
+                findir = config.get("FileInputDir"),
+                fname_t2ig = config.get("Targetids2Ignore");
     if (findir.back() != '/')
         findir += '/';
 
@@ -132,6 +134,14 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
     // Add parent directory to file path
     for (auto &fq : filepaths)
         fq.insert(0, findir);
+
+    std::vector<long> targetid_to_remove;
+    if (!fname_t2ig.empty()) {
+        ioh::readList(fname_t2ig.c_str(), targetid_to_remove, false);
+        LOG::LOGGER.STD("Reading TARGETIDs to remove. There are %zu items.\n",
+                        targetid_to_remove.size());
+        std::sort(targetid_to_remove.begin(), targetid_to_remove.end());
+    }
 
     // Each PE reads a different section of files
     // They sort individually, then merge in pairs
@@ -151,8 +161,13 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
     for (int findex = fstart_this; findex < fend_this; ++findex)
     {
         int zbin;
-        double cpu_t_temp = OneQSOEstimate::getComputeTimeEst(filepaths[findex], 
-            zbin);
+        long targetid;
+        double cpu_t_temp = OneQSOEstimate::getComputeTimeEst(
+            filepaths[findex], zbin, targetid);
+
+        if (std::binary_search(targetid_to_remove.cbegin(), targetid_to_remove.cend(), targetid)) {
+            zbin = -1; cpu_t_temp = 0;
+        }
 
         ++Z_BIN_COUNTS[zbin+1];
 
