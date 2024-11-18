@@ -10,15 +10,15 @@
 
 constexpr double SAFE_ZERO = 1E-300;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 2E2, KMAX_HALO = 1.5,
-                 LNKMIN = log(KMIN), LNKMAX = log(KMAX);
+constexpr double KMIN = 1E-6, KMAX = 2E2, KMAX_HALO = 1.5;
+const double LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
 
 /* Fitted to astropy Planck18.nu_relative_density function based on
    Komatsu et al. 2011, eq 26
 */
-constexpr double _nu_relative_density(
+double _nu_relative_density(
         double z1, double A=0.3173, double nu_y0=357.91212097,
         double p=1.83, double invp=0.54644808743,
         double nmassless=2, double B=0.23058962986246165
@@ -295,7 +295,7 @@ double ArinyoP3DModel::getSpectroWindow2(double kz) const {
 
 void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
     constexpr int nlnk = 6001;
-    constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1);
+    const double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1);
     double powers_kz[nlnk], powers_kperp[nlnk];
 
     std::function<double(double)> eval_ls_supp;
@@ -328,7 +328,7 @@ void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
 
 void ArinyoP3DModel::_cacheInterp2D() {
     constexpr double dlnk = 0.02;
-    constexpr int N = ceil((LNKMAX - LNKMIN) / dlnk);
+    const int N = ceil((LNKMAX - LNKMIN) / dlnk);
     auto lnP_L = std::make_unique<double[]>(N * N),
          lnP_S = std::make_unique<double[]>(N * N);
 
@@ -398,8 +398,8 @@ double ArinyoP3DModel::evalP3dL(double k, int l) const {
 
 void ArinyoP3DModel::_construcP1D() {
     constexpr int nlnk = 10001;
-    constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1), dlnk2 = 0.02;
-    constexpr int nlnk2 = ceil((LNKMAX - LNKMIN) / dlnk2);
+    const double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1), dlnk2 = 0.02;
+    const int nlnk2 = ceil((LNKMAX - LNKMIN) / dlnk2);
     double p1d_integrand[nlnk], p1d[nlnk2];
 
     for (int i = 0; i < nlnk2; ++i) {
@@ -424,7 +424,7 @@ void ArinyoP3DModel::_construcP1D() {
        Truncating 1e-4--1e4 logspaced array of 1536 points by 190 on each end,
        gives approximately 1e-3--1e3 Mpc span. */
     constexpr int Nhankel = 2048, ltrunc = 512, rtrunc = 512;
-    constexpr double log2_e = log2(exp(1.0)), SQRT_2PI = sqrt(2.0 * MY_PI);
+    const double log2_e = log2(exp(1.0)), SQRT_2PI = sqrt(2.0 * MY_PI);
 
     FFTLog fht_z(Nhankel);
     fht_z.construct(-0.5, KMIN, 1 / KMIN, -0.25, 0);
@@ -496,7 +496,7 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
 void ArinyoP3DModel::_calcMultipoles() {
     constexpr int nmu = 501;
     constexpr double dmu = 1.0 / (nmu - 1), dlnk = 0.02;
-    constexpr int nlnk = ceil((LNKMAX - LNKMIN) / dlnk);
+    const int nlnk = ceil((LNKMAX - LNKMIN) / dlnk);
     double p3d_l_integrand[nmu], p3d_l[nlnk];
 
     for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++l) {
@@ -565,7 +565,7 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
 
 void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     constexpr int nlnk = 502, nlnk2 = nlnk * nlnk;
-    constexpr double dlnk = (LNKMAX - LNKMIN) / (nlnk - 2);
+    const double dlnk = (LNKMAX - LNKMIN) / (nlnk - 2);
     double karr[nlnk], pmarr[nlnk2];
 
     interp_p->write(out);

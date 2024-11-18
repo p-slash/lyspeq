@@ -75,14 +75,14 @@ public:
         }
 
         constexpr double MY_2PI = 2.0 * MY_PI;
-        constexpr double NORM = MY_2PI * sqrt(MY_2PI);
+        const double NORM = MY_2PI * sqrt(MY_2PI);
         for (int i = 0; i < Nres * Nres; ++i)
             result[i] /= NORM;
 
         if (smoother)
             smoother->smooth1D(result.get(), Nres, Nres, true);
 
-        constexpr double log2_e = log2(exp(1.0));
+        const double log2_e = log2(exp(1.0));
         if (return_log_interp)
             return std::make_unique<T>(
                 log2(fht_z->k[ltrunc]), log2_e * fht_z->getDLn(),
