@@ -207,7 +207,7 @@ target_link_libraries(testSQCMatrices PRIVATE AllObjLibs)
 # ===========
 # Installation
 # ===========
-install(TARGETS LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats
+install(TARGETS LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats LyaPower3DEstimate
         RUNTIME DESTINATION bin)
 install(PROGRAMS py/smbivspline.py DESTINATION bin)
 
