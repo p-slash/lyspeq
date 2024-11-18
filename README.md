@@ -44,14 +44,14 @@ ctest .
 ```
 module load fftw gsl intel-oneapi-mkl cmake
 cmake .. -DUSE_MKL_LIB=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
-cmake --build -j 2
+cmake --build . -j 2
 ```
 
 **OSC Instructions (GNU)**:
 ```
 module load gcc fftw gsl intel-oneapi-mkl cmake
 cmake .. -DUSE_MKL_LIB=ON
-cmake --build -j 2
+cmake --build . -j 2
 ```
 
 Legacy
