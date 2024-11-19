@@ -544,19 +544,56 @@ void Qu3DEstimator::_saveNeighbors() {
 }
 
 void Qu3DEstimator::_readNeighbors(const std::string &neighbors_file) {
+    double t1 = mytime::timer.getTime(), t2 = 0;
+    int status = 0, hdutype;
+    fitsfile *fits_file = nullptr;
+    long nrows;
+
     std::unordered_map<long, const CosmicQuasar*> targetid_pointer_map;
     std::unordered_map<long, std::vector<long>> targetid_neighbors_map;
     for (const auto &qso : quasars)
         targetid_pointer_map[qso->qFile->id] = qso.get();
 
-    int status = 0, hdutype, nrows;
-    fitsfile *fits_file = nullptr;
-    fits_open_file(&fits_file, neighbors_file.c_str(), READONLY, &status);
-    fits_movabs_hdu(fits_file, 1, &hdutype, &status);
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+    fits_open_extlist(&fits_file, neighbors_file.c_str(), READONLY,
+                     "NEIGHBORS", &hdutype, &status);
+    #pragma GCC diagnostic pop
+
+    ioh::checkFitsStatus(status);
     if (hdutype != BINARY_TBL)
         throw std::runtime_error("HDU type is not BINARY!");
+
     fits_get_num_rows(fits_file, &nrows, &status);
-    
+    for (long i = 1; i <= nrows; ++i) {
+        long nelem = 0, offset, targetid;
+        fits_read_col(fits_file, TLONGLONG, 1, i, 1, 1,
+                      nullptr, &targetid, nullptr, &status);
+        fits_read_descript(fits_file, 2, i, &nelem, &offset, &status);
+        // printf("targetid, nelem, offset: %ld, %ld, %ld\n",
+        //        targetid, nelem, offset);
+        if (nelem == 0)  continue;
+
+        targetid_neighbors_map[targetid].resize(nelem);
+        fits_read_col(fits_file, TLONGLONG, 2, i, 1, nelem,
+                      nullptr, targetid_neighbors_map[targetid].data(),
+                      nullptr, &status);
+    }
+    fits_close_file(fits_file, &status);
+    ioh::checkFitsStatus(status);
+
+    double mean_num_neighbors = 0;
+    for (auto &qso : quasars) {
+        for (const long &t : targetid_neighbors_map[qso->qFile->id])
+            qso->neighbors.insert(targetid_pointer_map[t]);
+        mean_num_neighbors += qso->neighbors.size();
+    }
+
+    mean_num_neighbors /= quasars.size();
+    t2 = mytime::timer.getTime();
+    LOG::LOGGER.STD(
+        "_readNeighbors took %.2f m. Average number of neighbors: %.3f\n",
+        t2 - t1, mean_num_neighbors);
 }
 
 
