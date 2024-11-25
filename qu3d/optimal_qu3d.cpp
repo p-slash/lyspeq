@@ -485,6 +485,115 @@ void Qu3DEstimator::_findNeighbors() {
 
     if (mean_num_neighbors == 0)
         throw std::runtime_error("No neighbors detected even though PP is enabled.");
+
+    _saveNeighbors();
+}
+
+
+void Qu3DEstimator::_saveNeighbors() {
+    if (mympi::this_pe != 0)
+        mympi::barrier();
+
+    int status = 0;
+    fitsfile *fits_file = nullptr;
+
+    std::string out_fname = "!" + process::FNAME_BASE + "-quasar-neighbors.fits";
+
+    /* define the name, datatype, and physical units for columns */
+    int ncolumns = 2;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+    char *column_names[] = {"TARGETID", "NEIGHBORS"};
+    char *column_types[] = {"1K", "1PK"};
+    char *column_units[] = { "", ""};
+    #pragma GCC diagnostic pop
+
+    fits_create_file(&fits_file, out_fname.c_str(), &status);
+    fits_create_tbl(
+        fits_file, BINARY_TBL, quasars.size(), ncolumns, column_names, column_types,
+        column_units, "NEIGHBORS", &status);
+    ioh::checkFitsStatus(status);
+
+    // fits_write_key(
+    //     fits_file, TDOUBLE, "RA", &qso->angles[0], nullptr, &status);
+    // fits_write_key(
+    //     fits_file, TDOUBLE, "DEC", &qso->angles[1], nullptr, &status);
+    // fits_write_key(
+    //     fits_file, TDOUBLE, "MEAN_SNR", &qso->qFile->snr, nullptr, &status);
+    // fits_write_key(fits_file, TINT, "NUM_NEIG", &nmbrs, nullptr, &status);
+
+    int irow = 1;
+    for (const auto &qso : quasars) {
+        int n = qso->neighbors.size(), i = 0;
+        if (n == 0)
+            continue;
+        auto nbrs = std::make_unique<long[]>(n);
+        for (const CosmicQuasar* q : qso->neighbors) {
+            nbrs[i] = q->qFile->id;  ++i;
+        }
+        fits_write_col(fits_file, TLONGLONG, 1, irow, 1, 1, &qso->qFile->id, &status);
+        fits_write_col(fits_file, TLONGLONG, 2, irow, 1, n, nbrs.get(), &status);
+        ioh::checkFitsStatus(status);
+        ++irow;
+    }
+    fits_close_file(fits_file, &status);
+    ioh::checkFitsStatus(status);
+
+    mympi::barrier();
+    LOG::LOGGER.STD("Neighbors cache saved as %s\n", out_fname.c_str());
+}
+
+void Qu3DEstimator::_readNeighbors(const std::string &neighbors_file) {
+    double t1 = mytime::timer.getTime(), t2 = 0;
+    int status = 0, hdutype;
+    fitsfile *fits_file = nullptr;
+    long nrows;
+
+    std::unordered_map<long, const CosmicQuasar*> targetid_pointer_map;
+    std::unordered_map<long, std::vector<long>> targetid_neighbors_map;
+    for (const auto &qso : quasars)
+        targetid_pointer_map[qso->qFile->id] = qso.get();
+
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+    fits_open_extlist(&fits_file, neighbors_file.c_str(), READONLY,
+                     "NEIGHBORS", &hdutype, &status);
+    #pragma GCC diagnostic pop
+
+    ioh::checkFitsStatus(status);
+    if (hdutype != BINARY_TBL)
+        throw std::runtime_error("HDU type is not BINARY!");
+
+    fits_get_num_rows(fits_file, &nrows, &status);
+    for (long i = 1; i <= nrows; ++i) {
+        long nelem = 0, offset, targetid;
+        fits_read_col(fits_file, TLONGLONG, 1, i, 1, 1,
+                      nullptr, &targetid, nullptr, &status);
+        fits_read_descript(fits_file, 2, i, &nelem, &offset, &status);
+        // printf("targetid, nelem, offset: %ld, %ld, %ld\n",
+        //        targetid, nelem, offset);
+        if (nelem == 0)  continue;
+
+        targetid_neighbors_map[targetid].resize(nelem);
+        fits_read_col(fits_file, TLONGLONG, 2, i, 1, nelem,
+                      nullptr, targetid_neighbors_map[targetid].data(),
+                      nullptr, &status);
+    }
+    fits_close_file(fits_file, &status);
+    ioh::checkFitsStatus(status);
+
+    double mean_num_neighbors = 0;
+    for (auto &qso : quasars) {
+        for (const long &t : targetid_neighbors_map[qso->qFile->id])
+            qso->neighbors.insert(targetid_pointer_map[t]);
+        mean_num_neighbors += qso->neighbors.size();
+    }
+
+    mean_num_neighbors /= quasars.size();
+    t2 = mytime::timer.getTime();
+    LOG::LOGGER.STD(
+        "_readNeighbors took %.2f m. Average number of neighbors: %.3f\n",
+        t2 - t1, mean_num_neighbors);
 }
 
 
@@ -643,8 +752,12 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     _setupMesh(radius);
     _constructMap();
     radius *= rscale_factor;
-    if (pp_enabled)
-        _findNeighbors();
+
+    std::string neighbors_file = config.get("NeighborsCache");
+    if (pp_enabled) {
+        if (neighbors_file.empty())  _findNeighbors();
+        else  _readNeighbors(neighbors_file);
+    }
 
     if (CONT_MARG_ENABLED)
         _createRmatFiles(unique_prefix);
