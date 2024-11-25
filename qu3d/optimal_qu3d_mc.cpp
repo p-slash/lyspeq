@@ -415,6 +415,7 @@ void Qu3DEstimator::estimateNoiseBiasMc() {
 
 
 void Qu3DEstimator::drawRndDeriv(int i) {
+    double t1 = mytime::timer.getTime();
     int imu = i / bins::NUMBER_OF_K_BANDS,
         ik = i % bins::NUMBER_OF_K_BANDS;
 
@@ -427,6 +428,13 @@ void Qu3DEstimator::drawRndDeriv(int i) {
     default: legendre_w = std::bind(legendre, std::placeholders::_1, 2 * imu);
     }
 
+    double kmin = std::max(bins::KBAND_CENTERS[ik] - DK_BIN,
+                           bins::KBAND_EDGES[0]),
+           kmax = std::min(bins::KBAND_CENTERS[ik] + DK_BIN,
+                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
+    bool is_last_k_bin = ik == (bins::NUMBER_OF_K_BANDS - 1),
+         is_first_k_bin = ik == 0;
+
     #pragma omp parallel for
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
@@ -434,12 +442,31 @@ void Qu3DEstimator::drawRndDeriv(int i) {
         std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
 
         double kperp = mesh.getKperpFromIperp(jxy);
-        if (kperp >= bins::KBAND_EDGES[ik + 1])
-            continue;
-        else if (kperp < specifics::MIN_KERP)
+
+        if (kperp >= kmax || kperp < specifics::MIN_KERP)
             continue;
 
-        double kmin = sqrt(std::max(
+        kperp *= kperp;
+        for (size_t jz = 0; jz < mesh.ngrid_kz; ++jz) {
+            double kz = jz * mesh.k_fund[2],
+                   kt = sqrt(kz * kz + kperp) + 1e-300,
+                   alpha;
+            if (kt < kmin)  continue;
+            else if (kt >= kmax)  break;
+
+            if (is_last_k_bin && (kt > bins::KBAND_CENTERS[ik]))
+                alpha = 1.0;
+            else if (is_first_k_bin && (kt < bins::KBAND_CENTERS[ik]))
+                alpha = 1.0;
+            else
+                alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+
+            alpha *= legendre_w(kz / kt) * p3d_model->getSpectroWindow2(kz);
+            mesh.field_k[jj + jz] =
+                mesh.invsqrtcellvol * alpha * mesh_rnd.field_k[jj + jz]; 
+        }
+
+        /* double kmin = sqrt(std::max(
             0.0, bins::KBAND_EDGES[ik] * bins::KBAND_EDGES[ik] - kperp * kperp));
         double kmax = sqrt(std::max(
             0.0, bins::KBAND_EDGES[ik + 1] * bins::KBAND_EDGES[ik + 1] - kperp * kperp));
@@ -453,7 +480,7 @@ void Qu3DEstimator::drawRndDeriv(int i) {
             kmin = sqrt(kmin) + 1e-300; kmax /= kmin;
             mesh.field_k[jj + zz] =
                 mesh.invsqrtcellvol * mesh_rnd.field_k[jj + zz] * legendre_w(kmax);
-        }
+        } */
     }
 
     mesh.fftK2X();
@@ -469,6 +496,9 @@ void Qu3DEstimator::drawRndDeriv(int i) {
         for (auto &qso : quasars)
             qso->interpMesh2TruthIsig(mesh);
     #endif
+
+    ++timings["drawRndDeriv"].first;
+    timings["drawRndDeriv"].second += mytime::timer.getTime() - t1;
 }
 
 
@@ -483,10 +513,11 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
     4. Reverse interpolate to mesh.
     5. Multiply with Qk' on mesh.
     */
-    LOG::LOGGER.STD("Estimating Fisher.\n");
+    LOG::LOGGER.STD("Estimating Fisher with random C,k.\n");
     verbose = false;
     mc1 = std::make_unique<double[]>(bins::FISHER_SIZE);
     mc2 = std::make_unique<double[]>(bins::FISHER_SIZE);
+    timings["drawRndDeriv"] = std::make_pair(0, 0.0);
 
     /* Create another mesh to store random numbers. This way, randoms are
        generated once, and FFTd once. This grid can perform in-place FFTs,
@@ -500,7 +531,11 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
     */
 
     // max_monte_carlos = 5;
-    Progress prog_tracker(max_monte_carlos * NUMBER_OF_P_BANDS, 5);
+    tolerance = 0.1;
+    LOG::LOGGER.STD("  Using tolerance %lf.\n", tolerance);
+    // max_conj_grad_steps = 1;
+    // LOG::LOGGER.STD("  Using MaxConjGradSteps %d.\n", max_conj_grad_steps);
+    Progress prog_tracker(max_monte_carlos, 5);
     int nmc = 1;
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
@@ -514,12 +549,14 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
             /* calculate C^-1 . qk into in */
             conjugateGradientDescent();
             /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
-            multiplyDerivVectors(
-                mc1.get() + i * NUMBER_OF_P_BANDS,
-                mc2.get() + i * NUMBER_OF_P_BANDS);
-
-            ++prog_tracker;
+            multiplyDerivVectors(mc1.get() + i * NUMBER_OF_P_BANDS,
+                                 mc2.get() + i * NUMBER_OF_P_BANDS);
         }
+
+        ++prog_tracker;
+
+        // if ((nmc % 5 != 0) && (nmc != max_monte_carlos))
+        //     continue;
 
         converged = _syncMonteCarlo(
             nmc, fisher.get(), covariance.get(), bins::FISHER_SIZE, "2FISHER");
