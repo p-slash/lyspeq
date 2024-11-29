@@ -43,7 +43,7 @@ class Qu3DEstimator
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     std::unique_ptr<std::seed_seq> seed_generator;
     std::unique_ptr<ioh::Qu3dFile> result_file, convergence_file;
-    RealField3D mesh, mesh_rnd;
+    RealField3D mesh, mesh_rnd, mesh_fh;
 
     std::unique_ptr<double[]>
         mc1, mc2, mesh_z1_values,
@@ -88,8 +88,9 @@ public:
     void estimateNoiseBiasMc();
     void estimateTotalBiasMc();
     void testHSqrt();
-    void drawRndDeriv(int i);
     void estimateFisherFromRndDeriv();
+    void multiplyFisherDerivs(double *o1, double *o2);
+    void estimateFisherDirect();
 
     // These functions are in extra.cpp
     /* This is called only for small-scale direct multiplication. */
@@ -103,15 +104,23 @@ public:
     // These are in original source file
     void multMeshComp();
     void multParticleComp();
+    // from mesh_rnd to *truth
+    void multDerivMatrixVec(int i);
     /* Multiply each quasar's *in pointer and save to *out pointer.
        (I + N^-1/2 S N^-1/2) z = out */
     void multiplyCovVector();
-    void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr);
+    void multiplyDerivVectors(
+        double *o1, double *o2, double *lout, const RealField3D &other);
+    void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr) {
+        multiplyDerivVectors(o1, o2, lout, mesh);
+    };
 
     /* Reverse interopates qso->in onto the mesh */
-    void reverseInterpolate();
+    void reverseInterpolate(RealField3D &m);
+    /* Reverse interopates qso->in times G^1/2(z) onto the mesh */
+    void reverseInterpolateZ(RealField3D &m);
     /* Reverse interopates qso->in x qso->isig onto the mesh */
-    void reverseInterpolateIsig();
+    void reverseInterpolateIsig(RealField3D &m);
     double updateY(double residual_norm2);
     /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
     where y = N^-1/2 z and m = truth = N^-1/2 delta. Then get y if z2y=true.

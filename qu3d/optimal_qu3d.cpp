@@ -760,15 +760,14 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         qso->transformZ1toG(p3d_model.get());
 }
 
-void Qu3DEstimator::reverseInterpolate() {
+void Qu3DEstimator::reverseInterpolate(RealField3D &m) {
     double dt = mytime::timer.getTime();
-    mesh.zero_field_x();
+    m.zero_field_x();
 
     #pragma omp parallel for num_threads(RINTERP_NTHREADS)
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            mesh.reverseInterpolateCIC(
-                qso->r.get() + 3 * i, qso->in[i]);
+            m.reverseInterpolateCIC(qso->r.get() + 3 * i, qso->in[i]);
     }
 
     dt = mytime::timer.getTime() - dt;
@@ -777,14 +776,14 @@ void Qu3DEstimator::reverseInterpolate() {
 }
 
 
-void Qu3DEstimator::reverseInterpolateZ() {
+void Qu3DEstimator::reverseInterpolateZ(RealField3D &m) {
     double dt = mytime::timer.getTime();
-    mesh.zero_field_x();
+    m.zero_field_x();
 
     #pragma omp parallel for num_threads(RINTERP_NTHREADS)
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            mesh.reverseInterpolateCIC(
+            m.reverseInterpolateCIC(
                 qso->r.get() + 3 * i, qso->in[i] * qso->z1[i]);
     }
 
@@ -794,15 +793,14 @@ void Qu3DEstimator::reverseInterpolateZ() {
 }
 
 
-void Qu3DEstimator::reverseInterpolateIsig() {
+void Qu3DEstimator::reverseInterpolateIsig(RealField3D &m) {
     double dt = mytime::timer.getTime();
-    mesh.zero_field_x();
+    m.zero_field_x();
 
     #pragma omp parallel for num_threads(RINTERP_NTHREADS)
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            mesh.reverseInterpolateCIC(
-                qso->r.get() + 3 * i, qso->in_isig[i]);
+            m.reverseInterpolateCIC(qso->r.get() + 3 * i, qso->in_isig[i]);
     }
 
     dt = mytime::timer.getTime() - dt;
@@ -814,7 +812,7 @@ void Qu3DEstimator::reverseInterpolateIsig() {
 void Qu3DEstimator::multMeshComp() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
-    reverseInterpolateIsig();
+    reverseInterpolateIsig(mesh);
     mesh.convolvePk(p3d_model->interp2d_pL);
 
     double dt = mytime::timer.getTime();
@@ -1107,7 +1105,66 @@ endconjugateGradientDescent:
     timings["CGD"].second += dt;
 }
 
-void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
+
+void Qu3DEstimator::multDerivMatrixVec(int i) {
+    double t1 = mytime::timer.getTime();
+    int imu = i / bins::NUMBER_OF_K_BANDS,
+        ik = i % bins::NUMBER_OF_K_BANDS;
+
+    double kmin = std::max(bins::KBAND_CENTERS[ik] - DK_BIN,
+                           bins::KBAND_EDGES[0]),
+           kmax = std::min(bins::KBAND_CENTERS[ik] + DK_BIN,
+                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
+    bool is_last_k_bin = ik == (bins::NUMBER_OF_K_BANDS - 1),
+         is_first_k_bin = ik == 0;
+
+    #pragma omp parallel for schedule(dynamic, 4)
+    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+        size_t jj = mesh.ngrid_kz * jxy;
+
+        std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
+
+        double kperp = mesh.getKperpFromIperp(jxy);
+
+        if (kperp >= kmax || kperp < specifics::MIN_KERP)
+            continue;
+
+        kperp *= kperp;
+        for (size_t jz = 0; jz < mesh.ngrid_kz; ++jz) {
+            double kz = jz * mesh.k_fund[2],
+                   kt = sqrt(kz * kz + kperp) + 1e-300,
+                   alpha;
+            if (kt < kmin)  continue;
+            else if (kt >= kmax)  break;
+
+            if (is_last_k_bin && (kt > bins::KBAND_CENTERS[ik]))
+                alpha = 1.0;
+            else if (is_first_k_bin && (kt < bins::KBAND_CENTERS[ik]))
+                alpha = 1.0;
+            else
+                alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+
+            alpha *= legendre(2 * imu, kz / kt)
+                     * p3d_model->getSpectroWindow2(kz);
+            mesh.field_k[jj + jz] =
+                mesh.invsqrtcellvol * alpha * mesh_rnd.field_k[jj + jz]; 
+        }
+    }
+
+    mesh.fftK2X();
+
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        qso->interpMesh2TruthIsig(mesh);
+
+    ++timings["mDerivMatVec"].first;
+    timings["mDerivMatVec"].second += mytime::timer.getTime() - t1;
+}
+
+
+void Qu3DEstimator::multiplyDerivVectors(
+        double *o1, double *o2, double *lout, const RealField3D &other
+) {
     /* Adds current results into o1 (+=). If o2 is nullptr, the operations is
        directly performed on o1. Otherwise, current results first saved into
        a local array, then o1 += lout, and o2 += lout * lout.
@@ -1122,7 +1179,7 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
     double dt = mytime::timer.getTime();
 
     /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
-    reverseInterpolate();
+    reverseInterpolateZ(mesh);
     mesh.rawFftX2K();
 
     if (lout == nullptr)
@@ -1143,7 +1200,8 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
 
         size_t jj = mesh.ngrid_kz * jxy;
         if (kperp >= bins::KBAND_EDGES[0]) {  // mu = 0
-            temp = std::norm(mesh.field_k[jj]);
+            temp = mesh.field_k[jj].real() * other.field_k[jj].real()
+                   + mesh.field_k[jj].imag() * other.field_k[jj].imag();
             temp2 = (1.0 - fabs(kperp - bins::KBAND_CENTERS[ik]) / DK_BIN);
             temp3 = temp * (1.0 - temp2);
             temp *= temp2;
@@ -1183,8 +1241,10 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
             ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
             mu = kz / kt;
 
-            temp = 2.0 * std::norm(mesh.field_k[k + jj])
-                   * p3d_model->getSpectroWindow2(kz);
+            temp = 2.0 * (
+                mesh.field_k[k + jj].real() * other.field_k[k + jj].real()
+                + mesh.field_k[k + jj].imag() * other.field_k[k + jj].imag()
+                ) * p3d_model->getSpectroWindow2(kz);
             temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
             temp3 = temp * (1.0 - temp2);
             temp *= temp2;
