@@ -485,17 +485,9 @@ void Qu3DEstimator::drawRndDeriv(int i) {
 
     mesh.fftK2X();
 
-    #ifdef COARSE_INTERP
-        #pragma omp parallel for
-        for (auto &qso : quasars) {
-            qso->interpMesh2Coarse(mesh);
-            qso->interpNgpCoarse2TruthIsig();
-        }
-    #else
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            qso->interpMesh2TruthIsig(mesh);
-    #endif
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        qso->interpMesh2TruthIsig(mesh);
 
     ++timings["drawRndDeriv"].first;
     timings["drawRndDeriv"].second += mytime::timer.getTime() - t1;
