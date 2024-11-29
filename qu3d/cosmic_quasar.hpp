@@ -37,6 +37,7 @@ namespace specifics {
 
 #if M_LOS > 1
 #define COARSE_INTERP
+#error "Coarse interpolation deprecated."
 #endif
 
 namespace specifics {
@@ -55,13 +56,13 @@ private:
     double _quasar_dist;
 public:
     std::unique_ptr<qio::QSOFile> qFile;
-    int N, coarse_N, fidx;
+    int N, fidx;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth, *in_isig, *sc_eta;
     double cos_dec, sin_dec;
-    std::unique_ptr<float[]> r, coarse_r;
-    std::unique_ptr<double[]> y, Cy, residual, search, coarse_in, y_isig,
+    std::unique_ptr<float[]> r;
+    std::unique_ptr<double[]> y, Cy, residual, search, y_isig,
                               sod_cinv_eta;
 
     std::set<size_t> grid_indices;
@@ -70,7 +71,7 @@ public:
 
     CosmicQuasar(const qio::PiccaFile *pf, int hdunum) {
         qFile = std::make_unique<qio::QSOFile>(pf, hdunum);
-        N = 0;  coarse_N = 0;
+        N = 0;
 
         qFile->readParameters();
 
@@ -141,12 +142,6 @@ public:
         search = std::make_unique<double[]>(N);
         sod_cinv_eta = std::make_unique<double[]>(N);
 
-        #ifdef COARSE_INTERP
-            coarse_N = N / M_LOS;
-            coarse_N += N % M_LOS != 0;
-            coarse_r = std::make_unique<float[]>(3 * coarse_N);
-            coarse_in = std::make_unique<double[]>(coarse_N);
-        #endif
         // Convert to inverse sigma and weight deltas
         for (int i = 0; i < N; ++i) {
             isig[i] = sqrt(isig[i]);
@@ -301,64 +296,6 @@ public:
         for (int i = 0; i < N; ++i)
             truth[i] = isig[i] * z1[i] * mesh.interpolate(r.get() + 3 * i);
     }
-
-    #ifdef COARSE_INTERP
-        void setCoarseComovingDistances() {
-            for (int i = 0; i < N; ++i) {
-                int j = i / M_LOS;
-                coarse_r[0 + 3 * j] += r[0 + 3 * i];
-                coarse_r[1 + 3 * j] += r[1 + 3 * i];
-                coarse_r[2 + 3 * j] += r[2 + 3 * i];
-            }
-
-            int rem = N % M_LOS;
-            if (rem == 0) {
-                cblas_sscal(3 * coarse_N, 1.0 / M_LOS, coarse_r.get(), 1);
-            }
-            else{
-                cblas_sscal(3 * coarse_N - 3, 1.0 / M_LOS, coarse_r.get(), 1);
-                cblas_sscal(3, 1.0 / rem, coarse_r.get() + 3 * coarse_N - 3, 1);
-            }
-        }
-
-        void coarseGrainIn() {
-            std::fill_n(coarse_in.get(), coarse_N, 0);
-            for (int i = 0; i < N; ++i)
-                coarse_in[i / M_LOS] += in[i] * z1[i];
-        }
-
-        void coarseGrainInIsig() {
-            std::fill_n(coarse_in.get(), coarse_N, 0);
-            for (int i = 0; i < N; ++i)
-                coarse_in[i / M_LOS] += in_isig[i];
-        }
-
-        void interpMesh2Coarse(const RealField3D &mesh) {
-            for (int i = 0; i < coarse_N; ++i)
-                coarse_in[i] = mesh.interpolate(coarse_r.get() + 3 * i);
-        }
-
-        void interpNgpCoarse2Out() {
-            for (int i = 0; i < N; ++i)
-                out[i] = coarse_in[i / M_LOS];
-        }
-
-        void interpNgpCoarse2TruthIsig() {
-            for (int i = 0; i < N; ++i)
-                truth[i] = isig[i] * z1[i] * coarse_in[i / M_LOS];
-        }
-
-        void interpLinCoarseIsig() {
-            for (int i = 0; i < N; ++i) {
-                int I = std::min(coarse_N - 2, std::max(0, (i - M_LOS / 2) / M_LOS));
-                double m =
-                    (coarse_in[I + 1] - coarse_in[I])
-                    / (coarse_r[3 * I + 5] - coarse_r[3 * I + 2]);
-                double y = coarse_in[I] + m * (r[3 * i + 2] - coarse_r[3 * I + 2]);
-                out[i] += isig[i] * y;
-            }
-        }
-    #endif
 
     /* overwrite qFile->delta */
     void fillRngNoise(MyRNG &rng) {
