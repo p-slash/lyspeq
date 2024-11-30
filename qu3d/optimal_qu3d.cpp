@@ -1187,6 +1187,17 @@ void Qu3DEstimator::multiplyDerivVectors(
 
     std::fill_n(lout, NUMBER_OF_P_BANDS, 0);
 
+    std::function<double(size_t)> my_norm;
+    if (&other == &mesh) {
+        my_norm = [this](size_t jj) { return std::norm(mesh.field_k[jj]); };
+    }
+    else {
+        my_norm = [this, &other](size_t jj) {
+            return mesh.field_k[jj].real() * other.field_k[jj].real()
+               + mesh.field_k[jj].imag() * other.field_k[jj].imag();
+        };
+    }
+
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS]) \
                              schedule(dynamic, 4)
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
@@ -1201,8 +1212,7 @@ void Qu3DEstimator::multiplyDerivVectors(
 
         size_t jj = mesh.ngrid_kz * jxy;
         if (kperp >= bins::KBAND_EDGES[0]) {  // mu = 0
-            temp = mesh.field_k[jj].real() * other.field_k[jj].real()
-                   + mesh.field_k[jj].imag() * other.field_k[jj].imag();
+            temp = my_norm(jj);
             temp2 = (1.0 - fabs(kperp - bins::KBAND_CENTERS[ik]) / DK_BIN);
             temp3 = temp * (1.0 - temp2);
             temp *= temp2;
@@ -1244,10 +1254,7 @@ void Qu3DEstimator::multiplyDerivVectors(
             ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
             mu = kz / kt;
 
-            temp = 2.0 * (
-                mesh.field_k[k + jj].real() * other.field_k[k + jj].real()
-                + mesh.field_k[k + jj].imag() * other.field_k[k + jj].imag()
-                ) * p3d_model->getSpectroWindow2(kz);
+            temp = 2.0 * my_norm(k + jj) * p3d_model->getSpectroWindow2(kz);
             temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
             temp3 = temp * (1.0 - temp2);
             temp *= temp2;
