@@ -23,7 +23,8 @@ const config_map qu3d_default_parameters ({
     {"LongScale", "50"}, {"ScaleFactor", "4"},
     {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"},
     {"EstimateTotalBias", "1"}, {"EstimateNoiseBias", "1"},
-    {"EstimateFisherFromRandomDerivatives", "-1"},
+    // {"EstimateFisherFromRandomDerivatives", "-1"},
+    {"estimateFisherDirectly", "-1"},
     {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"},
     {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""}
 });
@@ -43,7 +44,7 @@ class Qu3DEstimator
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     std::unique_ptr<std::seed_seq> seed_generator;
     std::unique_ptr<ioh::Qu3dFile> result_file, convergence_file;
-    RealField3D mesh, mesh_rnd;
+    RealField3D mesh, mesh_rnd, mesh_fh;
 
     std::unique_ptr<double[]>
         mc1, mc2, mesh_z1_values,
@@ -68,7 +69,7 @@ class Qu3DEstimator
 
 public:
     bool total_bias_enabled, noise_bias_enabled, fisher_rnd_enabled,
-         max_eval_enabled;
+         fisher_direct_enabled, max_eval_enabled;
 
     /* This function reads following keys from config file:
     FileNameList: string
@@ -88,8 +89,9 @@ public:
     void estimateNoiseBiasMc();
     void estimateTotalBiasMc();
     void testHSqrt();
-    void drawRndDeriv(int i);
     void estimateFisherFromRndDeriv();
+    void multiplyFisherDerivs(double *o1, double *o2);
+    void estimateFisherDirect();
 
     // These functions are in extra.cpp
     /* This is called only for small-scale direct multiplication. */
@@ -103,15 +105,23 @@ public:
     // These are in original source file
     void multMeshComp();
     void multParticleComp();
+    // from mesh_rnd to *truth
+    void multDerivMatrixVec(int i);
     /* Multiply each quasar's *in pointer and save to *out pointer.
        (I + N^-1/2 S N^-1/2) z = out */
     void multiplyCovVector();
-    void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr);
+    void multiplyDerivVectors(
+        double *o1, double *o2, double *lout, const RealField3D &other);
+    void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr) {
+        multiplyDerivVectors(o1, o2, lout, mesh);
+    };
 
     /* Reverse interopates qso->in onto the mesh */
-    void reverseInterpolate();
+    void reverseInterpolate(RealField3D &m);
+    /* Reverse interopates qso->in times G^1/2(z) onto the mesh */
+    void reverseInterpolateZ(RealField3D &m);
     /* Reverse interopates qso->in x qso->isig onto the mesh */
-    void reverseInterpolateIsig();
+    void reverseInterpolateIsig(RealField3D &m);
     double updateY(double residual_norm2);
     /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
     where y = N^-1/2 z and m = truth = N^-1/2 delta. Then get y if z2y=true.
