@@ -484,8 +484,9 @@ void Qu3DEstimator::_findNeighbors() {
 
 
 void Qu3DEstimator::_saveNeighbors() {
-    if (mympi::this_pe != 0)
-        mympi::barrier();
+    if (mympi::this_pe != 0) {
+        mympi::barrier();  return;
+    }
 
     int status = 0;
     fitsfile *fits_file = nullptr;
@@ -1108,6 +1109,10 @@ endconjugateGradientDescent:
 
 
 void Qu3DEstimator::multDerivMatrixVec(int i) {
+    static size_t mesh_kz_max = std::min(
+        size_t(ceil((KMAX_EDGE - bins::KBAND_EDGES[0]) / mesh.k_fund[2])),
+        mesh.ngrid_kz);
+
     double t1 = mytime::timer.getTime();
     int imu = i / bins::NUMBER_OF_K_BANDS,
         ik = i % bins::NUMBER_OF_K_BANDS;
@@ -1131,7 +1136,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
             continue;
 
         kperp *= kperp;
-        for (size_t jz = 0; jz < mesh.ngrid_kz; ++jz) {
+        for (size_t jz = 0; jz < mesh_kz_max; ++jz) {
             double kz = jz * mesh.k_fund[2],
                    kt = sqrt(kz * kz + kperp) + 1e-300,
                    alpha;
