@@ -31,14 +31,18 @@ static inline double legendre6(double x) {
 }
 
 static double legendre(int l, double x) {
-    if (l == 0)  return 1.0;
-    if (l == 1)  return x;
-    if (l == 2)  return legendre2(x);
-    if (l == 3)  return legendre3(x);
-    if (l == 4)  return legendre4(x);
-    double il = 1.0 / l;
-    return (2.0 - il) * x * legendre(l - 1, x)
+    switch (l) {
+    case 0: return 1.0;  break;
+    case 1: return x;  break;
+    case 2: return legendre2(x);  break;
+    case 3: return legendre3(x);  break;
+    case 4: return legendre4(x);  break;
+    case 6: return legendre6(x);  break;
+    default:
+        double il = 1.0 / l;
+        return (2.0 - il) * x * legendre(l - 1, x)
                - legendre(l - 2, x) * (1.0 - il);
+    }
 }
 
 // Below functions can be found in https://github.com/romeric/fastapprox

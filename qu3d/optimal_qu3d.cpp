@@ -30,6 +30,7 @@ namespace specifics {
 
 
 #define OFFDIAGONAL_ORDER 8
+#define KMAX_EDGE bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]
 
 /* Timing map */
 std::unordered_map<std::string, std::pair<int, double>> timings{
@@ -387,15 +388,7 @@ void Qu3DEstimator::_setupMesh(double radius) {
             qso->r[1 + 3 * i] += mesh.length[1] / 2;
             qso->r[2 + 3 * i] -= mesh.z0;
         }
-        #ifdef COARSE_INTERP
-            qso->setCoarseComovingDistances();
-        #endif
     }
-
-    LOG::LOGGER.STD("Constructing another mesh for randoms.\n");
-    mesh_rnd.copy(mesh);
-    mesh_rnd.initRngs(seed_generator.get());
-    mesh_rnd.construct(INPLACE_FFT);
 
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
@@ -491,8 +484,9 @@ void Qu3DEstimator::_findNeighbors() {
 
 
 void Qu3DEstimator::_saveNeighbors() {
-    if (mympi::this_pe != 0)
-        mympi::barrier();
+    if (mympi::this_pe != 0) {
+        mympi::barrier();  return;
+    }
 
     int status = 0;
     fitsfile *fits_file = nullptr;
@@ -714,6 +708,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_rnd_enabled = config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
+    fisher_direct_enabled = config.getInteger("estimateFisherDirectly") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
     // NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
@@ -767,29 +762,15 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         qso->transformZ1toG(p3d_model.get());
 }
 
-void Qu3DEstimator::reverseInterpolate() {
+void Qu3DEstimator::reverseInterpolate(RealField3D &m) {
     double dt = mytime::timer.getTime();
-    mesh.zero_field_x();
+    m.zero_field_x();
 
-    #ifdef COARSE_INTERP
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            qso->coarseGrainIn();
-
-        #pragma omp parallel for num_threads(RINTERP_NTHREADS)
-        for (const auto &qso : quasars) {
-            for (int i = 0; i < qso->coarse_N; ++i)
-                mesh.reverseInterpolateCIC(
-                    qso->coarse_r.get() + 3 * i, qso->coarse_in[i]);
-        }
-    #else
-        #pragma omp parallel for num_threads(RINTERP_NTHREADS)
-        for (const auto &qso : quasars) {
-            for (int i = 0; i < qso->N; ++i)
-                mesh.reverseInterpolateCIC(
-                    qso->r.get() + 3 * i, qso->in[i] * qso->z1[i]);
-        }
-    #endif
+    #pragma omp parallel for num_threads(RINTERP_NTHREADS)
+    for (const auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i)
+            m.reverseInterpolateCIC(qso->r.get() + 3 * i, qso->in[i]);
+    }
 
     dt = mytime::timer.getTime() - dt;
     ++timings["rInterp"].first;
@@ -797,29 +778,32 @@ void Qu3DEstimator::reverseInterpolate() {
 }
 
 
-void Qu3DEstimator::reverseInterpolateIsig() {
+void Qu3DEstimator::reverseInterpolateZ(RealField3D &m) {
     double dt = mytime::timer.getTime();
-    mesh.zero_field_x();
+    m.zero_field_x();
 
-    #ifdef COARSE_INTERP
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            qso->coarseGrainInIsig();
+    #pragma omp parallel for num_threads(RINTERP_NTHREADS)
+    for (const auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i)
+            m.reverseInterpolateCIC(
+                qso->r.get() + 3 * i, qso->in[i] * qso->z1[i]);
+    }
 
-        #pragma omp parallel for num_threads(RINTERP_NTHREADS)
-        for (const auto &qso : quasars) {
-            for (int i = 0; i < qso->coarse_N; ++i)
-                mesh.reverseInterpolateCIC(
-                    qso->coarse_r.get() + 3 * i, qso->coarse_in[i]);
-        }
-    #else
-        #pragma omp parallel for num_threads(RINTERP_NTHREADS)
-        for (const auto &qso : quasars) {
-            for (int i = 0; i < qso->N; ++i)
-                mesh.reverseInterpolateCIC(
-                    qso->r.get() + 3 * i, qso->in_isig[i]);
-        }
-    #endif
+    dt = mytime::timer.getTime() - dt;
+    ++timings["rInterp"].first;
+    timings["rInterp"].second += dt;
+}
+
+
+void Qu3DEstimator::reverseInterpolateIsig(RealField3D &m) {
+    double dt = mytime::timer.getTime();
+    m.zero_field_x();
+
+    #pragma omp parallel for num_threads(RINTERP_NTHREADS)
+    for (const auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i)
+            m.reverseInterpolateCIC(qso->r.get() + 3 * i, qso->in_isig[i]);
+    }
 
     dt = mytime::timer.getTime() - dt;
     ++timings["rInterp"].first;
@@ -830,22 +814,14 @@ void Qu3DEstimator::reverseInterpolateIsig() {
 void Qu3DEstimator::multMeshComp() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
-    reverseInterpolateIsig();
+    reverseInterpolateIsig(mesh);
     mesh.convolvePk(p3d_model->interp2d_pL);
 
     double dt = mytime::timer.getTime();
     // Interpolate and Weight by isig
-    #ifdef COARSE_INTERP
-        #pragma omp parallel for
-        for (auto &qso : quasars) {
-            qso->interpMesh2Coarse(mesh);
-            qso->interpNgpCoarse2Out();
-        }
-    #else
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            qso->interpMesh2Out(mesh);
-    #endif
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        qso->interpMesh2Out(mesh);
 
     t2 = mytime::timer.getTime();
     ++timings["interp"].first;
@@ -1131,7 +1107,69 @@ endconjugateGradientDescent:
     timings["CGD"].second += dt;
 }
 
-void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
+
+void Qu3DEstimator::multDerivMatrixVec(int i) {
+    static size_t mesh_kz_max = std::min(
+        size_t(ceil((KMAX_EDGE - bins::KBAND_EDGES[0]) / mesh.k_fund[2])),
+        mesh.ngrid_kz);
+
+    double t1 = mytime::timer.getTime();
+    int imu = i / bins::NUMBER_OF_K_BANDS,
+        ik = i % bins::NUMBER_OF_K_BANDS;
+
+    double kmin = std::max(bins::KBAND_CENTERS[ik] - DK_BIN,
+                           bins::KBAND_EDGES[0]),
+           kmax = std::min(bins::KBAND_CENTERS[ik] + DK_BIN,
+                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
+    bool is_last_k_bin = ik == (bins::NUMBER_OF_K_BANDS - 1),
+         is_first_k_bin = ik == 0;
+
+    #pragma omp parallel for schedule(dynamic, 4)
+    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+        size_t jj = mesh.ngrid_kz * jxy;
+
+        std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
+
+        double kperp = mesh.getKperpFromIperp(jxy);
+
+        if (kperp >= kmax || kperp < specifics::MIN_KERP)
+            continue;
+
+        kperp *= kperp;
+        for (size_t jz = 0; jz < mesh_kz_max; ++jz) {
+            double kz = jz * mesh.k_fund[2],
+                   kt = sqrt(kz * kz + kperp) + 1e-300,
+                   alpha;
+            if (kt < kmin)  continue;
+            else if (kt >= kmax)  break;
+
+            if (is_last_k_bin && (kt > bins::KBAND_CENTERS[ik]))
+                alpha = 1.0;
+            else if (is_first_k_bin && (kt < bins::KBAND_CENTERS[0]))
+                alpha = 1.0;
+            else
+                alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+
+            alpha *= legendre(2 * imu, kz / kt)
+                     * p3d_model->getSpectroWindow2(kz) / mesh.size_real;
+            mesh.field_k[jj + jz] = alpha * mesh_rnd.field_k[jj + jz]; 
+        }
+    }
+
+    mesh.rawFftK2X();
+
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        qso->interpMesh2TruthIsig(mesh);
+
+    ++timings["mDerivMatVec"].first;
+    timings["mDerivMatVec"].second += mytime::timer.getTime() - t1;
+}
+
+
+void Qu3DEstimator::multiplyDerivVectors(
+        double *o1, double *o2, double *lout, const RealField3D &other
+) {
     /* Adds current results into o1 (+=). If o2 is nullptr, the operations is
        directly performed on o1. Otherwise, current results first saved into
        a local array, then o1 += lout, and o2 += lout * lout.
@@ -1139,16 +1177,14 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
        If you pass lout != nullptr, current results are saved into this array.
     */
     static size_t mesh_kz_max = std::min(
-        size_t(ceil(
-            (bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] - bins::KBAND_EDGES[0])
-            / mesh.k_fund[2])),
+        size_t(ceil((KMAX_EDGE - bins::KBAND_EDGES[0]) / mesh.k_fund[2])),
         mesh.ngrid_kz);
     static auto _lout = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
 
     double dt = mytime::timer.getTime();
 
     /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
-    reverseInterpolate();
+    reverseInterpolateZ(mesh);
     mesh.rawFftX2K();
 
     if (lout == nullptr)
@@ -1156,11 +1192,23 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
 
     std::fill_n(lout, NUMBER_OF_P_BANDS, 0);
 
-    #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS])
+    std::function<double(size_t)> my_norm;
+    if (&other == &mesh) {
+        my_norm = [this](size_t jj) { return std::norm(mesh.field_k[jj]); };
+    }
+    else {
+        my_norm = [this, &other](size_t jj) {
+            return mesh.field_k[jj].real() * other.field_k[jj].real()
+               + mesh.field_k[jj].imag() * other.field_k[jj].imag();
+        };
+    }
+
+    #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS]) \
+                             schedule(dynamic, 4)
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         double kperp = mesh.getKperpFromIperp(jxy), temp, temp2, temp3;
 
-        if (kperp >= bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS])
+        if (kperp >= KMAX_EDGE)
             continue;
         else if (kperp < specifics::MIN_KERP)
             continue;
@@ -1169,7 +1217,7 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
 
         size_t jj = mesh.ngrid_kz * jxy;
         if (kperp >= bins::KBAND_EDGES[0]) {  // mu = 0
-            temp = std::norm(mesh.field_k[jj]);
+            temp = my_norm(jj);
             temp2 = (1.0 - fabs(kperp - bins::KBAND_CENTERS[ik]) / DK_BIN);
             temp3 = temp * (1.0 - temp2);
             temp *= temp2;
@@ -1194,8 +1242,10 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
             #endif
             #if NUMBER_OF_MULTIPOLES > 4
             for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l) {
-                lout[ik + l * bins::NUMBER_OF_K_BANDS] += temp * legendre(2 * l, 0.0);
-                lout[ik2 + l * bins::NUMBER_OF_K_BANDS] += temp3 * legendre(2 * l, 0.0);
+                lout[ik + l * bins::NUMBER_OF_K_BANDS] +=
+                    temp * legendre(2 * l, 0.0);
+                lout[ik2 + l * bins::NUMBER_OF_K_BANDS] +=
+                    temp3 * legendre(2 * l, 0.0);
             }
             #endif
         }
@@ -1203,14 +1253,13 @@ void Qu3DEstimator::multiplyDerivVectors(double *o1, double *o2, double *lout) {
         kperp *= kperp;
         for (size_t k = 1; k < mesh_kz_max; ++k) {
             double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp), mu;
-            if (kt >= bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS] || kt < bins::KBAND_EDGES[0])
+            if (kt >= KMAX_EDGE || kt < bins::KBAND_EDGES[0])
                 continue;
 
             ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
             mu = kz / kt;
 
-            temp = 2.0 * std::norm(mesh.field_k[k + jj])
-                   * p3d_model->getSpectroWindow2(kz);
+            temp = 2.0 * my_norm(k + jj) * p3d_model->getSpectroWindow2(kz);
             temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
             temp3 = temp * (1.0 - temp2);
             temp *= temp2;
@@ -1445,8 +1494,13 @@ int main(int argc, char *argv[]) {
         if (qps.noise_bias_enabled)
             qps.estimateNoiseBiasMc();
 
-        if (qps.fisher_rnd_enabled) {
-            qps.estimateFisherFromRndDeriv();
+        // if (qps.fisher_rnd_enabled) {
+        //     qps.estimateFisherFromRndDeriv();
+        //     qps.filter();
+        // }
+
+        if (qps.fisher_direct_enabled) {
+            qps.estimateFisherDirect();
             qps.filter();
         }
 
