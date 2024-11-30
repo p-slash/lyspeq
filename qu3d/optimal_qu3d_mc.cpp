@@ -414,86 +414,6 @@ void Qu3DEstimator::estimateNoiseBiasMc() {
 }
 
 
-void Qu3DEstimator::drawRndDeriv(int i) {
-    double t1 = mytime::timer.getTime();
-    int imu = i / bins::NUMBER_OF_K_BANDS,
-        ik = i % bins::NUMBER_OF_K_BANDS;
-
-    std::function<double(double)> legendre_w;
-    switch (imu) {
-    case 0: legendre_w = legendre0; break;
-    case 1: legendre_w = legendre2; break;
-    case 2: legendre_w = legendre4; break;
-    case 3: legendre_w = legendre6; break;
-    default: legendre_w = std::bind(legendre, std::placeholders::_1, 2 * imu);
-    }
-
-    double kmin = std::max(bins::KBAND_CENTERS[ik] - DK_BIN,
-                           bins::KBAND_EDGES[0]),
-           kmax = std::min(bins::KBAND_CENTERS[ik] + DK_BIN,
-                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
-    bool is_last_k_bin = ik == (bins::NUMBER_OF_K_BANDS - 1),
-         is_first_k_bin = ik == 0;
-
-    #pragma omp parallel for
-    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
-        size_t jj = mesh.ngrid_kz * jxy;
-
-        std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
-
-        double kperp = mesh.getKperpFromIperp(jxy);
-
-        if (kperp >= kmax || kperp < specifics::MIN_KERP)
-            continue;
-
-        kperp *= kperp;
-        for (size_t jz = 0; jz < mesh.ngrid_kz; ++jz) {
-            double kz = jz * mesh.k_fund[2],
-                   kt = sqrt(kz * kz + kperp) + 1e-300,
-                   alpha;
-            if (kt < kmin)  continue;
-            else if (kt >= kmax)  break;
-
-            if (is_last_k_bin && (kt > bins::KBAND_CENTERS[ik]))
-                alpha = 1.0;
-            else if (is_first_k_bin && (kt < bins::KBAND_CENTERS[ik]))
-                alpha = 1.0;
-            else
-                alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
-
-            alpha *= legendre_w(kz / kt) * p3d_model->getSpectroWindow2(kz);
-            mesh.field_k[jj + jz] =
-                mesh.invsqrtcellvol * alpha * mesh_rnd.field_k[jj + jz]; 
-        }
-
-        /* double kmin = sqrt(std::max(
-            0.0, bins::KBAND_EDGES[ik] * bins::KBAND_EDGES[ik] - kperp * kperp));
-        double kmax = sqrt(std::max(
-            0.0, bins::KBAND_EDGES[ik + 1] * bins::KBAND_EDGES[ik + 1] - kperp * kperp));
-        size_t mesh_z_1 = ceil(kmin / mesh.k_fund[2]),
-               mesh_z_2 = ceil(kmax / mesh.k_fund[2]);
-        mesh_z_1 = std::min(mesh.ngrid_kz, std::max(size_t(0), mesh_z_1));
-        mesh_z_2 = std::min(mesh.ngrid_kz, std::max(size_t(0), mesh_z_2));
-
-        for (size_t zz = mesh_z_1; zz != mesh_z_2; ++zz) {
-            mesh.getK2KzFromIndex(jj + zz, kmin, kmax);
-            kmin = sqrt(kmin) + 1e-300; kmax /= kmin;
-            mesh.field_k[jj + zz] =
-                mesh.invsqrtcellvol * mesh_rnd.field_k[jj + zz] * legendre_w(kmax);
-        } */
-    }
-
-    mesh.fftK2X();
-
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        qso->interpMesh2TruthIsig(mesh);
-
-    ++timings["drawRndDeriv"].first;
-    timings["drawRndDeriv"].second += mytime::timer.getTime() - t1;
-}
-
-
 void Qu3DEstimator::estimateFisherFromRndDeriv() {
     /* Tr[C^-1 . Qk . C^-1 Qk'] = <qk^T . C^-1 . Qk' . C^-1 . qk>
 
@@ -509,18 +429,16 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
     verbose = false;
     mc1 = std::make_unique<double[]>(bins::FISHER_SIZE);
     mc2 = std::make_unique<double[]>(bins::FISHER_SIZE);
-    timings["drawRndDeriv"] = std::make_pair(0, 0.0);
+    timings["mDerivMatVec"] = std::make_pair(0, 0.0);
 
     /* Create another mesh to store random numbers. This way, randoms are
        generated once, and FFTd once. This grid can perform in-place FFTs,
        since it is only needed in Fourier space, which is equivalent between
-       in-place and out-of-place transforms.
-
-       LOG::LOGGER.STD("  Constructing another mesh.\n");
-       mesh_rnd.copy(mesh);
-       mesh_rnd.initRngs(seed_generator.get());
-       mesh_rnd.construct();
-    */
+       in-place and out-of-place transforms. */
+    LOG::LOGGER.STD("  Constructing another mesh for randoms.\n");
+    mesh_rnd.copy(mesh);
+    mesh_rnd.initRngs(seed_generator.get());
+    mesh_rnd.construct(INPLACE_FFT);
 
     // max_monte_carlos = 5;
     tolerance = 0.1;
@@ -531,12 +449,12 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
     int nmc = 1;
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
-        mesh_rnd.fillRndNormal();
+        mesh_rnd.fillRndOnes();
         mesh_rnd.fftX2K();
         LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
 
         for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
-            drawRndDeriv(i);
+            multDerivMatrixVec(i);
 
             /* calculate C^-1 . qk into in */
             conjugateGradientDescent();
@@ -561,6 +479,72 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
     logTimings();
 }
 
+
+void Qu3DEstimator::estimateFisherDirect() {
+    /* Tr[C^-1 . Qk . C^-1 . Qk'] = <z^T . C^-1 . Qk . C^-1 . Qk' . z>
+
+    1. Generate z = +-1 per forest to *truth.
+    2. Solve C^-1 . z to *in. Reverse interpolate to mesh_fh & FFT.
+    3. Reverse interpolate init random (*truth) to mesh_rnd & FFT.
+    4. Multiply init random (mesh_rnd) deriv mat. to *truth (through mesh).
+    5. Solve C^-1 . Qk' . z.
+    6. Multiply mesh_fh and mesh.
+    */
+    LOG::LOGGER.STD("Estimating Fisher directly.\n");
+    verbose = false;
+    mc1 = std::make_unique<double[]>(bins::FISHER_SIZE);
+    mc2 = std::make_unique<double[]>(bins::FISHER_SIZE);
+    timings["mDerivMatVec"] = std::make_pair(0, 0.0);
+
+    LOG::LOGGER.STD("  Constructing two other meshes for randoms.\n");
+    mesh_rnd.copy(mesh);  mesh_fh.copy(mesh);
+    mesh_rnd.construct(INPLACE_FFT);  mesh_fh.construct(INPLACE_FFT);
+
+    tolerance = 0.1;
+    LOG::LOGGER.STD("  Using tolerance %lf.\n", tolerance);
+
+    Progress prog_tracker(max_monte_carlos * NUMBER_OF_P_BANDS, 5);
+    int nmc = 1;
+    bool converged = false;
+    for (; nmc <= max_monte_carlos; ++nmc) {
+        /* Generate z = +-1 per forest. */
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            rngs[myomp::getThreadNum()].fillVectorOnes(qso->truth, qso->N);
+
+        /* calculate C^-1 . z into in */
+        conjugateGradientDescent();
+
+        reverseInterpolateZ(mesh_fh);
+        for (auto &qso : quasars)  std::swap(qso->in, qso->truth);
+        reverseInterpolateZ(mesh_rnd);
+
+        mesh_fh.rawFftX2K();  mesh_rnd.rawFftX2K();
+
+        for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
+            multDerivMatrixVec(i);
+
+            /* calculate C^-1 . qk into in */
+            conjugateGradientDescent();
+            multiplyDerivVectors(mc1.get() + i * NUMBER_OF_P_BANDS,
+                                 mc2.get() + i * NUMBER_OF_P_BANDS,
+                                 nullptr, mesh_fh);
+            ++prog_tracker;
+        }
+
+        // if ((nmc % 5 != 0) && (nmc != max_monte_carlos))
+        //     continue;
+
+        converged = _syncMonteCarlo(
+            nmc, fisher.get(), covariance.get(), bins::FISHER_SIZE, "2FISHER");
+
+        if (converged)
+            break;
+    }
+
+    cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
+    logTimings();
+}
 
 #if 0
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
@@ -675,5 +659,84 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
 
     if (verbose)
         LOG::LOGGER.STD("It took %.2f m.\n", t2);
+}
+
+void Qu3DEstimator::multiplyFisherDerivs(double *o1, double *o2) {
+    static size_t mesh_kz_max = std::min(
+        size_t(ceil((KMAX_EDGE - bins::KBAND_EDGES[0]) / mesh.k_fund[2])),
+        mesh.ngrid_kz);
+    static auto _lout = std::make_unique<double[]>(bins::FISHER_SIZE);
+    static double *lout = _lout.get();
+
+    double dt = mytime::timer.getTime();
+    std::fill_n(lout, bins::FISHER_SIZE, 0);
+
+    #pragma omp parallel for reduction(+:lout[0:bins::FISHER_SIZE])
+    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+        double kperp = mesh.getKperpFromIperp(jxy),
+               f_aa, f_ab, f_bb, temp;
+
+        if (kperp >= KMAX_EDGE)
+            continue;
+        else if (kperp < specifics::MIN_KERP)
+            continue;
+
+        int ik = (kperp - bins::KBAND_EDGES[0]) / DK_BIN, ik2;
+
+        size_t jj = mesh.ngrid_kz * jxy;
+        kperp *= kperp;
+        for (size_t k = 0; k < mesh_kz_max; ++k) {
+            double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp), mu;
+            if (kt >= KMAX_EDGE || kt < bins::KBAND_EDGES[0])
+                continue;
+
+            ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
+            mu = kz / kt;
+
+            f_aa = ((k != 0) + 1) * std::norm(mesh.field_k[k + jj])
+                   * p3d_model->getSpectroWindow2(kz);
+            temp = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+            f_bb = 1.0 - temp;
+            f_ab = f_aa * temp * f_bb
+            f_bb *= f_aa * f_bb;
+            f_aa *= temp * temp;
+
+            if (kt > bins::KBAND_CENTERS[ik])
+                ik2 = std::min(bins::NUMBER_OF_K_BANDS - 1, ik + 1);
+            else
+                ik2 = std::max(0, ik - 1);
+
+            for (int imu = 0; imu < NUMBER_OF_MULTIPOLES; ++imu) {
+                int ii1 = ik + NUMBER_OF_K_BANDS * imu,
+                    ii2 = ik2 + NUMBER_OF_K_BANDS * imu;
+
+                double Lmu_i = legendre(2 * imu, mu);
+
+                for (int jmu = imu; jmu < NUMBER_OF_MULTIPOLES; ++jmu) {
+                    int jj1 = ik + NUMBER_OF_K_BANDS * jmu,
+                        jj2 = ik2 + NUMBER_OF_K_BANDS * jmu;
+
+                    double Lmu_j = Lmu_i * legendre(2 * jmu, mu);
+
+                    lout[jj1 + ii1 * NUMBER_OF_P_BANDS] += Lmu_j * f_aa;
+                    lout[jj2 + ii1 * NUMBER_OF_P_BANDS] += Lmu_j * f_ab;
+                    lout[jj2 + jj2 * NUMBER_OF_P_BANDS] += Lmu_j * f_bb;
+                }
+            }
+        }
+    }
+
+    cblas_dscal(bins::FISHER_SIZE, mesh.invtotalvol, lout, 1);
+
+    if (o2 != nullptr) {
+        for (int i = 0; i < bins::FISHER_SIZE; ++i) {
+            o1[i] += lout[i];
+            o2[i] += lout[i] * lout[i];
+        }
+    }
+
+    dt = mytime::timer.getTime() - dt;
+    ++timings["mFisherDeriv"].first;
+    timings["mFisherDeriv"].second += dt;
 }
 #endif

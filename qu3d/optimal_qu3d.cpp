@@ -707,6 +707,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_rnd_enabled = config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
+    fisher_direct_enabled = config.getInteger("estimateFisherDirectly") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
     // NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
@@ -1139,19 +1140,18 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
             if (is_last_k_bin && (kt > bins::KBAND_CENTERS[ik]))
                 alpha = 1.0;
-            else if (is_first_k_bin && (kt < bins::KBAND_CENTERS[ik]))
+            else if (is_first_k_bin && (kt < bins::KBAND_CENTERS[0]))
                 alpha = 1.0;
             else
                 alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
 
             alpha *= legendre(2 * imu, kz / kt)
-                     * p3d_model->getSpectroWindow2(kz);
-            mesh.field_k[jj + jz] =
-                mesh.invsqrtcellvol * alpha * mesh_rnd.field_k[jj + jz]; 
+                     * p3d_model->getSpectroWindow2(kz) / mesh.size_real;
+            mesh.field_k[jj + jz] = alpha * mesh_rnd.field_k[jj + jz]; 
         }
     }
 
-    mesh.fftK2X();
+    mesh.rawFftK2X();
 
     #pragma omp parallel for
     for (auto &qso : quasars)
@@ -1187,7 +1187,8 @@ void Qu3DEstimator::multiplyDerivVectors(
 
     std::fill_n(lout, NUMBER_OF_P_BANDS, 0);
 
-    #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS])
+    #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS]) \
+                             schedule(dynamic, 4)
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         double kperp = mesh.getKperpFromIperp(jxy), temp, temp2, temp3;
 
@@ -1226,8 +1227,10 @@ void Qu3DEstimator::multiplyDerivVectors(
             #endif
             #if NUMBER_OF_MULTIPOLES > 4
             for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l) {
-                lout[ik + l * bins::NUMBER_OF_K_BANDS] += temp * legendre(2 * l, 0.0);
-                lout[ik2 + l * bins::NUMBER_OF_K_BANDS] += temp3 * legendre(2 * l, 0.0);
+                lout[ik + l * bins::NUMBER_OF_K_BANDS] +=
+                    temp * legendre(2 * l, 0.0);
+                lout[ik2 + l * bins::NUMBER_OF_K_BANDS] +=
+                    temp3 * legendre(2 * l, 0.0);
             }
             #endif
         }
@@ -1479,8 +1482,13 @@ int main(int argc, char *argv[]) {
         if (qps.noise_bias_enabled)
             qps.estimateNoiseBiasMc();
 
-        if (qps.fisher_rnd_enabled) {
-            qps.estimateFisherFromRndDeriv();
+        // if (qps.fisher_rnd_enabled) {
+        //     qps.estimateFisherFromRndDeriv();
+        //     qps.filter();
+        // }
+
+        if (qps.fisher_direct_enabled) {
+            qps.estimateFisherDirect();
             qps.filter();
         }
 
