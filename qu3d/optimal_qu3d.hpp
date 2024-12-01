@@ -126,7 +126,8 @@ public:
     /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
     where y = N^-1/2 z and m = truth = N^-1/2 delta. Then get y if z2y=true.
     */
-    void conjugateGradientDescent(bool z2y=true);
+    void conjugateGradientDescent();
+    void preconditionerSolution();
     void estimatePower();
 
     void filter();
