@@ -110,13 +110,15 @@ void Qu3DEstimator::conjugateGradientIpH() {
 
         double new_residual_prec = 0;
         // Calculate PreCon . residual into out
-        #pragma omp parallel for schedule(dynamic, 4) reduction(+:new_residual_prec)
+        #pragma omp parallel for schedule(dynamic, 4) \
+                                 reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] = qso->residual[i] / precon_diag;
 
-            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->out, 1);
+            new_residual_prec += cblas_ddot(
+                qso->N, qso->residual.get(), 1, qso->out, 1);
         }
 
         double beta = new_residual_prec / old_residual_prec;
@@ -436,7 +438,7 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
        since it is only needed in Fourier space, which is equivalent between
        in-place and out-of-place transforms. */
     LOG::LOGGER.STD("  Constructing another mesh for randoms.\n");
-    mesh_rnd.copy(mesh);
+    mesh_rnd.copy(mesh_drv);
     mesh_rnd.initRngs(seed_generator.get());
     mesh_rnd.construct(INPLACE_FFT);
 
@@ -486,7 +488,7 @@ void Qu3DEstimator::estimateFisherDirect() {
     1. Generate z = +-1 per forest to *truth.
     2. Solve C^-1 . z to *in. Reverse interpolate to mesh_fh & FFT.
     3. Reverse interpolate init random (*truth) to mesh_rnd & FFT.
-    4. Multiply init random (mesh_rnd) deriv mat. to *truth (through mesh).
+    4. Multiply init random (mesh_rnd) deriv mat. to *truth (through mesh_drv).
     5. Solve C^-1 . Qk' . z.
     6. Multiply mesh_fh and mesh.
     */
@@ -497,7 +499,7 @@ void Qu3DEstimator::estimateFisherDirect() {
     timings["mDerivMatVec"] = std::make_pair(0, 0.0);
 
     LOG::LOGGER.STD("  Constructing two other meshes for randoms.\n");
-    mesh_rnd.copy(mesh);  mesh_fh.copy(mesh);
+    mesh_rnd.copy(mesh_drv);  mesh_fh.copy(mesh_drv);
     mesh_rnd.construct(INPLACE_FFT);  mesh_fh.construct(INPLACE_FFT);
 
     tolerance = 0.1;

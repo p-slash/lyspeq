@@ -4,13 +4,20 @@ OutputFileBase qu3d-test
 OutputDir tests/output/
 
 
-NGRID_X 2048
-NGRID_Y 512
-NGRID_Z 192
+CGD_NGRID_X 1536
+CGD_NGRID_Y 384
+CGD_NGRID_Z 144
+
+DRV_NGRID_X 2048
+DRV_NGRID_Y 512
+DRV_NGRID_Z 192
+
 LongScale 15.0
 ScaleFactor 2
+
+EstimateTotalBias -1
 EstimateNoiseBias -1
-EstimateFisherFromRandomDerivatives -1
+estimateFisherDirectly 1
 
 MinimumSnrCut 0
 DownsampleFactor 1
@@ -22,7 +29,7 @@ TurnOnPpCovariance 1
 ContinuumLogLambdaMargOrder -1
 
 MaxConjGradSteps 100
-MaxMonteCarlos 50
+MaxMonteCarlos 1
 ConvergenceTolerance 1e-5
 TestGaussianField -1
 PlinearFilename /Users/nk452/repos/data/Planck2018/camb_planck18_power_spectrum_z24.txt
