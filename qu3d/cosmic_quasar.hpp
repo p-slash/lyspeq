@@ -226,7 +226,7 @@ public:
         #endif
     }
 
-    void multInputWithMarg(const double *input) {
+    double* multInputWithMarg(const double *input) {
         /* Output is in_isig */
         #ifdef DEBUG_IO
         try {
@@ -246,6 +246,8 @@ public:
                 fidx, myomp::getThreadNum(), e.what());
         }
         #endif
+
+        return rrmat;
     }
 
     void multInvCov(
