@@ -981,7 +981,42 @@ double Qu3DEstimator::updateY(double residual_norm2) {
 }
 
 
-void Qu3DEstimator::conjugateGradientDescent(bool z2y) {
+void Qu3DEstimator::preconditionerSolution() {
+    double dt = mytime::timer.getTime();
+
+    if (CONT_MARG_ENABLED) {
+        /* Marginalize, initial guess, marginalize */
+        #pragma omp parallel for schedule(static, 8)
+        for (auto &qso : quasars) {
+            double *rrmat = qso->multInputWithMarg(qso->truth);
+            qso->multInvCov(p3d_model.get(), qso->in_isig, qso->truth, pp_enabled);
+            cblas_dsymv(CblasRowMajor, CblasUpper, qso->N, 1.0,
+                        rrmat, qso->N, qso->truth, 1, 0, qso->in, 1);
+            qso->multIsigInVector();
+        }
+        ioh::continuumMargFileHandler->rewind();
+        ++timings["Marg"].first;
+        timings["Marg"].second += mytime::timer.getTime() - dt;
+    }
+    else {
+        #pragma omp parallel for schedule(dynamic, 8)
+        for (auto &qso : quasars) {
+            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
+            qso->multIsigInVector();
+        }
+    }
+
+    ++timings["CGD"].first;
+    timings["CGD"].second += mytime::timer.getTime() - dt;
+}
+
+
+void Qu3DEstimator::conjugateGradientDescent() {
+    if (max_conj_grad_steps <= 0) {
+        preconditionerSolution();
+        return;
+    }
+
     double dt = mytime::timer.getTime();
     int niter = 1;
 
@@ -1073,7 +1108,7 @@ endconjugateGradientDescent:
         LOG::LOGGER.STD(
             "  conjugateGradientDescent finished in %d iterations.\n", niter);
 
-    if (z2y and CONT_MARG_ENABLED) {
+    if (CONT_MARG_ENABLED) {
         double tm1 = mytime::timer.getTime();
 
         #pragma omp parallel for schedule(static, 8)
@@ -1087,16 +1122,12 @@ endconjugateGradientDescent:
         ++timings["Marg"].first;
         timings["Marg"].second += mytime::timer.getTime() - tm1;
     }
-    else if (z2y) {
+    else {
         #pragma omp parallel for
         for (auto &qso : quasars) {
             qso->in = qso->y.get();
             qso->multIsigInVector();
         }
-    }
-    else {
-        for (auto &qso : quasars)
-            qso->in = qso->y.get();
     }
 
     ++timings["CGD"].first;
