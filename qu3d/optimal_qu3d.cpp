@@ -1140,6 +1140,15 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
     bool is_last_k_bin = ik == (bins::NUMBER_OF_K_BANDS - 1),
          is_first_k_bin = ik == 0;
 
+    std::function<double(double)> legendre_w;
+    switch (imu) {
+    case 0: legendre_w = legendre0; break;
+    case 1: legendre_w = legendre2; break;
+    case 2: legendre_w = legendre4; break;
+    case 3: legendre_w = legendre6; break;
+    default: legendre_w = std::bind(legendre, std::placeholders::_1, 2 * imu);
+    }
+
     #pragma omp parallel for schedule(dynamic, 4)
     for (size_t jxy = 0; jxy < mesh_drv.ngrid_xy; ++jxy) {
         size_t jj = mesh_drv.ngrid_kz * jxy;
@@ -1153,8 +1162,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
         kperp *= kperp;
         for (size_t jz = 0; jz < mesh_kz_max; ++jz) {
-            double kz = jz * mesh_drv.k_fund[2],
-                   kt = sqrt(kz * kz + kperp) + 1e-300,
+            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
                    alpha;
             if (kt < kmin)  continue;
             else if (kt >= kmax)  break;
@@ -1166,8 +1174,9 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
             else
                 alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
 
-            alpha *= legendre(2 * imu, kz / kt)
-                     * p3d_model->getSpectroWindow2(kz) / mesh_drv.size_real;
+            if (kt != 0)  kt = kz / kt;
+            alpha *= legendre_w(kt) * mesh_drv.invtotalvol
+                     * p3d_model->getSpectroWindow2(kz);
             mesh_drv.field_k[jj + jz] = alpha * mesh_rnd.field_k[jj + jz]; 
         }
     }
@@ -1224,9 +1233,7 @@ void Qu3DEstimator::multiplyDerivVectors(
     for (size_t jxy = 0; jxy < mesh_drv.ngrid_xy; ++jxy) {
         double kperp = mesh_drv.getKperpFromIperp(jxy), temp, temp2, temp3;
 
-        if (kperp >= KMAX_EDGE)
-            continue;
-        else if (kperp < specifics::MIN_KERP)
+        if (kperp >= KMAX_EDGE || kperp < specifics::MIN_KERP)
             continue;
 
         int ik = (kperp - bins::KBAND_EDGES[0]) / DK_BIN, ik2;
