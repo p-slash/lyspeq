@@ -237,9 +237,9 @@ bool Qu3DEstimator::_syncMonteCarlo(
 
         LOG::LOGGER.STD(
             "  %d: Estimated relative mean/max std is %.2e/%.2e. "
-            "MC converges when < %.2e\n", nmc, mean_std, max_std, tolerance);
+            "MC converges when < %.2e\n", nmc, mean_std, max_std, mc_tol);
 
-        converged = max_std < tolerance;
+        converged = max_std < mc_tol;
     }
 
     mympi::bcast(&converged);
@@ -441,6 +441,7 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
     mesh_rnd.construct(INPLACE_FFT);
 
     // max_monte_carlos = 5;
+    double _old_tolerace = tolerance;
     tolerance = 0.1;
     LOG::LOGGER.STD("  Using tolerance %lf.\n", tolerance);
     // max_conj_grad_steps = 1;
@@ -477,6 +478,7 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
 
     cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
     logTimings();
+    tolerance = _old_tolerace;
 }
 
 
@@ -484,8 +486,8 @@ void Qu3DEstimator::estimateFisherDirect() {
     /* Tr[C^-1 . Qk . C^-1 . Qk'] = <z^T . C^-1 . Qk . C^-1 . Qk' . z>
 
     1. Generate z = +-1 per forest to *truth.
-    2. Solve C^-1 . z to *in. Reverse interpolate to mesh_fh & FFT.
-    3. Reverse interpolate init random (*truth) to mesh_rnd & FFT.
+    2. Reverse interpolate init random (*truth) to mesh_rnd & FFT.
+    3. Solve C^-1 . z to *in. Reverse interpolate to mesh_fh & FFT.
     4. Multiply init random (mesh_rnd) deriv mat. to *truth (through mesh).
     5. Solve C^-1 . Qk' . z.
     6. Multiply mesh_fh and mesh.
@@ -510,16 +512,24 @@ void Qu3DEstimator::estimateFisherDirect() {
         /* Generate z = +-1 per forest. */
         #pragma omp parallel for
         for (auto &qso : quasars)
-            rngs[myomp::getThreadNum()].fillVectorOnes(qso->truth, qso->N);
+            rngs[myomp::getThreadNum()].fillVectorOnes(qso->in, qso->N);
 
-        /* calculate C^-1 . z into in */
+        /* (Right hand side) Save this on mesh_rnd */
+        reverseInterpolateZ(mesh_rnd);
+        mesh_rnd.rawFftX2K();
+
+        /* (Left hand side ) CGD requires *truth to be multiplied by N^-1/2 */
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            qso->multIsigInVector();
+            std::swap(qso->in, qso->truth);
+        }
+
+        /* calculate C^-1 . z into *in */
         conjugateGradientDescent();
 
         reverseInterpolateZ(mesh_fh);
-        for (auto &qso : quasars)  std::swap(qso->in, qso->truth);
-        reverseInterpolateZ(mesh_rnd);
-
-        mesh_fh.rawFftX2K();  mesh_rnd.rawFftX2K();
+        mesh_fh.rawFftX2K();
 
         for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
             multDerivMatrixVec(i);
