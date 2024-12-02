@@ -1008,6 +1008,9 @@ void Qu3DEstimator::preconditionerSolution() {
     }
 
     ++timings["CGD"].first;
+    double temp = 0.0;
+    convergence_file->write(
+        &temp, 1, "CGD-" + std::to_string(timings["CGD"].first));
     timings["CGD"].second += mytime::timer.getTime() - dt;
 }
 
