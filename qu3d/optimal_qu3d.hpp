@@ -36,7 +36,7 @@ class Qu3DEstimator
 
     bool pp_enabled, absolute_tolerance;
     int max_conj_grad_steps, max_monte_carlos;
-    double tolerance, radius, rscale_factor, effective_chi;
+    double tolerance, mc_tol, radius, rscale_factor, effective_chi;
     size_t num_all_pixels;
 
     std::function<void()> updateYMatrixVectorFunction;
