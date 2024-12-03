@@ -708,8 +708,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
-    fisher_rnd_enabled = \
-        config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
     fisher_direct_enabled = config.getInteger("EstimateFisherDirectly") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
     // NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
@@ -1542,17 +1540,8 @@ int main(int argc, char *argv[]) {
         if (qps.noise_bias_enabled)
             qps.estimateNoiseBiasMc();
 
-        // if (qps.fisher_rnd_enabled) {
-        //     qps.estimateFisherFromRndDeriv();
-        //     qps.filter();
-        // }
-
-        if (qps.fisher_direct_enabled) {
+        if (qps.fisher_direct_enabled)
             qps.estimateFisherDirect();
-            qps.filter();
-        }
-
-        qps.write();
     }
     catch (std::exception& e) {
         LOG::LOGGER.ERR(e.what());
