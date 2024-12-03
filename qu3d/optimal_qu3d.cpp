@@ -359,7 +359,7 @@ void Qu3DEstimator::_setupMesh(double radius) {
             double extra_lz = dzl * mesh.ngrid[2];
             LOG::LOGGER.STD(
                 "Automatically padding z axis to match cell length in x & y "
-                "directions by %.3f Mpc", extra_lz);
+                "directions by %.3f Mpc.\n", extra_lz);
             mesh.length[2] += extra_lz;
             mesh.z0 -= extra_lz / 2.0;
         }
@@ -709,7 +709,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_rnd_enabled = config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
-    fisher_direct_enabled = config.getInteger("estimateFisherDirectly") > 0;
+    fisher_direct_enabled = config.getInteger("EstimateFisherDirectly") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
     // NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
