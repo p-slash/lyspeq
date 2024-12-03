@@ -87,9 +87,10 @@ void Qu3DEstimator::conjugateGradientIpH() {
         for (int i = 0; i < qso->N; ++i)
             qso->in[i] = qso->residual[i] / precon_diag;
 
-        init_residual_norm += cblas_ddot(
-            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
-        old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->in, 1);
+        init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
+                                         qso->residual.get(), 1);
+        old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
+                                        qso->in, 1);
     }
 
     init_residual_norm = sqrt(init_residual_norm);
@@ -110,13 +111,15 @@ void Qu3DEstimator::conjugateGradientIpH() {
 
         double new_residual_prec = 0;
         // Calculate PreCon . residual into out
-        #pragma omp parallel for schedule(dynamic, 4) reduction(+:new_residual_prec)
+        #pragma omp parallel for schedule(dynamic, 4) \
+                                 reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] = qso->residual[i] / precon_diag;
 
-            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->out, 1);
+            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
+                                            qso->out, 1);
         }
 
         double beta = new_residual_prec / old_residual_prec;
@@ -362,12 +365,12 @@ void Qu3DEstimator::testHSqrt() {
             continue;
 
         int nelems = (i - 1) % M_MCS + 1, irow = i - nelems;
-        fits_write_col(fits_file, TDOUBLE, 1, irow + 1, 1, nelems, xTHx_arr.get() + irow,
-                       &status);
-        fits_write_col(fits_file, TDOUBLE, 2, irow + 1, 1, nelems, yTy_arr.get() + irow,
-                       &status);
-        fits_write_col(fits_file, TDOUBLE, 3, irow + 1, 1, nelems, xTx_arr.get() + irow,
-                       &status);
+        fits_write_col(fits_file, TDOUBLE, 1, irow + 1, 1, nelems,
+                       xTHx_arr.get() + irow, &status);
+        fits_write_col(fits_file, TDOUBLE, 2, irow + 1, 1, nelems,
+                       yTy_arr.get() + irow, &status);
+        fits_write_col(fits_file, TDOUBLE, 3, irow + 1, 1, nelems,
+                       xTx_arr.get() + irow, &status);
         fits_flush_buffer(fits_file, 0, &status);
         ioh::checkFitsStatus(status);
     }

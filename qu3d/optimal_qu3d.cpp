@@ -503,9 +503,9 @@ void Qu3DEstimator::_saveNeighbors() {
     #pragma GCC diagnostic pop
 
     fits_create_file(&fits_file, out_fname.c_str(), &status);
-    fits_create_tbl(
-        fits_file, BINARY_TBL, quasars.size(), ncolumns, column_names, column_types,
-        column_units, "NEIGHBORS", &status);
+    fits_create_tbl(fits_file, BINARY_TBL, quasars.size(), ncolumns,
+                    column_names, column_types, column_units, "NEIGHBORS",
+                    &status);
     ioh::checkFitsStatus(status);
 
     // fits_write_key(
@@ -708,7 +708,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
-    fisher_rnd_enabled = config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
+    fisher_rnd_enabled = \
+        config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
     fisher_direct_enabled = config.getInteger("EstimateFisherDirectly") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
     // NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
@@ -1060,15 +1061,17 @@ void Qu3DEstimator::conjugateGradientDescent() {
         for (int i = 0; i < qso->N; ++i)
             qso->residual[i] = qso->truth[i] - qso->out[i];
 
-        // Only search is multiplied from here until endconjugateGradientDescent
+        // Only search is multiplied until endconjugateGradientDescent
         qso->in = qso->search.get();
 
         // set search = InvCov . residual
-        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in, pp_enabled);
+        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in,
+                        pp_enabled);
 
-        init_residual_norm += cblas_ddot(
-            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
-        old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->in, 1);
+        init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
+                                         qso->residual.get(), 1);
+        old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
+                                        qso->in, 1);
     }
 
     init_residual_norm = sqrt(init_residual_norm);
@@ -1091,8 +1094,10 @@ void Qu3DEstimator::conjugateGradientDescent() {
         #pragma omp parallel for reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = InvCov . residual
-            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out, pp_enabled);
-            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->out, 1);
+            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out,
+                            pp_enabled);
+            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
+                                            qso->out, 1);
         }
 
         double beta = new_residual_prec / old_residual_prec;
@@ -1403,7 +1408,8 @@ void Qu3DEstimator::write() {
     specifics::printBuildSpecifics(toWrite);
     config.writeConfig(toWrite);
 
-    fprintf(toWrite, "# -----------------------------------------------------------------\n"
+    fprintf(toWrite,
+        "# -----------------------------------------------------------------\n"
         "# File Template\n# Nk\n"
         "# kperp | kz | P3D | e_P3D | Pfid | d | b | Fd | Fb\n"
         "# Nk     : Number of k bins\n"
@@ -1415,7 +1421,8 @@ void Qu3DEstimator::write() {
         "# b      : Noise estimate [Mpc^3]\n"
         "# Fd     : d before Fisher\n"
         "# Fb     : b before Fisher\n"
-        "# -----------------------------------------------------------------\n");
+        "# -----------------------------------------------------------------\n"
+    );
 
     // if (damping_pair.first)
     //     fprintf(toWrite, "# Damped: True\n");
