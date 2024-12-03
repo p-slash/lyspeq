@@ -14,7 +14,7 @@
 const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
     {"MatchCellSizeOfZToXY", "-1"},
-    {"TurnOnPpCovariance", "-1"},  // {"NumberOfMultipoles", "3"},
+    {"TurnOnPpCovariance", "-1"}, {"NumberOfMultipoles", "4"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"MinimumRa", "0.0"}, {"MaximumRa", "360.0"},
     {"MinimumDec", "-90.0"}, {"MaximumDec", "90.0"},
@@ -34,7 +34,7 @@ class Qu3DEstimator
     ConfigFile &config;
 
     bool pp_enabled, absolute_tolerance;
-    int max_conj_grad_steps, max_monte_carlos;
+    int max_conj_grad_steps, max_monte_carlos, number_of_multipoles;
     double tolerance, mc_tol, radius, rscale_factor, effective_chi;
     size_t num_all_pixels;
 
