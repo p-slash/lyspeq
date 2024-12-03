@@ -21,14 +21,6 @@ namespace specifics {
 #define RINTERP_NTHREADS 3
 #endif
 
-#define NUMBER_OF_MULTIPOLES 4
-#if NUMBER_OF_MULTIPOLES < 3
-#error 
-#elif NUMBER_OF_MULTIPOLES > 9
-#error
-#endif
-
-
 #define OFFDIAGONAL_ORDER 8
 #define KMAX_EDGE bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]
 
@@ -647,7 +639,7 @@ void Qu3DEstimator::_openResultsFile() {
     double *k_grid = raw_power.get(),
            *pfid_grid = raw_bias.get();
 
-    for (int imu = 0; imu < NUMBER_OF_MULTIPOLES; ++imu) {
+    for (int imu = 0; imu < number_of_multipoles; ++imu) {
         for (int ik = 0; ik < bins::NUMBER_OF_K_BANDS; ++ik) {
             size_t i = ik + bins::NUMBER_OF_K_BANDS * imu;
             k_grid[i] = bins::KBAND_CENTERS[ik];
@@ -710,7 +702,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_direct_enabled = config.getInteger("EstimateFisherDirectly") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
-    // NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
+    number_of_multipoles = config.getInteger("NumberOfMultipoles");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
 
     if (CONT_MARG_ENABLED && unique_prefix.empty())
@@ -723,7 +715,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     cosmo = p3d_model->getCosmoPtr();
     logCosmoDist(); logCosmoHubble(); 
 
-    NUMBER_OF_P_BANDS = bins::NUMBER_OF_K_BANDS * NUMBER_OF_MULTIPOLES;
+    NUMBER_OF_P_BANDS = bins::NUMBER_OF_K_BANDS * number_of_multipoles;
     DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
     bins::FISHER_SIZE = NUMBER_OF_P_BANDS * NUMBER_OF_P_BANDS;
 
@@ -1253,89 +1245,38 @@ void Qu3DEstimator::multiplyDerivVectors(
                              schedule(dynamic, 4)
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         double kperp = mesh.getKperpFromIperp(jxy), temp, temp2, temp3;
+        int ik, ik2;
 
         if (kperp >= KMAX_EDGE || kperp < specifics::MIN_KERP)
             continue;
 
-        int ik = (kperp - bins::KBAND_EDGES[0]) / DK_BIN, ik2;
-
         size_t jj = mesh.ngrid_kz * jxy;
-        if (kperp >= bins::KBAND_EDGES[0]) {  // mu = 0
-            temp = my_norm(jj);
-            temp2 = (1.0 - fabs(kperp - bins::KBAND_CENTERS[ik]) / DK_BIN);
-            temp3 = temp * (1.0 - temp2);
-            temp *= temp2;
-
-            if (kperp > bins::KBAND_CENTERS[ik])
-                ik2 = std::min(bins::NUMBER_OF_K_BANDS - 1, ik + 1);
-            else
-                ik2 = std::max(0, ik - 1);
-
-            lout[ik] += temp;
-            lout[ik2] += temp3;
-
-            lout[ik + bins::NUMBER_OF_K_BANDS] -= 0.5 * temp;
-            lout[ik2 + bins::NUMBER_OF_K_BANDS] -= 0.5 * temp3;
-
-            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += 0.375 * temp;
-            lout[ik2 + 2 * bins::NUMBER_OF_K_BANDS] += 0.375 * temp3;
-
-            #if NUMBER_OF_MULTIPOLES > 3
-            lout[ik + 3 * bins::NUMBER_OF_K_BANDS] -= 0.3125 * temp;
-            lout[ik2 + 3 * bins::NUMBER_OF_K_BANDS] -= 0.3125 * temp3;
-            #endif
-            #if NUMBER_OF_MULTIPOLES > 4
-            for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l) {
-                lout[ik + l * bins::NUMBER_OF_K_BANDS] +=
-                    temp * legendre(2 * l, 0.0);
-                lout[ik2 + l * bins::NUMBER_OF_K_BANDS] +=
-                    temp3 * legendre(2 * l, 0.0);
-            }
-            #endif
-        }
-
         kperp *= kperp;
-        for (size_t k = 1; k < mesh_kz_max; ++k) {
-            double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp), mu;
+        for (size_t k = 0; k < mesh_kz_max; ++k) {
+            double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp);
             if (kt >= KMAX_EDGE || kt < bins::KBAND_EDGES[0])
                 continue;
 
             ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
-            mu = kz / kt;
-
-            temp = 2.0 * my_norm(k + jj) * p3d_model->getSpectroWindow2(kz);
-            temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
-            temp3 = temp * (1.0 - temp2);
-            temp *= temp2;
 
             if (kt > bins::KBAND_CENTERS[ik])
                 ik2 = std::min(bins::NUMBER_OF_K_BANDS - 1, ik + 1);
             else
                 ik2 = std::max(0, ik - 1);
 
-            lout[ik] += temp;
-            lout[ik2] += temp3;
+            temp = (1.0 + (k != 0)) * my_norm(k + jj)
+                   * p3d_model->getSpectroWindow2(kz);
+            temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+            temp3 = temp * (1.0 - temp2);
+            temp *= temp2;
 
-            temp2 = legendre2(mu);
-            lout[ik + bins::NUMBER_OF_K_BANDS] += temp * temp2;
-            lout[ik2 + bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
+            if (kt != 0)  kt = kz / kt;
 
-            temp2 = legendre4(mu);
-            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += temp * temp2;
-            lout[ik2 + 2 * bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
-
-            #if NUMBER_OF_MULTIPOLES > 3
-            temp2 = legendre6(mu);
-            lout[ik + 3 * bins::NUMBER_OF_K_BANDS] += temp * temp2;
-            lout[ik2 + 3 * bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
-            #endif
-            #if NUMBER_OF_MULTIPOLES > 4
-            for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l) {
-                temp2 = legendre(2 * l, mu);
-                lout[ik + l * bins::NUMBER_OF_K_BANDS] += temp * temp2;
-                lout[ik2 + l * bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
+            for (int ell = 0; ell < number_of_multipoles; ++ell) {
+                temp2 = legendre(2 * ell, kt);
+                lout[ik + ell * bins::NUMBER_OF_K_BANDS] += temp2 * temp;
+                lout[ik2 + ell * bins::NUMBER_OF_K_BANDS] += temp2 * temp3;
             }
-            #endif
         }
     }
 
@@ -1434,7 +1375,7 @@ void Qu3DEstimator::write() {
         "%14s %s %14s %14s %14s %14s %14s %14s\n", 
         "k", "l", "P3D", "e_P3D", "d", "b", "Fd", "Fb");
 
-    for (int imu = 0; imu < NUMBER_OF_MULTIPOLES; ++imu) {
+    for (int imu = 0; imu < number_of_multipoles; ++imu) {
         for (int ik = 0; ik < bins::NUMBER_OF_K_BANDS; ++ik) {
             size_t i = ik + bins::NUMBER_OF_K_BANDS * imu;
             int l = 2 * imu;
