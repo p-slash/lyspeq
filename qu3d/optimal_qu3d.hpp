@@ -23,7 +23,6 @@ const config_map qu3d_default_parameters ({
     {"LongScale", "50"}, {"ScaleFactor", "4"},
     {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"},
     {"EstimateTotalBias", "1"}, {"EstimateNoiseBias", "1"},
-    // {"EstimateFisherFromRandomDerivatives", "-1"},
     {"EstimateFisherDirectly", "-1"},
     {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"},
     {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""}
@@ -68,7 +67,7 @@ class Qu3DEstimator
                          int ndata, const std::string &ext);
 
 public:
-    bool total_bias_enabled, noise_bias_enabled, fisher_rnd_enabled,
+    bool total_bias_enabled, noise_bias_enabled,
          fisher_direct_enabled, max_eval_enabled;
 
     /* This function reads following keys from config file:
