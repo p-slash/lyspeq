@@ -505,8 +505,7 @@ void Qu3DEstimator::estimateFisherDirect() {
     mesh_rnd.copy(mesh);  mesh_fh.copy(mesh);
     mesh_rnd.construct(INPLACE_FFT);  mesh_fh.construct(INPLACE_FFT);
 
-    tolerance = 0.1;
-    LOG::LOGGER.STD("  Using tolerance %lf.\n", tolerance);
+    LOG::LOGGER.STD("  Using preconditioner as solution.\n");
 
     Progress prog_tracker(max_monte_carlos * NUMBER_OF_P_BANDS, 5);
     int nmc = 1;
@@ -529,7 +528,7 @@ void Qu3DEstimator::estimateFisherDirect() {
         }
 
         /* calculate C^-1 . z into *in */
-        conjugateGradientDescent();
+        preconditionerSolution();
 
         reverseInterpolateZ(mesh_fh);
         mesh_fh.rawFftX2K();
@@ -538,7 +537,7 @@ void Qu3DEstimator::estimateFisherDirect() {
             multDerivMatrixVec(i);
 
             /* calculate C^-1 . qk into in */
-            conjugateGradientDescent();
+            preconditionerSolution();
             multiplyDerivVectors(mc1.get() + i * NUMBER_OF_P_BANDS,
                                  mc2.get() + i * NUMBER_OF_P_BANDS,
                                  nullptr, mesh_fh);
