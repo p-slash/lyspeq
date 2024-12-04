@@ -1140,8 +1140,7 @@ endconjugateGradientDescent:
 
 void Qu3DEstimator::multDerivMatrixVec(int i) {
     static size_t mesh_kz_max = std::min(
-        size_t(ceil((KMAX_EDGE - bins::KBAND_EDGES[0]) / mesh.k_fund[2])),
-        mesh.ngrid_kz);
+        size_t(ceil(KMAX_EDGE / mesh.k_fund[2])), mesh.ngrid_kz);
 
     double t1 = mytime::timer.getTime();
     int imu = i / bins::NUMBER_OF_K_BANDS, ik = i % bins::NUMBER_OF_K_BANDS;
@@ -1215,8 +1214,7 @@ void Qu3DEstimator::multiplyDerivVectors(
        If you pass lout != nullptr, current results are saved into this array.
     */
     static size_t mesh_kz_max = std::min(
-        size_t(ceil((KMAX_EDGE - bins::KBAND_EDGES[0]) / mesh.k_fund[2])),
-        mesh.ngrid_kz);
+        size_t(ceil(KMAX_EDGE / mesh.k_fund[2])), mesh.ngrid_kz);
     static auto _lout = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
 
     double dt = mytime::timer.getTime();
