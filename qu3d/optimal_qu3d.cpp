@@ -13,7 +13,7 @@
 
 namespace specifics {
     double MIN_RA = 0, MAX_RA = 0, MIN_DEC = 0, MAX_DEC = 0;
-    double MIN_KERP = 0;
+    double MIN_KERP = 0, MIN_KZ = 0;
 }
 
 // Assume 2-4 threads will not encounter race conditions
@@ -663,6 +663,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::MIN_DEC = config.getDouble("MinimumDec") * deg2rad;
     specifics::MAX_DEC = config.getDouble("MaximumDec") * deg2rad;
     specifics::MIN_KERP = config.getDouble("MinimumKperp");
+    specifics::MIN_KZ = std::max(0.0, config.getDouble("MinimumKlos"));
 
     LOG::LOGGER.STD(
         "Sky cut: RA %.3f-%.3f & DEC %.3f-%.3f in radians.\n",
@@ -1139,8 +1140,10 @@ endconjugateGradientDescent:
 
 
 void Qu3DEstimator::multDerivMatrixVec(int i) {
-    static size_t mesh_kz_max = std::min(
-        size_t(ceil(KMAX_EDGE / mesh.k_fund[2])), mesh.ngrid_kz);
+    static size_t
+    mesh_kz_max = std::min(
+        size_t(ceil(KMAX_EDGE / mesh.k_fund[2])), mesh.ngrid_kz),
+    mesh_kz_min = ceil(specifics::MIN_KZ / mesh.k_fund[2]);
 
     double t1 = mytime::timer.getTime();
     int imu = i / bins::NUMBER_OF_K_BANDS, ik = i % bins::NUMBER_OF_K_BANDS;
@@ -1173,7 +1176,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
             continue;
 
         kperp *= kperp;
-        for (size_t jz = 0; jz < mesh_kz_max; ++jz) {
+        for (size_t jz = mesh_kz_min; jz < mesh_kz_max; ++jz) {
             double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
                    alpha;
             if (kt < kmin)  continue;
@@ -1213,8 +1216,10 @@ void Qu3DEstimator::multiplyDerivVectors(
 
        If you pass lout != nullptr, current results are saved into this array.
     */
-    static size_t mesh_kz_max = std::min(
-        size_t(ceil(KMAX_EDGE / mesh.k_fund[2])), mesh.ngrid_kz);
+    static size_t
+    mesh_kz_max = std::min(
+        size_t(ceil(KMAX_EDGE / mesh.k_fund[2])), mesh.ngrid_kz),
+    mesh_kz_min = ceil(specifics::MIN_KZ / mesh.k_fund[2]);
     static auto _lout = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
 
     double dt = mytime::timer.getTime();
@@ -1250,10 +1255,10 @@ void Qu3DEstimator::multiplyDerivVectors(
 
         size_t jj = mesh.ngrid_kz * jxy;
         kperp *= kperp;
-        for (size_t k = 0; k < mesh_kz_max; ++k) {
+        for (size_t k = mesh_kz_min; k < mesh_kz_max; ++k) {
             double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp);
-            if (kt >= KMAX_EDGE || kt < bins::KBAND_EDGES[0])
-                continue;
+            if (kt < bins::KBAND_EDGES[0])  continue;
+            if (kt >= KMAX_EDGE)  break;
 
             ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
 
