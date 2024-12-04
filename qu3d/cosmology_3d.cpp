@@ -225,8 +225,14 @@ void LinearPowerInterpolator::write(ioh::Qu3dFile *out) {
 }
 
 
+const std::unordered_map<std::string, double> metal_line_map ({
+    {"b_SiIII-1207", 1206.52}, {"b_SiII-1190", 1190.42},
+    {"b_SiII-1193", 1193.28}, {"b_SiII-1260", 1260.42},
+});
+
 ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     config.addDefaults(arinyo_default_parameters);
+    config.addDefaults(metals_default_parameters);
     b_F = config.getDouble("b_F");
     alpha_F = config.getDouble("alpha_F");
     beta_F = config.getDouble("beta_F");
@@ -238,7 +244,6 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     b_HCD = config.getDouble("b_HCD");
     beta_HCD = config.getDouble("beta_HCD");
     L_HCD = config.getDouble("L_HCD");
-    b_SiIII1207 = config.getDouble("b_SiIII-1207");
     beta_metal = config.getDouble("beta_metal");
     sigma_v = config.getDouble("sigma_v");
 
@@ -250,10 +255,13 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     _sigma_mpc = 0;
     _deltar_mpc = 0;
 
-    constexpr double lambda_siIII1207 = 1206.52;
-    double alpha_si = LYA_REST / lambda_siIII1207;
-    dr_SiIII = cosmo->getComovingDist(_z1_pivot * alpha_si)
-               - cosmo->getComovingDist(_z1_pivot);
+    for (const auto &[key, wave_m] : metal_line_map) {
+        double d = fabs(cosmo->getComovingDist(_z1_pivot * LYA_REST / wave_m)
+                        - cosmo->getComovingDist(_z1_pivot));
+        double b = config.getDouble(key);
+        b_dr_pair_metals.push_back(std::make_pair(b, d));
+    }
+
     // This is tiny ~2-3 Mpc
     // L_metal = (cosmo->getComovingDist((1.0 + bins::Z_LOWER_EDGE) * alpha_si)
     //            - cosmo->getComovingDist((1.0 + bins::Z_UPPER_EDGE) * alpha_si))
@@ -518,6 +526,33 @@ void ArinyoP3DModel::_calcMultipoles() {
 }
 
 
+double ArinyoP3DModel::getMetalTerm(
+        double kz, double mu2, double bbeta_lya, double lnD
+) const {
+    double result = 0.0, dfog = kz * sigma_v, dfogxlya;
+    dfog = 1.0 / (1.0 + dfog * dfog);
+    dfogxlya = sqrt(lnD * dfog);
+
+    std::vector<std::pair<double, double>> bbeta_dr_pair_metals;
+
+    for (const auto &[b_m, dr_m] : b_dr_pair_metals) {
+        bbeta_dr_pair_metals.push_back(std::make_pair(
+            b_m * (1.0 + beta_metal * mu2), dr_m));
+    }
+
+    // xLya & auto metal terms
+    for (const auto &[bbeta_m, dr_m] : bbeta_dr_pair_metals)
+        result += 2.0 * bbeta_lya * bbeta_m * cos(kz * dr_m) * dfogxlya
+                  + bbeta_m * bbeta_m * dfog;
+
+    for (const auto &[bbeta_m1, dr_m1] : bbeta_dr_pair_metals)
+        for (const auto &[bbeta_m2, dr_m2] : bbeta_dr_pair_metals)
+            result += 2.0 * bbeta_m1 * bbeta_m2
+                      * cos(kz * (dr_m1 - dr_m2)) * dfog;
+
+    return result;
+}
+
 double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     if (k == 0)
         return 0;
@@ -529,16 +564,13 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     mu = kz / k, mu2 = mu * mu,
     bbeta_lya = b_F * (1.0 + beta_F * mu2),
     bbeta_hcd_kz = b_HCD * (1 + beta_HCD * mu2) * exp(-L_HCD * kz),
-    bbeta_siIII = b_SiIII1207 * (1 + beta_metal * mu2),
-    result, lnD, dfog, apod_halo;
+    result, lnD, apod_halo;
 
     lnD = (q_1 * delta2_L) * (
             1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0)
     ) - k_kp * k_kp;
 
     lnD = exp(lnD);
-    dfog = kz * sigma_v;
-    dfog = 1.0 / (1.0 + dfog * dfog);
 
     if (k > KMAX_HALO)
         apod_halo = 0;
@@ -553,8 +585,7 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
         bbeta_lya * bbeta_lya * lnD + apod_halo * (
             + 2.0 * bbeta_lya * bbeta_hcd_kz
             + bbeta_hcd_kz * bbeta_hcd_kz
-            + 2.0 * bbeta_lya * bbeta_siIII * cos(kz * dr_SiIII) * sqrt(lnD * dfog)
-            + bbeta_siIII * bbeta_siIII * dfog));
+            + getMetalTerm(kz, mu2, bbeta_lya, lnD)));
 
     if ((_sigma_mpc == 0) && (_deltar_mpc == 0))
         return result;
