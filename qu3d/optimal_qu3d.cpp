@@ -1173,7 +1173,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
         double kx, ky;
         double kperp = mesh.getKperpFromIperp(jxy, kx, ky);
 
-        if (kx < specifics::MIN_KPERP || ky < specifics::MIN_KPERP)
+        if (fabs(kx) < specifics::MIN_KPERP || fabs(ky) < specifics::MIN_KPERP)
             continue;
         if (kperp >= kmax)
             continue;
@@ -1254,7 +1254,7 @@ void Qu3DEstimator::multiplyDerivVectors(
         double kperp = mesh.getKperpFromIperp(jxy, kx, ky);
         int ik, ik2;
 
-        if (kx < specifics::MIN_KPERP || ky < specifics::MIN_KPERP)
+        if (fabs(kx) < specifics::MIN_KPERP || fabs(ky) < specifics::MIN_KPERP)
             continue;
         if (kperp >= KMAX_EDGE)
             continue;
