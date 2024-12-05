@@ -1161,7 +1161,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
     case 1: legendre_w = legendre2; break;
     case 2: legendre_w = legendre4; break;
     case 3: legendre_w = legendre6; break;
-    default: legendre_w = std::bind(legendre, std::placeholders::_1, 2 * imu);
+    default: legendre_w = std::bind(legendre, 2 * imu, std::placeholders::_1);
     }
 
     #pragma omp parallel for schedule(dynamic, 4)
