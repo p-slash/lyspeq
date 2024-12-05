@@ -123,6 +123,7 @@ public:
     void getKFromIndex(size_t i, double k[3]) const;
     void getK2KzFromIndex(size_t i, double &k2, double &kz) const;
     double getKperpFromIperp(size_t iperp) const;
+    double getKperpFromIperp(size_t iperp, double &kx, double &ky) const;
     void getKperpKzFromIndex(size_t i, double &kperp, double &kz) const;
     std::unique_ptr<double[]> getKperpArray() const;
 
