@@ -13,7 +13,7 @@
 
 namespace specifics {
     double MIN_RA = 0, MAX_RA = 0, MIN_DEC = 0, MAX_DEC = 0;
-    double MIN_KERP = 0, MIN_KZ = 0;
+    double MIN_KPERP = 0, MIN_KZ = 0;
 }
 
 // Assume 2-4 threads will not encounter race conditions
@@ -662,7 +662,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::MAX_RA = config.getDouble("MaximumRa") * deg2rad;
     specifics::MIN_DEC = config.getDouble("MinimumDec") * deg2rad;
     specifics::MAX_DEC = config.getDouble("MaximumDec") * deg2rad;
-    specifics::MIN_KERP = config.getDouble("MinimumKperp");
+    specifics::MIN_KPERP = config.getDouble("MinimumKperp");
     specifics::MIN_KZ = std::max(0.0, config.getDouble("MinimumKlos"));
 
     LOG::LOGGER.STD(
@@ -1170,9 +1170,12 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
         std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
 
-        double kperp = mesh.getKperpFromIperp(jxy);
+        double kx, ky;
+        double kperp = mesh.getKperpFromIperp(jxy, kx, ky);
 
-        if (kperp >= kmax || kperp < specifics::MIN_KERP)
+        if (kx < specifics::MIN_KPERP || ky < specifics::MIN_KPERP)
+            continue;
+        if (kperp >= kmax)
             continue;
 
         kperp *= kperp;
@@ -1247,10 +1250,13 @@ void Qu3DEstimator::multiplyDerivVectors(
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS]) \
                              schedule(dynamic, 4)
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
-        double kperp = mesh.getKperpFromIperp(jxy), temp, temp2, temp3;
+        double kx, ky, temp, temp2, temp3;
+        double kperp = mesh.getKperpFromIperp(jxy, kx, ky);
         int ik, ik2;
 
-        if (kperp >= KMAX_EDGE || kperp < specifics::MIN_KERP)
+        if (kx < specifics::MIN_KPERP || ky < specifics::MIN_KPERP)
+            continue;
+        if (kperp >= KMAX_EDGE)
             continue;
 
         size_t jj = mesh.ngrid_kz * jxy;
