@@ -45,8 +45,8 @@ void Qu3DEstimator::conjugateGradientIpH() {
 
     updateYMatrixVectorFunction = [this]() { this->multiplyIpHVector(1.0); };
 
-    const double precon_diag = 2.0 + (
-        1.0 - p3d_model->getVar1dS() / p3d_model->getVar1dT());
+    constexpr double precon_diag = 2.0;
+        // + (1.0 - p3d_model->getVar1dS() / p3d_model->getVar1dT());
 
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientIpH. Preconditioner %.5f\n",
