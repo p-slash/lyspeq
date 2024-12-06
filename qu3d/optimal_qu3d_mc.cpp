@@ -363,6 +363,7 @@ void Qu3DEstimator::testHSqrt() {
 
     fits_close_file(fits_file, &status);
     ioh::checkFitsStatus(status);
+    logTimings();
 }
 
 
