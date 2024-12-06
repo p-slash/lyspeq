@@ -1,16 +1,16 @@
 void Qu3DEstimator::multiplyIpHVector(double m) {
     /* m I + I + N^-1/2 G^1/2 (S_L + S_OD) G^1/2 N^-1/2 A_BD^-1
         input is const *in, output is *out
-        uses: *in_isig
+        uses: *in_isig, *sc_eta
     */
     double dt = mytime::timer.getTime();
 
     /* A_BD^-1. Might not be true if pp_enabled=false */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
-        qso->multInvCov(p3d_model.get(), qso->in, qso->out, pp_enabled);
+        qso->multInvCov(p3d_model.get(), qso->in, qso->sc_eta, pp_enabled);
         double *tmp_in = qso->in;
-        qso->in = qso->out;
+        qso->in = qso->sc_eta;
         qso->setInIsigNoMarg();
         qso->in = tmp_in;
     }
@@ -19,28 +19,14 @@ void Qu3DEstimator::multiplyIpHVector(double m) {
     // only in_isig is used until (B)
     multMeshComp();
 
-    if (pp_enabled) {
-        double t1_pp = mytime::timer.getTime(), dt_pp = 0;
-
-        #pragma omp parallel for schedule(dynamic, 4)
-        for (auto &qso : quasars)
-            if (!qso->neighbors.empty())
-                qso->multCovNeighborsOnly(p3d_model.get(), effective_chi);
-
-        dt_pp = mytime::timer.getTime() - t1_pp;
-        ++timings["PPcomp"].first;
-        timings["PPcomp"].second += dt_pp;
-
-        if (verbose)
-            LOG::LOGGER.STD("    multParticleComp took %.2f s.\n", 60.0 * dt_pp);
-    }
+    if (pp_enabled)  multParticleComp();
     // (B)
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->out[i] *= qso->isig[i] * qso->z1[i];
-            qso->out[i] += (1.0 + m) * qso->in[i];
+            qso->out[i] += m * qso->in[i] + qso->sc_eta[i];
         }
     }
 
@@ -319,11 +305,11 @@ void Qu3DEstimator::testHSqrt() {
     ioh::checkFitsStatus(status);
 
     /* define the name, datatype, and physical units for columns */
-    int ncolumns = 2;
+    int ncolumns = 3;
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wwrite-strings"
-    char *column_names[] = {"xTHx", "yTy"};
-    char *column_types[] = {"1D", "1D"};
+    char *column_names[] = {"xTHx", "yTy", "xTx"};
+    char *column_types[] = {"1D", "1D", "1D"};
     #pragma GCC diagnostic pop
 
     fits_create_tbl(
@@ -557,198 +543,3 @@ void Qu3DEstimator::estimateFisherDirect() {
     cblas_dscal(bins::FISHER_SIZE, 0.5, fisher.get(), 1);
     logTimings();
 }
-
-#if 0
-void Qu3DEstimator::replaceDeltasWithGaussianField() {
-    /* Generated deltas will be different between MPI tasks */
-    if (verbose)
-        LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
-
-    double t1 = mytime::timer.getTime(), t2 = 0;
-    /* We could generate a higher resolution grid for truth testing in the
-       future. Old code for reference:
-
-       RealField3D mesh_g;
-       mesh_g.initRngs(seed_generator.get());
-       mesh_g.copy(mesh);
-       mesh_g.length[1] *= 1.25; mesh_g.length[2] *= 1.25;
-       mesh_g.ngrid[0] *= 2; mesh_g.ngrid[1] *= 2; mesh_g.ngrid[2] *= 2;
-       mesh_rnd.construct();
-    */
-
-    mesh_rnd.fillRndNormal();
-    mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pL);
-
-    if (pp_enabled) {
-        /* Add small-scale clusting with conjugateGradientSampler
-           This function fills truth with rng noise,
-           Cy (out) with random vector with covariance S_s*/
-        // conjugateGradientSampler();
-
-        #pragma omp parallel for
-        for (auto &qso : quasars) {
-            qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
-            for (int i = 0; i < qso->N; ++i) {
-                qso->truth[i] += mesh_rnd.interpolate(qso->r.get() + 3 * i);
-                qso->truth[i] *= qso->isig[i] * qso->z1[i];
-            }
-            rngs[myomp::getThreadNum()].addVectorNormal(qso->truth, qso->N);
-            std::copy_n(qso->truth, qso->N, qso->sc_eta);
-            // std::swap(qso->truth, qso->sc_eta);
-        }
-
-        if (verbose)
-            LOG::LOGGER.STD("Applying off-diagonal correlations.\n");
-
-        for (int m = 1; m <= OFFDIAGONAL_ORDER; ++m) {
-            double coeff = 1.0;
-            for (int jj = 0; jj < m; ++jj)
-                coeff *= (0.5 + jj) / (jj + 1);
-
-            if (verbose)
-                LOG::LOGGER.STD("  Order %d. Coefficient is %.4f.\n", m, coeff);
-            // Solve C^-1 sc_eta into in
-            conjugateGradientDescent();
-
-            // multiply neighbors-only
-            double t1_pp = mytime::timer.getTime(), dt_pp = 0;
-
-            #pragma omp parallel for
-            for (auto &qso : quasars) {
-                if (qso->neighbors.empty())
-                    continue;
-
-                for (int i = 0; i < qso->N; ++i)
-                    qso->in[i] *= qso->z1[i];
-            }
-
-            double nrm_truth_now = 0, nrm_sc_eta = 0;
-            #pragma omp parallel for schedule(dynamic, 8) \
-                reduction(+:nrm_truth_now, nrm_sc_eta)
-            for (auto &qso : quasars) {
-                if (qso->neighbors.empty())
-                    std::fill_n(qso->out, qso->N, 0);
-                else
-                    qso->multCovNeighborsOnly(p3d_model.get(), effective_chi, qso->out);
-                // *out is now N^-1/2 (S_OD C^-1)^m eta (BD random)
-
-                // Truth is in *sc_eta
-                nrm_truth_now += cblas_ddot(qso->N, qso->sc_eta, 1, qso->sc_eta, 1);
-
-                qso->updateTruth(coeff);
-
-                // *truth is now N^-1/2 (S_OD C^-1)^m eta (BD random)
-                nrm_sc_eta += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
-            }
-
-            nrm_truth_now = sqrt(nrm_truth_now);
-            nrm_sc_eta = coeff * sqrt(nrm_sc_eta);
-            if (verbose)
-                LOG::LOGGER.STD("Relative change: %.5e / %.5e = %.5e\n",
-                    nrm_sc_eta, nrm_truth_now, nrm_sc_eta / nrm_truth_now);
-
-            dt_pp = mytime::timer.getTime() - t1_pp;
-            ++timings["PPcomp"].first;
-            timings["PPcomp"].second += dt_pp;
-        }
-
-        for (auto &qso : quasars)
-            std::swap(qso->truth, qso->sc_eta);
-    }
-    else {
-        #pragma omp parallel for
-        for (auto &qso : quasars) {
-            qso->fillRngNoise(rngs[myomp::getThreadNum()]);
-            for (int i = 0; i < qso->N; ++i)
-                qso->truth[i] += qso->isig[i] * qso->z1[i]
-                    * mesh_rnd.interpolate(qso->r.get() + 3 * i);
-        }
-    }
-
-    t2 = mytime::timer.getTime() - t1;
-    ++timings["GenGauss"].first;
-    timings["GenGauss"].second += t2;
-
-    if (verbose)
-        LOG::LOGGER.STD("It took %.2f m.\n", t2);
-}
-
-void Qu3DEstimator::multiplyFisherDerivs(double *o1, double *o2) {
-    static size_t mesh_kz_max = std::min(
-        size_t(ceil((KMAX_EDGE - bins::KBAND_EDGES[0]) / mesh.k_fund[2])),
-        mesh.ngrid_kz);
-    static auto _lout = std::make_unique<double[]>(bins::FISHER_SIZE);
-    static double *lout = _lout.get();
-
-    double dt = mytime::timer.getTime();
-    std::fill_n(lout, bins::FISHER_SIZE, 0);
-
-    #pragma omp parallel for reduction(+:lout[0:bins::FISHER_SIZE])
-    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
-        double kperp = mesh.getKperpFromIperp(jxy),
-               f_aa, f_ab, f_bb, temp;
-
-        if (kperp >= KMAX_EDGE)
-            continue;
-        else if (kperp < specifics::MIN_KERP)
-            continue;
-
-        int ik = (kperp - bins::KBAND_EDGES[0]) / DK_BIN, ik2;
-
-        size_t jj = mesh.ngrid_kz * jxy;
-        kperp *= kperp;
-        for (size_t k = 0; k < mesh_kz_max; ++k) {
-            double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp), mu;
-            if (kt >= KMAX_EDGE || kt < bins::KBAND_EDGES[0])
-                continue;
-
-            ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
-            mu = kz / kt;
-
-            f_aa = ((k != 0) + 1) * std::norm(mesh.field_k[k + jj])
-                   * p3d_model->getSpectroWindow2(kz);
-            temp = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
-            f_bb = 1.0 - temp;
-            f_ab = f_aa * temp * f_bb
-            f_bb *= f_aa * f_bb;
-            f_aa *= temp * temp;
-
-            if (kt > bins::KBAND_CENTERS[ik])
-                ik2 = std::min(bins::NUMBER_OF_K_BANDS - 1, ik + 1);
-            else
-                ik2 = std::max(0, ik - 1);
-
-            for (int imu = 0; imu < NUMBER_OF_MULTIPOLES; ++imu) {
-                int ii1 = ik + NUMBER_OF_K_BANDS * imu,
-                    ii2 = ik2 + NUMBER_OF_K_BANDS * imu;
-
-                double Lmu_i = legendre(2 * imu, mu);
-
-                for (int jmu = imu; jmu < NUMBER_OF_MULTIPOLES; ++jmu) {
-                    int jj1 = ik + NUMBER_OF_K_BANDS * jmu,
-                        jj2 = ik2 + NUMBER_OF_K_BANDS * jmu;
-
-                    double Lmu_j = Lmu_i * legendre(2 * jmu, mu);
-
-                    lout[jj1 + ii1 * NUMBER_OF_P_BANDS] += Lmu_j * f_aa;
-                    lout[jj2 + ii1 * NUMBER_OF_P_BANDS] += Lmu_j * f_ab;
-                    lout[jj2 + jj2 * NUMBER_OF_P_BANDS] += Lmu_j * f_bb;
-                }
-            }
-        }
-    }
-
-    cblas_dscal(bins::FISHER_SIZE, mesh.invtotalvol, lout, 1);
-
-    if (o2 != nullptr) {
-        for (int i = 0; i < bins::FISHER_SIZE; ++i) {
-            o1[i] += lout[i];
-            o2[i] += lout[i] * lout[i];
-        }
-    }
-
-    dt = mytime::timer.getTime() - dt;
-    ++timings["mFisherDeriv"].first;
-    timings["mFisherDeriv"].second += dt;
-}
-#endif
