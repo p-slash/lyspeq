@@ -9,14 +9,15 @@ NGRID_Y 512
 NGRID_Z 192
 LongScale 15.0
 ScaleFactor 2
+EstimateTotalBias 1
 EstimateNoiseBias -1
-EstimateFisherFromRandomDerivatives -1
+TestHsqrt -1
 
 MinimumSnrCut 0
 DownsampleFactor 1
 
 NumberOfLinearBins 16
-LinearKBinWidth 4.0E-3
+LinearKBinWidth 0.011
 
 TurnOnPpCovariance 1
 ContinuumLogLambdaMargOrder -1
