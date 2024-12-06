@@ -611,18 +611,6 @@ public:
         }
     }
 
-    void updateTruth(double cf) {
-        /* To be used in correlated Gaussian field. Check for neighbors outside
-           this function. */
-        std::swap(truth, sc_eta);
-        std::swap(sc_eta, out);
-
-        for (int i = 0; i < N; ++i)
-            truth[i] += cf * sc_eta[i];
-
-        std::swap(truth, sc_eta);
-    }
-
     static void allocCcov(size_t size) {
         GL_CCOV.resize(myomp::getMaxNumThreads());
         for (auto it = GL_CCOV.begin(); it != GL_CCOV.end(); ++it)
