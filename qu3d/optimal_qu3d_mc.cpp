@@ -236,15 +236,68 @@ bool Qu3DEstimator::_syncMonteCarlo(
 }
 
 
-void Qu3DEstimator::estimateTotalBiasMc() {
-    /* Saves every Monte Carlo simulation. The results need to be
-       post-processed to get the Fisher matrix. */
-    LOG::LOGGER.STD("Estimating total bias (S_L + N).\n");
+void Qu3DEstimator::estimateTotalBiasDirect() {
     constexpr int M_MCS = 5;
     verbose = false;
     mc1 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
     mc2 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    int nmc = 1;
+    bool converged = false;
 
+    if (!mesh_rnd) {mesh_rnd.copy(mesh); mesh_rnd.construct(INPLACE_FFT);}
+
+    // Direct estimation first.
+    LOG::LOGGER.STD("Estimating total bias directly.\n");
+    Progress prog_tracker(max_monte_carlos, 10);
+    for (; nmc <= max_monte_carlos; ++nmc) {
+        /* Generate z = +-1 per forest. */
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            rngs[myomp::getThreadNum()].fillVectorOnes(qso->in, qso->N);
+
+        /* (Right hand side) Save this on mesh_rnd */
+        reverseInterpolateZ(mesh_rnd);
+        mesh_rnd.rawFftX2K();
+
+        /* (Left hand side) CGD requires *truth to be mult'd by N^-1/2 */
+        #pragma omp parallel for
+        for (auto &qso : quasars) {
+            qso->multIsigInVector();
+            std::swap(qso->in, qso->truth);
+        }
+
+        /* calculate C^-1 . z into *in */
+        conjugateGradientDescent();
+
+        multiplyDerivVectors(mc1.get(), mc2.get(), nullptr, mesh_rnd);
+        ++prog_tracker;
+
+        if ((nmc % M_MCS != 0) && (nmc != max_monte_carlos))
+            continue;
+
+        converged = _syncMonteCarlo(
+            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_P_BANDS,
+            "FTOTALBIAS-D");
+
+        if (converged)
+            break;
+    }
+
+    logTimings();
+}
+
+void Qu3DEstimator::estimateTotalBiasMc() {
+    /* Saves every Monte Carlo simulation. The results need to be
+       post-processed to get the Fisher matrix. */
+    constexpr int M_MCS = 5;
+    verbose = false;
+    mc1 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    mc2 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    int nmc = 1;
+    bool converged = false;
+
+    // Monte Carlo estimation.
+    LOG::LOGGER.STD("Estimating total bias with Monte Carlos.\n");
     // Every task saves their own Monte Carlos
     ioh::Qu3dFile monte_carlos_file(
         process::FNAME_BASE + "-montecarlos-" + std::to_string(mympi::this_pe),
@@ -252,8 +305,6 @@ void Qu3DEstimator::estimateTotalBiasMc() {
     auto all_mcs = std::make_unique<double[]>(M_MCS * NUMBER_OF_P_BANDS);
 
     Progress prog_tracker(max_monte_carlos, 10);
-    int nmc = 1;
-    bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* generate random Gaussian vector into truth */
         replaceDeltasWithGaussianField();
@@ -280,7 +331,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
 
         converged = _syncMonteCarlo(
             nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_P_BANDS,
-            "FTOTALBIAS");
+            "FTOTALBIAS-MC");
 
         if (converged)
             break;
@@ -489,8 +540,8 @@ void Qu3DEstimator::estimateFisherDirect() {
     timings["mDerivMatVec"] = std::make_pair(0, 0.0);
 
     LOG::LOGGER.STD("  Constructing two other meshes for randoms.\n");
-    mesh_rnd.copy(mesh);  mesh_fh.copy(mesh);
-    mesh_rnd.construct(INPLACE_FFT);  mesh_fh.construct(INPLACE_FFT);
+    if (!mesh_rnd) { mesh_rnd.copy(mesh); mesh_rnd.construct(INPLACE_FFT); }
+    if (!mesh_fh) { mesh_fh.copy(mesh); mesh_fh.construct(INPLACE_FFT); }
 
     LOG::LOGGER.STD("  Using preconditioner as solution.\n");
 

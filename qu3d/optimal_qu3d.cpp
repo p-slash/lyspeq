@@ -700,6 +700,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
             + std::to_string(fidcosmo::ArinyoP3DModel::MAX_R_FACTOR));
 
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
+    total_bias_direct_enabled = config.getInteger("EstimateTotalBiasDirectly") > 0;
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_direct_enabled = config.getInteger("EstimateFisherDirectly") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
@@ -1483,6 +1484,9 @@ int main(int argc, char *argv[]) {
             qps.replaceDeltasWithGaussianField();
 
         qps.estimatePower();
+
+        if (qps.total_bias_direct_enabled)
+            qps.estimateTotalBiasDirect();
 
         if (qps.total_bias_enabled)
             qps.estimateTotalBiasMc();

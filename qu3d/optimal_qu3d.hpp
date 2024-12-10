@@ -22,8 +22,8 @@ const config_map qu3d_default_parameters ({
     {"ConvergenceTolerance", "1e-6"}, {"AbsoluteTolerance", "-1"},
     {"LongScale", "50"}, {"ScaleFactor", "4"},
     {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"},
-    {"EstimateTotalBias", "1"}, {"EstimateNoiseBias", "1"},
-    {"EstimateFisherDirectly", "-1"},
+    {"EstimateTotalBias", "1"}, {"EstimateTotalBiasDirectly", "1"},
+    {"EstimateNoiseBias", "1"}, {"EstimateFisherDirectly", "-1"},
     {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"},
     {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""}
 });
@@ -67,7 +67,7 @@ class Qu3DEstimator
                          int ndata, const std::string &ext);
 
 public:
-    bool total_bias_enabled, noise_bias_enabled,
+    bool total_bias_enabled, total_bias_direct_enabled, noise_bias_enabled,
          fisher_direct_enabled, max_eval_enabled;
 
     /* This function reads following keys from config file:
@@ -87,6 +87,7 @@ public:
     void replaceDeltasWithGaussianField();
     void estimateNoiseBiasMc();
     void estimateTotalBiasMc();
+    void estimateTotalBiasDirect();
     void testHSqrt();
     void estimateFisherFromRndDeriv();
     void multiplyFisherDerivs(double *o1, double *o2);
