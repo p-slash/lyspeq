@@ -51,6 +51,7 @@ public:
     RealField3D();
     RealField3D(const RealField3D &rhs) = delete;
     RealField3D(RealField3D &&rhs) = delete;
+    explicit operator bool() const { return p_x2k != nullptr; }
 
     /* Copy constructor. Need to call construct! */
     void copy(const RealField3D &rhs);
