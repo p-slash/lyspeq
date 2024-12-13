@@ -63,7 +63,7 @@ public:
     double cos_dec, sin_dec;
     std::unique_ptr<float[]> r;
     std::unique_ptr<double[]> y, Cy, residual, search, y_isig,
-                              sod_cinv_eta;
+                              sod_cinv_eta, _z1_mem;
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
@@ -131,7 +131,6 @@ public:
             qFile->downsample(specifics::DOWNSAMPLE_FACTOR);
 
         N = qFile->size();
-        z1 = qFile->wave();
         isig = qFile->ivar();
 
         r = std::make_unique<float[]>(3 * N);
@@ -141,11 +140,14 @@ public:
         residual = std::make_unique<double[]>(N);
         search = std::make_unique<double[]>(N);
         sod_cinv_eta = std::make_unique<double[]>(N);
+        _z1_mem = std::make_unique<double[]>(N);
+        z1 = _z1_mem.get();
 
         // Convert to inverse sigma and weight deltas
         for (int i = 0; i < N; ++i) {
             isig[i] = sqrt(isig[i]);
             qFile->delta()[i] *= isig[i];
+            z1[i] = qFile->wave()[i];
         }
 
         /* Will be reset in _shiftByMedianDec in optimal_qu3d.cpp */
