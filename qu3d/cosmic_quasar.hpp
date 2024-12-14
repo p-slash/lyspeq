@@ -162,6 +162,46 @@ public:
     }
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
+    void project(double varlss, int order) {
+        assert(order < 2 && order >= 0);
+
+        double sum_weights = 0.0, mean_delta = 0.0;
+        auto weights = std::make_unique<double[]>(N);
+        auto log_lambda = std::make_unique<double[]>(N);
+
+        for (int i = 0; i < N; ++i) {
+            double ivar = isig[i] * isig[i];
+            weights[i] = ivar / (1.0 + ivar * varlss * z1[i] * z1[i]);
+            sum_weights += weights[i];
+            mean_delta += truth[i] * weights[i];
+        }
+
+        mean_delta /= sum_weights;
+        if (order == 0) {
+            for (int i = 0; i < N; ++i)
+                truth[i] -= mean_delta;
+            return;
+        }
+
+        double mean_log_lambda = 0.0;
+        for (int i = 0; i < N; ++i) {
+            log_lambda[i] = log10(qFile->wave()[i]);
+            mean_log_lambda += weights[i] * log_lambda[i];
+        }
+        mean_log_lambda /= sum_weights;
+        for (int i = 0; i < N; ++i)
+            log_lambda[i] -= mean_log_lambda;
+
+        double sum_weights_ll = 0.0, mean_delta_ll = 0.0;
+        for (int i = 0; i < N; ++i) {
+            sum_weights_ll += weights[i] * log_lambda[i] * log_lambda[i];
+            mean_delta_ll += weights[i] * log_lambda[i] * truth[i];
+        }
+        mean_delta_ll /= sum_weights_ll;
+
+        for (int i = 0; i < N; ++i)
+            truth[i] -= mean_delta + mean_delta_ll * log_lambda[i];
+    }
 
     void setComovingDistances(const fidcosmo::FlatLCDM *cosmo, double radial) {
         _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
