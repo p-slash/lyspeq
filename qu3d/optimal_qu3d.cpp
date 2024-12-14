@@ -688,6 +688,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     pp_enabled = config.getInteger("TurnOnPpCovariance") > 0;
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
+    mock_grid_res_factor = config.getInteger("MockGridResolutionFactor");
     tolerance = config.getDouble("ConvergenceTolerance");
     mc_tol = tolerance;
     absolute_tolerance = config.getInteger("AbsoluteTolerance") > 0;
@@ -1480,8 +1481,14 @@ int main(int argc, char *argv[]) {
         if (test_hsqrt)
             qps.testHSqrt();
 
-        if (test_gaussian_field)
-            qps.replaceDeltasWithGaussianField();
+        if (test_gaussian_field) {
+            if (qps.mock_grid_res_factor > 1) {
+                qps.replaceDeltasWithHighResGaussianField();
+                goto EndOptimalQu3DNormally;
+            }
+            else
+                qps.replaceDeltasWithGaussianField();
+        }
 
         qps.estimatePower();
 
@@ -1504,6 +1511,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+EndOptimalQu3DNormally:
     myomp::clean_fftw();
     mympi::finalize();
     return 0;
