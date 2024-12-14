@@ -3,7 +3,7 @@
 #include "mathtools/real_field_3d.hpp"
 #include "mathtools/matrix_helper.hpp"
 // #include <algorithm>
-// #include <cassert>
+#include <cassert>
 
 const double MY_PI = 3.14159265358979323846;
 
@@ -32,7 +32,8 @@ RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr) {
 
 void RealField3D::copy(const RealField3D &rhs)
 {
-    p_x2k = nullptr; p_k2x = nullptr;
+    assert (p_x2k == nullptr);
+    // p_x2k = nullptr; p_k2x = nullptr;
     _periodic_x = rhs._periodic_x;
     for (int axis = 0; axis < 3; ++axis) {
         ngrid[axis] = rhs.ngrid[axis];
@@ -43,6 +44,8 @@ void RealField3D::copy(const RealField3D &rhs)
 
 
 void RealField3D::construct(bool inp) {
+    assert (p_x2k == nullptr);
+
     _inplace = inp;
     size_real = 1;
     cellvol = 1;
