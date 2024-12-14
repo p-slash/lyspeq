@@ -198,6 +198,34 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
 }
 
 
+void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
+    if (verbose)
+        LOG::LOGGER.STD("Replacing deltas with high-res. Gaussian. ");
+
+    double t1 = mytime::timer.getTime(), t2 = 0;
+    mesh_rnd.copy(mesh);
+    for (int axis = 0; axis < 3; ++axis)
+        mesh_rnd.ngrid[axis] *= mock_grid_res_factor;
+    mesh_rnd.construct(INPLACE_FFT);
+    mesh_rnd.fillRndNormal();
+    mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pT);
+    double varlss = p3d_model->getVar1dT();
+
+    #pragma omp parallel for schedule(static, 8)
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i)
+            qso->truth[i] = qso->z1[i] * mesh_rnd.interpolate(
+                qso->r.get() + 3 * i);
+
+        // If project
+        if (CONT_MARG_ENABLED)
+            qso->project(varlss, specifics::CONT_LOGLAM_MARG_ORDER);
+
+        // Save to deltas
+    }
+}
+
+
 bool Qu3DEstimator::_syncMonteCarlo(
         int nmc, double *o1, double *o2, int ndata, const std::string &ext
 ) {
