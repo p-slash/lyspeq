@@ -338,7 +338,8 @@ void ArinyoP3DModel::_cacheInterp2D() {
     constexpr double dlnk = 0.02;
     const int N = ceil((LNKMAX - LNKMIN) / dlnk);
     auto lnP_L = std::make_unique<double[]>(N * N),
-         lnP_S = std::make_unique<double[]>(N * N);
+         lnP_S = std::make_unique<double[]>(N * N),
+         lnP_T = std::make_unique<double[]>(N * N);
 
     /* Large-scale and small-scale 2Ds */
     for (int iperp = 0; iperp < N; ++iperp) {
@@ -357,11 +358,14 @@ void ArinyoP3DModel::_cacheInterp2D() {
             /* Small-scale 2D */
             k_rL = log(1.0 - exp(k_rL) + SAFE_ZERO);
             lnP_S[iz + N * iperp] = ptot + k_rL;
+            /* Total 2D */
+            lnP_T[iz + N * iperp] = ptot;
         }
     }
 
     interp2d_pL.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_L.get(), N, N);
     interp2d_pS.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_S.get(), N, N);
+    interp2d_pT.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_T.get(), N, N);
 
     /* Large-scale and small-scale 1Ds */
     for (int i = 0; i < N; ++i) {
@@ -379,12 +383,18 @@ void ArinyoP3DModel::_cacheInterp2D() {
         k_rL = log(1.0 - exp(k_rL) + SAFE_ZERO);
         lnP_L[i + 2 * N] = pperp + k_rL;
         lnP_L[i + 3 * N] = pz + k_rL;
+
+        /* Total 1D */
+        lnP_L[i + 4 * N] = pperp;
+        lnP_L[i + 5 * N] = pz;
     }
 
     interp2d_pL.setInterpX(LNKMIN, dlnk, N, lnP_L.get());
     interp2d_pL.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + N);
     interp2d_pS.setInterpX(LNKMIN, dlnk, N, lnP_L.get() + 2 * N);
     interp2d_pS.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + 3 * N);
+    interp2d_pT.setInterpX(LNKMIN, dlnk, N, lnP_L.get() + 4 * N);
+    interp2d_pT.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + 5 * N);
 }
 
 
