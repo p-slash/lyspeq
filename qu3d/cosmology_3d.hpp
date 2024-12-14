@@ -158,7 +158,7 @@ namespace fidcosmo {
     public:
         DiscreteLogInterpolation2D<
             DiscreteCubicInterpolation1D, INTERP_COSMO_2D
-        > interp2d_pL, interp2d_pS;
+        > interp2d_pL, interp2d_pS, interp2d_pT;
         /* This function reads following keys from config file:
         b_F: double
         alpha_F (double): Redshift growth power of b_F.
