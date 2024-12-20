@@ -481,9 +481,10 @@ void Qu3DEstimator::_saveNeighbors() {
     }
 
     int status = 0;
-    fitsfile *fits_file = nullptr;
 
     std::string out_fname = "!" + process::FNAME_BASE + "-quasar-neighbors.fits";
+    auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(out_fname);
+    fitsfile *fits_file = fitsfile_ptr.get();
 
     /* define the name, datatype, and physical units for columns */
     int ncolumns = 2;
@@ -494,7 +495,6 @@ void Qu3DEstimator::_saveNeighbors() {
     char *column_units[] = { "", ""};
     #pragma GCC diagnostic pop
 
-    fits_create_file(&fits_file, out_fname.c_str(), &status);
     fits_create_tbl(fits_file, BINARY_TBL, quasars.size(), ncolumns,
                     column_names, column_types, column_units, "NEIGHBORS",
                     &status);
@@ -522,8 +522,6 @@ void Qu3DEstimator::_saveNeighbors() {
         ioh::checkFitsStatus(status);
         ++irow;
     }
-    fits_close_file(fits_file, &status);
-    ioh::checkFitsStatus(status);
 
     mympi::barrier();
     LOG::LOGGER.STD("Neighbors cache saved as %s\n", out_fname.c_str());

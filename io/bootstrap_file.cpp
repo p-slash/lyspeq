@@ -13,17 +13,6 @@
 
 std::unique_ptr<ioh::BootstrapFile> ioh::boot_saver;
 
-void ioh::checkFitsStatus(int status) {
-    if (status == 0)
-        return;
-
-    char fits_msg[80];
-    fits_get_errstatus(status, fits_msg);
-    std::string error_msg = std::string("FITS ERROR ") + std::string(fits_msg);
-
-    throw std::runtime_error(error_msg);
-}
-
 
 std::string ioh::saveBootstrapRealizations(
         const std::string &base, const double *allpowers, const double *invfisher,
@@ -31,11 +20,10 @@ std::string ioh::saveBootstrapRealizations(
 ) {
     int status = 0, bitpix = DOUBLE_IMG;
     long naxis = 2, size = nboots * nk * nz, naxes[2] = { nk * nz, nboots };
-    fitsfile *fits_file = nullptr;
     std::string out_fname = "!" + base + "-bootstrap-realizations.fits";
 
-    fits_create_file(&fits_file, out_fname.c_str(), &status);
-    ioh::checkFitsStatus(status);
+    auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(out_fname);
+    fitsfile *fits_file = fitsfile_ptr.get();
 
     fits_create_img(fits_file, bitpix, naxis, naxes, &status);
     ioh::checkFitsStatus(status);
@@ -85,9 +73,6 @@ std::string ioh::saveBootstrapRealizations(
     fits_write_img(fits_file, TDOUBLE, 1, size, (void *) invfisher, &status);
     ioh::checkFitsStatus(status);
 
-    fits_close_file(fits_file, &status);
-    ioh::checkFitsStatus(status);
-
     return out_fname;
 }
 
@@ -98,13 +83,11 @@ void ioh::readBootstrapRealizations(
         std::unique_ptr<double[]> &invfisher,
         unsigned int &nboots, int &nk, int &nz, bool &fastbootstrap
 ) {
-    fitsfile *fits_file = nullptr;
     int status = 0, nfound, fboot;
     long naxes[2];
     double nullval = 0.;
-
-    fits_open_file(&fits_file, fname.c_str(), READONLY, &status);
-    ioh::checkFitsStatus(status);
+    auto fitsfile_ptr = ioh::open_unique_fitsfile_ptr(fname, READONLY);
+    fitsfile *fits_file = fitsfile_ptr.get();
 
     char extname[] = "REALIZATIONS";
     fits_movnam_hdu(fits_file, IMAGE_HDU, extname, 0, &status);
@@ -135,7 +118,6 @@ void ioh::readBootstrapRealizations(
         fits_file, TDOUBLE, 1, size, &nullval, invfisher.get(), nullptr, &status);
 
     ioh::checkFitsStatus(status);
-    fits_close_file(fits_file, &status);
 }
 
 ioh::BootstrapChunksFile::BootstrapChunksFile(
@@ -144,8 +126,8 @@ ioh::BootstrapChunksFile::BootstrapChunksFile(
     status = 0;
     std::string out_fname =
         "!" + base + "-bootchunks-" + std::to_string(thispe) + ".fits";
-    fits_create_file(&fits_file, out_fname.c_str(), &status);
-    ioh::checkFitsStatus(status);
+    fitsfile_ptr = create_unique_fitsfile_ptr(out_fname);
+    fits_file = fitsfile_ptr.get();
 }
 
 

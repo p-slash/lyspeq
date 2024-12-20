@@ -2,13 +2,10 @@
 #define QSO_FILE_H
 
 #include <cstdio>
-#include <string>
 #include <vector>
-#include <memory>
 #include <map>
 
-#include <fitsio.h>
-
+#include "io/myfitsio.hpp"
 #include "core/global_numbers.hpp"
 #include "io/io_helper_functions.hpp"
 #include "mathtools/matrix_helper.hpp"
