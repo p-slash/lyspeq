@@ -1,25 +1,10 @@
 #ifndef QU3D_FILE_H
 #define QU3D_FILE_H
 
-#include <memory>
-#include <string>
-
-#include <fitsio.h>
+#include "io/myfitsio.hpp"
 
 
 namespace ioh {
-    inline void checkFitsStatus(int status) {
-        if (status == 0)
-            return;
-
-        char fits_msg[80];
-        fits_get_errstatus(status, fits_msg);
-        std::string error_msg =
-            std::string("FITS ERROR ") + std::string(fits_msg);
-
-        throw std::runtime_error(error_msg);
-    }
-
     class Qu3dFile {
     public:
         Qu3dFile(const std::string &base, int thispe) {
@@ -30,12 +15,8 @@ namespace ioh {
 
             std::string out_fname = "!" + base + "-qu3d.fits";
 
-            fits_create_file(&fits_file, out_fname.c_str(), &status);
-            checkFitsStatus(status);
-        }
-        ~Qu3dFile() {
-            if (fits_file != nullptr)
-                fits_close_file(fits_file, &status);
+            fitsfile_ptr = create_unique_fitsfile_ptr(out_fname);
+            fits_file = fitsfile_ptr.get();
         }
 
         void write(
@@ -72,6 +53,7 @@ namespace ioh {
         }
     private:
         int status;
+        unique_fitsfile_ptr fitsfile_ptr;
         fitsfile *fits_file;
     };
 }
