@@ -146,12 +146,10 @@ void Qu3DEstimator::dumpSearchDirection() {
         return;
 
     int status = 0;
-    fitsfile *fits_file = nullptr;
-
     std::string out_fname = "!" + process::FNAME_BASE + "-dump-search.fits";
 
-    fits_create_file(&fits_file, out_fname.c_str(), &status);
-    ioh::checkFitsStatus(status);
+    auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(out_fname);
+    fitsfile *fits_file = fitsfile_ptr.get();
 
     /* define the name, datatype, and physical units for columns */
     int ncolumns = 4;
@@ -187,8 +185,6 @@ void Qu3DEstimator::dumpSearchDirection() {
         fits_write_col(fits_file, TDOUBLE, 4, 1, 1, nrows, qso->out, &status);
         ioh::checkFitsStatus(status);
     }
-    fits_close_file(fits_file, &status);
-    ioh::checkFitsStatus(status);
 }
 
 
