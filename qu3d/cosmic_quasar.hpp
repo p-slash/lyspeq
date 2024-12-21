@@ -162,7 +162,9 @@ public:
     }
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
+
     void project(double varlss, int order) {
+        /* Assumes isig is ivar. */
         assert(order < 2 && order >= 0);
 
         double sum_weights = 0.0, mean_delta = 0.0;
@@ -170,8 +172,7 @@ public:
         auto log_lambda = std::make_unique<double[]>(N);
 
         for (int i = 0; i < N; ++i) {
-            double ivar = isig[i] * isig[i];
-            weights[i] = ivar / (1.0 + ivar * varlss * z1[i] * z1[i]);
+            weights[i] = isig[i] / (1.0 + isig[i] * varlss * z1[i] * z1[i]);
             sum_weights += weights[i];
             mean_delta += truth[i] * weights[i];
         }
@@ -201,6 +202,51 @@ public:
 
         for (int i = 0; i < N; ++i)
             truth[i] -= mean_delta + mean_delta_ll * log_lambda[i];
+    }
+
+    void write(fitsfile *fits_file) {
+        /* Assumes isig is ivar. */
+        int status = 0;
+        constexpr int ncolumns = 3;
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char *column_names[] = {"LAMBDA", "DELTA", "IVAR"};
+        char *column_types[] = {"1D", "1D", "1D"};
+        char *column_units[] = { "\0", "\0", "\0"};
+        #pragma GCC diagnostic pop
+
+        auto a_lambda = std::make_unique<double[]>(N);
+        std::transform(
+            qFile->wave(), qFile->wave() + N, a_lambda.get(),
+            [](double ld) { return ld * LYA_REST; }
+        );
+
+        fits_create_tbl(
+            fits_file, BINARY_TBL, N, ncolumns, column_names, column_types,
+            column_units, std::to_string(qFile->id).c_str(), &status);
+        ioh::checkFitsStatus(status);
+        // Header keys
+        fits_write_key(
+            fits_file, TLONG, "TARGETID", &qFile->id, nullptr, &status);
+        fits_write_key(
+            fits_file, TDOUBLE, "Z", &qFile->z_qso, nullptr, &status);
+        fits_write_key(
+            fits_file, TDOUBLE, "RA", &qFile->ra, nullptr, &status);
+        fits_write_key(
+            fits_file, TDOUBLE, "DEC", &qFile->dec, nullptr, &status);
+        fits_write_key(
+            fits_file, TDOUBLE, "MEANRESO", &qFile->R_kms, nullptr, &status);
+        fits_write_key(
+            fits_file, TDOUBLE, "MEANSNR", &qFile->snr, nullptr, &status);
+        ioh::checkFitsStatus(status);
+        // Data
+        fits_write_col(
+            fits_file, TDOUBLE, 1, 1, 1, N, a_lambda.get(), &status);
+        fits_write_col(
+            fits_file, TDOUBLE, 2, 1, 1, N, truth, &status);
+        fits_write_col(
+            fits_file, TDOUBLE, 3, 1, 1, N, isig, &status);
+        ioh::checkFitsStatus(status);
     }
 
     void setComovingDistances(const fidcosmo::FlatLCDM *cosmo, double radial) {

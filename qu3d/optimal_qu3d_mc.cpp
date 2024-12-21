@@ -199,10 +199,10 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
 
 
 void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
-    if (verbose)
-        LOG::LOGGER.STD("Replacing deltas with high-res. Gaussian. ");
+    LOG::LOGGER.STD("Replacing deltas with high-res. Gaussian. ");
 
-    double t1 = mytime::timer.getTime(), t2 = 0;
+    RealField3D::initRngs(seed_generator.get());
+    double t1 = mytime::timer.getTime();
     mesh_rnd.copy(mesh);
     for (int axis = 0; axis < 3; ++axis)
         mesh_rnd.ngrid[axis] *= mock_grid_res_factor;
@@ -211,18 +211,33 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
     mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pT);
     double varlss = p3d_model->getVar1dT();
 
+    std::vector<ioh::unique_fitsfile_ptr> file_writers;
+    file_writers.reserve(myomp::getMaxNumThreads());
+    for (int i = 0; i < myomp::getMaxNumThreads(); ++i) {
+        std::string out_fname =
+            "!" + process::FNAME_BASE + "-deltas-v"
+            + std::to_string(mympi::this_pe) + "-" + std::to_string(i)
+            + ".fits";
+        file_writers.push_back(ioh::create_unique_fitsfile_ptr(out_fname));
+    }
+
     #pragma omp parallel for schedule(static, 8)
     for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i)
+        for (int i = 0; i < qso->N; ++i) {
+            qso->isig[i] *= qso->isig[i];
             qso->truth[i] = qso->z1[i] * mesh_rnd.interpolate(
                 qso->r.get() + 3 * i);
+        }
 
         // If project
         if (CONT_MARG_ENABLED)
             qso->project(varlss, specifics::CONT_LOGLAM_MARG_ORDER);
 
         // Save to deltas
+        qso->write(file_writers[myomp::getThreadNum()].get());
     }
+
+    LOG::LOGGER.STD("It took %.2f m.\n", mytime::timer.getTime() - t1);
 }
 
 
@@ -373,15 +388,13 @@ void Qu3DEstimator::testHSqrt() {
     constexpr int M_MCS = 5;
     double yTy = 0, xTHx = 0, xTx = 0;
     int status = 0;
-    fitsfile *fits_file = nullptr;
 
     verbose = true;
 
     std::string out_fname = "!" + process::FNAME_BASE + "-testhqsrt-"
                             + std::to_string(mympi::this_pe) + ".fits";
-
-    fits_create_file(&fits_file, out_fname.c_str(), &status);
-    ioh::checkFitsStatus(status);
+    auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(out_fname);
+    fitsfile *fits_file = fitsfile_ptr.get();
 
     /* define the name, datatype, and physical units for columns */
     int ncolumns = 3;
@@ -440,8 +453,6 @@ void Qu3DEstimator::testHSqrt() {
         ioh::checkFitsStatus(status);
     }
 
-    fits_close_file(fits_file, &status);
-    ioh::checkFitsStatus(status);
     logTimings();
 }
 
