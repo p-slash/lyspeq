@@ -7,13 +7,15 @@
 
 const double MY_PI = 3.14159265358979323846;
 
+std::vector<MyRNG> RealField3D::rngs;
+
 void RealField3D::initRngs(std::seed_seq *seq) {
     const int N = myomp::getMaxNumThreads();
     rngs.resize(N);
     std::vector<size_t> seeds(N);
     seq->generate(seeds.begin(), seeds.end());
     for (int i = 0; i < N; ++i)
-        rngs[i].seed(seeds[i]);
+        RealField3D::rngs[i].seed(seeds[i]);
 }
 
 
