@@ -36,10 +36,11 @@ namespace myomp {
 class RealField3D {
     fftw_plan p_x2k;
     fftw_plan p_k2x;
-    std::vector<MyRNG> rngs;
 
     bool _inplace, _periodic_x;
     std::unique_ptr<double[]> _field_x;
+
+    static std::vector<MyRNG> rngs;
 public:
     size_t size_complex, size_real, ngrid_xy, ngrid_z, ngrid_kz;
     int ngrid[3];
@@ -56,7 +57,6 @@ public:
     /* Copy constructor. Need to call construct! */
     void copy(const RealField3D &rhs);
     void construct(bool inp=true);
-    void initRngs(std::seed_seq *seq);
     void disablePeriodicityX() { _periodic_x = false; };
 
     ~RealField3D() {
@@ -140,6 +140,8 @@ public:
             return;
         field_x[idx] += val;
     }
+
+    static void initRngs(std::seed_seq *seq);
 };
 
 #endif
