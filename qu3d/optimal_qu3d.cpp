@@ -628,9 +628,6 @@ void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
 void Qu3DEstimator::_openResultsFile() {
     result_file = std::make_unique<ioh::Qu3dFile>(
         process::FNAME_BASE, mympi::this_pe);
-    convergence_file = std::make_unique<ioh::Qu3dFile>(
-        process::FNAME_BASE + "-convergence-" + std::to_string(mympi::this_pe),
-        0);
 
     p3d_model->write(result_file.get());
 
@@ -1000,9 +997,6 @@ void Qu3DEstimator::preconditionerSolution() {
     }
 
     ++timings["CGD"].first;
-    double temp = 0.0;
-    convergence_file->write(
-        &temp, 1, "CGD-" + std::to_string(timings["CGD"].first));
     timings["CGD"].second += mytime::timer.getTime() - dt;
 }
 
@@ -1012,6 +1006,10 @@ void Qu3DEstimator::conjugateGradientDescent() {
         preconditionerSolution();
         return;
     }
+
+    static auto convergence_file = std::make_unique<ioh::Qu3dFile>(
+        process::FNAME_BASE + "-convergence-" + std::to_string(mympi::this_pe),
+        0);
 
     double dt = mytime::timer.getTime();
     int niter = 1;
