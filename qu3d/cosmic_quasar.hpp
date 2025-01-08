@@ -399,21 +399,9 @@ public:
                     N, ccov, N, truth, 1);
     }
 
-    void fillRngOnes(MyRNG &rng) {
-        rng.fillVectorOnes(truth, N);
-        for (int i = 0; i < N; ++i)
-            if (isig[i] == 0)
-                truth[i] = 0;
-    }
-
     void multIsigInVector() {
         for (int i = 0; i < N; ++i)
             in[i] *= isig[i];
-    }
-
-    void divIsigInVector() {
-        for (int i = 0; i < N; ++i)
-            in[i] /= isig[i] + DOUBLE_EPSILON;
     }
 
     void findGridPoints(const RealField3D &mesh) {
