@@ -24,23 +24,6 @@ constexpr double ra_shift = 1.0;
 
 namespace specifics {
     extern double MIN_RA, MAX_RA, MIN_DEC, MAX_DEC;
-}
-
-// Line of sight coarsing for mesh
-#ifndef M_LOS
-#define M_LOS 1
-#endif
-
-#ifndef SHRINKAGE
-#define SHRINKAGE 0.9
-#endif
-
-#if M_LOS > 1
-#define COARSE_INTERP
-#error "Coarse interpolation deprecated."
-#endif
-
-namespace specifics {
     static int DOWNSAMPLE_FACTOR;
 }
 
