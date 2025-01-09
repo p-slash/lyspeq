@@ -7,17 +7,6 @@
 
 const double MY_PI = 3.14159265358979323846;
 
-std::vector<MyRNG> RealField3D::rngs;
-
-void RealField3D::initRngs(std::seed_seq *seq) {
-    const int N = myomp::getMaxNumThreads();
-    rngs.resize(N);
-    std::vector<size_t> seeds(N);
-    seq->generate(seeds.begin(), seeds.end());
-    for (int i = 0; i < N; ++i)
-        RealField3D::rngs[i].seed(seeds[i]);
-}
-
 
 RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr) {
     _periodic_x = true;
@@ -108,22 +97,6 @@ void RealField3D::fftK2X() {
     #pragma omp parallel for
     for (size_t ij = 0; ij < ngrid_xy; ++ij)
         cblas_dscal(ngrid[2], invtotalvol, field_x + ngrid_z * ij, 1);
-}
-
-
-void RealField3D::fillRndNormal() {
-    #pragma omp parallel for
-    for (size_t ij = 0; ij < ngrid_xy; ++ij)
-        rngs[myomp::getThreadNum()].fillVectorNormal(
-            field_x + ngrid_z * ij, ngrid[2]);
-}
-
-
-void RealField3D::fillRndOnes() {
-    #pragma omp parallel for
-    for (size_t ij = 0; ij < ngrid_xy; ++ij)
-        rngs[myomp::getThreadNum()].fillVectorOnes(
-            field_x + ngrid_z * ij, ngrid[2]);
 }
 
 

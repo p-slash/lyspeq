@@ -201,13 +201,12 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
 void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
     LOG::LOGGER.STD("Replacing deltas with high-res. Gaussian. ");
 
-    RealField3D::initRngs(seed_generator.get());
     double t1 = mytime::timer.getTime();
     mesh_rnd.copy(mesh);
     for (int axis = 0; axis < 3; ++axis)
         mesh_rnd.ngrid[axis] *= mock_grid_res_factor;
     mesh_rnd.construct(INPLACE_FFT);
-    mesh_rnd.fillRndNormal();
+    mesh_rnd.fillRndNormal(rngs);
     mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pT);
     double varlss = p3d_model->getVar1dT();
 
@@ -524,7 +523,6 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
        in-place and out-of-place transforms. */
     LOG::LOGGER.STD("  Constructing another mesh for randoms.\n");
     mesh_rnd.copy(mesh);
-    mesh_rnd.initRngs(seed_generator.get());
     mesh_rnd.construct(INPLACE_FFT);
 
     // max_monte_carlos = 5;
@@ -537,7 +535,7 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
     int nmc = 1;
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
-        mesh_rnd.fillRndOnes();
+        mesh_rnd.fillRndOnes(rngs);
         mesh_rnd.fftX2K();
         LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
 

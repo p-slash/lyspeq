@@ -39,8 +39,6 @@ class RealField3D {
 
     bool _inplace, _periodic_x;
     std::unique_ptr<double[]> _field_x;
-
-    static std::vector<MyRNG> rngs;
 public:
     size_t size_complex, size_real, ngrid_xy, ngrid_z, ngrid_kz;
     int ngrid[3];
@@ -72,8 +70,18 @@ public:
             std::fill_n(field_x, size_real, 0);
     }
 
-    void fillRndNormal();
-    void fillRndOnes();
+    void fillRndNormal(std::vector<MyRNG> &rngs_) {
+        #pragma omp parallel for
+        for (size_t ij = 0; ij < ngrid_xy; ++ij)
+            rngs_[myomp::getThreadNum()].fillVectorNormal(
+                field_x + ngrid_z * ij, ngrid[2]);
+    }
+    void fillRndOnes(std::vector<MyRNG> &rngs_) {
+        #pragma omp parallel for
+        for (size_t ij = 0; ij < ngrid_xy; ++ij)
+            rngs_[myomp::getThreadNum()].fillVectorOnes(
+                field_x + ngrid_z * ij, ngrid[2]);
+    }
 
     void rawFftX2K() { fftw_execute(p_x2k); }
     void rawFftK2X() { fftw_execute(p_k2x); }
@@ -140,8 +148,6 @@ public:
             return;
         field_x[idx] += val;
     }
-
-    static void initRngs(std::seed_seq *seq);
 };
 
 #endif
