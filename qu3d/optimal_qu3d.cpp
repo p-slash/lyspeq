@@ -104,21 +104,6 @@ void logTimings() {
 }
 
 
-inline bool isInsideKbin(int ib, double kb) {
-    return (bins::KBAND_EDGES[ib] <= kb) && (kb < bins::KBAND_EDGES[ib + 1]);
-}
-
-
-inline bool isDiverging(double old_norm, double new_norm) {
-    double a = std::max(old_norm, new_norm);
-    bool diverging = (old_norm - new_norm) < DOUBLE_EPSILON * a;
-    if (verbose && diverging)
-        LOG::LOGGER.STD("    Iterations are stagnant or diverging.\n");
-
-    return diverging;
-}
-
-
 inline bool hasConverged(double norm, double tolerance) {
     if (verbose)
         LOG::LOGGER.STD(
