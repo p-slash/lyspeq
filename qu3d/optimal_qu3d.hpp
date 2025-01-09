@@ -44,12 +44,23 @@ class Qu3DEstimator
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     std::unique_ptr<std::seed_seq> seed_generator;
     std::unique_ptr<ioh::Qu3dFile> result_file;
+
+    std::vector<MyRNG> rngs;
     RealField3D mesh, mesh_rnd, mesh_fh;
 
     std::unique_ptr<double[]>
         mc1, mc2, mesh_z1_values,
         raw_power, filt_power, raw_bias, filt_bias,
         fisher, covariance;
+
+    void _initRngs(std::seed_seq *seq) {
+        const int N = myomp::getMaxNumThreads();
+        rngs.resize(N);
+        std::vector<size_t> seeds(N);
+        seq->generate(seeds.begin(), seeds.end());
+        for (int i = 0; i < N; ++i)
+            rngs[i].seed(seeds[i]);
+    }
     // targetid_quasar_map quasars;
     // Reads the entire file
     void _readOneDeltaFile(const std::string &fname);

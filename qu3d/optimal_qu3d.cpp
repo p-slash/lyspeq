@@ -40,7 +40,6 @@ const fidcosmo::FlatLCDM *cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 std::unique_ptr<ioh::ContMargFile> ioh::continuumMargFileHandler;
 
-std::vector<MyRNG> rngs;
 int NUMBER_OF_P_BANDS = 0;
 double DK_BIN = 0;
 bool verbose = true, CONT_MARG_ENABLED = false;
@@ -128,16 +127,6 @@ inline bool hasConverged(double norm, double tolerance) {
             norm, tolerance);
 
     return norm < tolerance;
-}
-
-
-void _initRngs(std::seed_seq *seq) {
-    const int N = myomp::getMaxNumThreads();
-    rngs.resize(N);
-    std::vector<size_t> seeds(N);
-    seq->generate(seeds.begin(), seeds.end());
-    for (int i = 0; i < N; ++i)
-        rngs[i].seed(seeds[i]);
 }
 
 
