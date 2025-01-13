@@ -1462,11 +1462,11 @@ int main(int argc, char *argv[]) {
 
         qps.estimatePower();
 
-        if (qps.total_bias_direct_enabled)
-            qps.estimateTotalBiasDirect();
-
         if (qps.total_bias_enabled)
             qps.estimateTotalBiasMc();
+
+        if (qps.total_bias_direct_enabled)
+            qps.estimateTotalBiasDirect();
 
         if (qps.noise_bias_enabled)
             qps.estimateNoiseBiasMc();
