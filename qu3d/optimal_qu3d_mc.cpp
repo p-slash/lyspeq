@@ -308,12 +308,14 @@ void Qu3DEstimator::estimateTotalBiasDirect() {
         reverseInterpolateZ(mesh_rnd);
         mesh_rnd.rawFftX2K();
 
-        /* (Left hand side) CGD requires *truth to be mult'd by N^-1/2 */
+        /* (Left hand side) CGD requires *truth to be mult'd by N^-1/2
+           Swapping ptrs could be buggy:
+                qso->multIsigInVector();
+                std::swap(qso->in, qso->truth);
+        */
         #pragma omp parallel for
-        for (auto &qso : quasars) {
-            qso->multIsigInVector();
-            std::swap(qso->in, qso->truth);
-        }
+        for (auto &qso : quasars)
+            mxhelp::vector_multiply(qso->N, qso->in, qso->isig, qso->truth);
 
         /* calculate C^-1 . z into *in */
         conjugateGradientDescent();
@@ -604,10 +606,8 @@ void Qu3DEstimator::estimateFisherDirect() {
 
         /* (Left hand side ) CGD requires *truth to be multiplied by N^-1/2 */
         #pragma omp parallel for
-        for (auto &qso : quasars) {
-            qso->multIsigInVector();
-            std::swap(qso->in, qso->truth);
-        }
+        for (auto &qso : quasars)
+            mxhelp::vector_multiply(qso->N, qso->in, qso->isig, qso->truth);
 
         /* calculate C^-1 . z into *in */
         preconditionerSolution();
