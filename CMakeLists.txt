@@ -170,8 +170,6 @@ if (KILL_15MPC_POWER)
     target_compile_definitions(Qu3dObjLibs PUBLIC KILL_15MPC_POWER)
 endif()
 
-KILL_15MPC_POWER
-
 
 # custom target to test filtering. Usage: cmake --build . --target print_genex
 add_custom_target(print_genex
