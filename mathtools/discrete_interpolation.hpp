@@ -196,6 +196,17 @@ public:
         return exp(interp_2d->evaluateHermite2(log(y), log(x)));
     }
 
+    double evaluateSqrt(double x, double y) const {
+        if ((x == 0) && (y == 0))
+            return 0;
+        else if (x == 0)
+            return exp(0.5 * interp_y->evaluate(log(y)));
+        else if (y == 0)
+            return exp(0.5 * interp_x->evaluate(log(x)));
+
+        return exp(0.5 * interp_2d->evaluateHermite2(log(y), log(x)));
+    }
+
     void setInterpX(double x1, double dx, int N, double *y) {
         interp_x = std::make_unique<T1>(x1, dx, N, y);
     }

@@ -115,7 +115,7 @@ public:
 
             for (size_t k = 0; k < ngrid_kz; ++k)
                 field_k[k + ngrid_kz * ij] *=
-                    norm * sqrt(Pk.evaluate(kperp, k * k_fund[2]));
+                    norm * Pk.evaluateSqrt(kperp, k * k_fund[2]);
         }
         fftw_execute(p_k2x);
     }
