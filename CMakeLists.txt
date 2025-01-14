@@ -7,6 +7,7 @@ option(ENABLE_MPI "Enable MPI" ON)
 option(USE_OPENBLAS_BREW "Use OpenBlas brew" OFF)
 option(USE_MKL_LIB "Use MKL library" OFF)
 option(DEBUG "Compile with debugging options" OFF)
+option(TURN_OFF_SPECTRO_WINDOW "Turn of spectrograph window function in 3D." OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -161,6 +162,10 @@ add_library(Qu3dObjLibs OBJECT
 target_link_libraries(Qu3dObjLibs PUBLIC
     OpenMP::OpenMP_CXX MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
     MY_FFTW3_INTERFACE GSL::gsl MPI::MPI_CXX)
+if (TURN_OFF_SPECTRO_WINDOW)
+    target_compile_definitions(Qu3dObjLibs PUBLIC TURN_OFF_SPECTRO_WINDOW)
+endif()
+
 
 # custom target to test filtering. Usage: cmake --build . --target print_genex
 add_custom_target(print_genex
