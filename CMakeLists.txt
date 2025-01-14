@@ -8,6 +8,7 @@ option(USE_OPENBLAS_BREW "Use OpenBlas brew" OFF)
 option(USE_MKL_LIB "Use MKL library" OFF)
 option(DEBUG "Compile with debugging options" OFF)
 option(TURN_OFF_SPECTRO_WINDOW "Turn of spectrograph window function in 3D." OFF)
+option(KILL_15MPC_POWER "Suppresses power below 15 Mpc in 3D." OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -165,6 +166,11 @@ target_link_libraries(Qu3dObjLibs PUBLIC
 if (TURN_OFF_SPECTRO_WINDOW)
     target_compile_definitions(Qu3dObjLibs PUBLIC TURN_OFF_SPECTRO_WINDOW)
 endif()
+if (KILL_15MPC_POWER)
+    target_compile_definitions(Qu3dObjLibs PUBLIC KILL_15MPC_POWER)
+endif()
+
+KILL_15MPC_POWER
 
 
 # custom target to test filtering. Usage: cmake --build . --target print_genex

@@ -603,6 +603,11 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
             + bbeta_hcd_kz * bbeta_hcd_kz
             + getMetalTerm(kz, mu2, bbeta_lya, lnD)));
 
+    #ifdef KILL_15MPC_POWER
+    double kill_cut_ = 15.0 * k;
+    result *= exp(-kill_cut_ * kill_cut_);
+    #endif
+
     #ifdef TURN_OFF_SPECTRO_WINDOW
     return result;
     #else
