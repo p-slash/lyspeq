@@ -1153,9 +1153,12 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
         kperp *= kperp;
         for (size_t jz = mesh_kz_min; jz < mesh_kz_max; ++jz) {
             double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
-                   alpha;
+                   alpha, mu;
+
             if (kt < kmin)  continue;
             else if (kt >= kmax)  break;
+            if (kt != 0)  mu = kz / kt;
+            else          mu = 0.0;
 
             if (is_last_k_bin && (kt > bins::KBAND_CENTERS[ik]))
                 alpha = 1.0;
@@ -1164,9 +1167,12 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
             else
                 alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
 
-            if (kt != 0)  kt = kz / kt;
-            alpha *= legendre_w(kt) * mesh.invtotalvol
+            alpha *= legendre_w(mu) * mesh.invtotalvol
                      * p3d_model->getSpectroWindow2(kz);
+            #ifdef RL_COMP_DERIV
+            kt *= radius / rscale_factor;
+            alpha *= exp(-kt * kt);
+            #endif
             mesh.field_k[jj + jz] = alpha * mesh_rnd.field_k[jj + jz]; 
         }
     }
@@ -1234,9 +1240,12 @@ void Qu3DEstimator::multiplyDerivVectors(
         size_t jj = mesh.ngrid_kz * jxy;
         kperp *= kperp;
         for (size_t k = mesh_kz_min; k < mesh_kz_max; ++k) {
-            double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp);
+            double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
+                   mu;
             if (kt < bins::KBAND_EDGES[0])  continue;
             if (kt >= KMAX_EDGE)  break;
+            if (kt != 0)  mu = kz / kt;
+            else          mu = 0.0;
 
             ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
 
@@ -1248,13 +1257,16 @@ void Qu3DEstimator::multiplyDerivVectors(
             temp = (1.0 + (k != 0)) * my_norm(k + jj)
                    * p3d_model->getSpectroWindow2(kz);
             temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+            #ifdef RL_COMP_DERIV
+            kt *= radius / rscale_factor;
+            temp *= exp(-kt * kt);
+            #endif
+
             temp3 = temp * (1.0 - temp2);
             temp *= temp2;
 
-            if (kt != 0)  kt = kz / kt;
-
             for (int ell = 0; ell < number_of_multipoles; ++ell) {
-                temp2 = legendre(2 * ell, kt);
+                temp2 = legendre(2 * ell, mu);
                 lout[ik + ell * bins::NUMBER_OF_K_BANDS] += temp2 * temp;
                 lout[ik2 + ell * bins::NUMBER_OF_K_BANDS] += temp2 * temp3;
             }
