@@ -256,9 +256,12 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     _deltar_mpc = 0;
 
     for (const auto &[key, wave_m] : metal_line_map) {
+        double b = config.getDouble(key);
+        if (b == 0)
+            continue;
+
         double d = fabs(cosmo->getComovingDist(_z1_pivot * LYA_REST / wave_m)
                         - cosmo->getComovingDist(_z1_pivot));
-        double b = config.getDouble(key);
         b_dr_pair_metals.push_back(std::make_pair(b, d));
     }
 
@@ -545,6 +548,9 @@ void ArinyoP3DModel::_calcMultipoles() {
 double ArinyoP3DModel::getMetalTerm(
         double kz, double mu2, double bbeta_lya, double lnD
 ) const {
+    if (b_dr_pair_metals.empty())
+        return 0;
+
     double result = 0.0, dfog = kz * sigma_v, dfogxlya;
     dfog = 1.0 / (1.0 + dfog * dfog);
     dfogxlya = sqrt(lnD * dfog);
