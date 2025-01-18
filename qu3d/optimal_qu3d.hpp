@@ -81,7 +81,7 @@ class Qu3DEstimator
 public:
     int mock_grid_res_factor;
     bool total_bias_enabled, total_bias_direct_enabled, noise_bias_enabled,
-         fisher_direct_enabled, max_eval_enabled;
+         fisher_direct_enabled, max_eval_enabled, test_gaussian_field;
 
     /* This function reads following keys from config file:
     FileNameList: string
