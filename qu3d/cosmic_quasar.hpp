@@ -146,6 +146,19 @@ public:
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
 
+    void replaceTruthWithGaussMocks(RealField3D &m, MyRNG &rng_) {
+        for (int i = 0; i < N; ++i) {
+            if (isig[i] != 0) {
+                truth[i] = z1[i] * m.interpolate(r.get() + 3 * i)
+                           + rng_.normal() / isig[i];
+            }
+            else
+                truth[i] = 0;
+
+            // transform isig to ivar for project and write
+            isig[i] *= isig[i];
+        }
+    }
     void project(double varlss, int order) {
         /* Assumes isig is ivar. */
         assert(order < 2 && order >= 0);
