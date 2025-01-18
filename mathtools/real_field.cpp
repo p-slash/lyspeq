@@ -109,3 +109,14 @@ void RealField::deconvolveSinc(double m)//, double downsampling)
 
     fftK2X();
 }
+
+void RealField::smoothGaussian(double r) {
+    fftw_execute(p_x2k);
+
+    for (int i = 0; i < size_complex; ++i) {
+        double ee = k[i] * r;  ee *= 0.5 * ee;
+        field_k[i] *= exp(-ee) / size_real;
+    }
+
+    fftw_execute(p_k2x);
+}
