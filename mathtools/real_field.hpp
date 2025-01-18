@@ -44,6 +44,7 @@ public:
     void fftK2X();
 
     void deconvolveSinc(double m);
+    void smoothGaussian(double r);
 };
 
 
