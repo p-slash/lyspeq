@@ -222,18 +222,7 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
 
     #pragma omp parallel for schedule(static, 8)
     for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i) {
-            if (qso->isig[i] != 0) {
-                qso->truth[i] =  qso->z1[i] * mesh_rnd.interpolate(
-                    qso->r.get() + 3 * i
-                    ) + rngs[myomp::getThreadNum()].normal() / qso->isig[i];
-            }
-            else
-                qso->truth[i] = 0;
-
-            // transform isig to ivar for project and write
-            qso->isig[i] *= qso->isig[i];
-        }
+        qso->replaceTruthWithGaussMocks(mesh_rnd, rngs[myomp::getThreadNum()]);
 
         // If project
         if (CONT_MARG_ENABLED)
