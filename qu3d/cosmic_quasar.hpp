@@ -14,6 +14,7 @@
 #include "core/omp_manager.hpp"
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
+#include "mathtools/real_field.hpp"
 #include "mathtools/real_field_3d.hpp"
 
 #include "qu3d/cosmology_3d.hpp"
@@ -146,12 +147,57 @@ public:
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
 
-    void replaceTruthWithGaussMocks(RealField3D &m, MyRNG &rng_) {
+    void replaceTruthWithGaussMocks(
+            const RealField3D &m, MyRNG &rng_,
+            const fidcosmo::ArinyoP3DModel *p3d_model
+    ) {
+        constexpr int osamp = 4;
+        const fidcosmo::FlatLCDM *cosmo = p3d_model->getCosmoPtr();
+        // oversample on a long grid
+        double length_r = r[3 * N - 1] - r[2], delta_r = length_r / (N - 1);
+        double pad = std::min(r[2], 5.0 * delta_r);
+        length_r += 2.0 * pad;
+        double hdelta_r = delta_r / osamp;
+        int o_N = exp2(ceil(log2(length_r / hdelta_r)));
+        hdelta_r = length_r / (o_N - 1);
+
+        RealField rf(o_N, hdelta_r);
+        float coord[3];  coord[0] = r[0];  coord[1] = r[1];
+        for (int i = 0; i < o_N; ++i) {
+            rf.x[i] += r[2] - pad;
+            coord[2] = rf.x[i];
+            rf.field_x[i] = m.interpolate(coord);
+        }
+
+        // Gaussian smooth 1D
+        double mean_z1 = std::accumulate(qFile->wave(), qFile->wave() + N, 0.0) / N,
+               Mpc2kms = cosmo->getHubble(mean_z1) / mean_z1;
+        rf.smoothGaussian(qFile->R_kms / Mpc2kms);
+
+        // Downsample to observed grid
+        auto counts = std::make_unique<int[]>(N);
+        auto r_eff = std::make_unique<double[]>(N);
+        std::fill_n(truth, N, 0);
+        for (int i = 0; i < o_N; ++i) {
+            double x = rf.x[i] - r[2] + delta_r / 2.0;
+            if (x < 0)  continue;
+            int jj = x / delta_r;
+            ++counts[jj];
+            r_eff[jj] += x;
+            truth[jj] += rf.field_x[i];
+        }
+
         for (int i = 0; i < N; ++i) {
-            if (isig[i] != 0) {
-                truth[i] = z1[i] * m.interpolate(r.get() + 3 * i)
-                           + rng_.normal() / isig[i];
-            }
+            r_eff[i] /= counts[i];
+            truth[i] /= counts[i];
+            qFile->wave()[i] = cosmo->getZ1FromComovingDist(r_eff[i]);
+            z1[i] = p3d_model->getRedshiftEvolution(qFile->wave()[i]);
+        }
+
+        // Add noise
+        for (int i = 0; i < N; ++i) {
+            if (isig[i] != 0)
+                truth[i] += rng_.normal() / isig[i];
             else
                 truth[i] = 0;
 
