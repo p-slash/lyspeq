@@ -210,6 +210,8 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
     mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pT);
     double varlss = p3d_model->getVar1dT();
 
+    // disable fftw openmp from now on
+    fftw_plan_with_nthreads(1);
     std::vector<ioh::unique_fitsfile_ptr> file_writers;
     file_writers.reserve(myomp::getMaxNumThreads());
     for (int i = 0; i < myomp::getMaxNumThreads(); ++i) {
@@ -222,7 +224,8 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
 
     #pragma omp parallel for schedule(static, 8)
     for (auto &qso : quasars) {
-        qso->replaceTruthWithGaussMocks(mesh_rnd, rngs[myomp::getThreadNum()]);
+        qso->replaceTruthWithGaussMocks(
+            mesh_rnd, rngs[myomp::getThreadNum()], p3d_model.get());
 
         // If project
         if (CONT_MARG_ENABLED)
