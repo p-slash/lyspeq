@@ -10,7 +10,7 @@
 
 constexpr double SAFE_ZERO = 1E-300;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 2E2, KMAX_HALO = 1.5;
+constexpr double KMIN = 1E-6, KMAX = 2E2;
 const double LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
@@ -247,6 +247,7 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     beta_metal = config.getDouble("beta_metal");
     sigma_v = config.getDouble("sigma_v");
 
+    KMAX_HALO = std::min(1.5, k_p);
     interp_p = std::make_unique<LinearPowerInterpolator>(config);
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
     rscale_long = config.getDouble("LongScale");
