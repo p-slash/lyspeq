@@ -103,7 +103,7 @@ namespace fidcosmo {
            b_F fitted to all redshift ranges accounting for errors.
            Two redshift bins are averaged for others. */
         {"b_F", "0.1195977"}, {"alpha_F", "3.37681"},
-        {"beta_F", "1.6633"}, {"k_p", "0.4"} // {"k_p", "16.802"},
+        {"beta_F", "1.6633"}, {"k_p", "0.4"}, // {"k_p", "16.802"},
         {"q_1", "0.796"}, {"nu_0", "1.267"}, {"nu_1", "1.65"},
         {"k_nu", "0.3922"},
         {"b_HCD", "0.05"}, {"beta_HCD", "0.7"}, {"L_HCD", "14.8"}
