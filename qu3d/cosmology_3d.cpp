@@ -10,7 +10,7 @@
 
 constexpr double SAFE_ZERO = 1E-300;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 2E2, KMAX_HALO = 1.5;
+constexpr double KMIN = 1E-6, KMAX = 2E2;
 const double LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
@@ -238,8 +238,8 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     beta_F = config.getDouble("beta_F");
     k_p = config.getDouble("k_p");
     q_1 = config.getDouble("q_1");
-    nu_0 = config.getDouble("nu_0");
-    nu_1 = config.getDouble("nu_1");
+    a_nu = config.getDouble("a_nu");
+    b_nu = config.getDouble("b_nu");
     k_nu = config.getDouble("k_nu");
     b_HCD = config.getDouble("b_HCD");
     beta_HCD = config.getDouble("beta_HCD");
@@ -247,6 +247,7 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     beta_metal = config.getDouble("beta_metal");
     sigma_v = config.getDouble("sigma_v");
 
+    KMAX_HALO = std::min(1.5, k_p);
     interp_p = std::make_unique<LinearPowerInterpolator>(config);
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
     rscale_long = config.getDouble("LongScale");
@@ -588,11 +589,13 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     bbeta_hcd_kz = b_HCD * (1 + beta_HCD * mu2) * exp(-L_HCD * kz),
     result, lnD, apod_halo;
 
-    lnD = (q_1 * delta2_L) * (
-            1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0)
-    ) - k_kp * k_kp;
+    double u1;
+    if (b_nu == 0)  u1 = 1.0;
+    else  u1 = pow(mu, b_nu);
 
-    lnD = exp(lnD);
+    if (a_nu != 0)  u1 *= pow(k / k_nu, a_nu);
+
+    lnD = exp((q_1 * delta2_L) * (1.0 - u1) - k_kp * k_kp);
 
     if (k > KMAX_HALO)
         apod_halo = 0;
