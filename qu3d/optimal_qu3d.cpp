@@ -268,8 +268,7 @@ void Qu3DEstimator::_readQSOFiles(
     }
 
     CosmicQuasar::allocCcov(max_qN * max_qN);
-    if (CONT_MARG_ENABLED)
-        CosmicQuasar::allocRrmat(max_qN * max_qN);
+    CosmicQuasar::allocRrmat(max_qN * max_qN);
 
     LOG::LOGGER.STD(
         "There are %d quasars and %ld number of pixels. "
@@ -1461,7 +1460,7 @@ int main(int argc, char *argv[]) {
             qps.testSymmetry();
 
         if (test_hsqrt)
-            qps.testHSqrt();
+            qps.testCovSqrt();
 
         if (test_gaussian_field) {
             if (qps.mock_grid_res_factor > 1) {
