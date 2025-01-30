@@ -86,6 +86,10 @@ namespace mxhelp
     void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp);
 
     void LAPACKE_sym_eigens(double *A, int N, double *evals, double *evecs);
+
+    // Matrix A is modified in return to be its square root. Only upper 
+    // triangle is used. *evals are the eigenvalues of A (not its square root).
+    // No checks for eigenvalues are performed! It will not crash or raise warnings.
     void LAPACKE_sym_posdef_sqrt(double *A, int N, double *evals, double *evecs);
     // Return condition number
     // if sjump != nullptr, finds the adjacent ratio of s values larger than 8
