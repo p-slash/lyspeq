@@ -134,7 +134,6 @@ endconjugateGradientIpH:
 }
 
 
-#if 1
 void Qu3DEstimator::multiplyCovSqrt() {
     /* multiply with SquareRootMatrix:
         0.25 A_BD^1/2 + H A_BD^1/2 (0.25 + (I+H)^-1)
@@ -167,22 +166,6 @@ void Qu3DEstimator::multiplyCovSqrt() {
         for (int i = 0; i < qso->N; ++i)
             qso->truth[i] += qso->out[i];
 }
-#else
-void Qu3DEstimator::multiplyHsqrt() {
-    for (auto &qso : quasars)
-        std::swap(qso->truth, qso->in);
-
-    multiplyIpHVector(1.0);
-
-    for (auto &qso : quasars) {
-        std::swap(qso->truth, qso->in);
-        std::swap(qso->truth, qso->out);
-
-        for (int i = 0; i < qso->N; ++i)
-            qso->truth[i] /= 2.0;
-    }
-}
-#endif
 
 
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
@@ -193,7 +176,6 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
         rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
-        // qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
 
     multiplyCovSqrt();
 
@@ -436,7 +418,6 @@ void Qu3DEstimator::testCovSqrt() {
         #pragma omp parallel for schedule(dynamic, 4) reduction(+:xTx)
         for (auto &qso : quasars) {
             rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
-            // qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
             std::copy_n(qso->truth, qso->N, qso->in);
             xTx += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
         }
