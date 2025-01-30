@@ -96,13 +96,13 @@ public:
        input is const *in, output is *out, uses: *in_isig */
     void multiplyIpHVector(double m);
     void conjugateGradientIpH();
-    void multiplyHsqrt();
+    void multiplyCovSqrt();
     void replaceDeltasWithGaussianField();
     void replaceDeltasWithHighResGaussianField();
     void estimateNoiseBiasMc();
     void estimateTotalBiasMc();
     void estimateTotalBiasDirect();
-    void testHSqrt();
+    void testCovSqrt();
     void estimateFisherFromRndDeriv();
     void multiplyFisherDerivs(double *o1, double *o2);
     void estimateFisherDirect();
