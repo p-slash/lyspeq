@@ -268,8 +268,7 @@ void Qu3DEstimator::_readQSOFiles(
     }
 
     CosmicQuasar::allocCcov(max_qN * max_qN);
-    if (CONT_MARG_ENABLED)
-        CosmicQuasar::allocRrmat(max_qN * max_qN);
+    CosmicQuasar::allocRrmat(max_qN * max_qN);
 
     LOG::LOGGER.STD(
         "There are %d quasars and %ld number of pixels. "
@@ -664,10 +663,10 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
     radius = config.getDouble("LongScale");
     rscale_factor = config.getDouble("ScaleFactor");
-    if (rscale_factor > fidcosmo::ArinyoP3DModel::MAX_R_FACTOR)
-        throw std::invalid_argument(
-            "ScaleFactor cannot exceed "
-            + std::to_string(fidcosmo::ArinyoP3DModel::MAX_R_FACTOR));
+    // if (rscale_factor > fidcosmo::ArinyoP3DModel::MAX_R_FACTOR)
+    //     throw std::invalid_argument(
+    //         "ScaleFactor cannot exceed "
+    //         + std::to_string(fidcosmo::ArinyoP3DModel::MAX_R_FACTOR));
 
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
     total_bias_direct_enabled = config.getInteger("EstimateTotalBiasDirectly") > 0;
@@ -1461,7 +1460,7 @@ int main(int argc, char *argv[]) {
             qps.testSymmetry();
 
         if (test_hsqrt)
-            qps.testHSqrt();
+            qps.testCovSqrt();
 
         if (test_gaussian_field) {
             if (qps.mock_grid_res_factor > 1) {

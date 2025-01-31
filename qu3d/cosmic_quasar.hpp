@@ -338,17 +338,7 @@ public:
         }
         else {
             double *ccov = GL_CCOV[myomp::getThreadNum()].get();
-            for (int i = 0; i < N; ++i) {
-                double isigG = isig[i] * z1[i];
-
-                ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
-
-                for (int j = i + 1; j < N; ++j) {
-                    float rz = r[3 * j + 2] - r[3 * i + 2];
-                    double isigG_ij = isigG * isig[j] * z1[j];
-                    ccov[j + i * N] = p3d_model->evalCorrFunc1dT(rz) * isigG_ij;
-                }
-            }
+            setCov(p3d_model, ccov);
 
             std::copy_n(input, N, output);
             lapack_int info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1,
@@ -378,18 +368,7 @@ public:
     void blockRandom(MyRNG &rng, const fidcosmo::ArinyoP3DModel *p3d_model) {
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
 
-        for (int i = 0; i < N; ++i) {
-            double isigG = isig[i] * z1[i];
-
-            ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
-
-            for (int j = i + 1; j < N; ++j) {
-                float rz = r[3 * j + 2] - r[3 * i + 2];
-                double isigG_ij = isigG * isig[j] * z1[j];
-                ccov[j + i * N] = p3d_model->evalCorrFunc1dT(rz) * isigG_ij;
-            }
-        }
-
+        setCov(p3d_model, ccov);
         LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
         /*if (info != 0) {
             LOG::LOGGER.STD("Error in CosmicQuasar::blockRandom::LAPACKE_dpotrf");
@@ -397,6 +376,25 @@ public:
         rng.fillVectorNormal(truth, N);
         cblas_dtrmv(CblasRowMajor, CblasUpper, CblasNoTrans, CblasNonUnit,
                     N, ccov, N, truth, 1);
+    }
+
+    void multSqrtCov(const fidcosmo::ArinyoP3DModel *p3d_model) {
+        /* Multiply 0.25 * A_BD^1/2 *truth and A_BD^1/2 *in.
+           *truth is overwritten.
+           Uses *out and *in_isig
+        */
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get(),
+               *rrmat = GL_RMAT[myomp::getThreadNum()].get();
+
+        setCov(p3d_model, ccov);
+        mxhelp::LAPACKE_sym_posdef_sqrt(ccov, N, in_isig, rrmat);
+        cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
+                    ccov, N, in, 1, 0, out, 1);
+        std::copy_n(out, N, in);
+
+        cblas_dsymv(CblasRowMajor, CblasUpper, N, 0.25,
+                    ccov, N, truth, 1, 0, out, 1);
+        std::swap(truth, out);
     }
 
     void multIsigInVector() {
@@ -555,26 +553,24 @@ public:
                 cblas_dger(CblasRowMajor, N, N, -1.0 * Emat[b + a * nvecs],
                            uvecs[a].get(), 1, uvecs[b].get(), 1, ccov, N);
 
-        mxhelp::LAPACKE_sym_eigens(ccov, N, uvecs[0].get(), rrmat);
+        mxhelp::LAPACKE_sym_posdef_sqrt(ccov, N, uvecs[0].get(), rrmat);
+        mxhelp::copyUpperToLower(ccov, N);
 
-        // D^1/2
+        ioh::continuumMargFileHandler->write(ccov, N, qFile->id, fidx);
+    }
+
+    void setCov(const fidcosmo::ArinyoP3DModel *p3d_model, double *ccov) {
         for (int i = 0; i < N; ++i) {
-            if (uvecs[0][i] < N * DOUBLE_EPSILON)
-                uvecs[0][i] = 0;
-            else
-                uvecs[0][i] = sqrt(uvecs[0][i]);
+            double isigG = isig[i] * z1[i];
+
+            ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
+
+            for (int j = i + 1; j < N; ++j) {
+                float rz = r[3 * j + 2] - r[3 * i + 2];
+                double isigG_ij = isigG * isig[j] * z1[j];
+                ccov[j + i * N] = p3d_model->evalCorrFunc1dT(rz) * isigG_ij;
+            }
         }
-
-        // R^-1/2 such that S D^1/2 S^T
-        mxhelp::transpose_copy(rrmat, ccov, N, N);
-        std::fill_n(rrmat, N * N, 0);
-        for (int a = 0; a < N; ++a)
-            if (uvecs[0][a] != 0)
-                cblas_dsyr(CblasRowMajor, CblasUpper, N,
-                           uvecs[0][a], ccov + a * N, 1, rrmat, N);
-        mxhelp::copyUpperToLower(rrmat, N);
-
-        ioh::continuumMargFileHandler->write(rrmat, N, qFile->id, fidx);
     }
 
     #ifdef USE_SPHERICAL_DIST
