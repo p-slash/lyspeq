@@ -8,16 +8,17 @@ void Qu3DEstimator::multiplyIpHVector(double m) {
     /* A_BD^-1. Might not be true if pp_enabled=false */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
-        qso->multInvCov(p3d_model.get(), qso->in, qso->sc_eta, pp_enabled);
+        qso->multInvCov(p3d_model.get(), qso->in, qso->sc_eta, pp_enabled, true);
         double *tmp_in = qso->in;
         qso->in = qso->sc_eta;
         qso->setInIsigNoMarg();
         qso->in = tmp_in;
+        std::fill_n(qso->out, qso->N, 0);
     }
 
     // Add long wavelength mode to Cy
     // only in_isig is used until (B)
-    multMeshComp();
+    // multMeshComp();
 
     if (pp_enabled)  multParticleComp();
     // (B)
@@ -178,6 +179,12 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
         rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
 
     multiplyCovSqrt();
+
+    mesh.fillRndNormal(rngs);
+    mesh.convolveSqrtPk(p3d_model->interp2d_pL);
+    #pragma omp parallel for schedule(dynamic, 4)
+    for (auto &qso : quasars)
+        qso->interpAddMesh2TruthIsig(mesh);
 
     t2 = mytime::timer.getTime() - t1;
     ++timings["GenGauss"].first;
