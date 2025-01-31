@@ -323,7 +323,8 @@ public:
 
     void multInvCov(
             const fidcosmo::ArinyoP3DModel *p3d_model,
-            const double *input, double *output, bool pp
+            const double *input, double *output, bool pp,
+            bool small_scale=false
     ) {
         double varlss = p3d_model->getVarLss();
         auto appDiagonalEst = [this, &varlss](const double *x_, double *y_) {
@@ -338,7 +339,10 @@ public:
         }
         else {
             double *ccov = GL_CCOV[myomp::getThreadNum()].get();
-            setCov(p3d_model, ccov);
+            if (small_scale)
+                setCov_S(p3d_model, ccov);
+            else
+                setCov(p3d_model, ccov);
 
             std::copy_n(input, N, output);
             lapack_int info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1,
@@ -358,6 +362,11 @@ public:
     void interpMesh2TruthIsig(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
             truth[i] = isig[i] * z1[i] * mesh.interpolate(r.get() + 3 * i);
+    }
+
+    void interpAddMesh2TruthIsig(const RealField3D &mesh) {
+        for (int i = 0; i < N; ++i)
+            truth[i] += isig[i] * z1[i] * mesh.interpolate(r.get() + 3 * i);
     }
 
     /* overwrite qFile->delta */
@@ -386,7 +395,7 @@ public:
         double *ccov = GL_CCOV[myomp::getThreadNum()].get(),
                *rrmat = GL_RMAT[myomp::getThreadNum()].get();
 
-        setCov(p3d_model, ccov);
+        setCov_S(p3d_model, ccov);
         mxhelp::LAPACKE_sym_posdef_sqrt(ccov, N, in_isig, rrmat);
         cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                     ccov, N, in, 1, 0, out, 1);
@@ -569,6 +578,20 @@ public:
                 float rz = r[3 * j + 2] - r[3 * i + 2];
                 double isigG_ij = isigG * isig[j] * z1[j];
                 ccov[j + i * N] = p3d_model->evalCorrFunc1dT(rz) * isigG_ij;
+            }
+        }
+    }
+
+    void setCov_S(const fidcosmo::ArinyoP3DModel *p3d_model, double *ccov) {
+        for (int i = 0; i < N; ++i) {
+            double isigG = isig[i] * z1[i];
+
+            ccov[i * (N + 1)] = 1.0 + p3d_model->getVar1dS() * isigG * isigG;
+
+            for (int j = i + 1; j < N; ++j) {
+                float rz = r[3 * j + 2] - r[3 * i + 2];
+                double isigG_ij = isigG * isig[j] * z1[j];
+                ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz) * isigG_ij;
             }
         }
     }
