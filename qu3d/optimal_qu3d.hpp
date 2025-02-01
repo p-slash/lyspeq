@@ -96,7 +96,7 @@ public:
        input is const *in, output is *out, uses: *in_isig */
     void multiplyIpHVector(double m);
     void conjugateGradientIpH();
-    void multiplyCovSqrt();
+    void multiplyCovSmallSqrt();
     void replaceDeltasWithGaussianField();
     void replaceDeltasWithHighResGaussianField();
     void estimateNoiseBiasMc();
@@ -123,7 +123,7 @@ public:
     void multDerivMatrixVec(int i);
     /* Multiply each quasar's *in pointer and save to *out pointer.
        (I + N^-1/2 S N^-1/2) z = out */
-    void multiplyCovVector();
+    void multiplyCovVector(bool mesh_enabled=true);
     void multiplyDerivVectors(
         double *o1, double *o2, double *lout, const RealField3D &other);
     void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr) {

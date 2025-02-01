@@ -810,7 +810,7 @@ void Qu3DEstimator::multParticleComp() {
         LOG::LOGGER.STD("    multParticleComp took %.2f s.\n", 60.0 * dt);
 }
 
-void Qu3DEstimator::multiplyCovVector() {
+void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
     /* Multiply each quasar's *in pointer and save to *out pointer.
        (I + R^-1/2 N^-1/2 G^1/2 S G^1/2 N^-1/2 R^-1/2) z = out
     */
@@ -835,7 +835,14 @@ void Qu3DEstimator::multiplyCovVector() {
     }
 
     // Add long wavelength mode to Cy
-    multMeshComp();
+    if (mesh_enabled) {
+        multMeshComp();
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            std::fill_n(qso->out, qso->N, 0);
+    }
 
     if (pp_enabled)
         multParticleComp();
