@@ -1,5 +1,5 @@
 void Qu3DEstimator::multiplyIpHVector(double m) {
-    /* m I + I + N^-1/2 G^1/2 (S_L + S_OD) G^1/2 N^-1/2 A_BD^-1
+    /* m I + (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2) A^S_BD^-1
         input is const *in, output is *out
         uses: *in_isig, *sc_eta
     */
@@ -135,7 +135,7 @@ endconjugateGradientIpH:
 }
 
 
-void Qu3DEstimator::multiplyCovSqrt() {
+void Qu3DEstimator::multiplyCovSmallSqrt() {
     /* multiply with SquareRootMatrix:
         0.25 A_BD^1/2 + H A_BD^1/2 (0.25 + (I+H)^-1)
         input is *truth, output is *truth
@@ -178,7 +178,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     for (auto &qso : quasars)
         rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
 
-    multiplyCovSqrt();
+    multiplyCovSmallSqrt();
 
     mesh.fillRndNormal(rngs);
     mesh.convolveSqrtPk(p3d_model->interp2d_pL);
@@ -429,13 +429,13 @@ void Qu3DEstimator::testCovSqrt() {
             xTx += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
         }
 
-        multiplyCovVector();
+        multiplyCovVector(false);
 
         #pragma omp parallel for reduction(+:xTHx)
         for (auto &qso : quasars)
             xTHx += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
-        multiplyCovSqrt();
+        multiplyCovSmallSqrt();
         #pragma omp parallel for reduction(+:yTy)
         for (auto &qso : quasars)
             yTy += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
