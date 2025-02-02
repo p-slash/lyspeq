@@ -225,6 +225,12 @@ size_t RealField3D::getIndex(int nx, int ny, int nz) const {
         if (n[0] < 0)  n[0] += ngrid[0];
     }
 
+    #ifdef ASSERT_MESH_IDX
+    assert ((n[0] >= 0) && (n[0] < ngrid[0]));
+    assert ((n[1] >= 0) && (n[1] < ngrid[1]));
+    assert ((n[2] >= 0) && (n[2] < ngrid[2]));
+    #endif
+
     return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
 }
 
