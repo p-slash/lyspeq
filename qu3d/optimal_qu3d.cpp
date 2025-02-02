@@ -349,7 +349,7 @@ void Qu3DEstimator::_setupMesh(double radius) {
         mesh_cgd.dx[0], mesh_cgd.dx[1], mesh_cgd.dx[2]);
 
     // Shift coordinates of quasars
-    LOG::LOGGER.STD("Shifting quasar locations to center the mes h.\n");
+    LOG::LOGGER.STD("Shifting quasar locations to center the mesh.\n");
     #pragma omp parallel for
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
