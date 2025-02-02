@@ -301,59 +301,73 @@ void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
 void Qu3DEstimator::_setupMesh(double radius) {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
-    _calculateBoxDimensions(mesh.length, mesh.z0);
+    _calculateBoxDimensions(mesh_cgd.length, mesh_cgd.z0);
 
-    mesh.ngrid[0] = config.getInteger("NGRID_X");
-    mesh.ngrid[1] = config.getInteger("NGRID_Y");
-    mesh.ngrid[2] = config.getInteger("NGRID_Z");
+    mesh_cgd.ngrid[0] = config.getInteger("CGD_NGRID_X");
+    mesh_cgd.ngrid[1] = config.getInteger("CGD_NGRID_Y");
+    mesh_cgd.ngrid[2] = config.getInteger("CGD_NGRID_Z");
 
-    mesh.length[1] += 4.0 * radius;
-    double dyl = mesh.length[0] / mesh.ngrid[0] - mesh.length[1] / mesh.ngrid[1];
+    mesh_cgd.length[1] += 4.0 * radius;
+    double dyl = mesh_cgd.length[0] / mesh_cgd.ngrid[0]
+                 - mesh_cgd.length[1] / mesh_cgd.ngrid[1];
     if (dyl > 0)
-        mesh.length[1] += dyl * mesh.ngrid[1];
+        mesh_cgd.length[1] += dyl * mesh_cgd.ngrid[1];
 
-    mesh.length[2] += 8.0 * mesh.length[2] / mesh.ngrid[2];
-    mesh.z0 -= 4.0 * mesh.length[2] / mesh.ngrid[2];
+    mesh_cgd.length[2] += 8.0 * mesh_cgd.length[2] / mesh_cgd.ngrid[2];
+    mesh_cgd.z0 -= 4.0 * mesh_cgd.length[2] / mesh_cgd.ngrid[2];
 
     if (config.getInteger("MatchCellSizeOfZToXY") > 0) {
         double dzl = (
-            mesh.length[0] / mesh.ngrid[0] + mesh.length[1] / mesh.ngrid[1]
-        ) / 2 - (mesh.length[2] / mesh.ngrid[2]);
+            mesh_cgd.length[0] / mesh_cgd.ngrid[0]
+            + mesh_cgd.length[1] / mesh_cgd.ngrid[1]
+        ) / 2 - (mesh_cgd.length[2] / mesh_cgd.ngrid[2]);
 
         if (dzl > 0) {
-            double extra_lz = dzl * mesh.ngrid[2];
+            double extra_lz = dzl * mesh_cgd.ngrid[2];
             LOG::LOGGER.STD(
                 "Automatically padding z axis to match cell length in x & y "
                 "directions by %.3f Mpc.\n", extra_lz);
-            mesh.length[2] += extra_lz;
-            mesh.z0 -= extra_lz / 2.0;
+            mesh_cgd.length[2] += extra_lz;
+            mesh_cgd.z0 -= extra_lz / 2.0;
         }
     }
 
     LOG::LOGGER.STD(
         "Box dimensions are as follows: "
         "LX = %.0f Mpc, LY = %.0f Mpc, LZ = %.0f Mpc, Z0: %.0f Mpc.\n",
-        mesh.length[0], mesh.length[1], mesh.length[2], mesh.z0);
+        mesh_cgd.length[0], mesh_cgd.length[1], mesh_cgd.length[2],
+        mesh_cgd.z0);
 
-    mesh.construct(INPLACE_FFT);
+    mesh_cgd.construct(INPLACE_FFT);
     double delta_rad = specifics::MAX_RA - specifics::MIN_RA - 2 * MY_PI;
     if (fabs(delta_rad) > (2 * MY_PI * DOUBLE_EPSILON))
-        mesh.disablePeriodicityX();
+        mesh_cgd.disablePeriodicityX();
 
     LOG::LOGGER.STD(
-        "Mesh cell dimensions are as follows: "
+        "Mesh cell dimensions for CGD are as follows: "
         "dx = %.3f Mpc, dy = %.3f Mpc, dz = %.3f Mpc.\n",
-        mesh.dx[0], mesh.dx[1], mesh.dx[2]);
+        mesh_cgd.dx[0], mesh_cgd.dx[1], mesh_cgd.dx[2]);
 
     // Shift coordinates of quasars
-    LOG::LOGGER.STD("Shifting quasar locations to center the mesh.\n");
+    LOG::LOGGER.STD("Shifting quasar locations to center the mes h.\n");
     #pragma omp parallel for
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            qso->r[1 + 3 * i] += mesh.length[1] / 2;
-            qso->r[2 + 3 * i] -= mesh.z0;
+            qso->r[1 + 3 * i] += mesh_cgd.length[1] / 2;
+            qso->r[2 + 3 * i] -= mesh_cgd.z0;
         }
     }
+
+    mesh_drv.copy(mesh_cgd);
+    mesh_drv.ngrid[0] = config.getInteger("DRV_NGRID_X");
+    mesh_drv.ngrid[1] = config.getInteger("DRV_NGRID_Y");
+    mesh_drv.ngrid[2] = config.getInteger("DRV_NGRID_Z");
+    mesh_drv.construct(INPLACE_FFT);
+
+    LOG::LOGGER.STD(
+        "Constructed another mesh for derivative multiplication. "
+        "dx = %.3f Mpc, dy = %.3f Mpc, dz = %.3f Mpc.\n",
+        mesh_drv.dx[0], mesh_drv.dx[1], mesh_drv.dx[2]);
 
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("Mesh construct took %.2f m.\n", t2 - t1);
@@ -365,7 +379,7 @@ void Qu3DEstimator::_constructMap() {
 
     #pragma omp parallel for
     for (auto &qso : quasars)
-        qso->findGridPoints(mesh);
+        qso->findGridPoints(mesh_cgd);
 
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("findGridPoints took %.2f m.\n", t2 - t1);
@@ -373,8 +387,11 @@ void Qu3DEstimator::_constructMap() {
     LOG::LOGGER.STD("Sorting quasars by mininum NGP index.\n");
     std::sort(
         quasars.begin(), quasars.end(), [](const auto &q1, const auto &q2) {
-            if (q1->min_x_idx == q2->min_x_idx)
-                return q1->qFile->id < q2->qFile->id;
+            if (q1->min_x_idx == q2->min_x_idx) {
+                if (q1->r[0] == q2->r[0])
+                    return q1->qFile->id < q2->qFile->id;
+                return q1->r[0] < q2->r[0];
+            }
 
             return q1->min_x_idx < q2->min_x_idx; }
     );
@@ -395,7 +412,7 @@ void Qu3DEstimator::_findNeighbors() {
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
-        auto neighboring_pixels = qso->findNeighborPixels(mesh, radius);
+        auto neighboring_pixels = qso->findNeighborPixels(mesh_cgd, radius);
 
         for (const size_t &ipix : neighboring_pixels) {
             auto kumap_itr = idx_quasar_map.find(ipix);
@@ -777,14 +794,14 @@ void Qu3DEstimator::reverseInterpolateIsig(RealField3D &m) {
 void Qu3DEstimator::multMeshComp() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
-    reverseInterpolateIsig(mesh);
-    mesh.convolvePk(p3d_model->interp2d_pL);
+    reverseInterpolateIsig(mesh_cgd);
+    mesh_cgd.convolvePk(p3d_model->interp2d_pL);
 
     double dt = mytime::timer.getTime();
     // Interpolate and Weight by isig
     #pragma omp parallel for
     for (auto &qso : quasars)
-        qso->interpMesh2Out(mesh);
+        qso->interpMesh2Out(mesh_cgd);
 
     t2 = mytime::timer.getTime();
     ++timings["interp"].first;
@@ -1120,16 +1137,15 @@ endconjugateGradientDescent:
 void Qu3DEstimator::multDerivMatrixVec(int i) {
     static size_t
     mesh_kz_max = std::min(
-        size_t(ceil(KMAX_EDGE / mesh.k_fund[2])), mesh.ngrid_kz),
-    mesh_kz_min = ceil(specifics::MIN_KZ / mesh.k_fund[2]);
+        size_t(ceil(KMAX_EDGE / mesh_drv.k_fund[2])), mesh_drv.ngrid_kz),
+    mesh_kz_min = ceil(specifics::MIN_KZ / mesh_drv.k_fund[2]);
 
     double t1 = mytime::timer.getTime();
     int imu = i / bins::NUMBER_OF_K_BANDS, ik = i % bins::NUMBER_OF_K_BANDS;
 
     double kmin = std::max(bins::KBAND_CENTERS[ik] - DK_BIN,
                            bins::KBAND_EDGES[0]),
-           kmax = std::min(bins::KBAND_CENTERS[ik] + DK_BIN,
-                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
+           kmax = std::min(bins::KBAND_CENTERS[ik] + DK_BIN, KMAX_EDGE);
     bool is_last_k_bin = ik == (bins::NUMBER_OF_K_BANDS - 1),
          is_first_k_bin = ik == 0;
 
@@ -1143,13 +1159,13 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
     }
 
     #pragma omp parallel for schedule(dynamic, 4)
-    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
-        size_t jj = mesh.ngrid_kz * jxy;
+    for (size_t jxy = 0; jxy < mesh_drv.ngrid_xy; ++jxy) {
+        size_t jj = mesh_drv.ngrid_kz * jxy;
 
-        std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
+        std::fill_n(mesh_drv.field_k.begin() + jj, mesh_drv.ngrid_kz, 0);
 
         double kx, ky;
-        double kperp = mesh.getKperpFromIperp(jxy, kx, ky);
+        double kperp = mesh_drv.getKperpFromIperp(jxy, kx, ky);
 
         if (fabs(kx) < specifics::MIN_KPERP || fabs(ky) < specifics::MIN_KPERP)
             continue;
@@ -1158,7 +1174,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
         kperp *= kperp;
         for (size_t jz = mesh_kz_min; jz < mesh_kz_max; ++jz) {
-            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
+            double kz = jz * mesh_drv.k_fund[2], kt = sqrt(kz * kz + kperp),
                    alpha, mu;
 
             if (kt < kmin)  continue;
@@ -1173,21 +1189,21 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
             else
                 alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
 
-            alpha *= legendre_w(mu) * mesh.invtotalvol
+            alpha *= legendre_w(mu) * mesh_drv.invtotalvol
                      * p3d_model->getSpectroWindow2(kz);
             #ifdef RL_COMP_DERIV
             kt *= radius / rscale_factor;
             alpha *= exp(-kt * kt);
             #endif
-            mesh.field_k[jj + jz] = alpha * mesh_rnd.field_k[jj + jz]; 
+            mesh_drv.field_k[jj + jz] = alpha * mesh_rnd.field_k[jj + jz]; 
         }
     }
 
-    mesh.rawFftK2X();
+    mesh_drv.rawFftK2X();
 
     #pragma omp parallel for
     for (auto &qso : quasars)
-        qso->interpMesh2TruthIsig(mesh);
+        qso->interpMesh2TruthIsig(mesh_drv);
 
     ++timings["mDerivMatVec"].first;
     timings["mDerivMatVec"].second += mytime::timer.getTime() - t1;
@@ -1205,15 +1221,16 @@ void Qu3DEstimator::multiplyDerivVectors(
     */
     static size_t
     mesh_kz_max = std::min(
-        size_t(ceil(KMAX_EDGE / mesh.k_fund[2])), mesh.ngrid_kz),
-    mesh_kz_min = ceil(specifics::MIN_KZ / mesh.k_fund[2]);
+        size_t(ceil(KMAX_EDGE / mesh_drv.k_fund[2])), mesh_drv.ngrid_kz),
+    mesh_kz_min = ceil(specifics::MIN_KZ / mesh_drv.k_fund[2]);
+
     static auto _lout = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
 
     double dt = mytime::timer.getTime();
 
     /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
-    reverseInterpolateZ(mesh);
-    mesh.rawFftX2K();
+    reverseInterpolateZ(mesh_drv);
+    mesh_drv.rawFftX2K();
 
     if (lout == nullptr)
         lout = (o2 == nullptr) ? o1 : _lout.get();
@@ -1221,21 +1238,21 @@ void Qu3DEstimator::multiplyDerivVectors(
     std::fill_n(lout, NUMBER_OF_P_BANDS, 0);
 
     std::function<double(size_t)> my_norm;
-    if (&other == &mesh) {
-        my_norm = [this](size_t jj) { return std::norm(mesh.field_k[jj]); };
+    if (&other == &mesh_drv) {
+        my_norm = [this](size_t jj) { return std::norm(mesh_drv.field_k[jj]); };
     }
     else {
         my_norm = [this, &other](size_t jj) {
-            return mesh.field_k[jj].real() * other.field_k[jj].real()
-               + mesh.field_k[jj].imag() * other.field_k[jj].imag();
+            return mesh_drv.field_k[jj].real() * other.field_k[jj].real()
+               + mesh_drv.field_k[jj].imag() * other.field_k[jj].imag();
         };
     }
 
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS]) \
                              schedule(dynamic, 4)
-    for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
+    for (size_t jxy = 0; jxy < mesh_drv.ngrid_xy; ++jxy) {
         double kx, ky, temp, temp2, temp3;
-        double kperp = mesh.getKperpFromIperp(jxy, kx, ky);
+        double kperp = mesh_drv.getKperpFromIperp(jxy, kx, ky);
         int ik, ik2;
 
         if (fabs(kx) < specifics::MIN_KPERP || fabs(ky) < specifics::MIN_KPERP)
@@ -1243,10 +1260,10 @@ void Qu3DEstimator::multiplyDerivVectors(
         if (kperp >= KMAX_EDGE)
             continue;
 
-        size_t jj = mesh.ngrid_kz * jxy;
+        size_t jj = mesh_drv.ngrid_kz * jxy;
         kperp *= kperp;
         for (size_t k = mesh_kz_min; k < mesh_kz_max; ++k) {
-            double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
+            double kz = k * mesh_drv.k_fund[2], kt = sqrt(kz * kz + kperp),
                    mu;
             if (kt < bins::KBAND_EDGES[0])  continue;
             if (kt >= KMAX_EDGE)  break;
@@ -1279,7 +1296,7 @@ void Qu3DEstimator::multiplyDerivVectors(
         }
     }
 
-    cblas_dscal(NUMBER_OF_P_BANDS, mesh.invtotalvol, lout, 1);
+    cblas_dscal(NUMBER_OF_P_BANDS, mesh_drv.invtotalvol, lout, 1);
 
     if (o2 != nullptr) {
         for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {

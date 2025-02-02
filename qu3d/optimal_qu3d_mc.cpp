@@ -180,11 +180,11 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
 
     multiplyCovSmallSqrt();
 
-    mesh.fillRndNormal(rngs);
-    mesh.convolveSqrtPk(p3d_model->interp2d_pL);
+    mesh_cgd.fillRndNormal(rngs);
+    mesh_cgd.convolveSqrtPk(p3d_model->interp2d_pL);
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
-        qso->interpAddMesh2TruthIsig(mesh);
+        qso->interpAddMesh2TruthIsig(mesh_cgd);
 
     t2 = mytime::timer.getTime() - t1;
     ++timings["GenGauss"].first;
@@ -199,7 +199,7 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
     LOG::LOGGER.STD("Replacing deltas with high-res. Gaussian. ");
 
     double t1 = mytime::timer.getTime();
-    mesh_rnd.copy(mesh);
+    mesh_rnd.copy(mesh_cgd);
     for (int axis = 0; axis < 3; ++axis)
         mesh_rnd.ngrid[axis] *= mock_grid_res_factor;
     mesh_rnd.construct(INPLACE_FFT);
@@ -290,7 +290,7 @@ void Qu3DEstimator::estimateTotalBiasDirect() {
     int nmc = 1;
     bool converged = false;
 
-    if (!mesh_rnd) {mesh_rnd.copy(mesh); mesh_rnd.construct(INPLACE_FFT);}
+    if (!mesh_rnd) {mesh_rnd.copy(mesh_drv); mesh_rnd.construct(INPLACE_FFT);}
 
     // Direct estimation first.
     LOG::LOGGER.STD("Estimating total bias directly.\n");
@@ -521,7 +521,7 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
        since it is only needed in Fourier space, which is equivalent between
        in-place and out-of-place transforms. */
     LOG::LOGGER.STD("  Constructing another mesh for randoms.\n");
-    mesh_rnd.copy(mesh);
+    mesh_rnd.copy(mesh_drv);
     mesh_rnd.construct(INPLACE_FFT);
 
     // max_monte_carlos = 5;
@@ -572,7 +572,7 @@ void Qu3DEstimator::estimateFisherDirect() {
     1. Generate z = +-1 per forest to *truth.
     2. Reverse interpolate init random (*truth) to mesh_rnd & FFT.
     3. Solve C^-1 . z to *in. Reverse interpolate to mesh_fh & FFT.
-    4. Multiply init random (mesh_rnd) deriv mat. to *truth (through mesh).
+    4. Multiply init random (mesh_rnd) deriv mat. to *truth (through mesh_drv).
     5. Solve C^-1 . Qk' . z.
     6. Multiply mesh_fh and mesh.
     */
@@ -583,8 +583,8 @@ void Qu3DEstimator::estimateFisherDirect() {
     timings["mDerivMatVec"] = std::make_pair(0, 0.0);
 
     LOG::LOGGER.STD("  Constructing two other meshes for randoms.\n");
-    if (!mesh_rnd) { mesh_rnd.copy(mesh); mesh_rnd.construct(INPLACE_FFT); }
-    if (!mesh_fh) { mesh_fh.copy(mesh); mesh_fh.construct(INPLACE_FFT); }
+    if (!mesh_rnd) { mesh_rnd.copy(mesh_drv); mesh_rnd.construct(INPLACE_FFT); }
+    if (!mesh_fh) { mesh_fh.copy(mesh_drv); mesh_fh.construct(INPLACE_FFT); }
 
     LOG::LOGGER.STD("  Using preconditioner as solution.\n");
 

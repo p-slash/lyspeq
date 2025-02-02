@@ -414,8 +414,8 @@ public:
     void findGridPoints(const RealField3D &mesh) {
         min_x_idx = round(r[0] / mesh.dx[0]);
         for (int i = 0; i < N; ++i) {
-            min_x_idx = std::min(
-                min_x_idx, size_t(round(r[3 * i] / mesh.dx[0])));
+            // min_x_idx = std::min(
+            //     min_x_idx, size_t(round(r[3 * i] / mesh.dx[0])));
             grid_indices.insert(mesh.getNgpIndex(r.get() + 3 * i));
         }
     }

@@ -12,7 +12,8 @@
 #include "qu3d/qu3d_file.hpp"
 
 const config_map qu3d_default_parameters ({
-    {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
+    {"CGD_NGRID_X", "1024"}, {"CGD_NGRID_Y", "256"}, {"CGD_NGRID_Z", "64"},
+    {"DRV_NGRID_X", "1024"}, {"DRV_NGRID_Y", "256"}, {"DRV_NGRID_Z", "64"},
     {"MatchCellSizeOfZToXY", "-1"},
     {"TurnOnPpCovariance", "-1"}, {"NumberOfMultipoles", "4"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
@@ -46,7 +47,7 @@ class Qu3DEstimator
     std::unique_ptr<ioh::Qu3dFile> result_file;
 
     std::vector<MyRNG> rngs;
-    RealField3D mesh, mesh_rnd, mesh_fh;
+    RealField3D mesh_cgd, mesh_drv, mesh_rnd, mesh_fh;
 
     std::unique_ptr<double[]>
         mc1, mc2, mesh_z1_values,
@@ -127,7 +128,7 @@ public:
     void multiplyDerivVectors(
         double *o1, double *o2, double *lout, const RealField3D &other);
     void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr) {
-        multiplyDerivVectors(o1, o2, lout, mesh);
+        multiplyDerivVectors(o1, o2, lout, mesh_drv);
     };
 
     /* Reverse interopates qso->in onto the mesh */

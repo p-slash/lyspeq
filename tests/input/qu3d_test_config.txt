@@ -3,18 +3,22 @@ FileNameList /Users/nk452/repos/data/P3D-Lya-Optimal/eboss/fname.txt
 OutputFileBase qu3d-test
 OutputDir tests/output/
 
+CGD_NGRID_X 1536
+CGD_NGRID_Y 576
+CGD_NGRID_Z 256
 
-NGRID_X 1536
-NGRID_Y 576
-NGRID_Z 256
+DRV_NGRID_X 2048
+DRV_NGRID_Y 864
+DRV_NGRID_Z 384
+
 LongScale 6.0
 ScaleFactor 8
 MatchCellSizeOfZToXY 1
 
 EstimateTotalBiasDirectly -1
-EstimateTotalBias -1
+EstimateTotalBias 1
 EstimateNoiseBias -1
-TestHsqrt 1
+TestHsqrt -1
 
 # q_1 0.0
 b_HCD 0.0
