@@ -6,15 +6,24 @@ OutputDir tests/output/
 
 NGRID_X 1536
 NGRID_Y 576
-NGRID_Z 192
-LongScale 15.0
-ScaleFactor 2
+NGRID_Z 256
+LongScale 6.0
+ScaleFactor 8
 MatchCellSizeOfZToXY 1
 
-EstimateTotalBiasDirectly 1
-EstimateTotalBias 1
+EstimateTotalBiasDirectly -1
+EstimateTotalBias -1
 EstimateNoiseBias -1
-TestHsqrt -1
+TestHsqrt 1
+
+# q_1 0.0
+b_HCD 0.0
+beta_HCD 0.0
+b_SiIII-1207 0.0
+b_SiII-1190 0.0
+b_SiII-1193 0.0
+b_SiII-1260 0.0
+beta_metal 0.0
 
 MinimumRa 0.0
 MaximumRa 130.0
@@ -34,6 +43,7 @@ MaxConjGradSteps 100
 MaxMonteCarlos 50
 ConvergenceTolerance 1e-4
 TestGaussianField -1
+MockGridResolutionFactor 4
 PlinearFilename /Users/nk452/repos/data/Planck2018/camb_planck18_power_spectrum_z24.txt
 PlinearPivotRedshift 2.4
 
