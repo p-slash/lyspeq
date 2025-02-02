@@ -278,7 +278,7 @@ void Qu3DEstimator::_readQSOFiles(
 
 
 void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
-    float lymin = 0, lzmin = 1e15, lymax = 0, lzmax = 0;
+    float lymin = 1e15, lzmin = 1e15, lymax = 0, lzmax = 0;
 
     #pragma omp parallel for reduction(min:lymin, lzmin) \
                              reduction(max:lymax, lzmax)
@@ -287,8 +287,8 @@ void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
         lzmin = std::min(lzmin, qso->r[2]);
         lzmax = std::max(lzmax, qso->r[3 * qso->N - 1]);
 
-        lymin = std::min(lymin, std::min(qso->r[1], qso->r[3 * qso->N - 2]));
-        lymax = std::max(lymax, std::max(qso->r[1], qso->r[3 * qso->N - 2]));
+        lymin = std::min(lymin, qso->r[1]);
+        lymax = std::max(lymax, qso->r[1]);
     }
 
     L[0] = effective_chi * (specifics::MAX_RA - specifics::MIN_RA);
