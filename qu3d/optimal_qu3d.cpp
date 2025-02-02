@@ -13,21 +13,13 @@
 
 namespace specifics {
     double MIN_RA = 0, MAX_RA = 0, MIN_DEC = 0, MAX_DEC = 0;
-    double MIN_KERP = 0;
+    double MIN_KPERP = 0, MIN_KZ = 0;
 }
 
 // Assume 2-4 threads will not encounter race conditions
 #ifndef RINTERP_NTHREADS
 #define RINTERP_NTHREADS 3
 #endif
-
-#define NUMBER_OF_MULTIPOLES 4
-#if NUMBER_OF_MULTIPOLES < 3
-#error 
-#elif NUMBER_OF_MULTIPOLES > 9
-#error
-#endif
-
 
 #define OFFDIAGONAL_ORDER 8
 #define KMAX_EDGE bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]
@@ -48,7 +40,6 @@ const fidcosmo::FlatLCDM *cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 std::unique_ptr<ioh::ContMargFile> ioh::continuumMargFileHandler;
 
-std::vector<MyRNG> rngs;
 int NUMBER_OF_P_BANDS = 0;
 double DK_BIN = 0;
 bool verbose = true, CONT_MARG_ENABLED = false;
@@ -113,21 +104,6 @@ void logTimings() {
 }
 
 
-inline bool isInsideKbin(int ib, double kb) {
-    return (bins::KBAND_EDGES[ib] <= kb) && (kb < bins::KBAND_EDGES[ib + 1]);
-}
-
-
-inline bool isDiverging(double old_norm, double new_norm) {
-    double a = std::max(old_norm, new_norm);
-    bool diverging = (old_norm - new_norm) < DOUBLE_EPSILON * a;
-    if (verbose && diverging)
-        LOG::LOGGER.STD("    Iterations are stagnant or diverging.\n");
-
-    return diverging;
-}
-
-
 inline bool hasConverged(double norm, double tolerance) {
     if (verbose)
         LOG::LOGGER.STD(
@@ -136,16 +112,6 @@ inline bool hasConverged(double norm, double tolerance) {
             norm, tolerance);
 
     return norm < tolerance;
-}
-
-
-void _initRngs(std::seed_seq *seq) {
-    const int N = myomp::getMaxNumThreads();
-    rngs.resize(N);
-    std::vector<size_t> seeds(N);
-    seq->generate(seeds.begin(), seeds.end());
-    for (int i = 0; i < N; ++i)
-        rngs[i].seed(seeds[i]);
 }
 
 
@@ -302,8 +268,7 @@ void Qu3DEstimator::_readQSOFiles(
     }
 
     CosmicQuasar::allocCcov(max_qN * max_qN);
-    if (CONT_MARG_ENABLED)
-        CosmicQuasar::allocRrmat(max_qN * max_qN);
+    CosmicQuasar::allocRrmat(max_qN * max_qN);
 
     LOG::LOGGER.STD(
         "There are %d quasars and %ld number of pixels. "
@@ -313,7 +278,7 @@ void Qu3DEstimator::_readQSOFiles(
 
 
 void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
-    float lymin = 0, lzmin = 1e15, lymax = 0, lzmax = 0;
+    float lymin = 1e15, lzmin = 1e15, lymax = 0, lzmax = 0;
 
     #pragma omp parallel for reduction(min:lymin, lzmin) \
                              reduction(max:lymax, lzmax)
@@ -322,8 +287,8 @@ void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
         lzmin = std::min(lzmin, qso->r[2]);
         lzmax = std::max(lzmax, qso->r[3 * qso->N - 1]);
 
-        lymin = std::min(lymin, std::min(qso->r[1], qso->r[3 * qso->N - 2]));
-        lymax = std::max(lymax, std::max(qso->r[1], qso->r[3 * qso->N - 2]));
+        lymin = std::min(lymin, qso->r[1]);
+        lymax = std::max(lymax, qso->r[1]);
     }
 
     L[0] = effective_chi * (specifics::MAX_RA - specifics::MIN_RA);
@@ -361,7 +326,7 @@ void Qu3DEstimator::_setupMesh(double radius) {
             double extra_lz = dzl * mesh_cgd.ngrid[2];
             LOG::LOGGER.STD(
                 "Automatically padding z axis to match cell length in x & y "
-                "directions by %.3f Mpc", extra_lz);
+                "directions by %.3f Mpc.\n", extra_lz);
             mesh_cgd.length[2] += extra_lz;
             mesh_cgd.z0 -= extra_lz / 2.0;
         }
@@ -506,9 +471,10 @@ void Qu3DEstimator::_saveNeighbors() {
     }
 
     int status = 0;
-    fitsfile *fits_file = nullptr;
 
     std::string out_fname = "!" + process::FNAME_BASE + "-quasar-neighbors.fits";
+    auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(out_fname);
+    fitsfile *fits_file = fitsfile_ptr.get();
 
     /* define the name, datatype, and physical units for columns */
     int ncolumns = 2;
@@ -519,10 +485,9 @@ void Qu3DEstimator::_saveNeighbors() {
     char *column_units[] = { "", ""};
     #pragma GCC diagnostic pop
 
-    fits_create_file(&fits_file, out_fname.c_str(), &status);
-    fits_create_tbl(
-        fits_file, BINARY_TBL, quasars.size(), ncolumns, column_names, column_types,
-        column_units, "NEIGHBORS", &status);
+    fits_create_tbl(fits_file, BINARY_TBL, quasars.size(), ncolumns,
+                    column_names, column_types, column_units, "NEIGHBORS",
+                    &status);
     ioh::checkFitsStatus(status);
 
     // fits_write_key(
@@ -547,8 +512,6 @@ void Qu3DEstimator::_saveNeighbors() {
         ioh::checkFitsStatus(status);
         ++irow;
     }
-    fits_close_file(fits_file, &status);
-    ioh::checkFitsStatus(status);
 
     mympi::barrier();
     LOG::LOGGER.STD("Neighbors cache saved as %s\n", out_fname.c_str());
@@ -655,16 +618,13 @@ void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
 void Qu3DEstimator::_openResultsFile() {
     result_file = std::make_unique<ioh::Qu3dFile>(
         process::FNAME_BASE, mympi::this_pe);
-    convergence_file = std::make_unique<ioh::Qu3dFile>(
-        process::FNAME_BASE + "-convergence-" + std::to_string(mympi::this_pe),
-        0);
 
     p3d_model->write(result_file.get());
 
     double *k_grid = raw_power.get(),
            *pfid_grid = raw_bias.get();
 
-    for (int imu = 0; imu < NUMBER_OF_MULTIPOLES; ++imu) {
+    for (int imu = 0; imu < number_of_multipoles; ++imu) {
         for (int ik = 0; ik < bins::NUMBER_OF_K_BANDS; ++ik) {
             size_t i = ik + bins::NUMBER_OF_K_BANDS * imu;
             k_grid[i] = bins::KBAND_CENTERS[ik];
@@ -687,7 +647,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::MAX_RA = config.getDouble("MaximumRa") * deg2rad;
     specifics::MIN_DEC = config.getDouble("MinimumDec") * deg2rad;
     specifics::MAX_DEC = config.getDouble("MaximumDec") * deg2rad;
-    specifics::MIN_KERP = config.getDouble("MinimumKperp");
+    specifics::MIN_KPERP = config.getDouble("MinimumKperp");
+    specifics::MIN_KZ = std::max(0.0, config.getDouble("MinimumKlos"));
 
     LOG::LOGGER.STD(
         "Sky cut: RA %.3f-%.3f & DEC %.3f-%.3f in radians.\n",
@@ -712,22 +673,24 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     pp_enabled = config.getInteger("TurnOnPpCovariance") > 0;
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
+    mock_grid_res_factor = config.getInteger("MockGridResolutionFactor");
     tolerance = config.getDouble("ConvergenceTolerance");
+    mc_tol = tolerance;
     absolute_tolerance = config.getInteger("AbsoluteTolerance") > 0;
     specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
     radius = config.getDouble("LongScale");
     rscale_factor = config.getDouble("ScaleFactor");
-    if (rscale_factor > fidcosmo::ArinyoP3DModel::MAX_R_FACTOR)
-        throw std::invalid_argument(
-            "ScaleFactor cannot exceed "
-            + std::to_string(fidcosmo::ArinyoP3DModel::MAX_R_FACTOR));
+    // if (rscale_factor > fidcosmo::ArinyoP3DModel::MAX_R_FACTOR)
+    //     throw std::invalid_argument(
+    //         "ScaleFactor cannot exceed "
+    //         + std::to_string(fidcosmo::ArinyoP3DModel::MAX_R_FACTOR));
 
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
+    total_bias_direct_enabled = config.getInteger("EstimateTotalBiasDirectly") > 0;
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
-    fisher_rnd_enabled = config.getInteger("EstimateFisherFromRandomDerivatives") > 0;
-    fisher_direct_enabled = config.getInteger("estimateFisherDirectly") > 0;
+    fisher_direct_enabled = config.getInteger("EstimateFisherDirectly") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
-    // NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
+    number_of_multipoles = config.getInteger("NumberOfMultipoles");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
 
     if (CONT_MARG_ENABLED && unique_prefix.empty())
@@ -740,7 +703,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     cosmo = p3d_model->getCosmoPtr();
     logCosmoDist(); logCosmoHubble(); 
 
-    NUMBER_OF_P_BANDS = bins::NUMBER_OF_K_BANDS * NUMBER_OF_MULTIPOLES;
+    NUMBER_OF_P_BANDS = bins::NUMBER_OF_K_BANDS * number_of_multipoles;
     DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
     bins::FISHER_SIZE = NUMBER_OF_P_BANDS * NUMBER_OF_P_BANDS;
 
@@ -864,7 +827,7 @@ void Qu3DEstimator::multParticleComp() {
         LOG::LOGGER.STD("    multParticleComp took %.2f s.\n", 60.0 * dt);
 }
 
-void Qu3DEstimator::multiplyCovVector() {
+void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
     /* Multiply each quasar's *in pointer and save to *out pointer.
        (I + R^-1/2 N^-1/2 G^1/2 S G^1/2 N^-1/2 R^-1/2) z = out
     */
@@ -889,7 +852,14 @@ void Qu3DEstimator::multiplyCovVector() {
     }
 
     // Add long wavelength mode to Cy
-    multMeshComp();
+    if (mesh_enabled) {
+        multMeshComp();
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            std::fill_n(qso->out, qso->N, 0);
+    }
 
     if (pp_enabled)
         multParticleComp();
@@ -1034,6 +1004,10 @@ void Qu3DEstimator::conjugateGradientDescent() {
         return;
     }
 
+    static auto convergence_file = std::make_unique<ioh::Qu3dFile>(
+        process::FNAME_BASE + "-convergence-" + std::to_string(mympi::this_pe),
+        0);
+
     double dt = mytime::timer.getTime();
     int niter = 1;
 
@@ -1073,15 +1047,17 @@ void Qu3DEstimator::conjugateGradientDescent() {
         for (int i = 0; i < qso->N; ++i)
             qso->residual[i] = qso->truth[i] - qso->out[i];
 
-        // Only search is multiplied from here until endconjugateGradientDescent
+        // Only search is multiplied until endconjugateGradientDescent
         qso->in = qso->search.get();
 
         // set search = InvCov . residual
-        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in, pp_enabled);
+        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in,
+                        pp_enabled);
 
-        init_residual_norm += cblas_ddot(
-            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
-        old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->in, 1);
+        init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
+                                         qso->residual.get(), 1);
+        old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
+                                        qso->in, 1);
     }
 
     init_residual_norm = sqrt(init_residual_norm);
@@ -1104,8 +1080,10 @@ void Qu3DEstimator::conjugateGradientDescent() {
         #pragma omp parallel for reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = InvCov . residual
-            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out, pp_enabled);
-            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1, qso->out, 1);
+            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out,
+                            pp_enabled);
+            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
+                                            qso->out, 1);
         }
 
         double beta = new_residual_prec / old_residual_prec;
@@ -1157,17 +1135,17 @@ endconjugateGradientDescent:
 
 
 void Qu3DEstimator::multDerivMatrixVec(int i) {
-    static size_t mesh_kz_max = std::min(
-        size_t(ceil((KMAX_EDGE - bins::KBAND_EDGES[0]) / mesh_drv.k_fund[2])),
-        mesh_drv.ngrid_kz);
+    static size_t
+    mesh_kz_max = std::min(
+        size_t(ceil(KMAX_EDGE / mesh_drv.k_fund[2])), mesh_drv.ngrid_kz),
+    mesh_kz_min = ceil(specifics::MIN_KZ / mesh_drv.k_fund[2]);
 
     double t1 = mytime::timer.getTime();
     int imu = i / bins::NUMBER_OF_K_BANDS, ik = i % bins::NUMBER_OF_K_BANDS;
 
     double kmin = std::max(bins::KBAND_CENTERS[ik] - DK_BIN,
                            bins::KBAND_EDGES[0]),
-           kmax = std::min(bins::KBAND_CENTERS[ik] + DK_BIN,
-                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
+           kmax = std::min(bins::KBAND_CENTERS[ik] + DK_BIN, KMAX_EDGE);
     bool is_last_k_bin = ik == (bins::NUMBER_OF_K_BANDS - 1),
          is_first_k_bin = ik == 0;
 
@@ -1177,7 +1155,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
     case 1: legendre_w = legendre2; break;
     case 2: legendre_w = legendre4; break;
     case 3: legendre_w = legendre6; break;
-    default: legendre_w = std::bind(legendre, std::placeholders::_1, 2 * imu);
+    default: legendre_w = std::bind(legendre, 2 * imu, std::placeholders::_1);
     }
 
     #pragma omp parallel for schedule(dynamic, 4)
@@ -1186,17 +1164,23 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
         std::fill_n(mesh_drv.field_k.begin() + jj, mesh_drv.ngrid_kz, 0);
 
-        double kperp = mesh_drv.getKperpFromIperp(jxy);
+        double kx, ky;
+        double kperp = mesh_drv.getKperpFromIperp(jxy, kx, ky);
 
-        if (kperp >= kmax || kperp < specifics::MIN_KERP)
+        if (fabs(kx) < specifics::MIN_KPERP || fabs(ky) < specifics::MIN_KPERP)
+            continue;
+        if (kperp >= kmax)
             continue;
 
         kperp *= kperp;
-        for (size_t jz = 0; jz < mesh_kz_max; ++jz) {
-            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
-                   alpha;
+        for (size_t jz = mesh_kz_min; jz < mesh_kz_max; ++jz) {
+            double kz = jz * mesh_drv.k_fund[2], kt = sqrt(kz * kz + kperp),
+                   alpha, mu;
+
             if (kt < kmin)  continue;
             else if (kt >= kmax)  break;
+            if (kt != 0)  mu = kz / kt;
+            else          mu = 0.0;
 
             if (is_last_k_bin && (kt > bins::KBAND_CENTERS[ik]))
                 alpha = 1.0;
@@ -1205,9 +1189,12 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
             else
                 alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
 
-            if (kt != 0)  kt = kz / kt;
-            alpha *= legendre_w(kt) * mesh_drv.invtotalvol
+            alpha *= legendre_w(mu) * mesh_drv.invtotalvol
                      * p3d_model->getSpectroWindow2(kz);
+            #ifdef RL_COMP_DERIV
+            kt *= radius / rscale_factor;
+            alpha *= exp(-kt * kt);
+            #endif
             mesh_drv.field_k[jj + jz] = alpha * mesh_rnd.field_k[jj + jz]; 
         }
     }
@@ -1232,9 +1219,11 @@ void Qu3DEstimator::multiplyDerivVectors(
 
        If you pass lout != nullptr, current results are saved into this array.
     */
-    static size_t mesh_kz_max = std::min(
-        size_t(ceil((KMAX_EDGE - bins::KBAND_EDGES[0]) / mesh_drv.k_fund[2])),
-        mesh_drv.ngrid_kz);
+    static size_t
+    mesh_kz_max = std::min(
+        size_t(ceil(KMAX_EDGE / mesh_drv.k_fund[2])), mesh_drv.ngrid_kz),
+    mesh_kz_min = ceil(specifics::MIN_KZ / mesh_drv.k_fund[2]);
+
     static auto _lout = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
 
     double dt = mytime::timer.getTime();
@@ -1262,90 +1251,48 @@ void Qu3DEstimator::multiplyDerivVectors(
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS]) \
                              schedule(dynamic, 4)
     for (size_t jxy = 0; jxy < mesh_drv.ngrid_xy; ++jxy) {
-        double kperp = mesh_drv.getKperpFromIperp(jxy), temp, temp2, temp3;
+        double kx, ky, temp, temp2, temp3;
+        double kperp = mesh_drv.getKperpFromIperp(jxy, kx, ky);
+        int ik, ik2;
 
-        if (kperp >= KMAX_EDGE || kperp < specifics::MIN_KERP)
+        if (fabs(kx) < specifics::MIN_KPERP || fabs(ky) < specifics::MIN_KPERP)
+            continue;
+        if (kperp >= KMAX_EDGE)
             continue;
 
-        int ik = (kperp - bins::KBAND_EDGES[0]) / DK_BIN, ik2;
-
         size_t jj = mesh_drv.ngrid_kz * jxy;
-        if (kperp >= bins::KBAND_EDGES[0]) {  // mu = 0
-            temp = my_norm(jj);
-            temp2 = (1.0 - fabs(kperp - bins::KBAND_CENTERS[ik]) / DK_BIN);
-            temp3 = temp * (1.0 - temp2);
-            temp *= temp2;
-
-            if (kperp > bins::KBAND_CENTERS[ik])
-                ik2 = std::min(bins::NUMBER_OF_K_BANDS - 1, ik + 1);
-            else
-                ik2 = std::max(0, ik - 1);
-
-            lout[ik] += temp;
-            lout[ik2] += temp3;
-
-            lout[ik + bins::NUMBER_OF_K_BANDS] -= 0.5 * temp;
-            lout[ik2 + bins::NUMBER_OF_K_BANDS] -= 0.5 * temp3;
-
-            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += 0.375 * temp;
-            lout[ik2 + 2 * bins::NUMBER_OF_K_BANDS] += 0.375 * temp3;
-
-            #if NUMBER_OF_MULTIPOLES > 3
-            lout[ik + 3 * bins::NUMBER_OF_K_BANDS] -= 0.3125 * temp;
-            lout[ik2 + 3 * bins::NUMBER_OF_K_BANDS] -= 0.3125 * temp3;
-            #endif
-            #if NUMBER_OF_MULTIPOLES > 4
-            for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l) {
-                lout[ik + l * bins::NUMBER_OF_K_BANDS] +=
-                    temp * legendre(2 * l, 0.0);
-                lout[ik2 + l * bins::NUMBER_OF_K_BANDS] +=
-                    temp3 * legendre(2 * l, 0.0);
-            }
-            #endif
-        }
-
         kperp *= kperp;
-        for (size_t k = 1; k < mesh_kz_max; ++k) {
-            double kz = k * mesh_drv.k_fund[2], kt = sqrt(kz * kz + kperp), mu;
-            if (kt >= KMAX_EDGE || kt < bins::KBAND_EDGES[0])
-                continue;
+        for (size_t k = mesh_kz_min; k < mesh_kz_max; ++k) {
+            double kz = k * mesh_drv.k_fund[2], kt = sqrt(kz * kz + kperp),
+                   mu;
+            if (kt < bins::KBAND_EDGES[0])  continue;
+            if (kt >= KMAX_EDGE)  break;
+            if (kt != 0)  mu = kz / kt;
+            else          mu = 0.0;
 
             ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
-            mu = kz / kt;
-
-            temp = 2.0 * my_norm(k + jj) * p3d_model->getSpectroWindow2(kz);
-            temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
-            temp3 = temp * (1.0 - temp2);
-            temp *= temp2;
 
             if (kt > bins::KBAND_CENTERS[ik])
                 ik2 = std::min(bins::NUMBER_OF_K_BANDS - 1, ik + 1);
             else
                 ik2 = std::max(0, ik - 1);
 
-            lout[ik] += temp;
-            lout[ik2] += temp3;
-
-            temp2 = legendre2(mu);
-            lout[ik + bins::NUMBER_OF_K_BANDS] += temp * temp2;
-            lout[ik2 + bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
-
-            temp2 = legendre4(mu);
-            lout[ik + 2 * bins::NUMBER_OF_K_BANDS] += temp * temp2;
-            lout[ik2 + 2 * bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
-
-            #if NUMBER_OF_MULTIPOLES > 3
-            temp2 = legendre6(mu);
-            lout[ik + 3 * bins::NUMBER_OF_K_BANDS] += temp * temp2;
-            lout[ik2 + 3 * bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
+            temp = (1.0 + (k != 0)) * my_norm(k + jj)
+                   * p3d_model->getSpectroWindow2(kz);
+            temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+            #ifdef RL_COMP_DERIV
+            kt *= radius / rscale_factor;
+            temp *= exp(-kt * kt);
             #endif
-            #if NUMBER_OF_MULTIPOLES > 4
-            for (int l = 4; l < NUMBER_OF_MULTIPOLES; ++l) {
-                temp2 = legendre(2 * l, mu);
-                lout[ik + l * bins::NUMBER_OF_K_BANDS] += temp * temp2;
-                lout[ik2 + l * bins::NUMBER_OF_K_BANDS] += temp3 * temp2;
+
+            temp3 = temp * (1.0 - temp2);
+            temp *= temp2;
+
+            for (int ell = 0; ell < number_of_multipoles; ++ell) {
+                temp2 = legendre(2 * ell, mu);
+                lout[ik + ell * bins::NUMBER_OF_K_BANDS] += temp2 * temp;
+                lout[ik2 + ell * bins::NUMBER_OF_K_BANDS] += temp2 * temp3;
             }
-            #endif
         }
     }
 
@@ -1416,7 +1363,8 @@ void Qu3DEstimator::write() {
     specifics::printBuildSpecifics(toWrite);
     config.writeConfig(toWrite);
 
-    fprintf(toWrite, "# -----------------------------------------------------------------\n"
+    fprintf(toWrite,
+        "# -----------------------------------------------------------------\n"
         "# File Template\n# Nk\n"
         "# kperp | kz | P3D | e_P3D | Pfid | d | b | Fd | Fb\n"
         "# Nk     : Number of k bins\n"
@@ -1428,7 +1376,8 @@ void Qu3DEstimator::write() {
         "# b      : Noise estimate [Mpc^3]\n"
         "# Fd     : d before Fisher\n"
         "# Fb     : b before Fisher\n"
-        "# -----------------------------------------------------------------\n");
+        "# -----------------------------------------------------------------\n"
+    );
 
     // if (damping_pair.first)
     //     fprintf(toWrite, "# Damped: True\n");
@@ -1442,7 +1391,7 @@ void Qu3DEstimator::write() {
         "%14s %s %14s %14s %14s %14s %14s %14s\n", 
         "k", "l", "P3D", "e_P3D", "d", "b", "Fd", "Fb");
 
-    for (int imu = 0; imu < NUMBER_OF_MULTIPOLES; ++imu) {
+    for (int imu = 0; imu < number_of_multipoles; ++imu) {
         for (int ik = 0; ik < bins::NUMBER_OF_K_BANDS; ++ik) {
             size_t i = ik + bins::NUMBER_OF_K_BANDS * imu;
             int l = 2 * imu;
@@ -1535,30 +1484,30 @@ int main(int argc, char *argv[]) {
             qps.testSymmetry();
 
         if (test_hsqrt)
-            qps.testHSqrt();
+            qps.testCovSqrt();
 
-        if (test_gaussian_field)
-            qps.replaceDeltasWithGaussianField();
+        if (test_gaussian_field) {
+            if (qps.mock_grid_res_factor > 1) {
+                qps.replaceDeltasWithHighResGaussianField();
+                goto EndOptimalQu3DNormally;
+            }
+            else
+                qps.replaceDeltasWithGaussianField();
+        }
 
         qps.estimatePower();
 
         if (qps.total_bias_enabled)
             qps.estimateTotalBiasMc();
 
+        if (qps.total_bias_direct_enabled)
+            qps.estimateTotalBiasDirect();
+
         if (qps.noise_bias_enabled)
             qps.estimateNoiseBiasMc();
 
-        // if (qps.fisher_rnd_enabled) {
-        //     qps.estimateFisherFromRndDeriv();
-        //     qps.filter();
-        // }
-
-        if (qps.fisher_direct_enabled) {
+        if (qps.fisher_direct_enabled)
             qps.estimateFisherDirect();
-            qps.filter();
-        }
-
-        qps.write();
     }
     catch (std::exception& e) {
         LOG::LOGGER.ERR(e.what());
@@ -1567,6 +1516,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+EndOptimalQu3DNormally:
     myomp::clean_fftw();
     mympi::finalize();
     return 0;

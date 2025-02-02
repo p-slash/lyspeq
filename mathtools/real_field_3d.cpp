@@ -3,18 +3,9 @@
 #include "mathtools/real_field_3d.hpp"
 #include "mathtools/matrix_helper.hpp"
 // #include <algorithm>
-// #include <cassert>
+#include <cassert>
 
 const double MY_PI = 3.14159265358979323846;
-
-void RealField3D::initRngs(std::seed_seq *seq) {
-    const int N = myomp::getMaxNumThreads();
-    rngs.resize(N);
-    std::vector<size_t> seeds(N);
-    seq->generate(seeds.begin(), seeds.end());
-    for (int i = 0; i < N; ++i)
-        rngs[i].seed(seeds[i]);
-}
 
 
 RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr) {
@@ -32,7 +23,8 @@ RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr) {
 
 void RealField3D::copy(const RealField3D &rhs)
 {
-    p_x2k = nullptr; p_k2x = nullptr;
+    assert (p_x2k == nullptr);
+    // p_x2k = nullptr; p_k2x = nullptr;
     _periodic_x = rhs._periodic_x;
     for (int axis = 0; axis < 3; ++axis) {
         ngrid[axis] = rhs.ngrid[axis];
@@ -43,6 +35,8 @@ void RealField3D::copy(const RealField3D &rhs)
 
 
 void RealField3D::construct(bool inp) {
+    assert (p_x2k == nullptr);
+
     _inplace = inp;
     size_real = 1;
     cellvol = 1;
@@ -103,22 +97,6 @@ void RealField3D::fftK2X() {
     #pragma omp parallel for
     for (size_t ij = 0; ij < ngrid_xy; ++ij)
         cblas_dscal(ngrid[2], invtotalvol, field_x + ngrid_z * ij, 1);
-}
-
-
-void RealField3D::fillRndNormal() {
-    #pragma omp parallel for
-    for (size_t ij = 0; ij < ngrid_xy; ++ij)
-        rngs[myomp::getThreadNum()].fillVectorNormal(
-            field_x + ngrid_z * ij, ngrid[2]);
-}
-
-
-void RealField3D::fillRndOnes() {
-    #pragma omp parallel for
-    for (size_t ij = 0; ij < ngrid_xy; ++ij)
-        rngs[myomp::getThreadNum()].fillVectorOnes(
-            field_x + ngrid_z * ij, ngrid[2]);
 }
 
 
@@ -247,6 +225,12 @@ size_t RealField3D::getIndex(int nx, int ny, int nz) const {
         if (n[0] < 0)  n[0] += ngrid[0];
     }
 
+    #ifdef ASSERT_MESH_IDX
+    assert ((n[0] >= 0) && (n[0] < ngrid[0]));
+    assert ((n[1] >= 0) && (n[1] < ngrid[1]));
+    assert ((n[2] >= 0) && (n[2] < ngrid[2]));
+    #endif
+
     return n[2] + ngrid_z * (n[1] + ngrid[1] * n[0]);
 }
 
@@ -333,6 +317,26 @@ double RealField3D::getKperpFromIperp(size_t iperp) const {
     ks[1] = kn[1] * k_fund[1];
 
     return sqrt(ks[0] * ks[0] + ks[1] * ks[1]);
+}
+
+
+double RealField3D::getKperpFromIperp(size_t iperp, double &kx, double &ky)
+const {
+    int kn[2];
+    kn[0] = iperp / ngrid[1];
+    kn[1] = iperp % ngrid[1];
+
+    if (kn[0] > (ngrid[0] / 2))
+        kn[0] -= ngrid[0];
+
+    kx = kn[0] * k_fund[0];
+
+    if (kn[1] > (ngrid[1] / 2))
+        kn[1] -= ngrid[1];
+
+    ky = kn[1] * k_fund[1];
+
+    return sqrt(kx * kx + ky * ky);
 }
 
 

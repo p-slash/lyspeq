@@ -103,11 +103,16 @@ namespace fidcosmo {
            b_F fitted to all redshift ranges accounting for errors.
            Two redshift bins are averaged for others. */
         {"b_F", "0.1195977"}, {"alpha_F", "3.37681"},
-        {"beta_F", "1.6633"}, {"k_p", "16.802"},
-        {"q_1", "0.796"}, {"nu_0", "1.267"}, {"nu_1", "1.65"},
+        {"beta_F", "1.6633"}, {"k_p", "0.4"}, // {"k_p", "16.802"},
+        {"q_1", "0.796"}, {"a_nu", "0.383"}, {"b_nu", "1.65"},
         {"k_nu", "0.3922"},
-        {"b_HCD", "0.05"}, {"beta_HCD", "0.7"}, {"L_HCD", "14.8"},
-        {"b_SiIII-1207", "9.8e-3"}, {"beta_metal", "0.5"}, {"sigma_v", "5.0"}
+        {"b_HCD", "0.05"}, {"beta_HCD", "0.7"}, {"L_HCD", "14.8"}
+    });
+
+    const config_map metals_default_parameters ({
+        {"b_SiIII-1207", "9.8e-3"}, {"b_SiII-1190", "4.5e-3"},
+        {"b_SiII-1193", "3.05e-3"}, {"b_SiII-1260", "4.0e-3"},
+        {"beta_metal", "0.5"}, {"sigma_v", "5.0"}
     });
 
     class ArinyoP3DModel {
@@ -116,9 +121,11 @@ namespace fidcosmo {
         static constexpr int MAX_NUM_L = 10;
     private:
         double _varlss, _D_pivot, _z1_pivot, _sigma_mpc, _deltar_mpc;
-        double b_F, alpha_F, beta_F, k_p, q_1, nu_0, nu_1, k_nu, rscale_long, rmax;
-        double b_HCD, beta_HCD, L_HCD, b_SiIII1207, dr_SiIII, beta_metal, sigma_v;
+        double b_F, alpha_F, beta_F, k_p, q_1, a_nu, b_nu, k_nu, rscale_long, rmax;
+        double b_HCD, beta_HCD, L_HCD, beta_metal, sigma_v;
+        double KMAX_HALO;
 
+        std::vector<std::pair<double, double>> b_dr_pair_metals;
         std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
 
@@ -146,18 +153,21 @@ namespace fidcosmo {
             return r;
         }
 
+        double getMetalTerm(
+            double kz, double mu2, double bbeta_lya, double lnD) const;
+
     public:
         DiscreteLogInterpolation2D<
             DiscreteCubicInterpolation1D, INTERP_COSMO_2D
-        > interp2d_pL, interp2d_pS;
+        > interp2d_pL, interp2d_pS, interp2d_pT;
         /* This function reads following keys from config file:
         b_F: double
         alpha_F (double): Redshift growth power of b_F.
         beta_F: double
         k_p: double
         q_1: double
-        nu_0 (double): b_nu - a_nu of arinyo
-        nu_1 (double): b_nu of arinyo
+        a_nu: double
+        b_nu: double
         k_nu: double
         */
         ArinyoP3DModel(ConfigFile &config);

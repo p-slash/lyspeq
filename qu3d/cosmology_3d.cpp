@@ -10,7 +10,7 @@
 
 constexpr double SAFE_ZERO = 1E-300;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 2E2, KMAX_HALO = 1.5;
+constexpr double KMIN = 1E-6, KMAX = 2E2;
 const double LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
@@ -225,23 +225,29 @@ void LinearPowerInterpolator::write(ioh::Qu3dFile *out) {
 }
 
 
+const std::unordered_map<std::string, double> metal_line_map ({
+    {"b_SiIII-1207", 1206.52}, {"b_SiII-1190", 1190.42},
+    {"b_SiII-1193", 1193.28}, {"b_SiII-1260", 1260.42},
+});
+
 ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     config.addDefaults(arinyo_default_parameters);
+    config.addDefaults(metals_default_parameters);
     b_F = config.getDouble("b_F");
     alpha_F = config.getDouble("alpha_F");
     beta_F = config.getDouble("beta_F");
     k_p = config.getDouble("k_p");
     q_1 = config.getDouble("q_1");
-    nu_0 = config.getDouble("nu_0");
-    nu_1 = config.getDouble("nu_1");
+    a_nu = config.getDouble("a_nu");
+    b_nu = config.getDouble("b_nu");
     k_nu = config.getDouble("k_nu");
     b_HCD = config.getDouble("b_HCD");
     beta_HCD = config.getDouble("beta_HCD");
     L_HCD = config.getDouble("L_HCD");
-    b_SiIII1207 = config.getDouble("b_SiIII-1207");
     beta_metal = config.getDouble("beta_metal");
     sigma_v = config.getDouble("sigma_v");
 
+    KMAX_HALO = std::min(1.5, k_p);
     interp_p = std::make_unique<LinearPowerInterpolator>(config);
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
     rscale_long = config.getDouble("LongScale");
@@ -250,10 +256,16 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     _sigma_mpc = 0;
     _deltar_mpc = 0;
 
-    constexpr double lambda_siIII1207 = 1206.52;
-    double alpha_si = LYA_REST / lambda_siIII1207;
-    dr_SiIII = cosmo->getComovingDist(_z1_pivot * alpha_si)
-               - cosmo->getComovingDist(_z1_pivot);
+    for (const auto &[key, wave_m] : metal_line_map) {
+        double b = config.getDouble(key);
+        if (b == 0)
+            continue;
+
+        double d = fabs(cosmo->getComovingDist(_z1_pivot * LYA_REST / wave_m)
+                        - cosmo->getComovingDist(_z1_pivot));
+        b_dr_pair_metals.push_back(std::make_pair(b, d));
+    }
+
     // This is tiny ~2-3 Mpc
     // L_metal = (cosmo->getComovingDist((1.0 + bins::Z_LOWER_EDGE) * alpha_si)
     //            - cosmo->getComovingDist((1.0 + bins::Z_UPPER_EDGE) * alpha_si))
@@ -285,11 +297,17 @@ void ArinyoP3DModel::construct() {
 
 
 double ArinyoP3DModel::getSpectroWindow2(double kz) const {
+    #ifdef TURN_OFF_SPECTRO_WINDOW
+    return 1.0;
+
+    #else
     if (kz == 0)  return 1;
     double kr = kz * _sigma_mpc, kv = kz * _deltar_mpc / 2.0;
     kr *= kr;
     kv = sin(kv) / kv;
     return exp(-kr) * kv * kv;
+
+    #endif
 }
 
 
@@ -330,7 +348,8 @@ void ArinyoP3DModel::_cacheInterp2D() {
     constexpr double dlnk = 0.02;
     const int N = ceil((LNKMAX - LNKMIN) / dlnk);
     auto lnP_L = std::make_unique<double[]>(N * N),
-         lnP_S = std::make_unique<double[]>(N * N);
+         lnP_S = std::make_unique<double[]>(N * N),
+         lnP_T = std::make_unique<double[]>(N * N);
 
     /* Large-scale and small-scale 2Ds */
     for (int iperp = 0; iperp < N; ++iperp) {
@@ -349,11 +368,14 @@ void ArinyoP3DModel::_cacheInterp2D() {
             /* Small-scale 2D */
             k_rL = log(1.0 - exp(k_rL) + SAFE_ZERO);
             lnP_S[iz + N * iperp] = ptot + k_rL;
+            /* Total 2D */
+            lnP_T[iz + N * iperp] = ptot;
         }
     }
 
     interp2d_pL.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_L.get(), N, N);
     interp2d_pS.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_S.get(), N, N);
+    interp2d_pT.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_T.get(), N, N);
 
     /* Large-scale and small-scale 1Ds */
     for (int i = 0; i < N; ++i) {
@@ -371,12 +393,18 @@ void ArinyoP3DModel::_cacheInterp2D() {
         k_rL = log(1.0 - exp(k_rL) + SAFE_ZERO);
         lnP_L[i + 2 * N] = pperp + k_rL;
         lnP_L[i + 3 * N] = pz + k_rL;
+
+        /* Total 1D */
+        lnP_L[i + 4 * N] = pperp;
+        lnP_L[i + 5 * N] = pz;
     }
 
     interp2d_pL.setInterpX(LNKMIN, dlnk, N, lnP_L.get());
     interp2d_pL.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + N);
     interp2d_pS.setInterpX(LNKMIN, dlnk, N, lnP_L.get() + 2 * N);
     interp2d_pS.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + 3 * N);
+    interp2d_pT.setInterpX(LNKMIN, dlnk, N, lnP_L.get() + 4 * N);
+    interp2d_pT.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + 5 * N);
 }
 
 
@@ -427,7 +455,7 @@ void ArinyoP3DModel::_construcP1D() {
     const double log2_e = log2(exp(1.0)), SQRT_2PI = sqrt(2.0 * MY_PI);
 
     FFTLog fht_z(Nhankel);
-    fht_z.construct(-0.5, KMIN, 1 / KMIN, -0.25, 0);
+    fht_z.construct(-0.5, KMIN, 1 / KMIN, 0, 0);
 
     for (int iz = 0; iz < Nhankel; ++iz)
         fht_z.field[iz] = evalP1d(fht_z.r[iz]) * sqrt(fht_z.r[iz]);
@@ -518,6 +546,36 @@ void ArinyoP3DModel::_calcMultipoles() {
 }
 
 
+double ArinyoP3DModel::getMetalTerm(
+        double kz, double mu2, double bbeta_lya, double lnD
+) const {
+    if (b_dr_pair_metals.empty())
+        return 0;
+
+    double result = 0.0, dfog = kz * sigma_v, dfogxlya;
+    dfog = 1.0 / (1.0 + dfog * dfog);
+    dfogxlya = sqrt(lnD * dfog);
+
+    std::vector<std::pair<double, double>> bbeta_dr_pair_metals;
+
+    for (const auto &[b_m, dr_m] : b_dr_pair_metals) {
+        bbeta_dr_pair_metals.push_back(std::make_pair(
+            b_m * (1.0 + beta_metal * mu2), dr_m));
+    }
+
+    // xLya & auto metal terms
+    for (const auto &[bbeta_m, dr_m] : bbeta_dr_pair_metals)
+        result += 2.0 * bbeta_lya * bbeta_m * cos(kz * dr_m) * dfogxlya
+                  + bbeta_m * bbeta_m * dfog;
+
+    for (const auto &[bbeta_m1, dr_m1] : bbeta_dr_pair_metals)
+        for (const auto &[bbeta_m2, dr_m2] : bbeta_dr_pair_metals)
+            result += 2.0 * bbeta_m1 * bbeta_m2
+                      * cos(kz * (dr_m1 - dr_m2)) * dfog;
+
+    return result;
+}
+
 double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     if (k == 0)
         return 0;
@@ -529,16 +587,15 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     mu = kz / k, mu2 = mu * mu,
     bbeta_lya = b_F * (1.0 + beta_F * mu2),
     bbeta_hcd_kz = b_HCD * (1 + beta_HCD * mu2) * exp(-L_HCD * kz),
-    bbeta_siIII = b_SiIII1207 * (1 + beta_metal * mu2),
-    result, lnD, dfog, apod_halo;
+    result, lnD, apod_halo;
 
-    lnD = (q_1 * delta2_L) * (
-            1 - pow(kz / k_nu, nu_1) * pow(k / k_nu, -nu_0)
-    ) - k_kp * k_kp;
+    double u1;
+    if (b_nu == 0)  u1 = 1.0;
+    else  u1 = pow(mu, b_nu);
 
-    lnD = exp(lnD);
-    dfog = kz * sigma_v;
-    dfog = 1.0 / (1.0 + dfog * dfog);
+    if (a_nu != 0)  u1 *= pow(k / k_nu, a_nu);
+
+    lnD = exp((q_1 * delta2_L) * (1.0 - u1) - k_kp * k_kp);
 
     if (k > KMAX_HALO)
         apod_halo = 0;
@@ -553,13 +610,21 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
         bbeta_lya * bbeta_lya * lnD + apod_halo * (
             + 2.0 * bbeta_lya * bbeta_hcd_kz
             + bbeta_hcd_kz * bbeta_hcd_kz
-            + 2.0 * bbeta_lya * bbeta_siIII * cos(kz * dr_SiIII) * sqrt(lnD * dfog)
-            + bbeta_siIII * bbeta_siIII * dfog));
+            + getMetalTerm(kz, mu2, bbeta_lya, lnD)));
 
+    #ifdef KILL_15MPC_POWER
+    double kill_cut_ = 15.0 * k;
+    result *= exp(-kill_cut_ * kill_cut_);
+    #endif
+
+    #ifdef TURN_OFF_SPECTRO_WINDOW
+    return result;
+    #else
     if ((_sigma_mpc == 0) && (_deltar_mpc == 0))
         return result;
 
     return result * getSpectroWindow2(kz);
+    #endif
 }
 
 

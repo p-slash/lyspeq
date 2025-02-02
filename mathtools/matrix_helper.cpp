@@ -286,6 +286,15 @@ namespace mxhelp
             LAPACKErrorHandle("ERROR in LAPACKE_dsyevr.", info);
     }
 
+    void LAPACKE_sym_posdef_sqrt(double *A, int N, double *evals, double *evecs) {
+        LAPACKE_sym_eigens(A, N, evals, evecs);
+        std::fill_n(A, N * N, 0);
+        for (int i = 0; i < N; ++i)
+            if (evals[i] > N * MY_EPSILON_D)
+                cblas_dsyr(CblasRowMajor, CblasUpper, N, sqrt(evals[i]),
+                           evecs + i, N, A, N);
+    }
+
     double LAPACKE_RcondSvd(const double *A, int N, double *sjump) {
         int size = N * N;
         auto B = std::make_unique<double[]>(size),
