@@ -4,6 +4,7 @@ OutputFileBase qu3d-test
 OutputDir tests/output/
 
 
+<<<<<<< HEAD
 CGD_NGRID_X 1536
 CGD_NGRID_Y 384
 CGD_NGRID_Z 144
@@ -18,20 +19,53 @@ ScaleFactor 2
 EstimateTotalBias -1
 EstimateNoiseBias -1
 estimateFisherDirectly 1
+=======
+NGRID_X 1536
+NGRID_Y 576
+NGRID_Z 256
+LongScale 6.0
+ScaleFactor 8
+MatchCellSizeOfZToXY 1
+
+EstimateTotalBiasDirectly -1
+EstimateTotalBias -1
+EstimateNoiseBias -1
+TestHsqrt 1
+
+# q_1 0.0
+b_HCD 0.0
+beta_HCD 0.0
+b_SiIII-1207 0.0
+b_SiII-1190 0.0
+b_SiII-1193 0.0
+b_SiII-1260 0.0
+beta_metal 0.0
+
+MinimumRa 0.0
+MaximumRa 130.0
+MinimumDec -90.0
+MaximumDec 90.0
+>>>>>>> estimator-3d
 
 MinimumSnrCut 0
 DownsampleFactor 1
 
 NumberOfLinearBins 16
-LinearKBinWidth 4.0E-3
+LinearKBinWidth 0.011
 
 TurnOnPpCovariance 1
 ContinuumLogLambdaMargOrder -1
 
 MaxConjGradSteps 100
+<<<<<<< HEAD
 MaxMonteCarlos 1
 ConvergenceTolerance 1e-5
+=======
+MaxMonteCarlos 50
+ConvergenceTolerance 1e-4
+>>>>>>> estimator-3d
 TestGaussianField -1
+MockGridResolutionFactor 4
 PlinearFilename /Users/nk452/repos/data/Planck2018/camb_planck18_power_spectrum_z24.txt
 PlinearPivotRedshift 2.4
 

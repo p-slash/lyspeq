@@ -36,7 +36,6 @@ namespace myomp {
 class RealField3D {
     fftw_plan p_x2k;
     fftw_plan p_k2x;
-    std::vector<MyRNG> rngs;
 
     bool _inplace, _periodic_x;
     std::unique_ptr<double[]> _field_x;
@@ -51,11 +50,11 @@ public:
     RealField3D();
     RealField3D(const RealField3D &rhs) = delete;
     RealField3D(RealField3D &&rhs) = delete;
+    explicit operator bool() const { return p_x2k != nullptr; }
 
     /* Copy constructor. Need to call construct! */
     void copy(const RealField3D &rhs);
     void construct(bool inp=true);
-    void initRngs(std::seed_seq *seq);
     void disablePeriodicityX() { _periodic_x = false; };
 
     ~RealField3D() {
@@ -71,8 +70,18 @@ public:
             std::fill_n(field_x, size_real, 0);
     }
 
-    void fillRndNormal();
-    void fillRndOnes();
+    void fillRndNormal(std::vector<MyRNG> &rngs_) {
+        #pragma omp parallel for
+        for (size_t ij = 0; ij < ngrid_xy; ++ij)
+            rngs_[myomp::getThreadNum()].fillVectorNormal(
+                field_x + ngrid_z * ij, ngrid[2]);
+    }
+    void fillRndOnes(std::vector<MyRNG> &rngs_) {
+        #pragma omp parallel for
+        for (size_t ij = 0; ij < ngrid_xy; ++ij)
+            rngs_[myomp::getThreadNum()].fillVectorOnes(
+                field_x + ngrid_z * ij, ngrid[2]);
+    }
 
     void rawFftX2K() { fftw_execute(p_x2k); }
     void rawFftK2X() { fftw_execute(p_k2x); }
@@ -106,7 +115,7 @@ public:
 
             for (size_t k = 0; k < ngrid_kz; ++k)
                 field_k[k + ngrid_kz * ij] *=
-                    norm * sqrt(Pk.evaluate(kperp, k * k_fund[2]));
+                    norm * Pk.evaluateSqrt(kperp, k * k_fund[2]);
         }
         fftw_execute(p_k2x);
     }
@@ -123,6 +132,7 @@ public:
     void getKFromIndex(size_t i, double k[3]) const;
     void getK2KzFromIndex(size_t i, double &k2, double &kz) const;
     double getKperpFromIperp(size_t iperp) const;
+    double getKperpFromIperp(size_t iperp, double &kx, double &ky) const;
     void getKperpKzFromIndex(size_t i, double &kperp, double &kz) const;
     std::unique_ptr<double[]> getKperpArray() const;
 

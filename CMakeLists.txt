@@ -7,6 +7,10 @@ option(ENABLE_MPI "Enable MPI" ON)
 option(USE_OPENBLAS_BREW "Use OpenBlas brew" OFF)
 option(USE_MKL_LIB "Use MKL library" OFF)
 option(DEBUG "Compile with debugging options" OFF)
+option(TURN_OFF_SPECTRO_WINDOW "Turn of spectrograph window function in 3D." OFF)
+option(KILL_15MPC_POWER "Suppresses power below 15 Mpc in 3D." OFF)
+option(RL_COMP_DERIV "Multiply deriv. matrices with e^-k^2R_L^2 term" OFF)
+option(ASSERT_MESH_IDX "Assert mesh indices lie within boundary" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -161,6 +165,19 @@ add_library(Qu3dObjLibs OBJECT
 target_link_libraries(Qu3dObjLibs PUBLIC
     OpenMP::OpenMP_CXX MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
     MY_FFTW3_INTERFACE GSL::gsl MPI::MPI_CXX)
+if (TURN_OFF_SPECTRO_WINDOW)
+    target_compile_definitions(Qu3dObjLibs PUBLIC TURN_OFF_SPECTRO_WINDOW)
+endif()
+if (KILL_15MPC_POWER)
+    target_compile_definitions(Qu3dObjLibs PUBLIC KILL_15MPC_POWER)
+endif()
+if (RL_COMP_DERIV)
+    target_compile_definitions(Qu3dObjLibs PUBLIC RL_COMP_DERIV)
+endif()
+if (ASSERT_MESH_IDX)
+    target_compile_definitions(Qu3dObjLibs PUBLIC ASSERT_MESH_IDX)
+endif()
+
 
 # custom target to test filtering. Usage: cmake --build . --target print_genex
 add_custom_target(print_genex

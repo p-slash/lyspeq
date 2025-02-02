@@ -15,18 +15,18 @@ const config_map qu3d_default_parameters ({
     {"CGD_NGRID_X", "1024"}, {"CGD_NGRID_Y", "256"}, {"CGD_NGRID_Z", "64"},
     {"DRV_NGRID_X", "1024"}, {"DRV_NGRID_Y", "256"}, {"DRV_NGRID_Z", "64"},
     {"MatchCellSizeOfZToXY", "-1"},
-    {"TurnOnPpCovariance", "-1"},  // {"NumberOfMultipoles", "3"},
+    {"TurnOnPpCovariance", "-1"}, {"NumberOfMultipoles", "4"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"MinimumRa", "0.0"}, {"MaximumRa", "360.0"},
     {"MinimumDec", "-90.0"}, {"MaximumDec", "90.0"},
-    {"MinimumKperp", "0"},
+    {"MinimumKperp", "0"}, {"MinimumKlos", "0"},
     {"ConvergenceTolerance", "1e-6"}, {"AbsoluteTolerance", "-1"},
     {"LongScale", "50"}, {"ScaleFactor", "4"},
-    {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"}, {"Seed", "6722"},
-    {"EstimateTotalBias", "1"}, {"EstimateNoiseBias", "1"},
-    // {"EstimateFisherFromRandomDerivatives", "-1"},
-    {"estimateFisherDirectly", "-1"},
-    {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"},
+    {"DownsampleFactor", "3"}, {"TestGaussianField", "-1"},
+    {"MockGridResolutionFactor", "1"},
+    {"EstimateTotalBias", "1"}, {"EstimateTotalBiasDirectly", "1"},
+    {"EstimateNoiseBias", "1"}, {"EstimateFisherDirectly", "-1"},
+    {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"}, {"Seed", "6722"},
     {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""}
 });
 
@@ -36,21 +36,32 @@ class Qu3DEstimator
     ConfigFile &config;
 
     bool pp_enabled, absolute_tolerance;
-    int max_conj_grad_steps, max_monte_carlos;
-    double tolerance, radius, rscale_factor, effective_chi;
+    int max_conj_grad_steps, max_monte_carlos, number_of_multipoles;
+    double tolerance, mc_tol, radius, rscale_factor, effective_chi;
     size_t num_all_pixels;
 
     std::function<void()> updateYMatrixVectorFunction;
 
     std::vector<std::unique_ptr<CosmicQuasar>> quasars;
     std::unique_ptr<std::seed_seq> seed_generator;
-    std::unique_ptr<ioh::Qu3dFile> result_file, convergence_file;
+    std::unique_ptr<ioh::Qu3dFile> result_file;
+
+    std::vector<MyRNG> rngs;
     RealField3D mesh_cgd, mesh_drv, mesh_rnd, mesh_fh;
 
     std::unique_ptr<double[]>
         mc1, mc2, mesh_z1_values,
         raw_power, filt_power, raw_bias, filt_bias,
         fisher, covariance;
+
+    void _initRngs(std::seed_seq *seq) {
+        const int N = myomp::getMaxNumThreads();
+        rngs.resize(N);
+        std::vector<size_t> seeds(N);
+        seq->generate(seeds.begin(), seeds.end());
+        for (int i = 0; i < N; ++i)
+            rngs[i].seed(seeds[i]);
+    }
     // targetid_quasar_map quasars;
     // Reads the entire file
     void _readOneDeltaFile(const std::string &fname);
@@ -69,7 +80,8 @@ class Qu3DEstimator
                          int ndata, const std::string &ext);
 
 public:
-    bool total_bias_enabled, noise_bias_enabled, fisher_rnd_enabled,
+    int mock_grid_res_factor;
+    bool total_bias_enabled, total_bias_direct_enabled, noise_bias_enabled,
          fisher_direct_enabled, max_eval_enabled;
 
     /* This function reads following keys from config file:
@@ -85,11 +97,13 @@ public:
        input is const *in, output is *out, uses: *in_isig */
     void multiplyIpHVector(double m);
     void conjugateGradientIpH();
-    void multiplyHsqrt();
+    void multiplyCovSmallSqrt();
     void replaceDeltasWithGaussianField();
+    void replaceDeltasWithHighResGaussianField();
     void estimateNoiseBiasMc();
     void estimateTotalBiasMc();
-    void testHSqrt();
+    void estimateTotalBiasDirect();
+    void testCovSqrt();
     void estimateFisherFromRndDeriv();
     void multiplyFisherDerivs(double *o1, double *o2);
     void estimateFisherDirect();
@@ -110,7 +124,7 @@ public:
     void multDerivMatrixVec(int i);
     /* Multiply each quasar's *in pointer and save to *out pointer.
        (I + N^-1/2 S N^-1/2) z = out */
-    void multiplyCovVector();
+    void multiplyCovVector(bool mesh_enabled=true);
     void multiplyDerivVectors(
         double *o1, double *o2, double *lout, const RealField3D &other);
     void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr) {
