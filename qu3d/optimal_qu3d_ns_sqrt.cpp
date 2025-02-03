@@ -13,7 +13,6 @@ void Qu3DEstimator::multiplyNewtonSchulzY(int n, double s) {
     init_ins.reserve(quasars.size());
 
     for (const auto &qso : quasars) {
-        temp.push_back(std::make_unique<double[]>(qso->N));
         cur_res.push_back(std::make_unique<double[]>(qso->N));
         init_ins.push_back(qso->in);
     }
@@ -71,7 +70,6 @@ void Qu3DEstimator::multiplyNewtonSchulzZ(int n, double s) {
     init_ins.reserve(quasars.size());
 
     for (const auto &qso : quasars) {
-        temp.push_back(std::make_unique<double[]>(qso->N));
         cur_res.push_back(std::make_unique<double[]>(qso->N));
         init_ins.push_back(qso->in);
     }
@@ -116,10 +114,9 @@ void Qu3DEstimator::multiplyNewtonSchulzZ(int n, double s) {
 
 void Qu3DEstimator::multiplyCovSmallSqrtNewtonSchulz(int order) {
     static double max_eval = estimateMaxEvalAs();
-    double s = (max_eval + 1.0) / 2.0;
-    multiplyNewtonSchulzY(order, s);
+    multiplyNewtonSchulzY(order, max_eval);
 
-    s = sqrt(s);
+    double s = sqrt(max_eval);
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
         for (int i = 0; i < qso->N; ++i)
