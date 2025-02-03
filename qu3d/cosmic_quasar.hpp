@@ -324,7 +324,7 @@ public:
     void multInvCov(
             const fidcosmo::ArinyoP3DModel *p3d_model,
             const double *input, double *output, bool pp,
-            bool small_scale=false
+            bool small_scale=false, double alpha=0
     ) {
         double varlss = p3d_model->getVarLss();
         auto appDiagonalEst = [this, &varlss](const double *x_, double *y_) {
@@ -340,7 +340,7 @@ public:
         else {
             double *ccov = GL_CCOV[myomp::getThreadNum()].get();
             if (small_scale)
-                setCov_S(p3d_model, ccov);
+                setCov_S(p3d_model, ccov, alpha);
             else
                 setCov(p3d_model, ccov);
 
@@ -582,11 +582,14 @@ public:
         }
     }
 
-    void setCov_S(const fidcosmo::ArinyoP3DModel *p3d_model, double *ccov) {
+    void setCov_S(
+            const fidcosmo::ArinyoP3DModel *p3d_model, double *ccov,
+            double alpha=0
+    ) {
         for (int i = 0; i < N; ++i) {
             double isigG = isig[i] * z1[i];
 
-            ccov[i * (N + 1)] = 1.0 + p3d_model->getVar1dS() * isigG * isigG;
+            ccov[i * (N + 1)] = 1.0 + alpha + p3d_model->getVar1dS() * isigG * isigG;
 
             for (int j = i + 1; j < N; ++j) {
                 float rz = r[3 * j + 2] - r[3 * i + 2];
