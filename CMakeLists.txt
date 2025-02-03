@@ -10,7 +10,7 @@ option(DEBUG "Compile with debugging options" OFF)
 option(TURN_OFF_SPECTRO_WINDOW "Turn of spectrograph window function in 3D." OFF)
 option(KILL_15MPC_POWER "Suppresses power below 15 Mpc in 3D." OFF)
 option(RL_COMP_DERIV "Multiply deriv. matrices with e^-k^2R_L^2 term" OFF)
-option(DECONV_CIC_WINDOW "Deconvolve CIC window", OFF)
+option(DECONV_CIC_WINDOW "Deconvolve CIC window" OFF)
 option(ASSERT_MESH_IDX "Assert mesh indices lie within boundary" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
