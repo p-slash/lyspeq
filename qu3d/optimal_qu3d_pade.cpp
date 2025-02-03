@@ -34,7 +34,7 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
     for (auto &qso : quasars)
         std::copy_n(qso->sc_eta, qso->N, qso->in);
 
-    multiplyIpHVector(0);
+    multiplyAsVector();
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
         for (int i = 0; i < qso->N; ++i)

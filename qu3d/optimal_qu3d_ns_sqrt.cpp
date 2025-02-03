@@ -1,43 +1,7 @@
-void Qu3DEstimator::multiplyAsVector(double s) {
-    /* (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2) 
-        input is const *in, output is *out
-        uses: *in_isig, *sc_eta
-    */
-    double dt = mytime::timer.getTime();
-
-    /* A_BD^-1. Might not be true if pp_enabled=false */
-    #pragma omp parallel for schedule(dynamic, 4)
-    for (auto &qso : quasars) {
-        qso->setInIsigNoMarg();
-        std::fill_n(qso->out, qso->N, 0);
-    }
-
-    // Add long wavelength mode to Cy
-    // only in_isig is used until (B)
-    // multMeshComp();
-
-    if (pp_enabled)  multParticleComp();
-    // (B)
-
-    #pragma omp parallel for schedule(dynamic, 4)
-    for (auto &qso : quasars) {
-        for (int i = 0; i < qso->N; ++i) {
-            qso->out[i] *= qso->isig[i] * qso->z1[i];
-            qso->out[i] += qso->in[i];
-            qso->out[i] /= s;
-        }
-    }
-
-    dt = mytime::timer.getTime() - dt;
-    ++timings["mIpH"].first;
-    timings["mIpH"].second += dt;
-}
-
-
 /* Multiply *in to *out */
 void Qu3DEstimator::multiplyNewtonSchulzY(int n, double s) {
     if (n == 0) {
-        multiplyAsVector(s);
+        multiplyAsVector(0, s);
         return;
     }
 
