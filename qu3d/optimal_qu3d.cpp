@@ -268,8 +268,7 @@ void Qu3DEstimator::_readQSOFiles(
     }
 
     CosmicQuasar::allocCcov(max_qN * max_qN);
-    if (CONT_MARG_ENABLED)
-        CosmicQuasar::allocRrmat(max_qN * max_qN);
+    CosmicQuasar::allocRrmat(max_qN * max_qN);
 
     LOG::LOGGER.STD(
         "There are %d quasars and %ld number of pixels. "
@@ -279,7 +278,7 @@ void Qu3DEstimator::_readQSOFiles(
 
 
 void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
-    float lymin = 0, lzmin = 1e15, lymax = 0, lzmax = 0;
+    float lymin = 1e15, lzmin = 1e15, lymax = 0, lzmax = 0;
 
     #pragma omp parallel for reduction(min:lymin, lzmin) \
                              reduction(max:lymax, lzmax)
@@ -288,8 +287,8 @@ void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
         lzmin = std::min(lzmin, qso->r[2]);
         lzmax = std::max(lzmax, qso->r[3 * qso->N - 1]);
 
-        lymin = std::min(lymin, std::min(qso->r[1], qso->r[3 * qso->N - 2]));
-        lymax = std::max(lymax, std::max(qso->r[1], qso->r[3 * qso->N - 2]));
+        lymin = std::min(lymin, qso->r[1]);
+        lymax = std::max(lymax, qso->r[1]);
     }
 
     L[0] = effective_chi * (specifics::MAX_RA - specifics::MIN_RA);
@@ -665,10 +664,10 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
     radius = config.getDouble("LongScale");
     rscale_factor = config.getDouble("ScaleFactor");
-    if (rscale_factor > fidcosmo::ArinyoP3DModel::MAX_R_FACTOR)
-        throw std::invalid_argument(
-            "ScaleFactor cannot exceed "
-            + std::to_string(fidcosmo::ArinyoP3DModel::MAX_R_FACTOR));
+    // if (rscale_factor > fidcosmo::ArinyoP3DModel::MAX_R_FACTOR)
+    //     throw std::invalid_argument(
+    //         "ScaleFactor cannot exceed "
+    //         + std::to_string(fidcosmo::ArinyoP3DModel::MAX_R_FACTOR));
 
     total_bias_enabled = config.getInteger("EstimateTotalBias") > 0;
     total_bias_direct_enabled = config.getInteger("EstimateTotalBiasDirectly") > 0;
@@ -814,7 +813,7 @@ void Qu3DEstimator::multParticleComp() {
         LOG::LOGGER.STD("    multParticleComp took %.2f s.\n", 60.0 * dt);
 }
 
-void Qu3DEstimator::multiplyCovVector() {
+void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
     /* Multiply each quasar's *in pointer and save to *out pointer.
        (I + R^-1/2 N^-1/2 G^1/2 S G^1/2 N^-1/2 R^-1/2) z = out
     */
@@ -839,7 +838,14 @@ void Qu3DEstimator::multiplyCovVector() {
     }
 
     // Add long wavelength mode to Cy
-    multMeshComp();
+    if (mesh_enabled) {
+        multMeshComp();
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            std::fill_n(qso->out, qso->N, 0);
+    }
 
     if (pp_enabled)
         multParticleComp();
@@ -1260,6 +1266,9 @@ void Qu3DEstimator::multiplyDerivVectors(
             temp = (1.0 + (k != 0)) * my_norm(k + jj)
                    * p3d_model->getSpectroWindow2(kz);
             temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+            #ifdef DECONV_CIC_WINDOW
+            temp /= mesh.asgn_window_xy[jxy] * mesh.asgn_window_z[k];
+            #endif
             #ifdef RL_COMP_DERIV
             kt *= radius / rscale_factor;
             temp *= exp(-kt * kt);
@@ -1463,7 +1472,7 @@ int main(int argc, char *argv[]) {
             qps.testSymmetry();
 
         if (test_hsqrt)
-            qps.testHSqrt();
+            qps.testCovSqrt();
 
         if (qps.test_gaussian_field) {
             if (qps.mock_grid_res_factor > 1) {

@@ -455,7 +455,7 @@ void ArinyoP3DModel::_construcP1D() {
     const double log2_e = log2(exp(1.0)), SQRT_2PI = sqrt(2.0 * MY_PI);
 
     FFTLog fht_z(Nhankel);
-    fht_z.construct(-0.5, KMIN, 1 / KMIN, -0.25, 0);
+    fht_z.construct(-0.5, KMIN, 1 / KMIN, 0, 0);
 
     for (int iz = 0; iz < Nhankel; ++iz)
         fht_z.field[iz] = evalP1d(fht_z.r[iz]) * sqrt(fht_z.r[iz]);

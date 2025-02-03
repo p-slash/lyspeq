@@ -1,5 +1,5 @@
 void Qu3DEstimator::multiplyIpHVector(double m) {
-    /* m I + I + N^-1/2 G^1/2 (S_L + S_OD) G^1/2 N^-1/2 A_BD^-1
+    /* m I + (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2) A^S_BD^-1
         input is const *in, output is *out
         uses: *in_isig, *sc_eta
     */
@@ -8,16 +8,17 @@ void Qu3DEstimator::multiplyIpHVector(double m) {
     /* A_BD^-1. Might not be true if pp_enabled=false */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
-        qso->multInvCov(p3d_model.get(), qso->in, qso->sc_eta, pp_enabled);
+        qso->multInvCov(p3d_model.get(), qso->in, qso->sc_eta, pp_enabled, true);
         double *tmp_in = qso->in;
         qso->in = qso->sc_eta;
         qso->setInIsigNoMarg();
         qso->in = tmp_in;
+        std::fill_n(qso->out, qso->N, 0);
     }
 
     // Add long wavelength mode to Cy
     // only in_isig is used until (B)
-    multMeshComp();
+    // multMeshComp();
 
     if (pp_enabled)  multParticleComp();
     // (B)
@@ -134,48 +135,38 @@ endconjugateGradientIpH:
 }
 
 
-#if 1
-void Qu3DEstimator::multiplyHsqrt() {
-    /* multiply with SquareRootMatrix: 0.25 + H (0.25 + (I+H)^-1)
+void Qu3DEstimator::multiplyCovSmallSqrt() {
+    /* multiply with SquareRootMatrix:
+        0.25 A_BD^1/2 + H A_BD^1/2 (0.25 + (I+H)^-1)
         input is *truth, output is *truth
         uses: *in, *in_isig, *sc_eta, *out
     */
 
     // (1) CG solve I + H from *truth to *in
     //     add 0.25 *truth to *in
+    // (2) multiply *in and *truth with A_BD^1/2
     conjugateGradientIpH();
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
             qso->in[i] += 0.25 * qso->truth[i];
+
+        // (2) multiply *in and *truth with A_BD^1/2
+        //     *truth <= 0.25 A_BD^1/2 *truth
+        //     *in <= A_BD^1/2 *in
+        qso->multSqrtCov(p3d_model.get());
     }
 
-    // (2) multiply *in with H save to *out
+    // (3) multiply *in with H save to *out
     multiplyIpHVector(0.0);
 
-    // (3) add 0.25 *truth to *out
+    // (3) add *out to *truth (which is 0.25 A_BD^1/2 *truth(init))
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
         for (int i = 0; i < qso->N; ++i)
-            qso->truth[i] = 0.25 * qso->truth[i] + qso->out[i];
+            qso->truth[i] += qso->out[i];
 }
-#else
-void Qu3DEstimator::multiplyHsqrt() {
-    for (auto &qso : quasars)
-        std::swap(qso->truth, qso->in);
-
-    multiplyIpHVector(1.0);
-
-    for (auto &qso : quasars) {
-        std::swap(qso->truth, qso->in);
-        std::swap(qso->truth, qso->out);
-
-        for (int i = 0; i < qso->N; ++i)
-            qso->truth[i] /= 2.0;
-    }
-}
-#endif
 
 
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
@@ -185,9 +176,15 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     double t1 = mytime::timer.getTime(), t2 = 0;
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
-        qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
+        rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
 
-    multiplyHsqrt();
+    multiplyCovSmallSqrt();
+
+    mesh.fillRndNormal(rngs);
+    mesh.convolveSqrtPk(p3d_model->interp2d_pL);
+    #pragma omp parallel for schedule(dynamic, 4)
+    for (auto &qso : quasars)
+        qso->interpAddMesh2TruthIsig(mesh);
 
     t2 = mytime::timer.getTime() - t1;
     ++timings["GenGauss"].first;
@@ -384,7 +381,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
 }
 
 
-void Qu3DEstimator::testHSqrt() {
+void Qu3DEstimator::testCovSqrt() {
     constexpr int M_MCS = 5;
     double yTy = 0, xTHx = 0, xTx = 0;
     int status = 0;
@@ -419,18 +416,18 @@ void Qu3DEstimator::testHSqrt() {
 
         #pragma omp parallel for schedule(dynamic, 4) reduction(+:xTx)
         for (auto &qso : quasars) {
-            qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
+            rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
             std::copy_n(qso->truth, qso->N, qso->in);
             xTx += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
         }
 
-        multiplyIpHVector(0.0);
+        multiplyCovVector(false);
 
         #pragma omp parallel for reduction(+:xTHx)
         for (auto &qso : quasars)
             xTHx += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
-        multiplyHsqrt();
+        multiplyCovSmallSqrt();
         #pragma omp parallel for reduction(+:yTy)
         for (auto &qso : quasars)
             yTy += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);

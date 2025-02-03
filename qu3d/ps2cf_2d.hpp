@@ -24,8 +24,8 @@ public:
         if (smooth_sigma > 0)
             smoother = std::make_unique<Smoother>(smooth_sigma);
 
-        fht_z->construct(-0.5, k1, k2, -0.25, 0);
-        fht_xy->construct(0, k1, k2, -0.25, 0);
+        fht_z->construct(-0.5, k1, k2, 0, 0);
+        fht_xy->construct(0, k1, k2, 0, 0);
 
         for (int i = 0; i < N; ++i) {
             sqrt_kz[i] = sqrt(fht_z->r[i]);
