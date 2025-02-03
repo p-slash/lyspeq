@@ -14,7 +14,7 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
     //     throw std::runtime_error("Negative eigenvalue!");
 
     // double s = (min_eval + max_eval) / 2.0;
-    double s = 1.0;
+    // double s = 1.0;
 
     auto xi = _pade_xi(pade_order);
     std::vector<double> alphas;
@@ -31,7 +31,7 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
         LOG::LOGGER.STD("  Entered multiplyCovSmallSqrtPade with order %d. "
                         "New tolerance %.2e\n", pade_order, tolerance);
     for (int i = 0; i < pade_order; ++i) {
-        conjugateGradientIpH(alphas[i], s);
+        conjugateGradientIpH(alphas[i]);
         #pragma omp parallel for schedule(dynamic, 4)
         for (auto &qso : quasars)
             cblas_daxpy(qso->N, 1.0 / xi[i], qso->in, 1, qso->sc_eta, 1);
@@ -42,10 +42,10 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
     for (auto &qso : quasars)
         std::copy_n(qso->sc_eta, qso->N, qso->in);
 
-    multiplyAsVector(0, s);
-    s = sqrt(s);
+    multiplyAsVector();
+    // s = sqrt(s);
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
         for (int i = 0; i < qso->N; ++i)
-            qso->truth[i] = s * qso->out[i] / pade_order;
+            qso->truth[i] = qso->out[i] / pade_order;
 }
