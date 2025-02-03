@@ -432,7 +432,7 @@ void Qu3DEstimator::estimateMaxEvals() {
         rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
 
     for (; niter <= max_conj_grad_steps; ++niter) {
-        multiplyIpHVector(0.0);
+        multiplyAsVector();
 
         n_in = 0;  n_out = 0;  n_inout = 0;
         #pragma omp parallel for schedule(dynamic, 8) \

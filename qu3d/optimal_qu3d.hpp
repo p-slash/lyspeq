@@ -96,7 +96,6 @@ public:
     // These functions are in optimal_qu3d_mc.cpp
     /* Multiply (m I + H) (*sc_eta) = (*out)
        input is const *in, output is *out, uses: *in_isig */
-    void multiplyIpHVector(double m);
     void conjugateGradientIpH(double m);
     void multiplyCovSmallSqrt();
     void multiplyCovSmallSqrtPade(int pade_order);
@@ -110,7 +109,7 @@ public:
     void multiplyFisherDerivs(double *o1, double *o2);
     void estimateFisherDirect();
 
-    void multiplyAsVector(double s=1.0);
+    void multiplyAsVector(double m=0, double s=1.0);
     void multiplyNewtonSchulzY(int n, double s);
     void multiplyNewtonSchulzZ(int n, double s);
     double estimateMaxEvalAs();

@@ -1,5 +1,5 @@
-void Qu3DEstimator::multiplyIpHVector(double m) {
-    /* m I + (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2)
+void Qu3DEstimator::multiplyAsVector(double m, double s) {
+    /* m I + (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2) scaled down by s
         input is const *in, output is *out
         uses: *in_isig
     */
@@ -24,6 +24,7 @@ void Qu3DEstimator::multiplyIpHVector(double m) {
         for (int i = 0; i < qso->N; ++i) {
             qso->out[i] *= qso->isig[i] * qso->z1[i];
             qso->out[i] += (1.0 + m) * qso->in[i];
+            qso->out[i] /= s;
         }
     }
 
@@ -41,7 +42,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m) {
            new_residual_norm = 0;
 
     updateYMatrixVectorFunction = [this, m]() {
-        this->multiplyIpHVector(m);
+        this->multiplyAsVector(m);
     };
 
     if (verbose)
@@ -54,7 +55,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m) {
             qso->multInvCov(
                 p3d_model.get(), qso->truth, qso->in, pp_enabled, true, m);
 
-    multiplyIpHVector(m);
+    multiplyAsVector(m);
 
     #pragma omp parallel for schedule(dynamic, 4) \
                              reduction(+:init_residual_norm, old_residual_prec)
@@ -425,7 +426,7 @@ void Qu3DEstimator::testCovSqrt() {
             xTx += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
         }
 
-        multiplyIpHVector(0);
+        multiplyAsVector();
 
         #pragma omp parallel for reduction(+:xTHx)
         for (auto &qso : quasars)
