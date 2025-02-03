@@ -110,6 +110,12 @@ public:
     void multiplyFisherDerivs(double *o1, double *o2);
     void estimateFisherDirect();
 
+    void multiplyAsVector(double s=1.0);
+    void multiplyNewtonSchulzY(int n, double s);
+    void multiplyNewtonSchulzZ(int n, double s);
+    double estimateMaxEvalAs();
+    void multiplyCovSmallSqrtNewtonSchulz(int order);
+
     // These functions are in extra.cpp
     /* This is called only for small-scale direct multiplication. */
     double updateRng(double residual_norm2);
