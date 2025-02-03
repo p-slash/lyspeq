@@ -26,6 +26,7 @@ const config_map qu3d_default_parameters ({
     {"EstimateTotalBias", "1"}, {"EstimateTotalBiasDirectly", "1"},
     {"EstimateNoiseBias", "1"}, {"EstimateFisherDirectly", "-1"},
     {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"}, {"Seed", "6722"},
+    {"PadeOrder", "4"},
     {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""}
 });
 
@@ -35,7 +36,8 @@ class Qu3DEstimator
     ConfigFile &config;
 
     bool pp_enabled, absolute_tolerance;
-    int max_conj_grad_steps, max_monte_carlos, number_of_multipoles;
+    int max_conj_grad_steps, max_monte_carlos, number_of_multipoles,
+        pade_order;
     double tolerance, mc_tol, radius, rscale_factor, effective_chi;
     size_t num_all_pixels;
 
@@ -95,8 +97,9 @@ public:
     /* Multiply (m I + H) (*sc_eta) = (*out)
        input is const *in, output is *out, uses: *in_isig */
     void multiplyIpHVector(double m);
-    void conjugateGradientIpH();
+    void conjugateGradientIpH(double m);
     void multiplyCovSmallSqrt();
+    void multiplyCovSmallSqrtPade(int pade_order);
     void replaceDeltasWithGaussianField();
     void replaceDeltasWithHighResGaussianField();
     void estimateNoiseBiasMc();

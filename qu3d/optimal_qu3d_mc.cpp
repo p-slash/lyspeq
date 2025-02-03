@@ -1,18 +1,14 @@
 void Qu3DEstimator::multiplyIpHVector(double m) {
-    /* m I + (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2) A^S_BD^-1
+    /* m I + (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2)
         input is const *in, output is *out
-        uses: *in_isig, *sc_eta
+        uses: *in_isig
     */
     double dt = mytime::timer.getTime();
 
     /* A_BD^-1. Might not be true if pp_enabled=false */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
-        qso->multInvCov(p3d_model.get(), qso->in, qso->sc_eta, pp_enabled, true);
-        double *tmp_in = qso->in;
-        qso->in = qso->sc_eta;
         qso->setInIsigNoMarg();
-        qso->in = tmp_in;
         std::fill_n(qso->out, qso->N, 0);
     }
 
@@ -27,7 +23,7 @@ void Qu3DEstimator::multiplyIpHVector(double m) {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->out[i] *= qso->isig[i] * qso->z1[i];
-            qso->out[i] += m * qso->in[i] + qso->sc_eta[i];
+            qso->out[i] += (1.0 + m) * qso->in[i];
         }
     }
 
@@ -37,29 +33,28 @@ void Qu3DEstimator::multiplyIpHVector(double m) {
 }
 
 
-void Qu3DEstimator::conjugateGradientIpH() {
+void Qu3DEstimator::conjugateGradientIpH(double m) {
     double dt = mytime::timer.getTime();
     int niter = 1;
 
     double init_residual_norm = 0, old_residual_prec = 0,
            new_residual_norm = 0;
 
-    updateYMatrixVectorFunction = [this]() { this->multiplyIpHVector(1.0); };
-
-    constexpr double precon_diag = 2.0;
-        // + (1.0 - p3d_model->getVar1dS() / p3d_model->getVar1dT());
+    updateYMatrixVectorFunction = [this, m]() {
+        this->multiplyIpHVector(m);
+    };
 
     if (verbose)
-        LOG::LOGGER.STD("  Entered conjugateGradientIpH. Preconditioner %.5f\n",
-                        precon_diag);
+        LOG::LOGGER.STD("  Entered conjugateGradientIpH.\n");
 
     /* Initial guess */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
         for (int i = 0; i < qso->N; ++i)
-            qso->in[i] = qso->truth[i] / precon_diag;
+            qso->multInvCov(
+                p3d_model.get(), qso->truth, qso->in, pp_enabled, true, m);
 
-    multiplyIpHVector(1.0);
+    multiplyIpHVector(m);
 
     #pragma omp parallel for schedule(dynamic, 4) \
                              reduction(+:init_residual_norm, old_residual_prec)
@@ -71,8 +66,8 @@ void Qu3DEstimator::conjugateGradientIpH() {
         qso->in = qso->search.get();
 
         // set search = PreCon . residual
-        for (int i = 0; i < qso->N; ++i)
-            qso->in[i] = qso->residual[i] / precon_diag;
+        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in,
+                        pp_enabled, true, m);
 
         init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
                                          qso->residual.get(), 1);
@@ -88,10 +83,9 @@ void Qu3DEstimator::conjugateGradientIpH() {
     if (absolute_tolerance) init_residual_norm = 1;
 
     for (; niter <= max_conj_grad_steps; ++niter) {
-        new_residual_norm = updateY(old_residual_prec);
+        new_residual_norm = updateY(old_residual_prec) / init_residual_norm;
 
-        bool end_iter = hasConverged(
-            new_residual_norm / init_residual_norm, tolerance);
+        bool end_iter = hasConverged(new_residual_norm, tolerance);
 
         if (end_iter)
             goto endconjugateGradientIpH;
@@ -102,8 +96,8 @@ void Qu3DEstimator::conjugateGradientIpH() {
                                  reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
-            for (int i = 0; i < qso->N; ++i)
-                qso->out[i] = qso->residual[i] / precon_diag;
+            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out,
+                            pp_enabled, true, m);
 
             new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
                                             qso->out, 1);
@@ -134,7 +128,8 @@ endconjugateGradientIpH:
     timings["cgdIpH"].second += dt;
 }
 
-
+#include "qu3d/optimal_qu3d_pade.cpp"
+#if 0
 void Qu3DEstimator::multiplyCovSmallSqrt() {
     /* multiply with SquareRootMatrix:
         0.25 A_BD^1/2 + H A_BD^1/2 (0.25 + (I+H)^-1)
@@ -167,6 +162,7 @@ void Qu3DEstimator::multiplyCovSmallSqrt() {
         for (int i = 0; i < qso->N; ++i)
             qso->truth[i] += qso->out[i];
 }
+#endif
 
 
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
@@ -178,7 +174,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     for (auto &qso : quasars)
         rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
 
-    multiplyCovSmallSqrt();
+    multiplyCovSmallSqrtPade(pade_order);
 
     mesh.fillRndNormal(rngs);
     mesh.convolveSqrtPk(p3d_model->interp2d_pL);
@@ -429,13 +425,13 @@ void Qu3DEstimator::testCovSqrt() {
             xTx += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
         }
 
-        multiplyCovVector(false);
+        multiplyIpHVector(0);
 
         #pragma omp parallel for reduction(+:xTHx)
         for (auto &qso : quasars)
             xTHx += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
-        multiplyCovSmallSqrt();
+        multiplyCovSmallSqrtPade(pade_order);
         #pragma omp parallel for reduction(+:yTy)
         for (auto &qso : quasars)
             yTy += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
