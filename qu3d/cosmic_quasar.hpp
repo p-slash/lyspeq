@@ -589,14 +589,13 @@ public:
         for (int i = 0; i < N; ++i) {
             double isigG = isig[i] * z1[i];
 
-            ccov[i * (N + 1)] = 1.0 + p3d_model->getVar1dS() * isigG * isigG;
-            ccov[i * (N + 1)] /= s * s;
-            ccov[i * (N + 1)] += alpha;
+            ccov[i * (N + 1)] =
+                alpha + (1.0 + p3d_model->getVar1dS() * isigG * isigG) / s;
 
             for (int j = i + 1; j < N; ++j) {
                 float rz = r[3 * j + 2] - r[3 * i + 2];
-                double isigG_ij = isigG * isig[j] * z1[j] / s;
-                ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz) * isigG_ij;
+                double isigG_ij = isigG * isig[j] * z1[j];
+                ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz) * isigG_ij / s;
             }
         }
     }
