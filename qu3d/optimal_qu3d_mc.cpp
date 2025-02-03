@@ -1,5 +1,5 @@
 void Qu3DEstimator::multiplyAsVector(double m, double s) {
-    /* m I + (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2) scaled down by s
+    /* m I + s^-1 (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2)
         input is const *in, output is *out
         uses: *in_isig
     */
@@ -23,8 +23,9 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->out[i] *= qso->isig[i] * qso->z1[i];
-            qso->out[i] += (1.0 + m) * qso->in[i];
+            qso->out[i] += qso->in[i];
             qso->out[i] /= s;
+            qso->out[i] += m * qso->in[i];
         }
     }
 
@@ -34,15 +35,73 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
 }
 
 
-void Qu3DEstimator::conjugateGradientIpH(double m) {
+double Qu3DEstimator::estimateMaxEvalAs(double m) {
+    int niter = 1;
+    double n_in, n_out, n_inout, new_eval_max, old_eval_max = 1e-12;
+    bool is_converged = false, init_verbose = verbose;
+    LOG::LOGGER.STD("Estimating maximum eigenvalue of As: ");
+
+    std::vector<double*> init_ins;
+    init_ins.reserve(quasars.size());
+    for (const auto &qso : quasars)
+        init_ins.push_back(qso->in);
+
+    // find max_eval
+    #pragma omp parallel for
+    for (auto &qso : quasars) {
+        rngs[myomp::getThreadNum()].fillVectorNormal(qso->sc_eta, qso->N);
+        qso->in = qso->sc_eta;
+    }
+
+    verbose = false;
+    for (; niter <= max_conj_grad_steps; ++niter) {
+        multiplyAsVector(m);
+        n_in = 0;  n_out = 0;  n_inout = 0;
+
+        #pragma omp parallel for reduction(+:n_in, n_out, n_inout)
+        for (const auto &qso : quasars) {
+            n_in += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+            n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
+            n_inout += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+        }
+
+        new_eval_max = n_inout / n_in;
+        if (isClose(old_eval_max, new_eval_max, tolerance)) {
+            is_converged = true;  break;
+        }
+
+        old_eval_max = new_eval_max;
+        n_out = sqrt(n_out);
+        for (auto &qso : quasars)
+            for (int i = 0; i < qso->N; ++i)
+                qso->in[i] = qso->out[i] / n_out;
+    }
+
+    if (is_converged)
+        LOG::LOGGER.STD(" Converged: ");
+    else
+        LOG::LOGGER.STD(" NOT converged: ");
+
+    LOG::LOGGER.STD(" %.5e (number of iterations: %d)\n", new_eval_max, niter);
+    verbose = init_verbose;
+
+    for (size_t i = 0; i < quasars.size(); ++i) {
+        auto &qso = quasars[i];
+        qso->in = init_ins[i];
+    }
+    return new_eval_max;
+}
+
+
+void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     double dt = mytime::timer.getTime();
     int niter = 1;
 
     double init_residual_norm = 0, old_residual_prec = 0,
            new_residual_norm = 0;
 
-    updateYMatrixVectorFunction = [this, m]() {
-        this->multiplyAsVector(m);
+    updateYMatrixVectorFunction = [this, m, s]() {
+        this->multiplyAsVector(m, s);
     };
 
     if (verbose)
@@ -51,11 +110,10 @@ void Qu3DEstimator::conjugateGradientIpH(double m) {
     /* Initial guess */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
-        for (int i = 0; i < qso->N; ++i)
-            qso->multInvCov(
-                p3d_model.get(), qso->truth, qso->in, pp_enabled, true, m);
+        qso->multInvCov(
+            p3d_model.get(), qso->truth, qso->in, pp_enabled, true, m, s);
 
-    multiplyAsVector(m);
+    multiplyAsVector(m, s);
 
     #pragma omp parallel for schedule(dynamic, 4) \
                              reduction(+:init_residual_norm, old_residual_prec)
@@ -99,7 +157,6 @@ void Qu3DEstimator::conjugateGradientIpH(double m) {
             // set z (out) = PreCon . residual
             qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out,
                             pp_enabled, true, m);
-
             new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
                                             qso->out, 1);
         }
