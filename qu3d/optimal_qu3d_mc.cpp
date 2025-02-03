@@ -186,6 +186,7 @@ endconjugateGradientIpH:
 }
 
 #include "qu3d/optimal_qu3d_pade.cpp"
+#include "qu3d/optimal_qu3d_ns_sqrt.cpp"
 #if 0
 void Qu3DEstimator::multiplyCovSmallSqrt() {
     /* multiply with SquareRootMatrix:
@@ -489,6 +490,7 @@ void Qu3DEstimator::testCovSqrt() {
             xTHx += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
         multiplyCovSmallSqrtPade(pade_order);
+        // multiplyCovSmallSqrtNewtonSchulz(pade_order);
         #pragma omp parallel for reduction(+:yTy)
         for (auto &qso : quasars)
             yTy += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
