@@ -82,6 +82,7 @@ double Qu3DEstimator::estimateMaxEvalAs(double m) {
     else
         LOG::LOGGER.STD(" NOT converged: ");
 
+    new_eval_max -= m;
     LOG::LOGGER.STD(" %.5e (number of iterations: %d)\n", new_eval_max, niter);
     verbose = init_verbose;
 
@@ -100,9 +101,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     double init_residual_norm = 0, old_residual_prec = 0,
            new_residual_norm = 0;
 
-    updateYMatrixVectorFunction = [this, m, s]() {
-        this->multiplyAsVector(m, s);
-    };
+    updateYMatrixVectorFunction = [this, m, s]() { multiplyAsVector(m, s); };
 
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientIpH.\n");
@@ -126,7 +125,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
 
         // set search = PreCon . residual
         qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in,
-                        pp_enabled, true, m);
+                        pp_enabled, true, m, s);
 
         init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
                                          qso->residual.get(), 1);
@@ -156,7 +155,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
             qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out,
-                            pp_enabled, true, m);
+                            pp_enabled, true, m, s);
             new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
                                             qso->out, 1);
         }
