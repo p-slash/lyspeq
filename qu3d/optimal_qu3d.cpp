@@ -1263,6 +1263,9 @@ void Qu3DEstimator::multiplyDerivVectors(
             temp = (1.0 + (k != 0)) * my_norm(k + jj)
                    * p3d_model->getSpectroWindow2(kz);
             temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+            #ifdef DECONV_CIC_WINDOW
+            temp /= asgn_window_xy[jxy] * asgn_window_z[k];
+            #endif
             #ifdef RL_COMP_DERIV
             kt *= radius / rscale_factor;
             temp *= exp(-kt * kt);

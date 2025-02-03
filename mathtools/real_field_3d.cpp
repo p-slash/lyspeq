@@ -8,6 +8,33 @@
 const double MY_PI = 3.14159265358979323846;
 
 
+inline double sinc(double x) {
+    if (x == 0)  return 1.0;
+    return sin(x) / x;
+}
+
+
+void RealField3D::_setAssignmentWindows() {
+    asgn_window_xy = std::make_unique<double[]>(ngrid_xy);
+    asgn_window_z = std::make_unique<double[]>(ngrid_kz);
+
+    for (size_t ij = 0; ij < ngrid_xy; ++ij) {
+        double kx, ky, window;
+        getKperpFromIperp(ij, kx, ky);
+        window = sinc(kx * dx[0] / 2.0) * sinc(ky * dx[1] / 2.0);
+        asgn_window_xy[ij] = window * window;
+        asgn_window_xy[ij] *= asgn_window_xy[ij];
+    }
+
+    for (size_t k = 0; k < ngrid_kz; ++k) {
+        double kz = k * k_fund[2], window;
+        window = sinc(kz * dx[2] / 2.0);
+        asgn_window_z[k] = window * window;
+        asgn_window_z[k] *= asgn_window_z[k];
+    }
+}
+
+
 RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr) {
     _periodic_x = true;
     size_complex = 0;
@@ -79,6 +106,7 @@ void RealField3D::construct(bool inp) {
         reinterpret_cast<fftw_complex*>(field_k.data()), field_x,
         FFTW_MEASURE);
 
+    _setAssignmentWindows();
 }
 
 void RealField3D::fftX2K() {

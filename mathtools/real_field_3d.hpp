@@ -39,12 +39,14 @@ class RealField3D {
 
     bool _inplace, _periodic_x;
     std::unique_ptr<double[]> _field_x;
+    void _setAssignmentWindows();
 public:
     size_t size_complex, size_real, ngrid_xy, ngrid_z, ngrid_kz;
     int ngrid[3];
     float dx[3], length[3], z0;
     double k_fund[3], cellvol, invtotalvol, invsqrtcellvol;
     std::vector<std::complex<double>> field_k;
+    std::unique_ptr<double[]>  asgn_window_xy, asgn_window_z;
     double *field_x;
 
     RealField3D();
