@@ -8,9 +8,13 @@ std::vector<double> _pade_xi(int pade_order) {
 
 
 void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
-    static double max_eval = estimateMaxEvalAs();
-    static double min_eval = estimateMaxEvalAs(-max_eval);
-    double s = (min_eval + max_eval) / 2.0;
+    // static double max_eval = estimateMaxEvalAs();
+    // static double min_eval = estimateMaxEvalAs(-max_eval);
+    // if (min_eval < 0)
+    //     throw std::runtime_error("Negative eigenvalue!");
+
+    // double s = (min_eval + max_eval) / 2.0;
+    double s = 1.0;
 
     auto xi = _pade_xi(pade_order);
     std::vector<double> alphas;
