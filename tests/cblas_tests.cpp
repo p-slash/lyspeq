@@ -827,14 +827,40 @@ int test_eigenvalue_decomp() {
 
     mxhelp::LAPACKE_sym_eigens(input_A, NA, evals, evecs);
 
-    mxhelp::transpose_copy(evecs, input_A, NA, NA);
+    // mxhelp::transpose_copy(evecs, input_A, NA, NA);
     for (int a = 0; a < NA; ++a)
         cblas_dsyr(CblasRowMajor, CblasUpper, NA,
-                   evals[a], input_A + a * NA, 1, output, NA);
+                   evals[a], evecs + a, NA, output, NA);
     mxhelp::copyUpperToLower(output, NA);
 
     if (!allClose(sym_matrix_A, output, NA * NA)) {
         fprintf(stderr, "ERROR test_eigenvalue_decomp.\n");
+        printMatrices(sym_matrix_A, output, NA, NA);
+        return 1;
+    }
+
+    return 0;
+}
+
+
+int test_sqrt_matrix() {
+    double input_A[NA * NA], evals[NA], evecs[NA * NA], output[NA * NA];
+    std::copy_n(sym_matrix_A, NA * NA, input_A);
+
+    for (int i = 0; i < NA; ++i)
+        input_A[i * (NA + 1)] += 100.0;
+
+    mxhelp::LAPACKE_sym_posdef_sqrt(input_A, NA, evals, evecs);
+    mxhelp::copyUpperToLower(input_A, NA);
+    cblas_dsymm(CblasRowMajor, CblasLeft, CblasUpper,
+                NA, NA, 1.0, input_A, NA,
+                input_A, NA, 0, output, NA);
+
+    for (int i = 0; i < NA; ++i)
+        output[i * (NA + 1)] -= 100.0;
+
+    if (!allClose(sym_matrix_A, output, NA * NA)) {
+        fprintf(stderr, "ERROR test_sqrt_matrix.\n");
         printMatrices(sym_matrix_A, output, NA, NA);
         return 1;
     }
@@ -924,6 +950,7 @@ int main()
     r += test_cubic_interpolate();
     r += test_lowerupper_bound();
     r += test_eigenvalue_decomp();
+    r += test_sqrt_matrix();
 
     if (r == 0)
         printf("Matrix operations work!\n");
