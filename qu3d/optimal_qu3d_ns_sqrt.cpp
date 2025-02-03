@@ -114,64 +114,6 @@ void Qu3DEstimator::multiplyNewtonSchulzZ(int n, double s) {
 }
 
 
-double Qu3DEstimator::estimateMaxEvalAs() {
-    int niter = 1;
-    double n_in, n_out, n_inout, new_eval_max, old_eval_max = 1e-12;
-    bool is_converged = false, init_verbose = verbose;
-    LOG::LOGGER.STD("Estimating maximum eigenvalue of As: ");
-
-    std::vector<double*> init_ins;
-    init_ins.reserve(quasars.size());
-    for (const auto &qso : quasars)
-        init_ins.push_back(qso->in);
-
-    // find max_eval
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
-        rngs[myomp::getThreadNum()].fillVectorNormal(qso->sc_eta, qso->N);
-        qso->in = qso->sc_eta;
-    }
-
-    verbose = false;
-    for (; niter <= max_conj_grad_steps; ++niter) {
-        multiplyAsVector();
-        n_in = 0;  n_out = 0;  n_inout = 0;
-
-        #pragma omp parallel for reduction(+:n_in, n_out, n_inout)
-        for (const auto &qso : quasars) {
-            n_in += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
-            n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
-            n_inout += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
-        }
-
-        new_eval_max = n_inout / n_in;
-        if (isClose(old_eval_max, new_eval_max, tolerance)) {
-            is_converged = true;  break;
-        }
-
-        old_eval_max = new_eval_max;
-        n_out = sqrt(n_out);
-        for (auto &qso : quasars)
-            for (int i = 0; i < qso->N; ++i)
-                qso->in[i] = qso->out[i] / n_out;
-    }
-
-    if (is_converged)
-        LOG::LOGGER.STD(" Converged: ");
-    else
-        LOG::LOGGER.STD(" NOT converged: ");
-
-    LOG::LOGGER.STD(" %.5e (number of iterations: %d)\n", new_eval_max, niter);
-    verbose = init_verbose;
-
-    for (size_t i = 0; i < quasars.size(); ++i) {
-        auto &qso = quasars[i];
-        qso->in = init_ins[i];
-    }
-    return new_eval_max;
-}
-
-
 void Qu3DEstimator::multiplyCovSmallSqrtNewtonSchulz(int order) {
     static double max_eval = estimateMaxEvalAs();
     double s = (max_eval + 1.0) / 2.0;
