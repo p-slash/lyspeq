@@ -15,6 +15,7 @@ EstimateTotalBiasDirectly -1
 EstimateTotalBias -1
 EstimateNoiseBias -1
 TestHsqrt 1
+PadeOrder 4
 
 # q_1 0.0
 b_HCD 0.0
