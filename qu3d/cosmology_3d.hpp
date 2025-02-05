@@ -7,6 +7,7 @@
 
 #include "core/global_numbers.hpp"
 #include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/multipole_interpolation.hpp"
 #include "mathtools/mathutils.hpp"
 #include "io/config_file.hpp"
 #include "qu3d/qu3d_file.hpp"
@@ -118,7 +119,6 @@ namespace fidcosmo {
     class ArinyoP3DModel {
     public:
         static constexpr double MAX_R_FACTOR = 20.0;
-        static constexpr int MAX_NUM_L = 10;
     private:
         double _varlss, _D_pivot, _z1_pivot, _sigma_mpc, _deltar_mpc;
         double b_F, alpha_F, beta_F, k_p, q_1, a_nu, b_nu, k_nu, rscale_long, rmax;
@@ -132,7 +132,7 @@ namespace fidcosmo {
         std::unique_ptr<INTERP_COSMO_2D> interp2d_cfS;
         std::unique_ptr<DiscreteCubicInterpolation1D>
             interp1d_pT, interp1d_cfS, interp1d_cfT;
-        std::unique_ptr<DiscreteCubicInterpolation1D> interp_p3d_l[MAX_NUM_L];
+        MultipoleInterpolation xi_ell_T, p3d_ell_T;
 
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
@@ -145,7 +145,6 @@ namespace fidcosmo {
             double r = sqrt(r2);
 
             // if (r > rmax)   return 0.0;
-            /* r /= _rmax_half; return 1.0 - 0.75 * r + r * r * r / 16.0; */
 
             if (r < _rmax_half) return 1.0;
             r = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
@@ -153,11 +152,18 @@ namespace fidcosmo {
             return r;
         }
 
+        double tophat2(double r2) const {
+            const static double _rmax_half = rmax / 2.0;
+            double r = sqrt(r2) / _rmax_half;
+            if (r > 2)  return 0;
+            return 1.0 - 0.75 * r + r * r * r / 16.0;
+        }
+
         double getMetalTerm(
             double kz, double mu2, double bbeta_lya, double lnD) const;
 
     public:
-        DiscreteLogInterpolation2D<
+        DiscreteLogLogInterpolation2D<
             DiscreteCubicInterpolation1D, INTERP_COSMO_2D
         > interp2d_pL, interp2d_pS, interp2d_pT;
         /* This function reads following keys from config file:
@@ -183,18 +189,20 @@ namespace fidcosmo {
         }
         double evalExplicit(double k, double kz) const;
         double evalP1d(double kz) const;
-        double evalP3dL(double k, int l) const;
+        double evalP3dL(double k, int l) const {
+            return p3d_ell_T.evaluateEll(l, log(k + 1e-300));
+        };
 
         double evalCorrFunc1dT(float rz) const {
             /* Evaluate total (L + S) 1D CF using interpolation. */
             rz = fastlog2(rz);
-            return interp1d_cfT->evaluate(rz);
+            return interp1d_cfT->evaluate(interp1d_cfT->clamp(rz));
         }
 
         double evalCorrFunc1dS(float rz) const {
             /* Evaluate small-scale CF using interpolation. */
             rz = fastlog2(rz);
-            return interp1d_cfS->evaluate(rz);
+            return interp1d_cfS->evaluate(interp1d_cfS->clamp(rz));
         }
 
         double getVar1dS() const { return interp1d_cfS->get()[0]; }
