@@ -119,7 +119,6 @@ namespace fidcosmo {
     class ArinyoP3DModel {
     public:
         static constexpr double MAX_R_FACTOR = 20.0;
-        static constexpr int MAX_NUM_L = 10;
     private:
         double _varlss, _D_pivot, _z1_pivot, _sigma_mpc, _deltar_mpc;
         double b_F, alpha_F, beta_F, k_p, q_1, a_nu, b_nu, k_nu, rscale_long, rmax;

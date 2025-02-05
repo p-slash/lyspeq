@@ -511,7 +511,7 @@ void ArinyoP3DModel::_calcMultipoles() {
     const int nlnk = ceil((LNKMAX - LNKMIN) / dlnk);
     double p3d_l_integrand[nmu], p3d_l[nlnk];
 
-    for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++l) {
+    for (int l = 0; l < p3d_ell_T.getNell(); ++l) {
         for (int i = 0; i < nlnk; ++i) {
             double k = exp(LNKMIN + i * dlnk);
 
@@ -533,7 +533,7 @@ void ArinyoP3DModel::_calcMultipoles() {
     MY_2PI_CUBED *= MY_2PI_CUBED * MY_2PI_CUBED;
     MY_2PI_CUBED = sqrt(MY_2PI_CUBED);
 
-    for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++l) {
+    for (int l = 0; l < xi_ell_T.getNell(); ++l) {
         double mu = 2 * l + 0.5;
         fht.construct(mu, KMIN, 1 / KMIN, 0, 0);
 
@@ -685,11 +685,11 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
 
     out->write(pmarr, nlnk, "PMODEL_1D");
 
-    for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++ l)
+    for (int l = 0; l < p3d_ell_T.getNell(); ++ l)
         for (int iz = 0; iz < nlnk; ++iz)
             pmarr[iz + l * nlnk] = evalP3dL(karr[iz], l);
 
-    for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++ l)
+    for (int l = 0; l < p3d_ell_T.getNell(); ++ l)
         out->write(pmarr + l * nlnk, nlnk,
                    std::string("P3D_L") + std::to_string(2 * l));
     out->flush();
@@ -722,11 +722,11 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     out->flush();
 
     for (int i = 0; i < nr; ++i) {
-        for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++l)
+        for (int l = 0; l < xi_ell_T.getNell(); ++l)
             cfsarr[i + l * nr] = xi_ell_T.evaluateEll(l, log(rarr[i]));
     }
 
-    for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++ l)
+    for (int l = 0; l < xi_ell_T.getNell(); ++ l)
         out->write(cfsarr + l * nr, nr,
                    std::string("Xiell_L") + std::to_string(2 * l));
     out->flush();
