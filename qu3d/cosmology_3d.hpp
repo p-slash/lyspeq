@@ -140,16 +140,14 @@ namespace fidcosmo {
         void _construcP1D();
         void _getCorrFunc2dS();
         void _calcMultipoles();
-        double apodize(float r2) const {
+        double apodize(double r) const {
             const static double _rmax_half = rmax / 2.0;
-            double r = sqrt(r2);
-
             // if (r > rmax)   return 0.0;
 
             if (r < _rmax_half) return 1.0;
-            r = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
-            r *= r;
-            return r;
+            double y = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
+            y *= y;
+            return y;
         }
 
         double tophat2(double r2) const {
@@ -194,15 +192,20 @@ namespace fidcosmo {
         };
 
         double evalCorrFunc1dT(float rz) const {
-            /* Evaluate total (L + S) 1D CF using interpolation. */
+            /* Evaluate total (L + S) 1D CF using interpolation.
+               rzmin, rzmax boundaries cannot be hit.
+            */
             rz = fastlog2(rz);
-            return interp1d_cfT->evaluate(interp1d_cfT->clamp(rz));
+            return interp1d_cfT->evaluate(rz);
         }
 
         double evalCorrFunc1dS(float rz) const {
-            /* Evaluate small-scale CF using interpolation. */
-            rz = fastlog2(rz);
-            return interp1d_cfS->evaluate(interp1d_cfS->clamp(rz));
+            /* Evaluate small-scale CF using interpolation.
+               rzmin boundary cannot be hit.
+            */
+            const static float rmaxf = rmax;
+            if (rz > rmaxf)  return 0;
+            return interp1d_cfS->evaluate(fastlog2(rz)) * apodize(rz);
         }
 
         double getVar1dS() const { return interp1d_cfS->get()[0]; }
@@ -232,7 +235,7 @@ namespace fidcosmo {
                     rperpin = fastlog2(rperp);
 
                 return interp2d_cfS->evaluateHermite2(rzin, rperpin)
-                       * apodize(r2);
+                       * apodize(sqrt(r2));
             }
         #else
             double evalCorrFunc2dS(float rperp, float rz) const {
