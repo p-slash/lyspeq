@@ -14,18 +14,22 @@
 
 class Ps2Cf_2D {
 public:
-    Ps2Cf_2D(int nk, double k1, double k2, int smooth_sigma=0) : N(nk) {
+    Ps2Cf_2D(
+            int nk, double k1, double k2, int smooth_sigma=0,
+            double bz=0, double bperp=0, double lnkr=0
+    ) : N(nk) {
         fht_z = std::make_unique<FFTLog>(N);
         fht_xy = std::make_unique<FFTLog>(N);
 
         sqrt_kz = std::make_unique<double[]>(N);
         isqrt_rz = std::make_unique<double[]>(N);
+        interm = std::make_unique<double[]>(N * N);
 
         if (smooth_sigma > 0)
             smoother = std::make_unique<Smoother>(smooth_sigma);
 
-        fht_z->construct(-0.5, k1, k2, 0, 0);
-        fht_xy->construct(0, k1, k2, 0, 0);
+        fht_z->construct(-0.5, k1, k2, bz, lnkr);
+        fht_xy->construct(0, k1, k2, bperp, lnkr);
 
         for (int i = 0; i < N; ++i) {
             sqrt_kz[i] = sqrt(fht_z->r[i]);
@@ -35,6 +39,10 @@ public:
 
     const double* getKperp() const { return fht_xy->r.get(); }
     const double* getKz() const { return fht_z->r.get(); }
+    const double* getRperp() const { return fht_xy->k.get(); }
+    const double* getRz() const { return fht_z->k.get(); }
+    double getDlnkPerp() const { return fht_xy->getDLn(); }
+    double getDlnkZ() const { return fht_z->getDLn(); }
 
     /* p2d must be in kz-first format, that is first N elements are
        P(kperp[0], kz) and so on. Transformation kperp values must be used.
@@ -48,39 +56,8 @@ public:
             const double *p2d, int ltrunc, int rtrunc, double rmax,
             bool return_log_interp=false
     ) {
-        int Nres = N - (ltrunc + rtrunc);
-
-        /* Intermediate array will be transposed */
-        interm = std::make_unique<double[]>(N * N);
-        result = std::make_unique<double[]>(Nres * Nres);
-
-        for (int i = 0; i < N; ++i)
-            _fhtZ(p2d + i * N, i);
-
-        const double *kperp = getKperp();
-
-        for (int iz = 0; iz < Nres; ++iz) {
-            for (int j = 0; j < N; ++j)
-                fht_xy->field[j] = interm[j + (iz + ltrunc) * N] * kperp[j];
-
-            fht_xy->transform();
-            for (int j = 0; j < N; ++j)
-                fht_xy->field[j] /= fht_xy->k[j];
-
-            if (smoother)
-                smoother->smooth1D(fht_xy->field + ltrunc, Nres, 1, true);
-
-            for (int iperp = 0; iperp < Nres; ++iperp)
-                result[iz + Nres * iperp] = fht_xy->field[iperp + ltrunc];
-        }
-
-        constexpr double MY_2PI = 2.0 * MY_PI;
-        const double NORM = MY_2PI * sqrt(MY_2PI);
-        for (int i = 0; i < Nres * Nres; ++i)
-            result[i] /= NORM;
-
-        if (smoother)
-            smoother->smooth1D(result.get(), Nres, Nres, true);
+        int Nres;
+        auto result = transformBasic(p2d, ltrunc, rtrunc, Nres);
 
         const double log2_e = log2(exp(1.0));
         if (return_log_interp)
@@ -115,9 +92,46 @@ public:
         return std::make_unique<T>(0, dr, 0, dr, result.get(), Nres, Nres);
     }
 
+    std::unique_ptr<double[]> transformBasic(
+            const double *in, int ltrunc, int rtrunc, int &Nres
+    ) {
+        Nres = N - (ltrunc + rtrunc);
+        /* Intermediate array will be transposed */
+        auto result = std::make_unique<double[]>(Nres * Nres);
+
+        for (int i = 0; i < N; ++i)
+            _fhtZ(in + i * N, i);
+
+        const double *kperp = getKperp();
+
+        for (int iz = 0; iz < Nres; ++iz) {
+            for (int j = 0; j < N; ++j)
+                fht_xy->field[j] = interm[j + (iz + ltrunc) * N] * kperp[j];
+
+            fht_xy->transform();
+            for (int j = 0; j < N; ++j)
+                fht_xy->field[j] /= fht_xy->k[j];
+
+            if (smoother)
+                smoother->smooth1D(fht_xy->field + ltrunc, Nres, 1, true);
+
+            for (int iperp = 0; iperp < Nres; ++iperp)
+                result[iz + Nres * iperp] = fht_xy->field[iperp + ltrunc];
+        }
+
+        constexpr double MY_2PI = 2.0 * MY_PI;
+        const double NORM = MY_2PI * sqrt(MY_2PI);
+        for (int i = 0; i < Nres * Nres; ++i)
+            result[i] /= NORM;
+
+        if (smoother)
+            smoother->smooth1D(result.get(), Nres, Nres, true);
+
+        return result;
+    }
 private:
     int N;
-    std::unique_ptr<double[]> sqrt_kz, isqrt_rz, interm, result;
+    std::unique_ptr<double[]> sqrt_kz, isqrt_rz, interm;
     std::unique_ptr<FFTLog> fht_z, fht_xy;
     std::unique_ptr<Smoother> smoother;
 
