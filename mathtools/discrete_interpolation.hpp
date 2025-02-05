@@ -1,6 +1,7 @@
 #ifndef DISCRETE_INTERPOLATION_H
 #define DISCRETE_INTERPOLATION_H
 
+#include <algorithm>
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -68,6 +69,7 @@ public:
     bool operator!=(const DiscreteCubicInterpolation1D &rhs) const
     { return ! (*this==rhs); };
 
+    double clamp(double x) const { return std::clamp(x, x1, x2); }
     double evaluate(double x) const;
     double* get() const { return y; }
     int size() const { return N; }
@@ -124,7 +126,7 @@ public:
 
 
 class DiscreteBicubicSpline {
-    double x1, dx, y1, dy;
+    double x1, x2, dx, y1, y2, dy;
     int Nx, Ny, halfm, m;
 
     std::unique_ptr<DiscreteCubicInterpolation1D> _spl_local;
@@ -141,15 +143,22 @@ public:
         double x_start, double delta_x, double y_start, double delta_y,
         const double *z_arr, int Nxsize, int Nysize, int halfn=5);
 
+    inline double getDx() const { return dx; }
+    inline double getDy() const { return dy; }
     inline double getX1() const { return x1; }
     inline double getY1() const { return y1; }
+    inline double getX2() const { return x2; }
+    inline double getY2() const { return y2; }
 
     /* Construct cubic spline in y direction */
     double evaluate(double x, double y);
     /* Use Hermite spline in y direction */
     double evaluateHermiteY(double x, double y);
     /* Use Hermite spline in x & y direction */
-    double evaluateHermite2(double x, double y);
+    double evaluateHermite2(double x, double y) const;
+    void clamp(double &x, double &y) const {
+        x = std::clamp(x, x1, x2);  y = std::clamp(y, y1, y2);
+    }
 
     template<class T>
     std::unique_ptr<T> get1dSliceX(double y) {
@@ -189,22 +198,22 @@ public:
         if ((x == 0) && (y == 0))
             return 0;
         else if (x == 0)
-            return exp(interp_y->evaluate(log(y)));
+            return interp_y->evaluate(log(y));
         else if (y == 0)
-            return exp(interp_x->evaluate(log(x)));
+            return interp_x->evaluate(log(x));
 
-        return exp(interp_2d->evaluateHermite2(log(y), log(x)));
+        return interp_2d->evaluateHermite2(log(y), log(x));
     }
 
     double evaluateSqrt(double x, double y) const {
         if ((x == 0) && (y == 0))
             return 0;
         else if (x == 0)
-            return exp(0.5 * interp_y->evaluate(log(y)));
+            return sqrt(interp_y->evaluate(log(y)));
         else if (y == 0)
-            return exp(0.5 * interp_x->evaluate(log(x)));
+            return sqrt(interp_x->evaluate(log(x)));
 
-        return exp(0.5 * interp_2d->evaluateHermite2(log(y), log(x)));
+        return sqrt(interp_2d->evaluateHermite2(log(y), log(x)));
     }
 
     void setInterpX(double x1, double dx, int N, double *y) {
@@ -220,6 +229,38 @@ public:
             int Nx, int Ny
     ) {
         interp_2d = std::make_unique<T2>(x1, dx, y1, dy, z, Nx, Ny);
+    }
+};
+
+
+template<class T1, class T2>
+class DiscreteLogLogInterpolation2D : public DiscreteLogInterpolation2D<T1, T2> {
+    /* T1: 1D interpolator class DiscreteInterpolation1D or
+           DiscreteCubicInterpolation1D */
+    /* T2: 2D interpolator class DiscreteInterpolation2D or
+           DiscreteBicubicSpline */
+public:
+    /* Note interp_2d must be defined y, x due to legacy code */
+    double evaluate(double x, double y) const {
+        if ((x == 0) && (y == 0))
+            return 0;
+        else if (x == 0)
+            return exp(this->interp_y->evaluate(log(y)));
+        else if (y == 0)
+            return exp(this->interp_x->evaluate(log(x)));
+
+        return exp(this->interp_2d->evaluateHermite2(log(y), log(x)));
+    }
+
+    double evaluateSqrt(double x, double y) const {
+        if ((x == 0) && (y == 0))
+            return 0;
+        else if (x == 0)
+            return exp(0.5 * this->interp_y->evaluate(log(y)));
+        else if (y == 0)
+            return exp(0.5 * this->interp_x->evaluate(log(x)));
+
+        return exp(0.5 * this->interp_2d->evaluateHermite2(log(y), log(x)));
     }
 };
 
