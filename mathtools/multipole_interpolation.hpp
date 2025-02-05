@@ -18,6 +18,8 @@ public:
     MultipoleInterpolation(int num_ls=MultipoleInterpolation::MAX_NUM_L)
     : Nell(num_ls) { assert(Nell <= MAX_NUM_L); };
 
+    const int getNell() const { return Nell; }
+
     void setInterpEll(int ell, double x1, double dx, int N, double *y) {
         assert(ell < Nell);
         interp_ls[ell] = std::make_unique<DiscreteCubicInterpolation1D>(
