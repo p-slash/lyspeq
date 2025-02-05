@@ -36,8 +36,8 @@ public:
         return interp_ls[ell]->evaluate(k);
     }
 
-    DiscreteLogLogInterpolation2D<DiscreteCubicInterpolation1D, DiscreteBicubicSpline>
-        toDiscreteLogLogInterpolation2D(double x1, double dx, int N);
+    DiscreteLogInterpolation2D<DiscreteCubicInterpolation1D, DiscreteBicubicSpline>
+        toDiscreteLogInterpolation2D(double x1, double dx, int N);
 
 private:
     int Nell;
