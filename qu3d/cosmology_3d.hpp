@@ -7,6 +7,7 @@
 
 #include "core/global_numbers.hpp"
 #include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/multipole_interpolation.hpp"
 #include "mathtools/mathutils.hpp"
 #include "io/config_file.hpp"
 #include "qu3d/qu3d_file.hpp"
@@ -133,9 +134,11 @@ namespace fidcosmo {
         std::unique_ptr<DiscreteCubicInterpolation1D>
             interp1d_pT, interp1d_cfS, interp1d_cfT;
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_p3d_l[MAX_NUM_L];
+        MultipoleInterpolation xiell;
 
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
+        void _cacheInterp2D_total();
         void _cacheInterp2D();
         void _construcP1D();
         void _getCorrFunc2dS();
@@ -153,13 +156,24 @@ namespace fidcosmo {
             return r;
         }
 
+        double tophat2(double r2) const {
+            const static double _rmax_half = rmax / 2.0;
+            double r = sqrt(r2) / _rmax_half;
+            if (r > 2)  return 0;
+            return 1.0 - 0.75 * r + r * r * r / 16.0;
+        }
+
         double getMetalTerm(
             double kz, double mu2, double bbeta_lya, double lnD) const;
 
     public:
         DiscreteLogInterpolation2D<
             DiscreteCubicInterpolation1D, INTERP_COSMO_2D
-        > interp2d_pL, interp2d_pS, interp2d_pT;
+        > interp2d_pL;
+
+        DiscreteLogLogInterpolation2D<
+            DiscreteCubicInterpolation1D, INTERP_COSMO_2D
+        > interp2d_pS, interp2d_pT;
         /* This function reads following keys from config file:
         b_F: double
         alpha_F (double): Redshift growth power of b_F.
@@ -188,13 +202,13 @@ namespace fidcosmo {
         double evalCorrFunc1dT(float rz) const {
             /* Evaluate total (L + S) 1D CF using interpolation. */
             rz = fastlog2(rz);
-            return interp1d_cfT->evaluate(rz);
+            return interp1d_cfT->evaluate(interp1d_cfT->clamp(rz));
         }
 
         double evalCorrFunc1dS(float rz) const {
             /* Evaluate small-scale CF using interpolation. */
             rz = fastlog2(rz);
-            return interp1d_cfS->evaluate(rz);
+            return interp1d_cfS->evaluate(interp1d_cfS->clamp(rz));
         }
 
         double getVar1dS() const { return interp1d_cfS->get()[0]; }
@@ -223,8 +237,7 @@ namespace fidcosmo {
                 else
                     rperpin = fastlog2(rperp);
 
-                return interp2d_cfS->evaluateHermite2(rzin, rperpin)
-                       * apodize(r2);
+                return interp2d_cfS->evaluateHermite2(rzin, rperpin);
             }
         #else
             double evalCorrFunc2dS(float rperp, float rz) const {
