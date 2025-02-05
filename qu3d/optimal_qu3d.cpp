@@ -307,7 +307,7 @@ void Qu3DEstimator::_setupMesh(double radius) {
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
     mesh.ngrid[2] = config.getInteger("NGRID_Z");
 
-    double x0 = effective_chi * specifics::MIN_RA,
+    double x0 = 0,
            dx = mesh.length[0] / mesh.ngrid[0],
            dy = mesh.length[1] / mesh.ngrid[1],
            dz = mesh.length[2] / mesh.ngrid[2];
