@@ -137,7 +137,6 @@ namespace fidcosmo {
 
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
-        void _cacheInterp2D_total();
         void _cacheInterp2D();
         void _construcP1D();
         void _getCorrFunc2dS();
@@ -147,7 +146,6 @@ namespace fidcosmo {
             double r = sqrt(r2);
 
             // if (r > rmax)   return 0.0;
-            /* r /= _rmax_half; return 1.0 - 0.75 * r + r * r * r / 16.0; */
 
             if (r < _rmax_half) return 1.0;
             r = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
@@ -166,13 +164,9 @@ namespace fidcosmo {
             double kz, double mu2, double bbeta_lya, double lnD) const;
 
     public:
-        DiscreteLogInterpolation2D<
-            DiscreteCubicInterpolation1D, INTERP_COSMO_2D
-        > interp2d_pL, interp2d_pS;
-
         DiscreteLogLogInterpolation2D<
             DiscreteCubicInterpolation1D, INTERP_COSMO_2D
-        > interp2d_pT;
+        > interp2d_pL, interp2d_pS, interp2d_pT;
         /* This function reads following keys from config file:
         b_F: double
         alpha_F (double): Redshift growth power of b_F.
@@ -197,7 +191,7 @@ namespace fidcosmo {
         double evalExplicit(double k, double kz) const;
         double evalP1d(double kz) const;
         double evalP3dL(double k, int l) const {
-            return p3d_ell_T.evaluateEll(l, k);
+            return p3d_ell_T.evaluateEll(l, log(k + 1e-300));
         };
 
         double evalCorrFunc1dT(float rz) const {
@@ -238,7 +232,8 @@ namespace fidcosmo {
                 else
                     rperpin = fastlog2(rperp);
 
-                return interp2d_cfS->evaluateHermite2(rzin, rperpin);
+                return interp2d_cfS->evaluateHermite2(rzin, rperpin)
+                       * apodize(r2);
             }
         #else
             double evalCorrFunc2dS(float rperp, float rz) const {
