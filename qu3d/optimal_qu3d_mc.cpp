@@ -94,6 +94,23 @@ double Qu3DEstimator::estimateMaxEvalAs(double m) {
 }
 
 
+double Qu3DEstimator::findMaxDiagonalAs() {
+    double max_diag = 0, varlss_S = p3d_model->getVar1dS();
+
+    #pragma omp parallel for reduction(max:max_diag) schedule(dynamic, 4)
+    for (const auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i) {
+            double isigG = qso->isig[i] * qso->z1[i];
+            isigG *= isigG;
+            max_diag = std::max(max_diag, 1.0 + varlss_S * isigG);
+        }
+    }
+
+    LOG::LOGGER.STD("Maximum diagonal of As: %.5f\n", max_diag);
+    return max_diag;
+}
+
+
 void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     double dt = mytime::timer.getTime();
     int niter = 1;
@@ -408,7 +425,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
 
     Progress prog_tracker(max_monte_carlos, 10);
     for (; nmc <= max_monte_carlos; ++nmc) {
-        verbose = niter == 1;
+        verbose = nmc == 1;
         /* generate random Gaussian vector into truth */
         replaceDeltasWithGaussianField();
 
