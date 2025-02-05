@@ -278,10 +278,9 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
 
 void ArinyoP3DModel::construct() {
     _construcP1D();
-    _cacheInterp2D_total();
+    _cacheInterp2D();
     _getCorrFunc2dS();
     _calcMultipoles();
-    _cacheInterp2D();
 
     _D_pivot = cosmo->getLinearGrowth(_z1_pivot);
     constexpr int nz = 401;
@@ -346,10 +345,12 @@ void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
 }
 
 
-void ArinyoP3DModel::_cacheInterp2D_total() {
+void ArinyoP3DModel::_cacheInterp2D() {
     constexpr double dlnk = 0.02;
     const int N = ceil((LNKMAX - LNKMIN) / dlnk);
-    auto lnP_T = std::make_unique<double[]>(N * N);
+    auto lnP_L = std::make_unique<double[]>(N * N),
+         lnP_S = std::make_unique<double[]>(N * N),
+         lnP_T = std::make_unique<double[]>(N * N);
 
     /* Large-scale and small-scale 2Ds */
     for (int iperp = 0; iperp < N; ++iperp) {
@@ -357,90 +358,54 @@ void ArinyoP3DModel::_cacheInterp2D_total() {
 
         for (int iz = 0; iz < N; ++iz) {
             double kz = exp(LNKMIN + iz * dlnk),
-                   k = sqrt(kperp * kperp + kz * kz);
+                   k = sqrt(kperp * kperp + kz * kz),
+                   k_rL = k * rscale_long;
 
-            lnP_T[iz + N * iperp] = log(evalExplicit(k, kz) + SAFE_ZERO);
+            double ptot = log(evalExplicit(k, kz) + SAFE_ZERO);
+
+            /* Large-scale 2D */
+            k_rL *= -k_rL;
+            lnP_L[iz + N * iperp] = ptot + k_rL;
+            /* Small-scale 2D */
+            k_rL = log(1.0 - exp(k_rL) + SAFE_ZERO);
+            lnP_S[iz + N * iperp] = ptot + k_rL;
+            /* Total 2D */
+            lnP_T[iz + N * iperp] = ptot;
         }
     }
 
+    interp2d_pL.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_L.get(), N, N);
+    interp2d_pS.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_S.get(), N, N);
     interp2d_pT.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_T.get(), N, N);
 
     /* Large-scale and small-scale 1Ds */
     for (int i = 0; i < N; ++i) {
-        double k = exp(LNKMIN + i * dlnk);
+        double k = exp(LNKMIN + i * dlnk), k_rL = k * rscale_long;
+        k_rL *= -k_rL;
 
-        lnP_T[i] = log(evalExplicit(k, 0) + SAFE_ZERO);
-        lnP_T[i + N] = log(evalExplicit(k, k) + SAFE_ZERO);
+        double pperp = log(evalExplicit(k, 0) + SAFE_ZERO),
+               pz = log(evalExplicit(k, k) + SAFE_ZERO);
+
+        /* Large-scale 1D */
+        lnP_L[i] = pperp + k_rL;
+        lnP_L[i + N] = pz + k_rL;
+
+        /* Small-scale 1D */
+        k_rL = log(1.0 - exp(k_rL) + SAFE_ZERO);
+        lnP_L[i + 2 * N] = pperp + k_rL;
+        lnP_L[i + 3 * N] = pz + k_rL;
+
+        /* Total 1D */
+        lnP_L[i + 4 * N] = pperp;
+        lnP_L[i + 5 * N] = pz;
     }
 
-    interp2d_pT.setInterpX(LNKMIN, dlnk, N, lnP_T.get());
-    interp2d_pT.setInterpY(LNKMIN, dlnk, N, lnP_T.get() + N);
-}
-
-
-void ArinyoP3DModel::_cacheInterp2D() {
-    constexpr double dlnk = 0.02;
-    const int N = ceil((LNKMAX - LNKMIN) / dlnk);
-
-    MultipoleInterpolation Pell_S;
-    FFTLog fht(Nhankel);
-
-    int Nres = Nhankel - 2 * ltrunc;
-    double MY_2PI_CUBED = MY_PI * 2.0;
-    MY_2PI_CUBED *= MY_2PI_CUBED * MY_2PI_CUBED;
-    MY_2PI_CUBED = sqrt(MY_2PI_CUBED);
-
-    for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++l) {
-        double mu = 2 * l + 0.5;
-        fht.construct(mu, KMIN, 1 / KMIN, 0, 0);
-
-        for (int i = 0; i < Nhankel; ++i) {
-            double r2 = fht.k[i] * fht.k[i];
-            fht.field[i] = xi_ell_T.evaluateEll(l, log(fht.k[i]))
-                            * fht.k[i] * sqrt(fht.k[i]) * tophat2(r2);
-        }
-
-        fht.transform();
-        int sgn = (l % 2 == 0) ? 1 : -1;
-        for (int i = 0; i < Nhankel; ++i)
-            fht.field[i] *= sgn * MY_2PI_CUBED / (sqrt(fht.r[i]) * fht.r[i]);
-
-        Pell_S.setInterpEll(
-            l, log(fht.k[ltrunc]), fht.getDLn(), Nres, fht.field + ltrunc);
-    }
-
-    interp2d_pS = Pell_S.toDiscreteLogInterpolation2D(LNKMIN, dlnk, N);
-
-    // Large scale
-    auto lnP_T = std::make_unique<double[]>(N * N);
-
-    /* Large-scale and small-scale 2Ds */
-    for (int iperp = 0; iperp < N; ++iperp) {
-        double kperp = exp(LNKMIN + iperp * dlnk);
-
-        for (int iz = 0; iz < N; ++iz) {
-            double kz = exp(LNKMIN + iz * dlnk);
-
-            lnP_T[iz + N * iperp] =    (interp2d_pT.evaluate(kperp, kz)
-                                        - interp2d_pS.evaluate(kperp, kz)
-                                        + SAFE_ZERO);
-        }
-    }
-
-    interp2d_pL.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_T.get(), N, N);
-
-    /* Large-scale and small-scale 1Ds */
-    for (int i = 0; i < N; ++i) {
-        double k = exp(LNKMIN + i * dlnk);
-
-        lnP_T[i] = (interp2d_pT.evaluate(k, 0) - interp2d_pS.evaluate(k, 0)
-                       + SAFE_ZERO);
-        lnP_T[i + N] = (interp2d_pT.evaluate(k, k)
-                           - interp2d_pS.evaluate(k, k) + SAFE_ZERO);
-    }
-
-    interp2d_pL.setInterpX(LNKMIN, dlnk, N, lnP_T.get());
-    interp2d_pL.setInterpY(LNKMIN, dlnk, N, lnP_T.get() + N);
+    interp2d_pL.setInterpX(LNKMIN, dlnk, N, lnP_L.get());
+    interp2d_pL.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + N);
+    interp2d_pS.setInterpX(LNKMIN, dlnk, N, lnP_L.get() + 2 * N);
+    interp2d_pS.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + 3 * N);
+    interp2d_pT.setInterpX(LNKMIN, dlnk, N, lnP_L.get() + 4 * N);
+    interp2d_pT.setInterpY(LNKMIN, dlnk, N, lnP_L.get() + 5 * N);
 }
 
 
@@ -513,20 +478,28 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
         double kperp2 = kperparr[iperp] * kperparr[iperp];
 
         for (int iz = 0; iz < Nhankel; ++iz) {
-            double k = sqrt(kperp2 + kzarr[iz] * kzarr[iz]);
-            psarr[iz + Nhankel * iperp] = evalExplicit(k, kzarr[iz]);
+            double k = sqrt(kperp2 + kzarr[iz] * kzarr[iz]),
+                   k_rL = k * rscale_long;
+            psarr[iz + Nhankel * iperp] = evalExplicit(k, kzarr[iz])
+                                          * (1.0 - exp(-k_rL * k_rL));
         }
     }
 
-    interp2d_cfS = hankel.transform<INTERP_COSMO_2D>(
-        psarr.get(), ltrunc, ltrunc, 0, true);
+    #ifndef NUSE_LOGR_INTERP
+        interp2d_cfS = hankel.transform<INTERP_COSMO_2D>(
+            psarr.get(), ltrunc, ltrunc, 0, true);
+    #else
+        interp2d_cfS = hankel.transform<INTERP_COSMO_2D>(
+            psarr.get(), ltrunc, ArinyoP3DModel::MAX_R_FACTOR * rscale_long);
+    #endif
 
     // Apodize interp2d_cfS only
-    interp2d_cfS->applyFunction(
-        [this](double log2rz, double log2rperp) {
-            double r2 = exp2(2.0 * log2rz) + exp2(2.0 * log2rperp);
-            return tophat2(r2);
-    });
+    // interp2d_cfS->applyFunction(
+    //     [this](double log2rz, double log2rperp) {
+    //         double r2 = exp2(2.0 * log2rz) + exp2(2.0 * log2rperp);
+    //         return tophat2(r2);
+    // });
+
     interp1d_cfS = interp2d_cfS->get1dSliceX<DiscreteCubicInterpolation1D>(
         interp2d_cfS->getY1());
 }
@@ -555,7 +528,7 @@ void ArinyoP3DModel::_calcMultipoles() {
     }
 
     FFTLog fht(Nhankel);
-    int trim = 64, Nres = Nhankel - 2 * trim;
+    int trim = 128, Nres = Nhankel - 2 * trim;
     double MY_2PI_CUBED = MY_PI * 2.0, window_xi = 5e3;
     MY_2PI_CUBED *= MY_2PI_CUBED * MY_2PI_CUBED;
     MY_2PI_CUBED = sqrt(MY_2PI_CUBED);
@@ -758,3 +731,102 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
                    std::string("Xiell_L") + std::to_string(2 * l));
     out->flush();
 }
+
+#if 0
+void ArinyoP3DModel::_cacheInterp2D_total() {
+    constexpr double dlnk = 0.02;
+    const int N = ceil((LNKMAX - LNKMIN) / dlnk);
+    auto lnP_T = std::make_unique<double[]>(N * N);
+
+    /* Large-scale and small-scale 2Ds */
+    for (int iperp = 0; iperp < N; ++iperp) {
+        double kperp = exp(LNKMIN + iperp * dlnk);
+
+        for (int iz = 0; iz < N; ++iz) {
+            double kz = exp(LNKMIN + iz * dlnk),
+                   k = sqrt(kperp * kperp + kz * kz);
+
+            lnP_T[iz + N * iperp] = log(evalExplicit(k, kz) + SAFE_ZERO);
+        }
+    }
+
+    interp2d_pT.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_T.get(), N, N);
+
+    /* Large-scale and small-scale 1Ds */
+    for (int i = 0; i < N; ++i) {
+        double k = exp(LNKMIN + i * dlnk);
+
+        lnP_T[i] = log(evalExplicit(k, 0) + SAFE_ZERO);
+        lnP_T[i + N] = log(evalExplicit(k, k) + SAFE_ZERO);
+    }
+
+    interp2d_pT.setInterpX(LNKMIN, dlnk, N, lnP_T.get());
+    interp2d_pT.setInterpY(LNKMIN, dlnk, N, lnP_T.get() + N);
+}
+
+
+void ArinyoP3DModel::_cacheInterp2D_multipoles() {
+    constexpr double dlnk = 0.02;
+    const int N = ceil((LNKMAX - LNKMIN) / dlnk);
+
+    MultipoleInterpolation Pell_S;
+    FFTLog fht(Nhankel);
+
+    int Nres = Nhankel - 2 * ltrunc;
+    double MY_2PI_CUBED = MY_PI * 2.0;
+    MY_2PI_CUBED *= MY_2PI_CUBED * MY_2PI_CUBED;
+    MY_2PI_CUBED = sqrt(MY_2PI_CUBED);
+
+    for (int l = 0; l < ArinyoP3DModel::MAX_NUM_L; ++l) {
+        double mu = 2 * l + 0.5;
+        fht.construct(mu, KMIN, 1 / KMIN, 0, 0);
+
+        for (int i = 0; i < Nhankel; ++i) {
+            double r2 = fht.k[i] * fht.k[i];
+            fht.field[i] = xi_ell_T.evaluateEll(l, log(fht.k[i]))
+                            * fht.k[i] * sqrt(fht.k[i]) * tophat2(r2);
+        }
+
+        fht.transform();
+        int sgn = (l % 2 == 0) ? 1 : -1;
+        for (int i = 0; i < Nhankel; ++i)
+            fht.field[i] *= sgn * MY_2PI_CUBED / (sqrt(fht.r[i]) * fht.r[i]);
+
+        Pell_S.setInterpEll(
+            l, log(fht.k[ltrunc]), fht.getDLn(), Nres, fht.field + ltrunc);
+    }
+
+    interp2d_pS = Pell_S.toDiscreteLogInterpolation2D(LNKMIN, dlnk, N);
+
+    // Large scale
+    auto lnP_T = std::make_unique<double[]>(N * N);
+
+    /* Large-scale and small-scale 2Ds */
+    for (int iperp = 0; iperp < N; ++iperp) {
+        double kperp = exp(LNKMIN + iperp * dlnk);
+
+        for (int iz = 0; iz < N; ++iz) {
+            double kz = exp(LNKMIN + iz * dlnk);
+
+            lnP_T[iz + N * iperp] =    (interp2d_pT.evaluate(kperp, kz)
+                                        - interp2d_pS.evaluate(kperp, kz)
+                                        + SAFE_ZERO);
+        }
+    }
+
+    interp2d_pL.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_T.get(), N, N);
+
+    /* Large-scale and small-scale 1Ds */
+    for (int i = 0; i < N; ++i) {
+        double k = exp(LNKMIN + i * dlnk);
+
+        lnP_T[i] = (interp2d_pT.evaluate(k, 0) - interp2d_pS.evaluate(k, 0)
+                       + SAFE_ZERO);
+        lnP_T[i + N] = (interp2d_pT.evaluate(k, k)
+                           - interp2d_pS.evaluate(k, k) + SAFE_ZERO);
+    }
+
+    interp2d_pL.setInterpX(LNKMIN, dlnk, N, lnP_T.get());
+    interp2d_pL.setInterpY(LNKMIN, dlnk, N, lnP_T.get() + N);
+}
+#endif
