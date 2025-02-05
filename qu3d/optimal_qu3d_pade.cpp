@@ -14,6 +14,7 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
 
     // double s = (min_eval + max_eval) / 2.0;
     // double s = 1.0;
+    static double s = findMaxDiagonalAs();
 
     auto xi = std::make_unique<double[]>(pade_order),
          alphas = std::make_unique<double[]>(pade_order);
@@ -22,7 +23,7 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
         xi[i] = 0.5 * (1.0 + cos((2 * i + 1) * MY_PI / (2 * pade_order)));
         xi[i] = 1.0 / xi[i];
         alphas[i] = xi[i] - 1.0;
-        xi[i] /= pade_order;
+        xi[i] *= sqrt(s) / pade_order;
     }
 
     #pragma omp parallel for schedule(dynamic, 4)
@@ -35,7 +36,7 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
                         "New tolerance %.2e\n", pade_order, tolerance);
 
     for (int i = 0; i < pade_order; ++i) {
-        conjugateGradientIpH(alphas[i]);
+        conjugateGradientIpH(alphas[i], s);
 
         #pragma omp parallel for schedule(dynamic, 4)
         for (auto &qso : quasars)
@@ -47,9 +48,9 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
     for (auto &qso : quasars)
         std::swap(qso->sc_eta, qso->in);
 
-    multiplyAsVector();
+    multiplyAsVector(0, s);
 
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         std::swap(qso->sc_eta, qso->in);
         std::swap(qso->truth, qso->out);
