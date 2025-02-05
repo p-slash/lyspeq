@@ -4,9 +4,9 @@
 
 constexpr double SAFE_ZERO = 1E-300;
 
-DiscreteLogLogInterpolation2D<DiscreteCubicInterpolation1D, DiscreteBicubicSpline>
-MultipoleInterpolation::toDiscreteLogLogInterpolation2D(double x1, double dx, int N) {
-    DiscreteLogLogInterpolation2D<DiscreteCubicInterpolation1D, DiscreteBicubicSpline>
+DiscreteLogInterpolation2D<DiscreteCubicInterpolation1D, DiscreteBicubicSpline>
+MultipoleInterpolation::toDiscreteLogInterpolation2D(double x1, double dx, int N) {
+    DiscreteLogInterpolation2D<DiscreteCubicInterpolation1D, DiscreteBicubicSpline>
         output;
     auto lnP_T = std::make_unique<double[]>(N * N);
 
@@ -18,7 +18,7 @@ MultipoleInterpolation::toDiscreteLogLogInterpolation2D(double x1, double dx, in
                    k = sqrt(kperp * kperp + kz * kz),
                    mu = kz / k;
             k = log(k);
-            lnP_T[iz + N * iperp] = log(evaluate(k, mu) + SAFE_ZERO);
+            lnP_T[iz + N * iperp] = evaluate(k, mu);
         }
     }
 
@@ -27,8 +27,8 @@ MultipoleInterpolation::toDiscreteLogLogInterpolation2D(double x1, double dx, in
     for (int i = 0; i < N; ++i) {
         double k = x1 + i * dx;
 
-        lnP_T[i] = log(evaluate(k, 0) + SAFE_ZERO);
-        lnP_T[i + N] = log(evaluate(k, 1) + SAFE_ZERO);
+        lnP_T[i] = evaluate(k, 0);
+        lnP_T[i + N] = evaluate(k, 1);
     }
 
     output.setInterpX(x1, dx, N, lnP_T.get());
