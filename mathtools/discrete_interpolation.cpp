@@ -1,6 +1,5 @@
 #include "mathtools/discrete_interpolation.hpp"
 #include "mathtools/mathutils.hpp"
-#include <algorithm>
 #include <cassert>
 
 constexpr double
@@ -259,6 +258,8 @@ DiscreteBicubicSpline::DiscreteBicubicSpline(
         const double *z_arr, int Nxsize, int Nysize, int halfn
 ) : x1(x_start), dx(delta_x), y1(y_start), dy(delta_y), Nx(Nxsize), Ny(Nysize), halfm(halfn)
 {
+    x2 = x1 + dx * (Nx - 1);
+    y2 = y1 + dy * (Ny - 1);
     halfn = std::max(2, halfn);
     m = std::min(2 * halfn, Ny);  halfm = m / 2;  m = halfm * 2;
     _spl_local = std::make_unique<DiscreteCubicInterpolation1D>(y1, dy, m);
@@ -322,7 +323,7 @@ double DiscreteBicubicSpline::evaluateHermiteY(double x, double y) {
 }
 
 
-double DiscreteBicubicSpline::evaluateHermite2(double x, double y) {
+double DiscreteBicubicSpline::evaluateHermite2(double x, double y) const {
     double xdata[4], ydata[4];
     double xx = (x - x1) / dx, yy = (y - y1) / dy;
     int j0 = xx;  j0 = std::clamp(j0, 1, Nx - 3);  xx -= j0;  --j0;
