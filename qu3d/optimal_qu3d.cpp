@@ -307,13 +307,30 @@ void Qu3DEstimator::_setupMesh(double radius) {
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
     mesh.ngrid[2] = config.getInteger("NGRID_Z");
 
-    mesh.length[1] += 4.0 * radius;
-    double dyl = mesh.length[0] / mesh.ngrid[0] - mesh.length[1] / mesh.ngrid[1];
-    if (dyl > 0)
-        mesh.length[1] += dyl * mesh.ngrid[1];
+    double x0 = 0,
+           dx = mesh.length[0] / mesh.ngrid[0],
+           dy = mesh.length[1] / mesh.ngrid[1],
+           dz = mesh.length[2] / mesh.ngrid[2];
 
-    mesh.length[2] += 8.0 * mesh.length[2] / mesh.ngrid[2];
-    mesh.z0 -= 4.0 * mesh.length[2] / mesh.ngrid[2];
+    double delta_rad = specifics::MAX_RA - specifics::MIN_RA - 2 * MY_PI;
+    if (fabs(delta_rad) > (2 * MY_PI * DOUBLE_EPSILON)) {
+        mesh.disablePeriodicityX();
+        mesh.length[0] += 10.0 * dx;
+        x0 -= 5.0 * dx;
+    }
+
+    mesh.length[1] += 10.0 * dy;
+    mesh.length[2] += 10.0 * dz;
+    mesh.z0 -= 5.0 * dz;
+
+    double dyl = mesh.length[0] / mesh.ngrid[0] - mesh.length[1] / mesh.ngrid[1];
+    if (dyl > 0) {
+        mesh.length[1] += dyl * mesh.ngrid[1];
+    }
+    else {
+        mesh.length[0] -= dyl * mesh.ngrid[0];
+        x0 -= dyl * mesh.ngrid[0] / 2.0;
+    }
 
     if (config.getInteger("MatchCellSizeOfZToXY") > 0) {
         double dzl = (
@@ -336,20 +353,17 @@ void Qu3DEstimator::_setupMesh(double radius) {
         mesh.length[0], mesh.length[1], mesh.length[2], mesh.z0);
 
     mesh.construct(INPLACE_FFT);
-    double delta_rad = specifics::MAX_RA - specifics::MIN_RA - 2 * MY_PI;
-    if (fabs(delta_rad) > (2 * MY_PI * DOUBLE_EPSILON))
-        mesh.disablePeriodicityX();
 
-    LOG::LOGGER.STD(
-        "Mesh cell dimensions are as follows: "
-        "dx = %.3f Mpc, dy = %.3f Mpc, dz = %.3f Mpc.\n",
-        mesh.dx[0], mesh.dx[1], mesh.dx[2]);
+    LOG::LOGGER.STD("Mesh cell dimensions are as follows: "
+                    "dx = %.3f Mpc, dy = %.3f Mpc, dz = %.3f Mpc.\n",
+                    mesh.dx[0], mesh.dx[1], mesh.dx[2]);
 
     // Shift coordinates of quasars
     LOG::LOGGER.STD("Shifting quasar locations to center the mesh.\n");
     #pragma omp parallel for
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
+            qso->r[0 + 3 * i] -= x0;
             qso->r[1 + 3 * i] += mesh.length[1] / 2;
             qso->r[2 + 3 * i] -= mesh.z0;
         }
