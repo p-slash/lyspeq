@@ -392,7 +392,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
     /* Saves every Monte Carlo simulation. The results need to be
        post-processed to get the Fisher matrix. */
     constexpr int M_MCS = 5;
-    verbose = false;
+
     mc1 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
     mc2 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
     int nmc = 1;
@@ -408,9 +408,11 @@ void Qu3DEstimator::estimateTotalBiasMc() {
 
     Progress prog_tracker(max_monte_carlos, 10);
     for (; nmc <= max_monte_carlos; ++nmc) {
+        verbose = niter == 1;
         /* generate random Gaussian vector into truth */
         replaceDeltasWithGaussianField();
 
+        verbose = false;
         /* calculate Cinv . n into y */
         conjugateGradientDescent();
 
