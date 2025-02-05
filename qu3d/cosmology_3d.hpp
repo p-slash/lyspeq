@@ -133,8 +133,7 @@ namespace fidcosmo {
         std::unique_ptr<INTERP_COSMO_2D> interp2d_cfS;
         std::unique_ptr<DiscreteCubicInterpolation1D>
             interp1d_pT, interp1d_cfS, interp1d_cfT;
-        std::unique_ptr<DiscreteCubicInterpolation1D> interp_p3d_l[MAX_NUM_L];
-        MultipoleInterpolation xiell;
+        MultipoleInterpolation xi_ell_T, p3d_ell_T;
 
         std::unique_ptr<fidcosmo::FlatLCDM> cosmo;
 
@@ -169,11 +168,11 @@ namespace fidcosmo {
     public:
         DiscreteLogInterpolation2D<
             DiscreteCubicInterpolation1D, INTERP_COSMO_2D
-        > interp2d_pL;
+        > interp2d_pL, interp2d_pS;
 
         DiscreteLogLogInterpolation2D<
             DiscreteCubicInterpolation1D, INTERP_COSMO_2D
-        > interp2d_pS, interp2d_pT;
+        > interp2d_pT;
         /* This function reads following keys from config file:
         b_F: double
         alpha_F (double): Redshift growth power of b_F.
@@ -197,7 +196,9 @@ namespace fidcosmo {
         }
         double evalExplicit(double k, double kz) const;
         double evalP1d(double kz) const;
-        double evalP3dL(double k, int l) const;
+        double evalP3dL(double k, int l) const {
+            return p3d_ell_T.evaluateEll(l, k);
+        };
 
         double evalCorrFunc1dT(float rz) const {
             /* Evaluate total (L + S) 1D CF using interpolation. */
