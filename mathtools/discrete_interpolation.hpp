@@ -194,7 +194,7 @@ public:
     /* Note interp_2d must be defined y, x due to legacy code */
     std::unique_ptr<T2> interp_2d;
     std::unique_ptr<T1> interp_x, interp_y;
-    double evaluate(double x, double y) const {
+    virtual double evaluate(double x, double y) const {
         if ((x == 0) && (y == 0))
             return 0;
         else if (x == 0)
@@ -205,7 +205,7 @@ public:
         return interp_2d->evaluateHermite2(log(y), log(x));
     }
 
-    double evaluateSqrt(double x, double y) const {
+    virtual double evaluateSqrt(double x, double y) const {
         if ((x == 0) && (y == 0))
             return 0;
         else if (x == 0)
@@ -241,7 +241,7 @@ class DiscreteLogLogInterpolation2D : public DiscreteLogInterpolation2D<T1, T2> 
            DiscreteBicubicSpline */
 public:
     /* Note interp_2d must be defined y, x due to legacy code */
-    double evaluate(double x, double y) const {
+    double evaluate(double x, double y) const override {
         if ((x == 0) && (y == 0))
             return 0;
         else if (x == 0)
@@ -252,7 +252,7 @@ public:
         return exp(this->interp_2d->evaluateHermite2(log(y), log(x)));
     }
 
-    double evaluateSqrt(double x, double y) const {
+    double evaluateSqrt(double x, double y) const override {
         if ((x == 0) && (y == 0))
             return 0;
         else if (x == 0)
