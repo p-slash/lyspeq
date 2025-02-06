@@ -671,6 +671,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
     mock_grid_res_factor = config.getInteger("MockGridResolutionFactor");
+    pade_order = config.getInteger("PadeOrder");
     tolerance = config.getDouble("ConvergenceTolerance");
     mc_tol = tolerance;
     absolute_tolerance = config.getInteger("AbsoluteTolerance") > 0;
