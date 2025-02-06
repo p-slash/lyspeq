@@ -102,7 +102,7 @@ public:
             for (size_t k = 0; k < ngrid_kz; ++k) {
                 #ifdef DECONV_CIC_WINDOW
                 field_k[k + ngrid_kz * ij] /=
-                    asgn_window_xy[jxy] * asgn_window_z[k]
+                    asgn_window_xy[ij] * asgn_window_z[k];
                 #endif
                 field_k[k + ngrid_kz * ij] *=
                     invtotalvol * Pk.evaluate(kperp, k * k_fund[2]);
