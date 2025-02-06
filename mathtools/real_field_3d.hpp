@@ -100,10 +100,10 @@ public:
             double kperp = getKperpFromIperp(ij);
 
             for (size_t k = 0; k < ngrid_kz; ++k) {
-                // #ifdef DECONV_CIC_WINDOW
-                // field_k[k + ngrid_kz * ij] *=
-                //     iasgn_window_xy[ij] * iasgn_window_z[k];
-                // #endif
+                #ifdef DECONV_CIC_WINDOW
+                field_k[k + ngrid_kz * ij] *=
+                    iasgn_window_xy[ij] * iasgn_window_z[k];
+                #endif
                 field_k[k + ngrid_kz * ij] *=
                     invtotalvol * Pk.evaluate(kperp, k * k_fund[2]);
             }
