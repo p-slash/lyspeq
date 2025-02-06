@@ -1190,6 +1190,9 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
             alpha *= legendre_w(mu) * mesh.invtotalvol
                      * p3d_model->getSpectroWindow2(kz);
+            #ifdef DECONV_CIC_WINDOW
+            alpha /= mesh.asgn_window_xy[jxy] * mesh.asgn_window_z[jz];
+            #endif
             #ifdef RL_COMP_DERIV
             kt *= radius / rscale_factor;
             alpha *= exp(-kt * kt);
