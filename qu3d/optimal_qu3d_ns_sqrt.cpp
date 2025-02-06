@@ -164,7 +164,7 @@ void Qu3DEstimator::multiplyNewtonSchulzZ(int n, double s) {
 
 
 void Qu3DEstimator::multiplyCovSmallSqrtNewtonSchulz(int order) {
-    static double max_eval = estimateMaxEvalAs();
+    static double max_eval = findMaxDiagonalAs(); // estimateMaxEvalAs();
     CURR_NUM_TEMP_ARRAYS_SCHULZ = 0;
     NUMBER_SCHULZ_MULTIS = 0;
     multiplyNewtonSchulzY(order, max_eval);
