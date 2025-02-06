@@ -57,7 +57,6 @@ void RealField3D::_setAssignmentWindows() {
 
         iasgn_window_z[k] *= iasgn_window_z[k];
         iasgn_window_z[k] = 1.0 / iasgn_window_z[k];
-        fprintf(stderr, "%e  %e\n", kz, iasgn_window_z[k]);
     }
 }
 
