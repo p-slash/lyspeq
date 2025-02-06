@@ -46,7 +46,7 @@ public:
     float dx[3], length[3], z0;
     double k_fund[3], cellvol, invtotalvol, invsqrtcellvol;
     std::vector<std::complex<double>> field_k;
-    std::unique_ptr<double[]>  asgn_window_xy, asgn_window_z;
+    std::unique_ptr<double[]>  iasgn_window_xy, iasgn_window_z;
     double *field_x;
 
     RealField3D();
@@ -101,8 +101,8 @@ public:
 
             for (size_t k = 0; k < ngrid_kz; ++k) {
                 #ifdef DECONV_CIC_WINDOW
-                field_k[k + ngrid_kz * ij] /=
-                    asgn_window_xy[ij] * asgn_window_z[k];
+                field_k[k + ngrid_kz * ij] *=
+                    iasgn_window_xy[ij] * iasgn_window_z[k];
                 #endif
                 field_k[k + ngrid_kz * ij] *=
                     invtotalvol * Pk.evaluate(kperp, k * k_fund[2]);
