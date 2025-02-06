@@ -34,6 +34,7 @@ void RealField3D::_setAssignmentWindows() {
     for (size_t ij = 0; ij < ngrid_xy; ++ij) {
         double kx, ky, window;
         getKperpFromIperp(ij, kx, ky);
+        kx = fabs(kx);  ky = fabs(ky);
         window = sinc(kx * dx[0] / 2.0);
         window = (1.0 - window * window) * connes(
             kx, knyq_x * CONNES_RATIO_NYQ_1, knyq_x * CONNES_RATIO_NYQ_2);
