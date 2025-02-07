@@ -91,7 +91,7 @@ public:
     void fftK2X();
 
     template<class T1, class T2>
-    void convolvePk(const DiscreteLogInterpolation2D<T1, T2> &Pk) {
+    void convolvePk(const DiscreteLogLogInterpolation2D<T1, T2> &Pk) {
         // S . x multiplication
         // Normalization including cellvol and N^3 yields inverse total volume
         fftw_execute(p_x2k);
@@ -112,7 +112,7 @@ public:
     }
 
     template<class T1, class T2>
-    void convolveSqrtPk(const DiscreteLogInterpolation2D<T1, T2> &Pk) {
+    void convolveSqrtPk(const DiscreteLogLogInterpolation2D<T1, T2> &Pk) {
         double norm = cellvol * invsqrtcellvol * invtotalvol;
 
         fftw_execute(p_x2k);
