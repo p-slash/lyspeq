@@ -124,6 +124,7 @@ public:
     void dumpSearchDirection();
     void testSymmetry();
     void estimateMaxEvals();
+    double estimateFrobeniusNormAs();
 
     // These are in original source file
     void multMeshComp();
