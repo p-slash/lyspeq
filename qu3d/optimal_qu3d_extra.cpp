@@ -1,3 +1,46 @@
+double Qu3DEstimator::estimateFrobeniusNormAs() {
+    // Trace (C C)
+    constexpr int M_MCS = 5;
+    verbose = false;
+    int nmc = 1;
+    bool is_converged = false;
+    double norm_F = -1, cur_total = 0;
+
+    // Direct estimation first.
+    LOG::LOGGER.STD("Estimating the Frobenius norm...");
+    for (; nmc <= max_conj_grad_steps; ++nmc) {
+        /* Generate z = +-1 per forest. */
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            rngs[myomp::getThreadNum()].fillVectorOnes(qso->in, qso->N);
+
+        multiplyAsVector();
+
+        #pragma omp parallel for reduction(+:cur_total)
+        for (auto &qso : quasars)
+            cur_total += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
+
+        if ((nmc % M_MCS != 0) && (nmc != max_monte_carlos))
+            continue;
+
+        double cur_norm = sqrt(cur_total / nmc);
+        if (isClose(cur_norm, norm_F, tolerance)) {
+            is_converged = true;
+            norm_F = cur_norm;
+            break;
+        }
+
+        norm_F = cur_norm;
+    }
+
+    if (is_converged)
+        LOG::LOGGER.STD(" Converged (%d iterations): %.2e\n", nmc, norm_F);
+    else
+        LOG::LOGGER.STD(" NOT converged: %.2e\n", norm_F);
+
+    return norm_F;
+}
+
 void Qu3DEstimator::calculateNewDirection(double beta)  {
     #pragma omp parallel for
     for (auto &qso : quasars) {
