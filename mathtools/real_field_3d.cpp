@@ -6,7 +6,7 @@
 #include <cassert>
 
 const double MY_PI = 3.14159265358979323846;
-const double CONNES_RATIO_NYQ_1 = 0.65, CONNES_RATIO_NYQ_2 = 0.85;
+const double H_NYQ_1 = 0.70, H_NYQ_2 = 0.90;
 
 
 inline double sinc(double x) {
@@ -15,12 +15,20 @@ inline double sinc(double x) {
 }
 
 
-double connes(double x, double x1, double x2) {
+double _hanning(double x, double x1, double x2) {
     double dx = x2 - x1;
     if (x < x1)  return 1.0;
     if (x > x2)  return 0;
     double r = cos((x - x1) * MY_PI / 2 / dx);
     return r * r;
+}
+
+
+double smoothCICtoOne(double k, double a) {
+    double window = sinc(k * a / 2.0), knyq = MY_PI / a,
+           hann = _hanning(k, knyq * H_NYQ_1, knyq * H_NYQ_2);
+    window = (1.0 - window * window) * hann ;
+    return 1.0 - window;
 }
 
 
@@ -35,15 +43,8 @@ void RealField3D::_setAssignmentWindows() {
         double kx, ky, window;
         getKperpFromIperp(ij, kx, ky);
         kx = fabs(kx);  ky = fabs(ky);
-        window = sinc(kx * dx[0] / 2.0);
-        window = (1.0 - window * window) * connes(
-            kx, knyq_x * CONNES_RATIO_NYQ_1, knyq_x * CONNES_RATIO_NYQ_2);
-        iasgn_window_xy[ij] = 1.0 - window;
-
-        window = sinc(ky * dx[1] / 2.0);
-        window = (1.0 - window * window) * connes(
-            ky, knyq_y * CONNES_RATIO_NYQ_1, knyq_y * CONNES_RATIO_NYQ_2);
-        iasgn_window_xy[ij] *= 1.0 - window;
+        iasgn_window_xy[ij] = smoothCICtoOne(kx, dx[0])
+                              * smoothCICtoOne(ky, dx[1]);
 
         iasgn_window_xy[ij] *= iasgn_window_xy[ij];
         iasgn_window_xy[ij] = 1.0 / iasgn_window_xy[ij];
@@ -51,11 +52,7 @@ void RealField3D::_setAssignmentWindows() {
 
     for (size_t k = 0; k < ngrid_kz; ++k) {
         double kz = k * k_fund[2], window;
-        window = sinc(kz * dx[2] / 2.0);
-        window = (1.0 - window * window) * connes(
-            kz, knyq_z * CONNES_RATIO_NYQ_1, knyq_z * CONNES_RATIO_NYQ_2);
-        iasgn_window_z[k] = 1.0 - window;
-
+        iasgn_window_z[k] = smoothCICtoOne(kz, dx[2]);
         iasgn_window_z[k] *= iasgn_window_z[k];
         iasgn_window_z[k] = 1.0 / iasgn_window_z[k];
     }
