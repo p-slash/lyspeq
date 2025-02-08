@@ -141,11 +141,13 @@ namespace fidcosmo {
         void _getCorrFunc2dS();
         void _calcMultipoles();
         double apodize(double r) const {
-            const static double _rmax_half = rmax / 2.0;
+            // const static double _rmax_half = rmax / 2.0;
+            const static double _r1 = 0.75 * rmax, _dr = rmax - _r1;
             // if (r > rmax)   return 0.0;
 
-            if (r < _rmax_half) return 1.0;
-            double y = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
+            if (r < _r1) return 1.0;
+            // double y = cos((r / _rmax_half - 1.0) * MY_PI / 2.0);
+            double y = cos((r - _r1) / _dr * MY_PI / 2.0);
             y *= y;
             return y;
         }
