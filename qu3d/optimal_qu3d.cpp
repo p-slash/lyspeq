@@ -328,8 +328,9 @@ void Qu3DEstimator::_setupMesh(double radius) {
         mesh.length[1] += dyl * mesh.ngrid[1];
     }
     else {
-        mesh.length[0] -= dyl * mesh.ngrid[0];
-        x0 -= dyl * mesh.ngrid[0] / 2.0;
+        dyl = fabs(dyl) * mesh.ngrid[0];
+        mesh.length[0] += dyl;
+        x0 -= dyl / 2.0;
     }
 
     if (config.getInteger("MatchCellSizeOfZToXY") > 0) {
