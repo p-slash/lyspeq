@@ -50,7 +50,7 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
 
     multiplyAsVector(0, s);
 
-    #pragma omp parallel for schedule(dynamic, 4)
+    #pragma omp parallel for
     for (auto &qso : quasars) {
         std::swap(qso->sc_eta, qso->in);
         std::swap(qso->truth, qso->out);
