@@ -205,9 +205,9 @@ namespace fidcosmo {
             /* Evaluate small-scale CF using interpolation.
                rzmin boundary cannot be hit.
             */
-            const static float rmaxf = rmax;
-            if (rz > rmaxf)  return 0;
-            return interp1d_cfS->evaluate(fastlog2(rz)) * apodize(rz);
+            // const static float rmaxf = rmax;
+            // if (rz > rmaxf)  return 0;
+            return interp1d_cfS->evaluate(fastlog2(rz));  // * apodize(rz);
         }
 
         double getVar1dS() const { return interp1d_cfS->get()[0]; }
