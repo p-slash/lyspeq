@@ -733,7 +733,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         else  _readNeighbors(neighbors_file);
     }
 
-    if (CONT_MARG_ENABLED)
+    bool end_imm = (config.getInteger("TestGaussianField") > 0)
+                   && (mock_grid_res_factor > 1);
+    if (CONT_MARG_ENABLED && !end_imm)
         _createRmatFiles(unique_prefix);
 
     #pragma omp parallel for
@@ -1162,7 +1164,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
         size_t jj = mesh.ngrid_kz * jxy;
 
-        std::fill_n(mesh.field_k.begin() + jj, mesh.ngrid_kz, 0);
+        std::fill_n(mesh.field_k.get() + jj, mesh.ngrid_kz, 0);
 
         double kx, ky;
         double kperp = mesh.getKperpFromIperp(jxy, kx, ky);
