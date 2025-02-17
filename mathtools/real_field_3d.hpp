@@ -69,6 +69,7 @@ public:
         iasgn_window_xy.reset();  iasgn_window_z.reset();
         fftw_destroy_plan(p_x2k);
         fftw_destroy_plan(p_k2x);
+        p_x2k = nullptr;  p_k2x = nullptr;
     }
 
     void zero_field_k() { std::fill_n(field_k.get(), size_complex, 0); }
