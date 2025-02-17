@@ -35,9 +35,6 @@ double smoothCICtoOne(double k, double a) {
 void RealField3D::_setAssignmentWindows() {
     iasgn_window_xy = std::make_unique<double[]>(ngrid_xy);
     iasgn_window_z = std::make_unique<double[]>(ngrid_kz);
-    double knyq_x = k_fund[0] * ngrid[0] / 2.0,
-           knyq_y = k_fund[1] * ngrid[1] / 2.0,
-           knyq_z = k_fund[2] * ngrid[2] / 2.0;
 
     for (size_t ij = 0; ij < ngrid_xy; ++ij) {
         double kx, ky, window;
@@ -108,10 +105,10 @@ void RealField3D::construct(bool inp) {
     ngrid_xy = ngrid[0] * ngrid[1];
     size_complex = ngrid_xy * ngrid_kz;
 
-    field_k.resize(size_complex);
+    field_k = std::make_unique<std::complex<double>[]>(size_complex);
 
     if (_inplace) {
-        field_x = reinterpret_cast<double*>(field_k.data());
+        field_x = reinterpret_cast<double*>(field_k.get());
         ngrid_z = ngrid[2] + 2 - (ngrid[2] % 2);
     }
     else {
@@ -122,12 +119,12 @@ void RealField3D::construct(bool inp) {
     
     p_x2k = fftw_plan_dft_r2c_3d(
         ngrid[0], ngrid[1], ngrid[2],
-        field_x, reinterpret_cast<fftw_complex*>(field_k.data()),
+        field_x, reinterpret_cast<fftw_complex*>(field_k.get()),
         FFTW_MEASURE);
 
     p_k2x = fftw_plan_dft_c2r_3d(
         ngrid[0], ngrid[1], ngrid[2],
-        reinterpret_cast<fftw_complex*>(field_k.data()), field_x,
+        reinterpret_cast<fftw_complex*>(field_k.get()), field_x,
         FFTW_MEASURE);
 
     _setAssignmentWindows();
