@@ -271,6 +271,7 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
 
     double t1 = mytime::timer.getTime();
     mesh_rnd.copy(mesh);
+    mesh.free();
     for (int axis = 0; axis < 3; ++axis)
         mesh_rnd.ngrid[axis] *= mock_grid_res_factor;
     mesh_rnd.construct(INPLACE_FFT);
