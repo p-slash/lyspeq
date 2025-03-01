@@ -24,8 +24,9 @@ namespace stats {
         std::sort(v, v + size);
         return stats::medianOfSortedArray(v, size);
     }
-    std::vector<double> medianFilter(
-        const double *v, int N, int width, PAD_MODE mode=NEAREST);
+
+    template<PAD_MODE mode=NEAREST>
+    std::vector<double> medianFilter(const double *v, int N, int width);
 
     void medianOffBalanceStats(
         std::vector<double> &v, double &med_offset, double &max_diff_offset

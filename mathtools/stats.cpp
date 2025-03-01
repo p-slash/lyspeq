@@ -39,8 +39,30 @@ std::vector<double> stats::getCdfs(double *v, int size, int nsigma) {
 }
 
 
-std::vector<double> stats::medianFilter(
-        const double *v, int N, int width, PAD_MODE mode
+template <>
+std::vector<double> stats::medianFilter<stats::NEAREST>(
+        const double *v, int N, int width
+) {
+    std::vector<double> out(N);
+    auto temp = std::make_unique<double[]>(width);
+    int hw = width / 2;
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < width; ++j) {
+            int k = i - hw + j;
+            k = std::clamp(k, 0, N - 1);
+            temp[j] = v[k];
+        }
+
+        out[i] = medianOfUnsortedVector(temp.get(), width);
+    }
+
+    return out;
+}
+
+
+template <>
+std::vector<double> stats::medianFilter<stats::REFLECT>(
+        const double *v, int N, int width
 ) {
     std::vector<double> out(N);
     auto temp = std::make_unique<double[]>(width);
@@ -49,13 +71,8 @@ std::vector<double> stats::medianFilter(
         for (int j = 0; j < width; ++j) {
             int k = i - hw + j;
 
-            if (mode == NEAREST) {
-                k = std::clamp(k, 0, N - 1);
-            }
-            else {
-                if (k < 0) k = -k;
-                if (k > N - 1)  k = 2 * (N - 1) - k;
-            }
+            if (k < 0) k = -k;
+            else if (k > N - 1)  k = 2 * (N - 1) - k;
 
             temp[j] = v[k];
         }
@@ -65,3 +82,4 @@ std::vector<double> stats::medianFilter(
 
     return out;
 }
+
