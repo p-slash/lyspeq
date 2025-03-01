@@ -1,31 +1,8 @@
 #include "mathtools/stats.hpp"
 
-#include <algorithm>
 #include <cmath>
+#include <memory>
 #include <numeric>
-
-
-double stats::medianOfSortedArray(const double *sorted_arr, int size) {
-    if (size % 2 == 0) {
-        int jj = size / 2;
-        return (sorted_arr[jj - 1] + sorted_arr[jj]) / 2;
-    } else {
-        int jj = size / 2;
-        return sorted_arr[jj];
-    }
-}
-
-
-double stats::medianOfUnsortedVector(std::vector<double> &v) {
-    std::sort(v.begin(), v.end());
-    return stats::medianOfSortedArray(v.data(), v.size());
-}
-
-
-double stats::medianOfUnsortedVector(double *v, int size) {
-    std::sort(v, v + size);
-    return stats::medianOfSortedArray(v, size);
-}
 
 
 void stats::medianOffBalanceStats(
@@ -59,4 +36,32 @@ std::vector<double> stats::getCdfs(double *v, int size, int nsigma) {
     }
 
     return result;
+}
+
+
+std::vector<double> stats::medianFilter(
+        const double *v, int N, int width, PAD_MODE mode
+) {
+    std::vector<double> out(N);
+    auto temp = std::make_unique<double[]>(width);
+    int hw = width / 2;
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < width; ++j) {
+            int k = i - hw + j;
+
+            if (mode == NEAREST) {
+                k = std::clamp(k, 0, N - 1);
+            }
+            else {
+                if (k < 0) k = -k;
+                if (k > N - 1)  k = 2 * (N - 1) - k;
+            }
+
+            temp[j] = v[k];
+        }
+
+        out[i] = medianOfUnsortedVector(temp.get(), width);
+    }
+
+    return out;
 }
