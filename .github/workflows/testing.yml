@@ -32,7 +32,7 @@ jobs:
       run: make test
     - name: cmake
       run: |
-        mkdir build-aux && cd build-aux
+        mkdir myls-build-aux ; cd myls-build-aux
         cmake .. -DENABLE_MPI=OFF
         cmake --build .
         ctest .
