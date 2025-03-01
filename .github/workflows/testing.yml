@@ -33,6 +33,6 @@ jobs:
     - name: cmake
       run: |
         mkdir build-aux && cd build-aux
-        cmake .. --DENABLE_MPI=OFF
+        cmake .. -DENABLE_MPI=OFF
         cmake --build .
         ctest .
