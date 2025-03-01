@@ -20,6 +20,7 @@ set(intel_like_cxx "$<COMPILE_LANG_AND_ID:CXX,Intel,IntelLLVM>")
 # endif()
 
 add_compile_options(-std=c++20)
+add_library(MY_OMP_MPI INTERFACE)
 
 if (DEBUG)
     add_compile_options(-g)
@@ -35,6 +36,7 @@ find_package(PkgConfig REQUIRED)
 if (ENABLE_OPENMP)
     find_package(OpenMP REQUIRED)
     add_definitions(-DENABLE_OMP)
+    target_link_libraries(MY_OMP_MPI INTERFACE OpenMP::OpenMP_CXX)
 endif()
 
 # =======================
@@ -81,6 +83,7 @@ if (ENABLE_MPI)
     # message("lib" ${MPI_LIBRARIES})
     # message("flags" ${MPI_CFLAGS})
     # set(MPI_LINKS_MINE mpi)
+    target_link_libraries(MY_OMP_MPI INTERFACE MPI::MPI_CXX)
 endif()
 
 pkg_check_modules(CFITSIO REQUIRED cfitsio)
@@ -125,8 +128,8 @@ add_library(CoreObjLibs OBJECT
     mathtools/stats.cpp
 )
 target_link_libraries(CoreObjLibs PUBLIC
-    OpenMP::OpenMP_CXX MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
-    MY_FFTW3_INTERFACE GSL::gsl MPI::MPI_CXX)
+    MY_OMP_MPI MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
+    MY_FFTW3_INTERFACE GSL::gsl)
 
 add_library(SqTableObjLibs OBJECT
     core/sq_table.cpp io/sq_lookup_table_file.cpp
@@ -134,15 +137,15 @@ add_library(SqTableObjLibs OBJECT
     mathtools/discrete_interpolation.cpp mathtools/interpolation.cpp
     mathtools/interpolation_2d.cpp
 )
-target_link_libraries(SqTableObjLibs PUBLIC OpenMP::OpenMP_CXX GSL::gsl MPI::MPI_CXX)
+target_link_libraries(SqTableObjLibs PUBLIC MY_OMP_MPI GSL::gsl)
 
 add_library(AllObjLibs INTERFACE)
 target_sources(AllObjLibs INTERFACE
     $<TARGET_OBJECTS:GlobalObjLibs> $<TARGET_OBJECTS:CoreObjLibs>
     $<TARGET_OBJECTS:SqTableObjLibs>)
 target_link_libraries(AllObjLibs INTERFACE
-    OpenMP::OpenMP_CXX MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
-    MY_FFTW3_INTERFACE GSL::gsl MPI::MPI_CXX)
+    MY_OMP_MPI MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
+    MY_FFTW3_INTERFACE GSL::gsl)
 
 # custom target to test filtering. Usage: cmake --build . --target print_genex
 add_custom_target(print_genex
