@@ -1443,31 +1443,25 @@ int main(int argc, char *argv[]) {
 
     ConfigFile config = ConfigFile();
 
-    try
-    {
+    try {
         config.readFile(FNAME_CONFIG);
         LOG::LOGGER.open(config.get("OutputDir", "."), mympi::this_pe);
         specifics::printBuildSpecifics();
         mytime::writeTimeLogHeader();
     }
-    catch (std::exception& e)
-    {
+    catch (std::exception& e) {
         fprintf(stderr, "Error while reading config file: %s\n", e.what());
         myomp::clean_fftw();
         mympi::finalize();
         return 1;
     }
 
-    try
-    {
+    try {
         process::readProcess(config);
         bins::readBins(config);
         specifics::readSpecifics(config);
-        // conv::readConversion(config);
-        // fidcosmo::readFiducialCosmo(config);
     }
-    catch (std::exception& e)
-    {
+    catch (std::exception& e) {
         LOG::LOGGER.ERR("Error while parsing config file: %s\n",
             e.what());
         myomp::clean_fftw();
@@ -1475,51 +1469,44 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    try {
-        Qu3DEstimator qps(config);
-        bool test_gaussian_field = config.getInteger("TestGaussianField") > 0;
-        bool test_symmetry = config.getInteger("TestSymmetry") > 0;
-        bool test_hsqrt = config.getInteger("TestHsqrt") > 0;
-        config.checkUnusedKeys();
+    Qu3DEstimator qps(config);
+    bool test_gaussian_field = config.getInteger("TestGaussianField") > 0;
+    bool test_symmetry = config.getInteger("TestSymmetry") > 0;
+    bool test_hsqrt = config.getInteger("TestHsqrt") > 0;
+    config.checkUnusedKeys();
 
-        if (qps.max_eval_enabled)
-            qps.estimateMaxEvals();
+    if (qps.max_eval_enabled)
+        qps.estimateMaxEvals();
 
-        if (test_symmetry)
-            qps.testSymmetry();
+    if (test_symmetry)
+        qps.testSymmetry();
 
-        if (test_hsqrt)
-            qps.testCovSqrt();
+    if (test_hsqrt)
+        qps.testCovSqrt();
 
-        if (test_gaussian_field) {
-            if (qps.mock_grid_res_factor > 1) {
-                qps.replaceDeltasWithHighResGaussianField();
-                goto EndOptimalQu3DNormally;
-            }
-            else
-                qps.replaceDeltasWithGaussianField();
+    if (test_gaussian_field) {
+        if (qps.mock_grid_res_factor > 1) {
+            qps.replaceDeltasWithHighResGaussianField();
+            goto EndOptimalQu3DNormally;
         }
-
-        qps.estimatePower();
-
-        if (qps.total_bias_enabled)
-            qps.estimateTotalBiasMc();
-
-        if (qps.total_bias_direct_enabled)
-            qps.estimateTotalBiasDirect();
-
-        if (qps.noise_bias_enabled)
-            qps.estimateNoiseBiasMc();
-
-        if (qps.fisher_direct_enabled)
-            qps.estimateFisherDirect();
+        else {
+            qps.replaceDeltasWithGaussianField();
+        }
     }
-    catch (std::exception& e) {
-        LOG::LOGGER.ERR(e.what());
-        myomp::clean_fftw();
-        mympi::finalize();
-        return 1;
-    }
+
+    qps.estimatePower();
+
+    if (qps.total_bias_enabled)
+        qps.estimateTotalBiasMc();
+
+    if (qps.total_bias_direct_enabled)
+        qps.estimateTotalBiasDirect();
+
+    if (qps.noise_bias_enabled)
+        qps.estimateNoiseBiasMc();
+
+    if (qps.fisher_direct_enabled)
+        qps.estimateFisherDirect();
 
 EndOptimalQu3DNormally:
     myomp::clean_fftw();
