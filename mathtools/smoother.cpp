@@ -14,6 +14,7 @@
 #endif
 
 std::unique_ptr<Smoother> process::smoother;
+#define THRESHOLD_VAR 1E6
 
 
 void padArray(
@@ -28,10 +29,10 @@ void padArray(
 
 
 double _getMedianBelowThreshold(
-        double *sorted_arr, int size, int &newsize, double thres=1e3
+        double *sorted_arr, int size, int &newsize
 ) {
     newsize = size;
-    while ((newsize != 0) && sorted_arr[newsize - 1] > thres)
+    while ((newsize != 0) && sorted_arr[newsize - 1] > THRESHOLD_VAR)
         --newsize;
 
     if (newsize == 0)
@@ -42,12 +43,11 @@ double _getMedianBelowThreshold(
 
 
 void _findMedianStatistics(
-        double *arr, int size, double &median, double &mean, double &mad,
-        double thres=1e3
+        double *arr, int size, double &median, double &mean, double &mad
 ) {
     int newsize;
     std::sort(arr, arr + size);
-    median = _getMedianBelowThreshold(arr, size, newsize, thres);
+    median = _getMedianBelowThreshold(arr, size, newsize);
     mean = std::accumulate(arr, arr + newsize, 0.) / newsize;
 
     std::for_each(arr, arr + newsize, [median](double &f) { f = fabs(f - median); });
@@ -58,21 +58,47 @@ void _findMedianStatistics(
 }
 
 
+double _findInterpolatingFinite(const double *in, int j, int size) {
+    double l = 0, u = 0;
+    int m, n;
+    for (m = 1; j - m >= 0; ++m) {
+        if ((in[j - m] < THRESHOLD_VAR)) {
+            l = in[j - m];
+            break;
+        }
+    }
+
+    for (n = 1; j + n < size; ++n) {
+        if (in[j + n] < THRESHOLD_VAR) {
+            u = in[j + n];
+            break;
+        }
+    }
+
+    if (l == 0)  return u;
+    if (u == 0)  return l;
+
+    return (l * n + u * m) / (m + n);
+}
+
+
 void _fillMaskedRegion(
-        const std::vector<int> &mask_idx, int HWSIZE, double mean, int size,
-        std::vector<double> &v
+        const std::vector<int> &mask_idx, int HWSIZE,
+        int size, std::vector<double> &v
 ) {
     if (mask_idx.empty())
         return;
 
-    if (mask_idx.front() == 0)
-        std::fill_n(v.begin(), HWSIZE, mean);
+    double *in = v.data() + HWSIZE;
+    for (const int &idx : mask_idx) {
+        if (in[idx] < THRESHOLD_VAR)
+            v[idx + HWSIZE] = in[idx];
+        else
+            v[idx + HWSIZE] = _findInterpolatingFinite(in, idx, size);
+    }
 
-    for (const int &idx : mask_idx)
-        v[idx + HWSIZE] = mean;
-
-    if (mask_idx.back() == size - 1)
-        std::fill_n(v.end() - HWSIZE, HWSIZE, mean);
+    std::fill_n(v.begin(), HWSIZE, v[HWSIZE]);
+    std::fill_n(v.end() - HWSIZE, HWSIZE, v[size - 1 + HWSIZE]);
 }
 
 
@@ -130,7 +156,7 @@ void Smoother::smooth1D(double *inplace, int size, int ndim) {
 
 void Smoother::smoothIvar(const double *ivar, double *out, int size) {
     DEBUG_LOG("Smoothing ivar.\n");
-    double median, mad, mean;
+    double count = 0, mean = 0;
 
     // measure old statistics "n2"
     std::transform(
@@ -139,31 +165,48 @@ void Smoother::smoothIvar(const double *ivar, double *out, int size) {
                 return 1e15;
             return 1.0 / iv;
         });
-    _findMedianStatistics(out, size, median, mean, mad);
-    mean = 1.0 / mean;
-    mad *= 3.5;
-    mad = 1.0 / (median + mad);
+
+    for (int i = 0; i < size; ++i) {
+        if (out[i] > THRESHOLD_VAR)  continue;
+        mean += out[i];
+        count += 1.0;
+    }
+    mean /= count;
+
+    std::vector<double> medfilt_var = stats::medianFilter(out, size, KS);
+    for (int i = 0; i < size; ++i)
+        out[i] = fabs(out[i] - medfilt_var[i]) + 1e-8 + out[i] * 1e-6;
+
+    std::vector<double> mad = stats::medianFilter<stats::REFLECT>(out, size, KS);
+    for (int i = 0; i < size; ++i)
+        mad[i] = 1.0 / std::min(THRESHOLD_VAR, medfilt_var[i] + 5 * 1.4826 * mad[i]);
 
     // Isolate masked pixels as they have high noise
     // n->0 should be smoothed
     std::vector<int> mask_idx;
     for (int i = 0; i < size; ++i)
-        if (ivar[i] < mad)
+        if (ivar[i] < mad[i])
             mask_idx.push_back(i);
 
     if (use_mean) {
         std::fill_n(out, size, mean);
     } else {
-        std::vector<double> tempvector;
-        padArray(ivar, size, HWSIZE, tempvector);
-
-        _fillMaskedRegion(mask_idx, HWSIZE, mean, size, tempvector);
-
         // Smooth variance to preserve total variance as much as possible.
-        std::for_each(
-            tempvector.begin(), tempvector.end(), [](double &t) {
-                t = 1.0 / t;
-            });
+        std::vector<double> tempvector(size + 2 * HWSIZE);
+
+        std::transform(
+            ivar, ivar + size, tempvector.begin() + HWSIZE,
+            [](const double &iv) {
+                if (iv == 0)
+                    return 1e15;
+                return 1.0 / iv;
+            }
+        );
+
+        for (const int &idx : mask_idx)
+            tempvector[idx + HWSIZE] = 1e15;
+
+        _fillMaskedRegion(mask_idx, HWSIZE, size, tempvector);
 
         // Convolve
         // std::fill_n(out, size, 0);
