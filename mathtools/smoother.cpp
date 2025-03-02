@@ -15,6 +15,7 @@
 
 std::unique_ptr<Smoother> process::smoother;
 #define THRESHOLD_VAR 1E6
+#define MASKVAL_VAR 1E15
 
 
 void padArray(
@@ -162,7 +163,7 @@ void Smoother::smoothIvar(const double *ivar, double *out, int size) {
     std::transform(
         ivar, ivar + size, out, [](const double &iv) {
             if (iv == 0)
-                return 1e15;
+                return MASKVAL_VAR;
             return 1.0 / iv;
         });
 
@@ -198,13 +199,13 @@ void Smoother::smoothIvar(const double *ivar, double *out, int size) {
             ivar, ivar + size, tempvector.begin() + HWSIZE,
             [](const double &iv) {
                 if (iv == 0)
-                    return 1e15;
+                    return MASKVAL_VAR;
                 return 1.0 / iv;
             }
         );
 
         for (const int &idx : mask_idx)
-            tempvector[idx + HWSIZE] = 1e15;
+            tempvector[idx + HWSIZE] = MASKVAL_VAR;
 
         _fillMaskedRegion(mask_idx, HWSIZE, size, tempvector);
 
@@ -218,3 +219,6 @@ void Smoother::smoothIvar(const double *ivar, double *out, int size) {
     for (const int &idx : mask_idx)
         out[idx] = ivar[idx];
 }
+
+#undef THRESHOLD_VAR
+#undef MASKVAL_VAR
