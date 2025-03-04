@@ -91,11 +91,14 @@ int TestOneQSOEstimate::test_setQiMatrix()
 
 int test_smoothing() {
     int N = 300;
-    auto inivar = std::make_unique<double[]>(N),
+    auto wavein = std::make_unique<double[]>(N),
+         inivar = std::make_unique<double[]>(N),
          outivar = std::make_unique<double[]>(N);
 
-    for (int i = 0; i < N; ++i)
-        inivar[i] = pow((i + 1) / 250.0, 1.02);
+    for (int i = 0; i < N; ++i) {
+        wavein[i] = (3600.0 + i * 0.8) / 1215.67;
+        inivar[i] = pow((i + 100) / 250.0, 1.7);
+    }
 
     for (int i = 0; i < 5; ++i) {
         inivar[50 + i] = 0;
@@ -108,7 +111,8 @@ int test_smoothing() {
         fprintf(toWrite, "%.8e\n", inivar[i]);
     fclose(toWrite);
 
-    process::smoother->smoothIvar(inivar.get(), outivar.get(), N);
+    process::smoother->smoothIvarBspline(
+        wavein.get(), inivar.get(), outivar.get(), N);
 
     toWrite = fopen("outarr.txt", "w");
     for (int i = 0; i < N; ++i)
