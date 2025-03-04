@@ -126,6 +126,7 @@ add_library(CoreObjLibs OBJECT
     mathtools/real_field.cpp
     core/chunk_estimate.cpp
     mathtools/smoother.cpp
+    mathtools/bspline.cpp
     io/bootstrap_file.cpp
     mathtools/stats.cpp
 )

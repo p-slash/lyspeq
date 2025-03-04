@@ -26,6 +26,8 @@ public:
     Smoother(const Smoother &rhs) = delete;
 
     void smoothIvar(const double *ivar, double *out, int size);
+    void smoothIvarBspline(
+        const double *wave, const double *ivar, double *out, int size);
     void smooth1D(double *inplace, int size, int ndim=1);
     bool isSmoothingOn() const { return is_smoothing_on; }
     bool isSmoothingOnRmat() const { return is_smoothing_on_rmat; }

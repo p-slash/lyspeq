@@ -14,6 +14,7 @@
 #include "core/fiducial_cosmology.hpp"
 
 #include "mathtools/matrix_helper.hpp"
+#include "mathtools/smoother.hpp"
 
 #include "io/logger.hpp"
 #include "io/io_helper_functions.hpp"
@@ -88,6 +89,38 @@ int TestOneQSOEstimate::test_setQiMatrix()
     return 0;
 }
 
+int test_smoothing() {
+    int N = 300;
+    auto wavein = std::make_unique<double[]>(N),
+         inivar = std::make_unique<double[]>(N),
+         outivar = std::make_unique<double[]>(N);
+
+    for (int i = 0; i < N; ++i) {
+        wavein[i] = (3600.0 + i * 0.8) / 1215.67;
+        inivar[i] = pow((i + 100) / 250.0, 1.7);
+    }
+
+    for (int i = 0; i < 5; ++i) {
+        inivar[50 + i] = 0;
+        inivar[123 + i] = 0;
+        inivar[128 + i] = 0;
+    }
+
+    FILE *toWrite = fopen("inarr.txt", "w");
+    for (int i = 0; i < N; ++i)
+        fprintf(toWrite, "%.8e\n", inivar[i]);
+    fclose(toWrite);
+
+    process::smoother->smoothIvarBspline(
+        wavein.get(), inivar.get(), outivar.get(), N);
+
+    toWrite = fopen("outarr.txt", "w");
+    for (int i = 0; i < N; ++i)
+        fprintf(toWrite, "%.8e\n", outivar[i]);
+    fclose(toWrite);
+    return 0;
+}
+
 int test_SQLookupTable(const ConfigFile &config)
 {
     int r = 0;
@@ -146,6 +179,7 @@ int main(int argc, char *argv[])
     {
         // Read variables from config file and set up bins.
         config.readFile(FNAME_CONFIG);
+        config.update("SmoothNoiseWeights", "20");
         LOG::LOGGER.open(config.get("OutputDir", "."), mympi::this_pe);
         specifics::printBuildSpecifics();
         mytime::writeTimeLogHeader();
@@ -169,6 +203,8 @@ int main(int argc, char *argv[])
             e.what());
         return 1;
     }
+
+    process::smoother = std::make_unique<Smoother>(config);
 
     try
     {
@@ -196,6 +232,7 @@ int main(int argc, char *argv[])
     TestOneQSOEstimate toqso(filepaths[0]);
     r+=toqso.test_setFiducialSignalMatrix();
     r+=toqso.test_setQiMatrix();
+    r+=test_smoothing();
 
     if (r == 0)
         LOG::LOGGER.STD("SQ matrices work!\n");
