@@ -1,5 +1,6 @@
 #include "mathtools/smoother.hpp"
 #include "mathtools/stats.hpp"
+#include "mathtools/bspline.hpp"
 #include "io/logger.hpp"
 
 #include <cmath>
@@ -59,18 +60,20 @@ void _findMedianStatistics(
 }
 
 
-double _findInterpolatingFinite(const double *in, int j, int size) {
+double _findInterpolatingFinite(
+        const double *in, int j, int size, const double T=THRESHOLD_VAR
+) {
     double l = 0, u = 0;
     int m, n;
     for (m = 1; j - m >= 0; ++m) {
-        if ((in[j - m] < THRESHOLD_VAR)) {
+        if ((in[j - m] < T)) {
             l = in[j - m];
             break;
         }
     }
 
     for (n = 1; j + n < size; ++n) {
-        if (in[j + n] < THRESHOLD_VAR) {
+        if (in[j + n] < T) {
             u = in[j + n];
             break;
         }
@@ -213,6 +216,88 @@ void Smoother::smoothIvar(const double *ivar, double *out, int size) {
         // std::fill_n(out, size, 0);
         for (int i = 0; i < size; ++i)
             out[i] = 1.0 / cblas_ddot(KS, gaussian_kernel, 1, tempvector.data() + i, 1);
+    }
+
+    // Restore original noise for masked pixels
+    for (const int &idx : mask_idx)
+        out[idx] = ivar[idx];
+}
+
+
+void Smoother::smoothIvarBspline(
+        const double *wave, const double *ivar, double *out, int size
+) {
+    DEBUG_LOG("Smoothing ivar.\n");
+    double count = 0, mean = 0;
+
+    // measure old statistics "n2"
+    std::transform(
+        ivar, ivar + size, out, [](const double &iv) {
+            if (iv == 0)
+                return MASKVAL_VAR;
+            return 1.0 / iv;
+        });
+
+    for (int i = 0; i < size; ++i) {
+        if (out[i] > THRESHOLD_VAR)  continue;
+        mean += out[i];
+        count += 1.0;
+    }
+    mean /= count;
+
+    std::vector<double> medfilt_var = stats::medianFilter(out, size, KS);
+    for (int i = 0; i < size; ++i)
+        out[i] = 1.4826 * fabs(out[i] - medfilt_var[i]) + 1e-8;
+
+    std::vector<double> mad = stats::medianFilter<stats::REFLECT>(out, size, KS);
+    for (int i = 0; i < size; ++i)
+        out[i] = 1.0 / std::min(THRESHOLD_VAR, medfilt_var[i] + 5 * mad[i]);
+
+    // Isolate masked pixels as they have high noise
+    // n->0 should be smoothed
+    std::vector<int> mask_idx;
+    for (int i = 0; i < size; ++i)
+        if (ivar[i] < out[i])
+            mask_idx.push_back(i);
+
+    if (use_mean) {
+        std::fill_n(out, size, mean);
+    } else {
+        FILE *toWrite;
+        // Smooth variance to preserve total variance as much as possible.
+        std::transform(
+            ivar, ivar + size, out, [](const double &iv) {
+                if (iv == 0)
+                    return MASKVAL_VAR;
+                return 1.0 / iv;
+            }
+        );
+
+        std::fill(mad.begin(), mad.end(), 1e12);
+
+        for (const int &idx : mask_idx) {
+            out[idx] = MASKVAL_VAR;
+            mad[idx] /= 2.0;
+        }
+
+        // toWrite = fopen("outmadarr.txt", "w");
+        // for (int i = 0; i < size; ++i)
+        //     fprintf(toWrite, "%.8e\n", mad[i]);
+        // fclose(toWrite);
+
+        std::for_each(out, out + size, [](double &x) { x = log(x); });
+        for (const int &idx : mask_idx)
+            out[idx] = _findInterpolatingFinite(out, idx, size, log(THRESHOLD_VAR));
+
+        BSpline::smoothInputY(wave, out, size, mad.data());
+
+        toWrite = fopen("outvararr.txt", "w");
+        for (int i = 0; i < size; ++i)
+            fprintf(toWrite, "%.8e\n", out[i]);
+        fclose(toWrite);
+
+        for (int i = 0; i < size; ++i)
+            out[i] = exp(-out[i]);
     }
 
     // Restore original noise for masked pixels
