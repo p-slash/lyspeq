@@ -21,6 +21,10 @@ public:
     int getInteger(const std::string &key, int fallback=0);
     // bool getBool(const std::string &key, bool fallback=false) const;
 
+    void update(const std::string &key, const std::string &value) {
+        key_umap[key] = value;
+    }
+
     // add map in source only if it does not exist in target.
     void addDefaults(const config_map &default_config);
     void addDefaults(const ConfigFile &config) { addDefaults(config.key_umap); };
