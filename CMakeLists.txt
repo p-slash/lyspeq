@@ -70,7 +70,8 @@ elseif (USE_MKL_LIB)
     target_link_libraries(MY_BLAS_INTERFACE INTERFACE $<LINK_ONLY:MKL::MKL>)
 else()
     find_package(BLAS REQUIRED)
-    target_link_libraries(MY_BLAS_INTERFACE INTERFACE BLAS::BLAS)
+    find_package(LAPACK REQUIRED)
+    target_link_libraries(MY_BLAS_INTERFACE INTERFACE BLAS::BLAS LAPACK::LAPACK)
 endif()
 
 # ===
