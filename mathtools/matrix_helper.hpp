@@ -4,6 +4,8 @@
 #include <memory>
 #include <vector>
 
+#define  __GSL_CBLAS_H__
+
 #ifdef USE_MKL_CBLAS
 #include "mkl_cblas.h"
 #include "mkl_lapacke.h"
