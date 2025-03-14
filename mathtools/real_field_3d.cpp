@@ -256,8 +256,9 @@ double RealField3D::interpolateLanczos(float coord[3]) const {
          = sum_{i = 1 - a}^{a} s_{n + i} L(d - i)
          = sum_{i = 0}^{2 * a - 1} s_{n + 1 - a + i} L(d + a - 1 - i)
     */
+    #define A2_LANCZOS (2 * A_LANCZOS)
     int n[3];
-    double r = 0, lanczos_kernel[3][2 * A_LANCZOS];
+    double r = 0, lanczos_kernel[3][A2_LANCZOS];
 
     for (int axis = 0; axis < 3; ++axis) {
         float d = coord[axis] / dx[axis];
@@ -272,27 +273,29 @@ double RealField3D::interpolateLanczos(float coord[3]) const {
             norm += lanczos_kernel[axis][2 - i];
         }
 
-        for (int i = 0; i < 2 * A_LANCZOS; ++i)
+        for (int i = 0; i < A2_LANCZOS; ++i)
             lanczos_kernel[axis][i] /= norm;
     }
 
-    for (int i = 0; i < 2 * A_LANCZOS; ++i) {
-        double kern1 = lanczos_kernel[0][i];
+    #pragma omp parallel for reduction(+:r) num_threads(A_LANCZOS)
+    for (int i = 0; i < A2_LANCZOS; ++i) {
         size_t idx0 = getIndex(
             n[0] - (A_LANCZOS - 1) + i,
             n[1] - (A_LANCZOS - 1),
             n[2] - (A_LANCZOS - 1));
 
-        for (int j = 0; j < 2 * A_LANCZOS; ++j) {
-            double kern2 = kern1 * lanczos_kernel[1][j];
+        double temp[A2_LANCZOS];
+        for (int j = 0; j < A2_LANCZOS; ++j)
+            temp[j] = cblas_ddot(
+                A2_LANCZOS, &lanczos_kernel[2][0], 1,
+                field_x + idx0 + j * ngrid_z, 1);
 
-            for (int k = 0; k < 2 * A_LANCZOS; ++k)
-                r += field_x[idx0 + j * ngrid_z + k]
-                     * kern2 * lanczos_kernel[2][k];
-        }
+        r += lanczos_kernel[0][i] * cblas_ddot(
+            A2_LANCZOS, &lanczos_kernel[1][0], 1, temp, 1);
     }
 
     return r;
+    #undef A2_LANCZOS
 }
 
 
