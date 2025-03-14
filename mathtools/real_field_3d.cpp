@@ -7,11 +7,19 @@
 
 const double MY_PI = 3.14159265358979323846;
 const double H_NYQ_1 = 0.70, H_NYQ_2 = 0.90;
-
+#define A_LANCZOS 3
 
 inline double sinc(double x) {
     if (x == 0)  return 1.0;
     return sin(x) / x;
+}
+
+
+inline double lanczos(double x) {
+    if (x == 0)  return 1.0;
+    // if (fabs(x) > A_LANCZOS)  return 0.0;
+    double pix = MY_PI * x, pix2 = pix * pix;
+    return A_LANCZOS * sin(pix) * sin(pix / A_LANCZOS) / pix2;
 }
 
 
@@ -242,6 +250,52 @@ double RealField3D::interpolate(float coord[3]) const {
 }
 
 
+double RealField3D::interpolateLanczos(float coord[3]) const {
+    /* LanczosK3 interpolation with a = 3
+    f(x) = sum_{i = -a}^{a - 1} s_{n - i} L(d + i)
+         = sum_{i = 1 - a}^{a} s_{n + i} L(d - i)
+         = sum_{i = 0}^{2 * a - 1} s_{n + 1 - a + i} L(d + a - 1 - i)
+    */
+    int n[3];
+    double r = 0, lanczos_kernel[3][2 * A_LANCZOS];
+
+    for (int axis = 0; axis < 3; ++axis) {
+        float d = coord[axis] / dx[axis];
+        n[axis] = d;
+        d -= n[axis];
+
+        // Reverse the kernel
+        // lanczos_kernel[axis][3 + i] = lanczos(d + i);
+        double norm = 0.0;
+        for (int i = -A_LANCZOS; i < A_LANCZOS; ++i) {
+            lanczos_kernel[axis][A_LANCZOS - 1 - i] = lanczos(d + i);
+            norm += lanczos_kernel[axis][2 - i];
+        }
+
+        for (int i = 0; i < 2 * A_LANCZOS; ++i)
+            lanczos_kernel[axis][i] /= norm;
+    }
+
+    for (int i = 0; i < 2 * A_LANCZOS; ++i) {
+        double kern1 = lanczos_kernel[0][i];
+        size_t idx0 = getIndex(
+            n[0] - (A_LANCZOS - 1) + i,
+            n[1] - (A_LANCZOS - 1),
+            n[2] - (A_LANCZOS - 1));
+
+        for (int j = 0; j < 2 * A_LANCZOS; ++j) {
+            double kern2 = kern1 * lanczos_kernel[1][j];
+
+            for (int k = 0; k < 2 * A_LANCZOS; ++k)
+                r += field_x[idx0 + j * ngrid_z + k]
+                     * kern2 * lanczos_kernel[2][k];
+        }
+    }
+
+    return r;
+}
+
+
 void RealField3D::reverseInterpolateCIC(float coord[3], double val) {
     int n[3];
     float d[3];
@@ -404,3 +458,5 @@ const {
     kperp = sqrt(ks[0] * ks[0] + ks[1] * ks[1]);
     kz = ks[2];
 }
+
+#undef A_LANCZOS
