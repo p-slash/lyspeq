@@ -1,6 +1,15 @@
 #ifndef INTERPOLATION_2D_H
 #define INTERPOLATION_2D_H
 
+// prevent gsl_cblas.h from being included
+#define  __GSL_CBLAS_H__
+
+#ifdef USE_MKL_CBLAS
+#include "mkl_cblas.h"
+#else
+#include "cblas.h"
+#endif
+
 #include <gsl/gsl_spline2d.h>
 
 enum GSL_2D_INTERPOLATION_TYPE
