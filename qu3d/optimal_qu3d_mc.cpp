@@ -293,7 +293,7 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             if (qso->isig[i] != 0) {
-                qso->truth[i] =  qso->z1[i] * mesh_rnd.interpolate(
+                qso->truth[i] =  qso->z1[i] * mesh_rnd.interpolateLanczos(
                     qso->r.get() + 3 * i
                     ) + rngs[myomp::getThreadNum()].normal() / qso->isig[i];
             }
