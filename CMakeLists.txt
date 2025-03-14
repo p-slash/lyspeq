@@ -151,7 +151,7 @@ add_library(SqTableObjLibs OBJECT
     mathtools/discrete_interpolation.cpp mathtools/interpolation.cpp
     mathtools/interpolation_2d.cpp
 )
-target_link_libraries(SqTableObjLibs PUBLIC MY_OMP_MPI GSL::gsl)
+target_link_libraries(SqTableObjLibs PUBLIC MY_OMP_MPI GSL::gsl MY_BLAS_INTERFACE)
 
 add_library(AllObjLibs INTERFACE)
 target_sources(AllObjLibs INTERFACE
