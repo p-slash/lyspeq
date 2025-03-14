@@ -44,6 +44,11 @@ if (ENABLE_OPENMP)
     target_link_libraries(MY_OMP_MPI INTERFACE OpenMP::OpenMP_CXX)
 endif()
 
+find_package(GSL REQUIRED)
+# GSL inline definition
+add_definitions(-DHAVE_INLINE)
+set_property(TARGET GSL::gsl PROPERTY INTERFACE_LINK_LIBRARIES "")
+
 # =======================
 # Create a BLAS interface 
 # =======================
@@ -70,7 +75,8 @@ elseif (USE_MKL_LIB)
     target_link_libraries(MY_BLAS_INTERFACE INTERFACE $<LINK_ONLY:MKL::MKL>)
 else()
     find_package(BLAS REQUIRED)
-    target_link_libraries(MY_BLAS_INTERFACE INTERFACE BLAS::BLAS)
+    find_package(LAPACK REQUIRED)
+    target_link_libraries(MY_BLAS_INTERFACE INTERFACE BLAS::BLAS LAPACK::LAPACK)
 endif()
 
 # ===
@@ -96,10 +102,6 @@ add_library(MY_FITSIO_INTERFACE INTERFACE)
 target_compile_options(MY_FITSIO_INTERFACE INTERFACE ${CFITSIO_CFLAGS})
 target_link_directories(MY_FITSIO_INTERFACE INTERFACE ${CFITSIO_LIBRARY_DIRS})
 target_link_libraries(MY_FITSIO_INTERFACE INTERFACE ${CFITSIO_LIBRARIES})
-
-find_package(GSL REQUIRED)
-# GSL inline definition
-add_definitions(-DHAVE_INLINE)
 
 pkg_check_modules(FFTW3 REQUIRED fftw3)
 add_library(MY_FFTW3_INTERFACE INTERFACE)
@@ -140,8 +142,8 @@ add_library(CoreObjLibs OBJECT
     mathtools/stats.cpp
 )
 target_link_libraries(CoreObjLibs PUBLIC
-    MY_OMP_MPI MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
-    MY_FFTW3_INTERFACE GSL::gsl)
+    MY_OMP_MPI GSL::gsl MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
+    MY_FFTW3_INTERFACE)
 
 add_library(SqTableObjLibs OBJECT
     core/sq_table.cpp io/sq_lookup_table_file.cpp
@@ -156,8 +158,8 @@ target_sources(AllObjLibs INTERFACE
     $<TARGET_OBJECTS:GlobalObjLibs> $<TARGET_OBJECTS:CoreObjLibs>
     $<TARGET_OBJECTS:SqTableObjLibs>)
 target_link_libraries(AllObjLibs INTERFACE
-    MY_OMP_MPI MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
-    MY_FFTW3_INTERFACE GSL::gsl)
+    MY_OMP_MPI GSL::gsl MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
+    MY_FFTW3_INTERFACE)
 
 add_library(Qu3dObjLibs OBJECT
     qu3d/optimal_qu3d.cpp qu3d/cosmology_3d.cpp
@@ -222,7 +224,7 @@ add_executable(cblas_tests
 )
 target_compile_definitions(cblas_tests PRIVATE SRCDIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(cblas_tests PUBLIC
-    OpenMP::OpenMP_CXX MY_BLAS_INTERFACE GSL::gsl MY_FFTW3_INTERFACE)
+    OpenMP::OpenMP_CXX GSL::gsl MY_BLAS_INTERFACE MY_FFTW3_INTERFACE)
 
 add_executable(testSQCMatrices tests/testSQCMatrices.cpp tests/test_utils.cpp)
 target_link_libraries(testSQCMatrices PRIVATE AllObjLibs)
