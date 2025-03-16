@@ -269,8 +269,9 @@ double RealField3D::interpolateLanczos(float coord[3]) const {
         // lanczos_kernel[axis][3 + i] = lanczos(d + i);
         double norm = 0.0;
         for (int i = -A_LANCZOS; i < A_LANCZOS; ++i) {
-            lanczos_kernel[axis][A_LANCZOS - 1 - i] = lanczos(d + i);
-            norm += lanczos_kernel[axis][2 - i];
+            int j = A_LANCZOS - 1 - i;
+            lanczos_kernel[axis][j] = lanczos(d + i);
+            norm += lanczos_kernel[axis][j];
         }
 
         for (int i = 0; i < A2_LANCZOS; ++i)
