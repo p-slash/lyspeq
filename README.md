@@ -40,6 +40,15 @@ cmake .. -DUSE_MKL_LIB=ON
 cmake --build .
 ctest .
 ```
+
+**NERSC Instuctions**:
+cfitsio directory has to be added to CMAKE search variable explicitly since it is not provided by modules.
+```
+source /global/common/software/desi/users/naimgk/activate_lyspeq.sh
+CMAKE_PREFIX_PATH=$CFITSIO_DIR cmake ..
+cmake --build . -j 2
+```
+
 **OSC Instructions (Intel)**:
 ```
 module load fftw gsl intel-oneapi-mkl cmake
