@@ -109,15 +109,17 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
     }
 }
 
-double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin)
+double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin, long &targetid)
 {
     zbin=-1;
+    targetid=-1;
 
     try
     {
         qio::QSOFile qtemp(fname_qso, specifics::INPUT_QSO_FILE);
 
         qtemp.readParameters();
+        targetid = qtemp.id;
         if (qtemp.snr < specifics::MIN_SNR_CUT)
             return 0;
 

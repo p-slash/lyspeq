@@ -354,6 +354,11 @@ function set_fftw3_inc_lib()
 
     printf "${fftw_test_text}" > ${test_file}.cpp
 
+    if [[ "${CPPFLAGS_OMP}" = "-fopenmp" ]]; then
+        fftw_omp_l="-lfftw3_omp "
+    else
+        fftw_omp_l=""
+    fi
     compile_command="${CXX} ${fftw3_cflags} -c ${test_file}.cpp -o ${test_file}.o"
     linking="${CXX} ${fftw3_cflags} ${test_file}.o -o ${test_file} ${fftw3_ldflags} -lfftw3 -lm"
     
@@ -363,7 +368,7 @@ function set_fftw3_inc_lib()
     echo ${linking}
     ${linking}
 
-    update_makefile_vars "${fftw3_cflags}" "${fftw3_ldflags}" "-lfftw3"
+    update_makefile_vars "${fftw3_cflags}" "${fftw3_ldflags}" "${fftw_omp_l}-lfftw3"
 }
 # -----------------------------------------------------------------------------
 

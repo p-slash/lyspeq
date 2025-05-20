@@ -2,13 +2,10 @@
 #define QSO_FILE_H
 
 #include <cstdio>
-#include <string>
 #include <vector>
-#include <memory>
 #include <map>
 
-#include <fitsio.h>
-
+#include "io/myfitsio.hpp"
 #include "core/global_numbers.hpp"
 #include "io/io_helper_functions.hpp"
 #include "mathtools/matrix_helper.hpp"
@@ -76,19 +73,26 @@ class PiccaFile
     void _readOptionalInt(const std::string &key, int &output);
 
 public:
+    /* Default is true. For thread safety, set use_cache = false */
+    static bool use_cache;
     static bool compareFnames(const std::string &s1, const std::string &s2);
     static void clearCache();
 
     // Assume fname to be ..fits.gz[1]
     PiccaFile(const std::string &fname_qso);
+    PiccaFile(const PiccaFile *pf, int hdunum);
     PiccaFile(PiccaFile &&rhs) = default;
     PiccaFile(const PiccaFile &rhs) = delete;
+
+    /* Only call this from the master copy of the file
+       AND if use_cache is false. */
+    void closeFile() { fits_close_file(fits_file, &status); }
 
     int getNumberSpectra() const {return no_spectra;};
 
     void readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
-        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
+        double &R_kms, double &sig2noi, double &dv_kms, double &dlambda,
         int &expid, int &night, int &fiber, int& petal);
 
     void readData(double *lambda, double *delta, double *ivar);
@@ -109,12 +113,13 @@ class QSOFile
 
 public:
     std::string fname;
-    double z_qso, snr, dv_kms, dlambda, ra, dec;
+    double z_qso, snr, dv_kms, R_kms, dlambda, ra, dec;
     long id;
     int R_fwhm, expid, night, fiber, petal;
     std::unique_ptr<mxhelp::Resolution> Rmat;
 
     QSOFile(const std::string &fname_qso, ifileformat p_or_b);
+    QSOFile(const PiccaFile* pf, int hdunum);
     // The "copy" constructor below also cuts masked boundaries.
     QSOFile(const qio::QSOFile &qmaster, int i1, int i2);
     QSOFile(QSOFile &&rhs) = delete;
@@ -135,6 +140,11 @@ public:
     double* wave() const  { return wave_head+shift; };
     double* delta() const { return delta_head+shift; };
     double* ivar() const { return ivar_head+shift; };
+    /* Assumes noise in IVAR form to downsample.
+       Assumes lambda grid regularly spaced.
+       Does not downsample resolution matrix.
+       Does not count masked pixels. */
+    void downsample(int m);
 
     double getMinMemUsage() {
         double mem = 0;

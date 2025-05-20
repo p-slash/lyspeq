@@ -4,6 +4,15 @@
 #include <cstring> // strcmp
 #include <stdexcept>
 
+// prevent gsl_cblas.h from being included
+#define  __GSL_CBLAS_H__
+
+#ifdef USE_MKL_CBLAS
+#include "mkl_cblas.h"
+#else
+#include "cblas.h"
+#endif
+
 #include <gsl/gsl_errno.h>
 
 #include "core/global_numbers.hpp"
@@ -69,7 +78,8 @@ int main(int argc, char *argv[])
             "FileNameList", "FileInputDir", "NumberOfIterations",
             "UseChunksMeanFlux", "InputIsDeltaFlux", "MeanFluxFile",
             "SmoothNoiseWeights", "PrecomputedFisher", "DifferentNight",
-            "DifferentFiber", "DifferentPetal", "MinXWaveOverlapRatio"
+            "DifferentFiber", "DifferentPetal", "MinXWaveOverlapRatio",
+            "Targetids2Ignore"
         });
         config.checkUnusedKeys(ignored_keys);
         process::sq_private_table->computeTables(force_rewrite);

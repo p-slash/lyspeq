@@ -1,17 +1,13 @@
 #ifndef BOOTSTRAP_FILE_H
 #define BOOTSTRAP_FILE_H
 
-#include <memory>
-#include <string>
-
-#include <fitsio.h>
+#include "io/myfitsio.hpp"
 
 #if defined(ENABLE_MPI)
 #include "mpi.h" 
 #endif
 
 namespace ioh {
-void checkFitsStatus(int status);
 std::string saveBootstrapRealizations(
     const std::string &base, const double *allpowers, const double *invfisher,
     unsigned int nboots, int nk, int nz, bool fastbootstrap,
@@ -29,7 +25,6 @@ class BootstrapChunksFile
 {
 public:
     BootstrapChunksFile(const std::string &base, int thispe);
-    ~BootstrapChunksFile() { fits_close_file(fits_file, &status); };
 
     void writeChunk(
         const double *pk, const double *nk, const double *tk,
@@ -38,6 +33,7 @@ public:
         double ra, double dec);
 private:
     int status;
+    unique_fitsfile_ptr fitsfile_ptr;
     fitsfile *fits_file;
 };
 
