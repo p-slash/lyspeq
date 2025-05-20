@@ -81,6 +81,7 @@ Overview of Programs
 =====
 + **LyaPowerEstimate** iterates over multiple qso spectra and estimates one-dimensional Lya power spectrum in the line-of-sight. It maximizes likelihood using Newton-Raphson method. When compiled with MPI compatibility, it distributes qso chunks to multiple CPUs, then reduces the results.
 + **LyaPowerxQmlExposure** is the cross-exposure P1D estimator. The filename input is different than LyaPowerEstimate such that each MPI task reads the entire delta files it was assigned. Each delta file assumed to have all exposures associated with a TARGETID. Do not use more MPI tasks than the number of delta files. The estimator cross correlates exposures with different EXPID and NIGHT, and exposure that have more than 60% overlap in wavelength coverage by default. These can be adjusted in the config file.
++ **LyaPower3DEstimate** is the 3D power spectrum estimator. Algorithm is based on P3M decomposition.
 + **CreateSQLookUpTable** creates look up tables for signal and derivative matrices used in LyaPowerEstimate. When compiled with MPI compatibility, it computes tables for different resolution on multiple CPUs.
 
 Both programs take one common config file.
@@ -250,6 +251,10 @@ Cross exposure params
     Cross correlate different petals only.
 + `MinXWaveOverlapRatio` (double, default: 0.6):
     Cross correlate segments that overlap more than this ratio.
+
+3D estimator params
+====
+Under construction. See [optimal_qu3d.hpp](qu3d/optimal_qu3d.hpp) and [cosmology_3d.hpp](qu3d/cosmology_3d.hpp) for now.
 
 Quasar Spectrum File
 ====
