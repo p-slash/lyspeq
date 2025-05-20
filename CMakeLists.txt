@@ -7,6 +7,11 @@ option(ENABLE_MPI "Enable MPI" ON)
 option(USE_OPENBLAS_BREW "Use OpenBlas brew" OFF)
 option(USE_MKL_LIB "Use MKL library" OFF)
 option(DEBUG "Compile with debugging options" OFF)
+option(TURN_OFF_SPECTRO_WINDOW "Turn of spectrograph window function in 3D." OFF)
+option(KILL_15MPC_POWER "Suppresses power below 15 Mpc in 3D." OFF)
+option(RL_COMP_DERIV "Multiply deriv. matrices with e^-k^2R_L^2 term" OFF)
+option(DECONV_CIC_WINDOW "Deconvolve CIC window" OFF)
+option(ASSERT_MESH_IDX "Assert mesh indices lie within boundary" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -100,6 +105,13 @@ target_link_libraries(MY_FITSIO_INTERFACE INTERFACE ${CFITSIO_LIBRARIES})
 
 pkg_check_modules(FFTW3 REQUIRED fftw3)
 add_library(MY_FFTW3_INTERFACE INTERFACE)
+if (ENABLE_OPENMP)
+    find_library(FFTW3_DOUBLE_OPENMP_LIB fftw3_omp REQUIRED
+        PATHS ${PKG_FFTW3_LIBRARY_DIRS} ${LIB_INSTALL_DIR}
+    )
+    set(FFTW3_LIBRARIES "fftw3_omp;${FFTW3_LIBRARIES}")
+endif()
+
 target_compile_options(MY_FFTW3_INTERFACE INTERFACE ${FFTW3_CFLAGS})
 target_link_directories(MY_FFTW3_INTERFACE INTERFACE ${FFTW3_LIBRARY_DIRS})
 target_link_libraries(MY_FFTW3_INTERFACE INTERFACE ${FFTW3_LIBRARIES})
@@ -139,7 +151,7 @@ add_library(SqTableObjLibs OBJECT
     mathtools/discrete_interpolation.cpp mathtools/interpolation.cpp
     mathtools/interpolation_2d.cpp
 )
-target_link_libraries(SqTableObjLibs PUBLIC MY_OMP_MPI GSL::gsl)
+target_link_libraries(SqTableObjLibs PUBLIC MY_OMP_MPI GSL::gsl MY_BLAS_INTERFACE)
 
 add_library(AllObjLibs INTERFACE)
 target_sources(AllObjLibs INTERFACE
@@ -148,6 +160,32 @@ target_sources(AllObjLibs INTERFACE
 target_link_libraries(AllObjLibs INTERFACE
     MY_OMP_MPI GSL::gsl MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
     MY_FFTW3_INTERFACE)
+
+add_library(Qu3dObjLibs OBJECT
+    qu3d/optimal_qu3d.cpp qu3d/cosmology_3d.cpp
+    mathtools/real_field.cpp mathtools/real_field_3d.cpp
+    mathtools/matrix_helper.cpp mathtools/interpolation.cpp
+    mathtools/interpolation_2d.cpp mathtools/discrete_interpolation.cpp
+    mathtools/stats.cpp mathtools/smoother.cpp mathtools/fftlog.cpp
+    mathtools/multipole_interpolation.cpp io/qso_file.cpp)
+target_link_libraries(Qu3dObjLibs PUBLIC
+    MY_OMP_MPI MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
+    MY_FFTW3_INTERFACE GSL::gsl)
+if (TURN_OFF_SPECTRO_WINDOW)
+    target_compile_definitions(Qu3dObjLibs PUBLIC TURN_OFF_SPECTRO_WINDOW)
+endif()
+if (KILL_15MPC_POWER)
+    target_compile_definitions(Qu3dObjLibs PUBLIC KILL_15MPC_POWER)
+endif()
+if (RL_COMP_DERIV)
+    target_compile_definitions(Qu3dObjLibs PUBLIC RL_COMP_DERIV)
+endif()
+if (ASSERT_MESH_IDX)
+    target_compile_definitions(Qu3dObjLibs PUBLIC ASSERT_MESH_IDX)
+endif()
+if (DECONV_CIC_WINDOW)
+    target_compile_definitions(Qu3dObjLibs PUBLIC DECONV_CIC_WINDOW)
+endif()
 
 # custom target to test filtering. Usage: cmake --build . --target print_genex
 add_custom_target(print_genex
@@ -164,6 +202,9 @@ target_link_libraries(LyaPowerEstimate PRIVATE AllObjLibs)
 add_executable(LyaPowerxQmlExposure
     LyaPowerxQmlExposure.cpp cross/cross_exposure.cpp cross/one_qso_exposures.cpp)
 target_link_libraries(LyaPowerxQmlExposure PRIVATE AllObjLibs)
+
+add_executable(LyaPower3DEstimate)
+target_link_libraries(LyaPower3DEstimate PRIVATE GlobalObjLibs Qu3dObjLibs)
 
 add_executable(CreateSQLookUpTable CreateSQLookUpTable.cpp)
 target_link_libraries(CreateSQLookUpTable PRIVATE GlobalObjLibs SqTableObjLibs)
@@ -191,7 +232,7 @@ target_link_libraries(testSQCMatrices PRIVATE AllObjLibs)
 # ===========
 # Installation
 # ===========
-install(TARGETS LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats
+install(TARGETS LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats LyaPower3DEstimate
         RUNTIME DESTINATION bin)
 install(PROGRAMS py/smbivspline.py DESTINATION bin)
 

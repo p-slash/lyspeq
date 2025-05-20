@@ -4,10 +4,18 @@
 #include <memory>
 #include <vector>
 
+#define  __GSL_CBLAS_H__
+
 #ifdef USE_MKL_CBLAS
 #include "mkl_cblas.h"
+#include "mkl_lapacke.h"
 #else
 #include "cblas.h"
+// These three lines somehow fix OpenBLAS compilation error on macos
+// #include <complex.h>
+// #define lapack_complex_float    float _Complex
+// #define lapack_complex_double   double _Complex
+#include "lapacke.h"
 #endif
 
 #include "core/omp_manager.hpp"
@@ -43,6 +51,11 @@ namespace mxhelp
             out[i] = x[i] * y[i];
     }
 
+    inline void normalize_vector(int N, double *x) {
+        double norm = 1.0 / cblas_dnrm2(N, x, 1);
+        cblas_dscal(N, norm, x, 1);
+    }
+
     // Trace of A.B
     // Both are assumed to general and square NxN
     double trace_dgemm(const double *A, const double *B, int N);
@@ -71,8 +84,15 @@ namespace mxhelp
     // LAPACKE functions
     // In-place invert by first LU factorization
     void LAPACKE_InvertMatrixLU(double *A, int N);
+    void LAPACKE_InvertMatrixCholesky(double *U, int N);
     void LAPACKE_InvertSymMatrixLU_damped(double *S, int N, double damp);
 
+    void LAPACKE_sym_eigens(double *A, int N, double *evals, double *evecs);
+
+    // Matrix A is modified in return to be its square root. Only upper 
+    // triangle is used. *evals are the eigenvalues of A (not its square root).
+    // No checks for eigenvalues are performed! It will not crash or raise warnings.
+    void LAPACKE_sym_posdef_sqrt(double *A, int N, double *evals, double *evecs);
     // Return condition number
     // if sjump != nullptr, finds the adjacent ratio of s values larger than 8
     // fromthe right side

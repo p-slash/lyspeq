@@ -14,10 +14,10 @@
 // Debugging flags. Comment out to turn off
 // #define DEBUG_MATRIX_OUT
 
-const double
+constexpr double
 SPEED_OF_LIGHT = 299792.458,
 LYA_REST = 1215.67,
-MY_PI = 3.14159265359,
+MY_PI = 3.14159265358979323846,
 ONE_SIGMA_2_FWHM = 2.35482004503,
 DOUBLE_EPSILON = 1e-15;
 
@@ -90,7 +90,7 @@ namespace specifics
         {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "1e-2"},
         {"RedshiftGrowthOn", "-1"},
         {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
-        {"PrecomputedFisher", ""},
+        {"PrecomputedFisher", ""}, {"Targetids2Ignore", ""},
         {"NumberOfBoots", "20000"}, {"FastBootstrap", "1"},
         {"SaveBootstrapRealizations", "0"} });
 
@@ -127,6 +127,8 @@ namespace specifics
     PrecomputedFisher: string
         File to precomputed Fisher matrix. If present, Fisher matrix is not
         calculated for spectra. Off by default.
+    Targetids2Ignore: string
+        File that contains a list of TARGETIDs.
     NumberOfBoots: int
         Number of bootstrap realizations.
     FastBootstrap: int

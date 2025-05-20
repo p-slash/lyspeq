@@ -10,15 +10,6 @@
 
 #include <gsl/gsl_interp.h>
 
-#ifdef USE_MKL_CBLAS
-#include "mkl_lapacke.h"
-#else
-// These three lines somehow fix OpenBLAS compilation error on macos
-// #include <complex.h>
-// #define lapack_complex_float    float _Complex
-// #define lapack_complex_double   double _Complex
-#include "lapacke.h"
-#endif
 
 const double
 MY_SQRT_2 = 1.41421356237,
@@ -191,8 +182,7 @@ namespace mxhelp
     }
 
     void LAPACKE_InvertMatrixLU(double *A, int N) {
-        static std::vector<lapack_int> ipiv;
-        ipiv.resize(N);
+        std::vector<lapack_int> ipiv(N);
         lapack_int LIN = N, info = 0;
 
         // Factorize A
@@ -211,6 +201,20 @@ namespace mxhelp
 
         // dpotrf(CblasUpper, N, A, N); 
         // the Cholesky factorization of a symmetric positive-definite matrix
+    }
+
+    void LAPACKE_InvertMatrixCholesky(double *U, int N) {
+        lapack_int LIN = N, info = 0;
+
+        info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', LIN, U, LIN);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in Cholesky decomposition.", info);
+
+        info = LAPACKE_dpotri(LAPACK_ROW_MAJOR, 'U', LIN, U, LIN);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in Cholesky invert.", info);
     }
 
     std::vector<int> _setEmptyIndices(double *S, int N) {
@@ -267,6 +271,28 @@ namespace mxhelp
             S.get(), N, 0, _Bmat.get(), N);
 
         _Bmat.swap(S);
+    }
+
+
+    void LAPACKE_sym_eigens(double *A, int N, double *evals, double *evecs) {
+        lapack_int mE, info = 0;
+        std::vector<lapack_int> isuppz(2 * N);
+        info = LAPACKE_dsyevr(
+            LAPACK_ROW_MAJOR, 'V', 'A', 'U', N, A, N,
+            0, 1e15, 1, N, N * MY_EPSILON_D,
+            &mE, evals, evecs, N, isuppz.data());
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in LAPACKE_dsyevr.", info);
+    }
+
+    void LAPACKE_sym_posdef_sqrt(double *A, int N, double *evals, double *evecs) {
+        LAPACKE_sym_eigens(A, N, evals, evecs);
+        std::fill_n(A, N * N, 0);
+        for (int i = 0; i < N; ++i)
+            if (evals[i] > N * MY_EPSILON_D)
+                cblas_dsyr(CblasRowMajor, CblasUpper, N, sqrt(evals[i]),
+                           evecs + i, N, A, N);
     }
 
     double LAPACKE_RcondSvd(const double *A, int N, double *sjump) {

@@ -17,12 +17,14 @@ tests/input/*log*.txt
 tests/input/*_Fp.bin
 LyaPowerEstimate
 LyaPowerxQmlExposure
+LyaPower3DEstimate
 CreateSQLookUpTable
 lyspeqBootStats
 cblas_tests
 testPointRef
 testSQCMatrices
 myfitsread
+test_fftlog
 test-fftconvolve
 testBootstrapTime
 testReadingBootRealizations

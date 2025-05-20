@@ -8,7 +8,7 @@
 				
 #---------------------------------------
 # WARNING: You (probably) should not change anything below
-DIRS=$(addprefix $(srcdir)/, core cross io mathtools tests)
+DIRS=$(addprefix $(srcdir)/, core cross io mathtools qu3d tests)
 DEPDIR=$(addprefix $(srcdir)/, dep)
 $(shell mkdir -p $(DEPDIR))
 SRCEXT=cpp
@@ -22,23 +22,27 @@ stats.cpp cross_exposure.cpp one_qso_exposures.cpp
 
 OBJECTS=$(SOURCES:.$(SRCEXT)=.o)
 bin_OBJ=LyaPowerEstimate.o CreateSQLookUpTable.o lyspeqBootStats.o \
-LyaPowerxQmlExposure.o cblas_tests.o testPointRef.o testSQCMatrices.o test-fftconvolve.o
+LyaPowerxQmlExposure.o \
+cblas_tests.o testPointRef.o testSQCMatrices.o test-fftconvolve.o
 global_objs=global_numbers.o config_file.o logger.o io_helper_functions.o
 sq_table_objs=sq_table.o sq_lookup_table_file.o fiducial_cosmology.o fourier_integrator.o \
 discrete_interpolation.o interpolation.o interpolation_2d.o
 cross_objs=cross_exposure.o one_qso_exposures.o
+qu3d_objs=optimal_qu3d.o cosmology_3d.o real_field.o real_field_3d.o qso_file.o \
+matrix_helper.o interpolation.o interpolation_2d.o discrete_interpolation.o \
+stats.o smoother.o fftlog.o
 test_objects=test_utils.o testPointRef.o test-fftconvolve.o
-DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d))
+qu3d_only_objs=$(filter-out $(OBJECTS), $(qu3d_objs))
+DEPS=$(addprefix $(DEPDIR)/, $(OBJECTS:.o=.d) $(bin_OBJ:.o=.d) $(qu3d_only_objs:.o=.d))
 
 
 NONX_OBJECTS=$(filter-out $(cross_objs), $(OBJECTS))
 
 # -DHAVE_INLINE for inline declarations in GSL for faster performance
 CPPFLAGS+=-I$(srcdir) -std=c++20 -DHAVE_INLINE $(MORECPPFLAGS)
-CPPFLAGS+=-MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
 CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 
-core: LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats
+core: LyaPowerEstimate LyaPowerxQmlExposure LyaPower3DEstimate CreateSQLookUpTable lyspeqBootStats
 
 test: core cblas_tests testSQCMatrices
 	mkdir -p $(srcdir)/tests/output
@@ -58,6 +62,9 @@ LyaPowerEstimate: LyaPowerEstimate.o $(NONX_OBJECTS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 LyaPowerxQmlExposure: LyaPowerxQmlExposure.o $(OBJECTS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+LyaPower3DEstimate: $(qu3d_objs) $(global_objs)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 CreateSQLookUpTable: CreateSQLookUpTable.o $(global_objs) $(sq_table_objs)
@@ -96,23 +103,29 @@ testOMPTiming: testOMPTiming.cpp discrete_interpolation.o
 timeMatrixOps: timeMatrixOps.cpp matrix_helper.o real_field.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
+$(DEPDIR)/%.d: %.$(SRCEXT)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MM -MT '$(notdir $(patsubst %.$(SRCEXT), %.o, $<))' $< -MF $@
+
+%.o: %.$(SRCEXT) $(DEPDIR)/%.d %.hpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o $@ -c $<
+
+-include $(DEPS)
+
 .PHONY: install uninstall clean
 
 install: LyaPowerEstimate CreateSQLookUpTable lyspeqBootStats
 	mkdir -p $(bindir)
-	cp LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats $(srcdir)/py/lorentzian_fit.py $(srcdir)/py/smbivspline.py $(bindir)
+	cp LyaPowerEstimate LyaPowerxQmlExposure LyaPower3DEstimate CreateSQLookUpTable lyspeqBootStats $(srcdir)/py/lorentzian_fit.py $(srcdir)/py/smbivspline.py $(bindir)
 	chmod a+x $(bindir)/lorentzian_fit.py $(bindir)/smbivspline.py
 
 uninstall:
 	$(RM) $(bindir)/lorentzian_fit.py
-	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/LyaPowerxQmlExposure $(bindir)/CreateSQLookUpTable $(bindir)/lyspeqBootStats
+	$(RM) $(bindir)/LyaPowerEstimate $(bindir)/LyaPowerxQmlExposure $(bindir)/LyaPower3DEstimate $(bindir)/CreateSQLookUpTable $(bindir)/lyspeqBootStats
 
 clean:
-	$(RM) $(OBJECTS) $(bin_OBJ) $(test_objects) $(srcdir)/tests/output/*
-	$(RM) LyaPowerEstimate LyaPowerxQmlExposure CreateSQLookUpTable lyspeqBootStats cblas_tests testSQCMatrices
+	$(RM) $(OBJECTS) $(bin_OBJ) $(qu3d_objs) $(test_objects) $(srcdir)/tests/output/*
+	$(RM) LyaPowerEstimate LyaPowerxQmlExposure LyaPower3DEstimate CreateSQLookUpTable lyspeqBootStats cblas_tests testSQCMatrices
 	$(RM) test_cuda_helper testPointRef myfitsread testReadingBootRealizations test-fftconvolve testBootstrapTime testOMPTiming
 
 deepclean: clean
 	$(RM) $(DEPDIR)/*
-
--include $(DEPS)

@@ -1,7 +1,6 @@
-#include "discrete_interpolation.hpp"
-#include <algorithm>
+#include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/mathutils.hpp"
 #include <cassert>
-#include <cmath>
 
 constexpr double
 cubic_notaknot_u[] = {
@@ -24,14 +23,6 @@ cubic_notaknot_p[] = {
     2.679491924311226958e-01};
 
 constexpr int cubic_u_size = 16, cubic_p_size = 15;
-
-// inlines solve duplicate symbol error in tests/test_utils.cpp
-inline
-bool isClose(double a, double b, double relerr=1e-5, double abserr=1e-8)
-{
-    double mag = std::max(fabs(a),fabs(b));
-    return fabs(a-b) < (abserr + relerr * mag);
-}
 
 inline
 bool allClose(const double *a, const double *b, int size)
@@ -67,7 +58,7 @@ void DiscreteInterpolation1D::resetPointer(
     y = y_arr;
 }
 
-double DiscreteInterpolation1D::evaluate(double x)
+double DiscreteInterpolation1D::evaluate(double x) const
 {
     double xx = (x - x1) / dx;
     int n = (int) xx;
@@ -183,13 +174,10 @@ void DiscreteCubicInterpolation1D::resetPointer(
     dx = delta_x;
     N = Nsize;
     y = y_arr;
-    if (_notaknot)
-        construct_notaknot();
-    else
-        construct_natural();
+    reconstruct();
 }
 
-double DiscreteCubicInterpolation1D::evaluate(double x)
+double DiscreteCubicInterpolation1D::evaluate(double x) const
 {
     double xx = (x - x1) / dx;
     int n = (int) xx;
@@ -230,7 +218,7 @@ DiscreteInterpolation2D::DiscreteInterpolation2D(
     std::copy(z_arr, z_arr+size, z);
 }
 
-double DiscreteInterpolation2D::evaluate(double x, double y)
+double DiscreteInterpolation2D::evaluate(double x, double y) const
 {
     double xx = (x - x1) / dx, yy = (y - y1) / dy;
     int nx = (int) xx, ny = (int) yy;
@@ -241,7 +229,7 @@ double DiscreteInterpolation2D::evaluate(double x, double y)
     if (ny < 0) ny = 0;
     else if (ny >= Ny - 1) ny = Ny - 2;
 
-    int ind = _getIndex(nx, ny);
+    size_t ind = _getIndex(nx, ny);
     double dnx = xx - nx, dny = yy - ny;
 
     double result =
@@ -268,19 +256,22 @@ bool DiscreteInterpolation2D::operator==(const DiscreteInterpolation2D &rhs) con
 DiscreteBicubicSpline::DiscreteBicubicSpline(
         double x_start, double delta_x, double y_start, double delta_y,
         const double *z_arr, int Nxsize, int Nysize, int halfn
-) : y1(y_start), dy(delta_y), Ny(Nysize), halfm(halfn)
+) : x1(x_start), dx(delta_x), y1(y_start), dy(delta_y), Nx(Nxsize), Ny(Nysize), halfm(halfn)
 {
-    m = std::min(2 * halfn, Ny);
+    x2 = x1 + dx * (Nx - 1);
+    y2 = y1 + dy * (Ny - 1);
+    halfn = std::max(2, halfn);
+    m = std::min(2 * halfn, Ny);  halfm = m / 2;  m = halfm * 2;
     _spl_local = std::make_unique<DiscreteCubicInterpolation1D>(y1, dy, m);
     _zy = _spl_local->get();
 
-    z = std::make_unique<double[]>(Nxsize * Ny);
-    std::copy_n(z_arr, Nxsize * Ny, z.get());
+    z = std::make_unique<double[]>(Nx * Ny);
+    std::copy_n(z_arr, Nx * Ny, z.get());
     _spls_y.reserve(Ny);
     for (int i = 0; i < Ny; ++i)
         _spls_y.push_back(
             std::make_unique<DiscreteCubicInterpolation1D>(
-                x_start, delta_x, Nxsize, z.get() + i * Nxsize, false
+                x1, dx, Nx, z.get() + i * Nx, false
             )
         );
 }
@@ -303,6 +294,74 @@ double DiscreteBicubicSpline::evaluate(double x, double y) {
     return _spl_local->evaluate(y - i1 * dy);
 }
 
+double _hermiteSplineCasteljau(double beta[], double t) {
+    double t1 = 1.0 - t;
+    beta[0] = (beta[2] - beta[0]) / 6.0 + beta[1];
+    std::swap(beta[0], beta[1]);
+    beta[3] = -(beta[3] - beta[1]) / 6.0 + beta[2];
+    std::swap(beta[2], beta[3]);
+
+    // de Casteljau's algorithm
+    for (int j = 1; j < 4; ++j)
+        for (int i = 0; i < 4 - j; ++i)
+            beta[i] = beta[i] * t1 + beta[i + 1] * t;
+    return beta[0];
+}
+
+
+double DiscreteBicubicSpline::evaluateHermiteY(double x, double y) {
+    /* Cubic Hermite spline in y direction using de Casteljau's algorithm
+       and the Bernstein form. */
+    double ydata[4];
+    double yy = (y - y1) / dy;
+    int i0 = yy;  i0 = std::clamp(i0, 1, Ny - 3);  yy -= i0;  --i0;
+
+    for (int i = 0; i < 4; ++i)
+        ydata[i] = _spls_y[i + i0]->evaluate(x);
+
+    return _hermiteSplineCasteljau(ydata, yy);
+}
+
+
+double DiscreteBicubicSpline::evaluateHermite2(double x, double y) const {
+    double xdata[4], ydata[4];
+    double xx = (x - x1) / dx, yy = (y - y1) / dy;
+    int j0 = xx;  j0 = std::clamp(j0, 1, Nx - 3);  xx -= j0;  --j0;
+    int i0 = yy;  i0 = std::clamp(i0, 1, Ny - 3);  yy -= i0;  --i0;
+
+    const double *zptr = z.get() + j0 + i0 * Nx;
+    for (int i = 0; i < 4; ++i) {
+        std::copy_n(zptr + i * Nx, 4, xdata);
+        // std::clamp(j + j0, 0, Nx - 1), std::clamp(i + i0, 0, Ny - 1))
+        ydata[i] = _hermiteSplineCasteljau(xdata, xx);
+    }
+
+    return _hermiteSplineCasteljau(ydata, yy);
+}
+
+
+void DiscreteBicubicSpline::trim(double xmax, double ymax) {
+    int Nxtrim = ceil((xmax - x1) / dx), Nytrim = ceil((ymax - y1) / dy);
+    auto trimmed_z = std::make_unique<double[]>(Nxtrim * Nytrim);
+    _spls_y.clear();
+    for (int i = 0; i < Nytrim; ++i) {
+        for (int j = 0; j < Nxtrim; ++j)
+            trimmed_z[j + Nxtrim * i] = z[_getIndex(j, i)];
+
+        _spls_y.push_back(
+            std::make_unique<DiscreteCubicInterpolation1D>(
+                x1, dx, Nxtrim, trimmed_z.get() + i * Nxtrim, false)
+        );
+    }
+
+    if (m > Nytrim) {
+        halfm = Nytrim / 2;  m = halfm * 2;
+        _spl_local = std::make_unique<DiscreteCubicInterpolation1D>(y1, dy, m);
+        _zy = _spl_local->get();
+    }
+
+    z.swap(trimmed_z);  Nx = Nxtrim;  Ny = Nytrim;
+}
 
 
 

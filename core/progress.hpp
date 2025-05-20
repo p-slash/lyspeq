@@ -45,6 +45,16 @@ public:
         return *this;
     };
 
+    void reset(int percThres=-1) {
+        last_progress = 0;
+        pcounter = 0;
+        init_time = mytime::timer.getTime();
+        last_weighted_time = 0;
+        last_weight = 0;
+        if (percThres > 0)
+            thres = percThres;
+    }
+
 private:
     int size, last_progress, pcounter, thres;
     double init_time, last_weighted_time, last_weight;

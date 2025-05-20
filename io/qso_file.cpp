@@ -10,10 +10,8 @@
 
 namespace qio
 {
-static std::vector<double> temp_arr;
-
 double _getMediandv(const double *wave, int size) {
-    temp_arr.resize(size - 1);
+    std::vector<double> temp_arr(size - 1);
     for (int i = 0; i < size - 1; ++i)
         temp_arr[i] = log(wave[i + 1] / wave[i]) * SPEED_OF_LIGHT;
 
@@ -21,7 +19,7 @@ double _getMediandv(const double *wave, int size) {
 }
 
 double _getMediandlambda(const double *wave, int size) {
-    temp_arr.resize(size - 1);
+    std::vector<double> temp_arr(size - 1);
     for (int i = 0; i < size - 1; ++i)
         temp_arr[i] = wave[i + 1] - wave[i];
 
@@ -50,12 +48,22 @@ QSOFile::QSOFile(const std::string &fname_qso, ifileformat p_or_b)
     id = 0;
 }
 
+QSOFile::QSOFile(const PiccaFile* pf, int hdunum)
+        : PB(Picca), wave_head(nullptr), delta_head(nullptr), ivar_head(nullptr),
+          arr_size(0), _fullsize(0), shift(0), num_masked_pixels(0), fname(""),
+          expid(-1), night(-1), fiber(-1), petal(-1)
+{
+    pfile = std::make_unique<PiccaFile>(pf, hdunum);
+    dlambda = -1;
+    id = 0;
+}
+
 QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         : PB(qmaster.PB), shift(0), num_masked_pixels(0), fname(qmaster.fname), 
-          z_qso(qmaster.z_qso), snr(qmaster.snr),
+          z_qso(qmaster.z_qso), snr(qmaster.snr), R_kms(qmaster.R_kms),
           ra(qmaster.ra), dec(qmaster.dec), id(qmaster.id),
-          R_fwhm(qmaster.R_fwhm), expid(qmaster.expid), night(qmaster.night),
-          fiber(qmaster.fiber), petal(qmaster.petal)
+          R_fwhm(qmaster.R_fwhm), expid(qmaster.expid),
+          night(qmaster.night), fiber(qmaster.fiber), petal(qmaster.petal)
 {
     arr_size = i2 - i1;
     _fullsize = arr_size;
@@ -81,13 +89,17 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 
 void QSOFile::readParameters()
 {
-    if (pfile)
+    if (pfile) {
         pfile->readParameters(
-            id, arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms, dlambda,
+            id, arr_size, z_qso, dec, ra, R_kms, snr, dv_kms, dlambda,
             expid, night, fiber, petal);
-    else
+        R_fwhm = int(SPEED_OF_LIGHT / R_kms / ONE_SIGMA_2_FWHM / 100 + 0.5) * 100;
+    }
+    else {
         bqfile->readParameters(
             arr_size, z_qso, dec, ra, R_fwhm, snr, dv_kms);
+        R_kms = SPEED_OF_LIGHT / R_fwhm / ONE_SIGMA_2_FWHM;
+    }
     _fullsize = arr_size;
 }
 
@@ -180,7 +192,7 @@ int QSOFile::maskOutliers(double factor) {
     };
 
     int j = 0, nall = size();
-    temp_arr.resize(realSize());
+    std::vector<double> temp_arr(realSize());
 
     double *iv = ivar(), *f = delta();
 
@@ -215,6 +227,67 @@ int QSOFile::maskOutliers(double factor) {
 
     return j;
 }
+
+
+void QSOFile::downsample(int m) {
+    int nfirst = arr_size / m, nrem = arr_size % m,
+        nnew = nfirst + int(nrem != 0);
+
+    double *wn = new double[nnew], *dn = new double[nnew], *in = new double[nnew];
+
+    for (int i = 0; i < nfirst; ++i) {
+        wn[i] = 0;  dn[i] = 0;  in[i] = 0;
+        for (int j = 0; j < m; ++j) {
+            double tivar = ivar()[j + m * i];
+            wn[i] += wave()[j + m * i] * tivar;
+            dn[i] += delta()[j + m * i] * tivar;
+            in[i] += tivar;
+        }
+
+        if (in[i] == 0) {
+            dn[i] = 0;
+            for (int j = 0; j < m; ++j)
+                wn[i] += wave()[j + m * i] / m;
+        }
+        else {
+            wn[i] /= in[i];  dn[i] /= in[i];
+        }
+    }
+
+    if (nrem != 0) {
+        wn[nfirst] = 0;  dn[nfirst] = 0;  in[nfirst] = 0;
+        for (int j = 0; j < nrem; ++j) {
+            double tivar = ivar()[j + m * nfirst];
+            wn[nfirst] += wave()[j + m * nfirst] * tivar;
+            dn[nfirst] += delta()[j + m * nfirst] * tivar;
+            in[nfirst] += tivar;
+        }
+
+        if (in[nfirst] == 0) {
+            dn[nfirst] = 0;
+            for (int j = 0; j < nrem; ++j)
+                wn[nfirst] += wave()[j + m * nfirst] / nrem;
+        }
+        else {
+            wn[nfirst] /= in[nfirst];  dn[nfirst] /= in[nfirst];
+        }
+    }
+
+    process::updateMemory(getMinMemUsage());
+    arr_size = nnew;
+    _fullsize = arr_size;
+    shift = 0;
+    num_masked_pixels = 0;
+
+    process::updateMemory(-process::getMemoryMB(_fullsize * 3));
+    delete [] wave_head;
+    delete [] delta_head;
+    delete [] ivar_head;
+
+    wave_head = wn;  delta_head = dn;  ivar_head = in;
+    recalcDvDLam();
+}
+
 
 void QSOFile::readMinMaxMedRedshift(double &zmin, double &zmax, double &zmed)
 {
@@ -336,6 +409,7 @@ bool PiccaFile::compareFnames(const std::string &s1, const std::string &s2)
 }
 
 const int MAX_NO_FILES = 1;
+bool PiccaFile::use_cache = true;
 
 // Normals
 // Assume fname to be ..fits.gz[1]
@@ -344,18 +418,25 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
     int hdunum, hdutype;
     std::string basefname = decomposeFname(fname_qso, hdunum);
 
-    auto it = cache.find(basefname);
-    if (it != cache.end()) {
-        fits_file = it->second;
+    if (PiccaFile::use_cache) {
+        auto it = cache.find(basefname);
+        if (it != cache.end()) {
+            fits_file = it->second;
+        }
+        else {
+            if (cache.size() == MAX_NO_FILES) {
+                fits_close_file(cache.begin()->second, &status);
+                cache.erase(cache.begin());
+            }
+
+            fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
+            cache[basefname] = fits_file;
+            fits_get_num_hdus(fits_file, &no_spectra, &status);
+            no_spectra--;
+        }
     }
     else {
-        if (cache.size() == MAX_NO_FILES) {
-            fits_close_file(cache.begin()->second, &status);
-            cache.erase(cache.begin());
-        }
-
         fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
-        cache[basefname] = fits_file;
         fits_get_num_hdus(fits_file, &no_spectra, &status);
         no_spectra--;
     }
@@ -374,6 +455,24 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
     // fits_get_hdu_num(fits_file, &curr_spec_index);
     // _move(fname_qso[fname_qso.size-2] - '0');
 }
+
+
+PiccaFile::PiccaFile(const PiccaFile *pf, int hdunum)
+        : fits_file(pf->fits_file), status(0) 
+{
+    int hdutype;
+    fits_movabs_hdu(fits_file, hdunum + 1, &hdutype, &status);
+
+    if (hdutype != BINARY_TBL)
+        throw std::runtime_error("HDU type is not BINARY!");
+
+    _setHeaderKeys();
+    _setColumnNames();
+
+    if (status != 0)
+        _handleStatus();
+}
+
 
 void PiccaFile::_handleStatus()
 {
@@ -437,7 +536,7 @@ void PiccaFile::_readOptionalInt(const std::string &key, int &output) {
 
 void PiccaFile::readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
-        int &fwhm_resolution, double &sig2noi, double &dv_kms, double &dlambda,
+        double &R_kms, double &sig2noi, double &dv_kms, double &dlambda,
         int &expid, int &night, int &fiber, int &petal
 ) {
     status = 0;
@@ -461,9 +560,7 @@ void PiccaFile::readParameters(
     fits_read_key(fits_file, TDOUBLE, "RA", &ra, NULL, &status);
     fits_read_key(fits_file, TDOUBLE, "DEC", &dec, NULL, &status);
 
-    double r_kms;
-    fits_read_key(fits_file, TDOUBLE, "MEANRESO", &r_kms, NULL, &status);
-    fwhm_resolution = int(SPEED_OF_LIGHT/r_kms/ONE_SIGMA_2_FWHM/100 + 0.5)*100;
+    fits_read_key(fits_file, TDOUBLE, "MEANRESO", &R_kms, NULL, &status);
 
     fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
 
