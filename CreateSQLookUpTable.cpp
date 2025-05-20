@@ -78,7 +78,8 @@ int main(int argc, char *argv[])
             "FileNameList", "FileInputDir", "NumberOfIterations",
             "UseChunksMeanFlux", "InputIsDeltaFlux", "MeanFluxFile",
             "SmoothNoiseWeights", "PrecomputedFisher", "DifferentNight",
-            "DifferentFiber", "DifferentPetal", "MinXWaveOverlapRatio"
+            "DifferentFiber", "DifferentPetal", "MinXWaveOverlapRatio",
+            "Targetids2Ignore"
         });
         config.checkUnusedKeys(ignored_keys);
         process::sq_private_table->computeTables(force_rewrite);
