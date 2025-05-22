@@ -5,8 +5,7 @@
 #include "io/qso_file.hpp"
 #include "mathtools/discrete_interpolation.hpp"
 
-const int
-MIN_PIXELS_IN_CHUNK = 40;
+const int MIN_PIXELS_IN_CHUNK = 100;
 
 /*
 This object creates and computes C, S, Q, Q-slash matrices,
