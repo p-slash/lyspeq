@@ -137,6 +137,9 @@ public:
 
     int size() const { return arr_size; };
     int realSize() const { return arr_size-num_masked_pixels; };
+    double getLengthV() const {
+        return SPEED_OF_LIGHT * log(wave()[arr_size - 1] / wave()[0]);
+    }
     double* wave() const  { return wave_head+shift; };
     double* delta() const { return delta_head+shift; };
     double* ivar() const { return ivar_head+shift; };
