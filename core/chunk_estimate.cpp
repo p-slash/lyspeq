@@ -170,14 +170,16 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 {
     qFile = std::make_unique<qio::QSOFile>(qmaster, i1, i2);
 
-    if (qFile->realSize() < MIN_PIXELS_IN_CHUNK || qFile->getLengthV() < specifics::MIN_FOREST_LENGTH_V)
+    double lenv = qFile->getLengthV(), meandv = lenv / qFile->realSize();
+    if (meandv > specifics::MAX_PIXEL_LENGTH_V || lenv < specifics::MIN_FOREST_LENGTH_V)
     {
         std::ostringstream err_msg;
         err_msg.precision(1);
         err_msg << "Short chunk with realsize "
             << qFile->realSize() << '/'  << qFile->size() << " and velocity length "
             << std::scientific
-            << qFile->getLengthV() << '/'  << specifics::MIN_FOREST_LENGTH_V;
+            << lenv << '/'  << specifics::MIN_FOREST_LENGTH_V
+            << " || mean dv: " << meandv << '/'  << specifics::MAX_PIXEL_LENGTH_V;
 
         throw std::runtime_error(err_msg.str());
     }
@@ -295,10 +297,9 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
     try
     {
         qio::QSOFile qtemp(qmaster, i1, i2);
-        if (qtemp.realSize() < MIN_PIXELS_IN_CHUNK)
-            return 0;
 
-        if (qtemp.getLengthV() < specifics::MIN_FOREST_LENGTH_V)
+        double lenv = qtemp.getLengthV(), meandv = lenv / qtemp.realSize();
+        if (meandv > specifics::MAX_PIXEL_LENGTH_V || lenv < specifics::MIN_FOREST_LENGTH_V)
             return 0;
 
         double z1, z2, zm; 

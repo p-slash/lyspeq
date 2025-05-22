@@ -70,7 +70,8 @@ namespace specifics
     int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
         CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1, NUMBER_OF_BOOTS = 0;
     double RESOMAT_DECONVOLUTION_M = 0, MIN_SNR_CUT = 0,
-           MAX_FOREST_LENGTH_V = 0, MIN_FOREST_LENGTH_V = 0;
+           MAX_FOREST_LENGTH_V = 0, MIN_FOREST_LENGTH_V = 0,
+           MAX_PIXEL_LENGTH_V = 0;
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
     int OVERSAMPLING_FACTOR = -1;
 
@@ -103,7 +104,8 @@ namespace specifics
 
         MAX_FOREST_LENGTH_V = config.getDouble("MaximumForestLength", 3.5e4);
         MAX_FOREST_LENGTH_V /= NUMBER_OF_CHUNKS;
-        MIN_FOREST_LENGTH_V = 0.95 / 2 * MAX_FOREST_LENGTH_V;
+        MIN_FOREST_LENGTH_V = 0.90 / 2 * MAX_FOREST_LENGTH_V;
+        MAX_PIXEL_LENGTH_V = config.getDouble("MaximumMeanPixelSize", 120.0);
 
         double temp_chisq = config.getDouble("ChiSqConvergence");
         if (temp_chisq > 0)
