@@ -11,21 +11,40 @@
 
 #include <stdexcept>
 
-const int
-MAX_PIXELS_IN_FOREST = 700;
+const int MIN_PIXELS_IN_FILE = 100;
 
-std::vector<int> OneQSOEstimate::decideIndices(int size) {
+
+std::vector<int> OneQSOEstimate::decideIndices(int size, double *wave) {
     int nchunks = 1;
+    auto velarr = std::make_unique<double[]>(size);
+    double wave0 = wave[0];
+    std::transform(
+        wave, wave + size, velarr.get(),
+        [&wave0](const double &w) { return SPEED_OF_LIGHT * log(w / wave0); });
+    double vmax = velarr[size - 1];
+
     if (specifics::NUMBER_OF_CHUNKS > 1) {
-        nchunks += (specifics::NUMBER_OF_CHUNKS * size) / MAX_PIXELS_IN_FOREST;
-        nchunks = std::min(nchunks, specifics::NUMBER_OF_CHUNKS);
+        nchunks += vmax / specifics::MAX_FOREST_LENGTH_V;
+        // nchunks = std::min(nchunks, specifics::NUMBER_OF_CHUNKS);
+        // nchunks can be greater than specifics::NUMBER_OF_CHUNKS to
+        // achieve consistent velocity lengths. However, this should not
+        // happen if specifics::MAX_FOREST_LENGTH_V > vmax for all spectra.
+
+        vmax = std::min(specifics::MAX_FOREST_LENGTH_V, vmax / nchunks);
     }
 
     std::vector<int> indices;
     indices.reserve(nchunks + 1);
-    for (int i = 0; i < nchunks; ++i)
-        indices.push_back((int)((size * i) / nchunks));
-    indices.push_back(size);
+    indices.push_back(0);
+    double *v1 = velarr.get(), *v2 = v1 + size, *vl = v1;
+    for (int i = 0; i < nchunks; ++i) {
+        int jj = std::upper_bound(vl, v2, vmax) - v1;
+        indices.push_back(jj);
+        if (jj == size)  break;
+        vl = v1 + jj;
+        double vl0 = *vl;
+        std::for_each(vl, v2, [&vl0](double &v) { v -= vl0; });
+    }
 
     return indices;
 }
@@ -74,7 +93,7 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(const std::string &f_
     // Boundary cut
     qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-    if (qFile->realSize() < MIN_PIXELS_IN_CHUNK)
+    if (qFile->realSize() < MIN_PIXELS_IN_FILE)
         throw std::runtime_error("OneQSOEstimate::_readQsoFile::Short file");
 
     return qFile;
@@ -87,7 +106,8 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
         auto qFile = _readQsoFile(f_qso);
 
         // decide nchunk with lambda points array[nchunks+1]
-        std::vector<int> indices = OneQSOEstimate::decideIndices(qFile->size());
+        std::vector<int> indices = OneQSOEstimate::decideIndices(
+            qFile->size(), qFile->wave());
         int nchunks = indices.size() - 1;
 
         // create chunk objects
@@ -126,7 +146,7 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin, long 
         qtemp.readData();
         qtemp.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-        if (qtemp.realSize() < MIN_PIXELS_IN_CHUNK)
+        if (qtemp.realSize() < MIN_PIXELS_IN_FILE)
             return 0;
 
         double z1, z2, zm;
@@ -134,7 +154,8 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin, long 
         zbin = bins::findRedshiftBin(zm);
 
         // decide chunks
-        std::vector<int> indices = OneQSOEstimate::decideIndices(qtemp.size());
+        std::vector<int> indices = OneQSOEstimate::decideIndices(
+            qtemp.size(), qtemp.wave());
         int nchunks = indices.size() - 1;
 
         // add compute time from chunks

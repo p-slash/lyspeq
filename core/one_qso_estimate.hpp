@@ -30,7 +30,7 @@ public:
     OneQSOEstimate(OneQSOEstimate &&rhs) = default;
     OneQSOEstimate(const OneQSOEstimate &rhs) = delete;
 
-    static std::vector<int> decideIndices(int size);
+    static std::vector<int> decideIndices(int size, double *wave);
     static double getComputeTimeEst(std::string fname_qso, int &zbin, long &targetid);
 
     // Pass fit values for the power spectrum for numerical stability
