@@ -11,6 +11,8 @@
 
 #include <stdexcept>
 
+const int MIN_PIXELS_IN_FILE = 100;
+
 
 std::vector<int> OneQSOEstimate::decideIndices(int size, double *wave) {
     int nchunks = 1;
@@ -91,7 +93,7 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(const std::string &f_
     // Boundary cut
     qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-    if (qFile->realSize() < MIN_PIXELS_IN_CHUNK)
+    if (qFile->realSize() < MIN_PIXELS_IN_FILE)
         throw std::runtime_error("OneQSOEstimate::_readQsoFile::Short file");
 
     return qFile;
@@ -144,7 +146,7 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin, long 
         qtemp.readData();
         qtemp.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
 
-        if (qtemp.realSize() < MIN_PIXELS_IN_CHUNK)
+        if (qtemp.realSize() < MIN_PIXELS_IN_FILE)
             return 0;
 
         double z1, z2, zm;

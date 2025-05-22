@@ -83,14 +83,15 @@ namespace specifics
     extern double RESOMAT_DECONVOLUTION_M, MIN_SNR_CUT;
     extern qio::ifileformat INPUT_QSO_FILE;
 
-    extern double MAX_FOREST_LENGTH_V, MIN_FOREST_LENGTH_V;
+    extern double MAX_FOREST_LENGTH_V, MIN_FOREST_LENGTH_V, MAX_PIXEL_LENGTH_V;
 
     const config_map specifics_default_parameters ({
         {"MinimumSnrCut", "0"}, {"InputIsPicca", "-1"}, {"UseResoMatrix", "-1"},
         {"ResoMatDeconvolutionM", "-1"}, {"OversampleRmat", "-1"},
         {"DynamicChunkNumber", "1"}, {"TurnOffBaseline", "-1"},
         {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "1e-2"},
-        {"RedshiftGrowthOn", "-1"}, {"MaximumForestLength", "3.5e4"},
+        {"RedshiftGrowthOn", "-1"},
+        {"MaximumForestLength", "3.5e4"}, {"MaximumMeanPixelSize", "150.0"},
         {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
         {"PrecomputedFisher", ""}, {"Targetids2Ignore", ""},
         {"NumberOfBoots", "20000"}, {"FastBootstrap", "1"},
@@ -126,6 +127,9 @@ namespace specifics
         Maximum length of the forest to use in dynamic chunking. Accurate
         values enable a consistent maximum length of each chunk. The max
         forest length of each chunk will be this / DynamicChunkNumber.
+    MaximumMeanPixelSize: double, default: 150.0
+        Maximum mean pixel size. This helps to stabilize the modes near the
+        Nyquist by eliminating sparsely sampled chunks.
     ContinuumLogLambdaMargOrder: int
         Polynomial order for log lambda cont marginalization. Default 1.
     ContinuumLambdaMargOrder: int
