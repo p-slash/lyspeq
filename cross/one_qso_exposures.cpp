@@ -241,7 +241,8 @@ OneQsoExposures::OneQsoExposures(const std::string &f_qso) : OneQSOEstimate() {
         dec = qFile->dec;
 
         exposures.reserve(30);
-        std::vector<int> indices = OneQSOEstimate::decideIndices(qFile->size());
+        std::vector<int> indices = OneQSOEstimate::decideIndices(
+            qFile->size(), qFile->wave());
         int nchunks = indices.size() - 1;
 
         for (int nc = 0; nc < nchunks; ++nc) {
