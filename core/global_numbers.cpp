@@ -69,7 +69,8 @@ namespace specifics
          SAVE_BOOTREALIZATIONS;
     int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
         CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1, NUMBER_OF_BOOTS = 0;
-    double RESOMAT_DECONVOLUTION_M = 0, MIN_SNR_CUT = 0;
+    double RESOMAT_DECONVOLUTION_M = 0, MIN_SNR_CUT = 0,
+           MAX_FOREST_LENGTH_V = 0, MIN_FOREST_LENGTH_V = 0;
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
     int OVERSAMPLING_FACTOR = -1;
 
@@ -97,8 +98,12 @@ namespace specifics
         MIN_SNR_CUT = config.getDouble("MinimumSnrCut");
         RESOMAT_DECONVOLUTION_M = config.getDouble("ResoMatDeconvolutionM");
         OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat", -1);
-        NUMBER_OF_CHUNKS = config.getInteger("DynamicChunkNumber", 1);
+        NUMBER_OF_CHUNKS = std::max(1, config.getInteger("DynamicChunkNumber", 1));
         NUMBER_OF_BOOTS = config.getInteger("NumberOfBoots");
+
+        MAX_FOREST_LENGTH_V = config.getDouble("MaximumForestLength", 3.5e4);
+        MAX_FOREST_LENGTH_V /= NUMBER_OF_CHUNKS;
+        MIN_FOREST_LENGTH_V = 0.95 / 2 * MAX_FOREST_LENGTH_V;
 
         double temp_chisq = config.getDouble("ChiSqConvergence");
         if (temp_chisq > 0)
@@ -144,6 +149,10 @@ namespace specifics
             OVERSAMPLING_FACTOR);
         LOG::LOGGER.STD("DynamicChunkNumber is set to %d.\n",
             NUMBER_OF_CHUNKS);
+        LOG::LOGGER.STD("Maximum chunk length is set to %.2e.\n",
+            MAX_FOREST_LENGTH_V);
+        LOG::LOGGER.STD("Minimum chunk length is set to %.2e.\n",
+            MIN_FOREST_LENGTH_V);
         LOG::LOGGER.STD("Fiducial signal matrix is set to turned %s.\n",
             TURN_OFF_SFID ? "OFF" : "ON");
         LOG::LOGGER.STD("SmoothLnkLnP is set to %s.\n",
