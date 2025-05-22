@@ -218,6 +218,10 @@ Other params
     per chunk.
 + `DynamicChunkNumber` (int):
     Dynamiccaly chunk spectra into this number when > 1. Off by default.
++ `MaximumForestLength` (double, default: 3.5e4):
+    Maximum length of the forest to use in dynamic chunking. Accurate
+    values enable a consistent maximum length of each chunk. The max
+    forest length of each chunk will be this / `DynamicChunkNumber`.
 + `TurnOffBaseline` (int):
     Turns off the fiducial signal matrix if > 0. Fid is on by default.
 + `SmoothLnkLnP` (int):
