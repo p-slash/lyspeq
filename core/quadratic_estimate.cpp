@@ -414,6 +414,7 @@ void OneDQuadraticPowerEstimate::iterate()
         qio::PiccaFile::clearCache();
     local_fpaths.clear();
 
+    mympi::barrier();
     total_time_1it  = mytime::timer.getTime() - total_time_1it;
     LOG::LOGGER.STD("Local files are read in %.1f minutes.\n", total_time_1it);
 
