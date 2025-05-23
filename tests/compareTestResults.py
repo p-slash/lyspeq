@@ -3,6 +3,8 @@ import argparse
 import struct
 import os
 
+import fitsio
+
 ABS_ERR = 1E-8
 REL_ERR = 1E-5
 
@@ -114,10 +116,12 @@ if __name__ == '__main__':
     ERR_CODE += testMaxDiffArrays(true_ErrorP, comp_ErrorP)
 
     print("4. Comparing Fisher matrices...")
-    true_fisher = np.loadtxt(
-        f"{args.SourceDir}/tests/truth/test_it1_fisher_matrix.dat", skiprows=1)
-    comp_fisher = np.loadtxt(
-        f"{args.SourceDir}/tests/output/test_it1_fisher_matrix.txt", skiprows=1)
+    true_fisher = fitsio.read(
+        f"{args.SourceDir}/tests/truth/test_it1_matrices.fits",
+        ext="FISHER_MATRIX")
+    comp_fisher = fitsio.read(
+        f"{args.SourceDir}/tests/output/test_it1_matrices.fits",
+        ext="FISHER_MATRIX")
     ERR_CODE += testMaxDiffArrays(true_fisher, comp_fisher)
 
     if ERR_CODE == 0:
