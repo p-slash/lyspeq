@@ -806,23 +806,34 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     buffer << "_it" << it+1 << "_quadratic_power_estimate_detailed.txt";
     writeDetailedSpectrumEstimates(buffer.str().c_str());
 
-    buffer.str(process::FNAME_BASE);
-    buffer << "_it" << it+1 << "_fisher_matrix.txt";
-    mxhelp::fprintfMatrix(
-        buffer.str().c_str(), fisher_matrix_sum.get(),
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    buffer.str("!" + process::FNAME_BASE);
+    buffer << "_it" << it+1 << "_matrices.fits";
+    auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(buffer.str());
+    fitsfile *fits_file = fitsfile_ptr.get();
 
-    buffer.str(process::FNAME_BASE);
-    buffer << "_it" << it+1 << "_inversefisher_matrix.txt";
-    mxhelp::fprintfMatrix(
-        buffer.str().c_str(), inverse_fisher_matrix_sum.get(),
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    int status = 0;
+    long naxis = 2, size = bins::FISHER_SIZE,  // _naxes[1] = {0},
+         naxes[2] = { bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS };
 
-    buffer.str(process::FNAME_BASE);
-    buffer << "_it" << it+1 << "_solver_invfishermatrix.txt";
-    mxhelp::fprintfMatrix(
-        buffer.str().c_str(), solver_invfisher_matrix.get(),
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    // fits_create_img(fits_file, DOUBLE_IMG, 1, _naxes, &status);
+    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
+    fits_update_key_str(fits_file, "EXTNAME", "FISHER_MATRIX", nullptr, &status);
+    fits_write_img(
+        fits_file, TDOUBLE, 1, size, (void *) fisher_matrix_sum.get(), &status);
+
+    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
+    fits_update_key_str(fits_file, "EXTNAME", "COVARIANCE", nullptr, &status);
+    fits_write_img(
+        fits_file, TDOUBLE, 1, size, (void *) inverse_fisher_matrix_sum.get(),
+        &status);
+
+    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
+    fits_update_key_str(fits_file, "EXTNAME", "SOLV_INVF", nullptr, &status);
+    fits_write_img(
+        fits_file, TDOUBLE, 1, size, (void *) solver_invfisher_matrix.get(),
+        &status);
+    ioh::checkFitsStatus(status);
+
     LOG::LOGGER.STD(
         "Fisher matrix and inverse are saved as %s.\n",
         buffer.str().c_str());
