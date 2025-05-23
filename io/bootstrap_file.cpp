@@ -135,7 +135,7 @@ void ioh::BootstrapChunksFile::writeChunk(
         const double *pk, const double *nk, const double *tk,
         const double *fisher, int ndim,
         int fisher_index_start, long id, double z_qso,
-        double ra, double dec
+        double ra, double dec, double snr
 ) {
     int bitpix = DOUBLE_IMG;
     long naxis = 1;
@@ -161,6 +161,7 @@ void ioh::BootstrapChunksFile::writeChunk(
     fits_write_key(fits_file, TDOUBLE, "ZQSO", &z_qso, nullptr, &status);
     fits_write_key(fits_file, TDOUBLE, "RA", &ra, nullptr, &status);
     fits_write_key(fits_file, TDOUBLE, "DEC", &dec, nullptr, &status);
+    fits_write_key(fits_file, TDOUBLE, "SNR", &snr, nullptr, &status);
     fits_write_key(fits_file, TINT, "NQDIM", &ndim, nullptr, &status);
     fits_write_key(
         fits_file, TINT, "ISTART", &fisher_index_start, nullptr, &status);

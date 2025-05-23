@@ -30,7 +30,7 @@ public:
         const double *pk, const double *nk, const double *tk,
         const double *fisher, int ndim,
         int fisher_index_start, long id, double z_qso,
-        double ra, double dec);
+        double ra, double dec, double snr);
 private:
     int status;
     unique_fitsfile_ptr fitsfile_ptr;
