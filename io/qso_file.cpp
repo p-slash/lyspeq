@@ -84,7 +84,8 @@ QSOFile::QSOFile(const qio::QSOFile &qmaster, int i1, int i2)
             qmaster.Rmat.get(), i1+shift, i1+shift+arr_size);
         process::updateMemory(-Rmat->getMinMemUsage());
     }
-    recalcDvDLam();
+    if (arr_size > 1)
+        recalcDvDLam();
 }
 
 void QSOFile::readParameters()
