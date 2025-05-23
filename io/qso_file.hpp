@@ -138,6 +138,7 @@ public:
     int size() const { return arr_size; };
     int realSize() const { return arr_size-num_masked_pixels; };
     double getLengthV() const {
+        if (arr_size == 0)  return 0;
         return SPEED_OF_LIGHT * log(wave()[arr_size - 1] / wave()[0]);
     }
     double* wave() const  { return wave_head+shift; };
