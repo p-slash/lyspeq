@@ -201,10 +201,6 @@ void SQLookupTable::computeTables(bool force_rewrite)
     std::string buf_fnames;
     double time_spent_table_sfid, time_spent_table_q;
 
-    struct spectrograph_windowfn_params 
-        win_params = {0, 0, 0, 0};
-    struct sq_integrand_params
-        integration_parameters = {&fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
     sqhelper::SQ_IO_Header tmp_hdr = {
         N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, itp_z1, LENGTH_Z_OF_S, 
         0, 0, bins::K0, bins::DKLIN, bins::DKLOG, bins::NKLIN, bins::NKLOG};
@@ -219,28 +215,20 @@ void SQLookupTable::computeTables(bool force_rewrite)
     if (mympi::this_pe == mympi::total_pes-1)
         r_end_this = NUMBER_OF_R_VALUES;
 
-    FourierIntegrator q_integrator(
-        GSL_INTEG_COSINE, q_matrix_integrand, &integration_parameters);
-
-    FourierIntegrator s_integrator(
-        GSL_INTEG_COSINE, signal_matrix_integrand, &integration_parameters);
-
     for (int r = r_start_this; r < r_end_this; ++r)
     {
         time_spent_table_q = mytime::timer.getTime();
 
         int Rthis = R_DV_VALUES[r].first;
-        double dvthis = R_DV_VALUES[r].second;
+        double dvthis = R_DV_VALUES[r].second,
+               Rkms = SPEED_OF_LIGHT / Rthis / ONE_SIGMA_2_FWHM;
 
-        win_params.spectrograph_res = SPEED_OF_LIGHT / Rthis / ONE_SIGMA_2_FWHM;
-        win_params.pixel_width = dvthis;
         tmp_hdr.spectrograph_resolution = Rthis;
         tmp_hdr.pixel_width = dvthis;
 
         LOG::LOGGER.STD(
             "Creating look up tables for derivative matrices:"
-            " R=%d (%.2f km/s), dv=%.1f.\n",
-            Rthis, win_params.spectrograph_res, dvthis);
+            " R=%d (%.2f km/s), dv=%.1f.\n", Rthis, Rkms, dvthis);
 
         buf_fnames = sqhelper::SQTableFileNameConvention(DIR, S_BASE, Rthis, dvthis);
 
@@ -253,9 +241,16 @@ void SQLookupTable::computeTables(bool force_rewrite)
         sqhelper::SQLookupTableFile s_table_file(buf_fnames, true);
         s_table_file.writeMeta(tmp_hdr);
 
+        #pragma omp parallel for
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
             double k1 = bins::KBAND_EDGES[kn], k2 = bins::KBAND_EDGES[kn + 1];
-            LOG::LOGGER.STD("Q matrix for k=[%.1e - %.1e] s/km.\n", k1, k2);
+            struct spectrograph_windowfn_params win_params = {0, 0, dvthis, Rkms};
+
+            struct sq_integrand_params integration_parameters = {
+                &fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
+
+            FourierIntegrator q_integrator(
+                GSL_INTEG_COSINE, q_matrix_integrand, &integration_parameters);
 
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
                 win_params.delta_v_ij = LINEAR_V_ARRAY[nv];
@@ -278,11 +273,21 @@ void SQLookupTable::computeTables(bool force_rewrite)
         LOG::LOGGER.STD(
             "Creating look up table for signal matrix:"
             " R=%d (%.2f km/s), dv=%.1f.\n",
-            Rthis, win_params.spectrograph_res, dvthis);
+            Rthis, Rkms, dvthis);
 
+        #pragma omp parallel for
         for (int nv = 0; nv < N_V_POINTS; ++nv) {
             // 0 + LENGTH_V * nv / (Nv - 1.);
-            win_params.delta_v_ij = LINEAR_V_ARRAY[nv];
+            struct spectrograph_windowfn_params win_params = {
+                LINEAR_V_ARRAY[nv], 0, dvthis, Rkms};
+
+            struct sq_integrand_params integration_parameters = {
+                &fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
+
+            FourierIntegrator s_integrator(
+                GSL_INTEG_COSINE, signal_matrix_integrand,
+                &integration_parameters);
+
             s_integrator.setTableParameters(
                 win_params.delta_v_ij,
                 fidcosmo::FID_HIGHEST_K - fidcosmo::FID_LOWEST_K);
