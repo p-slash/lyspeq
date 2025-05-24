@@ -7,6 +7,7 @@
 
 #include "core/fiducial_cosmology.hpp"
 #include "core/mpi_manager.hpp"
+#include "core/omp_manager.hpp"
 #include "mathtools/fourier_integrator.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/sq_lookup_table_file.hpp"
@@ -275,11 +276,11 @@ void SQLookupTable::computeTables(bool force_rewrite)
             " R=%d (%.2f km/s), dv=%.1f.\n",
             Rthis, Rkms, dvthis);
 
-        #pragma omp parallel for
-        for (int nv = 0; nv < N_V_POINTS; ++nv) {
+        #pragma omp parallel
+        {
             // 0 + LENGTH_V * nv / (Nv - 1.);
             struct spectrograph_windowfn_params win_params = {
-                LINEAR_V_ARRAY[nv], 0, dvthis, Rkms};
+                0, 0, dvthis, Rkms};
 
             struct sq_integrand_params integration_parameters = {
                 &fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
@@ -288,20 +289,27 @@ void SQLookupTable::computeTables(bool force_rewrite)
                 GSL_INTEG_COSINE, signal_matrix_integrand,
                 &integration_parameters);
 
-            s_integrator.setTableParameters(
-                win_params.delta_v_ij,
-                fidcosmo::FID_HIGHEST_K - fidcosmo::FID_LOWEST_K);
+            int nv1 = (myomp::getThreadNum() * N_V_POINTS) / myomp::getNumThreads();
+            int nv2 = ((myomp::getThreadNum() + 1) * N_V_POINTS) / myomp::getNumThreads();
+            if (myomp::getThreadNum() == myomp::getNumThreads() - 1)
+                nv2 = N_V_POINTS;
 
-            for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz) {
-                int xy = nz + N_Z_POINTS_OF_S * nv;
-                // z_first + z_length * nz / (Nz - 1.);
-                win_params.z_ij = LINEAR_Z_ARRAY[nz];
-                
-                // 1E-15 gave roundoff error for smoothing with 20.8 km/s
-                // Correlation at dv=0 is between 0.01 and 1. 
-                // Giving room for 7 decades, absolute error can be 1e-9
-                signal_array[xy] = s_integrator.evaluate(
-                    fidcosmo::FID_LOWEST_K, fidcosmo::FID_HIGHEST_K, -1, 1E-9);
+            for (int nv = nv1; nv < nv2; ++nv) {
+                s_integrator.setTableParameters(
+                    win_params.delta_v_ij,
+                    fidcosmo::FID_HIGHEST_K - fidcosmo::FID_LOWEST_K);
+
+                for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz) {
+                    int xy = nz + N_Z_POINTS_OF_S * nv;
+                    // z_first + z_length * nz / (Nz - 1.);
+                    win_params.z_ij = LINEAR_Z_ARRAY[nz];
+                    
+                    // 1E-15 gave roundoff error for smoothing with 20.8 km/s
+                    // Correlation at dv=0 is between 0.01 and 1. 
+                    // Giving room for 7 decades, absolute error can be 1e-9
+                    signal_array[xy] = s_integrator.evaluate(
+                        fidcosmo::FID_LOWEST_K, fidcosmo::FID_HIGHEST_K, -1, 1E-9);
+                }
             }
         }
 
