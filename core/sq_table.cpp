@@ -295,6 +295,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
                 nv2 = N_V_POINTS;
 
             for (int nv = nv1; nv < nv2; ++nv) {
+                win_params.delta_v_ij = LINEAR_V_ARRAY[nv];
                 s_integrator.setTableParameters(
                     win_params.delta_v_ij,
                     fidcosmo::FID_HIGHEST_K - fidcosmo::FID_LOWEST_K);
