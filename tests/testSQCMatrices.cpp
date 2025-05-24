@@ -51,8 +51,8 @@ int TestOneQSOEstimate::test_setFiducialSignalMatrix()
     assert(ncols == ndim);
     assert(chunks[0]->qFile->size() == ndim);
 
-    // std::string outst = std::string(SRCDIR) + "/tests/output/signal_matrix.txt";
-    // mxhelp::fprintfMatrix(outst.c_str(), chunks[0]->covariance_matrix, nrows, ncols);
+    std::string outst = std::string(SRCDIR) + "/tests/output/signal_matrix.txt";
+    mxhelp::fprintfMatrix(outst.c_str(), chunks[0]->covariance_matrix, nrows, ncols);
 
     if (not allClose(A.data(), chunks[0]->covariance_matrix, ndim))
     {
@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
         process::sq_private_table->computeTables(true);
         process::sq_private_table->readTables();
 
-        // r+=test_SQLookupTable(config);
+        r+=test_SQLookupTable(config);
     }
     catch (std::exception& e)
     {
