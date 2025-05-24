@@ -5,116 +5,169 @@
 #include <sstream>
 #include <iomanip>
 
+double _nullval = 0;
+
 namespace sqhelper
 {
-std::string QTableFileNameConvention(
-        const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_Q,
-        int r, double dv, double k1, double k2
-) {
-    std::ostringstream qt_fname;
-
-    qt_fname << OUTPUT_DIR << "/" << OUTPUT_FILEBASE_Q  << "_R" << r 
-        << std::fixed << std::setprecision(1) << "_dv" << dv
-        << std::scientific << std::setprecision(5) << "_k" << k1 << "_" << k2
-        << ".dat";
-
-    return qt_fname.str();
-}
-
-std::string STableFileNameConvention(
+std::string SQTableFileNameConvention(
         const std::string &OUTPUT_DIR, const std::string &OUTPUT_FILEBASE_S,
         int r, double dv
 ) {
     std::ostringstream st_fname;
     st_fname << OUTPUT_DIR << "/" << OUTPUT_FILEBASE_S << "_R" << r 
-        << std::fixed << std::setprecision(1) << "_dv" << dv << ".dat";
+        << std::fixed << std::setprecision(1) << "_dv" << dv << ".fits";
 
     return st_fname.str();
 }
 
-SQLookupTableFile::SQLookupTableFile(std::string fname, char rw)
+
+SQLookupTableFile::SQLookupTableFile(const std::string &fname, bool towrite)
     : file_name(fname)
 {
-    read_write[0] = rw;
-    read_write[1] = 'b';
-    read_write[2] = '\0';
+    if (towrite)
+        fitsfile_ptr = ioh::create_unique_fitsfile_ptr(file_name);
+    else
+        fitsfile_ptr = ioh::open_unique_fitsfile_ptr(file_name, READONLY);
 
-    sq_file = ioh::open_file(file_name.c_str(), read_write);
-
-    isHeaderSet = false;
+    fits_file = fitsfile_ptr.get();
 }
 
-SQLookupTableFile::~SQLookupTableFile()
-{
-    fclose(sq_file);
+
+SQ_IO_Header SQLookupTableFile::readMeta() {
+    char extname[] = "METADATA";
+    int status = 0;
+    SQ_IO_Header hdr;
+
+    fits_movnam_hdu(fits_file, IMAGE_HDU, extname, 0, &status);
+    ioh::checkFitsStatus(status);
+
+    fits_read_key(fits_file, TINT, "NVPTS", &hdr.nvpoints, nullptr, &status);
+    fits_read_key(fits_file, TINT, "NZPTS", &hdr.nzpoints, nullptr, &status);
+
+    fits_read_key(fits_file, TDOUBLE, "LENV", &hdr.v_length, nullptr, &status);
+    fits_read_key(fits_file, TDOUBLE, "Z1", &hdr.z1, nullptr, &status);
+    fits_read_key(fits_file, TDOUBLE, "LENZ", &hdr.z_length, nullptr, &status);
+
+    fits_read_key(fits_file, TINT, "RFWHM", &hdr.spectrograph_resolution, nullptr, &status);
+    fits_read_key(fits_file, TDOUBLE, "DV", &hdr.pixel_width, nullptr, &status);
+
+    fits_read_key(fits_file, TDOUBLE, "K1", &hdr.k1, nullptr, &status);
+    fits_read_key(fits_file, TDOUBLE, "DKLIN", &hdr.dklin, nullptr, &status);
+    fits_read_key(fits_file, TDOUBLE, "DKLOG", &hdr.dklog, nullptr, &status);
+
+    fits_read_key(fits_file, TINT, "NKLIN", &hdr.nklin, nullptr, &status);
+    fits_read_key(fits_file, TINT, "NKLOG", &hdr.nklog, nullptr, &status);
+
+    ioh::checkFitsStatus(status);
+    meta = hdr;
+
+    return hdr;
 }
 
-void SQLookupTableFile::setHeader(const SQ_IO_Header hdr)
-{
-    if (read_write[0] == 'r')
-        throw std::runtime_error("SQLookupTableFile::setHeader() in reading mode!\n");
 
-    header = hdr;
-    isHeaderSet = true;
+void SQLookupTableFile::writeMeta(SQ_IO_Header &hdr) {
+    char extname[] = "METADATA";
+    int status = 0;
+    long naxis = 1, size = 0, naxes[1] = { 0 };
+
+    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
+    ioh::checkFitsStatus(status);
+
+    fits_update_key_str(fits_file, "EXTNAME", extname, nullptr, &status);
+    fits_write_key(fits_file, TINT, "NVPTS", &hdr.nvpoints, nullptr, &status);
+    fits_write_key(fits_file, TINT, "NZPTS", &hdr.nzpoints, nullptr, &status);
+
+    fits_write_key(fits_file, TDOUBLE, "LENV", &hdr.v_length, nullptr, &status);
+    fits_write_key(fits_file, TDOUBLE, "Z1", &hdr.z1, nullptr, &status);
+    fits_write_key(fits_file, TDOUBLE, "LENZ", &hdr.z_length, nullptr, &status);
+
+    fits_write_key(fits_file, TINT, "RFWHM", &hdr.spectrograph_resolution, nullptr, &status);
+    fits_write_key(fits_file, TDOUBLE, "DV", &hdr.pixel_width, nullptr, &status);
+
+    fits_write_key(fits_file, TDOUBLE, "K1", &hdr.k1, nullptr, &status);
+    fits_write_key(fits_file, TDOUBLE, "DKLIN", &hdr.dklin, nullptr, &status);
+    fits_write_key(fits_file, TDOUBLE, "DKLOG", &hdr.dklog, nullptr, &status);
+
+    fits_write_key(fits_file, TINT, "NKLIN", &hdr.nklin, nullptr, &status);
+    fits_write_key(fits_file, TINT, "NKLOG", &hdr.nklog, nullptr, &status);
+
+    ioh::checkFitsStatus(status);
+    meta = hdr;
 }
 
-void SQLookupTableFile::_readHeader()
-{
-    if (!isHeaderSet)
-    {
-        rewind(sq_file);
-        if (fread(&header, sizeof(SQ_IO_Header), 1, sq_file) != 1)
-            throw std::runtime_error("fread error in header SQLookupTableFile!");
 
-        isHeaderSet = true;
-    }
+void SQLookupTableFile::readDeriv(double *data) {
+    char extname[] = "DERIVATIVE";
+    int status = 0, nfound;
+    long naxes[2];
+
+    fits_movnam_hdu(fits_file, IMAGE_HDU, extname, 0, &status);
+    ioh::checkFitsStatus(status);
+
+    fits_read_keys_lng(fits_file, "NAXIS", 1, 2, naxes, &nfound, &status);
+
+    if (naxes[0] != (meta.nklin + meta.nklog))
+        throw std::runtime_error("SQLookupTableFile::readDeriv::Inconsistent Nk.");
+
+    if (naxes[1] != meta.nvpoints)
+        throw std::runtime_error("SQLookupTableFile::readDeriv::Inconsistent Nv.");
+
+    long size = naxes[0] * naxes[1];
+    fits_read_img(fits_file, TDOUBLE, 1, size, &_nullval, data, nullptr, &status);
+    ioh::checkFitsStatus(status);
 }
 
-SQ_IO_Header SQLookupTableFile::readHeader()
-{
-    if (read_write[0] == 'w')
-        throw std::runtime_error("SQLookupTableFile::readHeader() in writing mode!");
 
-    _readHeader();
-    return header;
+void SQLookupTableFile::writeDeriv(const double *data) {
+    char extname[] = "DERIVATIVE";
+    int status = 0;
+    long naxis = 2, naxes[2] = { meta.nklin + meta.nklog, meta.nvpoints };
+    long size = naxes[0] * naxes[1];
+
+    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
+    ioh::checkFitsStatus(status);
+
+    fits_update_key_str(fits_file, "EXTNAME", extname, nullptr, &status);
+    fits_write_img(fits_file, TDOUBLE, 1, size, (void *) data, &status);
+    ioh::checkFitsStatus(status);
 }
 
-void SQLookupTableFile::writeData(const double *data)
-{
-    if (!isHeaderSet)
-        throw std::runtime_error("SQLookupTableFile::writeData() before header is set!");
 
-    int size = header.nvpoints * header.nzpoints;
+void SQLookupTableFile::readSignal(double *data) {
+    char extname[] = "SIGNAL";
+    int status = 0, nfound;
+    long naxes[2];
 
-    if (size == 0)
-        size = header.nvpoints;
+    fits_movnam_hdu(fits_file, IMAGE_HDU, extname, 0, &status);
+    ioh::checkFitsStatus(status);
 
-    int fw;
+    fits_read_keys_lng(fits_file, "NAXIS", 1, 2, naxes, &nfound, &status);
 
-    fw = fwrite(&header, sizeof(SQ_IO_Header), 1, sq_file);
-    if (fw != 1)
-        throw std::runtime_error( "fwrite error in header SQLookupTableFile!");
+    if (naxes[0] != meta.nzpoints)
+        throw std::runtime_error("SQLookupTableFile::readSignal::Inconsistent Nz.");
 
-    fw = fwrite(data, sizeof(double), size, sq_file);
-    if (fw != size)
-        throw std::runtime_error( "fwrite error in data SQLookupTableFile!");
+    if (naxes[1] != meta.nvpoints)
+        throw std::runtime_error("SQLookupTableFile::readSignal::Inconsistent Nv.");
+
+    long size = naxes[0] * naxes[1];
+    fits_read_img(fits_file, TDOUBLE, 1, size, &_nullval, data, nullptr, &status);
+    ioh::checkFitsStatus(status);
 }
 
-void SQLookupTableFile::readData(double *data)
-{
-    readHeader();
 
-    fseek(sq_file, sizeof(SQ_IO_Header), SEEK_SET);
+void SQLookupTableFile::writeSignal(const double *data) {
+    char extname[] = "SIGNAL";
+    int status = 0;
+    long naxis = 2, naxes[2] = { meta.nzpoints, meta.nvpoints };
+    long size = naxes[0] * naxes[1];
 
-    size_t size = header.nvpoints * header.nzpoints;
+    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
+    ioh::checkFitsStatus(status);
 
-    if (size == 0)
-        size = header.nvpoints;
-
-    if (fread(data, sizeof(double), size, sq_file) != size)
-        throw std::runtime_error("fread error in data SQLookupTableFile!");
+    fits_update_key_str(fits_file, "EXTNAME", extname, nullptr, &status);
+    fits_write_img(fits_file, TDOUBLE, 1, size, (void *) data, &status);
+    ioh::checkFitsStatus(status);
 }
-
 }
 
 

@@ -4,17 +4,16 @@
 #include <cstdio>
 #include <string>
 
+#include "io/myfitsio.hpp"
+
+
 namespace sqhelper
 {
-    std::string QTableFileNameConvention(
-        const std::string &OUTPUT_DIR,
-        const std::string &OUTPUT_FILEBASE_Q, 
-        int r, double dv, double k1, double k2);
-
-    std::string STableFileNameConvention(
+    std::string SQTableFileNameConvention(
         const std::string &OUTPUT_DIR,
         const std::string &OUTPUT_FILEBASE_S, 
         int r, double dv);
+
 
     typedef struct
     {
@@ -28,36 +27,31 @@ namespace sqhelper
         int spectrograph_resolution;
         double pixel_width;
 
-        double k1;
-        double k2;
+        double k1, dklin, dklog;
+        int nklin, nklog;
     } SQ_IO_Header;
 
-    /* This file object reads and writes evaluated S and Q matrices
-     * in a standard file format.
-     */
-    class SQLookupTableFile
-    {
-        FILE *sq_file;
+
+    class SQLookupTableFile {
+        ioh::unique_fitsfile_ptr fitsfile_ptr;
+        fitsfile *fits_file;
+
         std::string file_name;
-        char read_write[3];
-
-        SQ_IO_Header header;
-        
-        bool isHeaderSet;
-
-        void _readHeader();
+        SQ_IO_Header meta;
         
     public:
-        SQLookupTableFile(std::string fname, char rw);
-        ~SQLookupTableFile();
+        SQLookupTableFile(const std::string &fname, bool towrite);
 
-        void setHeader(const SQ_IO_Header hdr);
+        SQ_IO_Header readMeta();
+        void writeMeta(SQ_IO_Header &hdr);
 
-        SQ_IO_Header readHeader();
-
-        void readData(double *data);
-        void writeData(const double *data);
-        
+        // Call only after setting Metadata;
+        // data size should be nktot * nvpoints
+        void readDeriv(double *data);
+        void writeDeriv(const double *data);
+        // data size should be nzpoints * nvpoints
+        void readSignal(double *data);
+        void writeSignal(const double *data);
     };
 }
 
