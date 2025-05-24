@@ -105,8 +105,10 @@ if __name__ == '__main__':
     print(f"{BOLD}Comparing QMLE results...{ENDC}")
     true_Pfid, true_ThetaP, true_ErrorP = readQMLEResults(
         f"{args.SourceDir}/tests/truth/test_it1_quadratic_power_estimate_detailed.dat")
-    comp_Pfid, comp_ThetaP, comp_ErrorP = readQMLEResults(
-        f"{args.SourceDir}/tests/output/test_it1_quadratic_power_estimate_detailed.txt")
+    comp_res = fitsio.read(
+        f"{args.SourceDir}/tests/output/test_detailed_results.fits",
+        ext="POWER_1")
+    comp_Pfid, comp_ThetaP, comp_ErrorP = comp_res['PINPUT'], comp_res['ThetaP'], comp_res['E_PK']
 
     print("1. Fiducial power:")
     ERR_CODE += testMaxDiffArrays(true_Pfid, comp_Pfid)
@@ -120,8 +122,8 @@ if __name__ == '__main__':
         f"{args.SourceDir}/tests/truth/test_it1_matrices.fits",
         ext="FISHER_MATRIX")
     comp_fisher = fitsio.read(
-        f"{args.SourceDir}/tests/output/test_it1_matrices.fits",
-        ext="FISHER_MATRIX")
+        f"{args.SourceDir}/tests/output/test_detailed_results.fits",
+        ext="FISHER_1")
     ERR_CODE += testMaxDiffArrays(true_fisher, comp_fisher)
 
     if ERR_CODE == 0:
