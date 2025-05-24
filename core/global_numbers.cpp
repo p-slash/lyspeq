@@ -201,9 +201,9 @@ namespace bins
         });
 
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
-        FISHER_SIZE, NewDegreesOfFreedom;
+        FISHER_SIZE, NewDegreesOfFreedom, NKLIN, NKLOG;
     std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
-    double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE;
+    double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE, K0, DKLIN, DKLOG;
     BinningMethod Z_BINNING_METHOD = TriangleBinningMethod;
 
     void setUpBins(
@@ -276,29 +276,28 @@ namespace bins
 
         config.addDefaults(bins_default_parameters);
 
-        int N_KLIN_BIN, N_KLOG_BIN;
-        double  K_0, LIN_K_SPACING, LOG_K_SPACING, Z_0, klast=-1;
+        double  Z_0, klast=-1;
 
-        K_0 = config.getDouble("K0");
-        LIN_K_SPACING = config.getDouble("LinearKBinWidth");
-        LOG_K_SPACING = config.getDouble("Log10KBinWidth");
-        N_KLIN_BIN = config.getInteger("NumberOfLinearBins");
-        N_KLOG_BIN = config.getInteger("NumberOfLog10Bins");
+        K0 = config.getDouble("K0");
+        DKLIN = config.getDouble("LinearKBinWidth");
+        DKLOG = config.getDouble("Log10KBinWidth");
+        NKLIN = config.getInteger("NumberOfLinearBins");
+        NKLOG = config.getInteger("NumberOfLog10Bins");
         klast = config.getDouble("LastKEdge");
 
         Z_0 = config.getDouble("FirstRedshiftBinCenter");
         Z_BIN_WIDTH = config.getDouble("RedshiftBinWidth");
         NUMBER_OF_Z_BINS = config.getInteger("NumberOfRedshiftBins");
 
-        if (N_KLIN_BIN > 0 && !(LIN_K_SPACING > 0))
+        if (NKLIN > 0 && !(DKLIN > 0))
             throw std::invalid_argument(
                 "NumberOfLinearBins > 0, so LinearKBinWidth must be > 0.");
 
-        if (N_KLOG_BIN > 0 && !(LOG_K_SPACING > 0))
+        if (NKLOG > 0 && !(DKLOG > 0))
             throw std::invalid_argument(
                 "NumberOfLog10Bins > 0, so Log10KBinWidth must be > 0.");
 
-        if (N_KLIN_BIN <= 0 && N_KLOG_BIN <= 0)
+        if (NKLIN <= 0 && NKLOG <= 0)
             throw std::invalid_argument(
                 "At least NumberOfLinearBins or NumberOfLog10Bins must be present.");
 
@@ -325,15 +324,13 @@ namespace bins
         }
 
         // Redshift and wavenumber bins are constructed
-        bins::setUpBins(
-            K_0, N_KLIN_BIN, LIN_K_SPACING, N_KLOG_BIN,
-            LOG_K_SPACING, klast, Z_0);
+        bins::setUpBins(K0, NKLIN, DKLIN, NKLOG, DKLOG, klast, Z_0);
 
-        LOG::LOGGER.STD("K0 %.3e\n", K_0);
-        LOG::LOGGER.STD("LinearKBinWidth %.3e\n", LIN_K_SPACING);
-        LOG::LOGGER.STD("NumberOfLinearBins %d\n", N_KLIN_BIN);
-        LOG::LOGGER.STD("Log10KBinWidth %.3e\n", LOG_K_SPACING);
-        LOG::LOGGER.STD("NumberOfLog10Bins %d\n", N_KLOG_BIN);
+        LOG::LOGGER.STD("K0 %.3e\n", K0);
+        LOG::LOGGER.STD("LinearKBinWidth %.3e\n", DKLIN);
+        LOG::LOGGER.STD("NumberOfLinearBins %d\n", NKLIN);
+        LOG::LOGGER.STD("Log10KBinWidth %.3e\n", DKLOG);
+        LOG::LOGGER.STD("NumberOfLog10Bins %d\n", NKLOG);
         LOG::LOGGER.STD("LastKEdge %.3e\n", klast);
 
         LOG::LOGGER.STD(
