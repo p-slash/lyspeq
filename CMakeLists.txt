@@ -149,15 +149,17 @@ add_library(SqTableObjLibs OBJECT
     core/sq_table.cpp io/sq_lookup_table_file.cpp
     core/fiducial_cosmology.cpp mathtools/fourier_integrator.cpp
     mathtools/discrete_interpolation.cpp mathtools/interpolation.cpp
-    mathtools/interpolation_2d.cpp
+    mathtools/interpolation_2d.cpp mathtools/real_field.cpp
 )
 target_link_libraries(SqTableObjLibs PUBLIC
-    MY_OMP_MPI GSL::gsl MY_BLAS_INTERFACE MY_FITSIO_INTERFACE)
+    MY_OMP_MPI GSL::gsl MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
+    MY_FFTW3_INTERFACE)
 
 add_library(AllObjLibs INTERFACE)
-target_sources(AllObjLibs INTERFACE
+target_sources(AllObjLibs INTERFACE 
     $<TARGET_OBJECTS:GlobalObjLibs> $<TARGET_OBJECTS:CoreObjLibs>
-    $<TARGET_OBJECTS:SqTableObjLibs>)
+    $<FILTER:$<TARGET_OBJECTS:SqTableObjLibs>,EXCLUDE,/real_field.cpp.o>)
+
 target_link_libraries(AllObjLibs INTERFACE
     MY_OMP_MPI GSL::gsl MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
     MY_FFTW3_INTERFACE)
