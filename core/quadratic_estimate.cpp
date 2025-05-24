@@ -812,13 +812,35 @@ void OneDQuadraticPowerEstimate::iterationOutput(
 
     static auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(fname);
     fitsfile *fits_file = fitsfile_ptr.get();
+    int status = 0;
+
+    if (it == 0) {
+        const int ncolumns = 2, nrows = bins::NUMBER_OF_Z_BINS + 2;
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char *column_names[] = {"Z", "NQSO"};
+        char *column_types[] = {"1E", "1J"};
+        #pragma GCC diagnostic pop
+
+        fits_create_tbl(
+            fits_file, BINARY_TBL, nrows, ncolumns,
+            column_names, column_types, nullptr, "NQSO_Z", &status);
+        ioh::checkFitsStatus(status);
+        auto zbins_ = std::make_unique<double[]>(nrows);
+        zbins_[0] = 0;  zbins_[nrows - 1] = 10.0;
+        for (int i = 0; i < bins::NUMBER_OF_Z_BINS; ++i)
+            zbins_[i + 1] = bins::ZBIN_CENTERS[i];
+
+        fits_write_col(fits_file, TDOUBLE, 1, 1, 1, nrows, zbins_.get(), &status);
+        fits_write_col(fits_file, TINT, 2, 1, 1, nrows, Z_BIN_COUNTS.data(), &status);
+        ioh::checkFitsStatus(status);
+    }
 
     std::ostringstream buffer(std::ostringstream::ate);
     buffer << "POWER_" << it + 1;
     printfSpectra();
     writeDetailedSpectrumEstimates(fits_file, buffer.str());
 
-    int status = 0;
     long naxis = 2, size = bins::FISHER_SIZE,  // _naxes[1] = {0},
          naxes[2] = { bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS };
 
