@@ -218,12 +218,13 @@ void SQLookupTable::computeTables(bool force_rewrite)
         r_end_this = NUMBER_OF_R_VALUES;
 
     std::unique_ptr<RealField> rft;
+    #define RFT_M 2  // Oversample factor for the RFT grid.
 
     if (!specifics::TURN_OFF_SFID) {
-        int nrft = exp2(ceil(log2(2 * N_V_POINTS)) + 2);
+        int nrft = exp2(ceil(log2(2 * RFT_M * N_V_POINTS)) + 1);
         LOG::LOGGER.STD("RealField number of points %d\n", nrft);
         double itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
-        rft = std::make_unique<RealField>(nrft, itp_dv / 2);
+        rft = std::make_unique<RealField>(nrft, itp_dv / RFT_M);
     }
 
     for (int r = r_start_this; r < r_end_this; ++r)
@@ -304,10 +305,11 @@ void SQLookupTable::computeTables(bool force_rewrite)
 
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
                 int xy = nz + N_Z_POINTS_OF_S * nv;
-                signal_array[xy] = rft->field_x[2 * nv];
+                signal_array[xy] = rft->field_x[RFT_M * nv];
             }
         }
 
+        #undef RFT_M
         s_table_file.writeSignal(signal_array.get());
         time_spent_table_sfid = mytime::timer.getTime() - time_spent_table_sfid;
 
