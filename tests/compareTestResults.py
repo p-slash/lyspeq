@@ -107,7 +107,7 @@ if __name__ == '__main__':
         f"{args.SourceDir}/tests/truth/test_it1_quadratic_power_estimate_detailed.dat")
     comp_res = fitsio.read(
         f"{args.SourceDir}/tests/output/test_detailed_results.fits",
-        ext="POWER_1")
+        ext="P1D")
     comp_Pfid, comp_ThetaP, comp_ErrorP = comp_res['PINPUT'], comp_res['ThetaP'], comp_res['E_PK']
 
     print("1. Fiducial power:")
@@ -123,7 +123,7 @@ if __name__ == '__main__':
         ext="FISHER_MATRIX")
     comp_fisher = fitsio.read(
         f"{args.SourceDir}/tests/output/test_detailed_results.fits",
-        ext="FISHER_1")
+        ext="FISHER")
     ERR_CODE += testMaxDiffArrays(true_fisher, comp_fisher)
 
     if ERR_CODE == 0:
