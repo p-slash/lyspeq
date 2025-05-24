@@ -160,9 +160,9 @@ namespace bins
     // TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS
     extern int
         NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, FISHER_SIZE, TOTAL_KZ_BINS,
-        NewDegreesOfFreedom;
+        NewDegreesOfFreedom, NKLIN, NKLOG;
     extern std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
-    extern double Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE;
+    extern double Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE, K0, DKLIN, DKLOG;
     extern BinningMethod Z_BINNING_METHOD;
 
     const config_map bins_default_parameters ({

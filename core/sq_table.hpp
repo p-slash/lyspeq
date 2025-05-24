@@ -49,8 +49,9 @@ class SQLookupTable
     }
     void allocateSignalAndDerivArrays();
 
-    shared_interp_1d _allocReadQFile(int kn, int r_index);
-    shared_interp_2d _allocReadSFile(int r_index);
+    void _allocReadSQFile(
+        int r_index, shared_interp_2d& sint,
+        std::vector<shared_interp_1d> &dints);
 
 public:
     SQLookupTable(ConfigFile &config);
