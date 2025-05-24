@@ -128,13 +128,6 @@ int main(int argc, char *argv[])
     {
         LOG::LOGGER.ERR("Error while Iteration: %s\n", e.what());
         qps->printfSpectra();
-
-        std::string buf = process::FNAME_BASE + "_error_dump_quadratic_power_estimate_detailed.dat";
-        qps->writeDetailedSpectrumEstimates(buf.c_str());
-        
-        buf = process::FNAME_BASE + "_error_dump_fisher_matrix.dat";
-        qps->writeFisherMatrix(buf.c_str());
-
         mympi::abort();
 
         return 1;
