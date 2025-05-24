@@ -837,31 +837,35 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     }
 
     std::ostringstream buffer(std::ostringstream::ate);
-    buffer << "POWER_" << it + 1;
+    buffer << "P1D";
+    if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
+
     printfSpectra();
     writeDetailedSpectrumEstimates(fits_file, buffer.str());
 
     long naxis = 2, size = bins::FISHER_SIZE,  // _naxes[1] = {0},
          naxes[2] = { bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS };
 
-    buffer.str("FISHER_");
-    buffer << it + 1;
+    buffer.str("FISHER");
+    if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
 
     fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
     fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
     fits_write_img(
         fits_file, TDOUBLE, 1, size, (void *) fisher_matrix_sum.get(), &status);
 
-    buffer.str("COVARIANCE_");
-    buffer << it + 1;
+    buffer.str("COVARIANCE");
+    if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
+
     fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
     fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
     fits_write_img(
         fits_file, TDOUBLE, 1, size, (void *) inverse_fisher_matrix_sum.get(),
         &status);
 
-    buffer.str("SOLV_INVF_");
-    buffer << it + 1;
+    buffer.str("SOLV_INVF");
+    if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
+
     fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
     fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
     fits_write_img(
