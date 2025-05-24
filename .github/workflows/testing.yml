@@ -23,7 +23,7 @@ jobs:
       with:
         python-version: 3.11
     - name: Install NumPy
-      run: pip install numpy
+      run: pip install numpy fitsio
     - name: configure
       run: ./configure --build=github --enable-openmp
     - name: make
