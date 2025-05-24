@@ -33,7 +33,7 @@ void _saveQuasarResults(const targetid_quasar_map &quasars) {
         bfile.writeChunk(
             pk, nk, tk,
             qso->fisher_matrix.get(), qso->ndim, qso->istart,
-            targetid, qso->z_qso, qso->ra, qso->dec);
+            targetid, qso->z_qso, qso->ra, qso->dec, 0);
     }
 
     LOG::LOGGER.STD("Quasar results are saved.\n");

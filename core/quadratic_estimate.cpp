@@ -656,99 +656,106 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
     LOG::LOGGER.STD("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
 }
 
-void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fname)
-{
-    FILE *toWrite = ioh::open_file(fname, "w");
+void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
+        fitsfile *fits_file, const std::string ext
+) {
+    int status = 0;
 
-    specifics::printBuildSpecifics(toWrite);
-    config.writeConfig(toWrite);
+    /* define the name, datatype, and physical units for columns */
+    const int ncolumns = 14;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+    char *column_names[] = {
+        "Z", "K1", "K2", "K", "PLYA", "E_PK", "PRAW", "PNOISE", "PFID", "PINPUT",
+        "ThetaP", "Fd", "Fb", "Ft"
+    };
+    char *column_types[] = {
+        "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D",
+        "1D", "1D", "1D", "1D"
+    };
+    char *column_units[] = {
+        "", "s km^-1", "s km^-1", "s km^-1", "km s^-1", "km s^-1", "km s^-1",
+        "km s^-1", "km s^-1", "km s^-1", "km s^-1", "s km^-1", "s km^-1", "s km^-1"
+    };
+    #pragma GCC diagnostic pop
 
-    fprintf(toWrite, "# Fiducial Power Spectrum\n"
-        "# Pfid(k, z) = (A*pi/k0) * q^(2+n+alpha*ln(q)+beta*ln(x)) * x^B / (1 + lambda * k^2)\n"
-        "# k0=0.009 s km^-1, z0=3.0 and q=k/k0, x=(1+z)/(1+z0)\n"
-        "# Parameters set by config file:\n");
-    fprintf(toWrite, "# A      = %15e\n"
-        "# n      = %15e\n"
-        "# alpha  = %15e\n"
-        "# B      = %15e\n"
-        "# beta   = %15e\n"
-        "# lambda = %15e\n", 
-        fidpd13::FIDUCIAL_PD13_PARAMS.A, fidpd13::FIDUCIAL_PD13_PARAMS.n, 
-        fidpd13::FIDUCIAL_PD13_PARAMS.alpha, fidpd13::FIDUCIAL_PD13_PARAMS.B, 
-        fidpd13::FIDUCIAL_PD13_PARAMS.beta, fidpd13::FIDUCIAL_PD13_PARAMS.lambda);
-    fprintf(toWrite, "# -----------------------------------------------------------------\n"
-        "# File Template\n"
-        "# Nz Nk\n"
-        "# n[0] n[1] ... n[Nz] n[Nz+1]\n"
-        "# z | k1 | k2 | kc | Pfid | ThetaP | Pest | ErrorP | d | b | t\n"
-        "# Nz     : Number of redshift bins\n"
-        "# Nk     : Number of k bins\n"
-        "# n[i]   : Spectral chunk count in redshift bin i. Left-most and right-most are out of range\n"
-        "# z      : Redshift bin center\n"
-        "# k1     : Lower edge of the k bin [s km^-1]\n"
-        "# k2     : Upper edge of the k bin [s km^-1]\n"
-        "# kc     : Center of the k bin [s km^-1]\n"
-        "# Pfid   : Fiducial power at kc [km s^-1]\n"
-        "# ThetaP : Deviation from Pfid found by quadratic estimator = d - b - t [km s^-1]\n"
-        "# Pest   : Pfid + ThetaP [km s^-1]\n"
-        "# ErrorP : Error estimated from diagonal terms of the inverse Fisher matrix [km s^-1]\n"
-        "# d      : Power estimate before noise (b) and fiducial power (t) subtracted [km s^-1]\n"
-        "# b      : Noise estimate [km s^-1]\n"
-        "# t      : Fiducial power estimate [km s^-1]\n"
-        "# Fd     : d before Fisher\n"
-        "# Fb     : b before Fisher\n"
-        "# Ft     : t before Fisher\n"
-        "# -----------------------------------------------------------------\n");
+    fits_create_tbl(
+        fits_file, BINARY_TBL, bins::TOTAL_KZ_BINS, ncolumns,
+        column_names, column_types, column_units, ext.c_str(), &status);
+    ioh::checkFitsStatus(status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_A", &fidpd13::FIDUCIAL_PD13_PARAMS.A,
+        nullptr, &status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_N", &fidpd13::FIDUCIAL_PD13_PARAMS.n,
+        nullptr, &status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_ALP", &fidpd13::FIDUCIAL_PD13_PARAMS.alpha,
+        nullptr, &status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_B", &fidpd13::FIDUCIAL_PD13_PARAMS.B,
+        nullptr, &status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_BET", &fidpd13::FIDUCIAL_PD13_PARAMS.beta,
+        nullptr, &status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_LAM", &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,
+        nullptr, &status);
 
-    if (damping_pair.first)
-        fprintf(toWrite, "# Damped: True\n");
-    else
-        fprintf(toWrite, "# Damped: False\n");
-
-    fprintf(toWrite, "# Damping constant: %.3e\n", damping_pair.second);
-    fprintf(toWrite, "# %d %d\n# ", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
-
-    for (int i = 0; i <= bins::NUMBER_OF_Z_BINS + 1; ++i)
-        fprintf(toWrite, "%d ", Z_BIN_COUNTS[i]);
-
-    fprintf(toWrite, "\n");
-    fprintf(
-        toWrite,
-        "%5s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n", 
-        "z", "k1", "k2", "kc", "Pfid", "ThetaP", "Pest", "ErrorP",
-        "d", "b", "t", "Fd", "Fb", "Ft");
+    fits_write_key(fits_file, TINT, "NZ", &bins::NUMBER_OF_Z_BINS, nullptr, &status);
+    fits_write_key(fits_file, TINT, "NK", &bins::NUMBER_OF_K_BANDS, nullptr, &status);
+    fits_write_key(fits_file, TINT, "ISDAMPED", &damping_pair.first, nullptr, &status);
+    fits_write_key(fits_file, TDOUBLE, "DAMP_CON", &damping_pair.second, nullptr, &status);
+    ioh::checkFitsStatus(status);
 
     int kn = 0, zm = 0;
-    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
-    {
-        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
-        double
-            z = bins::ZBIN_CENTERS[zm],
-            k1 = bins::KBAND_EDGES[kn],
-            k2 = bins::KBAND_EDGES[kn + 1],
-            kc = bins::KBAND_CENTERS[kn],
+    auto a1 = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
+         a2 = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
+         a3 = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
+         a4 = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
-            Pfid = powerSpectrumFiducial(kn, zm),
-            ThetaP = current_power_estimate_vector[i_kz],
-            ErrorP = sqrt(inverse_fisher_matrix_sum[(1 + bins::TOTAL_KZ_BINS) * i_kz]),
-
-            dk = dbt_estimate_fisher_weighted_vector[0][i_kz],
-            bk = dbt_estimate_fisher_weighted_vector[1][i_kz],
-            tk = dbt_estimate_fisher_weighted_vector[2][i_kz],
-
-            Fdk = dbt_estimate_sum_before_fisher_vector[0][i_kz],
-            Fbk = dbt_estimate_sum_before_fisher_vector[1][i_kz],
-            Ftk = dbt_estimate_sum_before_fisher_vector[2][i_kz];
-
-        fprintf(
-            toWrite,
-            "%5.3lf %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e\n", 
-            z, k1, k2, kc, Pfid, ThetaP, Pfid + ThetaP, ErrorP,
-            dk, bk, tk, Fdk, Fbk, Ftk);
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);  
+        a1[i_kz] = bins::ZBIN_CENTERS[zm];
+        a2[i_kz] = bins::KBAND_EDGES[kn];
+        a3[i_kz] = bins::KBAND_EDGES[kn + 1];
+        a4[i_kz] = bins::KBAND_CENTERS[zm];
     }
 
-    fclose(toWrite);
-    LOG::LOGGER.STD("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+    fits_write_col(fits_file, TDOUBLE, 1, 1, 1, bins::TOTAL_KZ_BINS, a1.get(), &status);
+    fits_write_col(fits_file, TDOUBLE, 2, 1, 1, bins::TOTAL_KZ_BINS, a2.get(), &status);
+    fits_write_col(fits_file, TDOUBLE, 3, 1, 1, bins::TOTAL_KZ_BINS, a3.get(), &status);
+    fits_write_col(fits_file, TDOUBLE, 4, 1, 1, bins::TOTAL_KZ_BINS, a4.get(), &status);
+
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);  
+        a1[i_kz] = powerSpectrumFiducial(kn, zm);
+        a2[i_kz] = current_power_estimate_vector[i_kz] + a1[i_kz];
+        a3[i_kz] = sqrt(inverse_fisher_matrix_sum[(1 + bins::TOTAL_KZ_BINS) * i_kz]);
+    }
+
+    fits_write_col(fits_file, TDOUBLE, 5, 1, 1, bins::TOTAL_KZ_BINS, a2.get(), &status);
+    fits_write_col(fits_file, TDOUBLE, 6, 1, 1, bins::TOTAL_KZ_BINS, a3.get(), &status);
+
+    fits_write_col(fits_file, TDOUBLE, 7, 1, 1, bins::TOTAL_KZ_BINS,
+                   dbt_estimate_fisher_weighted_vector[0].get(), &status);
+    fits_write_col(fits_file, TDOUBLE, 8, 1, 1, bins::TOTAL_KZ_BINS,
+                   dbt_estimate_fisher_weighted_vector[1].get(), &status);
+    fits_write_col(fits_file, TDOUBLE, 9, 1, 1, bins::TOTAL_KZ_BINS,
+                   dbt_estimate_fisher_weighted_vector[2].get(), &status);
+
+    fits_write_col(fits_file, TDOUBLE, 10, 1, 1, bins::TOTAL_KZ_BINS, a1.get(), &status);
+    fits_write_col(fits_file, TDOUBLE, 11, 1, 1, bins::TOTAL_KZ_BINS,
+                   current_power_estimate_vector.get(), &status);
+
+    fits_write_col(fits_file, TDOUBLE, 12, 1, 1, bins::TOTAL_KZ_BINS,
+                   dbt_estimate_sum_before_fisher_vector[0].get(), &status);
+    fits_write_col(fits_file, TDOUBLE, 13, 1, 1, bins::TOTAL_KZ_BINS,
+                   dbt_estimate_sum_before_fisher_vector[1].get(), &status);
+    fits_write_col(fits_file, TDOUBLE, 14, 1, 1, bins::TOTAL_KZ_BINS,
+                   dbt_estimate_sum_before_fisher_vector[2].get(), &status);
+
+    ioh::checkFitsStatus(status);
 }
 
 void OneDQuadraticPowerEstimate::initializeIteration()
@@ -801,43 +808,46 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     if (mympi::this_pe != 0)
         return;
 
-    std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
-    printfSpectra();
+    std::string fname = "!" + process::FNAME_BASE + "_detailed_results.fits";
 
-    buffer << "_it" << it+1 << "_quadratic_power_estimate_detailed.txt";
-    writeDetailedSpectrumEstimates(buffer.str().c_str());
-
-    buffer.str("!" + process::FNAME_BASE);
-    buffer << "_it" << it+1 << "_matrices.fits";
-    auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(buffer.str());
+    static auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(fname);
     fitsfile *fits_file = fitsfile_ptr.get();
+
+    std::ostringstream buffer(std::ostringstream::ate);
+    buffer << "POWER_" << it + 1;
+    printfSpectra();
+    writeDetailedSpectrumEstimates(fits_file, buffer.str());
 
     int status = 0;
     long naxis = 2, size = bins::FISHER_SIZE,  // _naxes[1] = {0},
          naxes[2] = { bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS };
 
-    // fits_create_img(fits_file, DOUBLE_IMG, 1, _naxes, &status);
+    buffer.str("FISHER_");
+    buffer << it + 1;
+
     fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
-    fits_update_key_str(fits_file, "EXTNAME", "FISHER_MATRIX", nullptr, &status);
+    fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
     fits_write_img(
         fits_file, TDOUBLE, 1, size, (void *) fisher_matrix_sum.get(), &status);
 
+    buffer.str("COVARIANCE_");
+    buffer << it + 1;
     fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
-    fits_update_key_str(fits_file, "EXTNAME", "COVARIANCE", nullptr, &status);
+    fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
     fits_write_img(
         fits_file, TDOUBLE, 1, size, (void *) inverse_fisher_matrix_sum.get(),
         &status);
 
+    buffer.str("SOLV_INVF_");
+    buffer << it + 1;
     fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
-    fits_update_key_str(fits_file, "EXTNAME", "SOLV_INVF", nullptr, &status);
+    fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
     fits_write_img(
         fits_file, TDOUBLE, 1, size, (void *) solver_invfisher_matrix.get(),
         &status);
     ioh::checkFitsStatus(status);
 
-    LOG::LOGGER.STD(
-        "Fisher matrix and inverse are saved as %s.\n",
-        buffer.str().c_str());
+    LOG::LOGGER.STD("Results are saved as %s.\n", fname.c_str());
 
     LOG::LOGGER.STD(
         "----------------------------------\n"
