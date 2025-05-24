@@ -1,7 +1,9 @@
 import numpy as np
 import argparse
 import struct
-import os
+# import os
+
+import fitsio
 
 ABS_ERR = 1E-8
 REL_ERR = 1E-5
@@ -76,26 +78,24 @@ if __name__ == '__main__':
     # TESTING SQ LOOKUP TABLES
     # Read signal tables
     print(f"{BOLD}Comparing signal lookup tables...{ENDC}")
-    true_signal_table = readSQTable(
-        args.SourceDir + "/tests/truth/signal_R70000_dv20.0.dat")
-    comp_signal_table = readSQTable(
-        args.SourceDir + "/tests/output/signal_R70000_dv20.0.dat")
+    true_signal_table = fitsio.read(
+        args.SourceDir + "/tests/truth/signal_R70000_dv20.0.fits",
+        ext="SIGNAL")
+    comp_signal_table = fitsio.read(
+        args.SourceDir + "/tests/output/signal_R70000_dv20.0.fits",
+        ext="SIGNAL")
     ERR_CODE += testMaxDiffArrays(true_signal_table, comp_signal_table)
     del true_signal_table, comp_signal_table
 
     print(f"{BOLD}Comparing derivative lookup tables...{ENDC}")
-    TRUTH_DIR = os.path.join(args.SourceDir, "tests/truth")
-    deriv_flist = [
-        os.path.join(TRUTH_DIR, ff) for ff in os.listdir(TRUTH_DIR)
-        if ff.startswith("deriv_R70000_dv20.0")]
-    for drv_true_file in deriv_flist:
-        drv_comp_file = drv_true_file.replace("truth", "output")
-        print("\tFile:", drv_comp_file)
-        true_deriv_table = readSQTable(drv_true_file)
-        comp_deriv_table = readSQTable(drv_comp_file)
-        # print("True: ", true_deriv_table)
-        # print("Resu: ", comp_deriv_table)
-        ERR_CODE += testMaxDiffArrays(true_deriv_table, comp_deriv_table)
+    true_deriv_table = fitsio.read(
+        args.SourceDir + "/tests/truth/signal_R70000_dv20.0.fits",
+        ext="DERIVATIVE")
+    comp_deriv_table = fitsio.read(
+        args.SourceDir + "/tests/output/signal_R70000_dv20.0.fits",
+        ext="DERIVATIVE")
+
+    ERR_CODE += testMaxDiffArrays(true_deriv_table, comp_deriv_table)
 
     del true_deriv_table, comp_deriv_table
 
