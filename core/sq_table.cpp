@@ -220,7 +220,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
     std::unique_ptr<RealField> rft;
 
     if (!specifics::TURN_OFF_SFID) {
-        int nrft = exp2(ceil(log2(2 * N_V_POINTS)) + 1);
+        int nrft = exp2(ceil(log2(2 * N_V_POINTS)) + 2);
         LOG::LOGGER.STD("RealField number of points %d\n", nrft);
         double itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
         rft = std::make_unique<RealField>(nrft, itp_dv / 2);
