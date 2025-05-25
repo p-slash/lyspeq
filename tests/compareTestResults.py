@@ -1,7 +1,6 @@
 import numpy as np
 import argparse
 import struct
-# import os
 
 import fitsio
 
@@ -72,8 +71,6 @@ if __name__ == '__main__':
     print(
         f"{HEADER}Comparing test results. "
         f"Using absolute error of {ABS_ERR:.0e}.{ENDC}")
-    # print("Comparing test results. Using absolute error of {:.0e} and relative error of {:.0e}"\
-    #    .format(ABS_ERR, REL_ERR))
 
     # TESTING SQ LOOKUP TABLES
     # Read signal tables
@@ -103,8 +100,10 @@ if __name__ == '__main__':
     print(f"{BOLD}Comparing QMLE results...{ENDC}")
     true_Pfid, true_ThetaP, true_ErrorP = readQMLEResults(
         f"{args.SourceDir}/tests/truth/test_it1_quadratic_power_estimate_detailed.dat")
-    comp_Pfid, comp_ThetaP, comp_ErrorP = readQMLEResults(
-        f"{args.SourceDir}/tests/output/test_it1_quadratic_power_estimate_detailed.txt")
+    comp_res = fitsio.read(
+        f"{args.SourceDir}/tests/output/test_detailed_results.fits",
+        ext="P1D")
+    comp_Pfid, comp_ThetaP, comp_ErrorP = comp_res['PINPUT'], comp_res['ThetaP'], comp_res['E_PK']
 
     print("1. Fiducial power:")
     ERR_CODE += testMaxDiffArrays(true_Pfid, comp_Pfid)
@@ -114,10 +113,12 @@ if __name__ == '__main__':
     ERR_CODE += testMaxDiffArrays(true_ErrorP, comp_ErrorP)
 
     print("4. Comparing Fisher matrices...")
-    true_fisher = np.loadtxt(
-        f"{args.SourceDir}/tests/truth/test_it1_fisher_matrix.dat", skiprows=1)
-    comp_fisher = np.loadtxt(
-        f"{args.SourceDir}/tests/output/test_it1_fisher_matrix.txt", skiprows=1)
+    true_fisher = fitsio.read(
+        f"{args.SourceDir}/tests/truth/test_it1_matrices.fits",
+        ext="FISHER")
+    comp_fisher = fitsio.read(
+        f"{args.SourceDir}/tests/output/test_detailed_results.fits",
+        ext="FISHER")
     ERR_CODE += testMaxDiffArrays(true_fisher, comp_fisher)
 
     if ERR_CODE == 0:

@@ -420,29 +420,36 @@ private:
 
     void _saveData(const std::string &t) {
         std::string buffer = 
-            process::FNAME_BASE + std::string("_bootstrap_") + t
-            + std::string(".txt");
-        mxhelp::fprintfMatrix(
-            buffer.c_str(), temppower.get(),
-            1, bins::TOTAL_KZ_BINS);
+            "!" + process::FNAME_BASE + "_bootstrap_" + t + ".fits";
+
+        auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(buffer);
+        fitsfile *fits_file = fitsfile_ptr.get();
+
+        int status = 0;
+        long naxis = 2, size = bins::FISHER_SIZE,  // _naxes[1] = {0},
+             naxes[2] = { bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS };
+
+        fits_create_img(fits_file, DOUBLE_IMG, 1, naxes, &status);
+        fits_update_key_str(fits_file, "EXTNAME", "MEAN", nullptr, &status);
+        fits_write_img(fits_file, TDOUBLE, 1, bins::TOTAL_KZ_BINS,
+                       (void *) temppower.get(), &status);
 
         if (specifics::FAST_BOOTSTRAP) {
-            buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
-                     + std::string("_fisher_matrix.txt");
-
             cblas_dscal(bins::FISHER_SIZE, 0.25, tempfisher.get(), 1);
-            mxhelp::fprintfMatrix(
-                buffer.c_str(), tempfisher.get(),
-                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+
+            fits_create_img(fits_file, DOUBLE_IMG, 1, naxes, &status);
+            fits_update_key_str(
+                fits_file, "EXTNAME", "FISHER_MATRIX", nullptr, &status);
+            fits_write_img(fits_file, TDOUBLE, 1, bins::TOTAL_KZ_BINS,
+                           (void *) tempfisher.get(), &status);
 
             _sandwichInvFisher();
         }
 
-        buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
-                 + std::string("_covariance.txt");
-        mxhelp::fprintfMatrix(
-            buffer.c_str(), tempfisher.get(),
-            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+        fits_create_img(fits_file, DOUBLE_IMG, 1, naxes, &status);
+        fits_update_key_str(fits_file, "EXTNAME", "COVARIANCE", nullptr, &status);
+        fits_write_img(fits_file, TDOUBLE, 1, bins::TOTAL_KZ_BINS,
+                       (void *) tempfisher.get(), &status);
     }
 
     /* Find outliers not useful.
