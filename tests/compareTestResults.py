@@ -115,7 +115,7 @@ if __name__ == '__main__':
     print("4. Comparing Fisher matrices...")
     true_fisher = fitsio.read(
         f"{args.SourceDir}/tests/truth/test_it1_matrices.fits",
-        ext="FISHER_MATRIX")
+        ext="FISHER")
     comp_fisher = fitsio.read(
         f"{args.SourceDir}/tests/output/test_detailed_results.fits",
         ext="FISHER")
