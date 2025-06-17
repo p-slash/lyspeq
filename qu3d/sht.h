@@ -9,6 +9,33 @@ typedef struct {
 void allocate_sphere_modes(SPHERE_MODES *A, long lmax);
 void deallocate_sphere_modes(SPHERE_MODES *A);
 
+
+typedef struct {
+   long xmin;
+   long xmax;
+   long ymin;
+   long ymax;
+   long nmin;
+   long nmax;
+   double **matrix;
+   double *vector;
+} DOUBLE_MAP;
+
+void allocate_double_map(
+   DOUBLE_MAP *A, long xmin, long xmax, long ymin,
+   long ymax, long nmin);
+void deallocate_double_map(DOUBLE_MAP *A);
+
+// Forward interpolation
+void forward_sphere_pm_1(
+   double **func, double *theta, double *phi, double *f,
+   int M, long length, long quarter_nspace);
+
+// Reverse interpolation
+void reverse_sphere_pm_1(
+   double **func, double *theta, double *phi, double *f,
+   int M, long length, long quarter_nspace);
+
 /* 2 main functions:
  * pixel_synthesis_1, spherical harmonic space to pixel space
  * pixel_analysis_1, pixel space to spherical harmonic space
@@ -35,9 +62,17 @@ void deallocate_sphere_modes(SPHERE_MODES *A);
  * pm_order = particle-mesh interpolation polynomial order (max=10)
  */
 
+void sht_grid_synthesis_1(double **ALM, double **func_map, long lmax, long nspace,
+   long xmin, long xmax, long ymin, long ymax, double *convolve_kernel,
+   unsigned short int convolve_flag);
+
 void pixel_synthesis_1(SPHERE_MODES *p_LM, SPHERE_MODES *n_LM, double *component_1, double *component_2,
    long lmax, double *theta, double *phi, double *psi, long length, double *convolve_kernel_p,
    double *convolve_kernel_n, int spin, unsigned short int convolve_flag, long nspace, long pm_order);
+
+void sht_grid_analysis_1(double **ALM, double **func_map, long lmax, long nspace,
+   long xmin, long xmax, long ymin, long ymax, double *convolve_kernel,
+   unsigned short int convolve_flag);
 
 void pixel_analysis_1(SPHERE_MODES *p_LM, SPHERE_MODES *n_LM, double *component_1, double *component_2,
    long lmax, double *theta, double *phi, double *psi, double *area, long length, double *convolve_kernel_p,
