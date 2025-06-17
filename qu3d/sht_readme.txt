@@ -1,6 +1,7 @@
 The sht.c code can be used in examples as follows:
 
 gcc sht_demo.c sht.c -lm -o sht_demo.x
+g++ sht_demo.cpp sht.c -lm -o sht_demo.xx
 
 with the usual header file
 
