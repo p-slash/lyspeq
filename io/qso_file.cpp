@@ -94,7 +94,7 @@ void QSOFile::readParameters()
         pfile->readParameters(
             id, arr_size, z_qso, dec, ra, R_kms, snr, dv_kms, dlambda,
             expid, night, fiber, petal);
-        R_fwhm = int(SPEED_OF_LIGHT / R_kms / ONE_SIGMA_2_FWHM / 100 + 0.5) * 100;
+        R_fwhm = specifics::getNearestResolutionFwhm(R_kms);
     }
     else {
         bqfile->readParameters(

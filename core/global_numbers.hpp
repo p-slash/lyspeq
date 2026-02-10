@@ -79,7 +79,8 @@ namespace specifics
     extern double CHISQ_CONVERGENCE_EPS;
     extern int
         CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
-        NUMBER_OF_CHUNKS, NUMBER_OF_BOOTS, OVERSAMPLING_FACTOR;
+        NUMBER_OF_CHUNKS, NUMBER_OF_BOOTS, OVERSAMPLING_FACTOR,
+        RFWHM_ROUNDING;
     extern double RESOMAT_DECONVOLUTION_M, MIN_SNR_CUT;
     extern qio::ifileformat INPUT_QSO_FILE;
 
@@ -95,7 +96,8 @@ namespace specifics
         {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
         {"PrecomputedFisher", ""}, {"Targetids2Ignore", ""},
         {"NumberOfBoots", "20000"}, {"FastBootstrap", "1"},
-        {"SaveBootstrapRealizations", "0"} });
+        {"SaveBootstrapRealizations", "0"}, {"RfwhmRoundingFactor", "100"}
+    });
 
     /* This function reads following keys from config file:
     MinimumSnrCut: double, default: 0
@@ -112,6 +114,9 @@ namespace specifics
     OversampleRmat: int
         Oversample the resolution matrix by this factor per row. Off when <= 0
         and by default.
+    RfwhmRoundingFactor: int
+        Rounding factor for the resolution FWHM. For example, 100 rounds
+        to 2 decimal places.
     DynamicChunkNumber: int
         Dynamiccaly chunk spectra into this number when > 1. Off by default.
     TurnOffBaseline: int
@@ -149,6 +154,12 @@ namespace specifics
     void readSpecifics(ConfigFile &config);
 
     void printBuildSpecifics(FILE *toWrite=NULL);
+
+    inline
+    int getNearestResolutionFwhm(double R_kms)
+    {
+        return int(SPEED_OF_LIGHT / R_kms / ONE_SIGMA_2_FWHM / RFWHM_ROUNDING + 0.5) * RFWHM_ROUNDING;
+    }
 }
 
 namespace bins

@@ -73,7 +73,7 @@ namespace specifics
            MAX_FOREST_LENGTH_V = 0, MIN_FOREST_LENGTH_V = 0,
            MAX_PIXEL_LENGTH_V = 0;
     qio::ifileformat INPUT_QSO_FILE = qio::Binary;
-    int OVERSAMPLING_FACTOR = -1;
+    int OVERSAMPLING_FACTOR = -1, RFWHM_ROUNDING = 100;
 
     void calcNvecs()
     {
@@ -124,6 +124,7 @@ namespace specifics
         TURN_OFF_SFID = config.getInteger("TurnOffBaseline", -1) > 0;
         SMOOTH_LOGK_LOGP = config.getInteger("SmoothLnkLnP", 1) > 0;
         USE_RESOLUTION_MATRIX = config.getInteger("UseResoMatrix", -1) > 0;
+        RFWHM_ROUNDING = config.getInteger("RfwhmRoundingFactor", 100);
         REDSHIFT_GROWTH_ON = config.getInteger("RedshiftGrowthOn", -1) > 0;
         std::string precomp_fisher_str = config.get("PrecomputedFisher");
         USE_PRECOMPUTED_FISHER = !precomp_fisher_str.empty();
