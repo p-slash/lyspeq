@@ -43,8 +43,8 @@ public:
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
     double *z1, *isig, angles[3], *in, *out, *truth, *in_isig, *sc_eta;
-    double cos_dec, sin_dec;
-    std::unique_ptr<float[]> r;
+    double cos_dec, sin_dec, cos_ra, sin_ra;
+    std::unique_ptr<float[]> r, chi;
     std::unique_ptr<double[]> y, Cy, residual, search, y_isig,
                               sod_cinv_eta, _z1_mem;
 
@@ -117,6 +117,7 @@ public:
         isig = qFile->ivar();
 
         r = std::make_unique<float[]>(3 * N);
+        chi = std::make_unique<float[]>(N);
         y = std::make_unique<double[]>(N);
         y_isig = std::make_unique<double[]>(N);
         Cy = std::make_unique<double[]>(N);
@@ -134,6 +135,9 @@ public:
         }
 
         /* Will be reset in _shiftByMedianDec in optimal_qu3d.cpp */
+        cos_ra = cos(angles[0]);
+        sin_ra = sin(angles[0]);
+
         cos_dec = cos(angles[1]);
         sin_dec = sin(angles[1]);
 
@@ -232,15 +236,29 @@ public:
         ioh::checkFitsStatus(status);
     }
 
+    #ifdef USE_SPHERICAL_DIST
+    void setComovingDistances(const fidcosmo::FlatLCDM *cosmo, double radial) {
+        _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
+        /* Spherical projection */
+        for (int i = 0; i < N; ++i) {
+            chi[i] = cosmo->getComovingDist(z1[i]);
+            r[0 + 3 * i] = chi[i] * cos_dec * cos_ra;
+            r[1 + 3 * i] = chi[i] * cos_dec * sin_ra;
+            r[2 + 3 * i] = chi[i] * sin_dec;
+        }
+    }
+    #else
     void setComovingDistances(const fidcosmo::FlatLCDM *cosmo, double radial) {
         _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
         /* Equirectangular projection */
         for (int i = 0; i < N; ++i) {
+            chi[i] = cosmo->getComovingDist(z1[i]);
             r[0 + 3 * i] = angles[0] * radial;
             r[1 + 3 * i] = angles[1] * radial;
-            r[2 + 3 * i] = cosmo->getComovingDist(z1[i]);
+            r[2 + 3 * i] = chi[i];
         }
     }
+    #endif
 
     void getSpectroWindowParams(
             const fidcosmo::FlatLCDM *cosmo, double &sigma, double &delta_r
@@ -249,7 +267,7 @@ public:
         double mean_z1 = std::accumulate(z1, z1 + N, 0.0) / N,
                Mpc2kms = cosmo->getHubble(mean_z1) / mean_z1;
         sigma = qFile->R_kms / Mpc2kms;
-        delta_r = (r[3 * N - 1] - r[2]) / (N - 1);
+        delta_r = (chi[N - 1] - chi[0]) / (N - 1);
     }
 
     void getSumRadialDistance(
@@ -575,7 +593,7 @@ public:
             ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
 
             for (int j = i + 1; j < N; ++j) {
-                float rz = r[3 * j + 2] - r[3 * i + 2];
+                float rz = chi[j] - chi[i];
                 double isigG_ij = isigG * isig[j] * z1[j];
                 ccov[j + i * N] = p3d_model->evalCorrFunc1dT(rz) * isigG_ij;
             }
@@ -593,7 +611,7 @@ public:
                 alpha + (1.0 + p3d_model->getVar1dS() * isigG * isigG) / s;
 
             for (int j = i + 1; j < N; ++j) {
-                float rz = r[3 * j + 2] - r[3 * i + 2];
+                float rz = chi[j] - chi[i];
                 double isigG_ij = isigG * isig[j] * z1[j];
                 ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz) * isigG_ij / s;
             }
@@ -614,8 +632,8 @@ public:
 
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < M; ++j) {
-                float rperp = (q->r[3 * j + 2] + r[3 * i + 2]) * sin_half,
-                      rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]) * cos_half;
+                float rperp = (q->chi[j] + chi[i]) * sin_half,
+                      rz = fabsf(q->chi[j] - chi[i]) * cos_half;
                 ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
         }
@@ -632,7 +650,7 @@ public:
 
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < M; ++j) {
-                float rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]);
+                float rz = fabsf(q->chi[j] - chi[i]);
                 ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
         }
@@ -659,7 +677,7 @@ public:
             ccov[i * (N + 1)] = p3d_model->getVar1dS();
 
             for (int j = i + 1; j < N; ++j) {
-                float rz = r[3 * j + 2] - r[3 * i + 2];
+                float rz = chi[j] - chi[i];
                 ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz);
             }
         }
