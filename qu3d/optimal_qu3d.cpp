@@ -129,6 +129,10 @@ void _shiftByMedianDec(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
     for (auto &qso : quasars) {
         qso->angles[0] -= specifics::MIN_RA;
         qso->angles[1] -= median_dec;
+
+        qso->cos_ra = cos(qso->angles[0]);
+        qso->sin_ra = sin(qso->angles[0]);
+
         qso->cos_dec = cos(qso->angles[1]);
         qso->sin_dec = sin(qso->angles[1]);
     }
@@ -278,20 +282,24 @@ void Qu3DEstimator::_readQSOFiles(
 
 
 void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
-    float lymin = 1e15, lzmin = 1e15, lymax = 0, lzmax = 0;
+    float lxmin = 1e15, lymin = 1e15, lzmin = 1e15,
+          lxmax = -1e15, lymax = -1e15, lzmax = -1e15;
 
-    #pragma omp parallel for reduction(min:lymin, lzmin) \
-                             reduction(max:lymax, lzmax)
+    #pragma omp parallel for reduction(min:lxmin, lymin, lzmin) \
+                             reduction(max:lxmax, lymax, lzmax)
     for (auto it = quasars.cbegin(); it != quasars.cend(); ++it) {
-        const CosmicQuasar *qso = it->get();
-        lzmin = std::min(lzmin, qso->r[2]);
-        lzmax = std::max(lzmax, qso->r[3 * qso->N - 1]);
+        const CosmicQuasar *qso = it->get();        
+        lxmin = std::min(lxmin, std::min(qso->r[0], qso->r[3 * qso->N - 3]));
+        lxmax = std::max(lxmax, std::max(qso->r[0], qso->r[3 * qso->N - 3]));
 
-        lymin = std::min(lymin, qso->r[1]);
-        lymax = std::max(lymax, qso->r[1]);
+        lymin = std::min(lymin, std::min(qso->r[1], qso->r[3 * qso->N - 2]));
+        lymax = std::max(lymax, std::max(qso->r[1], qso->r[3 * qso->N - 2]));
+
+        lzmin = std::min(lzmin, std::min(qso->r[2], qso->r[3 * qso->N - 1]));
+        lzmax = std::max(lzmax, std::max(qso->r[2], qso->r[3 * qso->N - 1]));
     }
 
-    L[0] = effective_chi * (specifics::MAX_RA - specifics::MIN_RA);
+    L[0] = lxmax - lxmin;
     L[1] = lymax - lymin;
     L[2] = lzmax - lzmin;
     z0 = lzmin;
