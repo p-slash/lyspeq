@@ -242,9 +242,9 @@ public:
         /* Spherical projection */
         for (int i = 0; i < N; ++i) {
             chi[i] = cosmo->getComovingDist(z1[i]);
-            r[0 + 3 * i] = chi[i] * cos_dec * cos_ra;
-            r[1 + 3 * i] = chi[i] * cos_dec * sin_ra;
-            r[2 + 3 * i] = chi[i] * sin_dec;
+            r[0 + 3 * i] = chi[i] * sin_dec * cos_ra;
+            r[1 + 3 * i] = chi[i] * sin_dec * sin_ra;
+            r[2 + 3 * i] = chi[i] * cos_dec;
         }
     }
     #else
