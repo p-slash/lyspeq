@@ -17,7 +17,7 @@ const config_map qu3d_default_parameters ({
     {"TurnOnPpCovariance", "-1"}, {"NumberOfMultipoles", "4"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"MinimumRa", "0.0"}, {"MaximumRa", "360.0"},
-    {"MinimumDec", "-90.0"}, {"MaximumDec", "90.0"},
+    {"MinimumDec", "-90.0"}, {"MaximumDec", "90.0"}, {"MinBoxLength", "0"}
     {"MinimumKperp", "0"}, {"MinimumKlos", "0"},
     {"ConvergenceTolerance", "1e-6"}, {"AbsoluteTolerance", "-1"},
     {"LongScale", "50"}, {"ScaleFactor", "4"},
@@ -70,7 +70,7 @@ class Qu3DEstimator
     void _openResultsFile();
 
     void _calculateBoxDimensions(float L[3], float xyz0[3]);
-    void _setupMesh(double radius);
+    void _setupMesh(double radius, double minboxlength);
     void _constructMap();
     void _findNeighbors();
     void _saveNeighbors();
