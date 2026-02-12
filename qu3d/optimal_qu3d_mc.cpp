@@ -248,7 +248,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     for (auto &qso : quasars)
         rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
 
-    multiplyCovSmallSqrtPade(pade_order);
+    multiplyCovSmallSqrtPade();
 
     mesh.fillRndNormal(rngs);
     mesh.convolveSqrtPk(p3d_model->interp2d_pL);
@@ -508,7 +508,7 @@ void Qu3DEstimator::testCovSqrt() {
         for (auto &qso : quasars)
             xTHx += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
 
-        multiplyCovSmallSqrtPade(pade_order);
+        multiplyCovSmallSqrtPade();
         // multiplyCovSmallSqrtNewtonSchulz(pade_order);
         #pragma omp parallel for reduction(+:yTy)
         for (auto &qso : quasars)

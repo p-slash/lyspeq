@@ -133,7 +133,7 @@ public:
     double findMaxDiagonalAs();
     void conjugateGradientIpH(double m, double s=1.0);
     void multiplyCovSmallSqrt();
-    void multiplyCovSmallSqrtPade(int pade_order);
+    void multiplyCovSmallSqrtPade();
     void replaceDeltasWithGaussianField();
     void replaceDeltasWithHighResGaussianField();
     void estimateNoiseBiasMc();
