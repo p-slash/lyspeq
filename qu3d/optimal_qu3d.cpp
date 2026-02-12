@@ -174,7 +174,7 @@ void _setSpectroMeanParams(
     mean_delta_r /= quasars.size();
 
     LOG::LOGGER.STD(
-        "Mean spectro window params: s=%.2f Mpc and Delta r=%.2f\n",
+        "Mean spectro window params: s=%.2f Mpc and Delta r=%.2f Mpc.\n",
         mean_sigma, mean_delta_r);
     p3d_model->setSpectroParams(mean_sigma, mean_delta_r);
 }
