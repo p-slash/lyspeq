@@ -509,9 +509,9 @@ public:
                 for (int j = 0; j < M; ++j) {
                     #ifdef USE_SPHERICAL_DIST
                         double r2 = (
-                            q->r[3 * j + 2] * q->r[3 * j + 2]
-                            + r[3 * i + 2] * r[3 * i + 2]
-                            - 2.0 * r[3 * i + 2] * q->r[3 * j + 2] * cos_sep);
+                            q->chi[j] * q->chi[j] + chi[i] * chi[i]
+                            - 2.0 * chi[i] * q->chi[j] * cos_sep);
+
                         if (r2 <= radius2) {
                             jdxs.insert(j);
                             _in_i = true;
