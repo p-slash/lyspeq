@@ -11,6 +11,39 @@
 #include "qu3d/cosmic_quasar.hpp"
 #include "qu3d/qu3d_file.hpp"
 
+/**
+ * Default configuration parameters for Qu3DEstimator.
+ *
+ * Parameters:
+ *   NGRID_X, NGRID_Y, NGRID_Z: Number of mesh grid points in X, Y, Z axes.
+ *   MatchCellSizeOfZToXY: If >0, pad Z axis to match cell size of X/Y.
+ *   TurnOnPpCovariance: Enable particle-particle covariance if >0.
+ *   NumberOfMultipoles: Number of multipole moments to estimate.
+ *   MaxConjGradSteps: Maximum conjugate gradient steps.
+ *   MaxMonteCarlos: Maximum Monte Carlo iterations.
+ *   MinimumRa, MaximumRa: RA range (degrees).
+ *   MinimumDec, MaximumDec: DEC range (degrees).
+ *   MinBoxLength: Minimum mesh box length.
+ *   MinimumKperp, MinimumKlos: Minimum k values for estimation.
+ *   ConvergenceTolerance: CG convergence threshold.
+ *   AbsoluteTolerance: Use absolute tolerance if >0.
+ *   LongScale: Exponential scale for long range correlations (Mpc).
+ *   ScaleFactor: Radius scaling factor for including neighbors: Inclusion radius = LongScale * ScaleFactor.
+ *   DownsampleFactor: Downsampling factor for spectra.
+ *   TestGaussianField: If >0, use mock Gaussian field.
+ *   MockGridResolutionFactor: Resolution factor for mock grid.
+ *   EstimateTotalBias, EstimateTotalBiasDirectly: Enable bias estimation.
+ *   EstimateNoiseBias: Enable noise bias estimation.
+ *   EstimateFisherDirectly: Enable direct Fisher estimation.
+ *   EstimateMaxEigenValues: Enable max eigenvalue estimation.
+ *   TestSymmetry: Perform symmetry test.
+ *   Seed: Random seed for reproducibility.
+ *   PadeOrder: Order for Pade approximation.
+ *   ShrinkFactorForSqrt: Shrink factor for sqrt operations. 0 uses max diagonal of A.
+ *   TestHsqrt: Perform Hsqrt test.
+ *   UniquePrefixTmp: Unique prefix for temporary files.
+ *   NeighborsCache: Path to neighbors cache file.
+ */
 const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
     {"MatchCellSizeOfZToXY", "-1"},
@@ -26,7 +59,7 @@ const config_map qu3d_default_parameters ({
     {"EstimateTotalBias", "1"}, {"EstimateTotalBiasDirectly", "1"},
     {"EstimateNoiseBias", "1"}, {"EstimateFisherDirectly", "-1"},
     {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"}, {"Seed", "6722"},
-    {"PadeOrder", "4"},
+    {"PadeOrder", "4"}, {"ShrinkFactorForSqrt", "0.0"},
     {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""}
 });
 
@@ -39,6 +72,7 @@ class Qu3DEstimator
     int max_conj_grad_steps, max_monte_carlos, number_of_multipoles,
         pade_order;
     double tolerance, mc_tol, radius, rscale_factor, effective_chi;
+    double shrink_factor_for_sqrt;
     size_t num_all_pixels;
 
     std::function<void()> updateYMatrixVectorFunction;
