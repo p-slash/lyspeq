@@ -710,6 +710,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     fisher_direct_enabled = config.getInteger("EstimateFisherDirectly") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
     number_of_multipoles = config.getInteger("NumberOfMultipoles");
+    shrink_factor_for_sqrt = config.getDouble("ShrinkFactorForSqrt");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
 
     if (CONT_MARG_ENABLED && unique_prefix.empty())
