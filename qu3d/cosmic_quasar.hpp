@@ -633,12 +633,13 @@ public:
         }
     }
 
-    #ifdef USE_SPHERICAL_DIST
     void setCrossCov(
             const CosmicQuasar *q, const fidcosmo::ArinyoP3DModel *p3d_model,
             double radial, double *ccov
     ) const {
         int M = q->N;
+
+        #ifdef USE_SPHERICAL_DIST
         double cos_sep =
             sin_dec * q->sin_dec
             + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
@@ -652,13 +653,7 @@ public:
                 ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
         }
-    }
-    #else
-    void setCrossCov(
-            const CosmicQuasar *q, const fidcosmo::ArinyoP3DModel *p3d_model,
-            double radial, double *ccov
-    ) const {
-        int M = q->N;
+        #else
         double ddec = angles[0] - q->angles[0],
                dra = angles[1] - q->angles[1];
         float rperp = radial * sqrt(ddec * ddec + dra * dra);
@@ -669,8 +664,8 @@ public:
                 ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
         }
+        #endif
     }
-    #endif
 
     void multCovNeighbors(
             const fidcosmo::ArinyoP3DModel *p3d_model, double radial
