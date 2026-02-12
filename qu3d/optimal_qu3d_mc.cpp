@@ -126,8 +126,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     /* Initial guess */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
-        qso->multInvCov(
-            p3d_model.get(), qso->truth, qso->in, pp_enabled, true, m, s);
+        qso->multInvCov(p3d_model.get(), qso->truth, qso->in, true, m, s);
 
     multiplyAsVector(m, s);
 
@@ -142,7 +141,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
 
         // set search = PreCon . residual
         qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in,
-                        pp_enabled, true, m, s);
+                        true, m, s);
 
         init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
                                          qso->residual.get(), 1);
@@ -172,7 +171,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
             qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out,
-                            pp_enabled, true, m, s);
+                            true, m, s);
             new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
                                             qso->out, 1);
         }
