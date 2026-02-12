@@ -341,7 +341,7 @@ public:
 
     void multInvCov(
             const fidcosmo::ArinyoP3DModel *p3d_model,
-            const double *input, double *output, bool pp,
+            const double *input, double *output,
             bool small_scale=false, double alpha=0, double s=1.0
     ) {
         double varlss = p3d_model->getVarLss();
@@ -352,23 +352,18 @@ public:
             }
         };
 
-        if (!pp) {
-            appDiagonalEst(input, output);
-        }
-        else {
-            double *ccov = GL_CCOV[myomp::getThreadNum()].get();
-            if (small_scale)
-                setCov_S(p3d_model, ccov, alpha, s);
-            else
-                setCov(p3d_model, ccov);
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+        if (small_scale)
+            setCov_S(p3d_model, ccov, alpha, s);
+        else
+            setCov(p3d_model, ccov);
 
-            std::copy_n(input, N, output);
-            lapack_int info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1,
-                                            ccov, N, output, 1);
-            if (info != 0) {
-                LOG::LOGGER.STD("Error in CosmicQuasar::multInvCov::LAPACKE_dposv");
-                appDiagonalEst(input, output);
-            }
+        std::copy_n(input, N, output);
+        lapack_int info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1,
+                                        ccov, N, output, 1);
+        if (info != 0) {
+            LOG::LOGGER.STD("Error in CosmicQuasar::multInvCov::LAPACKE_dposv");
+            appDiagonalEst(input, output);
         }
     }
 
