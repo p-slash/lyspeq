@@ -1,10 +1,10 @@
-inline std::unique_ptr<double[]> _compute_pade_alpha(int order) {
-    auto alpha = std::make_unique<double[]>(order);
+inline std::unique_ptr<double[]> _compute_pade_alphas(int order) {
+    auto alphas = std::make_unique<double[]>(order);
     for (int i = 0; i < order; ++i) {
-        alpha[i] = 0.5 * (1.0 + cos((2 * i + 1) * MY_PI / (2 * order)));
-        alpha[i] = 1.0 / alpha[i] - 1.0;
+        alphas[i] = 0.5 * (1.0 + cos((2 * i + 1) * MY_PI / (2 * order)));
+        alphas[i] = 1.0 / alphas[i] - 1.0;
     }
-    return alpha;
+    return alphas;
 }
 
 
@@ -27,11 +27,11 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade() {
             "Shriking factor %.5f. New tolerance %.2e\n",
             pade_order, tolerance, shrink_factor_for_sqrt);
     
-    static auto alpha = _compute_pade_alpha(pade_order);
-    static auto xi = [this, &alpha]() {
+    static auto alphas = _compute_pade_alphas(pade_order);
+    static auto xi = [this, &alphas]() {
         auto ptr = std::make_unique<double[]>(pade_order);
         for (size_t i = 0; i < pade_order; ++i) {
-            ptr[i] = (1.0 + alpha[i]) * sqrt(shrink_factor_for_sqrt) / pade_order;
+            ptr[i] = (1.0 + alphas[i]) * sqrt(shrink_factor_for_sqrt) / pade_order;
         }
         return ptr;
     }();
