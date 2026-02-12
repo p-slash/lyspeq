@@ -281,7 +281,7 @@ void Qu3DEstimator::_readQSOFiles(
 }
 
 
-void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
+void Qu3DEstimator::_calculateBoxDimensions(float L[3], float xyz0[3]) {
     float lxmin = 1e15, lymin = 1e15, lzmin = 1e15,
           lxmax = -1e15, lymax = -1e15, lzmax = -1e15;
 
@@ -302,20 +302,23 @@ void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
     L[0] = lxmax - lxmin;
     L[1] = lymax - lymin;
     L[2] = lzmax - lzmin;
-    z0 = lzmin;
+    xyz0[0] = lxmin;
+    xyz0[1] = lymin;
+    xyz0[2] = lzmin;
 }
 
 
 void Qu3DEstimator::_setupMesh(double radius) {
     double t1 = mytime::timer.getTime(), t2 = 0;
+    float xyz0[3];
 
-    _calculateBoxDimensions(mesh.length, mesh.z0);
+    _calculateBoxDimensions(mesh.length, xyz0);
 
     mesh.ngrid[0] = config.getInteger("NGRID_X");
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
     mesh.ngrid[2] = config.getInteger("NGRID_Z");
 
-    double x0 = 0,
+    double x0 = xyz0[0], y0 = xyz0[1], z0 = xyz0[2],
            dx = mesh.length[0] / mesh.ngrid[0],
            dy = mesh.length[1] / mesh.ngrid[1],
            dz = mesh.length[2] / mesh.ngrid[2];
@@ -328,8 +331,10 @@ void Qu3DEstimator::_setupMesh(double radius) {
     }
 
     mesh.length[1] += 10.0 * dy;
+    y0 -= 5.0 * dy;
     mesh.length[2] += 10.0 * dz;
-    mesh.z0 -= 5.0 * dz;
+    z0 -= 5.0 * dz;
+    mesh.z0 = z0;
 
     double dyl = mesh.length[0] / mesh.ngrid[0] - mesh.length[1] / mesh.ngrid[1];
     if (dyl > 0) {
@@ -373,8 +378,8 @@ void Qu3DEstimator::_setupMesh(double radius) {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->r[0 + 3 * i] -= x0;
-            qso->r[1 + 3 * i] += mesh.length[1] / 2;
-            qso->r[2 + 3 * i] -= mesh.z0;
+            qso->r[1 + 3 * i] -= y0;
+            qso->r[2 + 3 * i] -= z0;
         }
     }
 
@@ -841,7 +846,7 @@ void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
        (I + R^-1/2 N^-1/2 G^1/2 S G^1/2 N^-1/2 R^-1/2) z = out
     */
     double dt = mytime::timer.getTime();
-
+    if (verbose)  LOG::LOGGER.STD("  --pre.\n");
     // Multiply out with marg. matrix if enabled
     // Multiply out with isig
     // Evolve with redshift growth
@@ -860,6 +865,7 @@ void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
             qso->setInIsigNoMarg();
     }
 
+    if (verbose)  LOG::LOGGER.STD("  --multMeshComp.\n");
     // Add long wavelength mode to Cy
     if (mesh_enabled) {
         multMeshComp();
@@ -870,6 +876,7 @@ void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
             std::fill_n(qso->out, qso->N, 0);
     }
 
+    if (verbose)  LOG::LOGGER.STD("  --multParticleComp.\n");
     if (pp_enabled)
         multParticleComp();
 
@@ -1049,7 +1056,9 @@ void Qu3DEstimator::conjugateGradientDescent() {
             qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
     }
 
+    if (verbose)  LOG::LOGGER.STD("  multiplyCovVector.\n");
     multiplyCovVector();
+    if (verbose)  LOG::LOGGER.STD("  --done.\n");
 
     #pragma omp parallel for reduction(+:init_residual_norm, old_residual_prec)
     for (auto &qso : quasars) {
