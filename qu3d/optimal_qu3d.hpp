@@ -69,7 +69,7 @@ class Qu3DEstimator
     void _readQSOFiles(const std::string &flist, const std::string &findir);
     void _openResultsFile();
 
-    void _calculateBoxDimensions(float L[3], float &z0);
+    void _calculateBoxDimensions(float L[3], float xyz0[3]);
     void _setupMesh(double radius);
     void _constructMap();
     void _findNeighbors();
