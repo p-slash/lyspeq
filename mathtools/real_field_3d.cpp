@@ -85,8 +85,8 @@ void RealField3D::copy(const RealField3D &rhs)
     for (int axis = 0; axis < 3; ++axis) {
         ngrid[axis] = rhs.ngrid[axis];
         length[axis] = rhs.length[axis];
+        xyz0[axis] = rhs.xyz0[axis];
     }
-    z0 = rhs.z0;
 }
 
 
