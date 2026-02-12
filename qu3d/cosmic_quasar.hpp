@@ -600,6 +600,21 @@ public:
         }
     }
 
+    /**
+     * @brief Construct the small-scale covariance matrix for this quasar's pixels.
+     *
+     * This function fills the provided ccov array with the covariance matrix for the quasar's pixels,
+     * using a small-scale model ("S"), as defined by the provided cosmological model.
+     * The diagonal and off-diagonal elements are set using the 1D small-scale correlation function.
+     *
+     * @param p3d_model Pointer to the cosmological model providing correlation functions and variances.
+     * @param ccov Pointer to a pre-allocated (N x N) array to be filled with the covariance matrix.
+     * @param alpha Optional additive constant for the diagonal (default 0).
+     * @param s Optional scaling factor for the entire matrix (default 1.0).
+     *
+     * Diagonal: ccov[i * (N + 1)] = alpha + (1 + Var1dS * isig[i]^2 * z1[i]^2) / s
+     * Off-diagonal: ccov[j + i * N] = CorrFunc1dS(chi[j] - chi[i]) * isig[i] * z1[i] * isig[j] * z1[j] / s
+     */
     void setCov_S(
             const fidcosmo::ArinyoP3DModel *p3d_model, double *ccov,
             double alpha=0, double s=1.0
