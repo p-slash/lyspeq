@@ -308,8 +308,8 @@ void Qu3DEstimator::_calculateBoxDimensions(float L[3], float xyz0[3]) {
 }
 
 
-void Qu3DEstimator::_setupMesh(double radius) {
-    double t1 = mytime::timer.getTime(), t2 = 0;
+void Qu3DEstimator::_setupMesh(double radius, double minboxlength) {
+    double t1 = mytime::timer.getTime(), t2 = 0, extra_l = 0;
 
     _calculateBoxDimensions(mesh.length, mesh.xyz0);
 
@@ -321,17 +321,25 @@ void Qu3DEstimator::_setupMesh(double radius) {
            dy = mesh.length[1] / mesh.ngrid[1],
            dz = mesh.length[2] / mesh.ngrid[2];
 
+    #ifdef USE_SPHERICAL_DIST
+    if (true) {
+    #else
     double delta_rad = specifics::MAX_RA - specifics::MIN_RA - 2 * MY_PI;
     if (fabs(delta_rad) > (2 * MY_PI * DOUBLE_EPSILON)) {
+    #endif
         mesh.disablePeriodicityX();
-        mesh.length[0] += 10.0 * dx;
-        mesh.xyz0[0] -= 5.0 * dx;
+        extra_l = std::max(10.0 * dx, minboxlength - mesh.length[0]);
+        mesh.length[0] += extra_l;
+        mesh.xyz0[0] -= extra_l / 2.0;
     }
 
-    mesh.length[1] += 10.0 * dy;
-    mesh.xyz0[1] -= 5.0 * dy;
-    mesh.length[2] += 10.0 * dz;
-    mesh.xyz0[2] -= 5.0 * dz;
+    extra_l = std::max(10.0 * dy, minboxlength - mesh.length[1]);
+    mesh.length[1] += extra_l;
+    mesh.xyz0[1] -= extra_l / 2.0;
+
+    extra_l = std::max(10.0 * dz, minboxlength - mesh.length[2]);
+    mesh.length[2] += extra_l;
+    mesh.xyz0[2] -= extra_l / 2.0;
 
     double dyl = mesh.length[0] / mesh.ngrid[0] - mesh.length[1] / mesh.ngrid[1];
     if (dyl > 0) {
@@ -658,6 +666,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::MAX_DEC = config.getDouble("MaximumDec") * deg2rad;
     specifics::MIN_KPERP = config.getDouble("MinimumKperp");
     specifics::MIN_KZ = std::max(0.0, config.getDouble("MinimumKlos"));
+    double minboxlength = config.getDouble("MinBoxLength");
 
     LOG::LOGGER.STD(
         "Sky cut: RA %.3f-%.3f & DEC %.3f-%.3f in radians.\n",
@@ -734,7 +743,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     _openResultsFile();
 
-    _setupMesh(radius);
+    _setupMesh(radius, minboxlength);
     _constructMap();
     radius *= rscale_factor;
 
