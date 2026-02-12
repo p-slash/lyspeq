@@ -1,12 +1,14 @@
-inline std::unique_ptr<double[]> _pade_xi(int pade_order) {
-    auto result = std::make_unique<double[]>(pade_order);
-    for (int i = 0; i < pade_order; ++i)
-        result[i] = 0.5 * (1.0 + cos((2 * i + 1) * MY_PI / (2 * pade_order)));
-    return result;
+inline std::unique_ptr<double[]> _compute_pade_alpha(int order) {
+    auto alpha = std::make_unique<double[]>(order);
+    for (int i = 0; i < order; ++i) {
+        alpha[i] = 0.5 * (1.0 + cos((2 * i + 1) * MY_PI / (2 * order)));
+        alpha[i] = 1.0 / alpha[i] - 1.0;
+    }
+    return alpha;
 }
 
 
-void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
+void Qu3DEstimator::multiplyCovSmallSqrtPade() {
     // static double max_eval = estimateMaxEvalAs();
     // static double min_eval = estimateMaxEvalAs(-max_eval);
     // if (min_eval < 0)
@@ -14,27 +16,29 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade(int pade_order) {
 
     // double s = (min_eval + max_eval) / 2.0;
     // double s = 1.0;
+    tolerance *= 10;
+
     if (shrink_factor_for_sqrt <= 0)
         shrink_factor_for_sqrt = findMaxDiagonalAs();
-
-    auto xi = std::make_unique<double[]>(pade_order),
-         alphas = std::make_unique<double[]>(pade_order);
-
-    for (int i = 0; i < pade_order; ++i) {
-        xi[i] = 0.5 * (1.0 + cos((2 * i + 1) * MY_PI / (2 * pade_order)));
-        xi[i] = 1.0 / xi[i];
-        alphas[i] = xi[i] - 1.0;
-        xi[i] *= sqrt(shrink_factor_for_sqrt) / pade_order;
-    }
+    
+    if (verbose)
+        LOG::LOGGER.STD(
+            "  Entered multiplyCovSmallSqrtPade with order %d. "
+            "Shriking factor %.5f. New tolerance %.2e\n",
+            pade_order, tolerance, shrink_factor_for_sqrt);
+    
+    static auto alpha = _compute_pade_alpha(pade_order);
+    static auto xi = [this, &alpha]() {
+        auto ptr = std::make_unique<double[]>(pade_order);
+        for (size_t i = 0; i < pade_order; ++i) {
+            ptr[i] = (1.0 + alpha[i]) * sqrt(shrink_factor_for_sqrt) / pade_order;
+        }
+        return ptr;
+    }();
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
         std::fill_n(qso->sc_eta, qso->N, 0);
-
-    tolerance *= 10;
-    if (verbose)
-        LOG::LOGGER.STD("  Entered multiplyCovSmallSqrtPade with order %d. "
-                        "New tolerance %.2e\n", pade_order, tolerance);
 
     for (int i = 0; i < pade_order; ++i) {
         conjugateGradientIpH(alphas[i], shrink_factor_for_sqrt);
