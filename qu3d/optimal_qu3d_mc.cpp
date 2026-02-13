@@ -43,7 +43,7 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
 double Qu3DEstimator::estimateMaxEvalAs(double m) {
     int niter = 1;
     double n_in, n_out, n_inout, new_eval_max, old_eval_max = 1e-12;
-    bool is_converged = false, init_verbose = verbose;
+    bool init_verbose = verbose;
     LOG::LOGGER.STD("Estimating maximum eigenvalue of As: ");
     verbose = false;
 
