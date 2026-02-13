@@ -17,7 +17,7 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
     // multMeshComp();
 
     // Need to multiply only neighbors
-    if (pp_enabled)  multParticleComp(true);
+    if (pp_enabled)  multParticleComp();
     // (B)
 
     #pragma omp parallel for schedule(dynamic, 4)
