@@ -663,7 +663,8 @@ public:
     }
 
     void multCovNeighbors(
-            const fidcosmo::ArinyoP3DModel *p3d_model, double radial
+            const fidcosmo::ArinyoP3DModel *p3d_model, double radial,
+            bool include_self=true
     ) {
         /* We cannot use symmetry (update neighbor's out with C^T) here
            since it will cause race condition for the neighboring quasar.
@@ -678,6 +679,7 @@ public:
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
 
         /* Multiply self */
+        if (include_self) {
         for (int i = 0; i < N; ++i) {
             ccov[i * (N + 1)] = p3d_model->getVar1dS();
 
@@ -686,9 +688,9 @@ public:
                 ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz);
             }
         }
-
         cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                     ccov, N, in_isig, 1, 1.0, out, 1);
+        }
 
         /* Multiply others */
         for (const CosmicQuasar* q : neighbors) {
