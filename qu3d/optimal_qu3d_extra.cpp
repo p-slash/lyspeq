@@ -301,7 +301,7 @@ double Qu3DEstimator::estimateMaxEvalFnc(
 ) {
     int niter = 1;
     double n_in, n_out, n_inout, new_eval_max, old_eval_max = 1e-12;
-    verbose = false;
+    bool is_converged = false;
 
     #pragma omp parallel for
     for (auto &qso : quasars)
