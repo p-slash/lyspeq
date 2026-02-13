@@ -162,7 +162,7 @@ public:
 
     // These are in original source file
     void multMeshComp();
-    void multParticleComp();
+    void multParticleComp(bool neighbors_only=false);
     // from mesh_rnd to *truth
     void multDerivMatrixVec(int i);
     /* Multiply each quasar's *in pointer and save to *out pointer.
