@@ -332,7 +332,7 @@ double Qu3DEstimator::estimateMaxEvalFnc(
             for (int i = 0; i < qso->N; ++i)
                 qso->in[i] = qso->out[i] / n_out;
     }
-    new_eval_max -= subtract_diag;
+    new_eval_max += subtract_diag;
 
     if (is_converged)  LOG::LOGGER.STD(" Converged: ");
     else  LOG::LOGGER.STD(" NOT converged: ");
