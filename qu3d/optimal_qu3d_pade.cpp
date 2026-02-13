@@ -34,7 +34,7 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade() {
         LOG::LOGGER.STD(
             "  Entered multiplyCovSmallSqrtPade with order %d. "
             "Shriking factor %.5f. New tolerance %.2e.\n",
-            pade_order, tolerance, shrink_factor_for_sqrt);
+            pade_order, shrink_factor_for_sqrt, tolerance);
     
     static auto alphas = _compute_pade_alphas(pade_order);
     static auto xi = [this]() {
