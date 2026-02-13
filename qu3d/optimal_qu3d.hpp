@@ -149,6 +149,7 @@ public:
     void multiplyNewtonSchulzZ(int n, double s);
     double estimateMaxEvalAs(double m=0);
     void multiplyCovSmallSqrtNewtonSchulz(int order);
+    double estimateMaxEvalFnc(std::function<void()> &fnc, double subtract_diag=0);
 
     // These functions are in extra.cpp
     /* This is called only for small-scale direct multiplication. */
@@ -158,6 +159,7 @@ public:
     void dumpSearchDirection();
     void testSymmetry();
     void estimateMaxEvals();
+    void estimateMinMaxEvalsAs();
     double estimateFrobeniusNormAs();
 
     // These are in original source file
