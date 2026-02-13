@@ -296,6 +296,51 @@ void Qu3DEstimator::testSymmetry() {
 }
 
 
+double Qu3DEstimator::estimateMaxEvalFnc(
+        std::function<void()> &fnc, double subtract_diag
+) {
+    int niter = 1;
+    double n_in, n_out, n_inout, new_eval_max, old_eval_max = 1e-12;
+    verbose = false;
+
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
+
+    for (; niter <= max_conj_grad_steps; ++niter) {
+        fnc();
+
+        n_in = 0;  n_out = 0;  n_inout = 0;
+        #pragma omp parallel for reduction(+:n_in, n_out, n_inout)
+        for (const auto &qso : quasars) {
+            n_in += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+            n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
+            n_inout += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+        }
+
+        n_out -= subtract_diag * (2.0 * n_inout - subtract_diag * n_in);
+        n_inout -= subtract_diag * n_in;
+
+        new_eval_max = n_inout / n_in;
+        if (isClose(old_eval_max, new_eval_max, tolerance)) {
+            is_converged = true;  break;
+        }
+
+        old_eval_max = new_eval_max;
+        n_out = sqrt(n_out);
+        for (auto &qso : quasars)
+            for (int i = 0; i < qso->N; ++i)
+                qso->in[i] = qso->out[i] / n_out;
+    }
+    new_eval_max -= subtract_diag;
+
+    if (is_converged)  LOG::LOGGER.STD(" Converged: ");
+    else  LOG::LOGGER.STD(" NOT converged: ");
+
+    LOG::LOGGER.STD(" %.5e (number of iterations: %d)\n", new_eval_max, niter);
+
+    return new_eval_max;
+}
 
 void Qu3DEstimator::estimateMaxEvals() {
     int niter = 1;
