@@ -27,9 +27,15 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade() {
     // double s = 1.0;
     tolerance *= 10;
 
-    if (shrink_factor_for_sqrt <= 0)
+    if (shrink_factor_for_sqrt == 0.0)
         shrink_factor_for_sqrt = findMaxDiagonalAs();
-    
+    else if (shrink_factor_for_sqrt == -1.0)
+        shrink_factor_for_sqrt = estimateMaxEvalAs();
+    else if (shrink_factor_for_sqrt == -2.0)
+        shrink_factor_for_sqrt = estimateFrobeniusNormAs(0, true);
+    else if (shrink_factor_for_sqrt == -3.0)
+        shrink_factor_for_sqrt = estimateFrobeniusNormAs();
+
     if (verbose)
         LOG::LOGGER.STD(
             "  Entered multiplyCovSmallSqrtPade with order %d. "
