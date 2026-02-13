@@ -53,7 +53,7 @@ double Qu3DEstimator::estimateMaxEvalAs(double m, bool return_geometric_mean) {
 
     max_eval = estimateMaxEvalFnc(fnc);
     LOG::LOGGER.STD("Estimating minimum eigenvalue of As: ");
-    min_eval = estimateMaxEvalFnc(fnc, new_eval_max);
+    min_eval = estimateMaxEvalFnc(fnc, max_eval);
 
     if (return_geometric_mean)
         max_eval = sqrt(max_eval * min_eval);
