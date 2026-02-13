@@ -39,7 +39,12 @@
  *   TestSymmetry: Perform symmetry test.
  *   Seed: Random seed for reproducibility.
  *   PadeOrder: Order for Pade approximation.
- *   ShrinkFactorForSqrt: Shrink factor for sqrt operations. 0 uses max diagonal of A.
+ *   ShrinkFactorForSqrt: Shrink factor for sqrt operations.
+ *      * 0 uses max diagonal of A.
+ *      * -1 uses max eigenvalue of A.
+ *      * -2 uses geometric mean of min/max eigenvalues of A.
+ *      * -3 uses Frobenius norm of A.
+ *      * >0 uses that value.
  *   TestHsqrt: Perform Hsqrt test.
  *   UniquePrefixTmp: Unique prefix for temporary files.
  *   NeighborsCache: Path to neighbors cache file.
@@ -147,7 +152,7 @@ public:
     void multiplyAsVector(double m=0, double s=1.0);
     void multiplyNewtonSchulzY(int n, double s);
     void multiplyNewtonSchulzZ(int n, double s);
-    double estimateMaxEvalAs(double m=0);
+    double estimateMaxEvalAs(double m=0, bool return_geometric_mean=false);
     void multiplyCovSmallSqrtNewtonSchulz(int order);
     double estimateMaxEvalFnc(std::function<void()> &fnc, double subtract_diag=0);
 

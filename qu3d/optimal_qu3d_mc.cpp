@@ -3,10 +3,6 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
         input is const *in, output is *out
         uses: *in_isig
     */
-    /* New: m I + s^-1 (N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2)
-        input is const *in, output is *out
-        uses: *in_isig
-    */
     double dt = mytime::timer.getTime();
 
     /* A_BD^-1. Might not be true if pp_enabled=false */
@@ -28,7 +24,7 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->out[i] *= qso->isig[i] * qso->z1[i];
-            // qso->out[i] += qso->in[i];  // + I
+            qso->out[i] += qso->in[i];  // + I
             qso->out[i] /= s;
             qso->out[i] += m * qso->in[i];
         }
@@ -40,9 +36,8 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
 }
 
 
-double Qu3DEstimator::estimateMaxEvalAs(double m) {
-    int niter = 1;
-    double n_in, n_out, n_inout, new_eval_max, old_eval_max = 1e-12;
+double Qu3DEstimator::estimateMaxEvalAs(double m, bool return_geometric_mean) {
+    double max_eval, min_eval;
     bool init_verbose = verbose;
     LOG::LOGGER.STD("Estimating maximum eigenvalue of As: ");
     verbose = false;
@@ -53,12 +48,15 @@ double Qu3DEstimator::estimateMaxEvalAs(double m) {
         init_ins.push_back(qso->in);
         qso->in = qso->sc_eta;
     }
-    
+
     std::function<void()> fnc = [this, m]() { multiplyAsVector(m); };
 
-    new_eval_max = estimateMaxEvalFnc(fnc);
+    max_eval = estimateMaxEvalFnc(fnc);
     LOG::LOGGER.STD("Estimating minimum eigenvalue of As: ");
-    estimateMaxEvalFnc(fnc, new_eval_max);
+    min_eval = estimateMaxEvalFnc(fnc, new_eval_max);
+
+    if (return_geometric_mean)
+        max_eval = sqrt(max_eval * min_eval);
 
     verbose = init_verbose;
 
@@ -66,7 +64,7 @@ double Qu3DEstimator::estimateMaxEvalAs(double m) {
         auto &qso = quasars[i];
         qso->in = init_ins[i];
     }
-    return new_eval_max;
+    return max_eval;
 }
 
 
@@ -228,9 +226,9 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     multiplyCovSmallSqrtPade();
 
     // Add BD
-    #pragma omp parallel for schedule(dynamic, 4)
-    for (auto &qso : quasars)
-        qso->addBlockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
+    // #pragma omp parallel for schedule(dynamic, 4)
+    // for (auto &qso : quasars)
+    //     qso->addBlockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
 
     mesh.fillRndNormal(rngs);
     mesh.convolveSqrtPk(p3d_model->interp2d_pL);
