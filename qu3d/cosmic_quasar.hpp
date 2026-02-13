@@ -387,17 +387,20 @@ public:
         rng.fillVectorNormal(truth, N);
     }
 
-    void blockRandom(MyRNG &rng, const fidcosmo::ArinyoP3DModel *p3d_model) {
+    void addBlockRandom(MyRNG &rng, const fidcosmo::ArinyoP3DModel *p3d_model) {
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
 
-        setCov(p3d_model, ccov);
+        setCov_S(p3d_model, ccov);
         LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
         /*if (info != 0) {
             LOG::LOGGER.STD("Error in CosmicQuasar::blockRandom::LAPACKE_dpotrf");
         }*/
-        rng.fillVectorNormal(truth, N);
+        rng.fillVectorNormal(sc_eta, N);
         cblas_dtrmv(CblasRowMajor, CblasUpper, CblasNoTrans, CblasNonUnit,
-                    N, ccov, N, truth, 1);
+                    N, ccov, N, sc_eta, 1);
+
+        for (int i = 0; i < N; ++i)
+            truth[i] += sc_eta[i];
     }
 
     void multSqrtCov(const fidcosmo::ArinyoP3DModel *p3d_model) {
@@ -680,16 +683,16 @@ public:
 
         /* Multiply self */
         if (include_self) {
-        for (int i = 0; i < N; ++i) {
-            ccov[i * (N + 1)] = p3d_model->getVar1dS();
+            for (int i = 0; i < N; ++i) {
+                ccov[i * (N + 1)] = p3d_model->getVar1dS();
 
-            for (int j = i + 1; j < N; ++j) {
-                float rz = chi[j] - chi[i];
-                ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz);
+                for (int j = i + 1; j < N; ++j) {
+                    float rz = chi[j] - chi[i];
+                    ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz);
+                }
             }
-        }
-        cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
-                    ccov, N, in_isig, 1, 1.0, out, 1);
+            cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
+                        ccov, N, in_isig, 1, 1.0, out, 1);
         }
 
         /* Multiply others */
