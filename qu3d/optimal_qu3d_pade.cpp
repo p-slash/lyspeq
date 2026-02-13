@@ -32,7 +32,7 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade() {
     else if (shrink_factor_for_sqrt == -1.0)
         shrink_factor_for_sqrt = estimateMaxEvalAs();
     else if (shrink_factor_for_sqrt == -2.0)
-        shrink_factor_for_sqrt = estimateFrobeniusNormAs(0, true);
+        shrink_factor_for_sqrt = estimateMaxEvalAs(0, true);
     else if (shrink_factor_for_sqrt == -3.0)
         shrink_factor_for_sqrt = estimateFrobeniusNormAs();
 
