@@ -1,8 +1,7 @@
 void Qu3DEstimator::multiplyAsVector(double m, double s) {
-    /* m I + s^-1 (N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2)
+    /* m I + s^-1 (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2)
         input is const *in, output is *out
         uses: *in_isig
-        removed I + in parantheses.
     */
     double dt = mytime::timer.getTime();
 
@@ -25,7 +24,7 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             qso->out[i] *= qso->isig[i] * qso->z1[i];
-            // qso->out[i] += qso->in[i];  // + I
+            qso->out[i] += qso->in[i];  // + I
             qso->out[i] /= s;
             qso->out[i] += m * qso->in[i];
         }
@@ -227,9 +226,9 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     multiplyCovSmallSqrtPade();
 
     // Add I
-    #pragma omp parallel for schedule(dynamic, 4)
-    for (auto &qso : quasars)
-        rngs[myomp::getThreadNum()].addVectorNormal(qso->truth, qso->N);
+    // #pragma omp parallel for schedule(dynamic, 4)
+    // for (auto &qso : quasars)
+    //     rngs[myomp::getThreadNum()].addVectorNormal(qso->truth, qso->N);
     //     qso->addBlockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
 
     mesh.fillRndNormal(rngs);
