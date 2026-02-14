@@ -17,6 +17,23 @@ inline std::unique_ptr<double[]> _compute_pade_xi(
     return xi;
 }
 
+inline void print_alphas_xi(
+        const double* alphas, const double* xi, int order
+) {
+    std::string result = "  alphas: ";
+    char buf[32];
+    for (int i = 0; i < order; ++i) {
+        std::snprintf(buf, sizeof(buf), "%.2e ", alphas[i]);
+        result += buf;
+    }
+    result += "\n  xi    : ";
+    for (int i = 0; i < order; ++i) {
+        std::snprintf(buf, sizeof(buf), "%.2e ", xi[i]);
+        result += buf;
+    }
+    LOG::LOGGER.STD("%s\n", result.c_str());
+}
+
 void Qu3DEstimator::multiplyCovSmallSqrtPade() {
     // static double max_eval = estimateMaxEvalAs();
     // static double min_eval = estimateMaxEvalAs(-max_eval);
@@ -35,12 +52,6 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade() {
         shrink_factor_for_sqrt = estimateMaxEvalAs(0, true);
     else if (shrink_factor_for_sqrt == -3.0)
         shrink_factor_for_sqrt = estimateFrobeniusNormAs();
-
-    if (verbose)
-        LOG::LOGGER.STD(
-            "  Entered multiplyCovSmallSqrtPade with order %d. "
-            "Shriking factor %.5f. New tolerance %.2e.\n",
-            pade_order, shrink_factor_for_sqrt, tolerance);
     
     static auto alphas = _compute_pade_alphas(pade_order);
     static auto xi = [this]() {
@@ -50,6 +61,14 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade() {
         }
         return ptr;
     }();
+
+    if (verbose) {
+        LOG::LOGGER.STD(
+            "  Entered multiplyCovSmallSqrtPade with order %d. "
+            "Shriking factor %.5f. New tolerance %.2e.\n",
+            pade_order, shrink_factor_for_sqrt, tolerance);
+        print_alphas_xi(alphas.get(), xi.get(), pade_order);
+    }
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
