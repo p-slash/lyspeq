@@ -107,7 +107,7 @@ void logTimings() {
 inline bool hasConverged(double norm, double tolerance) {
     if (verbose)
         LOG::LOGGER.STD(
-            "    Current norm(residuals) / norm(initial residuals) is %.8e. "
+            "    Current norm(residuals) / norm(initial residuals) is %.3e. "
             "Conjugate Gradient converges when this is < %.2e\n",
             norm, tolerance);
 
