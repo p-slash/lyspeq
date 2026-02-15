@@ -692,6 +692,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
     mock_grid_res_factor = config.getInteger("MockGridResolutionFactor");
+    test_gaussian_field = config.getInteger("TestGaussianField") > 0;
     pade_order = config.getInteger("PadeOrder");
     tolerance = config.getDouble("ConvergenceTolerance");
     mc_tol = tolerance;
@@ -754,8 +755,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         else  _readNeighbors(neighbors_file);
     }
 
-    bool end_imm = (config.getInteger("TestGaussianField") > 0)
-                   && (mock_grid_res_factor > 1);
+    bool end_imm = (test_gaussian_field && (mock_grid_res_factor > 1));
     if (CONT_MARG_ENABLED && !end_imm)
         _createRmatFiles(unique_prefix);
 
@@ -1489,7 +1489,6 @@ int main(int argc, char *argv[]) {
     }
 
     Qu3DEstimator qps(config);
-    bool test_gaussian_field = config.getInteger("TestGaussianField") > 0;
     bool test_symmetry = config.getInteger("TestSymmetry") > 0;
     bool test_hsqrt = config.getInteger("TestHsqrt") > 0;
     config.checkUnusedKeys();
@@ -1503,7 +1502,7 @@ int main(int argc, char *argv[]) {
     if (test_hsqrt)
         qps.testCovSqrt();
 
-    if (test_gaussian_field) {
+    if (qps.test_gaussian_field) {
         if (qps.mock_grid_res_factor > 1) {
             qps.replaceDeltasWithHighResGaussianField();
             goto EndOptimalQu3DNormally;
