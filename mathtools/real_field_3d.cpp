@@ -108,6 +108,7 @@ void RealField3D::construct(bool inp) {
     }
     invtotalvol = 1.0 / invtotalvol;
     invsqrtcellvol = 1.0 / sqrt(cellvol);
+    celldiag = sqrt(dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2]);
 
     ngrid_kz = ngrid[2] / 2 + 1;
     ngrid_xy = ngrid[0] * ngrid[1];
@@ -173,6 +174,8 @@ double RealField3D::dot(const RealField3D &other) {
 std::vector<size_t> RealField3D::findNeighboringPixels(
         size_t i, double radius
 ) const {
+    // TODO: ask co-pilot to improve. Sphere around a point and find
+    // every voxel touching
     int n[3], dn[3], ntot = 1;
     std::vector<size_t> neighbors;
 
@@ -182,7 +185,7 @@ std::vector<size_t> RealField3D::findNeighboringPixels(
         ntot *= 2 * dn[axis] + 1;
     }
 
-    radius += 2.0 * dx[0];
+    radius += 1.001 * celldiag;
     radius *= radius;
 
     neighbors.reserve(ntot);

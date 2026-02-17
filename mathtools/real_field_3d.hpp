@@ -44,7 +44,7 @@ public:
     size_t size_complex, size_real, ngrid_xy, ngrid_z, ngrid_kz;
     int ngrid[3];
     float dx[3], length[3], xyz0[3];
-    double k_fund[3], cellvol, invtotalvol, invsqrtcellvol;
+    double k_fund[3], cellvol, invtotalvol, invsqrtcellvol, celldiag;
     std::unique_ptr<std::complex<double>[]> field_k;
     std::unique_ptr<double[]>  iasgn_window_xy, iasgn_window_z;
     double *field_x;
