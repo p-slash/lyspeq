@@ -1274,7 +1274,6 @@ void Qu3DEstimator::multiplyDerivVectors(
         if (kperp >= KMAX_EDGE)
             continue;
 
-        size_t jj = mesh.ngrid_kz * jxy;
         kperp *= kperp;
         for (size_t k = mesh_kz_min; k < mesh_kz_max; ++k) {
             double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
@@ -1291,7 +1290,7 @@ void Qu3DEstimator::multiplyDerivVectors(
             else
                 ik2 = std::max(0, ik - 1);
 
-            temp = (1.0 + (k != 0)) * my_norm(k + jj)
+            temp = (1.0 + (k != 0)) * my_norm(jxy, k)
                    * p3d_model->getSpectroWindow2(kz);
             temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
             #ifdef DECONV_CIC_WINDOW
