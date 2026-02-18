@@ -160,7 +160,7 @@ public:
             const RealField3D &mesh, const RealField3D *other=nullptr,
             bool predeconvolve=false
     ) {
-            std::function<double(size_t)> my_norm;
+            std::function<double(size_t, size_t)> my_norm;
             if ((other == nullptr) || (&mesh == other)) {
                 if (predeconvolve)
                     my_norm = [&mesh](size_t ij, size_t k) {
