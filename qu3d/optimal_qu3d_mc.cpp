@@ -102,7 +102,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     /* Initial guess */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
-        PRECONDITIONER(qso->truth.get(), qso->in);
+        PRECONDITIONER(qso->truth, qso->in);
 
     multiplyAsVector(m, s);
 
