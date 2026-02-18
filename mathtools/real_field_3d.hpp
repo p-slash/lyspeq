@@ -156,7 +156,7 @@ public:
         fftw_execute(p_k2x);
     }
     double dot(const RealField3D &other);
-    static std::function<double(size_t)> getNormFunc(
+    static std::function<double(size_t, size_t)> getNormFunc(
             const RealField3D &mesh, const RealField3D *other=nullptr,
             bool predeconvolve=false
     ) {
