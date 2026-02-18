@@ -46,7 +46,8 @@ public:
     float dx[3], length[3], xyz0[3];
     double k_fund[3], cellvol, invtotalvol, invsqrtcellvol, celldiag;
     std::unique_ptr<std::complex<double>[]> field_k;
-    std::unique_ptr<double[]>  iasgn_window_xy, iasgn_window_z;
+    std::unique_ptr<double[]>  iasgn_window_xy, iasgn_window_xy2,
+                               iasgn_window_z, iasgn_window_z2;
     double *field_x;
 
     RealField3D();
@@ -67,6 +68,7 @@ public:
     void free() {
         field_k.reset();  _field_x.reset();
         iasgn_window_xy.reset();  iasgn_window_z.reset();
+        iasgn_window_xy2.reset();  iasgn_window_z2.reset();
         fftw_destroy_plan(p_x2k);
         fftw_destroy_plan(p_k2x);
         p_x2k = nullptr;  p_k2x = nullptr;
@@ -99,19 +101,27 @@ public:
     void fftK2X();
 
     template<class T1, class T2>
-    void convolvePk(const DiscreteLogLogInterpolation2D<T1, T2> &Pk) {
+    void convolvePk(
+            const DiscreteLogLogInterpolation2D<T1, T2> &Pk,
+            bool predeconvolve=false
+    ) {
         // S . x multiplication
         // Normalization including cellvol and N^3 yields inverse total volume
         fftw_execute(p_x2k);
+
+        if (predeconvolve) {
+            #pragma omp parallel for
+            for (size_t ij = 0; ij < ngrid_xy; ++ij)
+                for (size_t k = 0; k < ngrid_kz; ++k)
+                    field_k[k + ngrid_kz * ij] *=
+                        iasgn_window_xy2[ij] * iasgn_window_z2[k];
+        }
+
         #pragma omp parallel for
         for (size_t ij = 0; ij < ngrid_xy; ++ij) {
             double kperp = getKperpFromIperp(ij);
 
             for (size_t k = 0; k < ngrid_kz; ++k) {
-                // #ifdef DECONV_CIC_WINDOW
-                // field_k[k + ngrid_kz * ij] *=
-                //     iasgn_window_xy[ij] * iasgn_window_z[k];
-                // #endif
                 field_k[k + ngrid_kz * ij] *=
                     invtotalvol * Pk.evaluate(kperp, k * k_fund[2]);
             }
@@ -120,10 +130,21 @@ public:
     }
 
     template<class T1, class T2>
-    void convolveSqrtPk(const DiscreteLogLogInterpolation2D<T1, T2> &Pk) {
+    void convolveSqrtPk(
+            const DiscreteLogLogInterpolation2D<T1, T2> &Pk,
+            bool predeconvolve=false
+    ) {
         double norm = cellvol * invsqrtcellvol * invtotalvol;
-
         fftw_execute(p_x2k);
+
+        if (predeconvolve) {
+            #pragma omp parallel for
+            for (size_t ij = 0; ij < ngrid_xy; ++ij)
+                for (size_t k = 0; k < ngrid_kz; ++k)
+                    field_k[k + ngrid_kz * ij] *=
+                        iasgn_window_xy[ij] * iasgn_window_z[k];
+        }
+
         #pragma omp parallel for
         for (size_t ij = 0; ij < ngrid_xy; ++ij) {
             double kperp = getKperpFromIperp(ij);
@@ -135,6 +156,41 @@ public:
         fftw_execute(p_k2x);
     }
     double dot(const RealField3D &other);
+    static std::function<double(size_t)> getNormFunc(
+            const RealField3D &mesh, const RealField3D *other=nullptr,
+            bool predeconvolve=false
+    ) {
+            std::function<double(size_t)> my_norm;
+            if ((other == nullptr) || (&mesh == other)) {
+                if (predeconvolve)
+                    my_norm = [&mesh](size_t ij, size_t k) {
+                        size_t jj = k + mesh.ngrid_kz * ij;
+                        double window = mesh.iasgn_window_xy2[ij] * mesh.iasgn_window_z2[k];
+                        return std::norm(mesh.field_k[jj]) * window;
+                    };
+                else
+                    my_norm = [&mesh](size_t ij, size_t k) {
+                        size_t jj = k + mesh.ngrid_kz * ij;
+                        return std::norm(mesh.field_k[jj]);
+                    };
+            }
+            else {
+                if (predeconvolve)
+                    my_norm = [&mesh, &other](size_t ij, size_t k) {
+                        size_t jj = k + mesh.ngrid_kz * ij;
+                        double window = mesh.iasgn_window_xy2[ij] * mesh.iasgn_window_z2[k];
+                        return (mesh.field_k[jj].real() * other.field_k[jj].real()
+                               + mesh.field_k[jj].imag() * other.field_k[jj].imag()) * window;
+                    };
+                else
+                    my_norm = [&mesh, &other](size_t ij, size_t k) {
+                        size_t jj = k + mesh.ngrid_kz * ij;
+                        return mesh.field_k[jj].real() * other.field_k[jj].real()
+                        + mesh.field_k[jj].imag() * other.field_k[jj].imag();
+                    };
+            }
+        return my_norm;
+    }
 
     size_t getIndex(int nx, int ny, int nz) const;
     size_t getNgpIndex(float coord[3]) const;

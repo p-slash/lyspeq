@@ -42,24 +42,24 @@ double smoothCICtoOne(double k, double a) {
 
 void RealField3D::_setAssignmentWindows() {
     iasgn_window_xy = std::make_unique<double[]>(ngrid_xy);
+    iasgn_window_xy2 = std::make_unique<double[]>(ngrid_xy);
     iasgn_window_z = std::make_unique<double[]>(ngrid_kz);
+    iasgn_window_z2 = std::make_unique<double[]>(ngrid_kz);
 
     for (size_t ij = 0; ij < ngrid_xy; ++ij) {
         double kx, ky, window;
         getKperpFromIperp(ij, kx, ky);
         kx = fabs(kx);  ky = fabs(ky);
-        iasgn_window_xy[ij] = smoothCICtoOne(kx, dx[0])
-                              * smoothCICtoOne(ky, dx[1]);
+        iasgn_window_xy[ij] = 1.0 \
+            / (smoothCICtoOne(kx, dx[0]) * smoothCICtoOne(ky, dx[1]));
 
-        iasgn_window_xy[ij] *= iasgn_window_xy[ij];
-        iasgn_window_xy[ij] = 1.0 / iasgn_window_xy[ij];
+        iasgn_window_xy2[ij] = iasgn_window_xy[ij] * iasgn_window_xy[ij];
     }
 
     for (size_t k = 0; k < ngrid_kz; ++k) {
         double kz = k * k_fund[2], window;
-        iasgn_window_z[k] = smoothCICtoOne(kz, dx[2]);
-        iasgn_window_z[k] *= iasgn_window_z[k];
-        iasgn_window_z[k] = 1.0 / iasgn_window_z[k];
+        iasgn_window_z[k] = 1.0 / smoothCICtoOne(kz, dx[2]);
+        iasgn_window_z2[k] = iasgn_window_z[k] * iasgn_window_z[k];
     }
 }
 

@@ -690,6 +690,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     pp_enabled = config.getInteger("TurnOnPpCovariance") > 0;
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
+    predeconvolve_cic_window = config.getInteger("DeconvolveCICWindow") > 0;
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
     mock_grid_res_factor = config.getInteger("MockGridResolutionFactor");
     test_gaussian_field = config.getInteger("TestGaussianField") > 0;
@@ -1258,16 +1259,8 @@ void Qu3DEstimator::multiplyDerivVectors(
 
     std::fill_n(lout, NUMBER_OF_P_BANDS, 0);
 
-    std::function<double(size_t)> my_norm;
-    if (&other == &mesh) {
-        my_norm = [this](size_t jj) { return std::norm(mesh.field_k[jj]); };
-    }
-    else {
-        my_norm = [this, &other](size_t jj) {
-            return mesh.field_k[jj].real() * other.field_k[jj].real()
-               + mesh.field_k[jj].imag() * other.field_k[jj].imag();
-        };
-    }
+    std::function<double(size_t)> my_norm = RealField3D::getNormFunc(
+        mesh, &other, predeconvolve_cic_window);
 
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS]) \
                              schedule(dynamic, 4)
@@ -1302,7 +1295,7 @@ void Qu3DEstimator::multiplyDerivVectors(
                    * p3d_model->getSpectroWindow2(kz);
             temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
             #ifdef DECONV_CIC_WINDOW
-            temp *= mesh.iasgn_window_xy[jxy] * mesh.iasgn_window_z[k];
+            temp *= mesh.iasgn_window_xy2[jxy] * mesh.iasgn_window_z2[k];
             #endif
             #ifdef RL_COMP_DERIV
             kt *= radius / rscale_factor;
