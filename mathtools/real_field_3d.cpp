@@ -6,7 +6,7 @@
 #include <cassert>
 
 const double MY_PI = 3.14159265358979323846;
-const double H_NYQ_1 = 0.70, H_NYQ_2 = 0.90;
+const double H_NYQ_1 = 0.75, H_NYQ_2 = 0.90;
 #define A_LANCZOS 3
 
 inline double sinc(double x) {
@@ -37,6 +37,42 @@ double smoothCICtoOne(double k, double a) {
            hann = _hanning(k, knyq * H_NYQ_1, knyq * H_NYQ_2);
     window = (1.0 - window * window) * hann ;
     return 1.0 - window;
+}
+
+static std::function<double(size_t, size_t)> RealField3D::getNormFunc(
+        const RealField3D *mesh, const RealField3D *other,
+        bool predeconvolve
+) {
+    std::function<double(size_t, size_t)> my_norm;
+    if ((other == nullptr) || (mesh == other)) {
+        if (predeconvolve)
+            my_norm = [&mesh](size_t ij, size_t k) {
+                size_t jj = k + mesh->ngrid_kz * ij;
+                double window = mesh->iasgn_window_xy2[ij] * mesh->iasgn_window_z2[k];
+                return std::norm(mesh->field_k[jj]) * window;
+            };
+        else
+            my_norm = [&mesh](size_t ij, size_t k) {
+                size_t jj = k + mesh->ngrid_kz * ij;
+                return std::norm(mesh->field_k[jj]);
+            };
+    }
+    else {
+        if (predeconvolve)
+            my_norm = [&mesh, &other](size_t ij, size_t k) {
+                size_t jj = k + mesh->ngrid_kz * ij;
+                double window = mesh->iasgn_window_xy2[ij] * mesh->iasgn_window_z2[k];
+                return (mesh->field_k[jj].real() * other->field_k[jj].real()
+                        + mesh->field_k[jj].imag() * other->field_k[jj].imag()) * window;
+            };
+        else
+            my_norm = [&mesh, &other](size_t ij, size_t k) {
+                size_t jj = k + mesh->ngrid_kz * ij;
+                return mesh->field_k[jj].real() * other->field_k[jj].real()
+                + mesh->field_k[jj].imag() * other->field_k[jj].imag();
+            };
+    }
+    return my_norm;
 }
 
 
