@@ -1259,8 +1259,8 @@ void Qu3DEstimator::multiplyDerivVectors(
 
     std::fill_n(lout, NUMBER_OF_P_BANDS, 0);
 
-    std::function<double(size_t)> my_norm = RealField3D::getNormFunc(
-        mesh, &other, predeconvolve_cic_window);
+    std::function<double(size_t, size_t)> my_norm = RealField3D::getNormFunc(
+        &mesh, &other, predeconvolve_cic_window);
 
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS]) \
                              schedule(dynamic, 4)
