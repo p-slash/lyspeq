@@ -214,6 +214,7 @@ std::vector<size_t> RealField3D::findNeighboringPixels(
     // every voxel touching
     int n[3], dn[3], ntot = 1;
     std::vector<size_t> neighbors;
+    radius += celldiag * 1.05;  // Add a small buffer to include all neighbors
 
     getNFromIndex(i, n);
     for (int axis = 0; axis < 3; ++axis) {
@@ -221,7 +222,6 @@ std::vector<size_t> RealField3D::findNeighboringPixels(
         ntot *= 2 * dn[axis] + 1;
     }
 
-    radius += 1.001 * celldiag;
     radius *= radius;
 
     neighbors.reserve(ntot);
