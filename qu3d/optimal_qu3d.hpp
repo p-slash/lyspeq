@@ -65,7 +65,8 @@ const config_map qu3d_default_parameters ({
     {"EstimateNoiseBias", "1"}, {"EstimateFisherDirectly", "-1"},
     {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"}, {"Seed", "6722"},
     {"PadeOrder", "4"}, {"ShrinkFactorForSqrt", "0.0"},
-    {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""}
+    {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""},
+    {"DeconvolveCICWindow", "-1"}
 });
 
 
@@ -73,7 +74,7 @@ class Qu3DEstimator
 {
     ConfigFile &config;
 
-    bool pp_enabled, absolute_tolerance;
+    bool pp_enabled, absolute_tolerance, predeconvolve_cic_window;
     int max_conj_grad_steps, max_monte_carlos, number_of_multipoles,
         pade_order;
     double tolerance, mc_tol, radius, rscale_factor, effective_chi;

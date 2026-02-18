@@ -97,10 +97,12 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientIpH.\n");
 
+    #define PRECONDITIONER(X, Y) qso->multInvCov(p3d_model.get(), X, Y, true, m, s);
+
     /* Initial guess */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
-        qso->multInvCov(p3d_model.get(), qso->truth, qso->in, true, m, s);
+        PRECONDITIONER(qso->truth.get(), qso->in);
 
     multiplyAsVector(m, s);
 
@@ -114,8 +116,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
         qso->in = qso->search.get();
 
         // set search = PreCon . residual
-        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in,
-                        true, m, s);
+        PRECONDITIONER(qso->residual.get(), qso->in);
 
         init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
                                          qso->residual.get(), 1);
@@ -144,11 +145,12 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
                                  reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
-            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out,
-                            true, m, s);
+            PRECONDITIONER(qso->residual.get(), qso->out);
             new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
                                             qso->out, 1);
         }
+
+        #undef PRECONDITIONER
 
         double beta = new_residual_prec / old_residual_prec;
         old_residual_prec = new_residual_prec;
@@ -232,7 +234,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     //     qso->addBlockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
 
     mesh.fillRndNormal(rngs);
-    mesh.convolveSqrtPk(p3d_model->interp2d_pL);
+    mesh.convolveSqrtPk(p3d_model->interp2d_pL, predeconvolve_cic_window);
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
         qso->interpAddMesh2TruthIsig(mesh);
