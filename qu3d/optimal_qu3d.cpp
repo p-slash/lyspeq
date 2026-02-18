@@ -818,7 +818,7 @@ void Qu3DEstimator::multMeshComp() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     reverseInterpolateIsig(mesh);
-    mesh.convolvePk(p3d_model->interp2d_pL);
+    mesh.convolvePk(p3d_model->interp2d_pL, predeconvolve_cic_window);
 
     double dt = mytime::timer.getTime();
     // Interpolate and Weight by isig
@@ -1293,9 +1293,7 @@ void Qu3DEstimator::multiplyDerivVectors(
             temp = (1.0 + (k != 0)) * my_norm(jxy, k)
                    * p3d_model->getSpectroWindow2(kz);
             temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
-            #ifdef DECONV_CIC_WINDOW
-            temp *= mesh.iasgn_window_xy2[jxy] * mesh.iasgn_window_z2[k];
-            #endif
+
             #ifdef RL_COMP_DERIV
             kt *= radius / rscale_factor;
             temp *= exp(-kt * kt);
