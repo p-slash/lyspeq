@@ -41,6 +41,11 @@ class RealField3D {
     std::unique_ptr<double[]> _field_x;
     void _setAssignmentWindows();
 public:
+    static std::function<double(size_t, size_t)> getNormFunc(
+            const RealField3D *mesh, const RealField3D *other=nullptr,
+            bool predeconvolve=false
+    );
+
     size_t size_complex, size_real, ngrid_xy, ngrid_z, ngrid_kz;
     int ngrid[3];
     float dx[3], length[3], xyz0[3];
@@ -156,41 +161,6 @@ public:
         fftw_execute(p_k2x);
     }
     double dot(const RealField3D &other);
-    static std::function<double(size_t, size_t)> getNormFunc(
-            const RealField3D *mesh, const RealField3D *other=nullptr,
-            bool predeconvolve=false
-    ) {
-            std::function<double(size_t, size_t)> my_norm;
-            if ((other == nullptr) || (mesh == other)) {
-                if (predeconvolve)
-                    my_norm = [&mesh](size_t ij, size_t k) {
-                        size_t jj = k + mesh->ngrid_kz * ij;
-                        double window = mesh->iasgn_window_xy2[ij] * mesh->iasgn_window_z2[k];
-                        return std::norm(mesh->field_k[jj]) * window;
-                    };
-                else
-                    my_norm = [&mesh](size_t ij, size_t k) {
-                        size_t jj = k + mesh->ngrid_kz * ij;
-                        return std::norm(mesh->field_k[jj]);
-                    };
-            }
-            else {
-                if (predeconvolve)
-                    my_norm = [&mesh, &other](size_t ij, size_t k) {
-                        size_t jj = k + mesh->ngrid_kz * ij;
-                        double window = mesh->iasgn_window_xy2[ij] * mesh->iasgn_window_z2[k];
-                        return (mesh->field_k[jj].real() * other->field_k[jj].real()
-                               + mesh->field_k[jj].imag() * other->field_k[jj].imag()) * window;
-                    };
-                else
-                    my_norm = [&mesh, &other](size_t ij, size_t k) {
-                        size_t jj = k + mesh->ngrid_kz * ij;
-                        return mesh->field_k[jj].real() * other->field_k[jj].real()
-                        + mesh->field_k[jj].imag() * other->field_k[jj].imag();
-                    };
-            }
-        return my_norm;
-    }
 
     size_t getIndex(int nx, int ny, int nz) const;
     size_t getNgpIndex(float coord[3]) const;
