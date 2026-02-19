@@ -20,13 +20,12 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
     if (pp_enabled)  multParticleComp();
     // (B)
 
+    double mp = m + 1.0 / s;
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            qso->out[i] *= qso->isig[i] * qso->z1[i];
-            qso->out[i] += qso->in[i];  // + I
-            qso->out[i] /= s;
-            qso->out[i] += m * qso->in[i];
+            qso->out[i] *= qso->isig[i] * qso->z1[i] / s;
+            qso->out[i] += mp * qso->in[i];
         }
     }
 
@@ -92,6 +91,8 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     double init_residual_norm = 0, old_residual_prec = 0,
            new_residual_norm = 0;
 
+    // Remove mixture from m
+    m = m - (1.0 - mixture_factor_for_as) / s;
     updateYMatrixVectorFunction = [this, m, s]() { multiplyAsVector(m, s); };
 
     if (verbose)
@@ -217,7 +218,10 @@ void Qu3DEstimator::multiplyCovSmallSqrt() {
 
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
     if (verbose)
-        LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
+        LOG::LOGGER.STD(
+            "Replacing deltas with Gaussian. "
+            "Mixture factor of As is %.1e. ",
+            mixture_factor_for_as);
 
     double t1 = mytime::timer.getTime(), t2 = 0;
     #pragma omp parallel for schedule(dynamic, 4)
@@ -228,10 +232,13 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
     multiplyCovSmallSqrtPade();
 
     // Add I
-    // #pragma omp parallel for schedule(dynamic, 4)
-    // for (auto &qso : quasars)
-    //     rngs[myomp::getThreadNum()].addVectorNormal(qso->truth, qso->N);
-    //     qso->addBlockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
+    if (mixture_factor_for_as != 1.0) {
+        #pragma omp parallel for schedule(dynamic, 4)
+        for (auto &qso : quasars) {
+            rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
+            cblas_daxpy(qso->N, 1.0 - mixture_factor_for_as, qso->in, 1, qso->truth, 1);
+        }
+    }
 
     mesh.fillRndNormal(rngs);
     mesh.convolveSqrtPk(p3d_model->interp2d_pL, predeconvolve_cic_window);
