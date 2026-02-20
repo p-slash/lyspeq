@@ -43,16 +43,15 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade() {
     // double s = (min_eval + max_eval) / 2.0;
     // double s = 1.0;
     tolerance *= 10;
-    double mp = 1.0 - mixture_factor_for_as;
 
     if (shrink_factor_for_sqrt == 0.0)
         shrink_factor_for_sqrt = findMaxDiagonalAs();
     else if (shrink_factor_for_sqrt == -1.0)
-        shrink_factor_for_sqrt = estimateMaxEvalAs(-mp);
+        shrink_factor_for_sqrt = estimateMaxEvalAs();
     else if (shrink_factor_for_sqrt == -2.0)
-        shrink_factor_for_sqrt = estimateMaxEvalAs(-mp, true);
+        shrink_factor_for_sqrt = estimateMaxEvalAs(0, true);
     else if (shrink_factor_for_sqrt == -3.0)
-        shrink_factor_for_sqrt = estimateFrobeniusNormAs(-mp);
+        shrink_factor_for_sqrt = estimateFrobeniusNormAs();
     
     static auto alphas = _compute_pade_alphas(pade_order);
     static auto xi = [this]() {

@@ -1,11 +1,11 @@
 void Qu3DEstimator::multiplyAsVector(double m, double s) {
-    /* m I + s^-1 (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2)
+    /* m I + s^-1 [I . mix + (N^-1/2 G^1/2) (S_S) (G^1/2 N^-1/2)]
+       (m + mix / s) I + s^-1 (N^-1/2 G^1/2) (S_S) (G^1/2 N^-1/2)
         input is const *in, output is *out
         uses: *in_isig
     */
     double dt = mytime::timer.getTime();
 
-    /* A_BD^-1. Might not be true if pp_enabled=false */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         qso->setInIsigNoMarg();
@@ -16,11 +16,10 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
     // only in_isig is used until (B)
     // multMeshComp();
 
-    // Need to multiply only neighbors
     if (pp_enabled)  multParticleComp();
     // (B)
 
-    double mp = m + 1.0 / s;
+    double mp = m + mixture_factor_for_as / s;
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
@@ -91,14 +90,14 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     double init_residual_norm = 0, old_residual_prec = 0,
            new_residual_norm = 0;
 
-    // Remove mixture from m
-    m = m - (1.0 - mixture_factor_for_as) / s;
     updateYMatrixVectorFunction = [this, m, s]() { multiplyAsVector(m, s); };
 
+    // Remove mixture from m for preconditioner
+    double mp = m - (1.0 - mixture_factor_for_as) / s;
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientIpH.\n");
 
-    #define PRECONDITIONER(X, Y) qso->multInvCov(p3d_model.get(), X, Y, true, m, s);
+    #define PRECONDITIONER(X, Y) qso->multInvCov(p3d_model.get(), X, Y, true, mp, s);
 
     /* Initial guess */
     #pragma omp parallel for schedule(dynamic, 4)
