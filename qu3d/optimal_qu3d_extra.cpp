@@ -299,6 +299,7 @@ void Qu3DEstimator::testSymmetry() {
 double Qu3DEstimator::estimateMaxEvalFnc(
         std::function<void()> &fnc, double subtract_diag
 ) {
+    constexpr int burn_in = 10, n_check = 5;
     int niter = 1;
     double n_in, n_out, n_inout, new_eval_max, old_eval_max = 1e-12;
     bool is_converged = false;
@@ -321,7 +322,11 @@ double Qu3DEstimator::estimateMaxEvalFnc(
         }
 
         new_eval_max = n_inout / n_in;
-        if (isClose(old_eval_max, new_eval_max, tolerance)) {
+        bool check_convergence =
+            (niter >= burn_in)
+            && ((niter % n_check == 0) || (niter == max_conj_grad_steps));
+
+        if (check_convergence && isClose(old_eval_max, new_eval_max, tolerance)) {
             is_converged = true;  break;
         }
 
