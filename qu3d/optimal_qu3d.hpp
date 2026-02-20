@@ -166,7 +166,7 @@ public:
     void testSymmetry();
     void estimateMaxEvals();
     void estimateMinMaxEvalsAs();
-    double estimateFrobeniusNormAs();
+    double estimateFrobeniusNormAs(double m=0);
 
     // These are in original source file
     void multMeshComp();
