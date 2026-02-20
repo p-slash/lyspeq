@@ -177,10 +177,9 @@ public:
        (I + N^-1/2 S N^-1/2) z = out */
     void multiplyCovVector(bool mesh_enabled=true);
     void multiplyDerivVectors(
-        double *o1, double *o2, double *lout, const RealField3D &other);
-    void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr) {
-        multiplyDerivVectors(o1, o2, lout, mesh);
-    };
+        double *o1, double *o2,
+        double *lout=nullptr, const RealField3D *other=nullptr
+    );
 
     /* Reverse interopates qso->in onto the mesh */
     void reverseInterpolate(RealField3D &m);
