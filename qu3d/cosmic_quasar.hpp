@@ -524,9 +524,10 @@ public:
             std::set<int> jdxs;
 
             #ifdef USE_SPHERICAL_DIST
-                double cos_sep =
+                double cos_sep_m1 =
                     sin_dec * q->sin_dec
                     + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
+                cos_sep_m1 = 2.0 * (1.0 - cos_sep_m1);
             #else
                 double ddec = angles[0] - q->angles[0],
                        dra = angles[1] - q->angles[1];
@@ -540,9 +541,9 @@ public:
                 bool _in_i = false;
                 for (int j = 0; j < M; ++j) {
                     #ifdef USE_SPHERICAL_DIST
-                        double r2 = (
-                            q->chi[j] * q->chi[j] + chi[i] * chi[i]
-                            - 2.0 * chi[i] * q->chi[j] * cos_sep);
+                        double dChi = chi[i] - q->chi[j],
+                               eChi = chi[i] * q->chi[j];
+                        double r2 = eChi * (dChi * dChi / eChi + cos_sep_m1);
 
                         if (r2 <= radius2) {
                             jdxs.insert(j);
