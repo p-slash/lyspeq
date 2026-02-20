@@ -270,6 +270,40 @@ public:
         delta_r = (chi[N - 1] - chi[0]) / (N - 1);
     }
 
+    void dropIvar0Pixels() {
+        // Dropping pixels with ivar=0 after setting spectro parameters may
+        // help with better estimation of spectro window parameters. Also,
+        // these pixels do not contribute to the signal and may cause numerical
+        // issues in some cases. This is why this function is not called in
+        // the constructor.
+        std::vector<int> isig_zero_indices;
+        for (int i = 0; i < N; ++i)
+            if (isig[i] == 0)
+                isig_zero_indices.push_back(i);
+
+        if (isig_zero_indices.empty())
+            return;
+
+        int write = 0;
+        for (int read = 0; read < N; ++read) {
+            if (isig_zero_indices.end() == std::find(
+                    isig_zero_indices.begin(), isig_zero_indices.end(),
+                    read)
+            ) {
+                // keep this element
+                isig[write] = isig[read];
+                truth[write] = truth[read];
+                z1[write] = z1[read];
+                chi[write] = chi[read];
+                r[0 + 3 * write] = r[0 + 3 * read];
+                r[1 + 3 * write] = r[1 + 3 * read];
+                r[2 + 3 * write] = r[2 + 3 * read];
+                ++write;
+            }
+        }
+        N -= isig_zero_indices.size();
+    }
+
     void getSumRadialDistance(
             const fidcosmo::FlatLCDM *cosmo,
             double &sum_chi_weights, double &sum_weights

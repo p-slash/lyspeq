@@ -266,7 +266,12 @@ void Qu3DEstimator::_readQSOFiles(
 
     int max_qN = 0;
     #pragma omp parallel for reduction(+:num_all_pixels) reduction(max:max_qN)
-    for (const auto &qso : quasars) {
+    for (auto &qso : quasars) {
+        // Dropping pixels with ivar=0 after setting spectro parameters may
+        // help with better estimation of spectro window parameters. Also,
+        // these pixels do not contribute to the signal and may cause numerical
+        // issues in some cases.
+        qso->dropIvar0Pixels();
         num_all_pixels += qso->N;
         max_qN = std::max(qso->N, max_qN);
     }
