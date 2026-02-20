@@ -1236,7 +1236,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
 
 void Qu3DEstimator::multiplyDerivVectors(
-        double *o1, double *o2, double *lout, const RealField3D &other
+        double *o1, double *o2, double *lout, const RealField3D *other
 ) {
     /* Adds current results into o1 (+=). If o2 is nullptr, the operations is
        directly performed on o1. Otherwise, current results first saved into
@@ -1262,7 +1262,7 @@ void Qu3DEstimator::multiplyDerivVectors(
     std::fill_n(lout, NUMBER_OF_P_BANDS, 0);
 
     std::function<double(size_t, size_t)> my_norm = RealField3D::getNormFunc(
-        &mesh, &other, predeconvolve_cic_window);
+        &mesh, other, predeconvolve_cic_window);
 
     #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS]) \
                              schedule(dynamic, 4)

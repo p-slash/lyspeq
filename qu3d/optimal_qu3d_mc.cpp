@@ -378,7 +378,7 @@ void Qu3DEstimator::estimateTotalBiasDirect() {
         /* calculate C^-1 . z into *in */
         conjugateGradientDescent();
 
-        multiplyDerivVectors(mc1.get(), mc2.get(), nullptr, mesh_rnd);
+        multiplyDerivVectors(mc1.get(), mc2.get(), nullptr, &mesh_rnd);
         ++prog_tracker;
 
         if ((nmc % M_MCS != 0) && (nmc != max_monte_carlos))
@@ -683,7 +683,7 @@ void Qu3DEstimator::estimateFisherDirect() {
             preconditionerSolution();
             multiplyDerivVectors(mc1.get() + i * NUMBER_OF_P_BANDS,
                                  mc2.get() + i * NUMBER_OF_P_BANDS,
-                                 nullptr, mesh_fh);
+                                 nullptr, &mesh_fh);
             ++prog_tracker;
         }
 

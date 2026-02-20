@@ -39,7 +39,8 @@ double smoothCICtoOne(double k, double a) {
     return 1.0 - window;
 }
 
-static std::function<double(size_t, size_t)> RealField3D::getNormFunc(
+
+std::function<double(size_t, size_t)> RealField3D::getNormFunc(
         const RealField3D *mesh, const RealField3D *other,
         bool predeconvolve
 ) {
