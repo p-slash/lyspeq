@@ -1,4 +1,4 @@
-double Qu3DEstimator::estimateFrobeniusNormAs() {
+double Qu3DEstimator::estimateFrobeniusNormAs(double m) {
     // Trace (C C)
     constexpr int M_MCS = 5;
     verbose = false;
@@ -14,7 +14,7 @@ double Qu3DEstimator::estimateFrobeniusNormAs() {
         for (auto &qso : quasars)
             rngs[myomp::getThreadNum()].fillVectorOnes(qso->in, qso->N);
 
-        multiplyAsVector();
+        multiplyAsVector(m);
 
         #pragma omp parallel for reduction(+:cur_total)
         for (auto &qso : quasars)

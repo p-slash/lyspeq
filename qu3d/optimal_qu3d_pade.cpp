@@ -52,7 +52,7 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade() {
     else if (shrink_factor_for_sqrt == -2.0)
         shrink_factor_for_sqrt = estimateMaxEvalAs(-mp, true);
     else if (shrink_factor_for_sqrt == -3.0)
-        shrink_factor_for_sqrt = estimateFrobeniusNormAs();
+        shrink_factor_for_sqrt = estimateFrobeniusNormAs(-mp);
     
     static auto alphas = _compute_pade_alphas(pade_order);
     static auto xi = [this]() {
