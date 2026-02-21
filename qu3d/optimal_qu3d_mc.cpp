@@ -216,41 +216,51 @@ void Qu3DEstimator::multiplyCovSmallSqrt() {
 
 
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
-    if (verbose)
-        LOG::LOGGER.STD(
-            "Replacing deltas with Gaussian. "
-            "Mixture factor of As is %.1e. ",
-            mixture_factor_for_as);
-
     double t1 = mytime::timer.getTime(), t2 = 0;
-    #pragma omp parallel for schedule(dynamic, 4)
-    for (auto &qso : quasars)
-        rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
 
-    // S_X
-    multiplyCovSmallSqrtPade();
+    if (verbose)  LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
 
-    // Add I
-    if (mixture_factor_for_as != 1.0) {
+    if (max_conj_grad_steps <= 0) {
+        if (verbose) LOG::LOGGER.STD( "Using block randoms. ");
+
         #pragma omp parallel for schedule(dynamic, 4)
-        for (auto &qso : quasars) {
-            rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
-            cblas_daxpy(qso->N, 1.0 - mixture_factor_for_as, qso->in, 1, qso->truth, 1);
-        }
+        for (auto &qso : quasars)
+            qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
     }
+    else {
+        if (verbose)
+            LOG::LOGGER.STD("Mixture factor of As is %.1e. ",
+                            mixture_factor_for_as);
 
-    mesh.fillRndNormal(rngs);
-    mesh.convolveSqrtPk(p3d_model->interp2d_pL, predeconvolve_cic_window);
-    #pragma omp parallel for schedule(dynamic, 4)
-    for (auto &qso : quasars)
-        qso->interpAddMesh2TruthIsig(mesh);
+        #pragma omp parallel for schedule(dynamic, 4)
+        for (auto &qso : quasars)
+            rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
+
+        // S_X
+        multiplyCovSmallSqrtPade();
+
+        // Add I
+        if (mixture_factor_for_as != 1.0) {
+            #pragma omp parallel for schedule(dynamic, 4)
+            for (auto &qso : quasars) {
+                rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
+                cblas_daxpy(qso->N, 1.0 - mixture_factor_for_as, qso->in, 1,
+                            qso->truth, 1);
+            }
+        }
+
+        mesh.fillRndNormal(rngs);
+        mesh.convolveSqrtPk(p3d_model->interp2d_pL, predeconvolve_cic_window);
+        #pragma omp parallel for schedule(dynamic, 4)
+        for (auto &qso : quasars)
+            qso->interpAddMesh2TruthIsig(mesh);
+    }
 
     t2 = mytime::timer.getTime() - t1;
     ++timings["GenGauss"].first;
     timings["GenGauss"].second += t2;
 
-    if (verbose)
-        LOG::LOGGER.STD("It took %.2f m.\n", t2);
+    if (verbose)  LOG::LOGGER.STD("It took %.2f m.\n", t2);
 }
 
 
