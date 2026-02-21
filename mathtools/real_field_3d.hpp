@@ -104,6 +104,20 @@ public:
     void rawFftK2X() { fftw_execute(p_k2x); }
     void fftX2K();
     void fftK2X();
+    void sharpen1() {
+        #pragma omp parallel for
+        for (size_t ij = 0; ij < ngrid_xy; ++ij)
+            for (size_t k = 0; k < ngrid_kz; ++k)
+                field_k[k + ngrid_kz * ij] *=
+                    iasgn_window_xy[ij] * iasgn_window_z[k];
+    }
+    void sharpen2() {
+        #pragma omp parallel for
+        for (size_t ij = 0; ij < ngrid_xy; ++ij)
+            for (size_t k = 0; k < ngrid_kz; ++k)
+                field_k[k + ngrid_kz * ij] *=
+                    iasgn_window_xy2[ij] * iasgn_window_z2[k];
+    }
 
     template<class T1, class T2>
     void convolvePk(
@@ -114,13 +128,7 @@ public:
         // Normalization including cellvol and N^3 yields inverse total volume
         fftw_execute(p_x2k);
 
-        if (predeconvolve) {
-            #pragma omp parallel for
-            for (size_t ij = 0; ij < ngrid_xy; ++ij)
-                for (size_t k = 0; k < ngrid_kz; ++k)
-                    field_k[k + ngrid_kz * ij] *=
-                        iasgn_window_xy2[ij] * iasgn_window_z2[k];
-        }
+        if (predeconvolve)  sharpen2();
 
         #pragma omp parallel for
         for (size_t ij = 0; ij < ngrid_xy; ++ij) {
@@ -142,13 +150,7 @@ public:
         double norm = cellvol * invsqrtcellvol * invtotalvol;
         fftw_execute(p_x2k);
 
-        if (predeconvolve) {
-            #pragma omp parallel for
-            for (size_t ij = 0; ij < ngrid_xy; ++ij)
-                for (size_t k = 0; k < ngrid_kz; ++k)
-                    field_k[k + ngrid_kz * ij] *=
-                        iasgn_window_xy[ij] * iasgn_window_z[k];
-        }
+        if (predeconvolve)  sharpen1();
 
         #pragma omp parallel for
         for (size_t ij = 0; ij < ngrid_xy; ++ij) {

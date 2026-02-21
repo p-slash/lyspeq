@@ -1218,9 +1218,13 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
             else
                 alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
 
-            alpha *= legendre_w(mu) * mesh.invtotalvol
-                     * p3d_model->getSpectroWindow2(kz);
-            // multDerivMatrixVec does not need deconvolution
+            alpha *= legendre_w(mu);
+            /* These are handled before in estimateFisherDirect
+                     * mesh.invtotalvol
+                     * p3d_model->getSpectroWindow2(kz)
+                     * mesh.iasgn_window_xy2[jxy]
+                     * mesh.iasgn_window_z2[jz]; */
+
             #ifdef RL_COMP_DERIV
             kt *= radius / rscale_factor;
             alpha *= exp(-kt * kt);
@@ -1254,6 +1258,13 @@ void Qu3DEstimator::multiplyDerivVectors(
         size_t(ceil(KMAX_EDGE / mesh.k_fund[2])), mesh.ngrid_kz),
     mesh_kz_min = ceil(specifics::MIN_KZ / mesh.k_fund[2]);
     static auto _lout = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    static auto _spectroWindow2 = [this]() {
+        auto ptr = std::make_unique<double[]>(mesh.ngrid_kz);
+        for (size_t i = 0; i < mesh.ngrid_kz; ++i) {
+            ptr[i] = p3d_model->getSpectroWindow2(i * mesh.k_fund[2]);
+        }
+        return ptr;
+    }();
 
     double dt = mytime::timer.getTime();
 
@@ -1282,8 +1293,8 @@ void Qu3DEstimator::multiplyDerivVectors(
             continue;
 
         kperp *= kperp;
-        for (size_t k = mesh_kz_min; k < mesh_kz_max; ++k) {
-            double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
+        for (size_t jz = mesh_kz_min; jz < mesh_kz_max; ++jz) {
+            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
                    mu;
             if (kt < bins::KBAND_EDGES[0])  continue;
             if (kt >= KMAX_EDGE)  break;
@@ -1297,8 +1308,7 @@ void Qu3DEstimator::multiplyDerivVectors(
             else
                 ik2 = std::max(0, ik - 1);
 
-            temp = (1.0 + (k != 0)) * my_norm(jxy, k)
-                   * p3d_model->getSpectroWindow2(kz);
+            temp = (1.0 + (jz != 0)) * my_norm(jxy, jz) * _spectroWindow2[jz];
             temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
 
             #ifdef RL_COMP_DERIV

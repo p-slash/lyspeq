@@ -583,6 +583,7 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
     4. Reverse interpolate to mesh.
     5. Multiply with Qk' on mesh.
     */
+    throw std::runtime_error("estimateFisherFromRndDeriv is not deprecated and may be buggy. Use with caution.");
     LOG::LOGGER.STD("Estimating Fisher with random C,k.\n");
     verbose = false;
     mc1 = std::make_unique<double[]>(bins::FISHER_SIZE);
@@ -658,6 +659,11 @@ void Qu3DEstimator::estimateFisherDirect() {
     LOG::LOGGER.STD("  Constructing two other meshes for randoms.\n");
     if (!mesh_rnd) { mesh_rnd.copy(mesh); mesh_rnd.construct(INPLACE_FFT); }
     if (!mesh_fh) { mesh_fh.copy(mesh); mesh_fh.construct(INPLACE_FFT); }
+    // Cache windows on mesh_rnd for direct Fisher estimation.
+    for (size_t jz = 0; jz < mesh_rnd.ngrid_kz; ++jz)
+        mesh_rnd.iasgn_window_z2[jz] *=
+            mesh_rnd.invtotalvol
+            * p3d_model->getSpectroWindow2(jz * mesh.k_fund[2]);
 
     LOG::LOGGER.STD("  Using preconditioner as solution.\n");
 
@@ -673,6 +679,10 @@ void Qu3DEstimator::estimateFisherDirect() {
         /* (Right hand side) Save this on mesh_rnd */
         reverseInterpolateZ(mesh_rnd);
         mesh_rnd.rawFftX2K();
+        // Handle forward and reverse interpolation windows here
+        // Note mesh_rnd.iasgn_window_z2 is update in the beginning of this
+        // function with correct normalization.
+        mesh_rnd.sharpen2();
 
         /* (Left hand side ) CGD requires *truth to be multiplied by N^-1/2 */
         #pragma omp parallel for
