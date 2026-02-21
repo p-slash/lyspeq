@@ -421,6 +421,15 @@ public:
         rng.fillVectorNormal(truth, N);
     }
 
+    void blockRandom(MyRNG &rng, const fidcosmo::ArinyoP3DModel *p3d_model) {
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+        setCov(p3d_model, ccov);
+        rng.fillVectorNormal(truth, N);
+        LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
+        cblas_dtrmv(CblasRowMajor, CblasUpper, CblasNoTrans, CblasNonUnit,
+                    N, ccov, N, truth, 1);
+    }
+
     void addBlockRandom(MyRNG &rng, const fidcosmo::ArinyoP3DModel *p3d_model) {
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
 
