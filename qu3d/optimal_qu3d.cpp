@@ -1203,13 +1203,14 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
         kperp *= kperp;
         for (size_t jz = mesh_kz_min; jz < mesh_kz_max; ++jz) {
-            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
-                   alpha, mu;
+            if (jz == 0 && jxy == 0)
+                continue;
+
+            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp), alpha, mu;
 
             if (kt < kmin)  continue;
             else if (kt >= kmax)  break;
-            if (kt != 0)  mu = kz / kt;
-            else          mu = 0.0;
+            mu = kz / kt;
 
             if (is_last_k_bin && (kt > bins::KBAND_CENTERS[ik]))
                 alpha = 1.0;
@@ -1219,6 +1220,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
                 alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
 
             alpha *= legendre_w(mu);
+            alpha /= kt * kt;
             /* These are handled before in estimateFisherDirect
                      * mesh.invtotalvol
                      * p3d_model->getSpectroWindow2(kz)
@@ -1294,13 +1296,14 @@ void Qu3DEstimator::multiplyDerivVectors(
 
         kperp *= kperp;
         for (size_t jz = mesh_kz_min; jz < mesh_kz_max; ++jz) {
-            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
-                   mu;
+            if (jz == 0 && jxy == 0)
+                continue;
+
+            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp), mu;
             if (kt < bins::KBAND_EDGES[0])  continue;
             if (kt >= KMAX_EDGE)  break;
-            if (kt != 0)  mu = kz / kt;
-            else          mu = 0.0;
 
+            mu = kz / kt;
             ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
 
             if (kt > bins::KBAND_CENTERS[ik])
@@ -1309,6 +1312,7 @@ void Qu3DEstimator::multiplyDerivVectors(
                 ik2 = std::max(0, ik - 1);
 
             temp = (1.0 + (jz != 0)) * my_norm(jxy, jz) * _spectroWindow2[jz];
+            temp /= kt * kt;
             temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
 
             #ifdef RL_COMP_DERIV

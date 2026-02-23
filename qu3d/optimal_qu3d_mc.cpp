@@ -374,6 +374,8 @@ void Qu3DEstimator::estimateTotalBiasDirect() {
         /* (Right hand side) Save this on mesh_rnd */
         reverseInterpolateZ(mesh_rnd);
         mesh_rnd.rawFftX2K();
+        // No need to sharpen for forward and reverse interpolation windows
+        // here. They are applied in multiplyDerivVectors.
 
         /* (Left hand side) CGD requires *truth to be mult'd by N^-1/2
            Swapping ptrs could be buggy:
