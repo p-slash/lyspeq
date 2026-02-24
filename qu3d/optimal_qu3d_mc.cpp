@@ -278,8 +278,9 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
     double varlss = p3d_model->getVar1dT();
 
     std::vector<ioh::unique_fitsfile_ptr> file_writers;
-    file_writers.reserve(myomp::getMaxNumThreads());
-    for (int i = 0; i < myomp::getMaxNumThreads(); ++i) {
+    int nthreads = std::min(8, myomp::getMaxNumThreads());
+    file_writers.reserve(nthreads);
+    for (int i = 0; i < nthreads; ++i) {
         std::string out_fname =
             "!" + process::FNAME_BASE + "-deltas-v"
             + std::to_string(mympi::this_pe) + "-" + std::to_string(i)
@@ -287,7 +288,7 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
         file_writers.push_back(ioh::create_unique_fitsfile_ptr(out_fname));
     }
 
-    #pragma omp parallel for schedule(static, 8)
+    #pragma omp parallel for schedule(static, 8) num_threads(nthreads)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             if (qso->isig[i] != 0) {
