@@ -274,7 +274,7 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
         mesh_rnd.ngrid[axis] *= mock_grid_res_factor;
     mesh_rnd.construct(INPLACE_FFT);
     mesh_rnd.fillRndNormal(rngs);
-    mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pT);
+    mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pT, predeconvolve_cic_window);
     double varlss = p3d_model->getVar1dT();
 
     std::vector<ioh::unique_fitsfile_ptr> file_writers;
