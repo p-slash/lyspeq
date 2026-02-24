@@ -1174,7 +1174,8 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
     double kmin = std::max(bins::KBAND_CENTERS[ik] - DK_BIN,
                            bins::KBAND_EDGES[0]),
            kmax = std::min(bins::KBAND_CENTERS[ik] + DK_BIN,
-                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
+                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]),
+           kcenter = bins::KBAND_CENTERS[ik];
     bool is_last_k_bin = ik == (bins::NUMBER_OF_K_BANDS - 1),
          is_first_k_bin = ik == 0;
 
@@ -1212,12 +1213,12 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
             else if (kt >= kmax)  break;
             mu = kz / kt;
 
-            if (is_last_k_bin && (kt > bins::KBAND_CENTERS[ik]))
+            if (is_last_k_bin && (kt > kcenter))
                 alpha = 1.0;
-            else if (is_first_k_bin && (kt < bins::KBAND_CENTERS[0]))
+            else if (is_first_k_bin && (kt < kcenter))
                 alpha = 1.0;
             else
-                alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+                alpha = (1.0 - fabs(kt - kcenter) / DK_BIN);
 
             alpha *= legendre_w(mu);
             alpha /= kt * kt;
