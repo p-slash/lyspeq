@@ -708,6 +708,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     rscale_factor = config.getDouble("ScaleFactor");
     mixture_factor_for_as = std::clamp(
         config.getDouble("MixtureFactorForAs"), 0.0, 1.0);
+    if (!pp_enabled)
+        mixture_factor_for_as = 0.0;  // No need to use a mixture if PP is not enabled.
     // if (rscale_factor > fidcosmo::ArinyoP3DModel::MAX_R_FACTOR)
     //     throw std::invalid_argument(
     //         "ScaleFactor cannot exceed "
