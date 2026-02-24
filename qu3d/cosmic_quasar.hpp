@@ -396,7 +396,7 @@ public:
         lapack_int info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1,
                                         ccov, N, output, 1);
         if (info != 0) {
-            LOG::LOGGER.STD("Error in CosmicQuasar::multInvCov::LAPACKE_dposv");
+            LOG::LOGGER.STD("Error in CosmicQuasar::multInvCov::LAPACKE_dposv.\n");
             appDiagonalEst(input, output);
         }
     }

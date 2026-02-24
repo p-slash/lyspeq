@@ -237,7 +237,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
             rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
 
         // S_X
-        multiplyCovSmallSqrtPade();
+        if (pp_enabled)  multiplyCovSmallSqrtPade();
 
         // Add I
         if (mixture_factor_for_as != 1.0) {
