@@ -368,9 +368,19 @@ void Qu3DEstimator::estimateTotalBiasDirect() {
     Progress prog_tracker(max_monte_carlos, 10);
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* Generate z = +-1 per forest. */
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            rngs[myomp::getThreadNum()].fillVectorOnes(qso->in, qso->N);
+        if (nmc % 2 == 0) {
+            #pragma omp parallel for
+            for (auto &qso : quasars) {
+                rngs[myomp::getThreadNum()].fillVectorOnes(qso->sc_eta, qso->N);
+                std::copy_n(qso->sc_eta, qso->N, qso->in);
+            }
+        } else {
+            /* Antithetic variates */
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                for (int i = 0; i < qso->N; ++i)
+                    qso->in[i] = -1.0 * qso->sc_eta[i];
+        }
 
         /* (Right hand side) Save this on mesh_rnd */
         reverseInterpolateZ(mesh_rnd);
@@ -429,7 +439,14 @@ void Qu3DEstimator::estimateTotalBiasMc() {
     for (; nmc <= max_monte_carlos; ++nmc) {
         verbose = nmc == 1;
         /* generate random Gaussian vector into truth */
-        replaceDeltasWithGaussianField();
+        if (nmc % 2 == 1) {
+            replaceDeltasWithGaussianField();
+        } else {
+            /* Antithetic variates */
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                cblas_dscal(qso->N, -1.0, qso->truth, 1);
+        }
 
         verbose = false;
         /* calculate Cinv . n into y */
@@ -549,10 +566,16 @@ void Qu3DEstimator::estimateNoiseBiasMc() {
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* generate random Gaussian vector into truth */
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
-            // qso->fillRngNoise(rngs[myomp::getThreadNum()]);
+        if (nmc % 2 == 1) {
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
+        } else {
+            /* Antithetic variates */
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                cblas_dscal(qso->N, -1.0, qso->truth, 1);
+        }
 
         /* calculate Cinv . n into y */
         conjugateGradientDescent();
@@ -675,9 +698,19 @@ void Qu3DEstimator::estimateFisherDirect() {
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* Generate z = +-1 per forest. */
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            rngs[myomp::getThreadNum()].fillVectorOnes(qso->in, qso->N);
+        if (nmc % 2 == 0) {
+            #pragma omp parallel for
+            for (auto &qso : quasars) {
+                rngs[myomp::getThreadNum()].fillVectorOnes(qso->sc_eta, qso->N);
+                std::copy_n(qso->sc_eta, qso->N, qso->in);
+            }
+        } else {
+            /* Antithetic variates */
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                for (int i = 0; i < qso->N; ++i)
+                    qso->in[i] = -1.0 * qso->sc_eta[i];
+        }
 
         /* (Right hand side) Save this on mesh_rnd */
         reverseInterpolateZ(mesh_rnd);
