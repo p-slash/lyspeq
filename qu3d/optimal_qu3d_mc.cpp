@@ -240,7 +240,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
         if (pp_enabled)  multiplyCovSmallSqrtPade();
 
         // Add I
-        if (mixture_factor_for_as != 1.0) {
+        if (pp_enabled && (mixture_factor_for_as != 1.0)) {
             #pragma omp parallel for schedule(dynamic, 4)
             for (auto &qso : quasars) {
                 rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
