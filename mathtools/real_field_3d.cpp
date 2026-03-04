@@ -32,11 +32,11 @@ double _hanning(double x, double x1, double x2) {
 }
 
 
-double smoothCICtoOne(double k, double a) {
+double getApodizedInverseInterpolationKernel(double k, double a, int p=2) {
     double window = sinc(k * a / 2.0), knyq = MY_PI / a,
            hann = _hanning(k, knyq * H_NYQ_1, knyq * H_NYQ_2);
-    window = (1.0 - window * window) * hann ;
-    return 1.0 - window;
+    window = (pow(window, -p) - 1.0) * hann + 1.0;
+    return window;
 }
 
 
@@ -78,6 +78,9 @@ std::function<double(size_t, size_t)> RealField3D::getNormFunc(
 
 
 void RealField3D::_setAssignmentWindows() {
+    int p = 2;
+    if (!_use_cic_interpolation) p = 3;
+
     iasgn_window_xy = std::make_unique<double[]>(ngrid_xy);
     iasgn_window_xy2 = std::make_unique<double[]>(ngrid_xy);
     iasgn_window_z = std::make_unique<double[]>(ngrid_kz);
@@ -87,21 +90,23 @@ void RealField3D::_setAssignmentWindows() {
         double kx, ky, window;
         getKperpFromIperp(ij, kx, ky);
         kx = fabs(kx);  ky = fabs(ky);
-        iasgn_window_xy[ij] = 1.0 \
-            / (smoothCICtoOne(kx, dx[0]) * smoothCICtoOne(ky, dx[1]));
+        iasgn_window_xy[ij] = getApodizedInverseInterpolationKernel(kx, dx[0], p)
+                            * getApodizedInverseInterpolationKernel(ky, dx[1], p);
 
         iasgn_window_xy2[ij] = iasgn_window_xy[ij] * iasgn_window_xy[ij];
     }
 
     for (size_t k = 0; k < ngrid_kz; ++k) {
         double kz = k * k_fund[2], window;
-        iasgn_window_z[k] = 1.0 / smoothCICtoOne(kz, dx[2]);
+        iasgn_window_z[k] = getApodizedInverseInterpolationKernel(kz, dx[2], p);
         iasgn_window_z2[k] = iasgn_window_z[k] * iasgn_window_z[k];
     }
 }
 
 
-RealField3D::RealField3D() : p_x2k(nullptr), p_k2x(nullptr) {
+RealField3D::RealField3D(bool cic)
+    : p_x2k(nullptr), p_k2x(nullptr), _use_cic_interpolation(cic)
+{
     _periodic_x = true;
     size_complex = 0;
     size_real = 0;
@@ -124,6 +129,7 @@ void RealField3D::copy(const RealField3D &rhs)
         length[axis] = rhs.length[axis];
         xyz0[axis] = rhs.xyz0[axis];
     }
+    _use_cic_interpolation = rhs._use_cic_interpolation;
 }
 
 
@@ -172,6 +178,11 @@ void RealField3D::construct(bool inp) {
         ngrid[0], ngrid[1], ngrid[2],
         reinterpret_cast<fftw_complex*>(field_k.get()), field_x,
         FFTW_MEASURE);
+
+    if (_use_cic_interpolation)
+        useCicInterpolation();
+    else 
+        useTscInterpolation();
 
     _setAssignmentWindows();
 }
@@ -262,33 +273,6 @@ std::vector<size_t> RealField3D::findNeighboringPixels(
 }
 
 
-double RealField3D::interpolate(float coord[3]) const {
-    int n[3];
-    float d[3];
-    double r = 0;
-    size_t idx0 = 0;
-
-    for (int axis = 0; axis < 3; ++axis) {
-        d[axis] = coord[axis] / dx[axis];
-        n[axis] = d[axis];
-        d[axis] -= n[axis];
-    }
-
-    idx0 = getIndex(n[0], n[1], n[2]);
-    r = field_x[idx0] * ((1.0f - d[0]) * (1.0f - d[1]) * (1.0f - d[2]));
-    r += field_x[idx0 + 1] * ((1.0f - d[0]) * (1.0f - d[1]) * d[2]);
-    r += field_x[idx0 + ngrid_z] * ((1.0f - d[0]) * d[1] * (1.0f - d[2]));
-    r += field_x[idx0 + ngrid_z + 1] * ((1.0f - d[0]) * d[1] * d[2]);
-
-    idx0 = getIndex(n[0] + 1, n[1], n[2]);
-    r += field_x[idx0] * (d[0] * (1.0f - d[1]) * (1.0f - d[2]));
-    r += field_x[idx0 + 1] * (d[0] * (1.0f - d[1]) * d[2]);
-    r += field_x[idx0 + ngrid_z] * (d[0] * d[1] * (1.0f - d[2]));
-    r += field_x[idx0 + ngrid_z + 1] * (d[0] * d[1] * d[2]);
-
-    return r;
-}
-
 
 double RealField3D::interpolateLanczos(float coord[3]) const {
     /* LanczosK3 interpolation with a = 3
@@ -342,25 +326,126 @@ double RealField3D::interpolateLanczos(float coord[3]) const {
 
 void RealField3D::reverseInterpolateCIC(float coord[3], double val) {
     int n[3];
-    float d[3];
+    float w[3][2];
 
     for (int axis = 0; axis < 3; ++axis) {
-        d[axis] = coord[axis] / dx[axis];
-        n[axis] = d[axis];
-        d[axis] -= n[axis];
+        w[axis][1] = coord[axis] / dx[axis];
+        n[axis] = w[axis][1];
+        w[axis][1] -= n[axis];
+        w[axis][0] = 1.0f - w[axis][1];
     }
 
-    size_t idx0 = getIndex(n[0], n[1], n[2]);
-    field_x[idx0] += val * ((1.0f - d[0]) * (1.0f - d[1]) * (1.0f - d[2]));
-    field_x[idx0 + 1] += val * ((1.0f - d[0]) * (1.0f - d[1]) * d[2]);
-    field_x[idx0 + ngrid_z] += val * ((1.0f - d[0]) * d[1] * (1.0f - d[2]));
-    field_x[idx0 + ngrid_z + 1] += val * ((1.0f - d[0]) * d[1] * d[2]);
+    for (int ix = 0; ix < 2; ++ix) {
+        for (int iy = 0; iy < 2; ++iy) {
+            size_t idxXY = getIndex(n[0] + ix, n[1] + iy, n[2]);
+            float wxy = w[0][ix] * w[1][iy];
+            for (int iz = 0; iz < 2; ++iz)
+                field_x[idxXY + iz] += val * (wxy * w[2][iz]);
+        }
+    }
+}
 
-    idx0 = getIndex(n[0] + 1, n[1], n[2]);
-    field_x[idx0] += val * (d[0] * (1.0f - d[1]) * (1.0f - d[2]));
-    field_x[idx0 + 1] += val * (d[0] * (1.0f - d[1]) * d[2]);
-    field_x[idx0 + ngrid_z] += val * (d[0] * d[1] * (1.0f - d[2]));
-    field_x[idx0 + ngrid_z + 1] += val * (d[0] * d[1] * d[2]);
+double RealField3D::forwardInterpolateCIC(float coord[3]) const {
+    int n[3];
+    float w[3][2];
+    double r = 0;
+
+    for (int axis = 0; axis < 3; ++axis) {
+        w[axis][1] = coord[axis] / dx[axis];
+        n[axis] = w[axis][1];
+        w[axis][1] -= n[axis];
+        w[axis][0] = 1.0f - w[axis][1];
+    }
+
+    for (int ix = 0; ix < 2; ++ix) {
+        for (int iy = 0; iy < 2; ++iy) {
+            size_t idxXY = getIndex(n[0] + ix, n[1] + iy, n[2]);
+            float wxy = w[0][ix] * w[1][iy];
+            for (int iz = 0; iz < 2; ++iz)
+                r += field_x[idxXY + iz] * (wxy * w[2][iz]);
+        }
+    }
+
+    return r;
+}
+
+
+
+
+// TSC weight function helper
+// Returns the weight for a given normalized distance t
+// for the three TSC stencil points: -1, 0, +1
+static inline void tscWeights(float t, float& wm, float& w0, float& wp) {
+    // t is the fractional offset from the cell center (0 <= t < 1)
+    // TSC spans 3 cells: left (-1), center (0), right (+1)
+    wm = 0.5f * (0.5f - t) * (0.5f - t);  // weight for n-1
+    w0 = 0.75f - (t - 0.5f) * (t - 0.5f); // weight for n
+    wp = 0.5f * (0.5f + t) * (0.5f + t);  // weight for n+1
+}
+
+// Reverse TSC interpolation (particle -> mesh, i.e. mass/charge assignment)
+// Deposits value `val` from particle at `coord` onto the 3D mesh
+void RealField3D::reverseInterpolateTSC(float coord[3], double val) {
+    int n[3];
+    float d[3];
+
+    // Compute cell index and fractional offset
+    for (int axis = 0; axis < 3; ++axis) {
+        d[axis] = coord[axis] / dx[axis];
+        n[axis] = (int)d[axis];  // base cell index
+        d[axis] -= n[axis];      // fractional offset in [0, 1)
+    }
+
+    // Compute TSC weights for each axis (3 weights each: left, center, right)
+    float wx[3], wy[3], wz[3];
+    tscWeights(d[0], wx[0], wx[1], wx[2]);
+    tscWeights(d[1], wy[0], wy[1], wy[2]);
+    tscWeights(d[2], wz[0], wz[1], wz[2]);
+
+    // Deposit onto 3x3x3 = 27 surrounding grid points
+    // TSC stencil offsets: -1, 0, +1 relative to base cell
+    for (int ix = 0; ix < 3; ++ix) {
+        for (int iy = 0; iy < 3; ++iy) {
+            // Fold x and y offset into a base index, then loop over z
+            size_t idxXY = getIndex(n[0] + ix - 1, n[1] + iy - 1, n[2] - 1);
+            float wxy = wx[ix] * wy[iy];
+            for (int iz = 0; iz < 3; ++iz) {
+                field_x[idxXY + iz] += val * wxy * wz[iz];
+            }
+        }
+    }
+}
+
+
+double RealField3D::forwardInterpolateTSC(float coord[3]) const {
+    int n[3];
+    float d[3];
+
+    // Compute cell index and fractional offset
+    for (int axis = 0; axis < 3; ++axis) {
+        d[axis] = coord[axis] / dx[axis];
+        n[axis] = (int)d[axis];  // base cell index
+        d[axis] -= n[axis];      // fractional offset in [0, 1)
+    }
+
+    // Compute TSC weights for each axis
+    float wx[3], wy[3], wz[3];
+    tscWeights(d[0], wx[0], wx[1], wx[2]);
+    tscWeights(d[1], wy[0], wy[1], wy[2]);
+    tscWeights(d[2], wz[0], wz[1], wz[2]);
+
+    // Accumulate from 3x3x3 = 27 surrounding grid points
+    double result = 0.0;
+    for (int ix = 0; ix < 3; ++ix) {
+        for (int iy = 0; iy < 3; ++iy) {
+            size_t idxXY = getIndex(n[0] + ix - 1, n[1] + iy - 1, n[2] - 1);
+            float wxy = wx[ix] * wy[iy];
+            for (int iz = 0; iz < 3; ++iz) {
+                result += field_x[idxXY + iz] * wxy * wz[iz];
+            }
+        }
+    }
+    return result;
 }
 
 
