@@ -403,17 +403,17 @@ public:
 
     void interpMesh2Out(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
-            out[i] = mesh.interpolate(r.get() + 3 * i);
+            out[i] = mesh.forwardInterpolate(r.get() + 3 * i);
     }
 
     void interpMesh2TruthIsig(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
-            truth[i] = isig[i] * z1[i] * mesh.interpolate(r.get() + 3 * i);
+            truth[i] = isig[i] * z1[i] * mesh.forwardInterpolate(r.get() + 3 * i);
     }
 
     void interpAddMesh2TruthIsig(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
-            truth[i] += isig[i] * z1[i] * mesh.interpolate(r.get() + 3 * i);
+            truth[i] += isig[i] * z1[i] * mesh.forwardInterpolate(r.get() + 3 * i);
     }
 
     /* overwrite qFile->delta */

@@ -37,7 +37,7 @@ class RealField3D {
     fftw_plan p_x2k;
     fftw_plan p_k2x;
 
-    bool _inplace, _periodic_x;
+    bool _inplace, _periodic_x, _use_cic_interpolation;
     std::unique_ptr<double[]> _field_x;
     void _setAssignmentWindows();
 public:
@@ -55,7 +55,7 @@ public:
                                iasgn_window_z, iasgn_window_z2;
     double *field_x;
 
-    RealField3D();
+    RealField3D(bool cic=true);
     RealField3D(const RealField3D &rhs) = delete;
     RealField3D(RealField3D &&rhs) = delete;
     explicit operator bool() const { return p_x2k != nullptr; }
@@ -64,6 +64,20 @@ public:
     void copy(const RealField3D &rhs);
     void construct(bool inp=true);
     void disablePeriodicityX() { _periodic_x = false; };
+    void useTscInterpolation() {
+        _use_cic_interpolation = false;
+        forwardInterpolate = [this](float coord[3]) { return this->forwardInterpolateTSC(coord); };
+        reverseInterpolate = [this](float coord[3], double val) { this->reverseInterpolateTSC(coord, val); };
+    }
+
+    void useCicInterpolation() {
+        _use_cic_interpolation = true;
+        forwardInterpolate = [this](float coord[3]) { return this->forwardInterpolateCIC(coord); };
+        reverseInterpolate = [this](float coord[3], double val) { this->reverseInterpolateCIC(coord, val); };
+    }
+
+    std::function<double(float[3])> forwardInterpolate;
+    std::function<void(float[3], double)> reverseInterpolate;
 
     ~RealField3D() {
         fftw_destroy_plan(p_x2k);
@@ -180,9 +194,14 @@ public:
     std::unique_ptr<double[]> getKperpArray() const;
 
     std::vector<size_t> findNeighboringPixels(size_t i, double radius) const;
-    double interpolate(float coord[3]) const;
     double interpolateLanczos(float coord[3]) const;
+
     void reverseInterpolateCIC(float coord[3], double val);
+    double forwardInterpolateCIC(float coord[3]) const;
+
+    void reverseInterpolateTSC(float coord[3], double val);
+    double forwardInterpolateTSC(float coord[3]) const;
+
     void reverseInterpolateNGP(float coord[3], double val) {
         field_x[getNgpIndex(coord)] += val;
     }

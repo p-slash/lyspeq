@@ -35,13 +35,6 @@ inline void print_alphas_xi(
 }
 
 void Qu3DEstimator::multiplyCovSmallSqrtPade() {
-    // static double max_eval = estimateMaxEvalAs();
-    // static double min_eval = estimateMaxEvalAs(-max_eval);
-    // if (min_eval < 0)
-    //     throw std::runtime_error("Negative eigenvalue!");
-
-    // double s = (min_eval + max_eval) / 2.0;
-    // double s = 1.0;
     tolerance *= 10;
 
     if (shrink_factor_for_sqrt == 0.0)
@@ -52,7 +45,7 @@ void Qu3DEstimator::multiplyCovSmallSqrtPade() {
         shrink_factor_for_sqrt = estimateMaxEvalAs(0, true);
     else if (shrink_factor_for_sqrt == -3.0)
         shrink_factor_for_sqrt = estimateFrobeniusNormAs();
-    
+
     static auto alphas = _compute_pade_alphas(pade_order);
     static auto xi = [this]() {
         auto ptr = std::make_unique<double[]>(pade_order);

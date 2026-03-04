@@ -51,7 +51,7 @@
  */
 const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
-    {"MatchCellSizeOfZToXY", "-1"},
+    {"MatchCellSizeOfZToXY", "-1"}, {"UseTscInterpolation", "-1"},
     {"TurnOnPpCovariance", "-1"}, {"NumberOfMultipoles", "4"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"MinimumRa", "0.0"}, {"MaximumRa", "360.0"},

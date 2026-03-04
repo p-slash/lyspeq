@@ -696,6 +696,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     pp_enabled = config.getInteger("TurnOnPpCovariance") > 0;
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
     predeconvolve_cic_window = config.getInteger("DeconvolveCICWindow") > 0;
+    int use_tsc_interpolation = config.getInteger("UseTscInterpolation") > 0;
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
     mock_grid_res_factor = config.getInteger("MockGridResolutionFactor");
     test_gaussian_field = config.getInteger("TestGaussianField") > 0;
@@ -754,6 +755,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     _openResultsFile();
 
+    if (use_tsc_interpolation)
+        mesh.useTscInterpolation();
+
     _setupMesh(radius, minboxlength);
     _constructMap();
     radius *= rscale_factor;
@@ -780,7 +784,7 @@ void Qu3DEstimator::reverseInterpolate(RealField3D &m) {
     #pragma omp parallel for num_threads(RINTERP_NTHREADS)
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            m.reverseInterpolateCIC(qso->r.get() + 3 * i, qso->in[i]);
+            m.reverseInterpolate(qso->r.get() + 3 * i, qso->in[i]);
     }
 
     dt = mytime::timer.getTime() - dt;
@@ -796,7 +800,7 @@ void Qu3DEstimator::reverseInterpolateZ(RealField3D &m) {
     #pragma omp parallel for num_threads(RINTERP_NTHREADS)
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            m.reverseInterpolateCIC(
+            m.reverseInterpolate(
                 qso->r.get() + 3 * i, qso->in[i] * qso->z1[i]);
     }
 
@@ -813,7 +817,7 @@ void Qu3DEstimator::reverseInterpolateIsig(RealField3D &m) {
     #pragma omp parallel for num_threads(RINTERP_NTHREADS)
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            m.reverseInterpolateCIC(qso->r.get() + 3 * i, qso->in_isig[i]);
+            m.reverseInterpolate(qso->r.get() + 3 * i, qso->in_isig[i]);
     }
 
     dt = mytime::timer.getTime() - dt;
