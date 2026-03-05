@@ -15,6 +15,7 @@
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 #include "mathtools/real_field_3d.hpp"
+#include "mathtools/vec3.hpp"
 
 #include "qu3d/cosmology_3d.hpp"
 #include "qu3d/contmarg_file.hpp"
@@ -34,6 +35,7 @@ struct CompareCosmicQuasarPtr {
     }
 };
 
+
 class CosmicQuasar {
 private:
     double _quasar_dist;
@@ -42,8 +44,8 @@ public:
     int N, fidx;
     /* z1: 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
-    double *z1, *isig, angles[3], *in, *out, *truth, *in_isig, *sc_eta;
-    double cos_dec, sin_dec, cos_ra, sin_ra;
+    double *z1, *isig, *in, *out, *truth, *in_isig, *sc_eta;
+    Vec3 vec;
     std::unique_ptr<float[]> r, chi;
     std::unique_ptr<double[]> y, Cy, residual, search, y_isig,
                               sod_cinv_eta, _z1_mem;
@@ -65,21 +67,17 @@ public:
             throw std::runtime_error(err_msg.str());
         }
 
-        angles[0] = qFile->ra + ra_shift;
-        if (angles[0] >= 2 * MY_PI)
-            angles[0] -= 2 * MY_PI;
+        /* Will be reset in _shiftByMedianDec in optimal_qu3d.cpp */
+        vec.setAngles(qFile->dec, qFile->ra + ra_shift);
 
-        angles[1] = qFile->dec;
-        angles[2] = 1;
-
-        if ((angles[0] > specifics::MAX_RA) || (angles[0] < specifics::MIN_RA)) {
+        if ((vec.phi > specifics::MAX_RA) || (vec.phi < specifics::MIN_RA)) {
             std::ostringstream err_msg;
             err_msg << "CosmicQuasar::CosmicQuasar::Outside RA range in TARGETID "
                     << qFile->id;
             throw std::runtime_error(err_msg.str());
         }
 
-        if ((angles[1] > specifics::MAX_DEC) || (angles[1] < specifics::MIN_DEC)) {
+        if ((vec.theta > specifics::MAX_DEC) || (vec.theta < specifics::MIN_DEC)) {
             std::ostringstream err_msg;
             err_msg << "CosmicQuasar::CosmicQuasar::Outside DEC range in TARGETID "
                     << qFile->id;
@@ -133,13 +131,6 @@ public:
             qFile->delta()[i] *= isig[i];
             z1[i] = qFile->wave()[i];
         }
-
-        /* Will be reset in _shiftByMedianDec in optimal_qu3d.cpp */
-        cos_ra = cos(angles[0]);
-        sin_ra = sin(angles[0]);
-
-        cos_dec = cos(angles[1]);
-        sin_dec = sin(angles[1]);
 
         in = y.get();
         in_isig = y_isig.get();
@@ -242,9 +233,9 @@ public:
         /* Spherical projection */
         for (int i = 0; i < N; ++i) {
             chi[i] = cosmo->getComovingDist(z1[i]);
-            r[0 + 3 * i] = chi[i] * sin_dec * cos_ra;
-            r[1 + 3 * i] = chi[i] * sin_dec * sin_ra;
-            r[2 + 3 * i] = chi[i] * cos_dec;
+            r[0 + 3 * i] = chi[i] * vec.r[0];
+            r[1 + 3 * i] = chi[i] * vec.r[1];
+            r[2 + 3 * i] = chi[i] * vec.r[2];
         }
     }
     #else
@@ -253,8 +244,8 @@ public:
         /* Equirectangular projection */
         for (int i = 0; i < N; ++i) {
             chi[i] = cosmo->getComovingDist(z1[i]);
-            r[0 + 3 * i] = angles[0] * radial;
-            r[1 + 3 * i] = angles[1] * radial;
+            r[0 + 3 * i] = vec.phi * radial;
+            r[1 + 3 * i] = vec.theta * radial;
             r[2 + 3 * i] = chi[i];
         }
     }
@@ -513,10 +504,7 @@ public:
             auto isSameQuasar = [this, &sep_arcsec, &dist_Mpc](
                     const CosmicQuasar* const &q
             ) {
-                double sep = acos(
-                    sin_dec * q->sin_dec
-                    + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0])
-                ) * 3600.0 * 180.0 / MY_PI;
+                double sep = acos(vec.cos_angle(q->vec)) * 3600.0 * 180.0 / MY_PI;
 
                 double delta_dis = fabs(_quasar_dist - q->_quasar_dist);
                 return (sep < sep_arcsec) && (delta_dis < dist_Mpc);
@@ -533,13 +521,11 @@ public:
             std::set<int> jdxs;
 
             #ifdef USE_SPHERICAL_DIST
-                double cos_sep_m1 =
-                    sin_dec * q->sin_dec
-                    + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
+                double cos_sep_m1 = vec.cos_angle(q->vec);
                 cos_sep_m1 = 2.0 * (1.0 - cos_sep_m1);
             #else
-                double ddec = angles[0] - q->angles[0],
-                       dra = angles[1] - q->angles[1];
+                double ddec = vec.theta - q->vec.theta,
+                       dra = vec.phi - q->vec.phi;
                 double rperp2 = radial * radial * (ddec * ddec + dra * dra);
                 if (rperp2 > radius2)
                     return true;
@@ -682,9 +668,7 @@ public:
         int M = q->N;
 
         #ifdef USE_SPHERICAL_DIST
-        double cos_sep =
-            sin_dec * q->sin_dec
-            + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
+        double cos_sep = vec.cos_angle(q->vec);
         float cos_half = sqrt((1.0 + cos_sep) / 2.0),
               sin_half = sqrt((1.0 - cos_sep) / 2.0);
 
@@ -696,8 +680,8 @@ public:
             }
         }
         #else
-        double ddec = angles[0] - q->angles[0],
-               dra = angles[1] - q->angles[1];
+        double ddec = vec.theta - q->vec.theta,
+               dra = vec.phi - q->vec.phi;
         float rperp = radial * sqrt(ddec * ddec + dra * dra);
 
         for (int i = 0; i < N; ++i) {
