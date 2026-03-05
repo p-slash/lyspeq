@@ -114,28 +114,28 @@ inline bool hasConverged(double norm, double tolerance) {
 
 
 void _shiftByMedianDecRa(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
-    std::vector<double> decs, ras;
-    decs.reserve(quasars.size());
-    ras.reserve(quasars.size());
+    std::vector<double> thetas, phis;
+    thetas.reserve(quasars.size());
+    phis.reserve(quasars.size());
 
     for (const auto &qso : quasars) {
-        ras.push_back(qso->vec.phi);
-        decs.push_back(qso->vec.theta);
+        phis.push_back(qso->vec.phi);
+        thetas.push_back(qso->vec.theta);
     }
 
-    double median_ra = stats::medianOfUnsortedVector(ras),
-           median_dec = stats::medianOfUnsortedVector(decs);
+    double median_phi = stats::medianOfUnsortedVector(phis),
+           median_theta = stats::medianOfUnsortedVector(thetas);
 
     LOG::LOGGER.STD(
-        "Rotating to the median pointing (dec:%.2f, ra:%.2f) deg\n",
-        median_dec * 180.0 / MY_PI, median_ra * 180.0 / MY_PI);
+        "Rotating to the median pointing (theta:%.2f, phi:%.2f) deg\n",
+        median_theta * 180.0 / MY_PI, median_phi * 180.0 / MY_PI);
 
-    const auto rot_mat = Vec3::getRotationMatrix(Vec3(median_dec, median_ra));
+    const auto rot_mat = Vec3::getRotationMatrix(Vec3(median_theta, median_phi));
     for (auto &qso : quasars)
         #ifdef USE_SPHERICAL_DIST
         qso->vec.rotate(rot_mat);
         #else
-        qso->vec.setAngles(qso->vec.theta - median_dec, qso->vec.phi - median_ra);
+        qso->vec.setAngles(qso->vec.theta - median_theta, qso->vec.phi - median_phi);
         #endif
 }
 
