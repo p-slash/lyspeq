@@ -17,7 +17,7 @@ namespace specifics {
 }
 
 // Assume 2-4 threads will not encounter race conditions
-double RINTERP_NTHREADS = 3;
+int RINTERP_NTHREADS = 3;
 
 
 #define KMAX_EDGE bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]
