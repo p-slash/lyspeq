@@ -17,11 +17,9 @@ namespace specifics {
 }
 
 // Assume 2-4 threads will not encounter race conditions
-#ifndef RINTERP_NTHREADS
-#define RINTERP_NTHREADS 3
-#endif
+double RINTERP_NTHREADS = 3;
 
-#define OFFDIAGONAL_ORDER 8
+
 #define KMAX_EDGE bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]
 
 /* Timing map */
@@ -696,6 +694,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
     predeconvolve_cic_window = config.getInteger("DeconvolveCICWindow") > 0;
     int use_tsc_interpolation = config.getInteger("UseTscInterpolation") > 0;
+    RINTERP_NTHREADS = config.getInteger("ReverseInterpolationThreadNum");
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
     mock_grid_res_factor = config.getInteger("MockGridResolutionFactor");
     test_gaussian_field = config.getInteger("TestGaussianField") > 0;
