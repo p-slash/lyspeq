@@ -115,27 +115,26 @@ inline bool hasConverged(double norm, double tolerance) {
 }
 
 
-void _shiftByMedianDec(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
-    std::vector<double> decs;
+void _shiftByMedianDecRa(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
+    std::vector<double> decs, ras;
     decs.reserve(quasars.size());
+    ras.reserve(quasars.size());
 
-    for (const auto &qso : quasars)
-        decs.push_back(qso->angles[1]);
-
-    double median_dec = stats::medianOfUnsortedVector(decs);
-
-    LOG::LOGGER.STD("Shifting quasar DECs by %.4f radians\n", median_dec);
-
-    for (auto &qso : quasars) {
-        qso->angles[0] -= specifics::MIN_RA;
-        qso->angles[1] -= median_dec;
-
-        qso->cos_ra = cos(qso->angles[0]);
-        qso->sin_ra = sin(qso->angles[0]);
-
-        qso->cos_dec = cos(qso->angles[1]);
-        qso->sin_dec = sin(qso->angles[1]);
+    for (const auto &qso : quasars) {
+        ras.push_back(qso->vec.phi);
+        decs.push_back(qso->vec.theta);
     }
+
+    double median_ra = stats::medianOfUnsortedVector(ras),
+           median_dec = stats::medianOfUnsortedVector(decs);
+
+    LOG::LOGGER.STD(
+        "Rotating to the median pointing (dec:%.2f, ra:%.2f) deg\n",
+        median_dec * 180.0 / MY_PI, median_ra * 180.0 / MY_PI);
+
+    const auto rot_mat = Vec3::getRotationMatrix(Vec3(median_dec, median_ra));
+    for (auto &qso : quasars)
+        qso->vec.rotate(rot_mat);
 }
 
 
@@ -258,7 +257,7 @@ void Qu3DEstimator::_readQSOFiles(
         LOG::LOGGER.STD("Removed %d quasars using TARGETID list.\n", nerased);
     }
 
-    _shiftByMedianDec(quasars);
+    _shiftByMedianDecRa(quasars);
     effective_chi = _setCosmologicalCoordinates(quasars);
     _setSpectroMeanParams(quasars);
 

@@ -376,7 +376,7 @@ double RealField3D::forwardInterpolateCIC(float coord[3]) const {
 // Returns the weight for a given normalized distance t
 // for the three TSC stencil points: -1, 0, +1
 static inline void tscWeights(float t, float& wm, float& w0, float& wp) {
-    // t is the fractional offset from the cell center (0 <= t < 1)
+    // t is the fractional offset from the cell center (-0.5 <= t < 0.5)
     // TSC spans 3 cells: left (-1), center (0), right (+1)
     wm = 0.5f * (0.5f - t) * (0.5f - t);  // weight for n-1
     w0 = 0.75f - t * t; // weight for n

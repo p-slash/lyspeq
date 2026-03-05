@@ -214,9 +214,9 @@ void Qu3DEstimator::dumpSearchDirection() {
             column_units, std::to_string(qso->qFile->id).c_str(), &status);
         ioh::checkFitsStatus(status);
         fits_write_key(
-            fits_file, TDOUBLE, "RA", &qso->angles[0], nullptr, &status);
+            fits_file, TDOUBLE, "RA", &qso->vec.phi, nullptr, &status);
         fits_write_key(
-            fits_file, TDOUBLE, "DEC", &qso->angles[1], nullptr, &status);
+            fits_file, TDOUBLE, "DEC", &qso->vec.theta, nullptr, &status);
         fits_write_key(
             fits_file, TDOUBLE, "MEAN_SNR", &qso->qFile->snr, nullptr, &status);
         int nmbrs = qso->neighbors.size();
