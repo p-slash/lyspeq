@@ -379,7 +379,7 @@ static inline void tscWeights(float t, float& wm, float& w0, float& wp) {
     // t is the fractional offset from the cell center (0 <= t < 1)
     // TSC spans 3 cells: left (-1), center (0), right (+1)
     wm = 0.5f * (0.5f - t) * (0.5f - t);  // weight for n-1
-    w0 = 0.75f - (t - 0.5f) * (t - 0.5f); // weight for n
+    w0 = 0.75f - t * t; // weight for n
     wp = 0.5f * (0.5f + t) * (0.5f + t);  // weight for n+1
 }
 
@@ -392,8 +392,9 @@ void RealField3D::reverseInterpolateTSC(float coord[3], double val) {
     // Compute cell index and fractional offset
     for (int axis = 0; axis < 3; ++axis) {
         d[axis] = coord[axis] / dx[axis];
-        n[axis] = (int)d[axis];  // base cell index
-        d[axis] -= n[axis];      // fractional offset in [0, 1)
+        n[axis] = roundf(d[axis]);  // nearest cell index
+        d[axis] -= n[axis];      // fractional offset in (-0.5, 0.5)
+        // positive d is to the right of center
     }
 
     // Compute TSC weights for each axis (3 weights each: left, center, right)
@@ -424,8 +425,9 @@ double RealField3D::forwardInterpolateTSC(float coord[3]) const {
     // Compute cell index and fractional offset
     for (int axis = 0; axis < 3; ++axis) {
         d[axis] = coord[axis] / dx[axis];
-        n[axis] = (int)d[axis];  // base cell index
-        d[axis] -= n[axis];      // fractional offset in [0, 1)
+        n[axis] = roundf(d[axis]);  // nearest cell index
+        d[axis] -= n[axis];      // fractional offset in (-0.5, 0.5)
+        // positive d is to the right of center
     }
 
     // Compute TSC weights for each axis
