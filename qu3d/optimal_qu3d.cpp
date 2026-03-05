@@ -132,7 +132,11 @@ void _shiftByMedianDecRa(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
 
     const auto rot_mat = Vec3::getRotationMatrix(Vec3(median_dec, median_ra));
     for (auto &qso : quasars)
+        #ifdef USE_SPHERICAL_DIST
         qso->vec.rotate(rot_mat);
+        #else
+        qso->vec.setAngles(qso->vec.theta - median_dec, qso->vec.phi - median_ra);
+        #endif
 }
 
 
@@ -268,7 +272,8 @@ void Qu3DEstimator::_readQSOFiles(
         // help with better estimation of spectro window parameters. Also,
         // these pixels do not contribute to the signal and may cause numerical
         // issues in some cases.
-        qso->dropIvar0Pixels();
+        if (!test_gaussian_field)
+            qso->dropIvar0Pixels();
         num_all_pixels += qso->N;
         max_qN = std::max(qso->N, max_qN);
     }
