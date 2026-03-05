@@ -208,7 +208,7 @@ void Qu3DEstimator::dumpSearchDirection() {
         auto chi = std::make_unique<float[]>(nrows);
         for (int i = 0; i < nrows; ++i)
             chi[i] = qso->r[3 * i + 2];
-
+        double dec = MY_PI / 2.0 - qso->vec.theta;
         fits_create_tbl(
             fits_file, BINARY_TBL, nrows, ncolumns, column_names, column_types,
             column_units, std::to_string(qso->qFile->id).c_str(), &status);
@@ -216,7 +216,7 @@ void Qu3DEstimator::dumpSearchDirection() {
         fits_write_key(
             fits_file, TDOUBLE, "RA", &qso->vec.phi, nullptr, &status);
         fits_write_key(
-            fits_file, TDOUBLE, "DEC", &qso->vec.theta, nullptr, &status);
+            fits_file, TDOUBLE, "DEC", &dec, nullptr, &status);
         fits_write_key(
             fits_file, TDOUBLE, "MEAN_SNR", &qso->qFile->snr, nullptr, &status);
         int nmbrs = qso->neighbors.size();

@@ -23,8 +23,8 @@ public:
     }
 
     double cos_angle(const Vec3 &other) const {
-        return sin_theta * other.sin_theta
-               + cos_theta * other.cos_theta * cos(other.phi - phi);
+        return cos_theta * other.cos_theta
+               + sin_theta * other.sin_theta * cos(other.phi - phi);
     }
 
     // void rotatePhi(double shift_phi) {

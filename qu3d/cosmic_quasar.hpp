@@ -68,7 +68,7 @@ public:
         }
 
         /* Will be reset in _shiftByMedianDec in optimal_qu3d.cpp */
-        vec.setAngles(qFile->dec, qFile->ra + ra_shift);
+        vec.setAngles(MY_PI / 2.0 - qFile->dec, qFile->ra + ra_shift);
 
         if ((vec.phi > specifics::MAX_RA) || (vec.phi < specifics::MIN_RA)) {
             std::ostringstream err_msg;
@@ -77,7 +77,7 @@ public:
             throw std::runtime_error(err_msg.str());
         }
 
-        if ((vec.theta > specifics::MAX_DEC) || (vec.theta < specifics::MIN_DEC)) {
+        if ((qFile->dec > specifics::MAX_DEC) || (qFile->dec < specifics::MIN_DEC)) {
             std::ostringstream err_msg;
             err_msg << "CosmicQuasar::CosmicQuasar::Outside DEC range in TARGETID "
                     << qFile->id;
