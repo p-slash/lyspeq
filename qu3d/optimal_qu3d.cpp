@@ -103,12 +103,15 @@ void logTimings() {
 }
 
 
-inline bool hasConverged(double norm, double tolerance) {
+inline bool hasConverged(double norm, double tolerance, double drate=0) {
     if (verbose)
         LOG::LOGGER.STD(
             "    Current norm(residuals) / norm(initial residuals) is %.3e. "
             "Conjugate Gradient converges when this is < %.2e\n",
             norm, tolerance);
+
+    if (verbose && drate > 0)
+        LOG::LOGGER.STD("    Smoothed descent rate is %.3f.\n", drate);
 
     return norm < tolerance;
 }
@@ -1062,6 +1065,20 @@ void Qu3DEstimator::conjugateGradientDescent() {
     conv_vec.reserve(max_conj_grad_steps + 1);
     updateYMatrixVectorFunction = [this]() { this->multiplyCovVector(); };
 
+    auto calculateDescentRate = [&conv_vec](int window=10) {
+        if (conv_vec.size() < 2) return 0.0;
+
+        size_t i0 = (conv_vec.size() > window) ? conv_vec.size() - window : 1;
+
+        double sum = 0.0, weights = 0.0;
+        for (size_t i = i0; i < conv_vec.size(); ++i) {
+            double w = (i - i0 + 1.0);
+            sum += exp(-log(conv_vec[i]) / i) * w;
+            weights += w;
+        }
+        return sum / weights;
+    };
+
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
 
@@ -1113,7 +1130,8 @@ void Qu3DEstimator::conjugateGradientDescent() {
     for (; niter <= max_conj_grad_steps; ++niter) {
         new_residual_norm = updateY(old_residual_prec) / init_residual_norm;
         conv_vec.push_back(new_residual_norm);
-        bool end_iter = hasConverged(new_residual_norm, tolerance);
+        double descent_rate = calculateDescentRate();
+        bool end_iter = hasConverged(new_residual_norm, tolerance, descent_rate);
 
         if (end_iter)
             goto endconjugateGradientDescent;
