@@ -152,7 +152,7 @@ double _setCosmologicalCoordinates(
 
     sum_chi_weights /= sum_weights;
 
-    LOG::LOGGER.STD("Effective radial distance is %.3f Mpc.\n", sum_chi_weights);
+    LOG::LOGGER.STD("Effective radial distance is %.3f Mpc/h.\n", sum_chi_weights);
 
     #pragma omp parallel for num_threads(8)
     for (auto &qso : quasars)
@@ -176,7 +176,7 @@ void _setSpectroMeanParams(
     mean_delta_r /= quasars.size();
 
     LOG::LOGGER.STD(
-        "Mean spectro window params: s=%.2f Mpc and Delta r=%.2f Mpc.\n",
+        "Mean spectro window params: s=%.2f Mpc/h and Delta r=%.2f Mpc/h.\n",
         mean_sigma, mean_delta_r);
     p3d_model->setSpectroParams(mean_sigma, mean_delta_r);
 }
@@ -322,7 +322,7 @@ void Qu3DEstimator::_setupMesh(double radius, double minboxlength) {
     _calculateBoxDimensions(mesh.length, mesh.xyz0);
     LOG::LOGGER.STD(
         "Initial box dimensions are as follows: "
-        "L = (%.0f, %.0f, %.0f) Mpc, XYZ0 = (%.0f, %.0f, %.0f) Mpc.\n",
+        "L = (%.0f, %.0f, %.0f) Mpc/h, XYZ0 = (%.0f, %.0f, %.0f) Mpc/h.\n",
         mesh.length[0], mesh.length[1], mesh.length[2],
         mesh.xyz0[0], mesh.xyz0[1], mesh.xyz0[2]);
 
@@ -374,21 +374,21 @@ void Qu3DEstimator::_setupMesh(double radius, double minboxlength) {
             dzl *= mesh.ngrid[2];
             LOG::LOGGER.STD(
                 "Automatically padding z axis to match cell length in x & y "
-                "directions by %.3f Mpc.\n", dzl);
+                "directions by %.3f /h.\n", dzl);
             padMesh(dzl, 2);
         }
     }
     
     LOG::LOGGER.STD(
         "Final box dimensions are as follows: "
-        "L = (%.0f, %.0f, %.0f) Mpc, XYZ0 = (%.0f, %.0f, %.0f) Mpc.\n",
+        "L = (%.0f, %.0f, %.0f) Mpc/h, XYZ0 = (%.0f, %.0f, %.0f) Mpc/h.\n",
         mesh.length[0], mesh.length[1], mesh.length[2],
         mesh.xyz0[0], mesh.xyz0[1], mesh.xyz0[2]);
 
     mesh.construct(INPLACE_FFT);
 
     LOG::LOGGER.STD("Mesh cell dimensions are as follows: "
-                    "dx = (%.3f, %.3f, %.3f) Mpc.\n",
+                    "dx = (%.3f, %.3f, %.3f) Mpc/h.\n",
                     mesh.dx[0], mesh.dx[1], mesh.dx[2]);
 
     // Shift coordinates of quasars
@@ -1418,12 +1418,12 @@ void Qu3DEstimator::write() {
         "# File Template\n# Nk\n"
         "# kperp | kz | P3D | e_P3D | Pfid | d | b | Fd | Fb\n"
         "# Nk     : Number of k bins\n"
-        "# k      : k bin [Mpc^-1]\n"
+        "# k      : k bin [h Mpc^-1]\n"
         "# l      : Multipole\n"
-        "# P3D    : Estimated P3D [Mpc^3]\n"
-        "# e_P3D  : Gaussian error in estimated P3D [Mpc^3]\n"
-        "# d      : Power estimate before noise (b) subtracted [Mpc^3]\n"
-        "# b      : Noise estimate [Mpc^3]\n"
+        "# P3D    : Estimated P3D [h^-3 Mpc^3]\n"
+        "# e_P3D  : Gaussian error in estimated P3D [h^-3 Mpc^3]\n"
+        "# d      : Power estimate before noise (b) subtracted [h^-3 Mpc^3]\n"
+        "# b      : Noise estimate [h^-3 Mpc^3]\n"
         "# Fd     : d before Fisher\n"
         "# Fb     : b before Fisher\n"
         "# -----------------------------------------------------------------\n"

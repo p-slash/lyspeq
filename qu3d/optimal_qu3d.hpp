@@ -29,7 +29,7 @@
  *   MinimumKperp, MinimumKlos: Minimum k values for estimation.
  *   ConvergenceTolerance: CG convergence threshold.
  *   AbsoluteTolerance: Use absolute tolerance if >0.
- *   LongScale: Exponential scale for long range correlations (Mpc).
+ *   LongScale: Exponential scale for long range correlations (Mpc/h).
  *   ScaleFactor: Radius scaling factor for including neighbors: Inclusion radius = LongScale * ScaleFactor.
  *   DownsampleFactor: Downsampling factor for spectra.
  *   TestGaussianField: If >0, use mock Gaussian field.

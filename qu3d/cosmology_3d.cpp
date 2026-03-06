@@ -28,11 +28,11 @@ double _nu_relative_density(
 }
 
 
-/* in km/s/Mpc */
+/* (km/s) / (Mpc/h) */
 double _calcHubble(double z1, struct CosmoParams *params) {
     double z3 = z1 * z1 * z1;
     double nu = 1.0 + _nu_relative_density(z1);
-    return params->H0 * sqrt(
+    return 100.0 * sqrt(
             params->Omega_L + (params->Omega_m + params->Omega_r * nu * z1) * z3
     );
 }
@@ -127,12 +127,59 @@ void FlatLCDM::_integrateLinearGrowth(
 #undef REL_ERROR
 #undef WORKSPACE_SIZE
 
+void FlatLCDM::_readFile(const std::string &fname) {
+    int status = 0;
+    auto fitsfile_ptr = ioh::open_unique_fitsfile_ptr(fname, READONLY);
+    fitsfile *fits_file = fitsfile_ptr.get();
+
+    char extname[] = "PLINEAR";
+    fits_movnam_hdu(fits_file, BINARY_TBL, extname, 0, &status);
+    ioh::checkFitsStatus(status);
+
+    int N = 0;
+    fits_read_key(fits_file, TINT, "NAXIS2", &N, NULL, &status);
+    fits_read_key(fits_file, TDOUBLE, "zpivot", &z_pivot, nullptr, &status);
+    fits_read_key(fits_file, TDOUBLE, "Om", &cosmo_params.Omega_m, nullptr, &status);
+    fits_read_key(fits_file, TDOUBLE, "Or", &cosmo_params.Omega_r, nullptr, &status);
+    fits_read_key(fits_file, TDOUBLE, "hubble", &cosmo_params.h, nullptr, &status);
+    ioh::checkFitsStatus(status);
+
+    char lnk_colname[] = "LNK", lnp_colname[] = "LNP";
+    int lnk_colnum = 0, lnp_colnum = 0, nonull = 0;
+    fits_get_colnum(fits_file, CASEINSEN, lnk_colname, &lnk_colnum, &status);
+    fits_get_colnum(fits_file, CASEINSEN, lnp_colname, &lnp_colnum, &status);
+    ioh::checkFitsStatus(status);
+
+    std::vector<double> lnk, lnP;
+    lnk.resize(N);  lnP.resize(N);
+    fits_read_col(
+        fits_file, TDOUBLE, lnk_colnum, 1, 1, N, 0, lnk.data(), &nonull, 
+        &status);
+    fits_read_col(
+        fits_file, TDOUBLE, lnp_colnum, 1, 1, N, 0, lnP.data(), &nonull, 
+        &status);
+    ioh::checkFitsStatus(status);
+
+    double dlnk = lnk[1] - lnk[0];
+
+    for (int i = 1; i < N - 1; ++i)
+        if (fabs(lnk[i + 1] - lnk[i] - dlnk) > 1e-8)
+            throw std::runtime_error(
+                "Input PlinearFilename does not have equal ln k spacing.");
+
+    double x;
+    auto appendLnp = _appendLinearExtrapolation(
+        lnk[0], lnk.back(), dlnk, N, lnP, x);
+    interp_lnp_linear = std::make_unique<DiscreteCubicInterpolation1D>(
+        x, dlnk, appendLnp.size(), appendLnp.data());
+}
 
 FlatLCDM::FlatLCDM(ConfigFile &config) {
-    config.addDefaults(planck18_default_parameters);
-    cosmo_params.H0 = config.getDouble("Hubble");
-    cosmo_params.Omega_m = config.getDouble("OmegaMatter");
-    cosmo_params.Omega_r = config.getDouble("OmegaRadiation");
+    std::string fname = config.get("CosmologyFilename");
+    if (fname.empty())
+        throw std::invalid_argument("Must pass CosmologyFilename.");
+    
+        _readFile(fname);
     cosmo_params.Omega_L =
         1.0 - cosmo_params.Omega_m
         - cosmo_params.Omega_r * (1 + _nu_relative_density(1));
@@ -169,7 +216,7 @@ FlatLCDM::FlatLCDM(ConfigFile &config) {
 }
 
 
-std::vector<double> LinearPowerInterpolator::_appendLinearExtrapolation(
+std::vector<double> FlatLCDM::_appendLinearExtrapolation(
         double lnk1, double lnk2, double dlnk, int N,
         const std::vector<double> &lnP, double &newlnk1
 ) {
@@ -194,35 +241,9 @@ std::vector<double> LinearPowerInterpolator::_appendLinearExtrapolation(
 }
 
 
-void LinearPowerInterpolator::_readFile(const std::string &fname) {
-    std::ifstream toRead = ioh::open_fstream<std::ifstream>(fname);
-    std::vector<double> lnk, lnP;
-    double lnk1, lnP1;
 
-    while (toRead >> lnk1 >> lnP1) {
-        lnk.push_back(lnk1);
-        lnP.push_back(lnP1);
-    }
-
-    toRead.close();
-
-    int N = lnk.size();
-    double dlnk = lnk[1] - lnk[0];
-
-    for (int i = 1; i < N - 1; ++i)
-        if (fabs(lnk[i + 1] - lnk[i] - dlnk) > 1e-8)
-            throw std::runtime_error(
-                "Input PlinearFilename does not have equal ln k spacing.");
-
-    auto appendLnp = _appendLinearExtrapolation(
-        lnk[0], lnk.back(), dlnk, N, lnP, lnk1);
-    interp_lnp = std::make_unique<DiscreteCubicInterpolation1D>(
-        lnk1, dlnk, appendLnp.size(), appendLnp.data());
-}
-
-
-void LinearPowerInterpolator::write(ioh::Qu3dFile *out) {
-    out->write(interp_lnp->get(), interp_lnp->size(), "PLIN_APPD");
+void FlatLCDM::write(ioh::Qu3dFile *out) {
+    out->write(interp_lnp_linear->get(), interp_lnp_linear->size(), "PLIN_APPD");
 }
 
 
@@ -249,11 +270,10 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     sigma_v = config.getDouble("sigma_v");
 
     KMAX_HALO = std::min(1.5, k_p);
-    interp_p = std::make_unique<LinearPowerInterpolator>(config);
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
     rscale_long = config.getDouble("LongScale");
     rmax = rscale_long * config.getDouble("ScaleFactor");
-    _z1_pivot = 1.0 + interp_p->z_pivot;
+    _z1_pivot = 1.0 + cosmo->z_pivot;
     _sigma_mpc = 0;
     _deltar_mpc = 0;
 
@@ -592,7 +612,7 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
         return 0;
 
     double
-    plin = interp_p->evaluate(k),
+    plin = cosmo->getLinearPower(k),
     delta2_L = plin * k * k * k / TWO_PI2,
     k_kp = k / k_p,
     mu = kz / k, mu2 = mu * mu,
@@ -644,7 +664,7 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     const double dlnk = (LNKMAX - LNKMIN) / (nlnk - 2);
     double karr[nlnk], pmarr[nlnk2];
 
-    interp_p->write(out);
+    cosmo->write(out);
 
     for (int i = 0; i < nlnk; ++i) {
         karr[i] = 2.9 + i * 0.008;

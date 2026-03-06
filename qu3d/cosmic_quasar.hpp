@@ -256,8 +256,8 @@ public:
     ) {
         /* Spectrograph window function params. Assumes r is set. */
         double mean_z1 = std::accumulate(z1, z1 + N, 0.0) / N,
-               Mpc2kms = cosmo->getHubble(mean_z1) / mean_z1;
-        sigma = qFile->R_kms / Mpc2kms;
+               Mpch2kms = cosmo->getHubble(mean_z1) / mean_z1;
+        sigma = qFile->R_kms / Mpch2kms;
         delta_r = (chi[N - 1] - chi[0]) / (N - 1);
     }
 
@@ -490,7 +490,7 @@ public:
     void trimNeighbors(
             double radius2, double radial,
             float ratio=0.1, double sep_arcsec=20.0,
-            float dist_Mpc=60.0, bool remove_low_overlap=false,
+            float dist_Mpch=40.0, bool remove_low_overlap=false,
             bool remove_identicals=false
     ) {
         /* Removes neighbors with low overlap and self. Also removes neighbors
@@ -501,13 +501,13 @@ public:
         neighbors.erase(this);
 
         if (remove_identicals) {
-            auto isSameQuasar = [this, &sep_arcsec, &dist_Mpc](
+            auto isSameQuasar = [this, &sep_arcsec, &dist_Mpch](
                     const CosmicQuasar* const &q
             ) {
                 double sep = acos(vec.cos_angle(q->vec)) * 3600.0 * 180.0 / MY_PI;
 
                 double delta_dis = fabs(_quasar_dist - q->_quasar_dist);
-                return (sep < sep_arcsec) && (delta_dis < dist_Mpc);
+                return (sep < sep_arcsec) && (delta_dis < dist_Mpch);
             };
 
             std::erase_if(neighbors, isSameQuasar);
