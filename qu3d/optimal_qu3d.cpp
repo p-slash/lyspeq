@@ -319,6 +319,11 @@ void Qu3DEstimator::_setupMesh(double radius, double minboxlength) {
     double t1 = mytime::timer.getTime(), t2 = 0, extra_l = 0;
 
     _calculateBoxDimensions(mesh.length, mesh.xyz0);
+    LOG::LOGGER.STD(
+        "Initial box dimensions are as follows: "
+        "L = (%.0f, %.0f, %.0f) Mpc, XYZ0 = (%.0f, %.0f, %.0f) Mpc.\n",
+        mesh.length[0], mesh.length[1], mesh.length[2],
+        mesh.xyz0[0], mesh.xyz0[1], mesh.xyz0[2]);
 
     mesh.ngrid[0] = config.getInteger("NGRID_X");
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
