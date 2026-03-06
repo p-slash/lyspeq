@@ -27,14 +27,6 @@ public:
                + sin_theta * other.sin_theta * cos(other.phi - phi);
     }
 
-    // void rotatePhi(double shift_phi) {
-    //     phi += shift_phi;
-    //     if (phi >= 2 * MY_PI)
-    //         phi -= 2 * MY_PI;
-    //     else if (phi < 0)
-    //         phi += 2 * MY_PI;
-
-    // }
     void rotate(const std::array<double, 9> &rot_mat) {
         double new_r[3];
         cblas_dgemv(CblasRowMajor, CblasNoTrans, 3, 3, 1.0,
