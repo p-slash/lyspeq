@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <fitsio.h>
 
@@ -51,6 +52,42 @@ namespace ioh {
         checkFitsStatus(status);
         unique_fitsfile_ptr fptr(fits_file);
         return fptr;
+    }
+
+    static std::vector<std::string> readHeaderKeys(
+            unique_fitsfile_ptr &fts, int &status
+    ) {
+        int nkeys;
+        char keyname[FLEN_KEYWORD], value[FLEN_VALUE];
+        std::vector<std::string> header_keys;
+
+        fits_get_hdrspace(fts.get(), &nkeys, NULL, &status);
+        header_keys.reserve(nkeys);
+
+        for (int i = 1; i <= nkeys; ++i) {
+            fits_read_keyn(fts.get(), i, keyname, value, NULL, &status);
+            header_keys.push_back(std::string(keyname));
+        }
+        return header_keys;
+    }
+
+    static std::vector<std::string> readColumnNAmes(
+            unique_fitsfile_ptr &fts, int &status
+    ) {
+        int ncols;
+        char keyname[FLEN_KEYWORD], colname[FLEN_VALUE];
+        std::vector<std::string> colnames;
+
+        fits_get_num_cols(fts.get(), &ncols, &status);
+        colnames.reserve(ncols);
+
+        for (int i = 1; i <= ncols; i++) {
+            fits_make_keyn("TTYPE", i, keyname, &status); /* make keyword */
+            fits_read_key(fts.get(), TSTRING, keyname, colname, NULL, &status);
+
+            colnames.push_back(std::string(colname));
+        }
+        return colnames;
     }
 }
 

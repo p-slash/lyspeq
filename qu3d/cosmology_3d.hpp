@@ -19,95 +19,73 @@
 
 namespace fidcosmo {
     const config_map planck18_default_parameters ({
-        {"OmegaMatter", "0.30966"}, {"OmegaRadiation", "5.402015137139352e-05"},
-        {"Hubble", "67.66"}
+        {"Om", "0.30966"}, {"Or", "5.402015137139352e-05"}, {"h", "0.6766"}
     });
 
     struct CosmoParams {
-        double H0, Omega_m, Omega_L, Omega_r;
+        double h, Omega_m, Omega_L, Omega_r;
     };
 
     class FlatLCDM {
+        /* Units are in Mpc/h */
         struct CosmoParams cosmo_params;
         std::unique_ptr<DiscreteCubicInterpolation1D>
-            interp_comov_dist, hubble_z, linear_growth, interp_invcomov_dist;
-
-        void _integrateComovingDist(int nz, const double *z1arr, double *cDist);
-        void _integrateLinearGrowth(int nz, const double *z1arr, double *linD);
-
-    public:
-        /* This function reads following keys from config file:
-        OmegaMatter: double
-        OmegaRadiation: double
-        Hubble: double
-        */
-        FlatLCDM(ConfigFile &config);
-
-        /* in km/s/Mpc */
-        double getHubble(double z1) const { return hubble_z->evaluate(z1); }
-
-        double getInvHubble(double z1) const {
-            return 1 / hubble_z->evaluate(z1);
-        }
-
-        double getComovingDist(double z1) const {
-            return interp_comov_dist->evaluate(z1);
-        }
-
-        double getZ1FromComovingDist(double chi) const {
-            return interp_invcomov_dist->evaluate(chi);
-        }
-
-        double getLinearGrowth(double z1) const {
-            return linear_growth->evaluate(z1);
-        }
-    };
-
-    class LinearPowerInterpolator {
-        /* Power spectrum interpolator in Mpc units */
-        std::unique_ptr<DiscreteCubicInterpolation1D> interp_lnp;
+            interp_comov_dist, hubble_z, linear_growth, interp_invcomov_dist,
+            interp_lnp_linear;
 
         std::vector<double> _appendLinearExtrapolation(
             double lnk1, double lnk2, double dlnk, int N,
             const std::vector<double> &lnP, double &newlnk1
         );
-
+        void _integrateComovingDist(int nz, const double *z1arr, double *cDist);
+        void _integrateLinearGrowth(int nz, const double *z1arr, double *linD);
         void _readFile(const std::string &fname);
     public:
         double z_pivot;
-
         /* This function reads following keys from config file:
-        PlinearFilename: str
-            Linear power spectrum file. First column is ln k, second column is
-            ln P. ln k must be equally spaced.
-        PlinearPivotRedshift: double
+        CosmologyFilename: str
+            Use the provided script in py/
+            This FITS file should have an 'PLINEAR' extension with LNK and LNP
+            columns. Its header should have
+            - 'zpivot' for pivot redshift,
+            - 'Om' for Matter,
+            - 'Or' for Radiation,
+            - 'hubble' for Hubble (e.g. 0.6766).
         */
-        LinearPowerInterpolator(ConfigFile &config) {
-            std::string fname = config.get("PlinearFilename");
-            if (fname.empty())
-                throw std::invalid_argument("Must pass PlinearFilename.");
+        FlatLCDM(ConfigFile &config);
 
-            z_pivot = config.getDouble("PlinearPivotRedshift");
-            _readFile(fname);
-        }
+        /* in (km/s) / (Mpc/h) */
+        double getHubble(double z1) const { return hubble_z->evaluate(z1); }
 
-        double evaluate(double k) {
+        double getInvHubble(double z1) const {
+            return 1 / hubble_z->evaluate(z1); }
+
+        double getComovingDist(double z1) const {
+            return interp_comov_dist->evaluate(z1); }
+
+        double getZ1FromComovingDist(double chi) const {
+            return interp_invcomov_dist->evaluate(chi); }
+
+        double getLinearGrowth(double z1) const {
+            return linear_growth->evaluate(z1); }
+
+        double getLinearPower(double k) {
             if (k == 0)  return 0;
-            return exp(interp_lnp->evaluate(log(k)));
-        }
+            return exp(interp_lnp_linear->evaluate(log(k))); }
 
         void write(ioh::Qu3dFile *out);
     };
 
     const config_map arinyo_default_parameters ({
         /* These defaults are obtained from Chabanier+24 Table A3 for z=2.4.
-           b_F fitted to all redshift ranges accounting for errors.
-           Two redshift bins are averaged for others. */
+           All parameters are fitted to all redshift ranges accounting for errors.
+           Note all units are in Mpc / h.
+        */
         {"b_F", "0.1195977"}, {"alpha_F", "3.37681"},
-        {"beta_F", "1.6633"}, {"k_p", "0.4"}, // {"k_p", "16.802"},
+        {"beta_F", "1.6633"}, {"k_p", "0.4"}, // {"k_p", "23"},
         {"q_1", "0.774"}, {"a_nu", "0.409"}, {"b_nu", "1.65"},
-        {"k_nu", "0.397"},
-        {"b_HCD", "0.05"}, {"beta_HCD", "0.7"}, {"L_HCD", "14.8"}
+        {"k_nu", "0.5866"},
+        {"b_HCD", "0.05"}, {"beta_HCD", "0.7"}, {"L_HCD", "10.0"}
     });
 
     const config_map metals_default_parameters ({
@@ -126,7 +104,6 @@ namespace fidcosmo {
         double KMAX_HALO;
 
         std::vector<std::pair<double, double>> b_dr_pair_metals;
-        std::unique_ptr<LinearPowerInterpolator> interp_p;
         std::unique_ptr<DiscreteCubicInterpolation1D> interp_growth;
 
         std::unique_ptr<INTERP_COSMO_2D> interp2d_cfS;

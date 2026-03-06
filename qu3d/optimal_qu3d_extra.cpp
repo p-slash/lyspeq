@@ -200,7 +200,7 @@ void Qu3DEstimator::dumpSearchDirection() {
     #pragma GCC diagnostic ignored "-Wwrite-strings"
     char *column_names[] = {"Gz", "Chi", "Search", "AxSearch"};
     char *column_types[] = {"1D", "1E", "1D", "1D"};
-    char *column_units[] = { "A", "Mpc", "\0", "\0"};
+    char *column_units[] = { "A", "Mpch", "\0", "\0"};
     #pragma GCC diagnostic pop
 
     for (const auto &qso : quasars) {
