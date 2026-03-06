@@ -20,8 +20,8 @@
 #include "qu3d/cosmology_3d.hpp"
 #include "qu3d/contmarg_file.hpp"
 
-// The shift of RA to have continous regions in the sky (for eBOSS)
-constexpr double ra_shift = 1.0;
+// The shift of RA to have continous regions in the sky (for eBOSS: 1.0)
+constexpr double ra_shift = 0.0;
 
 namespace specifics {
     extern double MIN_RA, MAX_RA, MIN_DEC, MAX_DEC;
