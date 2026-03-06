@@ -17,6 +17,8 @@
  * Parameters:
  *   NGRID_X, NGRID_Y, NGRID_Z: Number of mesh grid points in X, Y, Z axes.
  *   MatchCellSizeOfZToXY: If >0, pad Z axis to match cell size of X/Y.
+ *   UseTscInterpolation: If >0, use TSC interpolation.
+ *   DeconvolveCICWindow: If >0, deconvolve CIC or TSC kernels.
  *   TurnOnPpCovariance: Enable particle-particle covariance if >0.
  *   NumberOfMultipoles: Number of multipole moments to estimate.
  *   MaxConjGradSteps: Maximum conjugate gradient steps.
@@ -48,6 +50,7 @@
  *   TestHsqrt: Perform Hsqrt test.
  *   UniquePrefixTmp: Unique prefix for temporary files.
  *   NeighborsCache: Path to neighbors cache file.
+ *   ReverseInterpolationThreadNum: Number of threads for reverse interpolation.
  */
 const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
