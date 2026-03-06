@@ -16,6 +16,7 @@ namespace specifics {
     double MIN_KPERP = 0, MIN_KZ = 0;
 }
 
+const double deg2rad = MY_PI / 180.0, rad2deg = 1.0 / deg2rad;
 // Assume 2-4 threads will not encounter race conditions
 int RINTERP_NTHREADS = 3;
 
@@ -127,8 +128,8 @@ void _shiftByMedianDecRa(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
            median_theta = stats::medianOfUnsortedVector(thetas);
 
     LOG::LOGGER.STD(
-        "Rotating to the median pointing (theta:%.2f, phi:%.2f) deg\n",
-        median_theta * 180.0 / MY_PI, median_phi * 180.0 / MY_PI);
+        "Rotating to the median pointing (theta:%.4f, phi:%.4f) deg\n",
+        median_theta * rad2deg, median_phi * rad2deg);
 
     const auto rot_mat = Vec3::getRotationMatrix(Vec3(median_theta, median_phi));
     for (auto &qso : quasars)
@@ -329,6 +330,11 @@ void Qu3DEstimator::_setupMesh(double radius, double minboxlength) {
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
     mesh.ngrid[2] = config.getInteger("NGRID_Z");
 
+    auto padMesh = [this](double dL, int a) {
+        mesh.length[a] += dL;
+        mesh.xyz0[a] -= dL / 2.0;
+    };
+
     double dx = mesh.length[0] / mesh.ngrid[0],
            dy = mesh.length[1] / mesh.ngrid[1],
            dz = mesh.length[2] / mesh.ngrid[2];
@@ -340,46 +346,41 @@ void Qu3DEstimator::_setupMesh(double radius, double minboxlength) {
     if (fabs(delta_rad) > (2 * MY_PI * DOUBLE_EPSILON)) {
     #endif
         mesh.disablePeriodicityX();
-        extra_l = std::max(10.0 * dx, minboxlength - mesh.length[0]);
-        mesh.length[0] += extra_l;
-        mesh.xyz0[0] -= extra_l / 2.0;
+        padMesh(std::max(10.0 * dx, minboxlength - mesh.length[0]), 0);
     }
 
-    extra_l = std::max(10.0 * dy, minboxlength - mesh.length[1]);
-    mesh.length[1] += extra_l;
-    mesh.xyz0[1] -= extra_l / 2.0;
+    padMesh(std::max(10.0 * dy, minboxlength - mesh.length[1]), 1);
+    padMesh(std::max(10.0 * dz, minboxlength - mesh.length[2]), 2);
+    dx = mesh.length[0] / mesh.ngrid[0];
+    dy = mesh.length[1] / mesh.ngrid[1];
 
-    extra_l = std::max(10.0 * dz, minboxlength - mesh.length[2]);
-    mesh.length[2] += extra_l;
-    mesh.xyz0[2] -= extra_l / 2.0;
-
-    double dyl = mesh.length[0] / mesh.ngrid[0] - mesh.length[1] / mesh.ngrid[1];
+    double dyl = dx - dy;
     if (dyl > 0) {
-        mesh.length[1] += dyl * mesh.ngrid[1];
+        dyl *= mesh.ngrid[1];
+        padMesh(dyl, 1);
     }
     else {
         dyl = fabs(dyl) * mesh.ngrid[0];
-        mesh.length[0] += dyl;
-        mesh.xyz0[0] -= dyl / 2.0;
+        padMesh(dyl, 0);
     }
 
     if (config.getInteger("MatchCellSizeOfZToXY") > 0) {
-        double dzl = (
-            mesh.length[0] / mesh.ngrid[0] + mesh.length[1] / mesh.ngrid[1]
-        ) / 2 - (mesh.length[2] / mesh.ngrid[2]);
+        dx = mesh.length[0] / mesh.ngrid[0];
+        dy = mesh.length[1] / mesh.ngrid[1];
+        dz = mesh.length[2] / mesh.ngrid[2];
+        double dzl = (dx + dy) / 2 - dz;
 
         if (dzl > 0) {
-            double extra_lz = dzl * mesh.ngrid[2];
+            dzl *= mesh.ngrid[2];
             LOG::LOGGER.STD(
                 "Automatically padding z axis to match cell length in x & y "
-                "directions by %.3f Mpc.\n", extra_lz);
-            mesh.length[2] += extra_lz;
-            mesh.xyz0[2] -= extra_lz / 2.0;
+                "directions by %.3f Mpc.\n", dzl);
+            padMesh(dzl, 2);
         }
     }
     
     LOG::LOGGER.STD(
-        "Box dimensions are as follows: "
+        "Final box dimensions are as follows: "
         "L = (%.0f, %.0f, %.0f) Mpc, XYZ0 = (%.0f, %.0f, %.0f) Mpc.\n",
         mesh.length[0], mesh.length[1], mesh.length[2],
         mesh.xyz0[0], mesh.xyz0[1], mesh.xyz0[2]);
@@ -671,7 +672,7 @@ void Qu3DEstimator::_openResultsFile() {
 
 Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     config.addDefaults(qu3d_default_parameters);
-    double deg2rad = MY_PI / 180.0;
+
     specifics::MIN_RA = config.getDouble("MinimumRa") * deg2rad;
     specifics::MAX_RA = config.getDouble("MaximumRa") * deg2rad;
     specifics::MIN_DEC = config.getDouble("MinimumDec") * deg2rad;
