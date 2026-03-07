@@ -971,6 +971,7 @@ double Qu3DEstimator::updateY(double residual_norm2) {
         pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
     }
     norm_p *= norm_Cp * 1e-14;
+    norm_p = sqrt(norm_p);
 
     if (pTCp <= 0) {
         LOG::LOGGER.ERR("Negative pTCp = %.9e (All), ", pTCp);
@@ -1084,8 +1085,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
 
         double sum = 0.0, weights = 0.0;
         for (size_t i = i0; i < conv_vec.size(); ++i) {
-            if (conv_vec[i] == -1.0)
-                continue;
+            if (conv_vec[i] < 0)  continue;
             double w = (i - i0 + 1.0);
             sum += exp(-log(conv_vec[i]) / i) * w;
             weights += w;
@@ -1136,7 +1136,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
     }
 
     init_residual_norm = sqrt(init_residual_norm);
-    truth_norm = sqrt(truth_norm);
+    truth_norm = std::max(sqrt(truth_norm), init_residual_norm);
     conv_vec.push_back(init_residual_norm);
     if (absolute_tolerance) truth_norm = 1;
 
@@ -1145,13 +1145,13 @@ void Qu3DEstimator::conjugateGradientDescent() {
 
     for (; niter <= max_conj_grad_steps; ++niter) {
         restart = false;
-        new_residual_norm = updateY(old_residual_prec);
+        new_residual_norm = updateY(old_residual_prec) / truth_norm;
         restart = new_residual_norm == -1;
 
         if (restart && verbose)
             LOG::LOGGER.STD("    WARNING: Flat curvature. Restarting.\n");
 
-        if (niter % 50 == 0) {
+        if (niter % 100 == 0) {
             if (verbose)  LOG::LOGGER.STD("    Exact calculation of residuals. ");
             for (auto &qso : quasars)
                 qso->in = qso->y.get();
@@ -1182,7 +1182,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
                     restart ? "Restarting" : "Continuing");
         }
 
-        conv_vec.push_back(new_residual_norm);
+        conv_vec.push_back(new_residual_norm / truth_norm);
         double descent_rate = calculateDescentRate();
         bool end_iter = hasConverged(
             new_residual_norm, truth_norm, tolerance, descent_rate);
