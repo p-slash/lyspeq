@@ -60,6 +60,7 @@ namespace ioh {
         }
 
         void closeAllWriters() { file_writers.clear(); }
+        void closeAllReaders() { file_readers.clear(); }
 
         void rewind() {
             for (auto &fptr : file_readers)

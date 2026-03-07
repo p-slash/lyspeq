@@ -647,8 +647,14 @@ void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
         quasars[i]->fidx = q_fidx[i];
     }
 
-    if (!KEEP_MATRICES_IN_MEMORY)
-        ioh::continuumMargFileHandler->openAllReaders();
+    ioh::continuumMargFileHandler->openAllReaders();
+    if (KEEP_MATRICES_IN_MEMORY) {
+        #pragma omp parallel for schedule(static, 8)
+        for (auto &qso : quasars)
+            ioh::continuumMargFileHandler->read(
+                qso->N, qso->qFile->id, qso->_rrmat.get());
+        ioh::continuumMargFileHandler->closeAllReaders();
+    }
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("It took %.2f m.\n", t2 - t1);
 }

@@ -39,7 +39,6 @@ struct CompareCosmicQuasarPtr {
 class CosmicQuasar {
 private:
     double _quasar_dist;
-    std::unique_ptr<double[]> _rrmat, _icov;
 public:
     std::unique_ptr<qio::QSOFile> qFile;
     int N, fidx;
@@ -50,6 +49,7 @@ public:
     std::unique_ptr<float[]> r, chi;
     std::unique_ptr<double[]> y, Cy, residual, search, y_isig,
                               sod_cinv_eta, _z1_mem;
+    std::unique_ptr<double[]> _rrmat, _icov;
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
@@ -413,6 +413,7 @@ public:
             for (int i = 0; i < N; ++i)
                 ccov[(i + 1) * N] -= di;
             mxhelp::copyUpperToLower(ccov, N);
+            mxhelp::copyUpperToLower(_rrmat.get(), N);
 
             cblas_dsymm(
                 CblasRowMajor, CblasLeft, CblasUpper,
