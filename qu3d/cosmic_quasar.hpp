@@ -328,7 +328,9 @@ public:
         #endif
         // -- core function
             double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-            ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
+            if (_rrmat)  rrmat = _rrmat.get();
+            else  ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
+
             cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                         rrmat, N, in, 1, 0, in_isig, 1);
 
