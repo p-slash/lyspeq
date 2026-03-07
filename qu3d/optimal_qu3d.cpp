@@ -796,7 +796,8 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         qso->transformZ1toG(p3d_model.get());
     
     if (KEEP_MATRICES_IN_MEMORY) {
-
+        for (auto &qso : quasars)
+            qso->allocMore();
     }
 }
 
