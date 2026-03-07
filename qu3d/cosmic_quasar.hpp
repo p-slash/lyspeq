@@ -405,24 +405,23 @@ public:
             bool small_scale=false, double alpha=0, double s=1.0
     ) {
         double *ccov = _icov.get();
-        if (small_scale)
-            setCov_S(p3d_model, ccov, alpha, s);
-        else
-            setCov(p3d_model, ccov);
+        if (small_scale)  setCov_S(p3d_model, ccov, alpha, s);
+        else  setCov(p3d_model, ccov);
 
         if (cmarg) {
             double di = small_scale ? alpha - 1.0 / s : 1.0;
             for (int i = 0; i < N; ++i)
                 ccov[(i + 1) * N] -= di;
+            mxhelp::copyUpperToLower(ccov, N);
 
             cblas_dsymm(
                 CblasRowMajor, CblasLeft, CblasUpper,
-                N, N, 1.,  _rrmat.get(), N,
+                N, N, 1., _rrmat.get(), N,
                 ccov, N,
                 0, GL_CCOV[myomp::getThreadNum()].get(), N);
             cblas_dsymm(
                 CblasRowMajor, CblasRight, CblasUpper,
-                N, N, 1.,  _rrmat.get(), N,
+                N, N, 1., _rrmat.get(), N,
                 GL_CCOV[myomp::getThreadNum()].get(), N,
                 0, ccov, N);
 
@@ -430,10 +429,9 @@ public:
                 ccov[(i + 1) * N] += di;
         }
 
-        lapack_int info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N,
-                                         ccov, N);
+        lapack_int info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
         if (info != 0)
-            LOG::LOGGER.ERR("Error in CosmicQuasar::multInvCov::LAPACKE_dposv.\n");
+            LOG::LOGGER.ERR("Error in CosmicQuasar::cacheCholeskyCov::LAPACKE_dpotrf.\n");
     }
 
     void solveCachedCholesky(const double *input, double *output) {
