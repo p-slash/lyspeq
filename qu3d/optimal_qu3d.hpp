@@ -70,7 +70,7 @@ const config_map qu3d_default_parameters ({
     {"PadeOrder", "4"}, {"ShrinkFactorForSqrt", "0.0"},
     {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""},
     {"DeconvolveCICWindow", "-1"}, {"MixtureFactorForAs", "1.0"},
-    {"ReverseInterpolationThreadNum", "3"}
+    {"ReverseInterpolationThreadNum", "3"}, {"KeepMatricesInMemory", "0"}
 });
 
 

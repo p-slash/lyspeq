@@ -41,7 +41,7 @@ std::unique_ptr<ioh::ContMargFile> ioh::continuumMargFileHandler;
 
 int NUMBER_OF_P_BANDS = 0;
 double DK_BIN = 0;
-bool verbose = true, CONT_MARG_ENABLED = false;
+bool verbose = true, CONT_MARG_ENABLED = false, KEEP_MATRICES_IN_MEMORY = false;
 constexpr bool INPLACE_FFT = true;
 
 
@@ -624,7 +624,8 @@ void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
 
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars)
-            qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
+            qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER,
+                                          KEEP_MATRICES_IN_MEMORY);
 
         ioh::continuumMargFileHandler->closeAllWriters();
 
@@ -646,7 +647,8 @@ void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
         quasars[i]->fidx = q_fidx[i];
     }
 
-    ioh::continuumMargFileHandler->openAllReaders();
+    if (!KEEP_MATRICES_IN_MEMORY)
+        ioh::continuumMargFileHandler->openAllReaders();
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("It took %.2f m.\n", t2 - t1);
 }
@@ -739,6 +741,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     number_of_multipoles = config.getInteger("NumberOfMultipoles");
     shrink_factor_for_sqrt = config.getDouble("ShrinkFactorForSqrt");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
+    KEEP_MATRICES_IN_MEMORY = config.getInteger("KeepMatricesInMemory") > 0;
 
     if (CONT_MARG_ENABLED && unique_prefix.empty())
         throw std::invalid_argument("Need UniquePrefixTmp when marginalizing.");
@@ -791,6 +794,10 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     #pragma omp parallel for
     for (auto &qso : quasars)
         qso->transformZ1toG(p3d_model.get());
+    
+    if (KEEP_MATRICES_IN_MEMORY) {
+
+    }
 }
 
 void Qu3DEstimator::reverseInterpolate(RealField3D &m) {
