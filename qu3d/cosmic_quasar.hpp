@@ -142,8 +142,8 @@ public:
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
     void allocMore() {
-        _rrmat = std:make_unique<double[]>(N * N);
-        _icov = std:make_unique<double[]>(N * N);
+        _rrmat = std::make_unique<double[]>(N * N);
+        _icov = std::make_unique<double[]>(N * N);
     }
 
     void project(double varlss, int order) {
