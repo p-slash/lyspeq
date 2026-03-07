@@ -410,9 +410,11 @@ public:
         else
             setCov(p3d_model, ccov);
 
-        lapack_int info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N,
-                                         ccov, N);
         if (cmarg) {
+            double di = small_scale ? alpha - 1.0 / s : 1.0;
+            for (int i = 0; i < N; ++i)
+                ccov[(i + 1) * N] -= di;
+
             cblas_dsymm(
                 CblasRowMajor, CblasLeft, CblasUpper,
                 N, N, 1.,  _rrmat.get(), N,
@@ -423,7 +425,13 @@ public:
                 N, N, 1.,  _rrmat.get(), N,
                 GL_CCOV[myomp::getThreadNum()].get(), N,
                 0, ccov, N);
+
+            for (int i = 0; i < N; ++i)
+                ccov[(i + 1) * N] += di;
         }
+
+        lapack_int info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N,
+                                         ccov, N);
         if (info != 0)
             LOG::LOGGER.ERR("Error in CosmicQuasar::multInvCov::LAPACKE_dposv.\n");
     }
