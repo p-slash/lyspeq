@@ -35,6 +35,7 @@ struct CompareCosmicQuasarPtr {
     }
 };
 
+#define myQsoDot(Q, X, Y) cblas_ddot(Q->N, Q->X, 1, Q->Y, 1);
 
 class CosmicQuasar {
 private:

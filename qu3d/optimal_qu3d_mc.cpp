@@ -118,11 +118,9 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
         // set search = PreCon . residual
         preconditioner(qso, qso->residual.get(), qso->in);
 
-        init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                         qso->residual.get(), 1);
-        old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                        qso->in, 1);
-        truth_norm += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
+        init_residual_norm += myQsoDot(qso, residual.get(), residual.get());
+        old_residual_prec += myQsoDot(qso, residual.get(), in);
+        truth_norm += myQsoDot(qso, truth, truth);
     }
 
     init_residual_norm = sqrt(init_residual_norm);
@@ -147,8 +145,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
             preconditioner(qso, qso->residual.get(), qso->out);
-            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                            qso->out, 1);
+            new_residual_prec += myQsoDot(qso, residual.get(), out);
         }
 
         double beta = new_residual_prec / old_residual_prec;
@@ -517,20 +514,20 @@ void Qu3DEstimator::testCovSqrt() {
         for (auto &qso : quasars) {
             rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
             std::copy_n(qso->truth, qso->N, qso->in);
-            xTx += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+            xTx += myQsoDot(qso, in, in);
         }
 
         multiplyAsVector();
 
         #pragma omp parallel for reduction(+:xTHx)
         for (auto &qso : quasars)
-            xTHx += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+            xTHx += myQsoDot(qso, in, out);
 
         multiplyCovSmallSqrtPade();
         // multiplyCovSmallSqrtNewtonSchulz(pade_order);
         #pragma omp parallel for reduction(+:yTy)
         for (auto &qso : quasars)
-            yTy += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
+            yTy += myQsoDot(qso, truth, truth);
 
         xTx_arr[i - 1] = xTx;  xTHx_arr[i - 1] = xTHx;  yTy_arr[i - 1] = yTy;
         ++prog_tracker;
