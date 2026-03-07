@@ -141,7 +141,7 @@ public:
     }
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
-    void allocMore() {
+    void allocRmatAndCovMatrices() {
         _rrmat = std::make_unique<double[]>(N * N);
         _icov = std::make_unique<double[]>(N * N);
     }
