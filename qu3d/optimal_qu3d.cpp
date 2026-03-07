@@ -117,7 +117,7 @@ inline bool hasConverged(
     if (verbose && drate > 0)
         LOG::LOGGER.STD("    Smoothed descent rate is %.3f.\n", drate);
 
-    return (norm < tolerance) || (rel_norm < tolerance);
+    return (norm < 1e-2 * tolerance) || (rel_norm < tolerance);
 }
 
 
@@ -795,7 +795,7 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     if (KEEP_MATRICES_IN_MEMORY)
         for (auto &qso : quasars)
-            qso->allocMore();
+            qso->allocRmatAndCovMatrices();
 
     bool end_imm = (test_gaussian_field && (mock_grid_res_factor > 1));
     if (CONT_MARG_ENABLED && !end_imm)
@@ -967,7 +967,7 @@ void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
 }
 
 
-double Qu3DEstimator::updateY(double residual_norm2) {
+double Qu3DEstimator::updateY(double residual_norm2, bool check_curvature) {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     double pTCp = 0, norm_p = 0, norm_Cp = 0,
@@ -983,8 +983,6 @@ double Qu3DEstimator::updateY(double residual_norm2) {
         norm_Cp += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
         pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
     }
-    norm_p *= norm_Cp * 1e-14;
-    norm_p = sqrt(norm_p);
 
     if (pTCp <= 0) {
         LOG::LOGGER.ERR("Negative pTCp = %.9e (All), ", pTCp);
@@ -1016,7 +1014,9 @@ double Qu3DEstimator::updateY(double residual_norm2) {
         return 0;
     }
 
-    if (pTCp < norm_p)  return -1.0;
+    // Zero Curvature check
+    norm_p = 1e-14 * sqrt(norm_p * norm_Cp);
+    if (check_curvature && (pTCp < norm_p))  return -1.0;
 
     alpha = residual_norm2 / pTCp;
 
@@ -1037,6 +1037,48 @@ double Qu3DEstimator::updateY(double residual_norm2) {
         LOG::LOGGER.STD("    updateY took %.2f s.\n", 60.0 * t2);
 
     return sqrt(new_residual_norm);
+}
+
+
+bool Qu3DEstimator::calculateExactResidual(
+        double &true_residual_norm, double threshold
+) {
+    if (verbose)  LOG::LOGGER.STD("    Exact calculation of residuals. ");
+    bool init_verbose = verbose;
+    verbose = false;
+
+    for (auto &qso : quasars)
+        qso->in = qso->y.get();
+
+    updateYMatrixVectorFunction();
+
+    true_residual_norm = 0;
+    double drift_norm = 0;
+
+    #pragma omp parallel for reduction(+:true_residual_norm, drift_norm)
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i) {
+            double r = qso->truth[i] - qso->out[i];
+            qso->out[i] = qso->residual[i] - r;
+            qso->residual[i] = r;
+        }
+
+        true_residual_norm += cblas_ddot(
+            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
+        drift_norm += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
+        qso->in = qso->search.get();
+    }
+    true_residual_norm = sqrt(true_residual_norm);
+    drift_norm = sqrt(drift_norm) / true_residual_norm;
+    restart = drift_norm > threshold;
+
+    verbose = init_verbose;
+
+    if (verbose)
+        LOG::LOGGER.STD("Drift: %.2e. %s\n", drift_norm,
+            restart ? "RESTARTING!!!" : "Continuing...");
+
+    return restart;
 }
 
 
@@ -1200,36 +1242,8 @@ void Qu3DEstimator::conjugateGradientDescent() {
         if (restart && verbose)
             LOG::LOGGER.STD("    WARNING: Flat curvature. Restarting.\n");
 
-        if (niter % 100 == 0) {
-            if (verbose)  LOG::LOGGER.STD("    Exact calculation of residuals. ");
-            for (auto &qso : quasars)
-                qso->in = qso->y.get();
-
-            updateYMatrixVectorFunction();
-            double true_residual_norm = 0, drift_norm = 0;
-
-            #pragma omp parallel for reduction(+:true_residual_norm, drift_norm)
-            for (auto &qso : quasars) {
-                for (int i = 0; i < qso->N; ++i) {
-                    double r = qso->truth[i] - qso->out[i];
-                    qso->out[i] = qso->residual[i] - r;
-                    qso->residual[i] = r;
-                }
-
-                true_residual_norm += cblas_ddot(
-                    qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
-                drift_norm += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
-                qso->in = qso->search.get();
-            }
-            true_residual_norm = sqrt(true_residual_norm);
-            drift_norm = sqrt(drift_norm) / true_residual_norm;
-            new_residual_norm = true_residual_norm;
-            restart |= drift_norm > 0.01;
-
-            if (verbose)
-                LOG::LOGGER.STD("Drift: %.2e. %s.\n", drift_norm,
-                    restart ? "Restarting" : "Continuing");
-        }
+        if (niter % 100 == 0)
+            restart |= calculateExactResidual(new_residual_norm)
 
         conv_vec.push_back(new_residual_norm / truth_norm);
         double descent_rate = calculateDescentRate();
