@@ -88,7 +88,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     int niter = 1;
 
     double init_residual_norm = 0, old_residual_prec = 0,
-           new_residual_norm = 0;
+           new_residual_norm = 0, truth_norm = 0;
 
     updateYMatrixVectorFunction = [this, m, s]() { multiplyAsVector(m, s); };
 
@@ -96,18 +96,18 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     double mp = m - (1.0 - mixture_factor_for_as) / s;
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientIpH.\n");
-
-    #define PRECONDITIONER(X, Y) qso->multInvCov(p3d_model.get(), X, Y, true, mp, s);
+    
+    auto preconditioner = getPreconditioner(true, mp, s);
 
     /* Initial guess */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
-        PRECONDITIONER(qso->truth, qso->in);
+        preconditioner(qso, qso->truth, qso->in);
 
     multiplyAsVector(m, s);
 
     #pragma omp parallel for schedule(dynamic, 4) \
-                             reduction(+:init_residual_norm, old_residual_prec)
+                             reduction(+:init_residual_norm, old_residual_prec, truth_norm)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
             qso->residual[i] = qso->truth[i] - qso->out[i];
@@ -116,25 +116,24 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
         qso->in = qso->search.get();
 
         // set search = PreCon . residual
-        PRECONDITIONER(qso->residual.get(), qso->in);
+        preconditioner(qso, qso->residual.get(), qso->in);
 
-        init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                         qso->residual.get(), 1);
-        old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                        qso->in, 1);
+        init_residual_norm += myQsoDot(qso, residual.get(), residual.get());
+        old_residual_prec += myQsoDot(qso, residual.get(), in);
+        truth_norm += myQsoDot(qso, truth, truth);
     }
 
     init_residual_norm = sqrt(init_residual_norm);
+    truth_norm = std::max(sqrt(truth_norm), init_residual_norm);
+    if (absolute_tolerance) truth_norm = 1;
 
-    if (hasConverged(init_residual_norm, tolerance))
+    if (hasConverged(init_residual_norm, truth_norm, tolerance))
         goto endconjugateGradientIpH;
 
-    if (absolute_tolerance) init_residual_norm = 1;
-
     for (; niter <= max_conj_grad_steps; ++niter) {
-        new_residual_norm = updateY(old_residual_prec) / init_residual_norm;
+        new_residual_norm = updateY(old_residual_prec);
 
-        bool end_iter = hasConverged(new_residual_norm, tolerance);
+        bool end_iter = hasConverged(new_residual_norm, truth_norm, tolerance);
 
         if (end_iter)
             goto endconjugateGradientIpH;
@@ -145,12 +144,9 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
                                  reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
-            PRECONDITIONER(qso->residual.get(), qso->out);
-            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                            qso->out, 1);
+            preconditioner(qso, qso->residual.get(), qso->out);
+            new_residual_prec += myQsoDot(qso, residual.get(), out);
         }
-
-        #undef PRECONDITIONER
 
         double beta = new_residual_prec / old_residual_prec;
         old_residual_prec = new_residual_prec;
@@ -518,20 +514,20 @@ void Qu3DEstimator::testCovSqrt() {
         for (auto &qso : quasars) {
             rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
             std::copy_n(qso->truth, qso->N, qso->in);
-            xTx += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+            xTx += myQsoDot(qso, in, in);
         }
 
         multiplyAsVector();
 
         #pragma omp parallel for reduction(+:xTHx)
         for (auto &qso : quasars)
-            xTHx += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+            xTHx += myQsoDot(qso, in, out);
 
         multiplyCovSmallSqrtPade();
         // multiplyCovSmallSqrtNewtonSchulz(pade_order);
         #pragma omp parallel for reduction(+:yTy)
         for (auto &qso : quasars)
-            yTy += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
+            yTy += myQsoDot(qso, truth, truth);
 
         xTx_arr[i - 1] = xTx;  xTHx_arr[i - 1] = xTHx;  yTy_arr[i - 1] = yTy;
         ++prog_tracker;

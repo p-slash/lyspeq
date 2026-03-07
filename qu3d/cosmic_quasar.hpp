@@ -35,6 +35,7 @@ struct CompareCosmicQuasarPtr {
     }
 };
 
+#define myQsoDot(Q, X, Y) cblas_ddot(Q->N, Q->X, 1, Q->Y, 1);
 
 class CosmicQuasar {
 private:
@@ -49,6 +50,7 @@ public:
     std::unique_ptr<float[]> r, chi;
     std::unique_ptr<double[]> y, Cy, residual, search, y_isig,
                               sod_cinv_eta, _z1_mem;
+    std::unique_ptr<double[]> _rrmat, _icov;
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
@@ -140,6 +142,10 @@ public:
     }
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
+    void allocRmatAndCovMatrices() {
+        _rrmat = std::make_unique<double[]>(N * N);
+        _icov = std::make_unique<double[]>(N * N);
+    }
 
     void project(double varlss, int order) {
         /* Assumes isig is ivar. */
@@ -323,7 +329,9 @@ public:
         #endif
         // -- core function
             double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-            ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
+            if (_rrmat)  rrmat = _rrmat.get();
+            else  ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
+
             cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                         rrmat, N, in, 1, 0, in_isig, 1);
 
@@ -348,7 +356,8 @@ public:
         #endif
         // -- core function
             double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-            ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
+            if (_rrmat)  rrmat = _rrmat.get();
+            else  ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
             cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                         rrmat, N, input, 1, 0, in_isig, 1);
         // --
@@ -390,6 +399,45 @@ public:
             LOG::LOGGER.STD("Error in CosmicQuasar::multInvCov::LAPACKE_dposv.\n");
             appDiagonalEst(input, output);
         }
+    }
+
+    void cacheCholeskyCov(
+            const fidcosmo::ArinyoP3DModel *p3d_model, bool cmarg=false,
+            bool small_scale=false, double alpha=0, double s=1.0
+    ) {
+        double *ccov = _icov.get();
+        if (small_scale)  setCov_S(p3d_model, ccov, alpha, s);
+        else  setCov(p3d_model, ccov);
+
+        if (cmarg) {
+            double di = small_scale ? alpha - 1.0 / s : 1.0;
+            for (int i = 0; i < N; ++i)
+                ccov[(N + 1) * i] -= di;
+            mxhelp::copyUpperToLower(ccov, N);
+
+            cblas_dsymm(
+                CblasRowMajor, CblasLeft, CblasUpper,
+                N, N, 1., _rrmat.get(), N,
+                ccov, N,
+                0, GL_CCOV[myomp::getThreadNum()].get(), N);
+            cblas_dsymm(
+                CblasRowMajor, CblasRight, CblasUpper,
+                N, N, 1., _rrmat.get(), N,
+                GL_CCOV[myomp::getThreadNum()].get(), N,
+                0, ccov, N);
+
+            for (int i = 0; i < N; ++i)
+                ccov[(N + 1) * i] += di;
+        }
+
+        lapack_int info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
+        if (info != 0)
+            LOG::LOGGER.ERR("Error in CosmicQuasar::cacheCholeskyCov::LAPACKE_dpotrf.\n");
+    }
+
+    void solveCachedCholesky(const double *input, double *output) {
+        std::copy_n(input, N, output);
+        LAPACKE_dpotrs(LAPACK_ROW_MAJOR, 'U', N, 1, _icov.get(), N, output, 1);
     }
 
     void interpMesh2Out(const RealField3D &mesh) {
@@ -574,6 +622,7 @@ public:
 
         double *ccov = GL_CCOV[myomp::getThreadNum()].get(),
                *rrmat = GL_RMAT[myomp::getThreadNum()].get();
+
         auto Emat = std::make_unique<double[]>(nvecs * nvecs);
         std::vector<std::unique_ptr<double[]>> uvecs(nvecs);
         for (int a = 0; a < nvecs; ++a)

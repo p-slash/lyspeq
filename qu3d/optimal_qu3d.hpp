@@ -70,7 +70,7 @@ const config_map qu3d_default_parameters ({
     {"PadeOrder", "4"}, {"ShrinkFactorForSqrt", "0.0"},
     {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""},
     {"DeconvolveCICWindow", "-1"}, {"MixtureFactorForAs", "1.0"},
-    {"ReverseInterpolationThreadNum", "3"}
+    {"ReverseInterpolationThreadNum", "3"}, {"KeepMatricesInMemory", "0"}
 });
 
 
@@ -124,6 +124,15 @@ class Qu3DEstimator
     bool _syncMonteCarlo(int nmc, double *o1, double *o2,
                          int ndata, const std::string &ext);
 
+    /* Block-diagonal preconditioner. This returns a function that should be
+    used as follows (schematically)
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            preconditioner(qso, qso->(input), qso->(output));
+    */
+    std::function<
+        void(std::unique_ptr<CosmicQuasar> &qso, const double *in, double *o)
+    > getPreconditioner(bool small_scale=false, double mp=0, double s=1);
 public:
     int mock_grid_res_factor;
     bool total_bias_enabled, total_bias_direct_enabled, noise_bias_enabled,
@@ -191,7 +200,12 @@ public:
     void reverseInterpolateZ(RealField3D &m);
     /* Reverse interopates qso->in x qso->isig onto the mesh */
     void reverseInterpolateIsig(RealField3D &m);
-    double updateY(double residual_norm2);
+    /* Returns -1 for zero-curvature check */
+    double updateY(double residual_norm2, bool check_curvature=false);
+    /* Uses qso->y.get() as input to updateYMatrixVectorFunction. 
+    Then swaps back to qso->seach.get(). Returns true to restart.
+    */
+    bool calculateExactResidual(double &true_residual_norm, double threshold=0.01);
     /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
     where y = N^-1/2 z and m = truth = N^-1/2 delta. Then get y if z2y=true.
     */
