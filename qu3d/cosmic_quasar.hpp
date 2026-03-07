@@ -616,17 +616,13 @@ public:
         std::erase_if(neighbors, lowOverlap);
     }
 
-    void constructMarginalization(int order, bool in_memory=false) {
+    void constructMarginalization(int order) {
         /* assumes order >= 0 */
         int nvecs = order + 1;
 
         double *ccov = GL_CCOV[myomp::getThreadNum()].get(),
                *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-        if (in_memory) {
-            // Note final sqrt order is different
-            ccov = _rrmat.get();
-            rrmat = _icov.get();
-        }
+
         auto Emat = std::make_unique<double[]>(nvecs * nvecs);
         std::vector<std::unique_ptr<double[]>> uvecs(nvecs);
         for (int a = 0; a < nvecs; ++a)
