@@ -121,7 +121,7 @@ void Qu3DEstimator::conjugateGradientSampler() {
 
     init_residual_norm = sqrt(old_residual_norm2);
 
-    if (hasConverged(init_residual_norm, tolerance))
+    if (hasConverged(init_residual_norm, 1.0, tolerance))
         goto endconjugateGradientSampler;
 
     if (absolute_tolerance) init_residual_norm = 1;
@@ -130,7 +130,7 @@ void Qu3DEstimator::conjugateGradientSampler() {
         double new_residual_norm2 = updateRng(old_residual_norm2);
 
         bool end_iter = hasConverged(
-            sqrt(new_residual_norm2) / init_residual_norm, tolerance);
+            sqrt(new_residual_norm2), init_residual_norm, tolerance);
 
         if (end_iter)
             goto endconjugateGradientSampler;
