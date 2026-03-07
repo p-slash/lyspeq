@@ -39,6 +39,7 @@ struct CompareCosmicQuasarPtr {
 class CosmicQuasar {
 private:
     double _quasar_dist;
+    std::unique_ptr<double[]> _rrmat, _icov;
 public:
     std::unique_ptr<qio::QSOFile> qFile;
     int N, fidx;
@@ -348,7 +349,8 @@ public:
         #endif
         // -- core function
             double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-            ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
+            if (_rrmat)  rrmat = _rrmat.get();
+            else  ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
             cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                         rrmat, N, input, 1, 0, in_isig, 1);
         // --
@@ -568,12 +570,17 @@ public:
         std::erase_if(neighbors, lowOverlap);
     }
 
-    void constructMarginalization(int order) {
+    void constructMarginalization(int order, bool in_memory=false) {
         /* assumes order >= 0 */
         int nvecs = order + 1;
 
         double *ccov = GL_CCOV[myomp::getThreadNum()].get(),
                *rrmat = GL_RMAT[myomp::getThreadNum()].get();
+        if (in_memory) {
+            // Note final sqrt order is different
+            ccov = _rrmat.get();
+            rrmat = _icov.get();
+        }
         auto Emat = std::make_unique<double[]>(nvecs * nvecs);
         std::vector<std::unique_ptr<double[]>> uvecs(nvecs);
         for (int a = 0; a < nvecs; ++a)
