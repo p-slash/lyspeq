@@ -1040,6 +1040,40 @@ double Qu3DEstimator::updateY(double residual_norm2) {
 }
 
 
+std::function<
+    void(std::unique_ptr<CosmicQuasar> &qso, const double *in, double *o)
+> Qu3DEstimator::getPreconditioner(bool small_scale, double mp, double s) {
+    std::function<void(
+        std::unique_ptr<CosmicQuasar> &qso, const double *in, double *o
+    )> preconditioner;
+
+    if (KEEP_MATRICES_IN_MEMORY) {
+        #pragma omp parallel for schedule(static, 8)
+        for (auto &qso : quasars)
+            qso->cacheCholeskyCov(p3d_model.get(), CONT_MARG_ENABLED,
+                                  small_scale, mp, s);
+
+        preconditioner = [](
+                std::unique_ptr<CosmicQuasar> &qso,
+                const double *input, double *output
+        ) {
+            qso->solveCachedCholesky(input, output);
+        };
+    }
+    else {
+        fidcosmo::ArinyoP3DModel *p = p3d_model.get();
+        preconditioner = [p, small_scale, mp, s](
+                std::unique_ptr<CosmicQuasar> &qso,
+                const double *input, double *output
+        ) {
+            qso->multInvCov(p, input, output, small_scale, mp, s);
+        };
+    }
+
+    return preconditioner;
+}
+
+
 void Qu3DEstimator::preconditionerSolution() {
     double dt = mytime::timer.getTime();
 
@@ -1109,29 +1143,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
     
-    std::function<void(std::unique_ptr<CosmicQuasar> &qso,
-                const double *input, double *output)> preconditioner;
-    if (KEEP_MATRICES_IN_MEMORY) {
-        #pragma omp parallel for schedule(static, 8)
-        for (auto &qso : quasars)
-            qso->cacheCholeskyCov(p3d_model.get(), CONT_MARG_ENABLED);
-        
-        preconditioner = [](
-                std::unique_ptr<CosmicQuasar> &qso,
-                const double *input, double *output
-        ) {
-            qso->solveCachedCholesky(input, output);
-        };
-    }
-    else {
-        fidcosmo::ArinyoP3DModel *p = p3d_model.get();
-        preconditioner = [p](
-                std::unique_ptr<CosmicQuasar> &qso,
-                const double *input, double *output
-        ) {
-            qso->multInvCov(p, input, output);
-        };
-    }
+    auto preconditioner = getPreconditioner();
 
     if (CONT_MARG_ENABLED) {
         /* Marginalize. Then, initial guess */

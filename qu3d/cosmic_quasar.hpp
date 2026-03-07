@@ -413,7 +413,6 @@ public:
             for (int i = 0; i < N; ++i)
                 ccov[(N + 1) * i] -= di;
             mxhelp::copyUpperToLower(ccov, N);
-            mxhelp::copyUpperToLower(_rrmat.get(), N);
 
             cblas_dsymm(
                 CblasRowMajor, CblasLeft, CblasUpper,

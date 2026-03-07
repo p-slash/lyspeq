@@ -96,13 +96,13 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     double mp = m - (1.0 - mixture_factor_for_as) / s;
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientIpH.\n");
-
-    #define PRECONDITIONER(X, Y) qso->multInvCov(p3d_model.get(), X, Y, true, mp, s);
+    
+    auto preconditioner = getPreconditioner(true, mp, s);
 
     /* Initial guess */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
-        PRECONDITIONER(qso->truth, qso->in);
+        preconditioner(qso, qso->truth, qso->in);
 
     multiplyAsVector(m, s);
 
@@ -116,7 +116,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
         qso->in = qso->search.get();
 
         // set search = PreCon . residual
-        PRECONDITIONER(qso->residual.get(), qso->in);
+        preconditioner(qso, qso->residual.get(), qso->in);
 
         init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
                                          qso->residual.get(), 1);
@@ -126,14 +126,14 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     }
 
     init_residual_norm = sqrt(init_residual_norm);
-    truth_norm = sqrt(truth_norm);
+    truth_norm = std::max(sqrt(truth_norm), init_residual_norm);
     if (absolute_tolerance) truth_norm = 1;
 
     if (hasConverged(init_residual_norm, truth_norm, tolerance))
         goto endconjugateGradientIpH;
 
     for (; niter <= max_conj_grad_steps; ++niter) {
-        new_residual_norm = updateY(old_residual_prec) / init_residual_norm;
+        new_residual_norm = updateY(old_residual_prec);
 
         bool end_iter = hasConverged(new_residual_norm, truth_norm, tolerance);
 
@@ -146,12 +146,10 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
                                  reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
-            PRECONDITIONER(qso->residual.get(), qso->out);
+            preconditioner(qso, qso->residual.get(), qso->out);
             new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
                                             qso->out, 1);
         }
-
-        #undef PRECONDITIONER
 
         double beta = new_residual_prec / old_residual_prec;
         old_residual_prec = new_residual_prec;

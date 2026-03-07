@@ -124,6 +124,9 @@ class Qu3DEstimator
     bool _syncMonteCarlo(int nmc, double *o1, double *o2,
                          int ndata, const std::string &ext);
 
+    std::function<
+        void(std::unique_ptr<CosmicQuasar> &qso, const double *in, double *o)
+    > getPreconditioner(bool small_scale=false, double mp=0, double s=1);
 public:
     int mock_grid_res_factor;
     bool total_bias_enabled, total_bias_direct_enabled, noise_bias_enabled,
