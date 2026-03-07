@@ -411,7 +411,7 @@ public:
         if (cmarg) {
             double di = small_scale ? alpha - 1.0 / s : 1.0;
             for (int i = 0; i < N; ++i)
-                ccov[(i + 1) * N] -= di;
+                ccov[(N + 1) * i] -= di;
             mxhelp::copyUpperToLower(ccov, N);
             mxhelp::copyUpperToLower(_rrmat.get(), N);
 
@@ -427,7 +427,7 @@ public:
                 0, ccov, N);
 
             for (int i = 0; i < N; ++i)
-                ccov[(i + 1) * N] += di;
+                ccov[(N + 1) * i] += di;
         }
 
         lapack_int info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
