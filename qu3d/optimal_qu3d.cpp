@@ -979,9 +979,9 @@ double Qu3DEstimator::updateY(double residual_norm2, bool check_curvature) {
     // Get pT . C . p
     #pragma omp parallel for reduction(+:pTCp, norm_p, norm_Cp)
     for (const auto &qso : quasars) {
-        norm_p += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
-        norm_Cp += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
-        pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+        norm_p += myQsoDot(qso, in, in);
+        norm_Cp += myQsoDot(qso, out, out);
+        pTCp += myQsoDot(qso, in, out);
     }
 
     if (pTCp <= 0) {
@@ -995,8 +995,8 @@ double Qu3DEstimator::updateY(double residual_norm2, bool check_curvature) {
         for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] *= qso->isig[i] * qso->z1[i];
-            pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
-            alpha += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+            pTCp += myQsoDot(qso, in, out);
+            alpha += myQsoDot(qso, in, in);
         }
 
         LOG::LOGGER.ERR("pTp = %.9e, pTS_Lp = %.9e, ", alpha, pTCp);
@@ -1007,7 +1007,7 @@ double Qu3DEstimator::updateY(double residual_norm2, bool check_curvature) {
             qso->multCovNeighbors(p3d_model.get(), effective_chi);
             for (int i = 0; i < qso->N; ++i)
                 qso->out[i] *= qso->isig[i] * qso->z1[i];
-            pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+            pTCp += myQsoDot(qso, in, out);
         }
 
         LOG::LOGGER.ERR("pTS_Sp = %.9e.\n", pTCp);
@@ -1028,8 +1028,7 @@ double Qu3DEstimator::updateY(double residual_norm2, bool check_curvature) {
         cblas_daxpy(qso->N, alpha, qso->in, 1, qso->y.get(), 1);
         cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
 
-        new_residual_norm += cblas_ddot(
-            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
+        new_residual_norm += myQsoDot(qso, residual.get(), residual.get());
     }
 
     t2 = mytime::timer.getTime() - t1;
@@ -1063,14 +1062,13 @@ bool Qu3DEstimator::calculateExactResidual(
             qso->residual[i] = r;
         }
 
-        true_residual_norm += cblas_ddot(
-            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
-        drift_norm += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
+        true_residual_norm += myQsoDot(qso, residual.get(), residual.get());
+        drift_norm += myQsoDot(qso, out, out);
         qso->in = qso->search.get();
     }
     true_residual_norm = sqrt(true_residual_norm);
     drift_norm = sqrt(drift_norm) / true_residual_norm;
-    restart = drift_norm > threshold;
+    bool restart = drift_norm > threshold;
 
     verbose = init_verbose;
 
@@ -1219,11 +1217,9 @@ void Qu3DEstimator::conjugateGradientDescent() {
         // set search = InvCov . residual
         preconditioner(qso, qso->residual.get(), qso->in);
 
-        init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                         qso->residual.get(), 1);
-        old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                        qso->in, 1);
-        truth_norm += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
+        init_residual_norm += myQsoDot(qso, residual.get(), residual.get());
+        old_residual_prec += myQsoDot(qso, residual.get(), in);
+        truth_norm += myQsoDot(qso, truth, truth);
     }
 
     init_residual_norm = sqrt(init_residual_norm);
@@ -1243,7 +1239,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
             LOG::LOGGER.STD("    WARNING: Flat curvature. Restarting.\n");
 
         if (niter % 100 == 0)
-            restart |= calculateExactResidual(new_residual_norm)
+            restart |= calculateExactResidual(new_residual_norm);
 
         conv_vec.push_back(new_residual_norm / truth_norm);
         double descent_rate = calculateDescentRate();
@@ -1259,8 +1255,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
         for (auto &qso : quasars) {
             // set z (out) = InvCov . residual
             preconditioner(qso, qso->residual.get(), qso->out);
-            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                            qso->out, 1);
+            new_residual_prec += myQsoDot(qso, residual.get(), out);
         }
 
         double beta = restart ? 0 : new_residual_prec / old_residual_prec;
