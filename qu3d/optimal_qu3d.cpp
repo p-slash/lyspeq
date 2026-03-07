@@ -1145,7 +1145,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
 
     for (; niter <= max_conj_grad_steps; ++niter) {
         restart = false;
-        new_residual_norm = updateY(old_residual_prec) / truth_norm;
+        new_residual_norm = updateY(old_residual_prec);
         restart = new_residual_norm == -1;
 
         if (restart && verbose)
