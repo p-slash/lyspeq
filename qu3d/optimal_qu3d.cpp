@@ -787,6 +787,10 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         else  _readNeighbors(neighbors_file);
     }
 
+    if (KEEP_MATRICES_IN_MEMORY)
+        for (auto &qso : quasars)
+            qso->allocMore();
+
     bool end_imm = (test_gaussian_field && (mock_grid_res_factor > 1));
     if (CONT_MARG_ENABLED && !end_imm)
         _createRmatFiles(unique_prefix);
@@ -794,11 +798,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     #pragma omp parallel for
     for (auto &qso : quasars)
         qso->transformZ1toG(p3d_model.get());
-    
-    if (KEEP_MATRICES_IN_MEMORY) {
-        for (auto &qso : quasars)
-            qso->allocMore();
-    }
 }
 
 void Qu3DEstimator::reverseInterpolate(RealField3D &m) {
