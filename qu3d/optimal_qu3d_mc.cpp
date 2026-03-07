@@ -88,7 +88,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     int niter = 1;
 
     double init_residual_norm = 0, old_residual_prec = 0,
-           new_residual_norm = 0;
+           new_residual_norm = 0, truth_norm = 0;
 
     updateYMatrixVectorFunction = [this, m, s]() { multiplyAsVector(m, s); };
 
@@ -107,7 +107,7 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     multiplyAsVector(m, s);
 
     #pragma omp parallel for schedule(dynamic, 4) \
-                             reduction(+:init_residual_norm, old_residual_prec)
+                             reduction(+:init_residual_norm, old_residual_prec, truth_norm)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
             qso->residual[i] = qso->truth[i] - qso->out[i];
@@ -122,19 +122,20 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
                                          qso->residual.get(), 1);
         old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
                                         qso->in, 1);
+        truth_norm += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
     }
 
     init_residual_norm = sqrt(init_residual_norm);
+    truth_norm = sqrt(truth_norm);
+    if (absolute_tolerance) truth_norm = 1;
 
-    if (hasConverged(init_residual_norm, tolerance))
+    if (hasConverged(init_residual_norm, truth_norm, tolerance))
         goto endconjugateGradientIpH;
-
-    if (absolute_tolerance) init_residual_norm = 1;
 
     for (; niter <= max_conj_grad_steps; ++niter) {
         new_residual_norm = updateY(old_residual_prec) / init_residual_norm;
 
-        bool end_iter = hasConverged(new_residual_norm, tolerance);
+        bool end_iter = hasConverged(new_residual_norm, truth_norm, tolerance);
 
         if (end_iter)
             goto endconjugateGradientIpH;
