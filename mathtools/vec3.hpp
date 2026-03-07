@@ -22,6 +22,13 @@ public:
         _calcFromAngle();
     }
 
+    void setVector(const double u[3]) {
+        std::copy_n(u, 3, r);
+        double A = sqrt(r[0]*r[0] + r[1]*r[1] + r[2]*r[2]);
+        r[0] /= A;  r[1] /= A;  r[2] /= A;
+        _calcFromUnitVec();
+    }
+
     double cos_angle(const Vec3 &other) const {
         return cos_theta * other.cos_theta
                + sin_theta * other.sin_theta * cos(other.phi - phi);

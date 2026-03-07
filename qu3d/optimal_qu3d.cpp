@@ -121,29 +121,29 @@ inline bool hasConverged(
 }
 
 
-void _shiftByMedianDecRa(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
-    std::vector<double> thetas, phis;
-    thetas.reserve(quasars.size());
-    phis.reserve(quasars.size());
+void _rotateToCentroid(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
+    double u[] = {0, 0, 0};
+    Vec3 mean_vec;
 
-    for (const auto &qso : quasars) {
-        phis.push_back(qso->vec.phi);
-        thetas.push_back(qso->vec.theta);
-    }
+    for (const auto &qso : quasars)
+        for (int axis = 0; axis < 3; ++axis)
+            u[axis] += qso->vec.r[axis];
 
-    double median_phi = stats::medianOfUnsortedVector(phis),
-           median_theta = stats::medianOfUnsortedVector(thetas);
+    for (int axis = 0; axis < 3; ++axis)
+        u[axis] /= quasars.size();
+
+    mean_vec.setVector(u);
 
     LOG::LOGGER.STD(
-        "Rotating to the median pointing (theta:%.4f, phi:%.4f) deg\n",
-        median_theta * rad2deg, median_phi * rad2deg);
+        "Rotating to the central pointing (theta:%.4f, phi:%.4f) deg\n",
+        mean_vec.theta * rad2deg, mean_vec.phi * rad2deg);
 
-    const auto rot_mat = Vec3::getRotationMatrix(Vec3(median_theta, median_phi));
+    const auto rot_mat = Vec3::getRotationMatrix(mean_vec);
     for (auto &qso : quasars)
         #ifdef USE_SPHERICAL_DIST
         qso->vec.rotate(rot_mat);
         #else
-        qso->vec.setAngles(qso->vec.theta - median_theta, qso->vec.phi - median_phi);
+        qso->vec.setAngles(qso->vec.theta - mean_vec.theta, qso->vec.phi - mean_vec.phi);
         #endif
 }
 
@@ -267,7 +267,7 @@ void Qu3DEstimator::_readQSOFiles(
         LOG::LOGGER.STD("Removed %d quasars using TARGETID list.\n", nerased);
     }
 
-    _shiftByMedianDecRa(quasars);
+    _rotateToCentroid(quasars);
     effective_chi = _setCosmologicalCoordinates(quasars);
     _setSpectroMeanParams(quasars);
 
@@ -624,8 +624,7 @@ void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
 
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars)
-            qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER,
-                                          KEEP_MATRICES_IN_MEMORY);
+            qso->constructMarginalization(specifics::CONT_LOGLAM_MARG_ORDER);
 
         ioh::continuumMargFileHandler->closeAllWriters();
 
