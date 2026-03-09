@@ -72,7 +72,7 @@ private:
 
     void _calcFromUnitVec() {
         theta = acos(r[2]);
-        phi = safePhi(atan2(r[1], r[0]) + MY_PI);
+        phi = safePhi(atan2(r[1], r[0]));
 
         cos_theta = cos(theta);
         sin_theta = sin(theta);
