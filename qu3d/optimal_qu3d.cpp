@@ -609,7 +609,6 @@ void Qu3DEstimator::_readNeighbors(const std::string &neighbors_file) {
 
 
 void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
-    /* This function needs z1 to be 1 + z */
     double t1 = mytime::timer.getTime(), t2 = 0;
     LOG::LOGGER.STD("Calculating R_D matrices for continuum marginalization. ");
     ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
@@ -829,7 +828,7 @@ void Qu3DEstimator::reverseInterpolateZ(RealField3D &m) {
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
             m.reverseInterpolate(
-                qso->r.get() + 3 * i, qso->in[i] * qso->z1[i]);
+                qso->r.get() + 3 * i, qso->in[i] * qso->growth[i]);
     }
 
     dt = mytime::timer.getTime() - dt;
@@ -928,7 +927,7 @@ void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
         multParticleComp();
 
     // Evolve out with redshift growth
-    // Multiply out with isig (These are saved to z1)
+    // Multiply out with isig (These are saved to in_isig)
     // Multiply out with marg. matrix if enabled
     // Add I.y to out
     if (CONT_MARG_ENABLED) {
@@ -937,9 +936,9 @@ void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
-                qso->out[i] *= qso->isig[i] * qso->z1[i];
+                qso->out[i] *= qso->isig[i] * qso->growth[i];
 
-            qso->multInputWithMarg(qso->out);
+            qso->multInputWithMarg(qso->out);  // output is in_isig
             std::swap(qso->out, qso->in_isig);
 
             #pragma omp simd
@@ -954,7 +953,7 @@ void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
         #pragma omp parallel for
         for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i) {
-                qso->out[i] *= qso->isig[i] * qso->z1[i];
+                qso->out[i] *= qso->isig[i] * qso->growth[i];
                 qso->out[i] += qso->in[i];
             }
         }
@@ -993,7 +992,7 @@ double Qu3DEstimator::updateY(double residual_norm2, bool check_curvature) {
         #pragma omp parallel for reduction(+:pTCp, alpha)
         for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
-                qso->out[i] *= qso->isig[i] * qso->z1[i];
+                qso->out[i] *= qso->isig[i] * qso->growth[i];
             pTCp += myQsoDot(qso, in, out);
             alpha += myQsoDot(qso, in, in);
         }
@@ -1005,7 +1004,7 @@ double Qu3DEstimator::updateY(double residual_norm2, bool check_curvature) {
             std::fill_n(qso->out, qso->N, 0);
             qso->multCovNeighbors(p3d_model.get(), effective_chi);
             for (int i = 0; i < qso->N; ++i)
-                qso->out[i] *= qso->isig[i] * qso->z1[i];
+                qso->out[i] *= qso->isig[i] * qso->growth[i];
             pTCp += myQsoDot(qso, in, out);
         }
 
