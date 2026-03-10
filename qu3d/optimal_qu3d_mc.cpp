@@ -364,7 +364,7 @@ void Qu3DEstimator::estimateTotalBiasDirect() {
     Progress prog_tracker(max_monte_carlos, 10);
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* Generate z = +-1 per forest. */
-        if (nmc % 2 == 0) {
+        if (nmc % 2 == 1) {
             #pragma omp parallel for
             for (auto &qso : quasars) {
                 rngs[myomp::getThreadNum()].fillVectorOnes(qso->sc_eta, qso->N);
@@ -694,7 +694,7 @@ void Qu3DEstimator::estimateFisherDirect() {
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* Generate z = +-1 per forest. */
-        if (nmc % 2 == 0) {
+        if (nmc % 2 == 1) {
             #pragma omp parallel for
             for (auto &qso : quasars) {
                 rngs[myomp::getThreadNum()].fillVectorOnes(qso->sc_eta, qso->N);
