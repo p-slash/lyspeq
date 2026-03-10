@@ -205,9 +205,6 @@ void Qu3DEstimator::dumpSearchDirection() {
 
     for (const auto &qso : quasars) {
         int nrows = qso->N;
-        auto chi = std::make_unique<float[]>(nrows);
-        for (int i = 0; i < nrows; ++i)
-            chi[i] = qso->r[3 * i + 2];
         double dec = MY_PI / 2.0 - qso->vec.theta;
         fits_create_tbl(
             fits_file, BINARY_TBL, nrows, ncolumns, column_names, column_types,
@@ -221,8 +218,8 @@ void Qu3DEstimator::dumpSearchDirection() {
             fits_file, TDOUBLE, "MEAN_SNR", &qso->qFile->snr, nullptr, &status);
         int nmbrs = qso->neighbors.size();
         fits_write_key(fits_file, TINT, "NUM_NEIG", &nmbrs, nullptr, &status);
-        fits_write_col(fits_file, TDOUBLE, 1, 1, 1, nrows, qso->z1, &status);
-        fits_write_col(fits_file, TFLOAT, 2, 1, 1, nrows, chi.get(), &status);
+        fits_write_col(fits_file, TDOUBLE, 1, 1, 1, nrows, qso->growth.get(), &status);
+        fits_write_col(fits_file, TFLOAT, 2, 1, 1, nrows, qso->chi.get(), &status);
         fits_write_col(
             fits_file, TDOUBLE, 3, 1, 1, nrows, qso->search.get(), &status);
         fits_write_col(fits_file, TDOUBLE, 4, 1, 1, nrows, qso->out, &status);
@@ -246,7 +243,7 @@ void Qu3DEstimator::testSymmetry() {
     #pragma omp parallel for reduction(+:uTAv)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            qso->out[i] *= qso->isig[i] * qso->z1[i];
+            qso->out[i] *= qso->isig[i] * qso->growth[i];
         uTAv += cblas_ddot(qso->N, qso->truth, 1, qso->out, 1);
     }
     LOG::LOGGER.STD("uTS_Lv = %.9e, ", uTAv);
@@ -261,7 +258,7 @@ void Qu3DEstimator::testSymmetry() {
     #pragma omp parallel for reduction(+:vTAu)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            qso->out[i] *= qso->isig[i] * qso->z1[i];
+            qso->out[i] *= qso->isig[i] * qso->growth[i];
         vTAu += cblas_ddot(qso->N, qso->truth, 1, qso->out, 1);
     }
     LOG::LOGGER.STD("vTS_Lu = %.9e. Diff: %.9e\n", vTAu, vTAu - uTAv);
@@ -273,7 +270,7 @@ void Qu3DEstimator::testSymmetry() {
         std::fill_n(qso->out, qso->N, 0);
         qso->multCovNeighbors(p3d_model.get(), effective_chi);
         for (int i = 0; i < qso->N; ++i)
-            qso->out[i] *= qso->isig[i] * qso->z1[i];
+            qso->out[i] *= qso->isig[i] * qso->growth[i];
         uTAv += cblas_ddot(qso->N, qso->truth, 1, qso->out, 1);
     }
     LOG::LOGGER.STD("uTS_Sv = %.9e, ", uTAv);
@@ -289,7 +286,7 @@ void Qu3DEstimator::testSymmetry() {
         std::fill_n(qso->out, qso->N, 0);
         qso->multCovNeighbors(p3d_model.get(), effective_chi);
         for (int i = 0; i < qso->N; ++i)
-            qso->out[i] *= qso->isig[i] * qso->z1[i];
+            qso->out[i] *= qso->isig[i] * qso->growth[i];
         vTAu += cblas_ddot(qso->N, qso->truth, 1, qso->out, 1);
     }
     LOG::LOGGER.STD("vTS_Su = %.9e. Diff: %.9e\n", vTAu, vTAu - uTAv);
@@ -397,7 +394,7 @@ void Qu3DEstimator::estimateMaxEvals() {
                 continue;
 
             for (int i = 0; i < qso->N; ++i)
-                qso->in[i] *= qso->z1[i];
+                qso->in[i] *= qso->growth[i];
         }
 
         n_in = 0;  n_out = 0;  n_inout = 0;
@@ -484,7 +481,7 @@ void Qu3DEstimator::estimateMaxEvals() {
                 continue;
 
             for (int i = 0; i < qso->N; ++i)
-                qso->in[i] *= qso->z1[i];
+                qso->in[i] *= qso->growth[i];
         }
 
         n_in = 0;  n_out = 0;  n_inout = 0;

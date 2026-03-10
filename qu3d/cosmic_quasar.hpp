@@ -43,13 +43,13 @@ private:
 public:
     std::unique_ptr<qio::QSOFile> qFile;
     int N, fidx;
-    /* z1: 1 + z */
+    /* qFile->wave becomes 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
-    double *z1, *isig, *in, *out, *truth, *in_isig, *sc_eta;
+    double *isig, *in, *out, *truth, *in_isig, *sc_eta;
     Vec3 vec;
     std::unique_ptr<float[]> r, chi;
     std::unique_ptr<double[]> y, Cy, residual, search, y_isig,
-                              sod_cinv_eta, _z1_mem;
+                              sod_cinv_eta, growth;
     std::unique_ptr<double[]> _rrmat, _icov;
 
     std::set<size_t> grid_indices;
@@ -124,14 +124,12 @@ public:
         residual = std::make_unique<double[]>(N);
         search = std::make_unique<double[]>(N);
         sod_cinv_eta = std::make_unique<double[]>(N);
-        _z1_mem = std::make_unique<double[]>(N);
-        z1 = _z1_mem.get();
+        growth = std::make_unique<double[]>(N);
 
         // Convert to inverse sigma and weight deltas
         for (int i = 0; i < N; ++i) {
             isig[i] = sqrt(isig[i]);
             qFile->delta()[i] *= isig[i];
-            z1[i] = qFile->wave()[i];
         }
 
         in = y.get();
@@ -156,7 +154,7 @@ public:
         auto log_lambda = std::make_unique<double[]>(N);
 
         for (int i = 0; i < N; ++i) {
-            weights[i] = isig[i] / (1.0 + isig[i] * varlss * z1[i] * z1[i]);
+            weights[i] = isig[i] / (1.0 + isig[i] * varlss * growth[i] * growth[i]);
             sum_weights += weights[i];
             mean_delta += truth[i] * weights[i];
         }
@@ -238,7 +236,7 @@ public:
         _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
         /* Spherical projection */
         for (int i = 0; i < N; ++i) {
-            chi[i] = cosmo->getComovingDist(z1[i]);
+            chi[i] = cosmo->getComovingDist(qFile->wave()[i]);
             r[0 + 3 * i] = chi[i] * vec.r[0];
             r[1 + 3 * i] = chi[i] * vec.r[1];
             r[2 + 3 * i] = chi[i] * vec.r[2];
@@ -249,7 +247,7 @@ public:
         _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
         /* Equirectangular projection */
         for (int i = 0; i < N; ++i) {
-            chi[i] = cosmo->getComovingDist(z1[i]);
+            chi[i] = cosmo->getComovingDist(qFile->wave()[i]);
             r[0 + 3 * i] = vec.phi * radial;
             r[1 + 3 * i] = vec.theta * radial;
             r[2 + 3 * i] = chi[i];
@@ -261,7 +259,7 @@ public:
             const fidcosmo::FlatLCDM *cosmo, double &sigma, double &delta_r
     ) {
         /* Spectrograph window function params. Assumes r is set. */
-        double mean_z1 = std::accumulate(z1, z1 + N, 0.0) / N,
+        double mean_z1 = std::accumulate(qFile->wave(), qFile->wave() + N, 0.0) / N,
                Mpch2kms = cosmo->getHubble(mean_z1) / mean_z1;
         sigma = qFile->R_kms / Mpch2kms;
         delta_r = (chi[N - 1] - chi[0]) / (N - 1);
@@ -290,7 +288,8 @@ public:
                 // keep this element
                 isig[write] = isig[read];
                 truth[write] = truth[read];
-                z1[write] = z1[read];
+                growth[write] = growth[read];
+                qFile->wave()[write] = qFile->wave()[read];
                 chi[write] = chi[read];
                 r[0 + 3 * write] = r[0 + 3 * read];
                 r[1 + 3 * write] = r[1 + 3 * read];
@@ -307,19 +306,19 @@ public:
     ) {
         for (int i = 0; i < N; ++i) {
             double ivar = isig[i] * isig[i];
-            sum_chi_weights += cosmo->getComovingDist(z1[i]) * ivar;
+            sum_chi_weights += cosmo->getComovingDist(qFile->wave()[i]) * ivar;
             sum_weights += ivar;
         }
     }
 
     void transformZ1toG(const fidcosmo::ArinyoP3DModel *p3d_model) {
         for (int i = 0; i < N; ++i)
-            z1[i] = p3d_model->getRedshiftEvolution(z1[i]);
+            growth[i] = p3d_model->getRedshiftEvolution(qFile->wave()[i]);
     }
 
     void setInIsigNoMarg() {
         for (int i = 0; i < N; ++i)
-            in_isig[i] = in[i] * isig[i] * z1[i];
+            in_isig[i] = in[i] * isig[i] * growth[i];
     }
 
     void setInIsigWithMarg() {
@@ -336,7 +335,7 @@ public:
                         rrmat, N, in, 1, 0, in_isig, 1);
 
             for (int i = 0; i < N; ++i)
-                in_isig[i] *= isig[i] * z1[i];
+                in_isig[i] *= isig[i] * growth[i];
         // --
         #ifdef DEBUG_IO
         }
@@ -381,7 +380,7 @@ public:
         double varlss = p3d_model->getVarLss();
         auto appDiagonalEst = [this, &varlss](const double *x_, double *y_) {
             for (int i = 0; i < N; ++i) {
-                double isigG = isig[i] * z1[i];
+                double isigG = isig[i] * growth[i];
                 y_[i] = x_[i] / (1.0 + isigG * isigG * varlss);
             }
         };
@@ -447,12 +446,12 @@ public:
 
     void interpMesh2TruthIsig(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
-            truth[i] = isig[i] * z1[i] * mesh.forwardInterpolate(r.get() + 3 * i);
+            truth[i] = isig[i] * growth[i] * mesh.forwardInterpolate(r.get() + 3 * i);
     }
 
     void interpAddMesh2TruthIsig(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
-            truth[i] += isig[i] * z1[i] * mesh.forwardInterpolate(r.get() + 3 * i);
+            truth[i] += isig[i] * growth[i] * mesh.forwardInterpolate(r.get() + 3 * i);
     }
 
     /* overwrite qFile->delta */
@@ -631,7 +630,7 @@ public:
         std::copy_n(isig, N, uvecs[0].get());  // Zeroth order
         for (int a = 1; a < nvecs; ++a)
             for (int i = 0; i < N; ++i)
-                uvecs[a][i] = isig[i] * pow(log(z1[i]), a);
+                uvecs[a][i] = isig[i] * pow(log(qFile->wave()[i]), a);
 
         for (int a = 0; a < nvecs; ++a)
             mxhelp::normalize_vector(N, uvecs[a].get());
@@ -665,13 +664,13 @@ public:
 
     void setCov(const fidcosmo::ArinyoP3DModel *p3d_model, double *ccov) {
         for (int i = 0; i < N; ++i) {
-            double isigG = isig[i] * z1[i];
+            double isigG = isig[i] * growth[i];
 
             ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
 
             for (int j = i + 1; j < N; ++j) {
                 float rz = chi[j] - chi[i];
-                double isigG_ij = isigG * isig[j] * z1[j];
+                double isigG_ij = isigG * isig[j] * growth[j];
                 ccov[j + i * N] = p3d_model->evalCorrFunc1dT(rz) * isigG_ij;
             }
         }
@@ -689,22 +688,22 @@ public:
      * @param alpha Optional additive constant for the diagonal (default 0).
      * @param s Optional scaling factor for the entire matrix (default 1.0).
      *
-     * Diagonal: ccov[i * (N + 1)] = alpha + (1 + Var1dS * isig[i]^2 * z1[i]^2) / s
-     * Off-diagonal: ccov[j + i * N] = CorrFunc1dS(chi[j] - chi[i]) * isig[i] * z1[i] * isig[j] * z1[j] / s
+     * Diagonal: ccov[i * (N + 1)] = alpha + (1 + Var1dS * isig[i]^2 * growth[i]^2) / s
+     * Off-diagonal: ccov[j + i * N] = CorrFunc1dS(chi[j] - chi[i]) * isig[i] * growth[i] * isig[j] * growth[j] / s
      */
     void setCov_S(
             const fidcosmo::ArinyoP3DModel *p3d_model, double *ccov,
             double alpha=0, double s=1.0
     ) {
         for (int i = 0; i < N; ++i) {
-            double isigG = isig[i] * z1[i];
+            double isigG = isig[i] * growth[i];
 
             ccov[i * (N + 1)] =
                 alpha + (1.0 + p3d_model->getVar1dS() * isigG * isigG) / s;
 
             for (int j = i + 1; j < N; ++j) {
                 float rz = chi[j] - chi[i];
-                double isigG_ij = isigG * isig[j] * z1[j];
+                double isigG_ij = isigG * isig[j] * growth[j];
                 ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz) * isigG_ij / s;
             }
         }

@@ -23,7 +23,7 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            qso->out[i] *= qso->isig[i] * qso->z1[i] / s;
+            qso->out[i] *= qso->isig[i] * qso->growth[i] / s;
             qso->out[i] += mp * qso->in[i];
         }
     }
@@ -72,7 +72,7 @@ double Qu3DEstimator::findMaxDiagonalAs() {
     #pragma omp parallel for reduction(max:max_diag) schedule(dynamic, 4)
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            double isigG = qso->isig[i] * qso->z1[i];
+            double isigG = qso->isig[i] * qso->growth[i];
             isigG *= isigG;
             max_diag = std::max(max_diag, 1.0 + varlss_S * isigG);
         }
@@ -288,7 +288,7 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             if (qso->isig[i] != 0) {
-                qso->truth[i] =  qso->z1[i] * mesh_rnd.forwardInterpolate(
+                qso->truth[i] =  qso->growth[i] * mesh_rnd.forwardInterpolate(
                     qso->r.get() + 3 * i
                     ) + rngs[myomp::getThreadNum()].normal() / qso->isig[i];
             }
