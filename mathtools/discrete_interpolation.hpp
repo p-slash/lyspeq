@@ -224,11 +224,15 @@ public:
         interp_y = std::make_unique<T1>(x1, dx, N, y);
     }
 
+    /* Note z should be y-first indexed (ny + Ny * nx) as opposed to 
+    DiscreteBicubicSpline and others. I am keeping this probably for performance
+    purposes.
+    */
     void setInterp2D(
             double x1, double dx, double y1, double dy, double *z,
             int Nx, int Ny
     ) {
-        interp_2d = std::make_unique<T2>(x1, dx, y1, dy, z, Nx, Ny);
+        interp_2d = std::make_unique<T2>(y1, dy, x1, dx, z, Ny, Nx);
     }
 };
 
