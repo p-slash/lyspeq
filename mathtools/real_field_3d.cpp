@@ -76,6 +76,27 @@ std::function<double(size_t, size_t)> RealField3D::getNormFunc(
     return my_norm;
 }
 
+std::unique_ptr<double[]> RealField3D::estimateIsotropicPower(
+        const RealField3D &mesh, int nbins
+) {
+    auto results = std::make_unique<double[]>(nbins);
+    float amax = *std::max_element(mesh.dx, mesh.dx + 3);
+    double knyq = MY_PI / amax, dkbin = knyq / nbins;
+
+    // if (predeconvolve)  mesh.sharpen2();
+
+    #pragma omp parallel for
+    for (size_t i = 0; i < mesh.size_complex; ++i) {
+        double k2, kz;
+        mesh.getK2KzFromIndex(i, k2, kz);
+        k2 = sqrt(k2);
+        int binno = k2 / dkbin;
+        results[binno] += std::norm(mesh.field_k[i]) * mesh.invtotalvol;
+    }
+
+    return results;
+}
+
 
 void RealField3D::_setAssignmentWindows() {
     int p = 2;
