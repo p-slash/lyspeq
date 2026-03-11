@@ -8,7 +8,6 @@ option(USE_OPENBLAS_BREW "Use OpenBlas brew" OFF)
 option(USE_MKL_LIB "Use MKL library" OFF)
 option(DEBUG "Compile with debugging options" OFF)
 option(USE_SPHERICAL_DISTANCES "Use spherical distances in 3D." OFF)
-option(TURN_OFF_SPECTRO_WINDOW "Turn of spectrograph window function in 3D." OFF)
 option(KILL_15MPC_POWER "Suppresses power below 15 Mpc in 3D." OFF)
 option(ASSERT_MESH_IDX "Assert mesh indices lie within boundary" OFF)
 
@@ -177,9 +176,7 @@ add_library(Qu3dObjLibs OBJECT
 target_link_libraries(Qu3dObjLibs PUBLIC
     MY_OMP_MPI MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
     MY_FFTW3_INTERFACE GSL::gsl)
-if (TURN_OFF_SPECTRO_WINDOW)
-    target_compile_definitions(Qu3dObjLibs PUBLIC TURN_OFF_SPECTRO_WINDOW)
-endif()
+
 if (KILL_15MPC_POWER)
     target_compile_definitions(Qu3dObjLibs PUBLIC KILL_15MPC_POWER)
 endif()

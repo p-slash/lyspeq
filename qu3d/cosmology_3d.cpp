@@ -327,17 +327,14 @@ void ArinyoP3DModel::construct() {
 
 
 double ArinyoP3DModel::getSpectroWindow2(double kz) const {
-    #ifdef TURN_OFF_SPECTRO_WINDOW
-    return 1.0;
-
-    #else
+    if (spectro_off)
+        return 1.0;
+    
     if (kz == 0)  return 1;
     double kr = kz * _sigma_mpc, kv = kz * _deltar_mpc / 2.0;
     kr *= kr;
     kv = sin(kv) / kv;
     return exp(-kr) * kv * kv;
-
-    #endif
 }
 
 
@@ -658,14 +655,13 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     result *= exp(-kill_cut_ * kill_cut_);
     #endif
 
-    #ifdef TURN_OFF_SPECTRO_WINDOW
-    return result;
-    #else
+    if (spectro_off)
+        return result;
+
     if ((_sigma_mpc == 0) && (_deltar_mpc == 0))
         return result;
 
     return result * getSpectroWindow2(kz);
-    #endif
 }
 
 
