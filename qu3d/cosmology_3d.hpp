@@ -95,7 +95,8 @@ namespace fidcosmo {
     });
 
     const config_map other_settings_default_parameters ({
-        {"TurnoffSpectrographResolution", "0"}
+        {"TurnoffSpectrographResolution", "0"},
+        {"TurnoffRedshiftEvolution", "0"}
     });
 
     class ArinyoP3DModel {
@@ -144,7 +145,7 @@ namespace fidcosmo {
             double kz, double mu2, double bbeta_lya, double lnD) const;
 
     public:
-        bool spectro_off;
+        bool spectro_off, growth_off;
         DiscreteLogLogInterpolation2D<
             DiscreteCubicInterpolation1D, INTERP_COSMO_2D
         > interp2d_pL, interp2d_pS, interp2d_pT;
@@ -170,6 +171,7 @@ namespace fidcosmo {
         double getSpectroWindow2(double kz) const;
         const fidcosmo::FlatLCDM* getCosmoPtr() const { return cosmo.get(); }
         double getRedshiftEvolution(double z1) const {
+            if (growth_off)  return 1.0;
             return interp_growth->evaluate(z1);
         }
         double evalExplicit(double k, double kz) const;

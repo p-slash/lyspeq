@@ -231,29 +231,28 @@ public:
         ioh::checkFitsStatus(status);
     }
 
-    #ifdef USE_SPHERICAL_DIST
-    void setComovingDistances(const fidcosmo::FlatLCDM *cosmo, double radial) {
+    void setComovingDistances(
+            const fidcosmo::ArinyoP3DModel *p3d_model,double radial
+    ) {
+        const fidcosmo::FlatLCDM *cosmo = p3d_model->getCosmoPtr();
         _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
-        /* Spherical projection */
+
         for (int i = 0; i < N; ++i) {
+            growth[i] = p3d_model->getRedshiftEvolution(qFile->wave()[i]);
             chi[i] = cosmo->getComovingDist(qFile->wave()[i]);
+            #ifdef USE_SPHERICAL_DIST
+            /* Spherical projection */
             r[0 + 3 * i] = chi[i] * vec.r[0];
             r[1 + 3 * i] = chi[i] * vec.r[1];
             r[2 + 3 * i] = chi[i] * vec.r[2];
-        }
-    }
-    #else
-    void setComovingDistances(const fidcosmo::FlatLCDM *cosmo, double radial) {
-        _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
-        /* Equirectangular projection */
-        for (int i = 0; i < N; ++i) {
-            chi[i] = cosmo->getComovingDist(qFile->wave()[i]);
+            #else
+            /* Equirectangular projection */
             r[0 + 3 * i] = vec.phi * radial;
             r[1 + 3 * i] = vec.theta * radial;
             r[2 + 3 * i] = chi[i];
+            #endif
         }
     }
-    #endif
 
     void getSpectroWindowParams(
             const fidcosmo::FlatLCDM *cosmo, double &sigma, double &delta_r
@@ -309,11 +308,6 @@ public:
             sum_chi_weights += cosmo->getComovingDist(qFile->wave()[i]) * ivar;
             sum_weights += ivar;
         }
-    }
-
-    void transformZ1toG(const fidcosmo::ArinyoP3DModel *p3d_model) {
-        for (int i = 0; i < N; ++i)
-            growth[i] = p3d_model->getRedshiftEvolution(qFile->wave()[i]);
     }
 
     void setInIsigNoMarg() {

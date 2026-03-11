@@ -277,6 +277,7 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     beta_metal = config.getDouble("beta_metal");
     sigma_v = config.getDouble("sigma_v");
     spectro_off = config.getInteger("TurnoffSpectrographResolution") > 0;
+    growth_off = config.getInteger("TurnoffRedshiftEvolution") > 0;
 
     KMAX_HALO = std::min(1.5, k_p);
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
