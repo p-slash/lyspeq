@@ -210,11 +210,13 @@ void Qu3DEstimator::multiplyCovSmallSqrt() {
 }
 #endif
 
-void _measure_print_power(const RealField3D &mesh) {
+void _measure_print_power(RealField3D &mesh) {
+    /* Destructive operation! */
+    mesh.fftX2K();
     auto power_uniform = RealField3D::estimateIsotropicPower(mesh, 100);
-    LOG::LOGGER.STD("P       invsqrtcellvol\n");
+    LOG::LOGGER.STD("P       cellvol\n");
     for (size_t i = 0; i < 100; i++)
-        LOG::LOGGER.STD("%12.2e %12.2e\n", power_uniform[i], mesh.invsqrtcellvol);
+        LOG::LOGGER.STD("%12.8e %12.8e\n", power_uniform[i], mesh.cellvol);
 }
 
 
@@ -253,7 +255,7 @@ void Qu3DEstimator::replaceDeltasWithGaussianField() {
         }
 
         mesh.fillRndNormal(rngs);
-        _measure_print_power(mesh);
+        // _measure_print_power(mesh);
         mesh.convolveSqrtPk(p3d_model->interp2d_pL, predeconvolve_cic_window);
         #pragma omp parallel for schedule(dynamic, 4)
         for (auto &qso : quasars)
