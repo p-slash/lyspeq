@@ -94,6 +94,10 @@ namespace fidcosmo {
         {"beta_metal", "0.5"}, {"sigma_v", "5.0"}
     });
 
+    const config_map other_settings_default_parameters ({
+        {"TurnoffSpectrographResolution", "0"}
+    });
+
     class ArinyoP3DModel {
     public:
         static constexpr double MAX_R_FACTOR = 20.0;
@@ -140,6 +144,7 @@ namespace fidcosmo {
             double kz, double mu2, double bbeta_lya, double lnD) const;
 
     public:
+        bool spectro_off;
         DiscreteLogLogInterpolation2D<
             DiscreteCubicInterpolation1D, INTERP_COSMO_2D
         > interp2d_pL, interp2d_pS, interp2d_pT;
@@ -152,9 +157,12 @@ namespace fidcosmo {
         a_nu: double
         b_nu: double
         k_nu: double
+
+        TurnoffSpectrographResolution: false by default
         */
         ArinyoP3DModel(ConfigFile &config);
         void setSpectroParams(double sigma, double delta_r) {
+            if (spectro_off)  return;
             _sigma_mpc = sigma;  _deltar_mpc = delta_r;
         }
         void construct();
