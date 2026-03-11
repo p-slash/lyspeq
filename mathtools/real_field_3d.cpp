@@ -87,7 +87,7 @@ void RealField3D::_setAssignmentWindows() {
     iasgn_window_z2 = std::make_unique<double[]>(ngrid_kz);
 
     for (size_t ij = 0; ij < ngrid_xy; ++ij) {
-        double kx, ky, window;
+        double kx, ky;
         getKperpFromIperp(ij, kx, ky);
         kx = fabs(kx);  ky = fabs(ky);
         iasgn_window_xy[ij] = getApodizedInverseInterpolationKernel(kx, dx[0], p)
@@ -97,7 +97,7 @@ void RealField3D::_setAssignmentWindows() {
     }
 
     for (size_t k = 0; k < ngrid_kz; ++k) {
-        double kz = k * k_fund[2], window;
+        double kz = k * k_fund[2];
         iasgn_window_z[k] = getApodizedInverseInterpolationKernel(kz, dx[2], p);
         iasgn_window_z2[k] = iasgn_window_z[k] * iasgn_window_z[k];
     }
