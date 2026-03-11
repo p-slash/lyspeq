@@ -91,13 +91,13 @@ std::unique_ptr<double[]> RealField3D::estimateIsotropicPower(
         double k2, kz;
         mesh.getK2KzFromIndex(i, k2, kz);
         k2 = sqrt(k2);
-        int binno = k2 / dkbin;
+        int binno = std::clamp(int(k2 / dkbin), 0, nbins - 1);
         p[binno] += std::norm(mesh.field_k[i]);
-        w[binno] += 1;
+        w[binno] += 1.0;
     }
 
     for (int i = 0; i < nbins; ++i)
-        p[i] = mesh.invtotalvol / weights[i];
+        results[i] *= mesh.invtotalvol / weights[i];
 
     return results;
 }
