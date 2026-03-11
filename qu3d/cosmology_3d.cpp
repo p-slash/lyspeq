@@ -10,8 +10,14 @@
 
 constexpr double SAFE_ZERO = 1E-300;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 2E2;
-constexpr int Nhankel = 2048, ltrunc = 512;
+constexpr double KMIN = 1E-5, KMAX = 2E2;
+/* Quasar forest length can be a maximum of 650 Mpc.
+Truncating 1e-6--1e6 logspaced array of 1536 points by 380 on each end,
+Truncating 1e-6--1e6 logspaced array of 2048 points by 512 on each end,
+Truncating 1e-5--1e5 logspaced array of 2048 points by 410 on each end,
+Truncating 1e-4--1e4 logspaced array of 1536 points by 190 on each end,
+gives approximately 1e-3--1e3 Mpc span. */
+constexpr int Nhankel = 2048, ltrunc = 410;
 const double LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
@@ -366,8 +372,8 @@ void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
 
 
 void ArinyoP3DModel::_cacheInterp2D() {
-    constexpr double dlnk = 0.02;
-    const int N = ceil((LNKMAX - LNKMIN) / dlnk);
+    constexpr int N = 1001;
+    const double dlnk = (LNKMAX - LNKMIN) / (N - 1);
     auto lnP_L = std::make_unique<double[]>(N * N),
          lnP_S = std::make_unique<double[]>(N * N),
          lnP_T = std::make_unique<double[]>(N * N);
@@ -464,6 +470,7 @@ void ArinyoP3DModel::_construcP1D() {
     /* Quasar forest length can be a maximum of 650 Mpc.
        Truncating 1e-6--1e6 logspaced array of 1536 points by 380 on each end,
        Truncating 1e-6--1e6 logspaced array of 2048 points by 512 on each end,
+       Truncating 1e-5--1e5 logspaced array of 2048 points by 410 on each end,
        Truncating 1e-4--1e4 logspaced array of 1536 points by 190 on each end,
        gives approximately 1e-3--1e3 Mpc span. */
     const double log2_e = log2(exp(1.0)), SQRT_2PI = sqrt(2.0 * MY_PI);
