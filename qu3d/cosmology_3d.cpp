@@ -261,6 +261,8 @@ const std::unordered_map<std::string, double> metal_line_map ({
 ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     config.addDefaults(arinyo_default_parameters);
     config.addDefaults(metals_default_parameters);
+    config.addDefaults(other_settings_default_parameters);
+
     b_F = config.getDouble("b_F");
     alpha_F = config.getDouble("alpha_F");
     beta_F = config.getDouble("beta_F");
@@ -274,6 +276,7 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     L_HCD = config.getDouble("L_HCD");
     beta_metal = config.getDouble("beta_metal");
     sigma_v = config.getDouble("sigma_v");
+    spectro_off = config.getInteger("TurnoffSpectrographResolution") > 0;
 
     KMAX_HALO = std::min(1.5, k_p);
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);

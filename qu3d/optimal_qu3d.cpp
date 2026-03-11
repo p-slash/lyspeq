@@ -254,6 +254,8 @@ void _setSpectroMeanParams(
         "Mean spectro window params: s=%.2f Mpc/h and Delta r=%.2f Mpc/h.\n",
         mean_sigma, mean_delta_r);
     p3d_model->setSpectroParams(mean_sigma, mean_delta_r);
+    if (p3d_model->spectro_off)
+        LOG::LOGGER.STD("Note that spectrograph correction is turned OFF.\n");
 }
 
 
