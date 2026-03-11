@@ -46,6 +46,9 @@ public:
             bool predeconvolve=false
     );
 
+    static std::unique_ptr<double[]> estimateIsotropicPower(
+        const RealField3D &mesh, int nbins);
+
     size_t size_complex, size_real, ngrid_xy, ngrid_z, ngrid_kz;
     int ngrid[3];
     float dx[3], length[3], xyz0[3];
