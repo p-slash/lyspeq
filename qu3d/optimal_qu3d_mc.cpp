@@ -352,8 +352,8 @@ bool Qu3DEstimator::_syncMonteCarlo(
 void Qu3DEstimator::estimateTotalBiasDirect() {
     constexpr int M_MCS = 5;
     verbose = false;
-    mc1 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    mc2 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    mc1 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    mc2 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
     int nmc = 1;
     bool converged = false;
 
@@ -403,7 +403,7 @@ void Qu3DEstimator::estimateTotalBiasDirect() {
             continue;
 
         converged = _syncMonteCarlo(
-            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_P_BANDS,
+            nmc, raw_bias.get(), filt_bias.get(), bins::NUMBER_OF_P_BANDS,
             "FTOTALBIAS-D");
 
         if (converged)
@@ -418,8 +418,8 @@ void Qu3DEstimator::estimateTotalBiasMc() {
        post-processed to get the Fisher matrix. */
     constexpr int M_MCS = 5;
 
-    mc1 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    mc2 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    mc1 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    mc2 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
     int nmc = 1;
     bool converged = false;
 
@@ -429,7 +429,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
     ioh::Qu3dFile monte_carlos_file(
         process::FNAME_BASE + "-montecarlos-" + std::to_string(mympi::this_pe),
         0);
-    auto all_mcs = std::make_unique<double[]>(M_MCS * NUMBER_OF_P_BANDS);
+    auto all_mcs = std::make_unique<double[]>(M_MCS * bins::NUMBER_OF_P_BANDS);
 
     Progress prog_tracker(max_monte_carlos, 10);
     for (; nmc <= max_monte_carlos; ++nmc) {
@@ -452,7 +452,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
         /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
         multiplyDerivVectors(
             mc1.get(), mc2.get(),
-            all_mcs.get() + jj * NUMBER_OF_P_BANDS
+            all_mcs.get() + jj * bins::NUMBER_OF_P_BANDS
         );
 
         ++prog_tracker;
@@ -461,12 +461,12 @@ void Qu3DEstimator::estimateTotalBiasMc() {
             continue;
 
         monte_carlos_file.write(
-            all_mcs.get(), (jj + 1) * NUMBER_OF_P_BANDS,
+            all_mcs.get(), (jj + 1) * bins::NUMBER_OF_P_BANDS,
             "TOTBIAS_MCS-" + std::to_string(nmc), jj + 1);
         monte_carlos_file.flush();
 
         converged = _syncMonteCarlo(
-            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_P_BANDS,
+            nmc, raw_bias.get(), filt_bias.get(), bins::NUMBER_OF_P_BANDS,
             "FTOTALBIAS-MC");
 
         if (converged)
@@ -554,8 +554,8 @@ void Qu3DEstimator::testCovSqrt() {
 void Qu3DEstimator::estimateNoiseBiasMc() {
     LOG::LOGGER.STD("Estimating noise bias.\n");
     verbose = false;
-    mc1 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    mc2 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    mc1 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    mc2 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
 
     Progress prog_tracker(max_monte_carlos, 10);
     int nmc = 1;
@@ -584,7 +584,7 @@ void Qu3DEstimator::estimateNoiseBiasMc() {
             continue;
 
         converged = _syncMonteCarlo(
-            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_P_BANDS, "FBIAS");
+            nmc, raw_bias.get(), filt_bias.get(), bins::NUMBER_OF_P_BANDS, "FBIAS");
 
         if (converged)
             break;
@@ -634,14 +634,14 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
         mesh_rnd.fftX2K();
         LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
 
-        for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
+        for (int i = 0; i < bins::NUMBER_OF_P_BANDS; ++i) {
             multDerivMatrixVec(i);
 
             /* calculate C^-1 . qk into in */
             conjugateGradientDescent();
             /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
-            multiplyDerivVectors(mc1.get() + i * NUMBER_OF_P_BANDS,
-                                 mc2.get() + i * NUMBER_OF_P_BANDS);
+            multiplyDerivVectors(mc1.get() + i * bins::NUMBER_OF_P_BANDS,
+                                 mc2.get() + i * bins::NUMBER_OF_P_BANDS);
         }
 
         ++prog_tracker;
@@ -689,7 +689,7 @@ void Qu3DEstimator::estimateFisherDirect() {
 
     LOG::LOGGER.STD("  Using preconditioner as solution.\n");
 
-    Progress prog_tracker(max_monte_carlos * NUMBER_OF_P_BANDS, 5);
+    Progress prog_tracker(max_monte_carlos * bins::NUMBER_OF_P_BANDS, 5);
     int nmc = 1;
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
@@ -727,13 +727,13 @@ void Qu3DEstimator::estimateFisherDirect() {
         reverseInterpolateZ(mesh_fh);
         mesh_fh.rawFftX2K();
 
-        for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
+        for (int i = 0; i < bins::NUMBER_OF_P_BANDS; ++i) {
             multDerivMatrixVec(i);
 
             /* calculate C^-1 . qk into in */
             preconditionerSolution();
-            multiplyDerivVectors(mc1.get() + i * NUMBER_OF_P_BANDS,
-                                 mc2.get() + i * NUMBER_OF_P_BANDS,
+            multiplyDerivVectors(mc1.get() + i * bins::NUMBER_OF_P_BANDS,
+                                 mc2.get() + i * bins::NUMBER_OF_P_BANDS,
                                  nullptr, &mesh_fh);
             ++prog_tracker;
         }

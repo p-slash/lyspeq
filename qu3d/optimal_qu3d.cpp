@@ -39,10 +39,78 @@ const fidcosmo::FlatLCDM *cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 std::unique_ptr<ioh::ContMargFile> ioh::continuumMargFileHandler;
 
-int NUMBER_OF_P_BANDS = 0;
-double DK_BIN = 0;
 bool verbose = true, CONT_MARG_ENABLED = false, KEEP_MATRICES_IN_MEMORY = false;
 constexpr bool INPLACE_FFT = true;
+
+// Binning functions for Pell(k)
+namespace bins {
+    int NUMBER_OF_MULTIPOLES = 0, NUMBER_OF_P_BANDS = 0;
+    double DK_BIN = 0;
+    std::function<void(double, double, double, double*)> pellBinningFunction;
+    std::function<double(int, double)> getBinWeight;
+
+    // The following binning functions assume you have checked for boundary!
+    void _tophat_binning(double val, double kt, double mu, double *output) {
+        int ik = (kt - KBAND_EDGES[0]) / DK_BIN;
+
+        for (int ell = 0; ell < NUMBER_OF_MULTIPOLES; ++ell)
+            output[ik + ell * NUMBER_OF_K_BANDS] += val * legendre(2 * ell, mu);
+    }
+
+    void _triangular_binning(double val, double kt, double mu, double *output) {
+        int ik, ik2;
+        double bin1_weight, bin2_weight;
+
+        ik = (kt - KBAND_EDGES[0]) / DK_BIN;
+
+        if (kt > KBAND_CENTERS[ik])
+            ik2 = std::min(NUMBER_OF_K_BANDS - 1, ik + 1);
+        else
+            ik2 = std::max(0, ik - 1);
+
+        bin2_weight = fabs(kt - KBAND_CENTERS[ik]) / DK_BIN;
+        bin1_weight = 1.0 - bin2_weight;
+
+        for (int ell = 0; ell < NUMBER_OF_MULTIPOLES; ++ell) {
+            double val_ellmu = val * legendre(2 * ell, mu);
+            output[ik + ell * NUMBER_OF_K_BANDS] += val_ellmu * bin1_weight;
+            output[ik2 + ell * NUMBER_OF_K_BANDS] += val_ellmu * bin2_weight;
+        }
+    }
+
+    double _tophat_binweight(int ik, double kt) {
+        const double kcenter = KBAND_CENTERS[ik];
+        double t = fabs(kt - kcenter);
+        if (t < (DK_BIN / 2))
+            return 1.0;
+
+        return 0.0;
+    }
+
+    double _triangular_binweight(int ik, double kt) {
+        const double kcenter = KBAND_CENTERS[ik];
+        bool is_last_k_bin = ik == (NUMBER_OF_K_BANDS - 1),
+             is_first_k_bin = ik == 0;
+
+        if (is_last_k_bin && (kt > kcenter))
+            return 1.0;
+        else if (is_first_k_bin && (kt < kcenter))
+            return 1.0;
+        else
+            return (1.0 - fabs(kt - kcenter) / DK_BIN);
+    }
+
+    void setBinningFunctions(int j) {
+        if (j == 0) {
+            pellBinningFunction = _tophat_binning;
+            getBinWeight = _tophat_binweight;
+        }
+        else {
+            pellBinningFunction = _triangular_binning;
+            getBinWeight = _triangular_binweight;
+        }
+    }
+}
 
 
 #ifdef DEBUG
@@ -667,7 +735,7 @@ void Qu3DEstimator::_openResultsFile() {
     double *k_grid = raw_power.get(),
            *pfid_grid = raw_bias.get();
 
-    for (int imu = 0; imu < number_of_multipoles; ++imu) {
+    for (int imu = 0; imu < bins::NUMBER_OF_MULTIPOLES; ++imu) {
         for (int ik = 0; ik < bins::NUMBER_OF_K_BANDS; ++ik) {
             size_t i = ik + bins::NUMBER_OF_K_BANDS * imu;
             k_grid[i] = bins::KBAND_CENTERS[ik];
@@ -675,11 +743,11 @@ void Qu3DEstimator::_openResultsFile() {
         }
     }
 
-    result_file->write(k_grid, NUMBER_OF_P_BANDS, "K");
-    result_file->write(pfid_grid, NUMBER_OF_P_BANDS, "PFID");
+    result_file->write(k_grid, bins::NUMBER_OF_P_BANDS, "K");
+    result_file->write(pfid_grid, bins::NUMBER_OF_P_BANDS, "PFID");
     result_file->flush();
-    std::fill_n(k_grid, NUMBER_OF_P_BANDS, 0);
-    std::fill_n(pfid_grid, NUMBER_OF_P_BANDS, 0);
+    std::fill_n(k_grid, bins::NUMBER_OF_P_BANDS, 0);
+    std::fill_n(pfid_grid, bins::NUMBER_OF_P_BANDS, 0);
 }
 
 
@@ -742,10 +810,11 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_direct_enabled = config.getInteger("EstimateFisherDirectly") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
-    number_of_multipoles = config.getInteger("NumberOfMultipoles");
+    bins::NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
     shrink_factor_for_sqrt = config.getDouble("ShrinkFactorForSqrt");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
     KEEP_MATRICES_IN_MEMORY = config.getInteger("KeepMatricesInMemory") > 0;
+    bins::setBinningFunctions(config.getInteger("PowerSpectrumBinningMethod"));
 
     if (CONT_MARG_ENABLED && unique_prefix.empty())
         throw std::invalid_argument("Need UniquePrefixTmp when marginalizing.");
@@ -757,14 +826,14 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     cosmo = p3d_model->getCosmoPtr();
     logCosmoDist(); logCosmoHubble(); 
 
-    NUMBER_OF_P_BANDS = bins::NUMBER_OF_K_BANDS * number_of_multipoles;
-    DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
-    bins::FISHER_SIZE = NUMBER_OF_P_BANDS * NUMBER_OF_P_BANDS;
+    bins::NUMBER_OF_P_BANDS = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_MULTIPOLES;
+    bins::DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
+    bins::FISHER_SIZE = bins::NUMBER_OF_P_BANDS * bins::NUMBER_OF_P_BANDS;
 
-    raw_power = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    filt_power = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    raw_bias = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    filt_bias = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    raw_power = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    filt_power = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    raw_bias = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    filt_bias = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
     fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
     covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
 
@@ -1313,13 +1382,10 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
     double t1 = mytime::timer.getTime();
     int imu = i / bins::NUMBER_OF_K_BANDS, ik = i % bins::NUMBER_OF_K_BANDS;
 
-    double kmin = std::max(bins::KBAND_CENTERS[ik] - DK_BIN,
+    double kmin = std::max(bins::KBAND_CENTERS[ik] - bins::DK_BIN,
                            bins::KBAND_EDGES[0]),
-           kmax = std::min(bins::KBAND_CENTERS[ik] + DK_BIN,
-                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]),
-           kcenter = bins::KBAND_CENTERS[ik];
-    bool is_last_k_bin = ik == (bins::NUMBER_OF_K_BANDS - 1),
-         is_first_k_bin = ik == 0;
+           kmax = std::min(bins::KBAND_CENTERS[ik] + bins::DK_BIN,
+                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
 
     std::function<double(double)> legendre_w;
     switch (imu) {
@@ -1355,13 +1421,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
             else if (kt >= kmax)  break;
             mu = kz / kt;
 
-            if (is_last_k_bin && (kt > kcenter))
-                alpha = 1.0;
-            else if (is_first_k_bin && (kt < kcenter))
-                alpha = 1.0;
-            else
-                alpha = (1.0 - fabs(kt - kcenter) / DK_BIN);
-
+            alpha = bins::getBinWeight(ik, kt);
             alpha *= legendre_w(mu);
             alpha /= kt * kt;
             /* These are handled before in estimateFisherDirect
@@ -1402,7 +1462,7 @@ void Qu3DEstimator::multiplyDerivVectors(
     mesh_kz_max = std::min(
         size_t(ceil(KMAX_EDGE / mesh.k_fund[2])), mesh.ngrid_kz),
     mesh_kz_min = ceil(specifics::MIN_KZ / mesh.k_fund[2]);
-    static auto _lout = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    static auto _lout = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
     static auto _spectroWindow2 = [this]() {
         auto ptr = std::make_unique<double[]>(mesh.ngrid_kz);
         for (size_t i = 0; i < mesh.ngrid_kz; ++i) {
@@ -1420,17 +1480,16 @@ void Qu3DEstimator::multiplyDerivVectors(
     if (lout == nullptr)
         lout = (o2 == nullptr) ? o1 : _lout.get();
 
-    std::fill_n(lout, NUMBER_OF_P_BANDS, 0);
+    std::fill_n(lout, bins::NUMBER_OF_P_BANDS, 0);
 
     std::function<double(size_t, size_t)> my_norm = RealField3D::getNormFunc(
         &mesh, other, predeconvolve_cic_window);
 
-    #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS]) \
+    #pragma omp parallel for reduction(+:lout[0:bins::NUMBER_OF_P_BANDS]) \
                              schedule(dynamic, 4)
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
-        double kx, ky, temp, temp2, temp3;
+        double kx, ky;
         double kperp = mesh.getKperpFromIperp(jxy, kx, ky);
-        int ik, ik2;
 
         if (fabs(kx) < specifics::MIN_KPERP || fabs(ky) < specifics::MIN_KPERP)
             continue;
@@ -1447,37 +1506,17 @@ void Qu3DEstimator::multiplyDerivVectors(
             if (kt >= KMAX_EDGE)  break;
 
             mu = kz / kt;
-            ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
+            double val = (1.0 + (jz != 0)) * my_norm(jxy, jz) * _spectroWindow2[jz];
+            val /= kt * kt;
 
-            if (kt > bins::KBAND_CENTERS[ik])
-                ik2 = std::min(bins::NUMBER_OF_K_BANDS - 1, ik + 1);
-            else
-                ik2 = std::max(0, ik - 1);
-
-            temp = (1.0 + (jz != 0)) * my_norm(jxy, jz) * _spectroWindow2[jz];
-            temp /= kt * kt;
-            temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
-
-            #ifdef RL_COMP_DERIV
-            kt *= radius / rscale_factor;
-            temp *= exp(-kt * kt);
-            #endif
-
-            temp3 = temp * (1.0 - temp2);
-            temp *= temp2;
-
-            for (int ell = 0; ell < number_of_multipoles; ++ell) {
-                temp2 = legendre(2 * ell, mu);
-                lout[ik + ell * bins::NUMBER_OF_K_BANDS] += temp2 * temp;
-                lout[ik2 + ell * bins::NUMBER_OF_K_BANDS] += temp2 * temp3;
-            }
+            bins::pellBinningFunction(val, kt, mu, lout);
         }
     }
 
-    cblas_dscal(NUMBER_OF_P_BANDS, mesh.invtotalvol, lout, 1);
+    cblas_dscal(bins::NUMBER_OF_P_BANDS, mesh.invtotalvol, lout, 1);
 
     if (o2 != nullptr) {
-        for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
+        for (int i = 0; i < bins::NUMBER_OF_P_BANDS; ++i) {
             o1[i] += lout[i];
             o2[i] += lout[i] * lout[i];
         }
@@ -1498,7 +1537,7 @@ void Qu3DEstimator::estimatePower() {
     /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
     multiplyDerivVectors(raw_power.get(), nullptr);
 
-    result_file->write(raw_power.get(), NUMBER_OF_P_BANDS, "FPOWER");
+    result_file->write(raw_power.get(), bins::NUMBER_OF_P_BANDS, "FPOWER");
     result_file->flush();
     logTimings();
 }
@@ -1509,16 +1548,16 @@ void Qu3DEstimator::filter() {
         return;
 
     std::copy_n(fisher.get(), bins::FISHER_SIZE, covariance.get());
-    mxhelp::LAPACKE_InvertMatrixLU(covariance.get(), NUMBER_OF_P_BANDS);
+    mxhelp::LAPACKE_InvertMatrixLU(covariance.get(), bins::NUMBER_OF_P_BANDS);
     cblas_dgemv(
-        CblasRowMajor, CblasNoTrans, NUMBER_OF_P_BANDS, NUMBER_OF_P_BANDS,
-        0.5, covariance.get(), NUMBER_OF_P_BANDS,
+        CblasRowMajor, CblasNoTrans, bins::NUMBER_OF_P_BANDS, bins::NUMBER_OF_P_BANDS,
+        0.5, covariance.get(), bins::NUMBER_OF_P_BANDS,
         raw_power.get(), 1,
         0, filt_power.get(), 1);
 
     cblas_dgemv(
-        CblasRowMajor, CblasNoTrans, NUMBER_OF_P_BANDS, NUMBER_OF_P_BANDS,
-        0.5, covariance.get(), NUMBER_OF_P_BANDS,
+        CblasRowMajor, CblasNoTrans, bins::NUMBER_OF_P_BANDS, bins::NUMBER_OF_P_BANDS,
+        0.5, covariance.get(), bins::NUMBER_OF_P_BANDS,
         raw_bias.get(), 1,
         0, filt_bias.get(), 1);
 }
@@ -1569,13 +1608,13 @@ void Qu3DEstimator::write() {
         "%14s %s %14s %14s %14s %14s %14s %14s\n", 
         "k", "l", "P3D", "e_P3D", "d", "b", "Fd", "Fb");
 
-    for (int imu = 0; imu < number_of_multipoles; ++imu) {
+    for (int imu = 0; imu < bins::NUMBER_OF_MULTIPOLES; ++imu) {
         for (int ik = 0; ik < bins::NUMBER_OF_K_BANDS; ++ik) {
             size_t i = ik + bins::NUMBER_OF_K_BANDS * imu;
             int l = 2 * imu;
             double k = bins::KBAND_CENTERS[ik],
                    P3D = filt_power[i] - filt_bias[i],
-                   e_P3D = sqrt(covariance[i * (NUMBER_OF_P_BANDS + 1)]),
+                   e_P3D = sqrt(covariance[i * (bins::NUMBER_OF_P_BANDS + 1)]),
                    d = filt_power[i],
                    b = filt_bias[i],
                    Fd = raw_power[i],
@@ -1592,7 +1631,7 @@ void Qu3DEstimator::write() {
     fname = _getFname("_fisher");
     mxhelp::fprintfMatrix(
         fname.c_str(), fisher.get(),
-        NUMBER_OF_P_BANDS, NUMBER_OF_P_BANDS);
+        bins::NUMBER_OF_P_BANDS, bins::NUMBER_OF_P_BANDS);
 
     LOG::LOGGER.STD("Fisher matrix saved as %s.\n", fname.c_str());
 }
