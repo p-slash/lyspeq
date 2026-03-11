@@ -228,10 +228,12 @@ double _setCosmologicalCoordinates(
     sum_chi_weights /= sum_weights;
 
     LOG::LOGGER.STD("Effective radial distance is %.3f Mpc/h.\n", sum_chi_weights);
+    if (p3d_model->growth_off)
+        LOG::LOGGER.STD("Note that redshift evolution is turned OFF.\n");
 
     #pragma omp parallel for num_threads(8)
     for (auto &qso : quasars)
-        qso->setComovingDistances(cosmo, sum_chi_weights);
+        qso->setComovingDistances(p3d_model.get(), sum_chi_weights);
 
     return sum_chi_weights;
 }
@@ -869,10 +871,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     bool end_imm = (test_gaussian_field && (mock_grid_res_factor > 1));
     if (CONT_MARG_ENABLED && !end_imm)
         _createRmatFiles(unique_prefix);
-
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        qso->transformZ1toG(p3d_model.get());
 }
 
 void Qu3DEstimator::reverseInterpolate(RealField3D &m) {
