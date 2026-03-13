@@ -263,6 +263,8 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     config.addDefaults(metals_default_parameters);
     config.addDefaults(other_settings_default_parameters);
 
+    _sigma_mpc = 0;
+    _deltar_mpc = 0;
     b_F = config.getDouble("b_F");
     alpha_F = config.getDouble("alpha_F");
     beta_F = config.getDouble("beta_F");
@@ -284,8 +286,19 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     rscale_long = config.getDouble("LongScale");
     rmax = rscale_long * config.getDouble("ScaleFactor");
     _z1_pivot = 1.0 + cosmo->z_pivot;
-    _sigma_mpc = 0;
-    _deltar_mpc = 0;
+
+    _D_pivot = cosmo->getLinearGrowth(_z1_pivot);
+    constexpr int nz = 401;
+    constexpr double dz = 0.01, z1_i = 2.9;
+    double growth[nz];
+
+    for (int i = 0; i < nz; ++i) {
+        double z1 = z1_i + dz * i;
+        growth[i] = cosmo->getLinearGrowth(z1) / _D_pivot
+                    * pow(z1 / 3.4, alpha_F);
+    }
+    interp_growth = std::make_unique<DiscreteCubicInterpolation1D>(
+        z1_i, dz, nz, &growth[0]);
 
     for (const auto &[key, wave_m] : metal_line_map) {
         double b = config.getDouble(key);
@@ -311,19 +324,6 @@ void ArinyoP3DModel::construct() {
     _cacheInterp2D();
     _getCorrFunc2dS();
     _calcMultipoles();
-
-    _D_pivot = cosmo->getLinearGrowth(_z1_pivot);
-    constexpr int nz = 401;
-    constexpr double dz = 0.01, z1_i = 2.9;
-    double growth[nz];
-
-    for (int i = 0; i < nz; ++i) {
-        double z1 = z1_i + dz * i;
-        growth[i] = cosmo->getLinearGrowth(z1) / _D_pivot
-                    * pow(z1 / 3.4, alpha_F);
-    }
-    interp_growth = std::make_unique<DiscreteCubicInterpolation1D>(
-        z1_i, dz, nz, &growth[0]);
 }
 
 
