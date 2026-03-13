@@ -232,14 +232,15 @@ public:
     }
 
     void setComovingDistances(
-            const fidcosmo::ArinyoP3DModel *p3d_model,double radial
+            const fidcosmo::ArinyoP3DModel *p3d_model, double radial
     ) {
         const fidcosmo::FlatLCDM *cosmo = p3d_model->getCosmoPtr();
         _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
 
         for (int i = 0; i < N; ++i) {
-            growth[i] = p3d_model->getRedshiftEvolution(qFile->wave()[i]);
-            chi[i] = cosmo->getComovingDist(qFile->wave()[i]);
+            double z1 = qFile->wave()[i];
+            growth[i] = p3d_model->getRedshiftEvolution(z1);
+            chi[i] = cosmo->getComovingDist(z1);
             #ifdef USE_SPHERICAL_DIST
             /* Spherical projection */
             r[0 + 3 * i] = chi[i] * vec.r[0];
