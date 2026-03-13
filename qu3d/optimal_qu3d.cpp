@@ -827,11 +827,6 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     _initRngs(seed_generator.get());
 
     p3d_model = std::make_unique<fidcosmo::ArinyoP3DModel>(config);
-    LOG::LOGGER.STD("Calculating cosmology model.\n");
-    p3d_model->construct();
-    p3d_model->calcVarLss(pp_enabled);
-    LOG::LOGGER.STD("VarLSS: %.3e.\n", p3d_model->getVarLss());
-    logPmodel();
     cosmo = p3d_model->getCosmoPtr();
     logCosmoDist(); logCosmoHubble(); 
 
@@ -847,6 +842,13 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
 
     _readQSOFiles(flist, findir);
+
+    LOG::LOGGER.STD("Calculating cosmology model.\n");
+    p3d_model->construct();
+    p3d_model->calcVarLss(pp_enabled);
+    LOG::LOGGER.STD("VarLSS: %.3e.\n", p3d_model->getVarLss());
+    logPmodel();
+
 
     _openResultsFile();
 
