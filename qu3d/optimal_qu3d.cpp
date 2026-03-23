@@ -193,6 +193,7 @@ void _rotateToCentroid(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
     double u[] = {0, 0, 0};
     Vec3 mean_vec;
 
+    #pragma omp parallel for num_threads(8) reduction(+:u[:3])
     for (const auto &qso : quasars)
         for (int axis = 0; axis < 3; ++axis)
             u[axis] += qso->vec.r[axis];
@@ -203,10 +204,11 @@ void _rotateToCentroid(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
     mean_vec.setVector(u);
 
     LOG::LOGGER.STD(
-        "Rotating to the central pointing (theta:%.4f, phi:%.4f) deg\n",
-        mean_vec.theta * rad2deg, mean_vec.phi * rad2deg);
+        "Rotating to the central pointing (theta(dec): %.4f (%.4f), phi: %.4f) deg\n",
+        mean_vec.theta * rad2deg, 90.0 - mean_vec.theta * rad2deg, mean_vec.phi * rad2deg);
 
     const auto rot_mat = Vec3::getRotationMatrix(mean_vec);
+    #pragma omp parallel for num_threads(8)
     for (auto &qso : quasars)
         #ifdef USE_SPHERICAL_DIST
         qso->vec.rotate(rot_mat);
