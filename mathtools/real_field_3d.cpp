@@ -250,47 +250,52 @@ std::vector<size_t> RealField3D::findNeighboringPixels(
 ) const {
     // TODO: ask co-pilot to improve. Sphere around a point and find
     // every voxel touching
-    int n[3], dn[3], ntot = 1;
+    int center[3], max_offset[3];
+    size_t max_candidates = 1;
     std::vector<size_t> neighbors;
-    radius += celldiag * 1.05;  // Add a small buffer to include all neighbors
+    const double search_radius = radius + celldiag * 1.05;
 
-    getNFromIndex(i, n);
+    getNFromIndex(i, center);
     for (int axis = 0; axis < 3; ++axis) {
-        dn[axis] = ceil(radius / dx[axis] + 2) - 1;
-        ntot *= 2 * dn[axis] + 1;
+        max_offset[axis] = static_cast<int>(ceil(search_radius / dx[axis] + 2.0)) - 1;
+        max_candidates *= static_cast<size_t>(2 * max_offset[axis] + 1);
     }
 
-    radius *= radius;
+    const double radius2 = search_radius * search_radius;
 
-    neighbors.reserve(ntot);
-    int _xi, _xf;
+    neighbors.reserve(max_candidates);
+
+    int x_offset_begin, x_offset_end;
     if (_periodic_x) {
-        _xi = -dn[0];  _xf = dn[0] + 1;
+        x_offset_begin = -max_offset[0];
+        x_offset_end = max_offset[0] + 1;
     } else {
-        _xi = std::max(0, n[0] - dn[0]) - n[0];
-        _xf = std::min(ngrid[0], n[0] + dn[0] + 1) - n[0];
+        x_offset_begin = std::max(0, center[0] - max_offset[0]) - center[0];
+        x_offset_end = std::min(ngrid[0], center[0] + max_offset[0] + 1) - center[0];
     }
 
-    for (int x = _xi; x < _xf; ++x) {
-        double x2 = x * dx[0];  x2 *= x2;
+    int y_begin = std::max(0, center[1] - max_offset[1]);
+    int y_end = std::min(ngrid[1], center[1] + max_offset[1] + 1);
+    int z_begin = std::max(0, center[2] - max_offset[2]);
+    int z_end = std::min(ngrid[2], center[2] + max_offset[2] + 1);
 
-        for (int y = std::max(0, n[1] - dn[1]);
-             y < std::min(ngrid[1], n[1] + dn[1] + 1);
-             ++y
-        ) {
-            double y2 = (y - n[1]) * dx[1];  y2 *= y2;
+    for (int x_offset = x_offset_begin; x_offset < x_offset_end; ++x_offset) {
+        double x2 = x_offset * dx[0];
+        x2 *= x2;
 
-            for (int z = std::max(0, n[2] - dn[2]);
-                 z < std::min(ngrid[2], n[2] + dn[2] + 1);
-                 ++z
-            ) {
-                double z2 = (z - n[2]) * dx[2];  z2 *= z2;
-                z2 += x2 + y2;
+        for (int y = y_begin; y < y_end; ++y) {
+            double y2 = (y - center[1]) * dx[1];
+            y2 *= y2;
 
-                if (z2 > radius)
+            for (int z = z_begin; z < z_end; ++z) {
+                double distance2 = (z - center[2]) * dx[2];
+                distance2 *= distance2;
+                distance2 += x2 + y2;
+
+                if (distance2 > radius2)
                     continue;
 
-                neighbors.push_back(getIndex(n[0] + x, y, z));
+                neighbors.push_back(getIndex(center[0] + x_offset, y, z));
             }
         }
     }
