@@ -226,6 +226,14 @@ target_link_libraries(cblas_tests PUBLIC
 add_executable(testSQCMatrices tests/testSQCMatrices.cpp tests/test_utils.cpp)
 target_link_libraries(testSQCMatrices PRIVATE AllObjLibs)
 
+add_executable(testRealField3DInterpolation
+    tests/test_real_field_interpolation.cpp tests/test_utils.cpp
+    mathtools/real_field_3d.cpp mathtools/real_field.cpp
+    mathtools/matrix_helper.cpp mathtools/discrete_interpolation.cpp
+)
+target_link_libraries(testRealField3DInterpolation PUBLIC
+    OpenMP::OpenMP_CXX GSL::gsl MY_BLAS_INTERFACE MY_FFTW3_INTERFACE)
+
 # ===========
 # Installation
 # ===========
@@ -239,5 +247,6 @@ install(PROGRAMS py/smbivspline.py DESTINATION bin)
 file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/output)
 add_test(NAME TestCBLAS COMMAND cblas_tests)
 add_test(NAME TestSqMatrices COMMAND testSQCMatrices tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+add_test(NAME TestRealField3DInterpolation COMMAND testRealField3DInterpolation)
 add_test(NAME TestQmle COMMAND LyaPowerEstimate tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 add_test(NAME NumericalAccuracy COMMAND python tests/compareTestResults.py . WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
