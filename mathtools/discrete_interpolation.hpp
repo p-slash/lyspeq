@@ -197,9 +197,9 @@ public:
     virtual double evaluate(double x, double y) const {
         if ((x == 0) && (y == 0))
             return 0;
-        else if (x == 0)
+        if (x == 0)
             return interp_y->evaluate(log(y));
-        else if (y == 0)
+        if (y == 0)
             return interp_x->evaluate(log(x));
 
         return interp_2d->evaluateHermite2(log(y), log(x));
@@ -208,9 +208,9 @@ public:
     virtual double evaluateSqrt(double x, double y) const {
         if ((x == 0) && (y == 0))
             return 0;
-        else if (x == 0)
+        if (x == 0)
             return sqrt(interp_y->evaluate(log(y)));
-        else if (y == 0)
+        if (y == 0)
             return sqrt(interp_x->evaluate(log(x)));
 
         return sqrt(interp_2d->evaluateHermite2(log(y), log(x)));
@@ -248,9 +248,9 @@ public:
     double evaluate(double x, double y) const override {
         if ((x == 0) && (y == 0))
             return 0;
-        else if (x == 0)
+        if (x == 0)
             return exp(this->interp_y->evaluate(log(y)));
-        else if (y == 0)
+        if (y == 0)
             return exp(this->interp_x->evaluate(log(x)));
 
         return exp(this->interp_2d->evaluateHermite2(log(y), log(x)));
@@ -259,9 +259,9 @@ public:
     double evaluateSqrt(double x, double y) const override {
         if ((x == 0) && (y == 0))
             return 0;
-        else if (x == 0)
+        if (x == 0)
             return exp(0.5 * this->interp_y->evaluate(log(y)));
-        else if (y == 0)
+        if (y == 0)
             return exp(0.5 * this->interp_x->evaluate(log(x)));
 
         return exp(0.5 * this->interp_2d->evaluateHermite2(log(y), log(x)));
