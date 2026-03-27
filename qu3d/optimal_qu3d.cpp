@@ -101,7 +101,10 @@ namespace bins {
     }
 
     void setBinningFunctions(int j) {
-        if (j == 0) {
+        bool tophat = j == 0;
+        LOG::LOGGER.STD("Setting Pell(k) binning function to %s.\n",
+                        tophat ? "tophat" : "triangular");
+        if (tophat) {
             pellBinningFunction = _tophat_binning;
             getBinWeight = _tophat_binweight;
         }
