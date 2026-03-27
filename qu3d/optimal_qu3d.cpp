@@ -74,7 +74,7 @@ namespace bins {
 
         for (int ell = 0; ell < NUMBER_OF_MULTIPOLES; ++ell) {
             double val_ellmu = val * legendre(2 * ell, mu);
-            output[ik + ell * NUMBER_OF_K_BANDS] += val_ellmu * bin1_weight;
+            output[ik  + ell * NUMBER_OF_K_BANDS] += val_ellmu * bin1_weight;
             output[ik2 + ell * NUMBER_OF_K_BANDS] += val_ellmu * bin2_weight;
         }
     }
@@ -1668,15 +1668,10 @@ int main(int argc, char *argv[]) {
         const std::string output_dir = config.get("OutputDir", ".");
         std::error_code ec;
         if (!std::filesystem::exists(output_dir, ec)) {
-            if (!std::filesystem::create_directories(output_dir, ec) || ec)
+            if (!std::filesystem::create_directories(output_dir, ec))
                 throw std::runtime_error(
                     "Cannot create output directory '" + output_dir + "': "
                     + ec.message());
-        }
-        else if (ec) {
-            throw std::runtime_error(
-                "Cannot access output directory '" + output_dir + "': "
-                + ec.message());
         }
 
         LOG::LOGGER.open(output_dir, mympi::this_pe);
