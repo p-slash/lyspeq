@@ -1,4 +1,5 @@
 #include <unordered_map>
+#include <filesystem>
 
 #include <gsl/gsl_errno.h>
 
@@ -1663,7 +1664,22 @@ int main(int argc, char *argv[]) {
 
     try {
         config.readFile(FNAME_CONFIG);
-        LOG::LOGGER.open(config.get("OutputDir", "."), mympi::this_pe);
+
+        const std::string output_dir = config.get("OutputDir", ".");
+        std::error_code ec;
+        if (!std::filesystem::exists(output_dir, ec)) {
+            if (!std::filesystem::create_directories(output_dir, ec) || ec)
+                throw std::runtime_error(
+                    "Cannot create output directory '" + output_dir + "': "
+                    + ec.message());
+        }
+        else if (ec) {
+            throw std::runtime_error(
+                "Cannot access output directory '" + output_dir + "': "
+                + ec.message());
+        }
+
+        LOG::LOGGER.open(output_dir, mympi::this_pe);
         specifics::printBuildSpecifics();
         mytime::writeTimeLogHeader();
     }
