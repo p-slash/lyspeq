@@ -1196,9 +1196,10 @@ void Qu3DEstimator::preconditionerSolution() {
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars) {
             double *rrmat = qso->multInputWithMarg(qso->truth);
-            qso->multInvCov(p3d_model.get(), qso->in_isig, qso->truth);
+            qso->multInvCov(p3d_model.get(), qso->in_isig, qso->search.get());
             cblas_dsymv(CblasRowMajor, CblasUpper, qso->N, 1.0,
-                        rrmat, qso->N, qso->truth, 1, 0, qso->in, 1);
+                        rrmat, qso->N, qso->search.get(), 1,
+                        0, qso->in, 1);
             qso->multIsigInVector();
         }
         ioh::continuumMargFileHandler->rewind();
