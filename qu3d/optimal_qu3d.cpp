@@ -45,15 +45,19 @@ constexpr bool INPLACE_FFT = true;
 
 // Binning functions for Pell(k)
 namespace bins {
-    int NUMBER_OF_MULTIPOLES = 0, NUMBER_OF_P_BANDS = 0;
+    int NUMBER_OF_MULTIPOLES = 0, NUMBER_OF_P_BANDS = 0, N_KNPELL = 0;
     double DK_BIN = 0;
     std::function<void(double, double, double, double*)> pellBinningFunction;
     std::function<double(int, double)> getBinWeight;
+    inline double knpower(double k) {
+        return N_KNPELL == 0 ? 1.0 : std::pow(k, N_KNPELL);
+    }
 
     // The following binning functions assume you have checked for boundary!
     void _tophat_binning(double val, double kt, double mu, double *output) {
         int ik = (kt - KBAND_EDGES[0]) / DK_BIN;
 
+        val /= knpower(kt);
         for (int ell = 0; ell < NUMBER_OF_MULTIPOLES; ++ell)
             output[ik + ell * NUMBER_OF_K_BANDS] += val * legendre(2 * ell, mu);
     }
@@ -72,6 +76,7 @@ namespace bins {
         bin2_weight = fabs(kt - KBAND_CENTERS[ik]) / DK_BIN;
         bin1_weight = 1.0 - bin2_weight;
 
+        val /= knpower(kt);
         for (int ell = 0; ell < NUMBER_OF_MULTIPOLES; ++ell) {
             double val_ellmu = val * legendre(2 * ell, mu);
             output[ik  + ell * NUMBER_OF_K_BANDS] += val_ellmu * bin1_weight;
@@ -83,28 +88,31 @@ namespace bins {
         const double kcenter = KBAND_CENTERS[ik];
         double t = fabs(kt - kcenter);
         if (t < (DK_BIN / 2))
-            return 1.0;
+            return 1.0 / knpower(kt);
 
         return 0.0;
     }
 
     double _triangular_binweight(int ik, double kt) {
         const double kcenter = KBAND_CENTERS[ik];
+        double iknpower = 1.0 / knpower(kt);
         bool is_last_k_bin = ik == (NUMBER_OF_K_BANDS - 1),
              is_first_k_bin = ik == 0;
 
         if (is_last_k_bin && (kt > kcenter))
-            return 1.0;
+            return iknpower;
         else if (is_first_k_bin && (kt < kcenter))
-            return 1.0;
+            return iknpower;
         else
-            return (1.0 - fabs(kt - kcenter) / DK_BIN);
+            return iknpower * (1.0 - fabs(kt - kcenter) / DK_BIN);
     }
 
-    void setBinningFunctions(int j) {
+    void setBinningFunctions(int j, int m_pellkm) {
         bool tophat = j == 0;
-        LOG::LOGGER.STD("Setting Pell(k) binning function to %s.\n",
-                        tophat ? "tophat" : "triangular");
+        N_KNPELL = m_pellkm;
+        LOG::LOGGER.STD("Setting Pell(k) binning function to %s. "
+                        "Estimating k^%d Pell(k).\n",
+                        tophat ? "tophat" : "triangular", N_KNPELL);
         if (tophat) {
             pellBinningFunction = _tophat_binning;
             getBinWeight = _tophat_binweight;
@@ -824,7 +832,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     shrink_factor_for_sqrt = config.getDouble("ShrinkFactorForSqrt");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
     KEEP_MATRICES_IN_MEMORY = config.getInteger("KeepMatricesInMemory") > 0;
-    bins::setBinningFunctions(config.getInteger("PowerSpectrumBinningMethod"));
+    bins::setBinningFunctions(
+        config.getInteger("PowerSpectrumBinningMethod"),
+        config.getInteger("EstimateKtoNPower"));
 
     if (CONT_MARG_ENABLED && unique_prefix.empty())
         throw std::invalid_argument("Need UniquePrefixTmp when marginalizing.");
@@ -1431,7 +1441,6 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
             alpha = bins::getBinWeight(ik, kt);
             alpha *= legendre_w(mu);
-            alpha /= kt * kt;
             /* These are handled before in estimateFisherDirect
                      * mesh.invtotalvol
                      * p3d_model->getSpectroWindow2(kz)
@@ -1499,14 +1508,14 @@ void Qu3DEstimator::multiplyDerivVectors(
         double kx, ky;
         double kperp = mesh.getKperpFromIperp(jxy, kx, ky);
 
-        if (fabs(kx) < specifics::MIN_KPERP || fabs(ky) < specifics::MIN_KPERP)
+        if ((fabs(kx) < specifics::MIN_KPERP) || (fabs(ky) < specifics::MIN_KPERP))
             continue;
         if (kperp >= KMAX_EDGE)
             continue;
 
         kperp *= kperp;
         for (size_t jz = mesh_kz_min; jz < mesh_kz_max; ++jz) {
-            if (jz == 0 && jxy == 0)
+            if ((jz == 0) && (jxy == 0))
                 continue;
 
             double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp), mu;
@@ -1515,8 +1524,6 @@ void Qu3DEstimator::multiplyDerivVectors(
 
             mu = kz / kt;
             double val = (1.0 + (jz != 0)) * my_norm(jxy, jz) * _spectroWindow2[jz];
-            val /= kt * kt;
-
             bins::pellBinningFunction(val, kt, mu, lout);
         }
     }

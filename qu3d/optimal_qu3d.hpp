@@ -72,7 +72,7 @@ const config_map qu3d_default_parameters ({
     {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""},
     {"DeconvolveCICWindow", "-1"}, {"MixtureFactorForAs", "1.0"},
     {"ReverseInterpolationThreadNum", "3"}, {"KeepMatricesInMemory", "0"},
-    {"PowerSpectrumBinningMethod", "1"}
+    {"PowerSpectrumBinningMethod", "1"}, {"EstimateKtoNPower", "2"}
 });
 
 
