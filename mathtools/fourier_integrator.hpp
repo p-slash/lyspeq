@@ -6,6 +6,7 @@
 // NOT thread-safe! Create local copies.
 class FourierIntegrator
 {
+    int this_table_size;
     gsl_function F;
     gsl_integration_workspace *w, *cycle_w;
     gsl_integration_qawo_table *t;
@@ -20,7 +21,9 @@ public:
     //  GSL_INTEG_COSINE
     //  GSL_INTEG_SINE
     
-    FourierIntegrator(gsl_integration_qawo_enum sin_cos, double (*integrand_function)(double, void*), void *params);
+    FourierIntegrator(
+        gsl_integration_qawo_enum sin_cos, double (*integrand_function)(double, void*), void *params,
+        int table_size=-1);
     ~FourierIntegrator();
     
     // The length L can take any value for infty integrals, since it is overridden 
