@@ -180,7 +180,7 @@ void Qu3DEstimator::constructInterpsDerivBD() {
     LOG::LOGGER.STD("Constructing interps for derivative of BD. ");
     double t1 = mytime::timer.getTime();
 
-    struct bd_mu_integrand_params inparams = {0, 0, legendre0};
+    struct bd_mu_integrand_params inparams = {0, legendre0};
     FourierIntegrator integrator(GSL_INTEG_COSINE, bd_mu_integrand, &inparams);
 
     interps1d_deriv_bd.reserve(bins::NUMBER_OF_P_BANDS);
