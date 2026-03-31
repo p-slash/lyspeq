@@ -181,18 +181,17 @@ _constructKRintegrandInterpolators(int Nrp, double dr) {
     const double log2kmin = log2(1e-4), log2kmax = log2(KMAX_EDGE),
                  dlog2k = (log2kmax - log2kmin) / (nkpoints - 1);
 
-    auto out = std::make_unique<double[]>(nkpoints);
-
     std::vector<std::unique_ptr<DiscreteCubicInterpolation1D>> interps_kr;
     interps_kr.resize(bins::NUMBER_OF_MULTIPOLES * Nrp);
 
     for (int ell = 0; ell < bins::NUMBER_OF_MULTIPOLES; ++ell) {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(dynamic, 4)
         for (int ir = 0; ir < Nrp; ++ir) {
             double r = ir * dr;
-
             struct bd_mu_integrand_params inparams = {0, legendre0};
             FourierIntegrator integrator(GSL_INTEG_COSINE, bd_mu_integrand, &inparams);
+            auto out = std::make_unique<double[]>(nkpoints);
+
             switch (ell) {
                 case 0: inparams.legendre_w = legendre0; break;
                 case 1: inparams.legendre_w = legendre2; break;
