@@ -211,6 +211,7 @@ void Qu3DEstimator::constructInterpsDerivBD() {
                     kintegrand[q] = 0;
                     continue;
                 }
+                inparams.k = kt;
                 kintegrand[q] = integrator.evaluate(0, 1, y,/*epsabs=*/1e-8,/*epsrel=*/1e-5);
                 kintegrand[q] *= kt * kt / (2 * MY_PI * MY_PI);
                 kintegrand[q] *= bins::getBinWeight(ik, kt);
