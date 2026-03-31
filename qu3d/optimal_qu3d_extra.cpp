@@ -164,7 +164,7 @@ endconjugateGradientSampler:
 
 
 struct bd_mu_integrand_params {
-    double k, r;
+    double k;
     std::function<double(double)> legendre_w;
 };
 
@@ -176,6 +176,7 @@ double bd_mu_integrand(double mu, void *params) {
 
 void Qu3DEstimator::constructInterpsDerivBD() {
     const int nkpoints = 101, Nrp = 500;
+    const double rmax = 500.0, dr = rmax / Nrp;
     LOG::LOGGER.STD("Constructing interps for derivative of BD. ");
     double t1 = mytime::timer.getTime();
 
@@ -192,6 +193,7 @@ void Qu3DEstimator::constructInterpsDerivBD() {
                 kmax = std::min(bins::KBAND_CENTERS[ik] + bins::DK_BIN,
                                 bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]),
                 dk_integrand = (kmax - kmin) / (nkpoints - 1);
+        double dk = (kmax - kmin) / 2, kcen = dk + kmin;
 
         switch (ell) {
             case 0: inparams.legendre_w = legendre0; break;
@@ -202,8 +204,17 @@ void Qu3DEstimator::constructInterpsDerivBD() {
         }
 
         for (int ir = 0; ir < Nrp; ++ir) {
-            double r = ir;
-            inparams.r = r;
+            double r = ir * dr;
+
+            /*Exact evaluation is expensive. Taylor expansion around kcen to second order.*/
+            double F1 = integrator.evaluate(0, 1, kmin * r, /*epsabs=*/ 1e-8, /*epsrel=*/ 1e-5),
+                   F2 = integrator.evaluate(0, 1, kmax * r, /*epsabs=*/ 1e-8, /*epsrel=*/ 1e-5),
+                   Fc = integrator.evaluate(0, 1, kcen * r, /*epsabs=*/ 1e-8, /*epsrel=*/ 1e-5),
+                   fp = (F2 - F1) / (2 * dk),
+                   fpp = (F2 - 2 * Fc + F1) / (dk * dk);
+            auto Fapprox = [Fc, fp, fpp, kcen](double k) {
+                return Fc + fp * (k - kcen) + 0.5 * fpp * (k - kcen) * (k - kcen);
+            };
 
             for (int q = 0; q < nkpoints; ++q) {
                 double kt = kmin + q * dk_integrand, y = kt * r;
@@ -214,7 +225,7 @@ void Qu3DEstimator::constructInterpsDerivBD() {
                     continue;
                 }
 
-                kintegrand[q] = integrator.evaluate(0, 1, y);
+                kintegrand[q] = Fapprox(kt);
                 kintegrand[q] *= kt * kt / (2 * MY_PI * MY_PI);
                 kintegrand[q] *= bins::getBinWeight(ik, kt);
             }
@@ -222,7 +233,7 @@ void Qu3DEstimator::constructInterpsDerivBD() {
         }
 
         interps1d_deriv_bd.push_back(
-            std::make_unique<DiscreteCubicInterpolation1D>(0, 1, Nrp, out.get())
+            std::make_unique<DiscreteCubicInterpolation1D>(0, dr, Nrp, out.get())
         );
     }
     double t2 = mytime::timer.getTime();
