@@ -177,14 +177,14 @@ double bd_mu_integrand(double mu, void *params) {
 
 std::vector<std::unique_ptr<DiscreteCubicInterpolation1D>>
 _constructKRintegrandInterpolators(int Nrp, double dr) {
-    const int nkpoints = 1001;
+    const int nkpoints = 201;
     const double log2kmin = log2(1e-4), log2kmax = log2(KMAX_EDGE),
                  dlog2k = (log2kmax - log2kmin) / (nkpoints - 1);
 
     auto out = std::make_unique<double[]>(nkpoints);
 
     std::vector<std::unique_ptr<DiscreteCubicInterpolation1D>> interps_kr;
-    interps_kr.reserve(bins::NUMBER_OF_MULTIPOLES * Nrp);
+    interps_kr.resize(bins::NUMBER_OF_MULTIPOLES * Nrp);
 
     for (int ell = 0; ell < bins::NUMBER_OF_MULTIPOLES; ++ell) {
         #pragma omp parallel for
@@ -205,9 +205,8 @@ _constructKRintegrandInterpolators(int Nrp, double dr) {
                 inparams.k = kt;
                 out[q] = integrator.evaluate(0, 1, y,/*epsabs=*/1e-8,/*epsrel=*/1e-5);
             }
-            interps_kr.push_back(
-                std::make_unique<DiscreteCubicInterpolation1D>(
-                    log2kmin, dlog2k, nkpoints, out.get())
+            interps_kr[ell * Nrp + ir] = std::make_unique<DiscreteCubicInterpolation1D>(
+                    log2kmin, dlog2k, nkpoints, out.get()
             );
         }
     }
