@@ -1466,12 +1466,12 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
         auto interp = interps1d_deriv_bd[i].get();
 
         // Will need the input +- 1 x growth here which is in residual
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(dynamic, 4)
         for (auto &qso : quasars)
             qso->subtractDerivBDFromTruthIsig(mesh, interp);
     }
     else {
-        #pragma omp parallel for
+        #pragma omp parallel for schedule(dynamic, 4)
         for (auto &qso : quasars)
             qso->interpMesh2TruthIsig(mesh);
     }
