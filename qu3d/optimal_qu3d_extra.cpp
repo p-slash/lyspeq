@@ -163,6 +163,88 @@ endconjugateGradientSampler:
 }
 
 
+struct bd_mu_integrand_params {
+    double k_rpara;
+    std::function<double(double)> legendre_w;
+};
+
+double bd_mu_integrand(double mu, void *params) {
+    bd_mu_integrand_params *p = static_cast<bd_mu_integrand_params*>(params);
+    double window = p3d_model->getSpectroWindow2(p->k_rpara * mu);
+    return window * p->legendre_w(mu);
+}
+
+void Qu3DEstimator::constructInterpsDerivBD() {
+    const int nkpoints = 1001, Nrp = 500, Ny = 500;
+    const double log2ymax = log2(Nrp * KMAX_EDGE), log2ymin = -log2ymax,
+                 dlog2y = (log2ymax - log2ymin) / (Ny - 1);
+    auto out = std::make_unique<double[]>(Ny);
+    LOG::LOGGER.STD("Constructing interpolation for mu integral with %d points...\n", Ny);
+
+    struct bd_mu_integrand_params inparams = {0, legendre0};
+    FourierIntegrator integrator(GSL_INTEG_COSINE, bd_mu_integrand, &inparams);
+
+    std::vector<std::unique_ptr<DiscreteCubicInterpolation1D>> interps_muintegral;
+    interps_muintegral.reserve(bins::NUMBER_OF_MULTIPOLES);
+    for (int ell = 0; ell < bins::NUMBER_OF_MULTIPOLES; ++ell) {
+        switch (ell) {
+            case 0: inparams.legendre_w = legendre0; break;
+            case 1: inparams.legendre_w = legendre2; break;
+            case 2: inparams.legendre_w = legendre4; break;
+            case 3: inparams.legendre_w = legendre6; break;
+            default: inparams.legendre_w = std::bind(legendre, 2 * ell, std::placeholders::_1);
+        }
+
+        for (int i = 0; i < Ny; ++i) {
+            double y = exp2(log2ymin + i * dlog2y);
+            inparams.k_rpara = y;
+            out[i] = integrator.evaluate(0, 1, y);
+        }
+        interps_muintegral.push_back(
+            std::make_unique<DiscreteCubicInterpolation1D>(
+                log2ymin, dlog2y, Ny, out.get())
+        );
+    }
+
+    interps1d_deriv_bd.reserve(bins::NUMBER_OF_P_BANDS);
+    auto kintegrand = std::make_unique<double[]>(nkpoints);
+    out = std::make_unique<double[]>(Nrp);
+    for (int jj = 0; jj < bins::NUMBER_OF_P_BANDS; ++jj) {
+        int ell = jj / bins::NUMBER_OF_K_BANDS, ik = jj % bins::NUMBER_OF_K_BANDS;
+        double  kmin = std::max(bins::KBAND_CENTERS[ik] - bins::DK_BIN,
+                                bins::KBAND_EDGES[0]),
+                kmax = std::min(bins::KBAND_CENTERS[ik] + bins::DK_BIN,
+                                bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]),
+                dk_integrand = (kmax - kmin) / (nkpoints - 1);
+        
+        for (int ir = 0; ir < Nrp; ++ir) {
+            double r = ir;
+
+            for (int q = 0; q < nkpoints; ++q) {
+                double kt = kmin + q * dk_integrand;
+                double y = kt * r;
+                if (kt == 0) {
+                    kintegrand[q] = 0;
+                    continue;
+                }
+                if (y == 0)
+                    kintegrand[q] = ell == 0 ? 1 : 0;
+                else {
+                    y = interps_muintegral[ell]->clamp(log2(y));
+                    kintegrand[q] = interps_muintegral[ell]->evaluate(y);
+                }
+
+                kintegrand[q] *= kt * kt / (2 * MY_PI * MY_PI);
+                kintegrand[q] *= bins::getBinWeight(ik, kt);
+            }
+            out[ir] = trapz(kintegrand.get(), nkpoints, dk_integrand);
+        }
+
+        interps1d_deriv_bd.push_back(
+            std::make_unique<DiscreteCubicInterpolation1D>(0, 1, Nrp, out.get())
+        );
+    }
+}
 /* void Qu3DEstimator::cgsGetY() {
     if (CONT_MARG_ENABLED) {
         #pragma omp parallel for schedule(dynamic, 8)

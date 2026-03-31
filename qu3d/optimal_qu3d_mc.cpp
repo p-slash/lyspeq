@@ -692,6 +692,7 @@ void Qu3DEstimator::estimateFisherDirect() {
     if (!mesh_rnd) { mesh_rnd.copy(mesh); mesh_rnd.construct(INPLACE_FFT); }
     if (!mesh_fh) { mesh_fh.copy(mesh); mesh_fh.construct(INPLACE_FFT); }
     // Cache windows on mesh_rnd for direct Fisher estimation.
+    // This would not work predeconvolve is false
     for (size_t jz = 0; jz < mesh_rnd.ngrid_kz; ++jz)
         mesh_rnd.iasgn_window_z2[jz] *=
             mesh_rnd.invtotalvol
@@ -725,6 +726,12 @@ void Qu3DEstimator::estimateFisherDirect() {
         // Note mesh_rnd.iasgn_window_z2 is update in the beginning of this
         // function with correct normalization.
         mesh_rnd.sharpen2();
+        if (!interps1d_deriv_bd.empty()) {
+            // Save in * growth into residual for later access in multDerivMatrixVec
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                mxhelp::vector_multiply(qso->N, qso->in, qso->growth.get(), qso->residual.get());
+        }
 
         /* (Left hand side ) CGD requires *truth to be multiplied by N^-1/2 */
         #pragma omp parallel for
