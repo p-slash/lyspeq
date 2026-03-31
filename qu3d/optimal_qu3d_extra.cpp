@@ -174,51 +174,11 @@ double bd_mu_integrand(double mu, void *params) {
     return window * p->legendre_w(mu);
 }
 
-
-std::vector<std::unique_ptr<DiscreteCubicInterpolation1D>>
-_constructKRintegrandInterpolators(int Nrp, double dr) {
-    const int nkpoints = 201;
-    const double log2kmin = log2(1e-4), log2kmax = log2(KMAX_EDGE),
-                 dlog2k = (log2kmax - log2kmin) / (nkpoints - 1);
-
-    std::vector<std::unique_ptr<DiscreteCubicInterpolation1D>> interps_kr;
-    interps_kr.resize(bins::NUMBER_OF_MULTIPOLES * Nrp);
-
-    for (int ell = 0; ell < bins::NUMBER_OF_MULTIPOLES; ++ell) {
-        #pragma omp parallel for schedule(dynamic, 4)
-        for (int ir = 0; ir < Nrp; ++ir) {
-            double r = ir * dr;
-            struct bd_mu_integrand_params inparams = {0, legendre0};
-            FourierIntegrator integrator(GSL_INTEG_COSINE, bd_mu_integrand, &inparams);
-            auto out = std::make_unique<double[]>(nkpoints);
-
-            switch (ell) {
-                case 0: inparams.legendre_w = legendre0; break;
-                case 1: inparams.legendre_w = legendre2; break;
-                case 2: inparams.legendre_w = legendre4; break;
-                case 3: inparams.legendre_w = legendre6; break;
-                default: inparams.legendre_w = std::bind(legendre, 2 * ell, std::placeholders::_1);
-            }
-            for (int q = 0; q < nkpoints; ++q) {
-                double kt = exp2(log2kmin + q * dlog2k), y = kt * r;
-                inparams.k = kt;
-                out[q] = integrator.evaluate(0, 1, y,/*epsabs=*/1e-8,/*epsrel=*/1e-5);
-            }
-            interps_kr[ell * Nrp + ir] = std::make_unique<DiscreteCubicInterpolation1D>(
-                    log2kmin, dlog2k, nkpoints, out.get()
-            );
-        }
-    }
-    return interps_kr;
-}
-
 void Qu3DEstimator::constructInterpsDerivBD() {
     const int nkpoints = 101, Nrp = 500;
     const double rmax = 500.0, dr = rmax / Nrp;
     LOG::LOGGER.STD("Constructing interps for derivative of BD. ");
     double t1 = mytime::timer.getTime();
-
-    auto interps_kr_integrand = _constructKRintegrandInterpolators(Nrp, dr);
 
     interps1d_deriv_bd.reserve(bins::NUMBER_OF_P_BANDS);
     auto kintegrand = std::make_unique<double[]>(nkpoints);
@@ -232,18 +192,26 @@ void Qu3DEstimator::constructInterpsDerivBD() {
                                 bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]),
                 dk_integrand = (kmax - kmin) / (nkpoints - 1);
 
+        #pragma omp parallel for schedule(dynamic, 4)
         for (int ir = 0; ir < Nrp; ++ir) {
             double r = ir * dr;
-            const DiscreteCubicInterpolation1D* interp = interps_kr_integrand[ell * Nrp + ir].get();
+            struct bd_mu_integrand_params inparams = {0, legendre0};
+            FourierIntegrator integrator(GSL_INTEG_COSINE, bd_mu_integrand, &inparams);
+
+            switch (ell) {
+                case 0: inparams.legendre_w = legendre0; break;
+                case 1: inparams.legendre_w = legendre2; break;
+                case 2: inparams.legendre_w = legendre4; break;
+                case 3: inparams.legendre_w = legendre6; break;
+                default: inparams.legendre_w = std::bind(legendre, 2 * ell, std::placeholders::_1);
+            }
             for (int q = 0; q < nkpoints; ++q) {
                 double kt = kmin + q * dk_integrand, y = kt * r;
-
                 if (kt == 0) {
                     kintegrand[q] = 0;
                     continue;
                 }
-                double log2kt = interp->clamp(log2(kt));
-                kintegrand[q] = interp->evaluate(log2kt);
+                kintegrand[q] = integrator.evaluate(0, 1, y,/*epsabs=*/1e-8,/*epsrel=*/1e-5);
                 kintegrand[q] *= kt * kt / (2 * MY_PI * MY_PI);
                 kintegrand[q] *= bins::getBinWeight(ik, kt);
             }
