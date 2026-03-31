@@ -57,6 +57,7 @@ const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
     {"MatchCellSizeOfZToXY", "-1"}, {"UseTscInterpolation", "-1"},
     {"TurnOnPpCovariance", "-1"}, {"NumberOfMultipoles", "4"},
+    {"SubtractBDDerivatives", "-1"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"MinimumRa", "0.0"}, {"MaximumRa", "360.0"},
     {"MinimumDec", "-90.0"}, {"MaximumDec", "90.0"}, {"MinBoxLength", "0"},
@@ -94,6 +95,9 @@ class Qu3DEstimator
 
     std::vector<MyRNG> rngs;
     RealField3D mesh, mesh_rnd, mesh_fh;
+    std::vector<
+        std::unique_ptr<DiscreteCubicInterpolation1D>
+    > interps1d_deriv_bd;
 
     std::unique_ptr<double[]>
         mc1, mc2, mesh_z1_values,
@@ -180,6 +184,7 @@ public:
     void testSymmetry();
     void estimateMaxEvals();
     void estimateMinMaxEvalsAs();
+    void constructInterpsDerivBD();
     double estimateFrobeniusNormAs(double m=0);
 
     // These are in original source file
@@ -194,6 +199,7 @@ public:
         double *o1, double *o2,
         double *lout=nullptr, const RealField3D *other=nullptr
     );
+    void subtractDerivBD(double *mesh_estimate);
 
     /* Reverse interopates qso->in onto the mesh */
     void reverseInterpolate(RealField3D &m);

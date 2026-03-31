@@ -395,6 +395,45 @@ public:
         }
     }
 
+    double multDerivativeBD(
+            const DiscreteCubicInterpolation1D *interp
+    ) {
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+        double dia = interp->get()[0];
+        for (int i = 0; i < N; ++i) {
+            ccov[i * (N + 1)] = dia;
+            for (int j = i + 1; j < N; ++j) {
+                float rz = chi[j] - chi[i];
+                ccov[j + i * N] = interp->evaluate(rz);
+            }
+        }
+        return mxhelp::my_cblas_dsymvdot(in_isig, ccov, search.get(), N);
+    }
+
+    void subtractDerivBDFromTruthIsig(
+            const RealField3D &mesh, const DiscreteCubicInterpolation1D *interp
+    ) {
+        for (int i = 0; i < N; ++i)
+            truth[i] = mesh.forwardInterpolate(r.get() + 3 * i);
+
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+        double dia = interp->get()[0];
+        for (int i = 0; i < N; ++i) {
+            ccov[i * (N + 1)] = dia;
+            for (int j = i + 1; j < N; ++j) {
+                float rz = chi[j] - chi[i];
+                ccov[j + i * N] = interp->evaluate(rz);
+            }
+        }
+        // Will need the input +- 1 x growth here which is in residual
+        cblas_dsymv(CblasRowMajor, CblasUpper, N, -1.0,
+                    ccov, N, residual.get(), 1, 1.0, truth, 1);
+
+        for (int i = 0; i < N; ++i)
+            truth[i] *= isig[i] * growth[i];
+
+    }
+
     void cacheCholeskyCov(
             const fidcosmo::ArinyoP3DModel *p3d_model, bool cmarg=false,
             bool small_scale=false, double alpha=0, double s=1.0

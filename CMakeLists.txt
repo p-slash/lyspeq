@@ -172,6 +172,7 @@ add_library(Qu3dObjLibs OBJECT
     mathtools/matrix_helper.cpp mathtools/interpolation.cpp
     mathtools/interpolation_2d.cpp mathtools/discrete_interpolation.cpp
     mathtools/stats.cpp mathtools/smoother.cpp mathtools/fftlog.cpp
+    mathtools/fourier_integrator.cpp
     mathtools/multipole_interpolation.cpp io/qso_file.cpp)
 target_link_libraries(Qu3dObjLibs PUBLIC
     MY_OMP_MPI MY_BLAS_INTERFACE MY_FITSIO_INTERFACE

@@ -10,6 +10,7 @@
 #include "core/mpi_manager.hpp"
 #include "core/progress.hpp"
 #include "mathtools/stats.hpp"
+#include "mathtools/fourier_integrator.hpp"
 #include "io/logger.hpp"
 
 namespace specifics {
@@ -28,6 +29,7 @@ int RINTERP_NTHREADS = 3;
 std::unordered_map<std::string, std::pair<int, double>> timings{
     {"rInterp", std::make_pair(0, 0.0)}, {"interp", std::make_pair(0, 0.0)},
     {"CGD", std::make_pair(0, 0.0)}, {"mDeriv", std::make_pair(0, 0.0)},
+    {"mDerivBD", std::make_pair(0, 0.0)},
     {"mCov", std::make_pair(0, 0.0)}, {"PPcomp", std::make_pair(0, 0.0)},
     {"GenGauss", std::make_pair(0, 0.0)}, {"mIpH", std::make_pair(0, 0.0)},
     {"cgdIpH", std::make_pair(0, 0.0)}, {"Marg", std::make_pair(0, 0.0)}
@@ -888,6 +890,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     bool end_imm = (test_gaussian_field && (mock_grid_res_factor > 1));
     if (CONT_MARG_ENABLED && !end_imm)
         _createRmatFiles(unique_prefix);
+    
+    if (config.getInteger("SubtractBDDerivatives") > 0)
+        constructInterpsDerivBD();
 }
 
 void Qu3DEstimator::reverseInterpolate(RealField3D &m) {
@@ -1457,9 +1462,19 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
     mesh.rawFftK2X();
 
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        qso->interpMesh2TruthIsig(mesh);
+    if (!interps1d_deriv_bd.empty()) {
+        auto interp = interps1d_deriv_bd[i].get();
+
+        // Will need the input +- 1 x growth here which is in residual
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->subtractDerivBDFromTruthIsig(mesh, interp);
+    }
+    else {
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            qso->interpMesh2TruthIsig(mesh);
+    }
 
     ++timings["mDerivMatVec"].first;
     timings["mDerivMatVec"].second += mytime::timer.getTime() - t1;
@@ -1530,6 +1545,9 @@ void Qu3DEstimator::multiplyDerivVectors(
 
     cblas_dscal(bins::NUMBER_OF_P_BANDS, mesh.invtotalvol, lout, 1);
 
+    if (!interps1d_deriv_bd.empty())
+        subtractDerivBD(lout);
+
     if (o2 != nullptr) {
         for (int i = 0; i < bins::NUMBER_OF_P_BANDS; ++i) {
             o1[i] += lout[i];
@@ -1540,6 +1558,39 @@ void Qu3DEstimator::multiplyDerivVectors(
     dt = mytime::timer.getTime() - dt;
     ++timings["mDeriv"].first;
     timings["mDeriv"].second += dt;
+}
+
+
+void Qu3DEstimator::subtractDerivBD(double *mesh_estimate) {
+    /* Adds current results into o1 (+=). If o2 is nullptr, the operations is
+       directly performed on o1. Otherwise, current results first saved into
+       a local array, then o1 += lout, and o2 += lout * lout.
+
+       If you pass lout != nullptr, current results are saved into this array.
+    */
+    static auto _lout = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    double dt = mytime::timer.getTime();
+    double *lout = _lout.get();
+    std::fill_n(lout, bins::NUMBER_OF_P_BANDS, 0);
+
+    const int nmax = bins::NUMBER_OF_P_BANDS;
+    #pragma omp parallel for reduction(+:lout[:nmax]) schedule(dynamic, 4)
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i)
+            qso->in_isig[i] = qso->in[i] * qso->growth[i];
+
+        for (int i = 0; i < bins::NUMBER_OF_P_BANDS; ++i) {
+            auto interp = interps1d_deriv_bd[i].get();
+            lout[i] += qso->multDerivativeBD(interp);
+        }
+    }
+
+    for (int i = 0; i < bins::NUMBER_OF_P_BANDS; ++i)
+        mesh_estimate[i] -= lout[i];
+
+    dt = mytime::timer.getTime() - dt;
+    ++timings["mDerivBD"].first;
+    timings["mDerivBD"].second += dt;
 }
 
 
