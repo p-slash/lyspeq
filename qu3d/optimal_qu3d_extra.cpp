@@ -181,7 +181,6 @@ void Qu3DEstimator::constructInterpsDerivBD() {
     double t1 = mytime::timer.getTime();
 
     interps1d_deriv_bd.reserve(bins::NUMBER_OF_P_BANDS);
-    auto kintegrand = std::make_unique<double[]>(nkpoints);
     auto out = std::make_unique<double[]>(Nrp);
 
     for (int jj = 0; jj < bins::NUMBER_OF_P_BANDS; ++jj) {
@@ -195,8 +194,11 @@ void Qu3DEstimator::constructInterpsDerivBD() {
         #pragma omp parallel for schedule(dynamic, 4)
         for (int ir = 0; ir < Nrp; ++ir) {
             double r = ir * dr;
+            auto kintegrand = std::make_unique<double[]>(nkpoints);
             struct bd_mu_integrand_params inparams = {0, legendre0};
-            FourierIntegrator integrator(GSL_INTEG_COSINE, bd_mu_integrand, &inparams);
+            FourierIntegrator integrator(
+                GSL_INTEG_COSINE, bd_mu_integrand, &inparams,
+                /*table_size=*/50);
 
             switch (ell) {
                 case 0: inparams.legendre_w = legendre0; break;
