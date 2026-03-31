@@ -175,7 +175,9 @@ double bd_mu_integrand(double mu, void *params) {
 }
 
 void Qu3DEstimator::constructInterpsDerivBD() {
-    const int nkpoints = 1001, Nrp = 500;
+    const int nkpoints = 101, Nrp = 500;
+    LOG::LOGGER.STD("Constructing interps for derivative of BD. ");
+    double t1 = mytime::timer.getTime();
 
     struct bd_mu_integrand_params inparams = {0, 0, legendre0};
     FourierIntegrator integrator(GSL_INTEG_COSINE, bd_mu_integrand, &inparams);
@@ -201,6 +203,7 @@ void Qu3DEstimator::constructInterpsDerivBD() {
 
         for (int ir = 0; ir < Nrp; ++ir) {
             double r = ir;
+            inparams.r = r;
 
             for (int q = 0; q < nkpoints; ++q) {
                 double kt = kmin + q * dk_integrand, y = kt * r;
@@ -222,6 +225,8 @@ void Qu3DEstimator::constructInterpsDerivBD() {
             std::make_unique<DiscreteCubicInterpolation1D>(0, 1, Nrp, out.get())
         );
     }
+    double t2 = mytime::timer.getTime();
+    LOG::LOGGER.STD("Finished constructing interps for derivative of BD in %.2f mins.\n", t2 - t1);
 }
 /* void Qu3DEstimator::cgsGetY() {
     if (CONT_MARG_ENABLED) {
