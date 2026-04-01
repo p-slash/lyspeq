@@ -185,28 +185,28 @@ void Qu3DEstimator::constructInterpsDerivBD() {
 
     for (int jj = 0; jj < bins::NUMBER_OF_P_BANDS; ++jj) {
         int ell = jj / bins::NUMBER_OF_K_BANDS, ik = jj % bins::NUMBER_OF_K_BANDS;
-        double  kmin = std::max(bins::KBAND_CENTERS[ik] - bins::DK_BIN,
-                                bins::KBAND_EDGES[0]),
-                kmax = std::min(bins::KBAND_CENTERS[ik] + bins::DK_BIN,
-                                bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]),
-                dk_integrand = (kmax - kmin) / (nkpoints - 1);
+        double kmin, kmax, dk_integrand;
+        bins::getKBinMinMax(ik, kmin, kmax);
+        dk_integrand = (kmax - kmin) / (nkpoints - 1);
+
+        std::function<double(double)> legendre_w;
+        switch (ell) {
+            case 0: legendre_w = legendre0; break;
+            case 1: legendre_w = legendre2; break;
+            case 2: legendre_w = legendre4; break;
+            case 3: legendre_w = legendre6; break;
+            default: legendre_w = std::bind(legendre, 2 * ell, std::placeholders::_1);
+        }
 
         #pragma omp parallel for schedule(dynamic, 4)
         for (int ir = 0; ir < Nrp; ++ir) {
             double r = ir * dr;
             auto kintegrand = std::make_unique<double[]>(nkpoints);
-            struct bd_mu_integrand_params inparams = {0, legendre0};
+            struct bd_mu_integrand_params inparams = {kmin, legendre_w};
             FourierIntegrator integrator(
                 GSL_INTEG_COSINE, bd_mu_integrand, &inparams,
                 /*table_size=*/50);
 
-            switch (ell) {
-                case 0: inparams.legendre_w = legendre0; break;
-                case 1: inparams.legendre_w = legendre2; break;
-                case 2: inparams.legendre_w = legendre4; break;
-                case 3: inparams.legendre_w = legendre6; break;
-                default: inparams.legendre_w = std::bind(legendre, 2 * ell, std::placeholders::_1);
-            }
             for (int q = 0; q < nkpoints; ++q) {
                 double kt = kmin + q * dk_integrand, y = kt * r;
                 if (kt == 0) {
@@ -214,11 +214,13 @@ void Qu3DEstimator::constructInterpsDerivBD() {
                     continue;
                 }
                 inparams.k = kt;
-                kintegrand[q] = integrator.evaluate(0, 1, y,/*epsabs=*/1e-8,/*epsrel=*/1e-5);
-                kintegrand[q] *= kt * kt / (2 * MY_PI * MY_PI);
+                kintegrand[q] = integrator.evaluate(
+                    0, 1, y,/*epsabs=*/1e-8,/*epsrel=*/1e-5);
+                kintegrand[q] *= kt * kt;  /* / (2 * MY_PI * MY_PI); */
                 kintegrand[q] *= bins::getBinWeight(ik, kt);
             }
             out[ir] = trapz(kintegrand.get(), nkpoints, dk_integrand);
+            out[ir] /= 2 * MY_PI * MY_PI;
         }
 
         interps1d_deriv_bd.push_back(

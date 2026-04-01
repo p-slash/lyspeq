@@ -49,6 +49,7 @@ constexpr bool INPLACE_FFT = true;
 namespace bins {
     int NUMBER_OF_MULTIPOLES = 0, NUMBER_OF_P_BANDS = 0, N_KNPELL = 0;
     double DK_BIN = 0;
+    bool BINNING_IS_TOPHAT = true;
     std::function<void(double, double, double, double*)> pellBinningFunction;
     std::function<double(int, double)> getBinWeight;
     inline double knpower(double k) {
@@ -110,18 +111,29 @@ namespace bins {
     }
 
     void setBinningFunctions(int j, int m_pellkm) {
-        bool tophat = j == 0;
+        BINNING_IS_TOPHAT = j == 0;
         N_KNPELL = m_pellkm;
         LOG::LOGGER.STD("Setting Pell(k) binning function to %s. "
                         "Estimating k^%d Pell(k).\n",
-                        tophat ? "tophat" : "triangular", N_KNPELL);
-        if (tophat) {
+                        BINNING_IS_TOPHAT ? "tophat" : "triangular", N_KNPELL);
+        if (BINNING_IS_TOPHAT) {
             pellBinningFunction = _tophat_binning;
             getBinWeight = _tophat_binweight;
         }
         else {
             pellBinningFunction = _triangular_binning;
             getBinWeight = _triangular_binweight;
+        }
+    }
+
+    void getKBinMinMax(int ik, double &kmin, double &kmax) {
+        if (BINNING_IS_TOPHAT) {
+            kmin = KBAND_EDGES[ik];
+            kmax = KBAND_EDGES[ik + 1];
+        }
+        else {
+            kmin = std::max(KBAND_CENTERS[ik] - DK_BIN, KBAND_EDGES[0]);
+            kmax = std::min(KBAND_CENTERS[ik] + DK_BIN, KMAX_EDGE);
         }
     }
 }
@@ -1404,11 +1416,8 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
     double t1 = mytime::timer.getTime();
     int imu = i / bins::NUMBER_OF_K_BANDS, ik = i % bins::NUMBER_OF_K_BANDS;
-
-    double kmin = std::max(bins::KBAND_CENTERS[ik] - bins::DK_BIN,
-                           bins::KBAND_EDGES[0]),
-           kmax = std::min(bins::KBAND_CENTERS[ik] + bins::DK_BIN,
-                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
+    double kmin, kmax;
+    bins::getKBinMinMax(ik, kmin, kmax);
 
     std::function<double(double)> legendre_w;
     switch (imu) {
@@ -1438,14 +1447,13 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
             if (jz == 0 && jxy == 0)
                 continue;
 
-            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp), alpha, mu;
+            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp);
 
             if (kt < kmin)  continue;
             else if (kt >= kmax)  break;
-            mu = kz / kt;
 
-            alpha = bins::getBinWeight(ik, kt);
-            alpha *= legendre_w(mu);
+            double mu = kz / kt,
+                   alpha = bins::getBinWeight(ik, kt) * legendre_w(mu);
             /* These are handled before in estimateFisherDirect
                      * mesh.invtotalvol
                      * p3d_model->getSpectroWindow2(kz)
