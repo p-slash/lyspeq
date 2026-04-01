@@ -6,6 +6,7 @@
 #include "io/io_helper_functions.hpp"
 #include "mathtools/interpolation.hpp"
 #include "qu3d/ps2cf_2d.hpp"
+#include "core/omp_manager.hpp"
 
 
 constexpr double SAFE_ZERO = 1E-300;
@@ -340,9 +341,9 @@ double ArinyoP3DModel::getSpectroWindow2(double kz) const {
 
 
 void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
-    constexpr int nlnk = 6001;
+    constexpr int nlnk = 32*188/*=6016*/;
     const double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1);
-    double powers_kz[nlnk], powers_kperp[nlnk];
+    double powers_kperp[nlnk];
 
     std::function<double(double)> eval_ls_supp;
     if (pp_enabled)
@@ -356,7 +357,9 @@ void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
         };
     }
 
+    #pragma omp parallel for
     for (int i = 0; i < nlnk; ++i) {
+        double powers_kz[nlnk];
         double kperp2 = exp(LNKMIN + i * dlnk);
         kperp2 *= kperp2;
         for (int j = 0; j < nlnk; ++j) {
@@ -373,13 +376,14 @@ void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
 
 
 void ArinyoP3DModel::_cacheInterp2D() {
-    constexpr int N = 1001;
+    constexpr int N = 1024;
     const double dlnk = (LNKMAX - LNKMIN) / (N - 1);
     auto lnP_L = std::make_unique<double[]>(N * N),
          lnP_S = std::make_unique<double[]>(N * N),
          lnP_T = std::make_unique<double[]>(N * N);
 
     /* Large-scale and small-scale 2Ds */
+    #pragma omp parallel for
     for (int iperp = 0; iperp < N; ++iperp) {
         double kperp = exp(LNKMIN + iperp * dlnk);
 
@@ -406,6 +410,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
     interp2d_pT.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_T.get(), N, N);
 
     /* Large-scale and small-scale 1Ds */
+    #pragma omp parallel for
     for (int i = 0; i < N; ++i) {
         double k = exp(LNKMIN + i * dlnk), k_rL = k * rscale_long;
         k_rL *= -k_rL;
@@ -447,7 +452,7 @@ double ArinyoP3DModel::evalP1d(double kz) const {
 
 
 void ArinyoP3DModel::_construcP1D() {
-    constexpr int nlnk = 10001;
+    constexpr int nlnk = 312*32/*=9984*/;
     const double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1), dlnk2 = 0.02;
     const int nlnk2 = ceil((LNKMAX - LNKMIN) / dlnk2);
     double p1d_integrand[nlnk], p1d[nlnk2];
@@ -455,6 +460,7 @@ void ArinyoP3DModel::_construcP1D() {
     for (int i = 0; i < nlnk2; ++i) {
         double kz = exp(LNKMIN + i * dlnk2);
 
+        #pragma omp parallel for
         for (int j = 0; j < nlnk; ++j) {
             double kperp2 = exp(LNKMIN + j * dlnk);
             kperp2 *= kperp2;
@@ -502,6 +508,7 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
     auto psarr = std::make_unique<double[]>(Nhankel * Nhankel);
     const double *kperparr = hankel.getKperp(), *kzarr = hankel.getKz();
 
+    #pragma omp parallel for
     for (int iperp = 0; iperp < Nhankel; ++iperp) {
         double kperp2 = kperparr[iperp] * kperparr[iperp];
 
@@ -537,10 +544,12 @@ void ArinyoP3DModel::_calcMultipoles() {
     constexpr int nmu = 501;
     constexpr double dmu = 1.0 / (nmu - 1), dlnk = 0.02;
     const int nlnk = ceil((LNKMAX - LNKMIN) / dlnk);
-    double p3d_l_integrand[nmu], p3d_l[nlnk];
+    double p3d_l[nlnk];
 
     for (int l = 0; l < p3d_ell_T.getNell(); ++l) {
+        #pragma omp parallel for
         for (int i = 0; i < nlnk; ++i) {
+            double p3d_l_integrand[nmu];
             double k = exp(LNKMIN + i * dlnk);
 
             for (int j = 0; j < nmu; ++j) {
