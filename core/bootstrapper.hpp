@@ -184,9 +184,9 @@ private:
             const std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         /* After this function call,
-            - On main task: pcoeff and temppower memories are swapped, such that
-            pcoeff is size of nboot * Nkz and temppower is size of Nkz
-            - On other tasks, pcoeff and temppower are released.
+            - pcoeff is released such that median stats cannot be used anymore.
+            - On main task: temppower is size of Nkz
+            - On other tasks: temppower is released.
         */
         double t1 = mytime::timer.getTime(), t2 = 0;
         // std::fill_n(temppower.get(), nboots * bins::TOTAL_KZ_BINS, 0);
@@ -197,19 +197,16 @@ private:
             one_qso->addBootPowerOnly(nboots, pcoeff.get(), temppower.get());
             ++prog_tracker;
         }
-
+        pcoeff.reset();
         t2 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_loop += t2 - t1;
 
         mympi::reduceToOther(
             temppower.get(), allpowers.get(), nboots * bins::TOTAL_KZ_BINS);
 
-        if (mympi::this_pe == 0) {
-            temppower.swap(pcoeff);
-        } else {
-            temppower.reset();
-            pcoeff.reset();
-        }
+        temppower.reset();
+        if (mympi::this_pe == 0)
+            temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
         t1 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_mpi += t1 - t2;
