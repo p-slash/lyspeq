@@ -1570,12 +1570,6 @@ void Qu3DEstimator::multiplyDerivVectors(
 
 
 void Qu3DEstimator::subtractDerivBD(double *mesh_estimate) {
-    /* Adds current results into o1 (+=). If o2 is nullptr, the operations is
-       directly performed on o1. Otherwise, current results first saved into
-       a local array, then o1 += lout, and o2 += lout * lout.
-
-       If you pass lout != nullptr, current results are saved into this array.
-    */
     static auto _lout = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
     double dt = mytime::timer.getTime();
     double *lout = _lout.get();
