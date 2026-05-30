@@ -27,6 +27,7 @@ class OneDQuadraticPowerEstimate
 {
 protected:
     ConfigFile &config;
+    ioh::unique_fitsfile_ptr fitsfile_ptr;
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, NUMBER_OF_ITERATIONS;
     std::vector<int> Z_BIN_COUNTS;
 

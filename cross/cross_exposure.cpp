@@ -255,7 +255,8 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
 
     if (specifics::NUMBER_OF_BOOTS > 0) {
         PoissonBootstrapper pbooter(
-            specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
+            specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get(),
+            fitsfile_ptr.get());
 
         std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
         local_queue.reserve(quasars.size());

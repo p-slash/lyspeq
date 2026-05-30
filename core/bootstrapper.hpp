@@ -55,8 +55,8 @@ namespace mytime
 
 class PoissonBootstrapper {
 public:
-    PoissonBootstrapper(int num_boots, double *ifisher)
-            : nboots(num_boots), remaining_boots(num_boots), invfisher(ifisher)
+    PoissonBootstrapper(int num_boots, double *ifisher, fitsfile *fout)
+        : nboots(num_boots), remaining_boots(num_boots), invfisher(ifisher), fits_file(fout)
     {
         process::updateMemory(-getMinMemUsage());
         pgenerator = std::make_unique<PoissonRNG>(mympi::this_pe);
@@ -165,6 +165,7 @@ private:
     std::unique_ptr<PoissonRNG> pgenerator;
     std::unique_ptr<double[]> temppower, tempfisher, allpowers, pcoeff, slvF;
     // std::unique_ptr<bool[]> outlier;
+    fitsfile *fits_file;
 
     double getMinMemUsage() {
         double memfull = process::getMemoryMB(nboots * bins::TOTAL_KZ_BINS);
@@ -416,18 +417,12 @@ private:
 
 
     void _saveData(const std::string &t) {
-        std::string buffer = 
-            "!" + process::FNAME_BASE + "_bootstrap_" + t + ".fits";
-
-        auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(buffer);
-        fitsfile *fits_file = fitsfile_ptr.get();
-
         int status = 0;
         long naxis = 2, size = bins::FISHER_SIZE,  // _naxes[1] = {0},
              naxes[2] = { bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS };
 
         fits_create_img(fits_file, DOUBLE_IMG, 1, naxes, &status);
-        fits_update_key_str(fits_file, "EXTNAME", "MEAN", nullptr, &status);
+        fits_update_key_str(fits_file, "EXTNAME", "BOOT_MEAN", nullptr, &status);
         fits_write_img(fits_file, TDOUBLE, 1, bins::TOTAL_KZ_BINS,
                        (void *) temppower.get(), &status);
 
@@ -436,7 +431,7 @@ private:
 
             fits_create_img(fits_file, DOUBLE_IMG, 1, naxes, &status);
             fits_update_key_str(
-                fits_file, "EXTNAME", "FISHER_MATRIX", nullptr, &status);
+                fits_file, "EXTNAME", "BOOT_FISHER", nullptr, &status);
             fits_write_img(fits_file, TDOUBLE, 1, bins::TOTAL_KZ_BINS,
                            (void *) tempfisher.get(), &status);
 
@@ -444,7 +439,7 @@ private:
         }
 
         fits_create_img(fits_file, DOUBLE_IMG, 1, naxes, &status);
-        fits_update_key_str(fits_file, "EXTNAME", "COVARIANCE", nullptr, &status);
+        fits_update_key_str(fits_file, "EXTNAME", "BOOT_COVARIANCE", nullptr, &status);
         fits_write_img(fits_file, TDOUBLE, 1, bins::TOTAL_KZ_BINS,
                        (void *) tempfisher.get(), &status);
     }
