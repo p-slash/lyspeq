@@ -33,7 +33,7 @@ void _saveQuasarResults(const targetid_quasar_map &quasars) {
         bfile.writeChunk(
             pk, nk, tk,
             qso->fisher_matrix.get(), qso->ndim, qso->istart,
-            targetid, qso->z_qso, qso->ra, qso->dec);
+            targetid, qso->z_qso, qso->ra, qso->dec, 0);
     }
 
     LOG::LOGGER.STD("Quasar results are saved.\n");
@@ -255,7 +255,8 @@ void OneDCrossExposureQMLE::xQmlEstimate() {
 
     if (specifics::NUMBER_OF_BOOTS > 0) {
         PoissonBootstrapper pbooter(
-            specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
+            specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get(),
+            fitsfile_ptr.get());
 
         std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
         local_queue.reserve(quasars.size());
