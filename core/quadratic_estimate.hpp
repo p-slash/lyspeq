@@ -7,6 +7,7 @@
 
 #include "mathtools/stats.hpp"
 #include "io/config_file.hpp"
+#include "io/myfitsio.hpp"
 
 // This umbrella class manages the quadratic estimator by 
 //      storing the total Fisher matrix and its inverse,
@@ -26,6 +27,7 @@ class OneDQuadraticPowerEstimate
 {
 protected:
     ConfigFile &config;
+    ioh::unique_fitsfile_ptr fitsfile_ptr;
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, NUMBER_OF_ITERATIONS;
     std::vector<int> Z_BIN_COUNTS;
 
@@ -102,7 +104,7 @@ public:
     // Does not write the last bin since it is ignored when LAST_K_EDGE defined
     // You can find that value in logs--printfSpectra prints all
     void writeSpectrumEstimates(const char *fname);
-    void writeDetailedSpectrumEstimates(const char *fname);
+    void writeDetailedSpectrumEstimates(fitsfile *fits_file, const std::string ext);
     void iterationOutput(
         int it, double t1, double tot,
         std::vector<double> &times_all_pes);
