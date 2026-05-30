@@ -760,6 +760,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     fits_write_col(fits_file, TDOUBLE, 14, 1, 1, bins::TOTAL_KZ_BINS,
                    dbt_estimate_sum_before_fisher_vector[2].get(), &status);
 
+    fits_flush_file(fits_file, &status);
     ioh::checkFitsStatus(status);
 }
 
@@ -835,6 +836,7 @@ void OneDQuadraticPowerEstimate::iterationOutput(
 
         fits_write_col(fits_file, TDOUBLE, 1, 1, 1, nrows, zbins_.get(), &status);
         fits_write_col(fits_file, TINT, 2, 1, 1, nrows, Z_BIN_COUNTS.data(), &status);
+        fits_flush_file(fits_file, &status);
         ioh::checkFitsStatus(status);
     }
 
@@ -873,6 +875,7 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     fits_write_img(
         fits_file, TDOUBLE, 1, size, (void *) solver_invfisher_matrix.get(),
         &status);
+    fits_flush_file(fits_file, &status);
     ioh::checkFitsStatus(status);
 
     LOG::LOGGER.STD(

@@ -442,6 +442,7 @@ private:
         fits_update_key_str(fits_file, "EXTNAME", "BOOT_COVARIANCE", nullptr, &status);
         fits_write_img(fits_file, TDOUBLE, 1, bins::TOTAL_KZ_BINS,
                        (void *) tempfisher.get(), &status);
+        fits_flush_file(fits_file, &status);
     }
 
     /* Find outliers not useful.
