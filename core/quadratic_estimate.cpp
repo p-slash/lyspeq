@@ -113,6 +113,10 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
         throw std::invalid_argument("Must pass FileNameList.");
     if (findir.empty())
         throw std::invalid_argument("Must pass FileInputDir.");
+    
+    std::string fname = "!" + process::FNAME_BASE + "_detailed_results.fits";
+    fitsfile_ptr = ioh::create_unique_fitsfile_ptr(fname);
+    LOG::LOGGER.STD("Results will be saved to %s.\n", fname.c_str());
 }
 
 std::vector<std::string>
@@ -536,7 +540,8 @@ void OneDQuadraticPowerEstimate::iterate()
 
     if (specifics::NUMBER_OF_BOOTS > 0) {
         PoissonBootstrapper pbooter(
-            specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
+            specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get(),
+            fitsfile_ptr.get());
 
         LOG::LOGGER.STD("Collapsing local queue.\n");
         for (auto one_qso = local_queue.begin(); one_qso != local_queue.end(); ++one_qso)
@@ -808,9 +813,6 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     if (mympi::this_pe != 0)
         return;
 
-    std::string fname = "!" + process::FNAME_BASE + "_detailed_results.fits";
-
-    static auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(fname);
     fitsfile *fits_file = fitsfile_ptr.get();
     int status = 0;
 
@@ -872,8 +874,6 @@ void OneDQuadraticPowerEstimate::iterationOutput(
         fits_file, TDOUBLE, 1, size, (void *) solver_invfisher_matrix.get(),
         &status);
     ioh::checkFitsStatus(status);
-
-    LOG::LOGGER.STD("Results are saved as %s.\n", fname.c_str());
 
     LOG::LOGGER.STD(
         "----------------------------------\n"
