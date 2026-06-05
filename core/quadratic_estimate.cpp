@@ -274,12 +274,20 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
         fisher_matrix_sum.get(), bins::FISHER_SIZE,
         solver_invfisher_matrix.get());
 
+    damping_pair.first = false;
     damping_pair.second = 0;
-    status = mxhelp::stableInvertSym(
-        solver_invfisher_matrix, inverse_fisher_matrix_sum,
-        bins::TOTAL_KZ_BINS, bins::NewDegreesOfFreedom, damping_pair.second);
-
-    damping_pair.first = status != 0;
+    if (specifics::AUTO_FISHER_DAMPING) {
+        status = mxhelp::stableInvertSym(
+            solver_invfisher_matrix, inverse_fisher_matrix_sum,
+            bins::TOTAL_KZ_BINS, bins::NewDegreesOfFreedom, damping_pair.second);
+        damping_pair.first = status != 0;
+    }
+    else {
+        bins::NewDegreesOfFreedom = mxhelp::LAPACKE_InvertMatrixLU_safe(
+            solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS);
+        std::copy_n(solver_invfisher_matrix.get(), bins::FISHER_SIZE,
+                    inverse_fisher_matrix_sum.get());
+    }
 
     if (damping_pair.first)
         LOG::LOGGER.STD(

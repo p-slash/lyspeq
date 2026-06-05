@@ -75,7 +75,7 @@ namespace specifics
     extern bool
         TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
         REDSHIFT_GROWTH_ON, USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP,
-        SAVE_BOOTREALIZATIONS;
+        SAVE_BOOTREALIZATIONS, AUTO_FISHER_DAMPING;
     extern double CHISQ_CONVERGENCE_EPS;
     extern int
         CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
@@ -90,7 +90,7 @@ namespace specifics
         {"ResoMatDeconvolutionM", "-1"}, {"OversampleRmat", "-1"},
         {"DynamicChunkNumber", "1"}, {"TurnOffBaseline", "-1"},
         {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "1e-2"},
-        {"RedshiftGrowthOn", "-1"},
+        {"RedshiftGrowthOn", "-1"}, {"AutoFisherDamping", "-1"},
         {"MaximumForestLength", "3.5e4"}, {"MaximumMeanPixelSize", "150.0"},
         {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
         {"PrecomputedFisher", ""}, {"Targetids2Ignore", ""},
@@ -123,6 +123,8 @@ namespace specifics
         Criteria for chi square convergance. Valid when > 0. Default is 1e-2
     RedshiftGrowthOn: int, default: -1
         Multiply derivative matrices with a power scaling of redshift.
+    AutoFisherDamping: int, default: -1
+        If > 0, automatically add a damping term to the Fisher matrix to stabilize the inversion
     MaximumForestLength: double, default: 3.5e4
         Maximum length of the forest to use in dynamic chunking. Accurate
         values enable a consistent maximum length of each chunk. The max
