@@ -232,6 +232,10 @@ target_link_libraries(cblas_tests PUBLIC
 add_executable(testSQCMatrices tests/testSQCMatrices.cpp tests/test_utils.cpp)
 target_link_libraries(testSQCMatrices PRIVATE AllObjLibs)
 
+add_executable(testMPIMergeSort tests/testMPIMergeSort.cpp)
+target_include_directories(testMPIMergeSort PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(testMPIMergeSort PRIVATE MY_OMP_MPI)
+
 # ===========
 # Installation
 # ===========
@@ -245,5 +249,13 @@ install(PROGRAMS py/smbivspline.py DESTINATION bin)
 file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/output)
 add_test(NAME TestCBLAS COMMAND cblas_tests)
 add_test(NAME TestSqMatrices COMMAND testSQCMatrices tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+if (ENABLE_MPI)
+    foreach(np 1 2 3 5)
+        add_test(NAME TestMPIMergeSort_np${np}
+            COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} $<TARGET_FILE:testMPIMergeSort>)
+    endforeach()
+else()
+    add_test(NAME TestMPIMergeSort COMMAND testMPIMergeSort)
+endif()
 add_test(NAME TestQmle COMMAND LyaPowerEstimate tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 add_test(NAME NumericalAccuracy COMMAND python tests/compareTestResults.py . WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
