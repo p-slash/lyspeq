@@ -115,6 +115,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
         throw std::invalid_argument("Must pass FileInputDir.");
     
     std::string fname = "!" + process::FNAME_BASE + "_detailed_results.fits";
+    if (mympi::this_pe == 0)
     fitsfile_ptr = ioh::create_unique_fitsfile_ptr(fname);
     LOG::LOGGER.STD("Results will be saved to %s.\n", fname.c_str());
 }
