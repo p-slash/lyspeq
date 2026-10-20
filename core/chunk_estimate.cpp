@@ -636,10 +636,11 @@ void Chunk::_addMarginalizations() {
 
     // SVD to get orthogonal marg vectors
     mxhelp::LAPACKE_svd(marg_mat, svals.get(), size(), specifics::CONT_NVECS);
+    double eps_svd = size() * DOUBLE_EPSILON * svals[0];
 
     int nvecs_to_use = specifics::CONT_NVECS;
     while (nvecs_to_use > 0) {
-        if ((svals[nvecs_to_use - 1] / svals[0]) > DOUBLE_EPSILON)
+        if (svals[nvecs_to_use - 1] > eps_svd)
             break;
         --nvecs_to_use;
     }
