@@ -225,14 +225,13 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 
 void Chunk::_findRedshiftBin()
 {
-    ZBIN     = bins::findRedshiftBin(MEDIAN_REDSHIFT);
-    ZBIN_LOW = bins::findRedshiftBin(LOWER_REDSHIFT);
-    ZBIN_UPP = bins::findRedshiftBin(UPPER_REDSHIFT);
+    ZBIN = std::clamp(bins::findRedshiftBin(MEDIAN_REDSHIFT), 0, bins::NUMBER_OF_Z_BINS - 1);
+    ZBIN_LOW = std::clamp(bins::findRedshiftBin(LOWER_REDSHIFT), 0, bins::NUMBER_OF_Z_BINS - 1);
+    ZBIN_UPP = std::clamp(bins::findRedshiftBin(UPPER_REDSHIFT), 0, bins::NUMBER_OF_Z_BINS - 1);
 
     // Assign to a redshift bin according to median redshift of this chunk
     // This is just for bookkeeping purposes
-    if ((ZBIN >= 0) && (ZBIN < bins::NUMBER_OF_Z_BINS))
-        BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
+    BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
 }
 
 // For a top hat redshift bin, only access 1 redshift bin for each pixel
@@ -308,7 +307,8 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
         double z1, z2, zm; 
         qtemp.readMinMaxMedRedshift(z1, z2, zm);
 
-        int ZBIN_LOW = bins::findRedshiftBin(z1), ZBIN_UPP = bins::findRedshiftBin(z2);
+        int ZBIN_LOW = std::max(0, bins::findRedshiftBin(z1)),
+            ZBIN_UPP = std::min(bins::NUMBER_OF_Z_BINS - 1, bins::findRedshiftBin(z2));
 
         if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
             return 0;

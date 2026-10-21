@@ -51,8 +51,8 @@ namespace xeutils {
                b1 = q2->wave()[0], b2 = q2->wave()[N2 - 1];
 
         double zmin = sqrt(a1 * b1) - 1., zmax = sqrt(a2 * b2) - 1.;
-        int ZBIN_LOW = bins::findRedshiftBin(zmin),
-            ZBIN_UPP = bins::findRedshiftBin(zmax);
+        int ZBIN_LOW = std::clamp(bins::findRedshiftBin(zmin), 0, bins::NUMBER_OF_Z_BINS - 1),
+            ZBIN_UPP = std::clamp(bins::findRedshiftBin(zmax), 0, bins::NUMBER_OF_Z_BINS - 1);
 
         N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
         fisher_index_start = bins::getFisherMatrixIndex(0, ZBIN_LOW);
