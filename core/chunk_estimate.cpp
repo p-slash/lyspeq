@@ -214,6 +214,8 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 
     qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
     KBIN_UPP = _getMaxKindex(MY_PI / qFile->dv_kms);
+    if (KBIN_UPP == 0)
+        throw std::runtime_error("Chunk::_copyQSOFile::KBIN_UPP == 0");
 
     _findRedshiftBin();
 
