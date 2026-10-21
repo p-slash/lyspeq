@@ -686,32 +686,35 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
         );
 
     // add noise matrix diagonally, but smooth before adding
-    double *ivec = qFile->ivar();
+    double *ivec = qFile->ivar(), *isig = glmemory::temp_vector.get();
     if (process::smoother->isSmoothingOn()) {
-        process::smoother->smoothIvar(
-            qFile->ivar(), glmemory::temp_vector.get(), size());
-        ivec = glmemory::temp_vector.get();
+        process::smoother->smoothIvar(qFile->ivar(), isig, size());
+        ivec = isig;
     }
+    for (int i = 0; i < size(); ++i)
+        isig[i] = sqrt(std::max(0.0, ivec[i]));
 
-    // (N^-1 . S + I)
-    #pragma omp parallel for
-    for (int i = 0; i < size(); ++i) {
-        cblas_dscal(size(), ivec[i], covariance_matrix + i * size(), 1);
+    // (N^-1/2 . S . N^-1/2 + I)
+    #pragma omp parallel for simd collapse(2)
+    for (int i = 0; i < size(); ++i)
+        for (int j = 0; j < size(); ++j)
+            covariance_matrix[j + i * size()] *= isig[i] * isig[j];
+    for (int i = 0; i < size(); ++i)
         covariance_matrix[i * (size() + 1)] += 1.0;
-    }
 
     CHECK_ISNAN(covariance_matrix, DATA_SIZE_2, "CovMat");
     DEBUG_LOG("Inverting cov matrix\n");
 
-    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, size());
+    mxhelp::LAPACKE_InvertMatrixCholesky(covariance_matrix, size());
+    mxhelp::copyUpperToLower(covariance_matrix, size());
 
     inverse_covariance_matrix = covariance_matrix;
 
-    // (N^-1 . S + I)^-1 . N^-1
-    #pragma omp parallel for
+    // N^-1/2 . (N^-1/2 . S . N^-1/2 + I) . N^-1/2
+    #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < size(); ++i)
         for (int j = 0; j < size(); ++j)
-            inverse_covariance_matrix[j + i * size()] *= ivec[j];
+            inverse_covariance_matrix[j + i * size()] *= isig[i] * isig[j];
 
     if (specifics::CONT_NVECS > 0)
         _addMarginalizations();
