@@ -225,11 +225,10 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         [](double &w) { w /= LYA_REST; });
 }
 
-void Chunk::_findRedshiftBin()
-{
-    ZBIN = std::clamp(bins::findRedshiftBin(MEDIAN_REDSHIFT), 0, bins::NUMBER_OF_Z_BINS - 1);
-    ZBIN_LOW = std::clamp(bins::findRedshiftBin(LOWER_REDSHIFT), 0, bins::NUMBER_OF_Z_BINS - 1);
-    ZBIN_UPP = std::clamp(bins::findRedshiftBin(UPPER_REDSHIFT), 0, bins::NUMBER_OF_Z_BINS - 1);
+void Chunk::_findRedshiftBin() {
+    ZBIN = std::clamp(bins::findRedshiftBin(MEDIAN_REDSHIFT), 0, bins::NZ_MINUS_ONE);
+    ZBIN_LOW = std::clamp(bins::findRedshiftBin(LOWER_REDSHIFT), 0, bins::NZ_MINUS_ONE);
+    ZBIN_UPP = std::clamp(bins::findRedshiftBin(UPPER_REDSHIFT), 0, bins::NZ_MINUS_ONE);
 
     // Assign to a redshift bin according to median redshift of this chunk
     // This is just for bookkeeping purposes
@@ -250,7 +249,7 @@ void Chunk::_setNQandFisherIndex() {
             fisher_index_start -= bins::NUMBER_OF_K_BANDS;
         }
         // If we need to distribute high end to righter bin
-        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP < (bins::NUMBER_OF_Z_BINS - 1)))
+        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP < bins::NZ_MINUS_ONE))
             ++N_Q_MATRICES;
     }
 
@@ -310,9 +309,9 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
         qtemp.readMinMaxMedRedshift(z1, z2, zm);
 
         int ZBIN_LOW = std::max(0, bins::findRedshiftBin(z1)),
-            ZBIN_UPP = std::min(bins::NUMBER_OF_Z_BINS - 1, bins::findRedshiftBin(z2));
+            ZBIN_UPP = std::min(bins::NZ_MINUS_ONE, bins::findRedshiftBin(z2));
 
-        if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
+        if ((ZBIN_LOW > bins::NZ_MINUS_ONE) || (ZBIN_UPP < 0))
             return 0;
 
         int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
@@ -330,7 +329,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
                 fidxlocal -= bins::NUMBER_OF_K_BANDS;
             }
 
-            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP < (bins::NUMBER_OF_Z_BINS - 1)))
+            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP < bins::NZ_MINUS_ONE))
                 ++N_Q_MATRICES;
         }
 
