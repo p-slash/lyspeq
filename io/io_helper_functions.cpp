@@ -133,6 +133,26 @@ template int ioh::readList(const char *fname, std::vector<int> &list_values, boo
 template int ioh::readList(const char *fname, std::vector<long> &list_values, bool hdr);
 template int ioh::readList(const char *fname, std::vector<std::string> &list_values, bool hdr);
 
+template <class T>
+void ioh::writeList(const char *fname, const std::vector<T> &list_values, bool hdr)
+{
+    std::ofstream toWrite = ioh::open_fstream<std::ofstream>(fname);
+
+    if (hdr) {
+        toWrite << list_values.size() << std::endl;
+    }
+
+    for (const auto &value : list_values) {
+        toWrite << value << std::endl;
+    }
+
+    toWrite.close();
+}
+
+template void ioh::writeList(const char *fname, const std::vector<int> &list_values, bool hdr);
+template void ioh::writeList(const char *fname, const std::vector<long> &list_values, bool hdr);
+template void ioh::writeList(const char *fname, const std::vector<std::string> &list_values, bool hdr);
+
 int ioh::readListRdv(const char *fname, std::vector<std::pair<int, double>> &list_values)
 {
     int nr, ic=0;

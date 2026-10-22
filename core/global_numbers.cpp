@@ -202,7 +202,7 @@ namespace bins
         });
 
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
-        FISHER_SIZE, NewDegreesOfFreedom, NKLIN, NKLOG;
+        FISHER_SIZE, NewDegreesOfFreedom, NKLIN, NKLOG, NZ_MINUS_ONE;
     std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE, K0, DKLIN, DKLOG;
     BinningMethod Z_BINNING_METHOD = TriangleBinningMethod;
@@ -248,7 +248,7 @@ namespace bins
             ZBIN_CENTERS.push_back(z0 + Z_BIN_WIDTH * zm);
 
         Z_LOWER_EDGE = ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.;
-        Z_UPPER_EDGE = ZBIN_CENTERS[NUMBER_OF_Z_BINS-1] + Z_BIN_WIDTH/2.;
+        Z_UPPER_EDGE = ZBIN_CENTERS[NZ_MINUS_ONE] + Z_BIN_WIDTH/2.;
     }
 
     /* This function reads following keys from config file:
@@ -289,6 +289,7 @@ namespace bins
         Z_0 = config.getDouble("FirstRedshiftBinCenter");
         Z_BIN_WIDTH = config.getDouble("RedshiftBinWidth");
         NUMBER_OF_Z_BINS = config.getInteger("NumberOfRedshiftBins");
+        NZ_MINUS_ONE = NUMBER_OF_Z_BINS - 1;
 
         if (NKLIN > 0 && !(DKLIN > 0))
             throw std::invalid_argument(
@@ -385,8 +386,8 @@ namespace bins
         }
         else
         {
-            if (zm == NUMBER_OF_Z_BINS - 1) return 1.;
-            else                            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+            if (zm == NZ_MINUS_ONE) return 1.;
+            else                    return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
         }
     }
 
@@ -411,7 +412,7 @@ namespace bins
     void zBinTriangular2(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
-        double zc = ZBIN_CENTERS[NUMBER_OF_Z_BINS - 1];
+        double zc = ZBIN_CENTERS[NZ_MINUS_ONE];
 
         low = std::lower_bound(z, z + N, zc - Z_BIN_WIDTH) - z;
         up = std::upper_bound(z, z + N, zc) - z;
@@ -463,7 +464,7 @@ namespace bins
                 redshiftBinningFunction = &zBinTopHat;
             else if (zm == 0)
                 redshiftBinningFunction = &zBinTriangular1;
-            else if (zm == NUMBER_OF_Z_BINS - 1)
+            else if (zm == NZ_MINUS_ONE)
                 redshiftBinningFunction = &zBinTriangular2;
             else
                 redshiftBinningFunction = &zBinTriangular;

@@ -214,6 +214,8 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 
     qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
     KBIN_UPP = _getMaxKindex(MY_PI / qFile->dv_kms);
+    if (KBIN_UPP == 0)
+        throw std::runtime_error("Chunk::_copyQSOFile::KBIN_UPP == 0");
 
     _findRedshiftBin();
 
@@ -223,16 +225,14 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
         [](double &w) { w /= LYA_REST; });
 }
 
-void Chunk::_findRedshiftBin()
-{
-    ZBIN     = bins::findRedshiftBin(MEDIAN_REDSHIFT);
-    ZBIN_LOW = bins::findRedshiftBin(LOWER_REDSHIFT);
-    ZBIN_UPP = bins::findRedshiftBin(UPPER_REDSHIFT);
+void Chunk::_findRedshiftBin() {
+    ZBIN = std::clamp(bins::findRedshiftBin(MEDIAN_REDSHIFT), 0, bins::NZ_MINUS_ONE);
+    ZBIN_LOW = std::clamp(bins::findRedshiftBin(LOWER_REDSHIFT), 0, bins::NZ_MINUS_ONE);
+    ZBIN_UPP = std::clamp(bins::findRedshiftBin(UPPER_REDSHIFT), 0, bins::NZ_MINUS_ONE);
 
     // Assign to a redshift bin according to median redshift of this chunk
     // This is just for bookkeeping purposes
-    if ((ZBIN >= 0) && (ZBIN < bins::NUMBER_OF_Z_BINS))
-        BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
+    BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
 }
 
 // For a top hat redshift bin, only access 1 redshift bin for each pixel
@@ -249,7 +249,7 @@ void Chunk::_setNQandFisherIndex() {
             fisher_index_start -= bins::NUMBER_OF_K_BANDS;
         }
         // If we need to distribute high end to righter bin
-        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP < (bins::NUMBER_OF_Z_BINS - 1)))
+        if ((bins::ZBIN_CENTERS[ZBIN_UPP] < UPPER_REDSHIFT) && (ZBIN_UPP < bins::NZ_MINUS_ONE))
             ++N_Q_MATRICES;
     }
 
@@ -308,9 +308,10 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
         double z1, z2, zm; 
         qtemp.readMinMaxMedRedshift(z1, z2, zm);
 
-        int ZBIN_LOW = bins::findRedshiftBin(z1), ZBIN_UPP = bins::findRedshiftBin(z2);
+        int ZBIN_LOW = std::max(0, bins::findRedshiftBin(z1)),
+            ZBIN_UPP = std::min(bins::NZ_MINUS_ONE, bins::findRedshiftBin(z2));
 
-        if ((ZBIN_LOW > (bins::NUMBER_OF_Z_BINS-1)) || (ZBIN_UPP < 0))
+        if ((ZBIN_LOW > bins::NZ_MINUS_ONE) || (ZBIN_UPP < 0))
             return 0;
 
         int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
@@ -328,7 +329,7 @@ double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
                 fidxlocal -= bins::NUMBER_OF_K_BANDS;
             }
 
-            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP < (bins::NUMBER_OF_Z_BINS - 1)))
+            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP < bins::NZ_MINUS_ONE))
                 ++N_Q_MATRICES;
         }
 
@@ -510,10 +511,12 @@ void Chunk::_applyRedshiftInterp() {
         std::fill_n(temp_matrix[0], DATA_SIZE_2, 0);
 
         #pragma omp parallel for schedule(static, 1)
-        for (int i = 0; i < up; ++i)
+        for (int i = 0; i < up; ++i) {
+            int row_low, row_up;
             bins::redshiftBinningFunction(
                 _zmatrix + i * (size() + 1), size() - i, zm_new,
-                temp_matrix[0] + i * (size() + 1), low, tmp);
+                temp_matrix[0] + i * (size() + 1), row_low, row_up);
+        }
 
         mxhelp::copyUpperToLower(temp_matrix[0], size());
 
@@ -636,10 +639,11 @@ void Chunk::_addMarginalizations() {
 
     // SVD to get orthogonal marg vectors
     mxhelp::LAPACKE_svd(marg_mat, svals.get(), size(), specifics::CONT_NVECS);
+    double eps_svd = size() * DOUBLE_EPSILON * svals[0];
 
     int nvecs_to_use = specifics::CONT_NVECS;
     while (nvecs_to_use > 0) {
-        if ((svals[nvecs_to_use - 1] / svals[0]) > DOUBLE_EPSILON)
+        if (svals[nvecs_to_use - 1] > eps_svd)
             break;
         --nvecs_to_use;
     }
@@ -683,32 +687,35 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
         );
 
     // add noise matrix diagonally, but smooth before adding
-    double *ivec = qFile->ivar();
+    double *ivec = qFile->ivar(), *isig = glmemory::temp_vector.get();
     if (process::smoother->isSmoothingOn()) {
-        process::smoother->smoothIvar(
-            qFile->ivar(), glmemory::temp_vector.get(), size());
-        ivec = glmemory::temp_vector.get();
+        process::smoother->smoothIvar(qFile->ivar(), isig, size());
+        ivec = isig;
     }
+    for (int i = 0; i < size(); ++i)
+        isig[i] = sqrt(std::max(0.0, ivec[i]));
 
-    // (N^-1 . S + I)
-    #pragma omp parallel for
-    for (int i = 0; i < size(); ++i) {
-        cblas_dscal(size(), ivec[i], covariance_matrix + i * size(), 1);
+    // (N^-1/2 . S . N^-1/2 + I)
+    #pragma omp parallel for simd collapse(2)
+    for (int i = 0; i < size(); ++i)
+        for (int j = 0; j < size(); ++j)
+            covariance_matrix[j + i * size()] *= isig[i] * isig[j];
+    for (int i = 0; i < size(); ++i)
         covariance_matrix[i * (size() + 1)] += 1.0;
-    }
 
     CHECK_ISNAN(covariance_matrix, DATA_SIZE_2, "CovMat");
     DEBUG_LOG("Inverting cov matrix\n");
 
-    mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, size());
+    mxhelp::LAPACKE_InvertMatrixCholesky(covariance_matrix, size());
+    mxhelp::copyUpperToLower(covariance_matrix, size());
 
     inverse_covariance_matrix = covariance_matrix;
 
-    // (N^-1 . S + I)^-1 . N^-1
-    #pragma omp parallel for
+    // N^-1/2 . (N^-1/2 . S . N^-1/2 + I) . N^-1/2
+    #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < size(); ++i)
         for (int j = 0; j < size(); ++j)
-            inverse_covariance_matrix[j + i * size()] *= ivec[j];
+            inverse_covariance_matrix[j + i * size()] *= isig[i] * isig[j];
 
     if (specifics::CONT_NVECS > 0)
         _addMarginalizations();
