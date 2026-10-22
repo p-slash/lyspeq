@@ -86,7 +86,7 @@ namespace specifics
     extern double MAX_FOREST_LENGTH_V, MIN_FOREST_LENGTH_V, MAX_PIXEL_LENGTH_V;
 
     const config_map specifics_default_parameters ({
-        {"MinimumSnrCut", "0"}, {"InputIsPicca", "-1"}, {"UseResoMatrix", "-1"},
+        {"MinimumSnrCut", "0"}, {"InputIsPicca", "1"}, {"UseResoMatrix", "1"},
         {"ResoMatDeconvolutionM", "-1"}, {"OversampleRmat", "-1"},
         {"DynamicChunkNumber", "1"}, {"TurnOffBaseline", "-1"},
         {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "1e-2"},

@@ -98,40 +98,38 @@ namespace specifics
 
         MIN_SNR_CUT = config.getDouble("MinimumSnrCut");
         RESOMAT_DECONVOLUTION_M = config.getDouble("ResoMatDeconvolutionM");
-        OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat", -1);
-        NUMBER_OF_CHUNKS = std::max(1, config.getInteger("DynamicChunkNumber", 1));
+        OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat");
+        NUMBER_OF_CHUNKS = std::max(1, config.getInteger("DynamicChunkNumber"));
         NUMBER_OF_BOOTS = config.getInteger("NumberOfBoots");
 
-        MAX_FOREST_LENGTH_V = config.getDouble("MaximumForestLength", 3.5e4);
+        MAX_FOREST_LENGTH_V = config.getDouble("MaximumForestLength");
         MAX_FOREST_LENGTH_V /= NUMBER_OF_CHUNKS;
         MIN_FOREST_LENGTH_V = 0.90 / 2 * MAX_FOREST_LENGTH_V;
-        MAX_PIXEL_LENGTH_V = config.getDouble("MaximumMeanPixelSize", 120.0);
+        MAX_PIXEL_LENGTH_V = config.getDouble("MaximumMeanPixelSize");
 
         double temp_chisq = config.getDouble("ChiSqConvergence");
         if (temp_chisq > 0)
             CHISQ_CONVERGENCE_EPS = temp_chisq;
 
         // Continuum marginalization order. Pass <=0 to turn off
-        CONT_LOGLAM_MARG_ORDER = config.getInteger(
-            "ContinuumLogLambdaMargOrder", 1);
-        CONT_LAM_MARG_ORDER = config.getInteger(
-            "ContinuumLambdaMargOrder", 0);
+        CONT_LOGLAM_MARG_ORDER = config.getInteger("ContinuumLogLambdaMargOrder");
+        CONT_LAM_MARG_ORDER = config.getInteger("ContinuumLambdaMargOrder");
 
         // char tmp_ps_fname[320];
         // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
         // TODO: Test access here
 
-        TURN_OFF_SFID = config.getInteger("TurnOffBaseline", -1) > 0;
-        SMOOTH_LOGK_LOGP = config.getInteger("SmoothLnkLnP", 1) > 0;
-        USE_RESOLUTION_MATRIX = config.getInteger("UseResoMatrix", -1) > 0;
-        REDSHIFT_GROWTH_ON = config.getInteger("RedshiftGrowthOn", -1) > 0;
-        AUTO_FISHER_DAMPING = config.getInteger("AutoFisherDamping", -1) > 0;
+        TURN_OFF_SFID = config.getInteger("TurnOffBaseline") > 0;
+        SMOOTH_LOGK_LOGP = config.getInteger("SmoothLnkLnP") > 0;
+        USE_RESOLUTION_MATRIX = config.getInteger("UseResoMatrix") > 0;
+        REDSHIFT_GROWTH_ON = config.getInteger("RedshiftGrowthOn") > 0;
+        AUTO_FISHER_DAMPING = config.getInteger("AutoFisherDamping") > 0;
         std::string precomp_fisher_str = config.get("PrecomputedFisher");
         USE_PRECOMPUTED_FISHER = !precomp_fisher_str.empty();
         FAST_BOOTSTRAP = config.getInteger("FastBootstrap") > 0;
         SAVE_BOOTREALIZATIONS = config.getInteger("SaveBootstrapRealizations") > 0;
 
-        if (config.getInteger("InputIsPicca", -1) > 0)
+        if (config.getInteger("InputIsPicca") > 0)
             INPUT_QSO_FILE = qio::Picca;
 
         if (INPUT_QSO_FILE != qio::Picca && USE_RESOLUTION_MATRIX)
@@ -312,7 +310,7 @@ namespace bins
         if (NUMBER_OF_Z_BINS <= 0)
             throw std::invalid_argument("NumberOfRedshiftBins must be > 0.");
 
-        switch (config.getInteger("RedshiftBinningMethod", 1)) {
+        switch (config.getInteger("RedshiftBinningMethod")) {
         case 0:
             Z_BINNING_METHOD = TophatBinningMethod;
             break;
