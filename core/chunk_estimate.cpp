@@ -511,10 +511,12 @@ void Chunk::_applyRedshiftInterp() {
         std::fill_n(temp_matrix[0], DATA_SIZE_2, 0);
 
         #pragma omp parallel for schedule(static, 1)
-        for (int i = 0; i < up; ++i)
+        for (int i = 0; i < up; ++i) {
+            int row_low, row_up;
             bins::redshiftBinningFunction(
                 _zmatrix + i * (size() + 1), size() - i, zm_new,
-                temp_matrix[0] + i * (size() + 1), low, tmp);
+                temp_matrix[0] + i * (size() + 1), row_low, row_up);
+        }
 
         mxhelp::copyUpperToLower(temp_matrix[0], size());
 
