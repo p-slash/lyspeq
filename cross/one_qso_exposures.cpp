@@ -355,24 +355,27 @@ void OneQsoExposures::xQmlEstimate() {
         // Calculate
         int diff_idx = xeutils::fisher_index_start - istart;
 
+        int nmats = glmemory::temp_matrices.size();
         double t = mytime::timer.getTime();
+        #pragma omp parallel for num_threads(nmats) schedule(static, 1)
         for (auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi) {
+            int ithread = myomp::getThreadNum();
             dk0[i_kz + diff_idx] += mxhelp::my_cblas_dgemvdot(
                 expo1->getWeightedData(), xeutils::N1,
                 expo2->getWeightedData(), xeutils::N2,
-                qi, glmemory::temp_vectors[0].get());
+                qi, glmemory::temp_vectors[ithread].get());
 
             cblas_dgemm(
                 CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 xeutils::N1, xeutils::N2, xeutils::N1, 1.,
                 expo1->getInverseCov(), xeutils::N1,
                 qi, xeutils::N2, 0,
-                glmemory::temp_matrices[0].get(), xeutils::N2);
+                glmemory::temp_matrices[ithread].get(), xeutils::N2);
 
             cblas_dgemm(
                 CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 xeutils::N1, xeutils::N2, xeutils::N2, 1.,
-                glmemory::temp_matrices[0].get(), xeutils::N2,
+                glmemory::temp_matrices[ithread].get(), xeutils::N2,
                 expo2->getInverseCov(), xeutils::N2, 0.,
                 qwi, xeutils::N2);
         }
