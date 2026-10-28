@@ -56,6 +56,9 @@ test: core cblas_tests testSQCMatrices
 	@echo "Running QMLE..."
 	@${exec}LyaPowerEstimate $(srcdir)/tests/input/test.config > $(srcdir)/tests/output/LyaPowerEstimate.log
 
+	@echo "Running xQMLE..."
+	@${exec}LyaPowerxQmlExposure $(srcdir)/tests/input/test-xqmle.config > $(srcdir)/tests/output/LyaPowerxQmlExposure.log
+
 	@python3 tests/compareTestResults.py $(srcdir)
 	
 LyaPowerEstimate: LyaPowerEstimate.o $(NONX_OBJECTS)
