@@ -680,18 +680,22 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
     else
         std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
 
-    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
+    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
+        if (ps_estimate[fisher_index_start + i_kz] == 0)
+            continue;
         cblas_daxpy(
             DATA_SIZE_2, ps_estimate[fisher_index_start + i_kz], 
             Q_ikz_matrix, 1, covariance_matrix, 1
         );
-
+    }
     // add noise matrix diagonally, but smooth before adding
-    double *ivec = qFile->ivar(), *isig = glmemory::temp_vector.get();
+    const double *ivec = qFile->ivar();
+    double *isig = glmemory::temp_vector.get();
     if (process::smoother->isSmoothingOn()) {
         process::smoother->smoothIvar(qFile->ivar(), isig, size());
         ivec = isig;
     }
+    #pragma omp parallel for simd
     for (int i = 0; i < size(); ++i)
         isig[i] = sqrt(std::max(0.0, ivec[i]));
 
@@ -700,6 +704,7 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
     for (int i = 0; i < size(); ++i)
         for (int j = 0; j < size(); ++j)
             covariance_matrix[j + i * size()] *= isig[i] * isig[j];
+    #pragma omp parallel for simd
     for (int i = 0; i < size(); ++i)
         covariance_matrix[i * (size() + 1)] += 1.0;
 
