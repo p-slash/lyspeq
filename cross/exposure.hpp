@@ -70,8 +70,8 @@ public:
         double *ivec = qFile->ivar();
         if (process::smoother->isSmoothingOn()) {
             process::smoother->smoothIvar(
-                qFile->ivar(), glmemory::temp_vector.get(), size());
-            ivec = glmemory::temp_vector.get();
+                qFile->ivar(), glmemory::temp_vectors[0].get(), size());
+            ivec = glmemory::temp_vectors[0].get();
         }
 
         #pragma omp parallel for

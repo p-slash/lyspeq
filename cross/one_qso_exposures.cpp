@@ -360,7 +360,7 @@ void OneQsoExposures::xQmlEstimate() {
             dk0[i_kz + diff_idx] += mxhelp::my_cblas_dgemvdot(
                 expo1->getWeightedData(), xeutils::N1,
                 expo2->getWeightedData(), xeutils::N2,
-                qi, glmemory::temp_vector.get());
+                qi, glmemory::temp_vectors[0].get());
 
             cblas_dgemm(
                 CblasRowMajor, CblasNoTrans, CblasNoTrans,

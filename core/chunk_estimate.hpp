@@ -29,9 +29,9 @@ matrices. This scheme speeds up the algorithm.
 namespace glmemory {
     extern int max_size_2;
     extern std::unique_ptr<double[]>
-        covariance_matrix, temp_vector, weighted_data_vector,
+        covariance_matrix, weighted_data_vector,
         stored_sfid, matrix_lambda, finer_matrix, v_matrix, z_matrix;
-    extern std::vector<std::unique_ptr<double[]>> stored_ikz_qi, temp_matrices;
+    extern std::vector<std::unique_ptr<double[]>> stored_ikz_qi, temp_matrices, temp_vectors;
 
     extern shared_interp_2d interp2d_signal_matrix;
     extern std::vector<shared_interp_1d> interp_derivative_matrix;
@@ -78,7 +78,6 @@ protected:
     void _applyRedshiftInterp();
     void _scaleDerivativesWithRedshiftGrowth();
     void _addMarginalizations();
-    void _getWeightedMatrix(double *&m);
 
     friend class TestOneQSOEstimate;
 
