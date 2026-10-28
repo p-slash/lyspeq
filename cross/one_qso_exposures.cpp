@@ -357,7 +357,7 @@ void OneQsoExposures::xQmlEstimate() {
 
         int nmats = glmemory::temp_matrices.size();
         double t = mytime::timer.getTime();
-        #pragma omp parallel for num_threads(nmats) schedule(static, 1)
+        #pragma omp parallel for num_threads(nmats) schedule(dynamic, 1)
         for (auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi) {
             int ithread = myomp::getThreadNum();
             dk0[i_kz + diff_idx] += mxhelp::my_cblas_dgemvdot(
@@ -396,7 +396,7 @@ void OneQsoExposures::xQmlEstimate() {
 
         diff_idx *= ndim + 1;
         // I think this is still symmetric
-        #pragma omp parallel for schedule(static, 1)
+        #pragma omp parallel for schedule(dynamic, 1)
         for (   auto iqt = xeutils::stored_ikz_qi_qwi.cbegin();
                 iqt != xeutils::stored_ikz_qi_qwi.cend(); ++iqt
         ) {
