@@ -121,6 +121,32 @@ if __name__ == '__main__':
         ext="FISHER")
     ERR_CODE += testMaxDiffArrays(true_fisher, comp_fisher)
 
+    print(f"{BOLD}Comparing xQMLE results...{ENDC}")
+    true_xqmle = fitsio.read(
+        f"{args.SourceDir}/tests/truth/test-xqmle_detailed_results.fits",
+        ext="P1D")
+    true_Pfid, true_ThetaP, true_ErrorP = true_xqmle['PINPUT'], true_xqmle['ThetaP'], true_xqmle['E_PK']
+    comp_res = fitsio.read(
+        f"{args.SourceDir}/tests/output/test-xqmle_detailed_results.fits",
+        ext="P1D")
+    comp_Pfid, comp_ThetaP, comp_ErrorP = comp_res['PINPUT'], comp_res['ThetaP'], comp_res['E_PK']
+
+    print("1. Fiducial power:")
+    ERR_CODE += testMaxDiffArrays(true_Pfid, comp_Pfid)
+    print("2. Theta estimates:")
+    ERR_CODE += testMaxDiffArrays(true_ThetaP, comp_ThetaP)
+    print("3. Error estimates:")
+    ERR_CODE += testMaxDiffArrays(true_ErrorP, comp_ErrorP)
+
+    print("4. Comparing Fisher matrices...")
+    true_fisher = fitsio.read(
+        f"{args.SourceDir}/tests/truth/test-xqmle_detailed_results.fits",
+        ext="FISHER")
+    comp_fisher = fitsio.read(
+        f"{args.SourceDir}/tests/output/test-xqmle_detailed_results.fits",
+        ext="FISHER")
+    ERR_CODE += testMaxDiffArrays(true_fisher, comp_fisher)
+
     if ERR_CODE == 0:
         print(
             f"{OKBLUE}{BOLD}Everything works OK!{ENDC}")
