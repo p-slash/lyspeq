@@ -207,7 +207,7 @@ namespace mxhelp
 
         double getMinMemUsage() { return (double)sizeof(double) * size / 1048576.; };
         double getBufMemUsage() {
-            return (double)sizeof(double) * nrows * myomp::getMaxNumThreads() / 1048576.;
+            return (double)sizeof(double) * ncols * myomp::getMaxNumThreads() / 1048576.;
         };
 
         void fprintfMatrix(const char *fname);

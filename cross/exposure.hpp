@@ -47,6 +47,9 @@ public:
         covariance_matrix = local_cov_mat.get();
 
         process::updateMemory(-process::getMemoryMB(DATA_SIZE_2 + size()));
+        _setVZMatrices();
+        if (!specifics::TURN_OFF_SFID)
+            _setFiducialSignalMatrix(glmemory::stored_sfid.get());
     }
 
     void deallocMatrices() {
@@ -54,47 +57,6 @@ public:
         weighted_data.reset();
         covariance_matrix = nullptr;
         process::updateMemory(process::getMemoryMB(DATA_SIZE_2 + size()));
-    };
-
-    void setInvertCovarianceMatrix() {
-        double t = mytime::timer.getTime();
-        _setVZMatrices();
-
-        if (specifics::TURN_OFF_SFID)
-            std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
-        else
-            _setFiducialSignalMatrix(covariance_matrix);
-
-        // add noise matrix diagonally
-        // but smooth before adding
-        double *ivec = qFile->ivar();
-        if (process::smoother->isSmoothingOn()) {
-            process::smoother->smoothIvar(
-                qFile->ivar(), glmemory::temp_vector.get(), size());
-            ivec = glmemory::temp_vector.get();
-        }
-
-        #pragma omp parallel for
-        for (int i = 0; i < size(); ++i) {
-            cblas_dscal(size(), ivec[i], covariance_matrix + i * size(), 1);
-            covariance_matrix[i * (size() + 1)] += 1.0;
-        }
-
-        mxhelp::LAPACKE_InvertMatrixLU(covariance_matrix, size());
-
-        inverse_covariance_matrix = covariance_matrix;
-
-        #pragma omp parallel for
-        for (int i = 0; i < size(); ++i)
-            for (int j = 0; j < size(); ++j)
-                inverse_covariance_matrix[j + i * size()] *= ivec[j];
-
-        if (specifics::CONT_NVECS > 0)
-            _addMarginalizations();
-
-        t = mytime::timer.getTime() - t;
-
-        mytime::time_spent_on_c_inv += t;
     };
 
     void weightDataVector() {
