@@ -682,13 +682,15 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
     else
         std::fill_n(covariance_matrix, DATA_SIZE_2, 0);
 
-    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
-        if (ps_estimate[fisher_index_start + i_kz] == 0)
-            continue;
-        cblas_daxpy(
-            DATA_SIZE_2, ps_estimate[fisher_index_start + i_kz], 
-            Q_ikz_matrix, 1, covariance_matrix, 1
-        );
+    if (ps_estimate != nullptr) {
+        for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi) {
+            if (ps_estimate[fisher_index_start + i_kz] == 0)
+                continue;
+            cblas_daxpy(
+                DATA_SIZE_2, ps_estimate[fisher_index_start + i_kz], 
+                Q_ikz_matrix, 1, covariance_matrix, 1
+            );
+        }
     }
     // add noise matrix diagonally, but smooth before adding
     const double *ivec = qFile->ivar();
@@ -704,7 +706,7 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
     // (N^-1/2 . S . N^-1/2 + I)
     #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < size(); ++i)
-        for (int j = 0; j < size(); ++j)
+        for (int j = i; j < size(); ++j)
             covariance_matrix[j + i * size()] *= isig[i] * isig[j];
     #pragma omp parallel for simd
     for (int i = 0; i < size(); ++i)
@@ -714,15 +716,15 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
     DEBUG_LOG("Inverting cov matrix\n");
 
     mxhelp::LAPACKE_InvertMatrixCholesky(covariance_matrix, size());
-    mxhelp::copyUpperToLower(covariance_matrix, size());
-
     inverse_covariance_matrix = covariance_matrix;
 
     // N^-1/2 . (N^-1/2 . S . N^-1/2 + I) . N^-1/2
     #pragma omp parallel for simd collapse(2)
     for (int i = 0; i < size(); ++i)
-        for (int j = 0; j < size(); ++j)
-            inverse_covariance_matrix[j + i * size()] *= isig[i] * isig[j];
+        for (int j = i; j < size(); ++j)
+            covariance_matrix[j + i * size()] *= isig[i] * isig[j];
+
+    mxhelp::copyUpperToLower(covariance_matrix, size());
 
     if (specifics::CONT_NVECS > 0)
         _addMarginalizations();
@@ -752,21 +754,20 @@ void Chunk::computePSbeforeFvector()
 
     #pragma omp parallel for num_threads(nmats) schedule(static, 1)
     for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt) {
+        int ithread = myomp::getThreadNum();
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
         dk0[iqt->first] = mxhelp::my_cblas_dsymvdot(
             glmemory::weighted_data_vector.get(), 
-            iqt->second, glmemory::temp_vectors[myomp::getThreadNum()].get(), size());
+            iqt->second, glmemory::temp_vectors[ithread].get(), size());
         // Transform q matrices to weighted matrices inplace
         // Get weighted derivative matrix ikz: C-1 Qi
-        
         // NERSC Perlmutter has faster dgemm
         cblas_dgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
             size(), size(), size(), 1., inverse_covariance_matrix, size(),
-            iqt->second, size(), 0, temp_matrix[myomp::getThreadNum()], size());
-
-        std::swap(temp_matrix[myomp::getThreadNum()], iqt->second);
+            iqt->second, size(), 0, temp_matrix[ithread], size());
+        std::swap(temp_matrix[ithread], iqt->second);
     }
 
     mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
