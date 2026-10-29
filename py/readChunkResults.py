@@ -192,7 +192,8 @@ class Bootstrapper:
         return list_of_bootstrap_estimates
 
     def bootstrapCovarianceHealpixFast(
-            self, nside: int, nboot: int, seed=None, batch_size=1000
+            self, nside: int, nboot: int, seed=None, batch_size=1000,
+            return_full_estimates=False
     ) -> list[FullPowerEstimate]:
         """
         Compute the covariance of the power estimates using bootstrap resampling
@@ -219,4 +220,6 @@ class Bootstrapper:
 
         cov_y = np.cov(bootstrap_estimates, rowvar=False)
         C = self.full_power_estimate.cov
+        if return_full_estimates:
+            return 0.25 * C @ cov_y @ C, C.dot(bootstrap_estimates.T)
         return 0.25 * C @ cov_y @ C
