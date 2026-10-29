@@ -645,8 +645,8 @@ double estimateZeff(int kn, int zm, double tk)
     if (tk <= 0)  return zc;
 
     constexpr int N_STEPS = 100, N_LOOPS = 10;
-    double zstart = zc - 0.5 * bins::Z_BIN_WIDTH,
-           Deltaz = bins::Z_BIN_WIDTH / N_STEPS,
+    double zstart = zc - bins::Z_BIN_WIDTH,
+           Deltaz = 2.0 * bins::Z_BIN_WIDTH / N_STEPS,
            min_tk_diff = 1e10,
            tolerance = 1e-8 + tk * 1e-6,
            zsolution = zc;
