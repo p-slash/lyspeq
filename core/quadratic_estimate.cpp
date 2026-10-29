@@ -636,6 +636,43 @@ void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
     LOG::LOGGER.STD("Fisher matrix saved as %s.\n", fname);
 }
 
+
+double estimateZeff(int kn, int zm, double tk)
+{
+    double zc = bins::ZBIN_CENTERS[zm];
+    double kc = bins::KBAND_CENTERS[kn];
+    if (specifics::TURN_OFF_SFID)  return zc;
+    if (tk <= 0)  return zc;
+
+    constexpr int N_STEPS = 100, N_LOOPS = 10;
+    double zstart = zc - bins::Z_BIN_WIDTH,
+           Deltaz = 2.0 * bins::Z_BIN_WIDTH / N_STEPS,
+           min_tk_diff = 1e10,
+           tolerance = 1e-8 + tk * 1e-6,
+           zsolution = zc;
+
+    for (int loop = 0; loop < N_LOOPS; ++loop) {
+        for (int i = 0; i < N_STEPS; ++i) {
+            double zi = zstart + i * Deltaz;
+            double delta_t = fabs(fidcosmo::fiducialPowerSpectrum(
+                kc, zi, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk);
+            if (delta_t < min_tk_diff) {
+                min_tk_diff = delta_t;
+                zsolution = zi;
+            }
+            else  break;
+        }
+
+        if (min_tk_diff < tolerance)  break;
+
+        zstart = zsolution - 2.0 * Deltaz;
+        Deltaz *= 4.0 / N_STEPS;
+        min_tk_diff = 1e10;
+    }
+    
+    return zsolution;
+}
+
 void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 {
     FILE *toWrite;
@@ -656,7 +693,8 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        z = bins::ZBIN_CENTERS[zm];
+        // z = bins::ZBIN_CENTERS[zm];
+        z = estimateZeff(kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
         k = bins::KBAND_CENTERS[kn];
         p = current_power_estimate_vector[i_kz] + powerSpectrumFiducial(kn, zm);
         e = sqrt(inverse_fisher_matrix_sum[i_kz+bins::TOTAL_KZ_BINS*i_kz]);
@@ -730,7 +768,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);  
-        a1[i_kz] = bins::ZBIN_CENTERS[zm];
+        a1[i_kz] = estimateZeff(kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
         a2[i_kz] = bins::KBAND_EDGES[kn];
         a3[i_kz] = bins::KBAND_EDGES[kn + 1];
         a4[i_kz] = bins::KBAND_CENTERS[zm];
