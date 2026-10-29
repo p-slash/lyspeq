@@ -158,6 +158,14 @@ def getHealpixThetakAsMatrix(list_of_healpix_split: list[FullPowerEstimate], siz
 
 
 class Bootstrapper:
+    """
+    Class to perform bootstrap resampling of the quasar power estimates.
+    Sample usage:
+        files = glob.glob("output/desi-p1d-bootchunks-*.fits")
+        booter = readBootchunks.Bootstrapper.fromFiles(files)
+
+        cov_hpx = booter.bootstrapCovarianceHealpixFast(nside=32, nboot=1000)
+    """
     def __init__(self, list_of_qsos: list[OneQsoPower]):
         self.list_of_qsos = list_of_qsos
         self.nqso = len(list_of_qsos)
@@ -186,6 +194,15 @@ class Bootstrapper:
     def bootstrapCovarianceHealpixFast(
             self, nside: int, nboot: int, seed=None
     ) -> list[FullPowerEstimate]:
+        """
+        Compute the covariance of the power estimates using bootstrap resampling
+        of the Healpix pixels. This is a fast method that does not require
+        recomputing the full power estimate for each bootstrap sample.
+
+        Weights are assigned to each Healpix pixel according to a Poisson
+        distribution with mean 1, and the sum of the weights is normalized to
+        the number of unique Healpix pixels.
+        """
         unique_hpixels, list_of_healpix_split = makeHealpixSplitFromListOneQsoPower(
             self.list_of_qsos, nside, size=self.size
         )
