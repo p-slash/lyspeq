@@ -639,34 +639,38 @@ void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
 
 double estimateZeff(int kn, int zm, double tk)
 {
-    double z = bins::ZBIN_CENTERS[zm];
-    double k = bins::KBAND_CENTERS[kn];
-    if (specifics::TURN_OFF_SFID)  return z;
+    double zc = bins::ZBIN_CENTERS[zm];
+    double kc = bins::KBAND_CENTERS[kn];
+    if (specifics::TURN_OFF_SFID)  return zc;
+    if (tk <= 0)  return zc;
 
     constexpr int N_STEPS = 100, N_LOOPS = 10;
+    double zstart = zc - 0.5 * bins::Z_BIN_WIDTH,
+           Deltaz = bins::Z_BIN_WIDTH / N_STEPS,
+           min_tk_diff = 1e10,
+           tolerance = 1e-8 + tk * 1e-6,
+           zsolution = zc;
 
-    double z1 = z - 0.5 * bins::Z_BIN_WIDTH,
-           z2 = z + 0.5 * bins::Z_BIN_WIDTH,
-           Deltaz = bins::Z_BIN_WIDTH / N_STEPS;
-    double minz, min_tk_diff = 1e10;
     for (int loop = 0; loop < N_LOOPS; ++loop) {
         for (int i = 0; i < N_STEPS; ++i) {
-            double zc = z1 + (z2 - z1) * (i + 0.5) / N_STEPS;
+            double zi = zstart + i * Deltaz;
             double delta_t = fabs(fidcosmo::fiducialPowerSpectrum(
-                k, zc, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk);
+                kc, zi, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk);
             if (delta_t < min_tk_diff) {
                 min_tk_diff = delta_t;
-                minz = zc;
+                zsolution = zi;
             }
             else  break;
         }
 
-        z1 = minz - 2 * Deltaz;
-        z2 = minz + 2 * Deltaz;
+        if (min_tk_diff < tolerance)  break;
+
+        zstart = zsolution - 2.0 * Deltaz;
+        Deltaz *= 4.0 / N_STEPS;
         min_tk_diff = 1e10;
     }
     
-    return minz;
+    return zsolution;
 }
 
 void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
