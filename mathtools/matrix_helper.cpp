@@ -450,7 +450,7 @@ namespace mxhelp
     {
         lapack_int M = m, N = n, NRHS = 1, LDA = N, LDB = 1, info;
         info = LAPACKE_dgels(
-            LAPACK_COL_MAJOR, 'N', M, N, NRHS,
+            LAPACK_ROW_MAJOR, 'N', M, N, NRHS,
             A, LDA, b, LDB);
 
         if (info != 0)
