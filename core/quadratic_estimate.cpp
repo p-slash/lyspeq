@@ -29,7 +29,7 @@
 
 
 std::pair<bool, double> damping_pair {false, 0.};
-
+void saveChunkTimings();
 void _saveChunkResults(
         std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
 ) {
@@ -420,7 +420,12 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
 }
 
 void OneDQuadraticPowerEstimate::timingRun() {
-    LOG::LOGGER.STD("Timing run to estimate CPU time for each PE.\n");
+    if (mympi::total_pes < 8) {
+        LOG::LOGGER.ERR("Not tuning timing scalings for less than 8 PEs.\n");
+        return;
+    }
+
+    LOG::LOGGER.STD("Timing run to fit for scaling relation.\n");
     // Read filenames no load balancing
     std::vector<std::string> filepaths = _readQsoFileList();
     constexpr int NperPE = 1;
@@ -608,6 +613,7 @@ void OneDQuadraticPowerEstimate::iterate()
     }
 
     glmemory::dealloc();
+    saveChunkTimings();
 
     // Save chunk estimates to a file
     if (process::SAVE_EACH_CHUNK_RESULT)
@@ -1058,3 +1064,50 @@ void OneDQuadraticPowerEstimate::_savePEResult()
     return;
 }
 #endif
+
+void saveChunkTimings() {
+    std::vector<double> time_all_pes, coeffs;
+    mympi::gatherv(mytime::one_chunk_times, time_all_pes);
+    mympi::gatherv(mytime::one_chunk_coefficients, coeffs);
+    if (mympi::this_pe != 0)
+        return;
+
+    std::string fname = "!" + process::FNAME_BASE + "_chunk_timings.fits";
+    const std::string ext = "CHUNK_TIMINGS";
+    auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(fname);
+    fitsfile *fits_file = fitsfile_ptr.get();
+    int status = 0;
+
+    /* define the name, datatype, and physical units for columns */
+    const int ncolumns = 5;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+    char *column_names[] = {"NkNd3", "Nk2Nd2", "NkNd2", "C", "Time"};
+    char *column_types[] = {"1D", "1D", "1D", "1D", "1D"};
+    char *column_units[] = {"", "", "", "", ""};
+    #pragma GCC diagnostic pop
+
+    int nrows = time_all_pes.size();
+    
+    fits_create_tbl(
+        fits_file, BINARY_TBL, nrows, ncolumns,
+        column_names, column_types, column_units, ext.c_str(),
+        &status);
+    ioh::checkFitsStatus(status);
+    for (int i = 0; i < 4; ++i) {
+        fits_write_key(
+            fits_file, TDOUBLE, ("a" + std::to_string(i)).c_str(),
+            &mytime::scalingCoefficients[i], nullptr, &status);
+    }
+    ioh::checkFitsStatus(status);
+
+    auto tmp = std::make_unique<double[]>(nrows);
+    for (int i = 0; i < 4; ++i) {
+        for (auto j = 0; j < nrows; ++j)
+            tmp[j] = coeffs[4 * j + i];
+        fits_write_col(fits_file, TDOUBLE, i + 1, 1, 1, nrows, tmp.get(), &status);
+    }
+    fits_write_col(fits_file, TDOUBLE, 5, 1, 1, nrows, time_all_pes.data(), &status);
+    fits_flush_file(fits_file, &status);
+    ioh::checkFitsStatus(status);
+}
