@@ -24,7 +24,7 @@
 class TestOneQSOEstimate: public OneQSOEstimate
 {
 public:
-    TestOneQSOEstimate(const std::string &fname_qso) : OneQSOEstimate(fname_qso)
+    TestOneQSOEstimate(const std::string &fname_qso) : OneQSOEstimate(fname_qso, !Chunk::SHALLOW)
     {
         glmemory::allocMemory();
         chunks[0]->_initMatrices();

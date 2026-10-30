@@ -166,10 +166,10 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
 
     for (int findex = fstart_this; findex < fend_this; ++findex)
     {
-        int zbin;
-        long targetid;
-        double cpu_t_temp = OneQSOEstimate::getComputeTimeEst(
-            filepaths[findex], zbin, targetid);
+        OneQSOEstimate one_qso(filepaths[findex], Chunk::SHALLOW);
+        int zbin = one_qso.zbin;
+        long targetid = one_qso.targetid;
+        double cpu_t_temp = one_qso.getComputeTimeEst();
 
         if (std::binary_search(targetid_to_remove.cbegin(), targetid_to_remove.cend(), targetid)) {
             zbin = -1; cpu_t_temp = 0;
@@ -428,7 +428,7 @@ void OneDQuadraticPowerEstimate::iterate()
     std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
     local_queue.reserve(local_fpaths.size());
     for (const auto &fpath : local_fpaths) {
-        auto one_qso = std::make_unique<OneQSOEstimate>(fpath);
+        auto one_qso = std::make_unique<OneQSOEstimate>(fpath, !Chunk::SHALLOW);
         if (!one_qso->chunks.empty())
             local_queue.push_back(std::move(one_qso));
     }

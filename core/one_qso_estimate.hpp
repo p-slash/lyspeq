@@ -18,20 +18,21 @@ class OneQSOEstimate
 protected:
     std::string fname_qso;
 
-    std::unique_ptr<qio::QSOFile> _readQsoFile(const std::string &f_qso);
+    std::unique_ptr<qio::QSOFile> _readQsoFile(const std::string &f_qso, bool shallow);
 public:
-    int istart, ndim;
+    long targetid;
+    int istart, ndim, zbin;
     std::unique_ptr<double[]> fisher_matrix, theta_vector;
 
     std::vector<std::unique_ptr<Chunk>> chunks;
 
     OneQSOEstimate() {};
-    OneQSOEstimate(const std::string &f_qso);
+    OneQSOEstimate(const std::string &f_qso, bool shallow);
     OneQSOEstimate(OneQSOEstimate &&rhs) = default;
     OneQSOEstimate(const OneQSOEstimate &rhs) = delete;
 
     static std::vector<int> decideIndices(int size, double *wave);
-    static double getComputeTimeEst(std::string fname_qso, int &zbin, long &targetid);
+    double getComputeTimeEst() const;
 
     // Pass fit values for the power spectrum for numerical stability
     void oneQSOiteration(

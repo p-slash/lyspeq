@@ -49,16 +49,25 @@ std::vector<int> OneQSOEstimate::decideIndices(int size, double *wave) {
     return indices;
 }
 
-std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(const std::string &f_qso) {
+std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(
+        const std::string &f_qso, bool shallow
+) {
     auto qFile = std::make_unique<qio::QSOFile>(f_qso, specifics::INPUT_QSO_FILE);
 
     qFile->readParameters();
-
+    targetid = qFile->id;
+    zbin = -1;
     if (qFile->snr < specifics::MIN_SNR_CUT)
         throw std::runtime_error("OneQSOEstimate::_readQsoFile::Low SNR");
 
     qFile->readData();
+    qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
+    if (qFile->realSize() < MIN_PIXELS_IN_FILE)
+        throw std::runtime_error("OneQSOEstimate::_readQsoFile::Short file");
 
+    double z1, z2, zm;
+    qFile->readMinMaxMedRedshift(z1, z2, zm);
+    zbin = bins::findRedshiftBin(zm);
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
     conv::convertFluxToDeltaF(
@@ -72,7 +81,7 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(const std::string &f_
             num_outliers, f_qso.c_str());
 
     // If using resolution matrix, read resolution matrix from picca file
-    if (specifics::USE_RESOLUTION_MATRIX)
+    if (specifics::USE_RESOLUTION_MATRIX && !shallow)
     {
         qFile->readAllocResolutionMatrix();
 
@@ -87,23 +96,15 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(const std::string &f_
         if (specifics::OVERSAMPLING_FACTOR > 0)
             qFile->Rmat->oversample(specifics::OVERSAMPLING_FACTOR, qFile->dlambda);
     }
-
     qFile->closeFile();
-
-    // Boundary cut
-    qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
-
-    if (qFile->realSize() < MIN_PIXELS_IN_FILE)
-        throw std::runtime_error("OneQSOEstimate::_readQsoFile::Short file");
-
     return qFile;
 }
 
 
-OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
+OneQSOEstimate::OneQSOEstimate(const std::string &f_qso, bool shallow) : fname_qso(f_qso)
 {
     try {
-        auto qFile = _readQsoFile(f_qso);
+        auto qFile = _readQsoFile(f_qso, shallow);
 
         // decide nchunk with lambda points array[nchunks+1]
         std::vector<int> indices = OneQSOEstimate::decideIndices(
@@ -130,50 +131,12 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
     }
 }
 
-double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin, long &targetid)
+double OneQSOEstimate::getComputeTimeEst() const
 {
-    zbin=-1;
-    targetid=-1;
-
-    try
-    {
-        qio::QSOFile qtemp(fname_qso, specifics::INPUT_QSO_FILE);
-
-        qtemp.readParameters();
-        targetid = qtemp.id;
-        if (qtemp.snr < specifics::MIN_SNR_CUT)
-            return 0;
-
-        qtemp.readData();
-        qtemp.cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
-
-        if (qtemp.realSize() < MIN_PIXELS_IN_FILE)
-            return 0;
-
-        double z1, z2, zm;
-        qtemp.readMinMaxMedRedshift(z1, z2, zm);
-        zbin = bins::findRedshiftBin(zm);
-
-        // decide chunks
-        std::vector<int> indices = OneQSOEstimate::decideIndices(
-            qtemp.size(), qtemp.wave());
-        int nchunks = indices.size() - 1;
-
-        // add compute time from chunks
-        double res = 0, avec[] = {19.0, 1.0, 3.5, 0.0};
-        for (int nc = 0; nc < nchunks; ++nc) {
-            Chunk tempchunk(qtemp, indices[nc], indices[nc+1], Chunk::SHALLOW);
-            res += tempchunk.getComputeTimeEst(avec);
-        }
-        return res;
-    }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR(
-            "OneQSOEstimate::getComputeTimeEst::%s. Skipping %s.\n",
-            e.what(), fname_qso.c_str());
-        return 0;
-    }
+    double res = 0, avec[] = {19.0, 1.0, 3.5, 0.0};
+    for (const auto &chunk : chunks)
+        res += chunk->getComputeTimeEst(avec);
+    return res;
 }
 
 void OneQSOEstimate::oneQSOiteration(
