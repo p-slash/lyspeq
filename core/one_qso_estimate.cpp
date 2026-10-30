@@ -56,7 +56,6 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(
 
     qFile->readParameters();
     targetid = qFile->id;
-    zbin = -1;
     if (qFile->snr < specifics::MIN_SNR_CUT)
         throw std::runtime_error("OneQSOEstimate::_readQsoFile::Low SNR");
 
@@ -104,7 +103,8 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(
 }
 
 
-OneQSOEstimate::OneQSOEstimate(const std::string &f_qso, bool shallow) : fname_qso(f_qso)
+OneQSOEstimate::OneQSOEstimate(const std::string &f_qso, bool shallow)
+    : fname_qso(f_qso), zbin(-1), targetid(-1), istart(0), ndim(0)
 {
     try {
         auto qFile = _readQsoFile(f_qso, shallow);
@@ -113,8 +113,6 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso, bool shallow) : fname_q
         std::vector<int> indices = OneQSOEstimate::decideIndices(
             qFile->size(), qFile->wave());
         int nchunks = indices.size() - 1;
-
-        // create chunk objects
         chunks.reserve(nchunks);
 
         for (int nc = 0; nc < nchunks; ++nc) {
@@ -124,7 +122,7 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso, bool shallow) : fname_q
                 chunks.push_back(std::move(_chunk));
             } catch (std::exception& e) {
                 LOG::LOGGER.ERR(
-                    "OneQSOEstimate::OneQSOEstimate::%s Skipping chunk %d/%d of %s.\n",
+                    "OneQSOEstimate::%s Skipping chunk %d/%d of %s.\n",
                     e.what(), nc + 1, nchunks, f_qso.c_str());
             }
         }
@@ -133,6 +131,9 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso, bool shallow) : fname_q
         zbin = -1;
         return;
     }
+
+    if (chunks.empty())
+        zbin = -1;
 }
 
 double OneQSOEstimate::getComputeTimeEst() const

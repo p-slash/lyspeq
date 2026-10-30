@@ -49,7 +49,7 @@ protected:
     int DATA_SIZE_2;
 
     int _matrix_n, RES_INDEX;
-    double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
+    double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT;
     // Will have finer spacing when rmat is oversampled
     double *_matrix_lambda, *inverse_covariance_matrix; // Do not delete!
 

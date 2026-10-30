@@ -218,7 +218,6 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2, bool shall
     ZBIN = std::clamp(ZBIN, 0, bins::NZ_MINUS_ONE);
     ZBIN_LOW = std::clamp(ZBIN_LOW, 0, bins::NZ_MINUS_ONE);
     ZBIN_UPP = std::clamp(ZBIN_UPP, 0, bins::NZ_MINUS_ONE);
-    BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
 
     if (shallow) return;
 
@@ -309,9 +308,9 @@ double Chunk::getMinMemUsage()
 // a[0] NqNd^3 + a[1] Nq^2Nd^2 + a[2] NqNd^2 + a[3]
 double Chunk::getComputeTimeEst(double a[4])
 {
+    int Nz = N_Q_MATRICES / bins::NUMBER_OF_K_BANDS;
     double Nd3 = std::pow(size() / 100., 3),
            Nd2 = std::pow(size() / 100., 2),
-           Nz = N_Q_MATRICES / bins::NUMBER_OF_K_BANDS,
            Nq = Nz * KBIN_UPP;
     return a[0] * Nq * Nd3 + a[1] * Nq * Nq * Nd2 + a[2] * Nq * Nd2 + a[3];
 }
