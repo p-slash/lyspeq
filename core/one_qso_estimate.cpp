@@ -118,7 +118,7 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso, bool shallow)
         for (int nc = 0; nc < nchunks; ++nc) {
             try {
                 auto _chunk = std::make_unique<Chunk>(
-                    *qFile, indices[nc], indices[nc+1], !Chunk::SHALLOW);
+                    *qFile, indices[nc], indices[nc+1], shallow);
                 chunks.push_back(std::move(_chunk));
             } catch (std::exception& e) {
                 LOG::LOGGER.ERR(
