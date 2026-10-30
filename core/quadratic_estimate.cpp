@@ -409,6 +409,15 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
     remove(tmp_smooth_fname.c_str());
 }
 
+// void OneDQuadraticPowerEstimate::timingRun() {
+    // Read filenames no load balancing
+    // Run this small batch on all PEs to estimate time for each PE
+    // Fit Nq, Nd and timing relations
+    // Use this to load balance the actual run
+    // Redistribute remaining files to PEs based on this fit
+    // Run the actual run
+// }
+
 void OneDQuadraticPowerEstimate::iterate()
 {
     double total_time = 0, total_time_1it = mytime::timer.getTime();;

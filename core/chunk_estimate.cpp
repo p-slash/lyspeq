@@ -140,13 +140,45 @@ namespace glmemory {
     }
 }
 
-Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
+void Chunk::_selectionCriteria()
+{
+    double Lv = qFile->getLengthV(), mdv = Lv / (qFile->realSize() + 1e-12);
+    if (mdv > specifics::MAX_PIXEL_LENGTH_V || Lv < specifics::MIN_FOREST_LENGTH_V)
+    {
+        std::ostringstream err_msg;
+        err_msg.precision(1);
+        err_msg << "Removed chunk with realsize "
+            << qFile->realSize() << '/'  << qFile->size() << " and velocity length "
+            << std::scientific
+            << Lv << '/'  << specifics::MIN_FOREST_LENGTH_V
+            << " || mean dv: " << mdv << '/'  << specifics::MAX_PIXEL_LENGTH_V;
+
+        throw std::runtime_error(err_msg.str());
+    }
+
+    if (KBIN_UPP == 0)
+        throw std::runtime_error("Chunk::_copyQSOFile::KBIN_UPP == 0");
+    
+    if ((ZBIN_LOW > bins::NZ_MINUS_ONE) || (ZBIN_UPP < 0))
+        throw std::runtime_error("Chunk::_copyQSOFile::ZBIN_OUT_OF_BOUNDS");
+}
+
+void Chunk::_convertWavelengthToOnePlusZ()
+{
+    std::for_each(
+        qFile->wave(), qFile->wave() + size(),
+        [](double &w) { w /= LYA_REST; });
+}
+
+
+Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2, bool shallow)
         : DATA_SIZE_2(0), _matrix_n(0), N_Q_MATRICES(0)
 {
-    _copyQSOFile(qmaster, i1, i2);
+    _copyQSOFile(qmaster, i1, i2, shallow);
 
     // Set up number of matrices, index for Fisher matrix
     _setNQandFisherIndex();
+    if (shallow) return;
     process::updateMemory(-getMinMemUsage());
 
     stored_ikz_qi.reserve(N_Q_MATRICES);
@@ -168,25 +200,27 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2)
     fisher_matrix = std::make_unique<double[]>(N_Q_MATRICES * N_Q_MATRICES);
 }
 
-void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
+void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2, bool shallow)
 {
     qFile = std::make_unique<qio::QSOFile>(qmaster, i1, i2);
 
-    double lenv = qFile->getLengthV();
-    int minnopix = lenv / specifics::MAX_PIXEL_LENGTH_V;
-    if (qFile->realSize() < minnopix || lenv < specifics::MIN_FOREST_LENGTH_V)
-    {
-        double meandv = lenv / (qFile->realSize() + 1e-12);
-        std::ostringstream err_msg;
-        err_msg.precision(1);
-        err_msg << "Short chunk with realsize "
-            << qFile->realSize() << '/'  << qFile->size() << " and velocity length "
-            << std::scientific
-            << lenv << '/'  << specifics::MIN_FOREST_LENGTH_V
-            << " || mean dv: " << meandv << '/'  << specifics::MAX_PIXEL_LENGTH_V;
+    qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
+    
+    ZBIN_LOW = bins::findRedshiftBin(LOWER_REDSHIFT);
+    ZBIN_UPP = bins::findRedshiftBin(UPPER_REDSHIFT);
+    ZBIN = bins::findRedshiftBin(MEDIAN_REDSHIFT);
 
-        throw std::runtime_error(err_msg.str());
-    }
+    KBIN_UPP = _getMaxKindex(MY_PI / qFile->dv_kms);
+
+    _selectionCriteria();
+
+    DATA_SIZE_2 = size() * size();
+    ZBIN = std::clamp(bins::findRedshiftBin(MEDIAN_REDSHIFT), 0, bins::NZ_MINUS_ONE);
+    ZBIN_LOW = std::clamp(bins::findRedshiftBin(LOWER_REDSHIFT), 0, bins::NZ_MINUS_ONE);
+    ZBIN_UPP = std::clamp(bins::findRedshiftBin(UPPER_REDSHIFT), 0, bins::NZ_MINUS_ONE);
+    BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
+
+    if (shallow) return;
 
     // If using resolution matrix, read resolution matrix from picca file
     if (specifics::USE_RESOLUTION_MATRIX)
@@ -209,33 +243,10 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2)
 
         _matrix_n = size();
     }
-
-    DATA_SIZE_2 = size() * size();
-
     on_oversampling = specifics::USE_RESOLUTION_MATRIX && !qFile->Rmat->isDiaMatrix();
-
-    qFile->readMinMaxMedRedshift(LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT);
-    KBIN_UPP = _getMaxKindex(MY_PI / qFile->dv_kms);
-    if (KBIN_UPP == 0)
-        throw std::runtime_error("Chunk::_copyQSOFile::KBIN_UPP == 0");
-
-    _findRedshiftBin();
-
-    // Divide wave by LYA_REST
-    std::for_each(
-        qFile->wave(), qFile->wave() + size(),
-        [](double &w) { w /= LYA_REST; });
+    _convertWavelengthToOnePlusZ();
 }
 
-void Chunk::_findRedshiftBin() {
-    ZBIN = std::clamp(bins::findRedshiftBin(MEDIAN_REDSHIFT), 0, bins::NZ_MINUS_ONE);
-    ZBIN_LOW = std::clamp(bins::findRedshiftBin(LOWER_REDSHIFT), 0, bins::NZ_MINUS_ONE);
-    ZBIN_UPP = std::clamp(bins::findRedshiftBin(UPPER_REDSHIFT), 0, bins::NZ_MINUS_ONE);
-
-    // Assign to a redshift bin according to median redshift of this chunk
-    // This is just for bookkeeping purposes
-    BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
-}
 
 // For a top hat redshift bin, only access 1 redshift bin for each pixel
 // For triangular z bins, access 2 redshift bins for each pixel
@@ -295,93 +306,14 @@ double Chunk::getMinMemUsage()
 {
     return process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
 }
-
-double Chunk::getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2)
+// a[0] NqNd^3 + a[1] Nq^2Nd^2 + a[2] NqNd^2 + a[3]
+double Chunk::getComputeTimeEst(double a[4])
 {
-    try
-    {
-        qio::QSOFile qtemp(qmaster, i1, i2);
-
-        double lenv = qtemp.getLengthV();
-        int minnopix = lenv / specifics::MAX_PIXEL_LENGTH_V;
-        if (qtemp.realSize() < minnopix || lenv < specifics::MIN_FOREST_LENGTH_V)
-            return 0;
-
-        double z1, z2, zm; 
-        qtemp.readMinMaxMedRedshift(z1, z2, zm);
-
-        int ZBIN_LOW = std::max(0, bins::findRedshiftBin(z1)),
-            ZBIN_UPP = std::min(bins::NZ_MINUS_ONE, bins::findRedshiftBin(z2));
-
-        if ((ZBIN_LOW > bins::NZ_MINUS_ONE) || (ZBIN_UPP < 0))
-            return 0;
-
-        int N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
-        // NERSC Perlmutter scaling relation for -c 2
-        const double agemm = 19., asymv = 0.45, adot = 1.0;
-        double one_dgemm = agemm * std::pow(qtemp.size() / 100., 3),
-               one_dsymv = asymv * std::pow(qtemp.size() / 100., 2),
-               one_ddot = adot * std::pow(qtemp.size() / 100., 2);
-
-        int fidxlocal = bins::getFisherMatrixIndex(0, ZBIN_LOW);
-
-        if (bins::Z_BINNING_METHOD == bins::TriangleBinningMethod) {
-            if ((z1 < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0)) {
-                ++N_Q_MATRICES;
-                fidxlocal -= bins::NUMBER_OF_K_BANDS;
-            }
-
-            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < z2) && (ZBIN_UPP < bins::NZ_MINUS_ONE))
-                ++N_Q_MATRICES;
-        }
-
-        N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
-
-        int _kncut = _getMaxKindex(MY_PI / qtemp.dv_kms), real_nq_mat = 0;
-        for (int i_kz = 0; i_kz < N_Q_MATRICES; ++i_kz) {
-            int kn, zm;
-            bins::getFisherMatrixBinNoFromIndex(i_kz + fidxlocal, kn, zm);
-
-            if (kn < _kncut) ++real_nq_mat;
-        }
-
-        // +1 for noise matrix dot product
-        #ifdef FISHER_OPTIMIZATION
-        const int N_M_COMBO = 11 + 1;
-        #else
-        int N_M_COMBO = real_nq_mat + 1 + 1;
-        #endif
-
-        double res = (
-            real_nq_mat * (one_dgemm + one_ddot * N_M_COMBO)
-            + (real_nq_mat + 1) * one_dsymv // dsymv contributions
-        );
-
-        if (!specifics::TURN_OFF_SFID)
-            res += one_dgemm + real_nq_mat * one_ddot;
-
-        if (specifics::USE_RESOLUTION_MATRIX) {
-            const int ndiags = 11;
-            double extra_ctime = ndiags * one_ddot * real_nq_mat;
-
-            int osamp = specifics::OVERSAMPLING_FACTOR;
-            if (osamp > 0)
-                extra_ctime *= osamp * (osamp + 1);
-            else
-                extra_ctime *= 2;
-
-            res += extra_ctime;
-        }
-
-        return res;
-    }
-    catch (std::exception& e)
-    {
-        LOG::LOGGER.ERR(
-            "Chunk::getComputeTimeEst::%s. Skipping %s.\n",
-            e.what(), qmaster.fname.c_str());
-        return 0;
-    }
+    double Nd3 = std::pow(size() / 100., 3),
+           Nd2 = std::pow(size() / 100., 2),
+           Nz = N_Q_MATRICES / bins::NUMBER_OF_K_BANDS,
+           Nq = Nz * KBIN_UPP;
+    return a[0] * Nq * Nd3 + a[1] * Nq * Nq * Nd2 + a[2] * Nq * Nd2 + a[3];
 }
 
 void Chunk::_setVZMatrices() {

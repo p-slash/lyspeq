@@ -115,7 +115,8 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso)
 
         for (int nc = 0; nc < nchunks; ++nc) {
             try {
-                auto _chunk = std::make_unique<Chunk>(*qFile, indices[nc], indices[nc+1]);
+                auto _chunk = std::make_unique<Chunk>(
+                    *qFile, indices[nc], indices[nc+1], !Chunk::SHALLOW);
                 chunks.push_back(std::move(_chunk));
             } catch (std::exception& e) {
                 LOG::LOGGER.ERR(
@@ -159,9 +160,11 @@ double OneQSOEstimate::getComputeTimeEst(std::string fname_qso, int &zbin, long 
         int nchunks = indices.size() - 1;
 
         // add compute time from chunks
-        double res = 0;
-        for (int nc = 0; nc < nchunks; ++nc)
-            res += Chunk::getComputeTimeEst(qtemp, indices[nc], indices[nc+1]);
+        double res = 0, avec[] = {19.0, 1.0, 3.5, 0.0};
+        for (int nc = 0; nc < nchunks; ++nc) {
+            Chunk tempchunk(qtemp, indices[nc], indices[nc+1], Chunk::SHALLOW);
+            res += tempchunk.getComputeTimeEst(avec);
+        }
         return res;
     }
     catch (std::exception& e)
