@@ -512,8 +512,8 @@ namespace mytime
 
     void getScalingCoefficients(double Nq, double Nd, double p[4])
     {
-        double Nd1 = Nd / 100.0, Nd2 = Nd1 * Nd1, Nd3 = Nd1 * Nd2;
-        double Nk = Nq / 10.0;
+        double Nd1 = Nd / 200.0, Nd2 = Nd1 * Nd1, Nd3 = Nd1 * Nd2;
+        double Nk = Nq / 100.0;
         p[0] = Nk * Nd3;
         p[1] = Nk * Nk * Nd2;
         p[2] = Nk * Nd2;

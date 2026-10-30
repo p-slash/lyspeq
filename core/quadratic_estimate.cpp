@@ -423,13 +423,8 @@ void OneDQuadraticPowerEstimate::timingRun() {
     LOG::LOGGER.STD("Timing run to estimate CPU time for each PE.\n");
     // Read filenames no load balancing
     std::vector<std::string> filepaths = _readQsoFileList();
-    constexpr int Nminrun = 20, NperPE = 1;
+    constexpr int NperPE = 1;
     int Noneperpe = mympi::total_pes * NperPE;
-
-    if (filepaths.size() < Nminrun) {
-        LOG::LOGGER.ERR("Not enough QSO files for timing run.\n");
-        throw std::runtime_error("Not enough QSO files for timing run.");
-    }
 
     if (filepaths.size() < Noneperpe) {
         LOG::LOGGER.ERR(
@@ -439,48 +434,36 @@ void OneDQuadraticPowerEstimate::timingRun() {
         throw std::runtime_error("Not enough QSO files for timing run.");
     }
     // Run this small batch on all PEs to estimate time for each PE
-    int attempts = 0;
-    while (true) {
-        try {
-            glmemory::dealloc();
-            std::string fpath = filepaths[mympi::this_pe + attempts * mympi::total_pes];
-            OneQSOEstimate one_qso(fpath, !Chunk::SHALLOW);
-            glmemory::allocMemory();
-            one_qso.oneQSOiteration(
-                powerspectra_fits.get(), 
-                dbt_estimate_sum_before_fisher_vector,
-                fisher_matrix_sum.get()
-            );
-            break;
-        }
-        catch (std::exception& e) {
-            LOG::LOGGER.ERR(
-                "Caught exception in timing run: %s. Retrying...\n", e.what());
-            attempts++;
-        }
+    try {
+        std::string fpath = filepaths[mympi::this_pe];
+        OneQSOEstimate one_qso(fpath, !Chunk::SHALLOW);
+        glmemory::allocMemory();
+        one_qso.oneQSOiteration(
+            powerspectra_fits.get(), 
+            dbt_estimate_sum_before_fisher_vector,
+            fisher_matrix_sum.get()
+        );
     }
+    catch (std::exception& e) {
+        LOG::LOGGER.ERR("Caught exception in timing run: %s.\n", e.what());
+    }
+    glmemory::dealloc();
 
     // Fit Nq, Nd and timing relations
     std::vector<double> time_all_pes, coeffs;
     mympi::gatherv(mytime::one_iteration_times, time_all_pes);
     mympi::gatherv(mytime::one_iteration_coefficients, coeffs);
 
-    if (mympi::this_pe == 0) {
-        LOG::LOGGER.STD(
-            LOG::getLineTextFromVector(time_all_pes, "times:").c_str());
-        LOG::LOGGER.STD(
-            LOG::getLineTextFromVector(coeffs, "coeffs:").c_str());
-    }
-
     if (mympi::this_pe == 0)
-        mxhelp::LAPACKE_lstsq(coeffs.data(), mympi::total_pes, 4, time_all_pes.data());
+        mxhelp::LAPACKE_lstsq(coeffs.data(), mympi::total_pes, 4,
+                              time_all_pes.data());
+    time_all_pes.resize(4);
     mympi::bcast(time_all_pes.data(), 4);
+    LOG::LOGGER.STD(LOG::getLineTextFromVector(
+        time_all_pes, "Time scaling coeffs:").c_str());
     // Use this to load balance the actual run
-
-     LOG::LOGGER.STD(
-        LOG::getLineTextFromVector(time_all_pes, "timing fits:").c_str());
-    // Redistribute remaining files to PEs based on this fit
-    // Run the actual run
+    for (int i = 0; i < 4; ++i)
+        mytime::scalingCoefficients[i] = time_all_pes[i];
 }
 
 void OneDQuadraticPowerEstimate::iterate()
