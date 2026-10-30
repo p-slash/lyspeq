@@ -61,13 +61,6 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(
         throw std::runtime_error("OneQSOEstimate::_readQsoFile::Low SNR");
 
     qFile->readData();
-    qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
-    if (qFile->realSize() < MIN_PIXELS_IN_FILE)
-        throw std::runtime_error("OneQSOEstimate::_readQsoFile::Short file");
-
-    double z1, z2, zm;
-    qFile->readMinMaxMedRedshift(z1, z2, zm);
-    zbin = bins::findRedshiftBin(zm);
     // Convert flux to fluctuations around the mean flux of the chunk
     // Otherwise assume input data is fluctuations
     conv::convertFluxToDeltaF(
@@ -97,6 +90,16 @@ std::unique_ptr<qio::QSOFile> OneQSOEstimate::_readQsoFile(
             qFile->Rmat->oversample(specifics::OVERSAMPLING_FACTOR, qFile->dlambda);
     }
     qFile->closeFile();
+
+    // Cut after reading the resolution matrix
+    qFile->cutBoundary(bins::Z_LOWER_EDGE, bins::Z_UPPER_EDGE);
+    if (qFile->realSize() < MIN_PIXELS_IN_FILE)
+        throw std::runtime_error("OneQSOEstimate::_readQsoFile::Short file");
+
+    double z1, z2, zm;
+    qFile->readMinMaxMedRedshift(z1, z2, zm);
+    zbin = bins::findRedshiftBin(zm);
+
     return qFile;
 }
 
