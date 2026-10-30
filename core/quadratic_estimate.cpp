@@ -439,19 +439,24 @@ void OneDQuadraticPowerEstimate::timingRun() {
         throw std::runtime_error("Not enough QSO files for timing run.");
     }
     // Run this small batch on all PEs to estimate time for each PE
-    std::string fpath = filepaths[mympi::this_pe];
-    try {
-        OneQSOEstimate one_qso(fpath, !Chunk::SHALLOW);
-        glmemory::allocMemory();
-        one_qso.oneQSOiteration(
-            powerspectra_fits.get(), 
-            dbt_estimate_sum_before_fisher_vector,
-            fisher_matrix_sum.get()
-        );
-    }
-    catch (std::exception& e) {
-        LOG::LOGGER.ERR("Error in timing run: %s.\n", e.what());
-        throw e;
+    int attempts = 0;
+    while (true) {
+        try {
+            std::string fpath = filepaths[mympi::this_pe + attempts * mympi::total_pes];
+            OneQSOEstimate one_qso(fpath, !Chunk::SHALLOW);
+            glmemory::allocMemory();
+            one_qso.oneQSOiteration(
+                powerspectra_fits.get(), 
+                dbt_estimate_sum_before_fisher_vector,
+                fisher_matrix_sum.get()
+            );
+            break;
+        }
+        catch (std::exception& e) {
+            LOG::LOGGER.ERR(
+                "Caught exception in timing run: %s. Retrying...\n", e.what());
+            attempts++;
+        }
     }
 
     // Fit Nq, Nd and timing relations
