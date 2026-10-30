@@ -118,6 +118,7 @@ namespace mxhelp
     // A is assumed to have n vectors in its rows.
     // vector size is m, which is npixels in spectrum
     void LAPACKE_svd(double *A, double *svals, int m, int n);
+    void LAPACKE_lstsq(const double *A, int m, int n, const double *b, double *x);
 
     class DiaMatrix
     {
