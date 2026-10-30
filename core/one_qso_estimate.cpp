@@ -138,9 +138,9 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso, bool shallow)
 
 double OneQSOEstimate::getComputeTimeEst() const
 {
-    double res = 0, avec[] = {19.0, 1.0, 3.5, 0.0};
+    double res = 0;
     for (const auto &chunk : chunks)
-        res += chunk->getComputeTimeEst(avec);
+        res += chunk->getComputeTimeEst();
     return res;
 }
 

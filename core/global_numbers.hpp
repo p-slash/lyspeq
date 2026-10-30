@@ -225,8 +225,14 @@ namespace mytime
     extern double time_spent_on_q_interp, time_spent_on_q_copy;
     extern long   number_of_times_called_setq, number_of_times_called_setsfid;
 
+    extern double scalingCoefficients[4];
+    extern std::vector<double> one_iteration_times, one_iteration_coefficients;
+
     void printfTimeSpentDetails();
     void writeTimeLogHeader();
+
+    void getScalingCoefficients(double Nq, double Nd, double p[4]);
+    double timeScalingFunction(int Nd, int Nq);
 
     class Timer
     {

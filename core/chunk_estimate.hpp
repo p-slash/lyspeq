@@ -46,6 +46,7 @@ namespace glmemory {
 class Chunk
 {
 protected:
+    double timeOneIteration;
     int DATA_SIZE_2;
 
     int _matrix_n, RES_INDEX;
@@ -80,6 +81,7 @@ protected:
     void _applyRedshiftInterp();
     void _scaleDerivativesWithRedshiftGrowth();
     void _addMarginalizations();
+    void _appendTiming();
 
     friend class TestOneQSOEstimate;
 
@@ -116,7 +118,10 @@ public:
     void fprintfMatrices(const char *fname_base);
     double getMinMemUsage();
     // a[0] NqNd^3 + a[1] Nq^2Nd^2 + a[2] NqNd^2 + a[3]
-    double getComputeTimeEst(double a[4]);
+    double getComputeTimeEst() const {
+        int Nq = KBIN_UPP * (N_Q_MATRICES / bins::NUMBER_OF_K_BANDS);
+        return mytime::timeScalingFunction(size(), Nq);
+    }
     void releaseFile() { qFile.reset(); };
 };
 

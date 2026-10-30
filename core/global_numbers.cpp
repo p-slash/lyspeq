@@ -481,6 +481,9 @@ namespace mytime
     double   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
     long     number_of_times_called_setq = 0, number_of_times_called_setsfid = 0;
 
+    double scalingCoefficients[4] = {19.0, 1.0, 3.5, 0.0};
+    std::vector<double> one_iteration_times, one_iteration_coefficients;
+
     void printfTimeSpentDetails()
     {
         LOG::LOGGER.STD("Total time spent on inverting C is %.2f mins.\n", time_spent_on_c_inv);
@@ -505,6 +508,26 @@ namespace mytime
     {
         LOG::LOGGER.TIME("| %2s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s |\n", 
         "i", "T_i", "T_tot", "T_Cinv", "T_Finv", "T_Sfid", "N_Sfid", "T_Q", "N_Q", "T_Qmod", "T_F", "DChi2", "DMean");
+    }
+
+    void getScalingCoefficients(double Nq, double Nd, double p[4])
+    {
+        double Nd1 = Nd / 100.0, Nd2 = Nd1 * Nd1, Nd3 = Nd1 * Nd2;
+        double Nk = Nq / 10.0;
+        p[0] = Nk * Nd3;
+        p[1] = Nk * Nk * Nd2;
+        p[2] = Nk * Nd2;
+        p[3] = 1.0;
+    }
+
+    double timeScalingFunction(int Nd, int Nq)
+    {
+        double p[4];
+        getScalingCoefficients(Nq, Nd, p);
+        return scalingCoefficients[0] * p[0]
+               + scalingCoefficients[1] * p[1]
+               + scalingCoefficients[2] * p[2]
+               + scalingCoefficients[3] * p[3];
     }
 }
 

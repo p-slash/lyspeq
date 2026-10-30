@@ -305,15 +305,6 @@ double Chunk::getMinMemUsage()
 {
     return process::getMemoryMB((N_Q_MATRICES + 1) * N_Q_MATRICES);
 }
-// a[0] NqNd^3 + a[1] Nq^2Nd^2 + a[2] NqNd^2 + a[3]
-double Chunk::getComputeTimeEst(double a[4])
-{
-    int Nz = N_Q_MATRICES / bins::NUMBER_OF_K_BANDS;
-    double Nd3 = std::pow(size() / 100., 3),
-           Nd2 = std::pow(size() / 100., 2),
-           Nq = Nz * KBIN_UPP;
-    return a[0] * Nq * Nd3 + a[1] * Nq * Nq * Nd2 + a[2] * Nq * Nd2 + a[3];
-}
 
 void Chunk::_setVZMatrices() {
     DEBUG_LOG("Setting v & z matrices\n");
@@ -777,6 +768,7 @@ void Chunk::oneQSOiteration(
         std::vector<std::unique_ptr<double[]>> &dbt_sum_vector,
         double *fisher_sum
 ) {
+    timeOneIteration = mytime::timer.getTime();
     DEBUG_LOG("File %s\n", qFile->fname.c_str());
     DEBUG_LOG("TargetID %ld\n", qFile->id);
     DEBUG_LOG("Size %d\n", size());
@@ -849,8 +841,19 @@ void Chunk::oneQSOiteration(
             "Npixels: %d, Median z: %.2f, dv: %.2f, R=%d\n",
             size(), MEDIAN_REDSHIFT, qFile->dv_kms, qFile->R_fwhm);
     }
+    timeOneIteration = mytime::timer.getTime() - timeOneIteration;
+    _appendTiming();
 }
 
+void Chunk::_appendTiming() {
+    int Nq = KBIN_UPP * (N_Q_MATRICES / bins::NUMBER_OF_K_BANDS);
+    double p[4];
+
+    mytime::one_iteration_times.push_back(timeOneIteration);    
+    mytime::getScalingCoefficients(Nq, size(), p);
+    mytime::one_iteration_coefficients.insert(
+        mytime::one_iteration_coefficients.end(), p, p + 4);
+}
 
 void Chunk::_initMatrices()
 {
