@@ -482,7 +482,7 @@ namespace mytime
     long     number_of_times_called_setq = 0, number_of_times_called_setsfid = 0;
 
     double scalingCoefficients[4] = {19.0, 1.0, 3.5, 0.0};
-    std::vector<double> one_iteration_times, one_iteration_coefficients;
+    std::vector<double> one_chunk_times, one_chunk_coefficients;
 
     void printfTimeSpentDetails()
     {

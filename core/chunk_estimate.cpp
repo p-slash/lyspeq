@@ -848,11 +848,10 @@ void Chunk::oneQSOiteration(
 void Chunk::_appendTiming() {
     int Nq = KBIN_UPP * (N_Q_MATRICES / bins::NUMBER_OF_K_BANDS);
     double p[4];
-
-    mytime::one_iteration_times.push_back(100. * timeOneIteration);    
+    mytime::one_chunk_times.push_back(100. * timeOneIteration);    
     mytime::getScalingCoefficients(Nq, size(), p);
-    mytime::one_iteration_coefficients.insert(
-        mytime::one_iteration_coefficients.end(), p, p + 4);
+    mytime::one_chunk_coefficients.insert(
+        mytime::one_chunk_coefficients.end(), p, p + 4);
 }
 
 void Chunk::_initMatrices()

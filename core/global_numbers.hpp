@@ -226,11 +226,15 @@ namespace mytime
     extern long   number_of_times_called_setq, number_of_times_called_setsfid;
 
     extern double scalingCoefficients[4];
-    extern std::vector<double> one_iteration_times, one_iteration_coefficients;
+    extern std::vector<double> one_chunk_times, one_chunk_coefficients;
 
     void printfTimeSpentDetails();
     void writeTimeLogHeader();
 
+    static void reserveChunkTimeVectors(int N) {
+        one_chunk_times.reserve(N);
+        one_chunk_coefficients.reserve(N * 4);
+    }
     void getScalingCoefficients(double Nq, double Nd, double p[4]);
     double timeScalingFunction(int Nd, int Nq);
 

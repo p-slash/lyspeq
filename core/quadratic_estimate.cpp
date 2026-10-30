@@ -451,8 +451,8 @@ void OneDQuadraticPowerEstimate::timingRun() {
 
     // Fit Nq, Nd and timing relations
     std::vector<double> time_all_pes, coeffs;
-    mympi::gatherv(mytime::one_iteration_times, time_all_pes);
-    mympi::gatherv(mytime::one_iteration_coefficients, coeffs);
+    mympi::gatherv(mytime::one_chunk_times, time_all_pes);
+    mympi::gatherv(mytime::one_chunk_coefficients, coeffs);
 
     if (mympi::this_pe == 0)
         mxhelp::LAPACKE_lstsq(coeffs.data(), mympi::total_pes, 4,
@@ -464,6 +464,8 @@ void OneDQuadraticPowerEstimate::timingRun() {
     // Use this to load balance the actual run
     for (int i = 0; i < 4; ++i)
         mytime::scalingCoefficients[i] = time_all_pes[i];
+    mytime::one_chunk_times.clear();
+    mytime::one_chunk_coefficients.clear();
 }
 
 void OneDQuadraticPowerEstimate::iterate()
@@ -500,6 +502,7 @@ void OneDQuadraticPowerEstimate::iterate()
         time_all_pes.resize(mympi::total_pes);
 
     glmemory::allocMemory();
+    mytime::reserveChunkTimeVectors(local_queue.size() * specifics::NUMBER_OF_CHUNKS);
 
     for (int iteration = 0; iteration < NUMBER_OF_ITERATIONS; iteration++)
     {
