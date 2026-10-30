@@ -120,26 +120,36 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
     LOG::LOGGER.STD("Results will be saved to %s.\n", fname.c_str());
 }
 
+
 std::vector<std::string>
-OneDQuadraticPowerEstimate::_readQSOFiles()
+OneDQuadraticPowerEstimate::_readQsoFileList()
 {
-    std::string flist  = config.get("FileNameList"),
-                findir = config.get("FileInputDir"),
-                fname_t2ig = config.get("Targetids2Ignore");
+     std::string flist  = config.get("FileNameList"),
+                 findir = config.get("FileInputDir");
     if (findir.back() != '/')
         findir += '/';
 
     double t1, t2;
     std::vector<std::string> filepaths;
-    std::vector< std::pair<double, int> > cpu_fname_vector;
-
-    LOG::LOGGER.STD(
-        "Initial reading of quasar spectra and estimating CPU time.\n");
 
     NUMBER_OF_QSOS = ioh::readList(flist.c_str(), filepaths);
     // Add parent directory to file path
     for (auto &fq : filepaths)
         fq.insert(0, findir);
+    
+    return filepaths;
+}
+
+std::vector<std::string>
+OneDQuadraticPowerEstimate::_readQSOFiles()
+{
+    std::string fname_t2ig = config.get("Targetids2Ignore");
+
+    std::vector<std::string> filepaths = _readQsoFileList();
+    std::vector< std::pair<double, int> > cpu_fname_vector;
+
+    LOG::LOGGER.STD(
+        "Initial reading of quasar spectra and estimating CPU time.\n");
 
     std::vector<long> targetid_to_remove;
     if (!fname_t2ig.empty()) {
@@ -159,7 +169,7 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
     if (mympi::this_pe == mympi::total_pes - 1)
         fend_this = NUMBER_OF_QSOS;
 
-    t2 = mytime::timer.getTime();
+    double t1 = mytime::timer.getTime();
 
     // Create vector for QSOs & read
     cpu_fname_vector.reserve(NUMBER_OF_QSOS);
@@ -185,8 +195,9 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
         qio::PiccaFile::clearCache();
 
     // Print out time it took to read all files into vector
+    t1 = mytime::timer.getTime() - t1;
+    LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1);
     t1 = mytime::timer.getTime();
-    LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
 
     mympi::reduceInplace(Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2);
 
@@ -208,8 +219,7 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
     #endif
 
     // Print out time it took to sort files wrt CPU time
-    t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("Sorting took %.2f m.\n", t2-t1);
+    LOG::LOGGER.STD("Sorting took %.2f m.\n", mytime::timer.getTime() - t1);
 
     if (cpu_fname_vector.empty())
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
@@ -409,17 +419,69 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
     remove(tmp_smooth_fname.c_str());
 }
 
-// void OneDQuadraticPowerEstimate::timingRun() {
+void OneDQuadraticPowerEstimate::timingRun() {
     // Read filenames no load balancing
+    std::vector<std::string> filepaths = _readQsoFileList();
+    constexpr int Nminrun = 20, NperPE = 1;
+    int Noneperpe = mympi::total_pes * NperPE;
+
+    if (filepaths.size() < Nminrun) {
+        LOG::LOGGER.ERR("Not enough QSO files for timing run.\n");
+        throw std::runtime_error("Not enough QSO files for timing run.");
+    }
+
+    if (filepaths.size() < Noneperpe) {
+        LOG::LOGGER.ERR(
+            "Not enough QSO files for timing run. "
+            "Need at least %d files for %d PEs.\n",
+            Noneperpe, mympi::total_pes);
+        throw std::runtime_error("Not enough QSO files for timing run.");
+    }
     // Run this small batch on all PEs to estimate time for each PE
+    std::string fpath = filepaths[mympi::this_pe];
+    try {
+        auto one_qso = std::make_unique<OneQSOEstimate>(fpath, !Chunk::SHALLOW);
+        glmemory::allocMemory();
+        one_qso->oneQSOiteration(
+            powerspectra_fits.get(), 
+            dbt_estimate_sum_before_fisher_vector,
+            fisher_matrix_sum.get()
+        );
+    }
+    catch (std::exception& e) {
+        LOG::LOGGER.ERR("Error in timing run: %s.\n", e.what());
+        throw e;
+    }
+
     // Fit Nq, Nd and timing relations
+    std::vector<double> time_all_pes, coeffs, tmp;
+    coeffs.reserve(4 * mympi::total_pes);
+    mympi::gather(mytime::one_iteration_times[0], time_all_pes);
+    for (int i = 0; i < 4; ++i) {
+        mympi::gather(mytime::one_iteration_coefficients[i], tmp);
+        if (mympi::this_pe == 0)
+            coeffs.insert(coeffs.end(), tmp.begin(), tmp.end());
+    }
+
+    if (mympi::this_pe == 0)
+        mxhelp::LAPACKE_lstsq(coeffs.data(), mympi::total_pes, 4, time_all_pes.data());
+    mympi::bcast(time_all_pes.data(), 4);
     // Use this to load balance the actual run
+
+     LOG::LOGGER.STD(
+        LOG::getLineTextFromVector(time_all_pes, "timing fits:").c_str());
     // Redistribute remaining files to PEs based on this fit
     // Run the actual run
-// }
+}
 
 void OneDQuadraticPowerEstimate::iterate()
 {
+    try {
+        timingRun();
+    }
+    catch (std::exception& e) {
+        LOG::LOGGER.ERR("Error in timing run: %s.\n", e.what());
+    }
     double total_time = 0, total_time_1it = mytime::timer.getTime();;
     std::vector<std::string> local_fpaths = _readQSOFiles();
 

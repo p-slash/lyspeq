@@ -50,6 +50,7 @@ protected:
 
     bool isFisherInverted;
 
+    std::vector<std::string> _readQsoFileList();
     // reads all qso files, load balances
     // Returns local_fpaths
     std::vector<std::string> _readQSOFiles();
@@ -58,6 +59,7 @@ protected:
     std::vector<std::string>
     _loadBalancing(std::vector<std::string> &filepaths, 
         std::vector< std::pair<double, int> > &cpu_fname_vector);
+    void timingRun();
     void _savePEResult();
 
     // The next 2 functions call Python scripts.
