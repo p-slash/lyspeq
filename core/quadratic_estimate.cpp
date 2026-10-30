@@ -420,6 +420,7 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
 }
 
 void OneDQuadraticPowerEstimate::timingRun() {
+    LOG::LOGGER.STD("Timing run to estimate CPU time for each PE.\n");
     // Read filenames no load balancing
     std::vector<std::string> filepaths = _readQsoFileList();
     constexpr int Nminrun = 20, NperPE = 1;
@@ -440,9 +441,9 @@ void OneDQuadraticPowerEstimate::timingRun() {
     // Run this small batch on all PEs to estimate time for each PE
     std::string fpath = filepaths[mympi::this_pe];
     try {
-        auto one_qso = std::make_unique<OneQSOEstimate>(fpath, !Chunk::SHALLOW);
+        OneQSOEstimate one_qso(fpath, !Chunk::SHALLOW);
         glmemory::allocMemory();
-        one_qso->oneQSOiteration(
+        one_qso.oneQSOiteration(
             powerspectra_fits.get(), 
             dbt_estimate_sum_before_fisher_vector,
             fisher_matrix_sum.get()
