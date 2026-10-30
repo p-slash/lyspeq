@@ -215,9 +215,9 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2, bool shall
     _selectionCriteria();
 
     DATA_SIZE_2 = size() * size();
-    ZBIN = std::clamp(bins::findRedshiftBin(MEDIAN_REDSHIFT), 0, bins::NZ_MINUS_ONE);
-    ZBIN_LOW = std::clamp(bins::findRedshiftBin(LOWER_REDSHIFT), 0, bins::NZ_MINUS_ONE);
-    ZBIN_UPP = std::clamp(bins::findRedshiftBin(UPPER_REDSHIFT), 0, bins::NZ_MINUS_ONE);
+    ZBIN = std::clamp(ZBIN, 0, bins::NZ_MINUS_ONE);
+    ZBIN_LOW = std::clamp(ZBIN_LOW, 0, bins::NZ_MINUS_ONE);
+    ZBIN_UPP = std::clamp(ZBIN_UPP, 0, bins::NZ_MINUS_ONE);
     BIN_REDSHIFT = bins::ZBIN_CENTERS[ZBIN];
 
     if (shallow) return;

@@ -127,6 +127,7 @@ OneQSOEstimate::OneQSOEstimate(const std::string &f_qso, bool shallow) : fname_q
         }
     } catch (std::exception &e) {
         LOG::LOGGER.ERR("%s in %s.\n", e.what(), f_qso.c_str());
+        zbin = -1;
         return;
     }
 }
