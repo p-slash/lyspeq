@@ -442,6 +442,7 @@ void OneDQuadraticPowerEstimate::timingRun() {
     int attempts = 0;
     while (true) {
         try {
+            glmemory::dealloc();
             std::string fpath = filepaths[mympi::this_pe + attempts * mympi::total_pes];
             OneQSOEstimate one_qso(fpath, !Chunk::SHALLOW);
             glmemory::allocMemory();
@@ -462,11 +463,17 @@ void OneDQuadraticPowerEstimate::timingRun() {
     // Fit Nq, Nd and timing relations
     std::vector<double> time_all_pes, coeffs, tmp;
     coeffs.reserve(4 * mympi::total_pes);
-    mympi::gather(mytime::one_iteration_times[0], time_all_pes);
+    mympi::gather<double>(mytime::one_iteration_times[0], time_all_pes);
     for (int i = 0; i < 4; ++i) {
-        mympi::gather(mytime::one_iteration_coefficients[i], tmp);
+        mympi::gather<double>(mytime::one_iteration_coefficients[i], tmp);
         if (mympi::this_pe == 0)
             coeffs.insert(coeffs.end(), tmp.begin(), tmp.end());
+    }
+    if (mympi::this_pe == 0) {
+        LOG::LOGGER.STD(
+            LOG::getLineTextFromVector(time_all_pes, "times:").c_str());
+        LOG::LOGGER.STD(
+            LOG::getLineTextFromVector(coeffs, "coeffs:").c_str());
     }
 
     if (mympi::this_pe == 0)
