@@ -56,6 +56,38 @@ namespace mympi {
     }
 
     template<class T>
+    inline void gatherv(const std::vector<T>& local, std::vector<T>& result)
+    {
+        const int local_count = static_cast<int>(local.size());
+        std::vector<int> counts, displs;
+
+        if (this_pe == 0)
+            counts.resize(total_pes);
+
+        MPI_Gather(
+            &local_count, 1, MPI_INT,
+            this_pe == 0 ? counts.data() : nullptr, 1, MPI_INT,
+            0, MPI_COMM_WORLD);
+
+        if (this_pe == 0) {
+            displs.resize(total_pes);
+            int total_count = 0;
+            for (int pe = 0; pe < total_pes; ++pe) {
+                displs[pe] = total_count;
+                total_count += counts[pe];
+            }
+            result.resize(total_count);
+        }
+
+        MPI_Gatherv(
+            local.data(), local_count, getMpiDataType<T>(),
+            this_pe == 0 ? result.data() : nullptr,
+            this_pe == 0 ? counts.data() : nullptr,
+            this_pe == 0 ? displs.data() : nullptr,
+            getMpiDataType<T>(), 0, MPI_COMM_WORLD);
+    }
+
+    template<class T>
     inline void bcast(T *x, int N=1) {
         MPI_Bcast(x, N, getMpiDataType<T>(), 0, MPI_COMM_WORLD);
     }
@@ -70,6 +102,8 @@ namespace mympi {
     inline void abort() {};
     inline void barrier() {};
     inline void reduceInplace(...) {};
+    inline void reduceToOther(...) {};
+    inline void gatherv(...) {};
     inline void bcast(...) {};
 
     template<class T>

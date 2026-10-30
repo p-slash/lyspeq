@@ -461,14 +461,10 @@ void OneDQuadraticPowerEstimate::timingRun() {
     }
 
     // Fit Nq, Nd and timing relations
-    std::vector<double> time_all_pes, coeffs, tmp;
-    coeffs.reserve(4 * mympi::total_pes);
-    mympi::gather<double>(mytime::one_iteration_times[0], time_all_pes);
-    for (int i = 0; i < 4; ++i) {
-        mympi::gather<double>(mytime::one_iteration_coefficients[i], tmp);
-        if (mympi::this_pe == 0)
-            coeffs.insert(coeffs.end(), tmp.begin(), tmp.end());
-    }
+    std::vector<double> time_all_pes, coeffs;
+    mympi::gatherv(mytime::one_iteration_times, time_all_pes);
+    mympi::gatherv(mytime::one_iteration_coefficients, coeffs);
+
     if (mympi::this_pe == 0) {
         LOG::LOGGER.STD(
             LOG::getLineTextFromVector(time_all_pes, "times:").c_str());
