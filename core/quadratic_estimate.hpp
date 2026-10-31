@@ -30,6 +30,7 @@ protected:
     ioh::unique_fitsfile_ptr fitsfile_ptr;
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, NUMBER_OF_ITERATIONS;
     std::vector<int> Z_BIN_COUNTS;
+    std::vector<long> targetids_to_ignore;
 
     // 3 TOTAL_KZ_BINS sized vectors
     std::vector<std::unique_ptr<double[]>>
@@ -51,15 +52,21 @@ protected:
     bool isFisherInverted;
 
     std::vector<std::string> _readQsoFileList();
+    // Filename: config.get("Targetids2Ignore")
+    void _readTargetids2Ignore();
+    bool _isTargetidIgnored(long targetid);
     // reads all qso files, load balances
     // Returns local_fpaths
-    std::vector<std::string> _readQSOFiles();
+    std::vector<std::string> _getLoadBalancedLocalFilelist(
+        const std::vector<std::string> &filepaths);
     // Performs a load balancing operation based on N^3 estimation
     // Returns local_fpaths
     std::vector<std::string>
-    _loadBalancing(std::vector<std::string> &filepaths, 
-        std::vector< std::pair<double, int> > &cpu_fname_vector);
-    void timingRun();
+    _loadBalancing(
+        const std::vector<std::string> &filepaths, 
+        std::vector< std::pair<double, int> > &cpu_fname_vector
+    );
+    void timingRun(const std::vector<std::string> &filepaths);
     void _savePEResult();
 
     // The next 2 functions call Python scripts.
