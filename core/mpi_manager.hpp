@@ -88,6 +88,30 @@ namespace mympi {
     }
 
     template<class T>
+    inline void allgatherv(const std::vector<T>& local, std::vector<T>& result)
+    {
+        const int local_count = static_cast<int>(local.size());
+        std::vector<int> counts(total_pes), displs(total_pes);
+
+        MPI_Allgather(
+            &local_count, 1, MPI_INT,
+            counts.data(), 1, MPI_INT,
+            MPI_COMM_WORLD);
+
+        int total_count = 0;
+        for (int pe = 0; pe < total_pes; ++pe) {
+            displs[pe] = total_count;
+            total_count += counts[pe];
+        }
+        result.resize(total_count);
+
+        MPI_Allgatherv(
+            local.data(), local_count, getMpiDataType<T>(),
+            result.data(), counts.data(), displs.data(),
+            getMpiDataType<T>(), MPI_COMM_WORLD);
+    }
+
+    template<class T>
     inline void bcast(T *x, int N=1) {
         MPI_Bcast(x, N, getMpiDataType<T>(), 0, MPI_COMM_WORLD);
     }
@@ -111,6 +135,10 @@ namespace mympi {
         result.resize(total_pes);
         result[0] = x;
     }
+    template<class T>
+    inline void allgatherv(const std::vector<T>& local, std::vector<T>& result) {
+        result = local;
+    };
 
     template<class T>
     inline void reduceToOther(T *source, T *target, int N) {
