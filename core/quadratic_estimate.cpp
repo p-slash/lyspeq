@@ -430,19 +430,11 @@ void OneDQuadraticPowerEstimate::timingRun(
     if (mympi::total_pes < 8)
         throw std::runtime_error("Not tuning timing scalings for less than 8 PEs.\n");
 
-    LOG::LOGGER.STD("Timing run to fit for scaling relation.\n");
-
-    constexpr int NperPE = 1;
-    int Noneperpe = mympi::total_pes * NperPE;
-
-    if (filepaths.size() < Noneperpe) {
-        LOG::LOGGER.ERR(
-            "Not enough QSO files for timing run. "
-            "Need at least %d files for %d PEs.\n",
-            Noneperpe, mympi::total_pes);
+    if (filepaths.size() < mympi::total_pes)
         throw std::runtime_error("Not enough QSO files for timing run.");
-    }
+
     // Run this small batch on all PEs to estimate time for each PE
+    LOG::LOGGER.STD("Timing run to fit for scaling relation.\n");
     try {
         std::string fpath = filepaths[mympi::this_pe];
         OneQSOEstimate one_qso(fpath, !Chunk::SHALLOW);
@@ -489,7 +481,7 @@ void OneDQuadraticPowerEstimate::iterate()
         timingRun(filepaths_all);
     }
     catch (std::exception& e) {
-        LOG::LOGGER.ERR("Error in timing run: %s.\n", e.what());
+        LOG::LOGGER.STD("%s.\n", e.what());
     }
     double total_time = 0, total_time_1it = mytime::timer.getTime();
     std::vector<std::string> local_fpaths =
