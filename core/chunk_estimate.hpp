@@ -46,10 +46,11 @@ namespace glmemory {
 class Chunk
 {
 protected:
+    double timeOneIteration;
     int DATA_SIZE_2;
 
     int _matrix_n, RES_INDEX;
-    double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT, BIN_REDSHIFT;
+    double LOWER_REDSHIFT, UPPER_REDSHIFT, MEDIAN_REDSHIFT;
     // Will have finer spacing when rmat is oversampled
     double *_matrix_lambda, *inverse_covariance_matrix; // Do not delete!
 
@@ -64,7 +65,9 @@ protected:
     std::vector<double*> temp_matrix;
     std::vector<std::pair<int, double*>> stored_ikz_qi;
 
-    void _copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2);
+    void _selectionCriteria();
+    void _convertWavelengthToOnePlusZ();
+    void _copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2, bool shallow);
     void _findRedshiftBin();
     void _setNQandFisherIndex();
     void _setStoredMatrices();
@@ -78,11 +81,13 @@ protected:
     void _applyRedshiftInterp();
     void _scaleDerivativesWithRedshiftGrowth();
     void _addMarginalizations();
+    void _appendTiming();
 
     friend class TestOneQSOEstimate;
 
     Chunk() : DATA_SIZE_2(0), _matrix_n(0), N_Q_MATRICES(0) {};
 public:
+    const static bool SHALLOW = true;
     std::unique_ptr<qio::QSOFile> qFile;
     int fisher_index_start, N_Q_MATRICES;
     int ZBIN, ZBIN_LOW, ZBIN_UPP, KBIN_UPP;
@@ -93,12 +98,10 @@ public:
     // TOTAL_KZ_BINS x TOTAL_KZ_BINS sized matrix
     std::unique_ptr<double[]> fisher_matrix;
 
-    Chunk(const qio::QSOFile &qmaster, int i1, int i2);
+    Chunk(const qio::QSOFile &qmaster, int i1, int i2, bool shallow);
     Chunk(Chunk &&rhs) = delete;
     Chunk(const Chunk &rhs) = delete;
     ~Chunk();
-
-    static double getComputeTimeEst(const qio::QSOFile &qmaster, int i1, int i2);
 
     int realSize() const { return qFile->realSize(); };
     int size() const { return qFile->size(); };
@@ -114,6 +117,11 @@ public:
 
     void fprintfMatrices(const char *fname_base);
     double getMinMemUsage();
+    // a[0] NqNd^3 + a[1] Nq^2Nd^2 + a[2] NqNd^2 + a[3]
+    double getComputeTimeEst() const {
+        int Nq = KBIN_UPP * (N_Q_MATRICES / bins::NUMBER_OF_K_BANDS);
+        return mytime::timeScalingFunction(size(), Nq);
+    }
     void releaseFile() { qFile.reset(); };
 };
 

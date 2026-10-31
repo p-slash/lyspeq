@@ -233,7 +233,7 @@ namespace xeutils {
 
 OneQsoExposures::OneQsoExposures(const std::string &f_qso) : OneQSOEstimate() {
     try {
-        std::unique_ptr<qio::QSOFile> qFile = _readQsoFile(f_qso);
+        std::unique_ptr<qio::QSOFile> qFile = _readQsoFile(f_qso, !Chunk::SHALLOW);
 
         targetid = qFile->id;
         z_qso = qFile->z_qso;

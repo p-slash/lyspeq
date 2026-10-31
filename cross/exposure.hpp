@@ -21,7 +21,7 @@ class Exposure: public Chunk
     std::unique_ptr<double[]> weighted_data, local_cov_mat;
 public:
     Exposure(const qio::QSOFile &qmaster, int i1, int i2) : Chunk() {
-        _copyQSOFile(qmaster, i1, i2);
+        _copyQSOFile(qmaster, i1, i2, !Chunk::SHALLOW);
         _setNQandFisherIndex();
         glmemory::setMaxSizes(size(), size(), 2 * N_Q_MATRICES, false);
 

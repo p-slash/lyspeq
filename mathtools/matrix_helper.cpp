@@ -446,6 +446,17 @@ namespace mxhelp
             LAPACKErrorHandle("ERROR in SVD.", info);
     }
 
+    void LAPACKE_lstsq(double *A, int m, int n, double *b)
+    {
+        lapack_int M = m, N = n, NRHS = 1, LDA = N, LDB = 1, info;
+        info = LAPACKE_dgels(
+            LAPACK_ROW_MAJOR, 'N', M, N, NRHS,
+            A, LDA, b, LDB);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in least squares.", info);
+    }
+
     void printfMatrix(const double *A, int nrows, int ncols)
     {
         for (int i = 0; i < nrows; ++i)

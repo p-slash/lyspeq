@@ -29,7 +29,7 @@
 
 
 std::pair<bool, double> damping_pair {false, 0.};
-
+void saveChunkTimings();
 void _saveChunkResults(
         std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
 ) {
@@ -113,6 +113,7 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
         throw std::invalid_argument("Must pass FileNameList.");
     if (findir.empty())
         throw std::invalid_argument("Must pass FileInputDir.");
+    _readTargetids2Ignore();
     
     std::string fname = "!" + process::FNAME_BASE + "_detailed_results.fits";
     if (mympi::this_pe == 0)
@@ -120,60 +121,74 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
     LOG::LOGGER.STD("Results will be saved to %s.\n", fname.c_str());
 }
 
+
 std::vector<std::string>
-OneDQuadraticPowerEstimate::_readQSOFiles()
+OneDQuadraticPowerEstimate::_readQsoFileList()
 {
-    std::string flist  = config.get("FileNameList"),
-                findir = config.get("FileInputDir"),
-                fname_t2ig = config.get("Targetids2Ignore");
+     std::string flist  = config.get("FileNameList"),
+                 findir = config.get("FileInputDir");
     if (findir.back() != '/')
         findir += '/';
 
     double t1, t2;
     std::vector<std::string> filepaths;
-    std::vector< std::pair<double, int> > cpu_fname_vector;
-
-    LOG::LOGGER.STD(
-        "Initial reading of quasar spectra and estimating CPU time.\n");
 
     NUMBER_OF_QSOS = ioh::readList(flist.c_str(), filepaths);
     // Add parent directory to file path
     for (auto &fq : filepaths)
         fq.insert(0, findir);
+    
+    return filepaths;
+}
 
-    std::vector<long> targetid_to_remove;
+void OneDQuadraticPowerEstimate::_readTargetids2Ignore()
+{
+    std::string fname_t2ig = config.get("Targetids2Ignore");
     if (!fname_t2ig.empty()) {
-        ioh::readList(fname_t2ig.c_str(), targetid_to_remove, false);
+        ioh::readList(fname_t2ig.c_str(), targetids_to_ignore, false);
         LOG::LOGGER.STD("Reading TARGETIDs to remove. There are %zu items.\n",
-                        targetid_to_remove.size());
-        std::sort(targetid_to_remove.begin(), targetid_to_remove.end());
+                        targetids_to_ignore.size());
+        std::sort(targetids_to_ignore.begin(), targetids_to_ignore.end());
     }
+}
+
+bool OneDQuadraticPowerEstimate::_isTargetidIgnored(long targetid) {
+    return std::binary_search(
+        targetids_to_ignore.cbegin(), targetids_to_ignore.cend(), targetid
+    );
+}
+
+std::vector<std::string>
+OneDQuadraticPowerEstimate::_getLoadBalancedLocalFilelist(
+        const std::vector<std::string> &filepaths
+) {
+    LOG::LOGGER.STD(
+        "Initial reading of quasar spectra and estimating CPU time.\n");
+    
+    int Nfiles = filepaths.size();
+    std::vector< std::pair<double, int> > cpu_fname_vector;
+    cpu_fname_vector.reserve(Nfiles);
 
     // Each PE reads a different section of files
     // They sort individually, then merge in pairs
     // Finally, the master PE broadcasts the sorted full array
-    int delta_nfiles = NUMBER_OF_QSOS / mympi::total_pes,
+    int delta_nfiles = Nfiles / mympi::total_pes,
         fstart_this  = delta_nfiles * mympi::this_pe,
         fend_this    = delta_nfiles * (mympi::this_pe + 1);
     
     if (mympi::this_pe == mympi::total_pes - 1)
-        fend_this = NUMBER_OF_QSOS;
+        fend_this = Nfiles;
 
-    t2 = mytime::timer.getTime();
-
-    // Create vector for QSOs & read
-    cpu_fname_vector.reserve(NUMBER_OF_QSOS);
+    double t1 = mytime::timer.getTime();
 
     for (int findex = fstart_this; findex < fend_this; ++findex)
     {
-        int zbin;
-        long targetid;
-        double cpu_t_temp = OneQSOEstimate::getComputeTimeEst(
-            filepaths[findex], zbin, targetid);
+        OneQSOEstimate one_qso(filepaths[findex], Chunk::SHALLOW);
+        int zbin = one_qso.zbin;
+        long targetid = one_qso.targetid;
+        double cpu_t_temp = one_qso.getComputeTimeEst();
 
-        if (std::binary_search(targetid_to_remove.cbegin(), targetid_to_remove.cend(), targetid)) {
-            zbin = -1; cpu_t_temp = 0;
-        }
+        if (_isTargetidIgnored(targetid)) { zbin = -1; cpu_t_temp = 0; }
 
         ++Z_BIN_COUNTS[zbin+1];
 
@@ -185,8 +200,9 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
         qio::PiccaFile::clearCache();
 
     // Print out time it took to read all files into vector
+    t1 = mytime::timer.getTime() - t1;
+    LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1);
     t1 = mytime::timer.getTime();
-    LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
 
     mympi::reduceInplace(Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2);
 
@@ -208,8 +224,7 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
     #endif
 
     // Print out time it took to sort files wrt CPU time
-    t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("Sorting took %.2f m.\n", t2-t1);
+    LOG::LOGGER.STD("Sorting took %.2f m.\n", mytime::timer.getTime() - t1);
 
     if (cpu_fname_vector.empty())
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
@@ -218,7 +233,7 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
 }
 
 std::vector<std::string> OneDQuadraticPowerEstimate::_loadBalancing(
-        std::vector<std::string> &filepaths,
+        const std::vector<std::string> &filepaths,
         std::vector< std::pair<double, int> > &cpu_fname_vector
 ) {
     LOG::LOGGER.STD(
@@ -409,17 +424,75 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
     remove(tmp_smooth_fname.c_str());
 }
 
+void OneDQuadraticPowerEstimate::timingRun(
+        const std::vector<std::string> &filepaths
+) {
+    if (mympi::total_pes < 8)
+        throw std::runtime_error("Not tuning timing scalings for less than 8 PEs.\n");
+
+    if (filepaths.size() < mympi::total_pes)
+        throw std::runtime_error("Not enough QSO files for timing run.");
+
+    // Run this small batch on all PEs to estimate time for each PE
+    LOG::LOGGER.STD("Timing run to fit for scaling relation.\n");
+    try {
+        std::string fpath = filepaths[mympi::this_pe];
+        OneQSOEstimate one_qso(fpath, !Chunk::SHALLOW);
+        glmemory::allocMemory();
+        one_qso.oneQSOiteration(
+            powerspectra_fits.get(), 
+            dbt_estimate_sum_before_fisher_vector,
+            fisher_matrix_sum.get()
+        );
+        // used_indices.push_back(mympi::this_pe);
+    }
+    catch (std::exception& e) {
+        LOG::LOGGER.ERR("Caught exception in timing run: %s.\n", e.what());
+    }
+    glmemory::dealloc();
+
+    // Fit Nq, Nd and timing relations
+    std::vector<double> time_all_pes, coeffs;
+    mympi::gatherv(mytime::one_chunk_times, time_all_pes);
+    mympi::gatherv(mytime::one_chunk_coefficients, coeffs);
+
+    if (mympi::this_pe == 0)
+        mxhelp::LAPACKE_lstsq(coeffs.data(), mympi::total_pes, 4,
+                              time_all_pes.data());
+    time_all_pes.resize(4);
+    mympi::bcast(time_all_pes.data(), 4);
+    LOG::LOGGER.STD(LOG::getLineTextFromVector(
+        time_all_pes, "Time scaling coeffs:").c_str());
+    // Use this to load balance the actual run
+    for (int i = 0; i < 4; ++i)
+        mytime::scalingCoefficients[i] = time_all_pes[i];
+    mytime::one_chunk_times.clear();
+    mytime::one_chunk_coefficients.clear();
+
+    // std::vector<int> all_used_indices;
+    // mympi::allgatherv(used_indices, all_used_indices);
+    // return all_used_indices;
+}
+
 void OneDQuadraticPowerEstimate::iterate()
 {
-    double total_time = 0, total_time_1it = mytime::timer.getTime();;
-    std::vector<std::string> local_fpaths = _readQSOFiles();
+    std::vector<std::string> filepaths_all = _readQsoFileList();
+    try {
+        timingRun(filepaths_all);
+    }
+    catch (std::exception& e) {
+        LOG::LOGGER.STD("%s.\n", e.what());
+    }
+    double total_time = 0, total_time_1it = mytime::timer.getTime();
+    std::vector<std::string> local_fpaths =
+        _getLoadBalancedLocalFilelist(filepaths_all);
 
     // Construct local queue
     // Emplace_back with vector<OneQSOEstimate> leaks memory!!
     std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
     local_queue.reserve(local_fpaths.size());
     for (const auto &fpath : local_fpaths) {
-        auto one_qso = std::make_unique<OneQSOEstimate>(fpath);
+        auto one_qso = std::make_unique<OneQSOEstimate>(fpath, !Chunk::SHALLOW);
         if (!one_qso->chunks.empty())
             local_queue.push_back(std::move(one_qso));
     }
@@ -437,6 +510,7 @@ void OneDQuadraticPowerEstimate::iterate()
         time_all_pes.resize(mympi::total_pes);
 
     glmemory::allocMemory();
+    mytime::reserveChunkTimeVectors(local_queue.size() * specifics::NUMBER_OF_CHUNKS);
 
     for (int iteration = 0; iteration < NUMBER_OF_ITERATIONS; iteration++)
     {
@@ -542,6 +616,7 @@ void OneDQuadraticPowerEstimate::iterate()
     }
 
     glmemory::dealloc();
+    saveChunkTimings();
 
     // Save chunk estimates to a file
     if (process::SAVE_EACH_CHUNK_RESULT)
@@ -992,3 +1067,50 @@ void OneDQuadraticPowerEstimate::_savePEResult()
     return;
 }
 #endif
+
+void saveChunkTimings() {
+    std::vector<double> time_all_pes, coeffs;
+    mympi::gatherv(mytime::one_chunk_times, time_all_pes);
+    mympi::gatherv(mytime::one_chunk_coefficients, coeffs);
+    if (mympi::this_pe != 0)
+        return;
+
+    std::string fname = "!" + process::FNAME_BASE + "_chunk_timings.fits";
+    const std::string ext = "CHUNK_TIMINGS";
+    auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(fname);
+    fitsfile *fits_file = fitsfile_ptr.get();
+    int status = 0;
+
+    /* define the name, datatype, and physical units for columns */
+    const int ncolumns = 5;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+    char *column_names[] = {"NkNd3", "Nk2Nd2", "NkNd2", "C", "Time"};
+    char *column_types[] = {"1D", "1D", "1D", "1D", "1D"};
+    char *column_units[] = {"", "", "", "", ""};
+    #pragma GCC diagnostic pop
+
+    int nrows = time_all_pes.size();
+    
+    fits_create_tbl(
+        fits_file, BINARY_TBL, nrows, ncolumns,
+        column_names, column_types, column_units, ext.c_str(),
+        &status);
+    ioh::checkFitsStatus(status);
+    for (int i = 0; i < 4; ++i) {
+        fits_write_key(
+            fits_file, TDOUBLE, ("a" + std::to_string(i)).c_str(),
+            &mytime::scalingCoefficients[i], nullptr, &status);
+    }
+    ioh::checkFitsStatus(status);
+
+    auto tmp = std::make_unique<double[]>(nrows);
+    for (int i = 0; i < 4; ++i) {
+        for (auto j = 0; j < nrows; ++j)
+            tmp[j] = coeffs[4 * j + i];
+        fits_write_col(fits_file, TDOUBLE, i + 1, 1, 1, nrows, tmp.get(), &status);
+    }
+    fits_write_col(fits_file, TDOUBLE, 5, 1, 1, nrows, time_all_pes.data(), &status);
+    fits_flush_file(fits_file, &status);
+    ioh::checkFitsStatus(status);
+}

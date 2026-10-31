@@ -28,7 +28,6 @@ class OneQsoExposures: public OneQSOEstimate
     std::vector<cExpoCombo> exposure_combos;
 public:
     double z_qso, ra, dec;
-    long targetid;
     std::vector<std::unique_ptr<Exposure>> exposures;
     std::vector<std::unique_ptr<double[]>> dbt_estimate_before_fisher_vector;
 
