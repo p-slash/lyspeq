@@ -12,7 +12,7 @@
 #include <algorithm> // std::for_each & transform & lower(upper)_bound
 #include <cstdio>
 #include <cstdlib>
-#include <functional>
+// #include <functional>
 #include <sstream>
 #include <stdexcept>
 
