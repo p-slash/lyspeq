@@ -768,8 +768,8 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
     {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
-        // z = bins::ZBIN_CENTERS[zm];
-        z = estimateZeff(kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
+        z = bins::ZBIN_CENTERS[zm];
+        // z = estimateZeff(kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
         k = bins::KBAND_CENTERS[kn];
         p = current_power_estimate_vector[i_kz] + powerSpectrumFiducial(kn, zm);
         e = sqrt(inverse_fisher_matrix_sum[i_kz+bins::TOTAL_KZ_BINS*i_kz]);
@@ -789,20 +789,22 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     int status = 0;
 
     /* define the name, datatype, and physical units for columns */
-    const int ncolumns = 14;
+    const int ncolumns = 16;
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wwrite-strings"
     char *column_names[] = {
-        "Z", "K1", "K2", "K", "PLYA", "E_PK", "PRAW", "PNOISE", "PFID", "PINPUT",
+        "Z", "ZEFF", "K1", "K2", "K", "PLYA", "PLYA_EFF",
+        "E_PK", "PRAW", "PNOISE", "PFID", "PINPUT",
         "ThetaP", "Fd", "Fb", "Ft"
     };
     char *column_types[] = {
-        "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D",
-        "1D", "1D", "1D", "1D"
+        "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D",
+        "1D", "1D", "1D", "1D", "1D"
     };
     char *column_units[] = {
-        "", "s km^-1", "s km^-1", "s km^-1", "km s^-1", "km s^-1", "km s^-1",
-        "km s^-1", "km s^-1", "km s^-1", "km s^-1", "s km^-1", "s km^-1", "s km^-1"
+        "", "", "s km^-1", "s km^-1", "s km^-1", "km s^-1", "km s^-1",
+        "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1",
+        "s km^-1", "s km^-1", "s km^-1"
     };
     #pragma GCC diagnostic pop
 
@@ -836,51 +838,53 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     ioh::checkFitsStatus(status);
 
     int kn = 0, zm = 0;
-    auto a1 = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
-         a2 = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
-         a3 = std::make_unique<double[]>(bins::TOTAL_KZ_BINS),
-         a4 = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
+    std::vector<double> tmpvec(5 * bins::TOTAL_KZ_BINS);
+    double *tmpvec_ptr = tmpvec.data();
+
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);
+        tmpvec_ptr[i_kz] = bins::ZBIN_CENTERS[zm];
+        tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] = estimateZeff(
+            kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
+        tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn];
+        tmpvec_ptr[i_kz + 3 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn + 1];
+        tmpvec_ptr[i_kz + 4 * bins::TOTAL_KZ_BINS] = bins::KBAND_CENTERS[zm];
+    }
+
+    for (int c = 0; c < 5; ++c)
+        fits_write_col(fits_file, TDOUBLE, c + 1, 1, 1, bins::TOTAL_KZ_BINS,
+                       tmpvec_ptr + c * bins::TOTAL_KZ_BINS, &status);
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);  
-        a1[i_kz] = estimateZeff(kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
-        a2[i_kz] = bins::KBAND_EDGES[kn];
-        a3[i_kz] = bins::KBAND_EDGES[kn + 1];
-        a4[i_kz] = bins::KBAND_CENTERS[zm];
+        tmpvec_ptr[i_kz] = powerSpectrumFiducial(kn, zm);
+        tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] =
+            current_power_estimate_vector[i_kz] + tmpvec_ptr[i_kz];
+        tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] =
+            current_power_estimate_vector[i_kz]
+            + dbt_estimate_fisher_weighted_vector[2][i_kz];
+        tmpvec_ptr[i_kz + 3 * bins::TOTAL_KZ_BINS] =
+            sqrt(inverse_fisher_matrix_sum[(1 + bins::TOTAL_KZ_BINS) * i_kz]);
     }
 
-    fits_write_col(fits_file, TDOUBLE, 1, 1, 1, bins::TOTAL_KZ_BINS, a1.get(), &status);
-    fits_write_col(fits_file, TDOUBLE, 2, 1, 1, bins::TOTAL_KZ_BINS, a2.get(), &status);
-    fits_write_col(fits_file, TDOUBLE, 3, 1, 1, bins::TOTAL_KZ_BINS, a3.get(), &status);
-    fits_write_col(fits_file, TDOUBLE, 4, 1, 1, bins::TOTAL_KZ_BINS, a4.get(), &status);
-
-    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
-        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);  
-        a1[i_kz] = powerSpectrumFiducial(kn, zm);
-        a2[i_kz] = current_power_estimate_vector[i_kz] + a1[i_kz];
-        a3[i_kz] = sqrt(inverse_fisher_matrix_sum[(1 + bins::TOTAL_KZ_BINS) * i_kz]);
-    }
-
-    fits_write_col(fits_file, TDOUBLE, 5, 1, 1, bins::TOTAL_KZ_BINS, a2.get(), &status);
-    fits_write_col(fits_file, TDOUBLE, 6, 1, 1, bins::TOTAL_KZ_BINS, a3.get(), &status);
-
+    fits_write_col(fits_file, TDOUBLE, 6, 1, 1, bins::TOTAL_KZ_BINS,
+                   tmpvec_ptr + bins::TOTAL_KZ_BINS, &status);
     fits_write_col(fits_file, TDOUBLE, 7, 1, 1, bins::TOTAL_KZ_BINS,
-                   dbt_estimate_fisher_weighted_vector[0].get(), &status);
+                   tmpvec_ptr + 2 * bins::TOTAL_KZ_BINS, &status);
     fits_write_col(fits_file, TDOUBLE, 8, 1, 1, bins::TOTAL_KZ_BINS,
-                   dbt_estimate_fisher_weighted_vector[1].get(), &status);
-    fits_write_col(fits_file, TDOUBLE, 9, 1, 1, bins::TOTAL_KZ_BINS,
-                   dbt_estimate_fisher_weighted_vector[2].get(), &status);
+                   tmpvec_ptr + 3 * bins::TOTAL_KZ_BINS, &status);
 
-    fits_write_col(fits_file, TDOUBLE, 10, 1, 1, bins::TOTAL_KZ_BINS, a1.get(), &status);
-    fits_write_col(fits_file, TDOUBLE, 11, 1, 1, bins::TOTAL_KZ_BINS,
+    for (int c = 0; c < 3; ++c)
+        fits_write_col(fits_file, TDOUBLE, 9 + c, 1, 1, bins::TOTAL_KZ_BINS,
+                       dbt_estimate_fisher_weighted_vector[c].get(), &status);
+
+    fits_write_col(fits_file, TDOUBLE, 12, 1, 1, bins::TOTAL_KZ_BINS, tmpvec_ptr, &status);
+    fits_write_col(fits_file, TDOUBLE, 13, 1, 1, bins::TOTAL_KZ_BINS,
                    current_power_estimate_vector.get(), &status);
 
-    fits_write_col(fits_file, TDOUBLE, 12, 1, 1, bins::TOTAL_KZ_BINS,
-                   dbt_estimate_sum_before_fisher_vector[0].get(), &status);
-    fits_write_col(fits_file, TDOUBLE, 13, 1, 1, bins::TOTAL_KZ_BINS,
-                   dbt_estimate_sum_before_fisher_vector[1].get(), &status);
-    fits_write_col(fits_file, TDOUBLE, 14, 1, 1, bins::TOTAL_KZ_BINS,
-                   dbt_estimate_sum_before_fisher_vector[2].get(), &status);
+    for (int c = 0; c < 3; ++c)
+        fits_write_col(fits_file, TDOUBLE, 14 + c, 1, 1, bins::TOTAL_KZ_BINS,
+                       dbt_estimate_sum_before_fisher_vector[c].get(), &status);
 
     fits_flush_file(fits_file, &status);
     ioh::checkFitsStatus(status);
