@@ -395,25 +395,27 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
                 s2[i] = sin(k2 * u);  c2[i] = cos(k2 * u);
             }
 
-            #pragma omp parallel for
+            #pragma omp parallel for simd collapse(2)
             for (int i = 0; i < _matrix_n; ++i) {
-                double *row = inter_mat + i * _matrix_n;
-                const double *vrow = _vmatrix + i * _matrix_n;
-                row[i] = dk_pi;
-                #pragma omp simd
+                inter_mat[i + i * _matrix_n] = dk_pi;
+
                 for (int j = i + 1; j < _matrix_n; ++j) {
+                    int idx = j + i * _matrix_n;
                     double num = (s2[j] * c2[i] - c2[j] * s2[i])
                                  - (s1[j] * c1[i] - c1[j] * s1[i]);
-                    row[j] = num / (MY_PI * vrow[j]);
+                    inter_mat[idx] = num / (MY_PI * _vmatrix[idx]);
                 }
             }
         } else {
             const auto *idkn = glmemory::interp_derivative_matrix[kn].get();
 
             #pragma omp parallel for simd collapse(2)
-            for (int i = 0; i < _matrix_n; ++i)
-                for (int j = i; j < _matrix_n; ++j)
-                    inter_mat[j + i * _matrix_n] = idkn->evaluate(_vmatrix[j + i * _matrix_n]);
+            for (int i = 0; i < _matrix_n; ++i) {
+                for (int j = i; j < _matrix_n; ++j) {
+                    int idx = j + i * _matrix_n;
+                    inter_mat[idx] = idkn->evaluate(_vmatrix[idx]);
+                }
+            }
         }
 
         t_interp = mytime::timer.getTime() - t;
