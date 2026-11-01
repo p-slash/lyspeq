@@ -309,17 +309,31 @@ double Chunk::getMinMemUsage()
 void Chunk::_setVZMatrices() {
     DEBUG_LOG("Setting v & z matrices\n");
 
-    #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < _matrix_n; ++i)
-    {
-        for (int j = i; j < _matrix_n; ++j)
-        {
-            double li = _matrix_lambda[i], lj = _matrix_lambda[j];
+    #pragma omp parallel for simd
+    for (int i = 0; i < _matrix_n; ++i) {
+        double li = _matrix_lambda[i];
+        _vmatrix[i] = SPEED_OF_LIGHT * log(li / _matrix_lambda[0]);
+        _zmatrix[i] = sqrt(li);
+    }
 
-            _vmatrix[j + i * _matrix_n] = SPEED_OF_LIGHT * log(lj / li);
-            _zmatrix[j + i * _matrix_n] = sqrt(li * lj) - 1.;
+    #pragma omp parallel for simd collapse(2)
+    for (int i = 1; i < _matrix_n; ++i) {
+        const double vi = _vmatrix[i], zi = _zmatrix[i];
+        double *row_v = _vmatrix + i * _matrix_n,
+               *row_z = _zmatrix + i * _matrix_n;
+        // _vmatrix[i * _matrix_n] = 0.0;
+        // _zmatrix[i * _matrix_n] = _matrix_lambda[i] - 1.0;
+        for (int j = i; j < _matrix_n; ++j) {
+            const double vj = _vmatrix[j], zj = _zmatrix[j];
+            row_v[j] = vj - vi;
+            row_z[j] = zi * zj - 1.0;
         }
     }
+
+    #pragma omp parallel for simd
+    for (int i = 1; i < _matrix_n; ++i)
+        _zmatrix[i] = _zmatrix[0] * _zmatrix[i] - 1.0;
+    _zmatrix[0] = _zmatrix[0] * _zmatrix[0] - 1.0;
 }
 
 void Chunk::_setFiducialSignalMatrix(double *sm)
