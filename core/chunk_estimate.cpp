@@ -318,15 +318,10 @@ void Chunk::_setVZMatrices() {
 
     #pragma omp parallel for simd collapse(2)
     for (int i = 1; i < _matrix_n; ++i) {
-        const double vi = _vmatrix[i], zi = _zmatrix[i];
-        double *row_v = _vmatrix + i * _matrix_n,
-               *row_z = _zmatrix + i * _matrix_n;
-        // _vmatrix[i * _matrix_n] = 0.0;
-        // _zmatrix[i * _matrix_n] = _matrix_lambda[i] - 1.0;
         for (int j = i; j < _matrix_n; ++j) {
-            const double vj = _vmatrix[j], zj = _zmatrix[j];
-            row_v[j] = vj - vi;
-            row_z[j] = zi * zj - 1.0;
+            int idx = j + i * _matrix_n;
+            _vmatrix[idx] = _vmatrix[j] - _vmatrix[i];
+            _zmatrix[idx] = _zmatrix[i] * _zmatrix[j] - 1.0;
         }
     }
 
