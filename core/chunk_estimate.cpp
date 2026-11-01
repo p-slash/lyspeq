@@ -393,12 +393,11 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
                 double u = _vmatrix[i];
                 s1[i] = sin(k1 * u);  c1[i] = cos(k1 * u);
                 s2[i] = sin(k2 * u);  c2[i] = cos(k2 * u);
+                inter_mat[i + i * _matrix_n] = dk_pi;
             }
 
             #pragma omp parallel for simd collapse(2)
             for (int i = 0; i < _matrix_n; ++i) {
-                inter_mat[i + i * _matrix_n] = dk_pi;
-
                 for (int j = i + 1; j < _matrix_n; ++j) {
                     int idx = j + i * _matrix_n;
                     double num = (s2[j] * c2[i] - c2[j] * s2[i])
