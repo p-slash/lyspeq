@@ -405,6 +405,7 @@ int test_OversampledMatrix_multiplications()
         r += 1;
     }
 
+    std::fill(mtrxB2.begin(), mtrxB2.end(), 0);
     ovrmat.multiplyRight(mtrxB1.data(), mtrxB2.data());
     if (!allClose(truth_oversample_right_multiplication, mtrxB2.data(), mtrxB2.size()))
     {
@@ -414,6 +415,7 @@ int test_OversampledMatrix_multiplications()
         r += 1;
     }
 
+    std::fill(mtrxB2.begin(), mtrxB2.end(), 0);
     ovrmat.sandwich(oversample_multiplier_A, mtrxB2.data());
     if (!allClose(truth_oversample_right_multiplication, mtrxB2.data(), mtrxB2.size()))
     {
