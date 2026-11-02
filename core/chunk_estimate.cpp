@@ -444,8 +444,6 @@ void Chunk::_applyRedshiftInterp() {
         for (int i = 0; i < size(); ++i)
             for (int j = i; j < size(); ++j)
                 _zmatrix[j + i * size()] = sqrt(qFile->wave()[j] * qFile->wave()[i]) - 1.0;
-
-        mxhelp::copyUpperToLower(_zmatrix, size());
     }
 
     // Convert wave (1+z) array to z
@@ -461,7 +459,7 @@ void Chunk::_applyRedshiftInterp() {
 
         std::fill_n(temp_matrix[0], DATA_SIZE_2, 0);
 
-        #pragma omp parallel for schedule(static, 1)
+        #pragma omp parallel for schedule(dynamic, 4)
         for (int i = 0; i < up; ++i) {
             int row_low, row_up;
             bins::redshiftBinningFunction(

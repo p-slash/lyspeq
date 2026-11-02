@@ -13,6 +13,9 @@
 #include "cblas.h"
 #endif
 
+#define VAR_THRESHOLD 1e8
+#define VAR_MASK_VALUE 1e99
+
 std::unique_ptr<Smoother> process::smoother;
 
 void padArray(
@@ -51,14 +54,15 @@ void padArrayReflectLeft(
 
 
 double _getMedianBelowThreshold(
-        double *sorted_arr, int size, int &newsize, double thres=1e3
+        double *sorted_arr, int size, int &newsize, double thres=VAR_THRESHOLD
 ) {
     newsize = size;
     while ((newsize != 0) && sorted_arr[newsize - 1] > thres)
         --newsize;
 
     if (newsize == 0)
-        return sorted_arr[0];
+        throw std::runtime_error(
+            "All values are above threshold in _getMedianBelowThreshold.");
 
     return stats::medianOfSortedArray(sorted_arr, newsize);
 }
@@ -66,7 +70,7 @@ double _getMedianBelowThreshold(
 
 void _findMedianStatistics(
         double *arr, int size, double &median, double &mean, double &mad,
-        double thres=1e3
+        double thres=VAR_THRESHOLD
 ) {
     int newsize;
     std::sort(arr, arr + size);
@@ -91,6 +95,7 @@ void _fillMaskedRegion(
     if (mask_idx.front() == 0)
         std::fill_n(v.begin(), HWSIZE, mean);
 
+    #pragma omp parallel for
     for (const int &idx : mask_idx)
         v[idx + HWSIZE] = mean;
 
@@ -159,6 +164,7 @@ void Smoother::smooth1D(double *inplace, int size, int ndim, bool reflectLeft) {
             padArray(inplace, size, HWSIZE, tempvector);
 
         // Convolve
+        #pragma omp parallel for
         for (int i = 0; i < size; ++i)
             inplace[i] = cblas_ddot(KS, gaussian_kernel, 1, tempvector.data() + i, 1);
     }
@@ -176,7 +182,7 @@ void Smoother::smoothIvar(const double *ivar, double *out, int size) {
     std::transform(
         ivar, ivar + size, out, [](const double &iv) {
             if (iv == 0)
-                return 1e15;
+                return VAR_MASK_VALUE;
             return 1.0 / iv;
         });
     _findMedianStatistics(out, size, median, mean, mad);
@@ -206,7 +212,7 @@ void Smoother::smoothIvar(const double *ivar, double *out, int size) {
             });
 
         // Convolve
-        // std::fill_n(out, size, 0);
+        #pragma omp parallel for
         for (int i = 0; i < size; ++i)
             out[i] = 1.0 / cblas_ddot(KS, gaussian_kernel, 1, tempvector.data() + i, 1);
     }
