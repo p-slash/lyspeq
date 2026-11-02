@@ -155,44 +155,79 @@ namespace xeutils {
 
     void _setQiMatrix(double *m, int fi_kz) {
         ++mytime::number_of_times_called_setq;
-        double t = mytime::timer.getTime(), t_interp;
+        double t = mytime::timer.getTime(), t_interp = 0;
         int kn, zm;
 
         bins::getFisherMatrixBinNoFromIndex(fi_kz, kn, zm);
         bins::setRedshiftBinningFunction(zm);
 
-        std::function<double(double)> eval_deriv_kn;
-
-        if (specifics::USE_RESOLUTION_MATRIX) {
-            double kc = bins::KBAND_CENTERS[kn],
-                   dk = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn];
-
-            eval_deriv_kn = [kc, dk](double v) {
-                if (v == 0)
-                    return dk / MY_PI;
-
-                double x = dk * v / 2;
-                return (dk / MY_PI) * cos(kc * v) * (sin(x) / x);
-            };
-        } else {
-            eval_deriv_kn = [idkn = glmemory::interp_derivative_matrix[kn]](double v) {
-                return idkn->evaluate(v);
-            };
-        }
-
         std::fill_n(m, CROSS_SIZE_2, 0);
+        std::vector<int> _rowbounds(2 * N1);
 
+        // Redshift binning weights
         #pragma omp parallel for schedule(static, 1)
         for (int i = 0; i < N1; ++i) {
             int idx = i * N2, l1, u1;
-
             bins::redshiftBinningFunction(
                 _zmatrix + idx, N2, zm,
                 m + idx, l1, u1);
+            _rowbounds[2 * i] = l1;
+            _rowbounds[2 * i + 1] = u1;
+        }
 
-            #pragma omp simd
-            for (int j = l1; j < u1; ++j)
-                m[j + idx] *= eval_deriv_kn(_vmatrix[j + idx]);
+        if (specifics::USE_RESOLUTION_MATRIX) {
+            // Top-hat band in k: (dk/pi) cos(kc v) sinc(dk v/2)
+            //   = [sin(k2 v) - sin(k1 v)] / (pi v), with v = u2_j - u1_i
+            // and u = c ln(l / l_0). Expanding sin(k (u2_j - u1_i)) lets
+            // the trig be evaluated O(N) times instead of O(N^2).
+            const double k1 = bins::KBAND_EDGES[kn],
+                         k2 = bins::KBAND_EDGES[kn + 1],
+                         dk_pi = (k2 - k1) / MY_PI,
+                         l0 = q1->wave()[0];
+
+            std::vector<double> trig(4 * (N1 + N2));
+            double *sa1 = trig.data(), *ca1 = sa1 + N1,
+                   *sa2 = ca1 + N1, *ca2 = sa2 + N1,
+                   *sb1 = ca2 + N1, *cb1 = sb1 + N2,
+                   *sb2 = cb1 + N2, *cb2 = sb2 + N2;
+
+            #pragma omp parallel for simd
+            for (int i = 0; i < N1; ++i) {
+                double u = SPEED_OF_LIGHT * log(q1->wave()[i] / l0);
+                sa1[i] = sin(k1 * u);  ca1[i] = cos(k1 * u);
+                sa2[i] = sin(k2 * u);  ca2[i] = cos(k2 * u);
+            }
+
+            #pragma omp parallel for simd
+            for (int j = 0; j < N2; ++j) {
+                double u = SPEED_OF_LIGHT * log(q2->wave()[j] / l0);
+                sb1[j] = sin(k1 * u);  cb1[j] = cos(k1 * u);
+                sb2[j] = sin(k2 * u);  cb2[j] = cos(k2 * u);
+            }
+
+            #pragma omp parallel for schedule(dynamic, 1)
+            for (int i = 0; i < N1; ++i) {
+                int idx = i * N2;
+
+                #pragma omp simd
+                for (int j = _rowbounds[2 * i]; j < _rowbounds[2 * i + 1]; ++j) {
+                    double v = _vmatrix[j + idx];
+                    double num = (sb2[j] * ca2[i] - cb2[j] * sa2[i])
+                                 - (sb1[j] * ca1[i] - cb1[j] * sa1[i]);
+                    m[j + idx] *= (v == 0) ? dk_pi : num / (MY_PI * v);
+                }
+            }
+        } else {
+            const auto *idkn = glmemory::interp_derivative_matrix[kn].get();
+
+            #pragma omp parallel for schedule(dynamic, 1)
+            for (int i = 0; i < N1; ++i) {
+                int idx = i * N2;
+
+                #pragma omp simd
+                for (int j = _rowbounds[2 * i]; j < _rowbounds[2 * i + 1]; ++j)
+                    m[j + idx] *= idkn->evaluate(_vmatrix[j + idx]);
+            }
         }
 
         t_interp = mytime::timer.getTime() - t;
@@ -200,7 +235,7 @@ namespace xeutils {
         if (specifics::USE_RESOLUTION_MATRIX)
             _doubleRmatSandwich(m);
 
-        t = mytime::timer.getTime() - t; 
+        t = mytime::timer.getTime() - t;
 
         mytime::time_spent_set_qs += t;
         mytime::time_spent_on_q_interp += t_interp;
