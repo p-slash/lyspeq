@@ -174,8 +174,37 @@ SQLookupTable::SQLookupTable(ConfigFile &config)
             itp_z1, LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
 }
 
+bool SQLookupTable::allFilesExist() const
+{
+    for (int r = 0; r < NUMBER_OF_R_VALUES; ++r) {
+        int Rthis = R_DV_VALUES[r].first;
+        double dvthis = R_DV_VALUES[r].second;
+
+        std::string buf_fnames = sqhelper::SQTableFileNameConvention(
+            DIR, S_BASE, Rthis, dvthis);
+
+        if (!ioh::file_exists(buf_fnames.c_str()))
+            return false;
+    }
+
+    return true;
+}
+
+
 void SQLookupTable::readTables()
 {
+    bool all_files_exist = false;
+    if (mympi::this_pe == 0) {
+        all_files_exist = allFilesExist();
+    }
+    mympi::bcast(&all_files_exist);
+
+    if (!all_files_exist) {
+        LOG::LOGGER.STD("Some files are missing. Recomputing all tables.\n");
+        computeTables(true);
+    }
+    mympi::barrier();
+
     allocateSignalAndDerivArrays();
     LOG::LOGGER.STD("Setting tables.\n");
 
@@ -210,9 +239,14 @@ void SQLookupTable::computeTables(bool force_rewrite)
     allocateSignalAndDerivArrays();
 
     // Initialize loop for parallel computing
-    int delta_nr     = NUMBER_OF_R_VALUES / mympi::total_pes, 
-        r_start_this = delta_nr * mympi::this_pe, 
-        r_end_this   = delta_nr * (mympi::this_pe+1);
+    int delta_nr     = std::max(1, NUMBER_OF_R_VALUES / mympi::total_pes);
+    int r_start_this = delta_nr * mympi::this_pe;
+    int r_end_this   = delta_nr * (mympi::this_pe+1);
+
+    if (r_start_this >= NUMBER_OF_R_VALUES) {
+        deallocateSignalAndDerivArrays();
+        return;
+    }
 
     if (mympi::this_pe == mympi::total_pes-1)
         r_end_this = NUMBER_OF_R_VALUES;
