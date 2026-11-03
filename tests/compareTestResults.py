@@ -98,8 +98,10 @@ if __name__ == '__main__':
 
     # TESTING THE FINAL RESULTS
     print(f"{BOLD}Comparing QMLE results...{ENDC}")
-    true_Pfid, true_ThetaP, true_ErrorP = readQMLEResults(
-        f"{args.SourceDir}/tests/truth/test_it1_quadratic_power_estimate_detailed.dat")
+    true_res = fitsio.read(
+        f"{args.SourceDir}/tests/truth/test_detailed_results.fits",
+        ext="P1D")
+    true_Pfid, true_ThetaP, true_ErrorP = true_res['PINPUT'], true_res['ThetaP'], true_res['E_PK']
     comp_res = fitsio.read(
         f"{args.SourceDir}/tests/output/test_detailed_results.fits",
         ext="P1D")
@@ -114,7 +116,7 @@ if __name__ == '__main__':
 
     print("4. Comparing Fisher matrices...")
     true_fisher = fitsio.read(
-        f"{args.SourceDir}/tests/truth/test_it1_matrices.fits",
+        f"{args.SourceDir}/tests/truth/test_detailed_results.fits",
         ext="FISHER")
     comp_fisher = fitsio.read(
         f"{args.SourceDir}/tests/output/test_detailed_results.fits",
