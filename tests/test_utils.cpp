@@ -20,6 +20,24 @@ bool allClose(
     return result;
 }
 
+void getMaxDiffWithIndex(
+        const double *a, const double *b, int size,
+        double &max_diff, int &max_index
+) {
+    max_diff = 0.;
+    max_index = -1;
+
+    for (int i = 0; i < size; ++i)
+    {
+        double diff = fabs(a[i] - b[i]);
+        if (diff > max_diff)
+        {
+            max_diff = diff;
+            max_index = i;
+        }
+    }
+}
+
 void printValues(double truth, double result)
 {
     printf("Result: %13.5e\n", result);
