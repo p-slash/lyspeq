@@ -253,8 +253,8 @@ void SQLookupTable::computeTables(bool force_rewrite)
 
     std::unique_ptr<RealField> rft;
     #define RFT_M 2  // Oversample factor for the RFT grid.
-
-    int nrft = exp2(ceil(log2(2 * RFT_M * N_V_POINTS)) + 1);
+    #define RFT_PAD 16 // Padding factor for the RFT grid.
+    int nrft = RFT_PAD * RFT_M * exp2(ceil(log2(N_V_POINTS)));
     LOG::LOGGER.STD("RealField number of points %d\n", nrft);
     double itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
     rft = std::make_unique<RealField>(nrft, itp_dv / RFT_M);
