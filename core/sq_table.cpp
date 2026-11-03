@@ -174,8 +174,37 @@ SQLookupTable::SQLookupTable(ConfigFile &config)
             itp_z1, LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
 }
 
+bool SQLookupTable::allFilesExist() const
+{
+    for (int r = 0; r < NUMBER_OF_R_VALUES; ++r) {
+        int Rthis = R_DV_VALUES[r].first;
+        double dvthis = R_DV_VALUES[r].second;
+
+        std::string buf_fnames = sqhelper::SQTableFileNameConvention(
+            DIR, S_BASE, Rthis, dvthis);
+
+        if (!ioh::file_exists(buf_fnames.c_str()))
+            return false;
+    }
+
+    return true;
+}
+
+
 void SQLookupTable::readTables()
 {
+    bool all_files_exist = false;
+    if (mympi::this_pe == 0) {
+        all_files_exist = allFilesExist();
+    }
+    mympi::bcast(&all_files_exist);
+
+    if (!all_files_exist) {
+        LOG::LOGGER.STD("Some files are missing. Recomputing all tables.\n");
+        computeTables(true);
+    }
+    mympi::barrier();
+
     allocateSignalAndDerivArrays();
     LOG::LOGGER.STD("Setting tables.\n");
 
@@ -210,22 +239,25 @@ void SQLookupTable::computeTables(bool force_rewrite)
     allocateSignalAndDerivArrays();
 
     // Initialize loop for parallel computing
-    int delta_nr     = NUMBER_OF_R_VALUES / mympi::total_pes, 
-        r_start_this = delta_nr * mympi::this_pe, 
-        r_end_this   = delta_nr * (mympi::this_pe+1);
+    int delta_nr     = std::max(1, NUMBER_OF_R_VALUES / mympi::total_pes);
+    int r_start_this = delta_nr * mympi::this_pe;
+    int r_end_this   = delta_nr * (mympi::this_pe+1);
+
+    if (r_start_this >= NUMBER_OF_R_VALUES) {
+        deallocateSignalAndDerivArrays();
+        return;
+    }
 
     if (mympi::this_pe == mympi::total_pes-1)
         r_end_this = NUMBER_OF_R_VALUES;
 
     std::unique_ptr<RealField> rft;
     #define RFT_M 2  // Oversample factor for the RFT grid.
-
-    if (!specifics::TURN_OFF_SFID) {
-        int nrft = exp2(ceil(log2(2 * RFT_M * N_V_POINTS)) + 1);
-        LOG::LOGGER.STD("RealField number of points %d\n", nrft);
-        double itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
-        rft = std::make_unique<RealField>(nrft, itp_dv / RFT_M);
-    }
+    #define RFT_PAD 16 // Padding factor for the RFT grid.
+    int nrft = RFT_PAD * RFT_M * exp2(ceil(log2(N_V_POINTS)));
+    LOG::LOGGER.STD("RealField number of points %d\n", nrft);
+    double itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
+    rft = std::make_unique<RealField>(nrft, itp_dv / RFT_M);
 
     for (int r = r_start_this; r < r_end_this; ++r)
     {
@@ -253,22 +285,25 @@ void SQLookupTable::computeTables(bool force_rewrite)
         sqhelper::SQLookupTableFile s_table_file(buf_fnames, true);
         s_table_file.writeMeta(tmp_hdr);
 
-        #pragma omp parallel for
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
             double k1 = bins::KBAND_EDGES[kn], k2 = bins::KBAND_EDGES[kn + 1];
             struct spectrograph_windowfn_params win_params = {0, 0, dvthis, Rkms};
 
             struct sq_integrand_params integration_parameters = {
                 &fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
+            
+            rft->zero_field_k();
+            for (int i = 0; i < rft->size_k(); ++i) {
+                if (rft->k[i] < k1 || rft->k[i] >= k2)
+                    continue;
+                rft->field_k[i] = MY_PI * q_matrix_integrand(
+                    rft->k[i], &integration_parameters);
+                }
 
-            FourierIntegrator q_integrator(
-                GSL_INTEG_COSINE, q_matrix_integrand, &integration_parameters);
-
+            rft->fftK2X();
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
-                win_params.delta_v_ij = LINEAR_V_ARRAY[nv];
-
-                signal_array[nv + kn * N_V_POINTS] = q_integrator.evaluate(
-                    k1, k2, win_params.delta_v_ij, 0);
+                int xy = nv + kn * N_V_POINTS;
+                signal_array[xy] = rft->field_x[RFT_M * nv];
             }
         }
 

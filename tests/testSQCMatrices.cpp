@@ -56,8 +56,12 @@ int TestOneQSOEstimate::test_setFiducialSignalMatrix()
 
     if (not allClose(A.data(), chunks[0]->covariance_matrix, ndim))
     {
-        fprintf(stderr, "ERROR Chunk::_setFiducialSignalMatrix.\n");
-        // printMatrices(A.data(), chunks[0]->covariance_matrix, ndim, ndim);
+        int max_index;
+        double max_diff;
+        getMaxDiffWithIndex(A.data(), chunks[0]->covariance_matrix, ndim, max_diff, max_index);
+        double target = A[max_index];
+        double calc   = chunks[0]->covariance_matrix[max_index];
+        fprintf(stderr, "ERROR Chunk::_setFiducialSignalMatrix. Max difference: %e = %e - %e\n", max_diff, target, calc);
         return 1;
     }
 
@@ -73,7 +77,7 @@ int TestOneQSOEstimate::test_setQiMatrix()
     fname_q0_matrix = std::string(SRCDIR) + "/tests/truth/q0_matrix.txt";
     const int ndim = 488;
 
-    std::vector<double> A, vec;
+    std::vector<double> A;
     int nrows, ncols;
 
     A = mxhelp::fscanfMatrix(fname_q0_matrix.c_str(), nrows, ncols);
@@ -86,8 +90,12 @@ int TestOneQSOEstimate::test_setQiMatrix()
 
     if (not allClose(A.data(), chunks[0]->stored_ikz_qi[0].second, ndim))
     {
-        fprintf(stderr, "ERROR Chunk::_setQiMatrix.\n");
-        // printMatrices(A.data(), chunks[0]->stored_ikz_qi[0].second, 50, ndim);
+        int max_index;
+        double max_diff;
+        getMaxDiffWithIndex(A.data(), chunks[0]->stored_ikz_qi[0].second, ndim, max_diff, max_index);
+        double target = A[max_index];
+        double calc   = chunks[0]->stored_ikz_qi[0].second[max_index];
+        fprintf(stderr, "ERROR Chunk::_setQiMatrix. Max difference: %e = %e - %e\n", max_diff, target, calc);
         return 1;
     }
 

@@ -1,6 +1,7 @@
 #include "io/io_helper_functions.hpp"
 
 #include <iostream>
+#include <filesystem>
 #include <string>
 
 #include <algorithm>
@@ -9,17 +10,8 @@
 
 bool ioh::file_exists(const char *fname)
 {
-    FILE *toCheck;
-
-    toCheck = fopen(fname, "r");
-
-    if (toCheck == NULL)
-    {
-        return false;
-    }
-
-    fclose(toCheck);
-    return true;
+    std::filesystem::path path(fname);
+    return std::filesystem::exists(path);
 }
 
 void ioh::create_tmp_file(char *fname, const std::string &TMP_FOLDER, size_t n)
