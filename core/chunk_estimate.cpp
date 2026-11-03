@@ -375,45 +375,13 @@ void Chunk::_setQiMatrix(double *qi, int i_kz)
     else {
         double *inter_mat = (on_oversampling) ? glmemory::finer_matrix.get() : qi;
 
-        if (specifics::USE_RESOLUTION_MATRIX) {
-            // Top-hat band in k: (dk/pi) cos(kc v) sinc(dk v/2)
-            //   = [sin(k2 v) - sin(k1 v)] / (pi v), with v_ij = u_j - u_i
-            // and u_i = c ln(l_i / l_0). Expanding sin(k (u_j - u_i)) lets
-            // the trig be evaluated O(N) times instead of O(N^2).
-            const double k1 = bins::KBAND_EDGES[kn],
-                         k2 = bins::KBAND_EDGES[kn + 1],
-                         dk_pi = (k2 - k1) / MY_PI;
+        const auto *idkn = glmemory::interp_derivative_matrix[kn].get();
 
-            std::vector<double> trig(4 * _matrix_n);
-            double *s1 = trig.data(), *c1 = s1 + _matrix_n,
-                   *s2 = c1 + _matrix_n, *c2 = s2 + _matrix_n;
-
-            #pragma omp parallel for simd
-            for (int i = 0; i < _matrix_n; ++i) {
-                double u = _vmatrix[i];
-                s1[i] = sin(k1 * u);  c1[i] = cos(k1 * u);
-                s2[i] = sin(k2 * u);  c2[i] = cos(k2 * u);
-                inter_mat[i + i * _matrix_n] = dk_pi;
-            }
-
-            #pragma omp parallel for simd collapse(2)
-            for (int i = 0; i < _matrix_n; ++i) {
-                for (int j = i + 1; j < _matrix_n; ++j) {
-                    int idx = j + i * _matrix_n;
-                    double num = (s2[j] * c2[i] - c2[j] * s2[i])
-                                 - (s1[j] * c1[i] - c1[j] * s1[i]);
-                    inter_mat[idx] = num / (MY_PI * _vmatrix[idx]);
-                }
-            }
-        } else {
-            const auto *idkn = glmemory::interp_derivative_matrix[kn].get();
-
-            #pragma omp parallel for simd collapse(2)
-            for (int i = 0; i < _matrix_n; ++i) {
-                for (int j = i; j < _matrix_n; ++j) {
-                    int idx = j + i * _matrix_n;
-                    inter_mat[idx] = idkn->evaluate(_vmatrix[idx]);
-                }
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < _matrix_n; ++i) {
+            for (int j = i; j < _matrix_n; ++j) {
+                int idx = j + i * _matrix_n;
+                inter_mat[idx] = idkn->evaluate(_vmatrix[idx]);
             }
         }
 

@@ -161,28 +161,10 @@ namespace xeutils {
         bins::getFisherMatrixBinNoFromIndex(fi_kz, kn, zm);
         bins::setRedshiftBinningFunction(zm);
 
-        std::function<double(double)> eval_deriv_kn;
-
-        if (specifics::USE_RESOLUTION_MATRIX) {
-            double kc = bins::KBAND_CENTERS[kn],
-                   dk = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn];
-
-            eval_deriv_kn = [kc, dk](double v) {
-                if (v == 0)
-                    return dk / MY_PI;
-
-                double x = dk * v / 2;
-                return (dk / MY_PI) * cos(kc * v) * (sin(x) / x);
-            };
-        } else {
-            eval_deriv_kn = [idkn = glmemory::interp_derivative_matrix[kn]](double v) {
-                return idkn->evaluate(v);
-            };
-        }
-
         std::fill_n(m, CROSS_SIZE_2, 0);
+        const auto *idkn = glmemory::interp_derivative_matrix[kn].get();
 
-        #pragma omp parallel for schedule(static, 1)
+        #pragma omp parallel for schedule(dynamic, 4)
         for (int i = 0; i < N1; ++i) {
             int idx = i * N2, l1, u1;
 
@@ -192,7 +174,7 @@ namespace xeutils {
 
             #pragma omp simd
             for (int j = l1; j < u1; ++j)
-                m[j + idx] *= eval_deriv_kn(_vmatrix[j + idx]);
+                m[j + idx] *= idkn->evaluate(_vmatrix[j + idx]);
         }
 
         t_interp = mytime::timer.getTime() - t;
