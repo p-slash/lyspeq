@@ -254,12 +254,10 @@ void SQLookupTable::computeTables(bool force_rewrite)
     std::unique_ptr<RealField> rft;
     #define RFT_M 2  // Oversample factor for the RFT grid.
 
-    if (!specifics::TURN_OFF_SFID) {
-        int nrft = exp2(ceil(log2(2 * RFT_M * N_V_POINTS)) + 1);
-        LOG::LOGGER.STD("RealField number of points %d\n", nrft);
-        double itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
-        rft = std::make_unique<RealField>(nrft, itp_dv / RFT_M);
-    }
+    int nrft = exp2(ceil(log2(2 * RFT_M * N_V_POINTS)) + 1);
+    LOG::LOGGER.STD("RealField number of points %d\n", nrft);
+    double itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
+    rft = std::make_unique<RealField>(nrft, itp_dv / RFT_M);
 
     for (int r = r_start_this; r < r_end_this; ++r)
     {
@@ -287,22 +285,25 @@ void SQLookupTable::computeTables(bool force_rewrite)
         sqhelper::SQLookupTableFile s_table_file(buf_fnames, true);
         s_table_file.writeMeta(tmp_hdr);
 
-        #pragma omp parallel for
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
             double k1 = bins::KBAND_EDGES[kn], k2 = bins::KBAND_EDGES[kn + 1];
             struct spectrograph_windowfn_params win_params = {0, 0, dvthis, Rkms};
 
             struct sq_integrand_params integration_parameters = {
                 &fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
+            
+            rft->zero_field_k();
+            for (int i = 0; i < rft->size_k(); ++i) {
+                if (rft->k[i] < k1 || rft->k[i] >= k2)
+                    continue;
+                rft->field_k[i] = MY_PI * q_matrix_integrand(
+                    rft->k[i], &integration_parameters);
+                }
 
-            FourierIntegrator q_integrator(
-                GSL_INTEG_COSINE, q_matrix_integrand, &integration_parameters);
-
+            rft->fftK2X();
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
-                win_params.delta_v_ij = LINEAR_V_ARRAY[nv];
-
-                signal_array[nv + kn * N_V_POINTS] = q_integrator.evaluate(
-                    k1, k2, win_params.delta_v_ij, 0);
+                int xy = nv + kn * N_V_POINTS;
+                signal_array[xy] = rft->field_x[RFT_M * nv];
             }
         }
 
