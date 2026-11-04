@@ -135,6 +135,19 @@ namespace mxhelp
         return result;
     }
 
+    double stable_dot(int N, const double *x, const double *y) {
+        #define BLOCK_SIZE 128
+        if (N <= BLOCK_SIZE)
+            return cblas_ddot(N, x, 1, y, 1);
+
+        // Split on a block boundary so leaves stay full-sized
+        int nblocks = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        int half = (nblocks / 2) * BLOCK_SIZE;
+        #undef BLOCK_SIZE
+        return stable_dot(half, x, y)
+               + stable_dot(N - half, x + half, y + half);
+    }
+
     double my_cblas_dsymvdot(
             const double *v, const double *S, double *temp_vector, int N
     ) {
