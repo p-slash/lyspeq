@@ -16,7 +16,7 @@
 #include <sstream>
 #include <stdexcept>
 
-
+#define NDBT 3
 #ifdef DEBUG
     void CHECK_ISNAN(double *mat, int size, std::string msg)
     {
@@ -140,6 +140,9 @@ namespace glmemory {
     }
 }
 
+void _setVMatrixUpperTriangle(const double *wave, int size, double *out);
+void _setZMatrixUpperTriangle(const double *wave, int size, double *out);
+
 void Chunk::_selectionCriteria()
 {
     double Lv = qFile->getLengthV(), mdv = Lv / (qFile->realSize() + 1e-12);
@@ -193,7 +196,7 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2, bool shallow)
     _setStoredMatrices();
     glmemory::setMaxSizes(size(), _matrix_n, stored_ikz_qi.size(), on_oversampling);
 
-    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+    for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
         dbt_estimate_before_fisher_vector.push_back(
             std::make_unique<double[]>(N_Q_MATRICES));
 
@@ -308,27 +311,8 @@ double Chunk::getMinMemUsage()
 
 void Chunk::_setVZMatrices() {
     DEBUG_LOG("Setting v & z matrices\n");
-
-    #pragma omp parallel for simd
-    for (int i = 0; i < _matrix_n; ++i) {
-        double li = _matrix_lambda[i];
-        _vmatrix[i] = SPEED_OF_LIGHT * log(li / _matrix_lambda[0]);
-        _zmatrix[i] = sqrt(li);
-    }
-
-    #pragma omp parallel for simd collapse(2)
-    for (int i = 1; i < _matrix_n; ++i) {
-        for (int j = i; j < _matrix_n; ++j) {
-            int idx = j + i * _matrix_n;
-            _vmatrix[idx] = _vmatrix[j] - _vmatrix[i];
-            _zmatrix[idx] = _zmatrix[i] * _zmatrix[j] - 1.0;
-        }
-    }
-
-    #pragma omp parallel for simd
-    for (int i = 1; i < _matrix_n; ++i)
-        _zmatrix[i] = _zmatrix[0] * _zmatrix[i] - 1.0;
-    _zmatrix[0] = _zmatrix[0] * _zmatrix[0] - 1.0;
+    _setVMatrixUpperTriangle(_matrix_lambda, _matrix_n, _vmatrix);
+    _setZMatrixUpperTriangle(_matrix_lambda, _matrix_n, _zmatrix);
 }
 
 void Chunk::_setFiducialSignalMatrix(double *sm)
@@ -440,10 +424,7 @@ void Chunk::_applyRedshiftInterp() {
 
     if (on_oversampling) {
         // convert _zmatrix (temp[1]) to zij
-        #pragma omp parallel for simd collapse(2)
-        for (int i = 0; i < size(); ++i)
-            for (int j = i; j < size(); ++j)
-                _zmatrix[j + i * size()] = sqrt(qFile->wave()[j] * qFile->wave()[i]) - 1.0;
+        _setZMatrixUpperTriangle(qFile->wave(), size(), _zmatrix);
     }
 
     // Convert wave (1+z) array to z
@@ -689,6 +670,7 @@ void Chunk::computePSbeforeFvector()
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
            *nk0 = dbt_estimate_before_fisher_vector[1].get(),
            *tk0 = dbt_estimate_before_fisher_vector[2].get();
+        //    *zeff0 = dbt_estimate_before_fisher_vector[3].get();
 
     // C-1 . flux
     cblas_dsymv(
@@ -699,22 +681,38 @@ void Chunk::computePSbeforeFvector()
     double t = mytime::timer.getTime();
     int nmats = glmemory::temp_matrices.size();
 
-    #pragma omp parallel for num_threads(nmats) schedule(static, 1)
     for (auto iqt = stored_ikz_qi.begin(); iqt != stored_ikz_qi.end(); ++iqt) {
-        int ithread = myomp::getThreadNum();
         // Find data contribution to ps before F vector
         // (C-1 . flux)T . Q . (C-1 . flux)
         dk0[iqt->first] = mxhelp::my_cblas_dsymvdot(
             glmemory::weighted_data_vector.get(), 
-            iqt->second, glmemory::temp_vectors[ithread].get(), Ndata);
+            iqt->second, glmemory::temp_vectors[0].get(), Ndata);
         // Transform q matrices to weighted matrices inplace
         // Get weighted derivative matrix ikz: C-1 Qi
         // NERSC Perlmutter has faster dgemm
         cblas_dgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
             Ndata, Ndata, Ndata, 1., inverse_covariance_matrix, Ndata,
-            iqt->second, Ndata, 0, temp_matrix[ithread], Ndata);
-        std::swap(temp_matrix[ithread], iqt->second);
+            iqt->second, Ndata, 0, temp_matrix[0], Ndata);
+        // temp_matrix[0] is now C-1 Qi, iqt->second is Qi
+
+        /* Turn off zeff propagation
+        // Set upper triangle of z matrix in temp_matrix[1]
+        _setZMatrixUpperTriangle(qFile->wave(), Ndata, temp_matrix[1]);
+        // Element-wise multiply Qi with z matrix to get Qzi
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < Ndata; ++i)
+            for (int j = i; j < Ndata; ++j)
+                iqt->second[j + i * Ndata] *= temp_matrix[1][j + i * Ndata];
+        // C-1 (Qzi)
+        cblas_dsymm(
+            CblasRowMajor, CblasLeft, CblasUpper,
+            Ndata, Ndata, 1., iqt->second, Ndata,
+            inverse_covariance_matrix, Ndata, 0, temp_matrix[1], Ndata);
+        zeff0[iqt->first] = cblas_ddot(DATA_SIZE_2, temp_matrix[1], 1, temp_matrix[0], 1);
+        */
+        // Swap temp matrix (C-1 Qi) with Q matrix (Qi) instead of copying
+        std::swap(temp_matrix[0], iqt->second);
     }
 
     mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
@@ -850,7 +848,7 @@ void Chunk::oneQSOiteration(
             for (int j = i; j < N_Q_MATRICES; ++j)
                 outfisher[j + i * bins::TOTAL_KZ_BINS] += fisher_matrix[j + i * N_Q_MATRICES];
 
-        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+        for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
             cblas_daxpy(
                 N_Q_MATRICES,
                 1, dbt_estimate_before_fisher_vector[dbt_i].get(), 1,
@@ -938,8 +936,32 @@ void Chunk::fprintfMatrices(const char *fname_base)
     }
 }
 
+void _setZMatrixUpperTriangle(const double *wave, int size, double *out) {
+    #pragma omp parallel for simd
+    for (int i = 0; i < size; ++i)
+        out[i] = sqrt(wave[i]);
 
+    #pragma omp parallel for simd collapse(2)
+    for (int i = 1; i < size; ++i)
+        for (int j = i; j < size; ++j)
+            out[j + i * size] = out[i] * out[j] - 1.0;
 
+    double w0 = out[0];
+    #pragma omp parallel for simd
+    for (int i = 0; i < size; ++i)
+        out[i] = w0 * out[i] - 1.0;
+}
+
+void _setVMatrixUpperTriangle(const double *wave, int size, double *out) {
+    #pragma omp parallel for simd
+    for (int i = 0; i < size; ++i)
+        out[i] = SPEED_OF_LIGHT * log(wave[i] / wave[0]);
+
+    #pragma omp parallel for simd collapse(2)
+    for (int i = 1; i < size; ++i)
+        for (int j = i; j < size; ++j)
+            out[j + i * size] = out[j] - out[i];
+}
 
 
 
