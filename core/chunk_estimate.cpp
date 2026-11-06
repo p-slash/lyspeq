@@ -842,11 +842,10 @@ void Chunk::oneQSOiteration(
     try
     {
         setInvertCovarianceMatrix(ps_estimate);
-
         computePSbeforeFvector();
 
         double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
-
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i < N_Q_MATRICES; ++i)
             for (int j = i; j < N_Q_MATRICES; ++j)
                 outfisher[j + i * bins::TOTAL_KZ_BINS] += fisher_matrix[j + i * N_Q_MATRICES];
