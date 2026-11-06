@@ -653,15 +653,15 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
 void Chunk::computePSbeforeFvector()
 {
     DEBUG_LOG("PS before Fisher\n");
-
+    const int Ndata = size();
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
            *nk0 = dbt_estimate_before_fisher_vector[1].get(),
            *tk0 = dbt_estimate_before_fisher_vector[2].get();
 
     // C-1 . flux
     cblas_dsymv(
-        CblasRowMajor, CblasUpper, size(), 1.,
-        inverse_covariance_matrix, size(), qFile->delta(), 1,
+        CblasRowMajor, CblasUpper, Ndata, 1.,
+        inverse_covariance_matrix, Ndata, qFile->delta(), 1,
         0, glmemory::weighted_data_vector.get(), 1);
 
     double t = mytime::timer.getTime();
@@ -674,14 +674,14 @@ void Chunk::computePSbeforeFvector()
         // (C-1 . flux)T . Q . (C-1 . flux)
         dk0[iqt->first] = mxhelp::my_cblas_dsymvdot(
             glmemory::weighted_data_vector.get(), 
-            iqt->second, glmemory::temp_vectors[ithread].get(), size());
+            iqt->second, glmemory::temp_vectors[ithread].get(), Ndata);
         // Transform q matrices to weighted matrices inplace
         // Get weighted derivative matrix ikz: C-1 Qi
         // NERSC Perlmutter has faster dgemm
         cblas_dgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            size(), size(), size(), 1., inverse_covariance_matrix, size(),
-            iqt->second, size(), 0, temp_matrix[ithread], size());
+            Ndata, Ndata, Ndata, 1., inverse_covariance_matrix, Ndata,
+            iqt->second, Ndata, 0, temp_matrix[ithread], Ndata);
         std::swap(temp_matrix[ithread], iqt->second);
     }
 
@@ -689,18 +689,18 @@ void Chunk::computePSbeforeFvector()
 
     // N C-1
     double *weighted_noise_matrix = temp_matrix[0];
-    std::fill_n(weighted_noise_matrix, DATA_SIZE_2, 0);
     #pragma omp parallel for
-    for (int i = 0; i < size(); ++i) {
+    for (int i = 0; i < Ndata; ++i) {
+        std::fill_n(weighted_noise_matrix + i * Ndata, Ndata, 0);
         double iv = qFile->ivar()[i];
         if (iv == 0)
             continue;
 
         iv = 1.0 / iv;
         cblas_daxpy(
-            size(), iv,
-            inverse_covariance_matrix + i * size(), 1,
-            weighted_noise_matrix + i * size(), 1);
+            Ndata, iv,
+            inverse_covariance_matrix + i * Ndata, 1,
+            weighted_noise_matrix + i * Ndata, 1);
     }
 
     // Get Noise contribution: Tr(C-1 Qi C-1 N)
@@ -718,8 +718,8 @@ void Chunk::computePSbeforeFvector()
         // NERSC Perlmutter has faster dgemm
         cblas_dgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            size(), size(), size(), 1., glmemory::stored_sfid.get(), size(),
-            inverse_covariance_matrix, size(), 0, weighted_sfid_matrix, size());
+            Ndata, Ndata, Ndata, 1., glmemory::stored_sfid.get(), Ndata,
+            inverse_covariance_matrix, Ndata, 0, weighted_sfid_matrix, Ndata);
 
         #pragma omp parallel for
         for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
@@ -739,7 +739,7 @@ void Chunk::computePSbeforeFvector()
         int idx_fji_0 = N_Q_MATRICES * iqt->first;
         double *Q_ikz_matrix_T = temp_matrix[myomp::getThreadNum()];
 
-        mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, size(), size());
+        mxhelp::transpose_copy(iqt->second, Q_ikz_matrix_T, Ndata, Ndata);
 
         for (auto jqt = iqt; jqt != stored_ikz_qi.cend(); ++jqt) {
             #ifdef FISHER_OPTIMIZATION
@@ -810,11 +810,10 @@ void Chunk::oneQSOiteration(
     try
     {
         setInvertCovarianceMatrix(ps_estimate);
-
         computePSbeforeFvector();
 
         double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
-
+        #pragma omp parallel for collapse(2)
         for (int i = 0; i < N_Q_MATRICES; ++i)
             for (int j = i; j < N_Q_MATRICES; ++j)
                 outfisher[j + i * bins::TOTAL_KZ_BINS] += fisher_matrix[j + i * N_Q_MATRICES];
