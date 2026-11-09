@@ -444,35 +444,22 @@ void Chunk::_scaleDerivativesWithRedshiftGrowth() {
     int Nz = stored_ikz_qi.size() / KBIN_UPP;
     double zcm = 0;
     const int Ndata = size();
+    double *gvec = glmemory::temp_vectors[0].get(),
+           b2 = fidpd13::FIDUCIAL_PD13_PARAMS.B / 2.;
 
-    // _vmatrix is free, _zmatrix is Upper only
-    // convert _zmatrix (temp[1]) to 1 + zij
-    #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < Ndata; ++i)
-        for (int j = i; j < Ndata; ++j)
-            _zmatrix[j + i * Ndata] += 1.0;
+    // wave() is 1 + z, _vmatrix is free, _zmatrix is Upper only
 
     for (int iz = 0; iz < Nz; ++iz) {
         zm_new = fisher_index_start / bins::NUMBER_OF_K_BANDS + iz;
         zcm = bins::ZBIN_CENTERS[zm_new] + 1;
-
-        #pragma omp parallel for simd collapse(2)
-        for (int i = 0; i < Ndata; ++i) {
-            for (int j = i; j < Ndata; ++j) {
-                int idx = j + i * Ndata;
-                temp_matrix[0][idx] = pow(
-                    _zmatrix[idx] / zcm, fidpd13::FIDUCIAL_PD13_PARAMS.B);
-            }
-        }
-        mxhelp::copyUpperToLower(temp_matrix[0], Ndata);
+        #pragma omp parallel for simd
+        for (int i = 0; i < Ndata; ++i)
+            gvec[i] = pow(qFile->wave()[i] / zcm, b2);
 
         auto stk = stored_ikz_qi.begin() + KBIN_UPP * iz;
         #pragma omp parallel for
-        for (auto iqt = stk; iqt != stk + KBIN_UPP; ++iqt) {
-            #pragma omp simd
-            for (int j = 0; j < DATA_SIZE_2; ++j)
-                iqt->second[j] *= temp_matrix[0][j];
-        }
+        for (auto iqt = stk; iqt != stk + KBIN_UPP; ++iqt)
+            mxhelp::diagonal_sandwich_full(Ndata, gvec, iqt->second);
     }
 
     if (specifics::KDEPENDENT_REDSHIFT_GROWTH) {
@@ -484,15 +471,12 @@ void Chunk::_scaleDerivativesWithRedshiftGrowth() {
             auto stk = stored_ikz_qi.begin() + KBIN_UPP * iz;
             for (auto iqt = stk; iqt != stk + KBIN_UPP; ++iqt, ++kn) {
                 double q = bins::KBAND_CENTERS[kn] / fidpd13::K_0;
-                double B = fidpd13::FIDUCIAL_PD13_PARAMS.beta * log(q);
-                #pragma omp parallel for simd collapse(2)
-                for (int i = 0; i < Ndata; ++i) {
-                    for (int j = i; j < Ndata; ++j) {
-                        int idx = j + i * Ndata;
-                        iqt->second[idx] *= pow(_zmatrix[idx] / zcm, B);
-                    }
-                }
-                mxhelp::copyUpperToLower(iqt->second, Ndata);
+                b2 = fidpd13::FIDUCIAL_PD13_PARAMS.beta * log(q) / 2.;
+                #pragma omp parallel for simd
+                for (int i = 0; i < Ndata; ++i)
+                    gvec[i] = pow(qFile->wave()[i] / zcm, b2);
+
+                mxhelp::diagonal_sandwich_full(Ndata, gvec, iqt->second);
             }
         }
     }
@@ -630,10 +614,9 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
         isig[i] = sqrt(std::max(0.0, ivec[i]));
 
     // (N^-1/2 . S . N^-1/2 + I)
-    #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < size(); ++i)
-        for (int j = i; j < size(); ++j)
-            covariance_matrix[j + i * size()] *= isig[i] * isig[j];
+    mxhelp::diagonal_sandwich_upper_triangle(
+        size(), isig, covariance_matrix
+    );
     #pragma omp parallel for simd
     for (int i = 0; i < size(); ++i)
         covariance_matrix[i * (size() + 1)] += 1.0;
@@ -645,10 +628,9 @@ void Chunk::setInvertCovarianceMatrix(const double *ps_estimate)
     inverse_covariance_matrix = covariance_matrix;
 
     // N^-1/2 . (N^-1/2 . S . N^-1/2 + I) . N^-1/2
-    #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < size(); ++i)
-        for (int j = i; j < size(); ++j)
-            covariance_matrix[j + i * size()] *= isig[i] * isig[j];
+    mxhelp::diagonal_sandwich_upper_triangle(
+        size(), isig, covariance_matrix
+    );
 
     mxhelp::copyUpperToLower(covariance_matrix, size());
 
