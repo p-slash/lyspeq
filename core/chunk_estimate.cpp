@@ -454,7 +454,7 @@ void Chunk::_scaleDerivativesWithRedshiftGrowth() {
 
     for (int iz = 0; iz < Nz; ++iz) {
         zm_new = fisher_index_start / bins::NUMBER_OF_K_BANDS + iz;
-        zcm = bins::ZBIN_CENTERS[zm_new] + 1;        
+        zcm = bins::ZBIN_CENTERS[zm_new] + 1;
 
         #pragma omp parallel for simd collapse(2)
         for (int i = 0; i < Ndata; ++i) {
@@ -472,6 +472,28 @@ void Chunk::_scaleDerivativesWithRedshiftGrowth() {
             #pragma omp simd
             for (int j = 0; j < DATA_SIZE_2; ++j)
                 iqt->second[j] *= temp_matrix[0][j];
+        }
+    }
+
+    if (specifics::KDEPENDENT_REDSHIFT_GROWTH) {
+        for (int iz = 0; iz < Nz; ++iz) {
+            zm_new = fisher_index_start / bins::NUMBER_OF_K_BANDS + iz;
+            zcm = bins::ZBIN_CENTERS[zm_new] + 1;
+            int kn = 0;
+
+            auto stk = stored_ikz_qi.begin() + KBIN_UPP * iz;
+            for (auto iqt = stk; iqt != stk + KBIN_UPP; ++iqt, ++kn) {
+                double q = bins::KBAND_CENTERS[kn] / fidpd13::K_0;
+                double B = fidpd13::FIDUCIAL_PD13_PARAMS.beta * log(q);
+                #pragma omp parallel for simd collapse(2)
+                for (int i = 0; i < Ndata; ++i) {
+                    for (int j = i; j < Ndata; ++j) {
+                        int idx = j + i * Ndata;
+                        iqt->second[idx] *= pow(_zmatrix[idx] / zcm, B);
+                    }
+                }
+                mxhelp::copyUpperToLower(iqt->second, Ndata);
+            }
         }
     }
 
