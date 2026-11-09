@@ -848,7 +848,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
             kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
         tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn];
         tmpvec_ptr[i_kz + 3 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn + 1];
-        tmpvec_ptr[i_kz + 4 * bins::TOTAL_KZ_BINS] = bins::KBAND_CENTERS[zm];
+        tmpvec_ptr[i_kz + 4 * bins::TOTAL_KZ_BINS] = bins::KBAND_CENTERS[kn];
     }
 
     for (int c = 0; c < 5; ++c)
