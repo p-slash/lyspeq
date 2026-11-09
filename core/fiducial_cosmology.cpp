@@ -261,10 +261,6 @@ namespace fidcosmo
     // Palanque_Delabrouille et al. 2013 based functions. Extra Lorentzian decay
     namespace pd13
     {
-        // Defined values for PD fit
-        // K_0 in s km^-1
-        const double K_0 = 0.009, Z_0 = 3.0;
-
         pd13_fit_params FIDUCIAL_PD13_PARAMS = {
             6.621420e-02, -2.685349e+00, -2.232763e-01,
             3.591244e+00, -1.768045e-01, 3.598261e+02
