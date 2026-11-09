@@ -443,20 +443,28 @@ void Chunk::_scaleDerivativesWithRedshiftGrowth() {
     int zm_new = 0;
     int Nz = stored_ikz_qi.size() / KBIN_UPP;
     double zcm = 0;
+    const int Ndata = size();
 
+    // _vmatrix is free, _zmatrix is Upper only
     // convert _zmatrix (temp[1]) to 1 + zij
-    #pragma omp parallel for simd
-    for (int i = 0; i < DATA_SIZE_2; ++i)
-        _zmatrix[i] += 1.0;
+    #pragma omp parallel for simd collapse(2)
+    for (int i = 0; i < Ndata; ++i)
+        for (int j = i; j < Ndata; ++j)
+            _zmatrix[j + i * Ndata] += 1.0;
 
     for (int iz = 0; iz < Nz; ++iz) {
         zm_new = fisher_index_start / bins::NUMBER_OF_K_BANDS + iz;
         zcm = bins::ZBIN_CENTERS[zm_new] + 1;        
 
-        #pragma omp parallel for simd
-        for (int i = 0; i < DATA_SIZE_2; ++i)
-            temp_matrix[0][i] = pow(
-                _zmatrix[i] / zcm, fidpd13::FIDUCIAL_PD13_PARAMS.B);
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < Ndata; ++i) {
+            for (int j = i; j < Ndata; ++j) {
+                int idx = j + i * Ndata;
+                temp_matrix[0][idx] = pow(
+                    _zmatrix[idx] / zcm, fidpd13::FIDUCIAL_PD13_PARAMS.B);
+            }
+        }
+        mxhelp::copyUpperToLower(temp_matrix[0], Ndata);
 
         auto stk = stored_ikz_qi.begin() + KBIN_UPP * iz;
         #pragma omp parallel for
