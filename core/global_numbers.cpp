@@ -65,7 +65,8 @@ namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX,
-         REDSHIFT_GROWTH_ON, USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP,
+         REDSHIFT_GROWTH_ON, KDEPENDENT_REDSHIFT_GROWTH,
+         USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP,
          SAVE_BOOTREALIZATIONS, AUTO_FISHER_DAMPING;
     int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
         CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1, NUMBER_OF_BOOTS = 0;
@@ -123,6 +124,7 @@ namespace specifics
         SMOOTH_LOGK_LOGP = config.getInteger("SmoothLnkLnP") > 0;
         USE_RESOLUTION_MATRIX = config.getInteger("UseResoMatrix") > 0;
         REDSHIFT_GROWTH_ON = config.getInteger("RedshiftGrowthOn") > 0;
+        KDEPENDENT_REDSHIFT_GROWTH = config.getInteger("KdependentRedshiftGrowth") > 0;
         AUTO_FISHER_DAMPING = config.getInteger("AutoFisherDamping") > 0;
         std::string precomp_fisher_str = config.get("PrecomputedFisher");
         USE_PRECOMPUTED_FISHER = !precomp_fisher_str.empty();

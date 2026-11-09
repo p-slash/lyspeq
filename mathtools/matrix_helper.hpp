@@ -55,6 +55,24 @@ namespace mxhelp
         double norm = 1.0 / cblas_dnrm2(N, x, 1);
         cblas_dscal(N, norm, x, 1);
     }
+    
+    inline void diagonal_sandwich_upper_triangle(
+            int N, const double *v, double *S
+    ) {
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < N; ++i)
+            for (int j = i; j < N; ++j)
+                S[j + i * N] *= v[i] * v[j];
+    }
+
+    inline void diagonal_sandwich_full(
+            int N, const double *v, double *A
+    ) {
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < N; ++i)
+            for (int j = 0; j < N; ++j)
+                A[j + i * N] *= v[i] * v[j];
+    }
 
     // Trace of A.B
     // Both are assumed to general and square NxN
