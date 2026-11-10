@@ -67,7 +67,7 @@ namespace specifics
     bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX,
          REDSHIFT_GROWTH_ON, KDEPENDENT_REDSHIFT_GROWTH,
          USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP,
-         SAVE_BOOTREALIZATIONS, AUTO_FISHER_DAMPING;
+         SAVE_BOOTREALIZATIONS, AUTO_FISHER_DAMPING, PERFORM_TIMINGS_RUN;
     int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
         CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1, NUMBER_OF_BOOTS = 0;
     double RESOMAT_DECONVOLUTION_M = 0, MIN_SNR_CUT = 0,
@@ -119,6 +119,7 @@ namespace specifics
         // char tmp_ps_fname[320];
         // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
         // TODO: Test access here
+        PERFORM_TIMINGS_RUN = config.getInteger("PerformTimingsRun") > 0;
 
         TURN_OFF_SFID = config.getInteger("TurnOffBaseline") > 0;
         SMOOTH_LOGK_LOGP = config.getInteger("SmoothLnkLnP") > 0;

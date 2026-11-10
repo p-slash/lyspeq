@@ -76,7 +76,7 @@ namespace specifics
         TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
         REDSHIFT_GROWTH_ON, KDEPENDENT_REDSHIFT_GROWTH,
         USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP,
-        SAVE_BOOTREALIZATIONS, AUTO_FISHER_DAMPING;
+        SAVE_BOOTREALIZATIONS, AUTO_FISHER_DAMPING, PERFORM_TIMINGS_RUN;
     extern double CHISQ_CONVERGENCE_EPS;
     extern int
         CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
@@ -97,7 +97,8 @@ namespace specifics
         {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
         {"PrecomputedFisher", ""}, {"Targetids2Ignore", ""},
         {"NumberOfBoots", "20000"}, {"FastBootstrap", "1"},
-        {"SaveBootstrapRealizations", "0"} });
+        {"SaveBootstrapRealizations", "0"}, {"PerformTimingsRun", "-1"}
+     });
 
     /* This function reads following keys from config file:
     MinimumSnrCut: double, default: 0
@@ -149,6 +150,8 @@ namespace specifics
         Fast bootstrap method. Does not recalculates the Fisher matrix. Default 1
     SaveBootstrapRealizations: int
         Saves bootstrap realizations. Default 0
+    PerformTimingsRun: int
+        If > 0, performs a timing run. Default -1.
     */
     void readSpecifics(ConfigFile &config);
 
