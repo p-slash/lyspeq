@@ -380,8 +380,8 @@ void OneQsoExposures::xQmlEstimate() {
         if (!specifics::TURN_OFF_SFID) {
             #pragma omp parallel for
             for (const auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi)
-                tk0[i_kz + diff_idx] += cblas_ddot(
-                    xeutils::CROSS_SIZE_2, qwi, 1, glmemory::stored_sfid.get(), 1);
+                tk0[i_kz + diff_idx] += mxhelp::divide_and_conquer_dot(
+                    xeutils::CROSS_SIZE_2, qwi, glmemory::stored_sfid.get());
         }
 
         if (specifics::USE_PRECOMPUTED_FISHER)
@@ -409,7 +409,7 @@ void OneQsoExposures::xQmlEstimate() {
                 #endif
 
                 fisher_matrix[j_kz + ndim * i_kz + diff_idx] += 
-                    cblas_ddot(xeutils::CROSS_SIZE_2, qwi, 1, qjT, 1);
+                    mxhelp::divide_and_conquer_dot(xeutils::CROSS_SIZE_2, qwi, qjT);
             }
         }
 
@@ -508,16 +508,16 @@ int OneQsoExposures::oneQSOiteration(
         return 0;
     #endif
 
-    double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * istart;
+    glmemory::kahan_fisher_sum->add(
+        fisher_matrix.get(), ndim, fisher_sum,
+        (bins::TOTAL_KZ_BINS + 1) * istart
+    );
 
-    for (int i = 0; i < ndim; ++i)
-        for (int j = i; j < ndim; ++j)
-            outfisher[j + i * bins::TOTAL_KZ_BINS] += fisher_matrix[j + i * ndim];
-
-    for (int i = 0; i < 3; ++i)
-        cblas_daxpy(
-            ndim, 1, dbt_estimate_before_fisher_vector[i].get(), 1,
-            dt_sum_vector[i].get() + istart, 1);
+    for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
+        glmemory::kahan_dbt_sum_vector[dbt_i]->add(
+            dbt_estimate_before_fisher_vector[dbt_i].get(), ndim,
+            dt_sum_vector[dbt_i].get(), istart
+        );
 
     return numcombos;
 }

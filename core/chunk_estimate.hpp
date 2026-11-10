@@ -4,6 +4,7 @@
 #include <memory>
 #include "io/qso_file.hpp"
 #include "mathtools/discrete_interpolation.hpp"
+#include "mathtools/kahan_summer.hpp"
 
 /*
 This object creates and computes C, S, Q, Q-slash matrices,
@@ -35,6 +36,9 @@ namespace glmemory {
 
     extern shared_interp_2d interp2d_signal_matrix;
     extern std::vector<shared_interp_1d> interp_derivative_matrix;
+
+    extern std::unique_ptr<KahanVectorSummer2D> kahan_fisher_sum;
+    extern std::vector<std::unique_ptr<KahanVectorSummer>> kahan_dbt_sum_vector;
 
     extern void setMaxSizes(int size, int matrix_n, int nqdim, bool onsamp);
     extern void allocMemory();

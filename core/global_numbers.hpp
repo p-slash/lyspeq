@@ -72,6 +72,7 @@ namespace process
 
 namespace specifics
 {
+    constexpr int NDBT = 3;
     extern bool
         TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
         REDSHIFT_GROWTH_ON, KDEPENDENT_REDSHIFT_GROWTH,
