@@ -27,7 +27,7 @@
 #include "core/mpi_merge_sort.cpp"
 #endif
 
-
+#define NDBT 3
 std::pair<bool, double> damping_pair {false, 0.};
 void saveChunkTimings();
 void _saveChunkResults(
@@ -78,9 +78,9 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
             "wrong noise and signal biases!\n");
 
     // Allocate memory
-    dbt_estimate_sum_before_fisher_vector.reserve(3);
-    dbt_estimate_fisher_weighted_vector.reserve(3);
-    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+    dbt_estimate_sum_before_fisher_vector.reserve(NDBT);
+    dbt_estimate_fisher_weighted_vector.reserve(NDBT);
+    for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
     {
         dbt_estimate_sum_before_fisher_vector.push_back(
             std::make_unique<double[]>(bins::TOTAL_KZ_BINS));
@@ -325,7 +325,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
         current_power_estimate_vector.get() + bins::TOTAL_KZ_BINS, 
         previous_power_estimate_vector.get());
 
-    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+    for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
     {
         cblas_dgemv(
             CblasRowMajor, CblasNoTrans, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
@@ -557,7 +557,7 @@ void OneDQuadraticPowerEstimate::iterate()
         if (!specifics::USE_PRECOMPUTED_FISHER)
             mympi::allreduceInplace(fisher_matrix_sum.get(), bins::FISHER_SIZE);
 
-        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+        for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
             mympi::allreduceInplace(
                 dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
                 bins::TOTAL_KZ_BINS);
@@ -793,13 +793,13 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wwrite-strings"
     char *column_names[] = {
-        "Z", "ZEFF", "K1", "K2", "K", "PLYA", "PLYA_EFF",
+        "Z", "ZEFF_FIT", "K1", "K2", "K", "PLYA", "PLYA_EFF",
         "E_PK", "PRAW", "PNOISE", "PFID", "PINPUT",
         "ThetaP", "Fd", "Fb", "Ft"
     };
     char *column_types[] = {
         "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D",
-        "1D", "1D", "1D", "1D", "1D"
+        "1D", "1D", "1D", "1D", "1D", "1D"
     };
     char *column_units[] = {
         "", "", "s km^-1", "s km^-1", "s km^-1", "km s^-1", "km s^-1",
@@ -837,7 +837,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     fits_write_key(fits_file, TDOUBLE, "DAMP_CON", &damping_pair.second, nullptr, &status);
     ioh::checkFitsStatus(status);
 
-    int kn = 0, zm = 0;
+    int kn = 0, zm = 0, colnum = 1;
     std::vector<double> tmpvec(5 * bins::TOTAL_KZ_BINS);
     double *tmpvec_ptr = tmpvec.data();
 
@@ -848,11 +848,11 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
             kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
         tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn];
         tmpvec_ptr[i_kz + 3 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn + 1];
-        tmpvec_ptr[i_kz + 4 * bins::TOTAL_KZ_BINS] = bins::KBAND_CENTERS[zm];
+        tmpvec_ptr[i_kz + 4 * bins::TOTAL_KZ_BINS] = bins::KBAND_CENTERS[kn];
     }
 
     for (int c = 0; c < 5; ++c)
-        fits_write_col(fits_file, TDOUBLE, c + 1, 1, 1, bins::TOTAL_KZ_BINS,
+        fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
                        tmpvec_ptr + c * bins::TOTAL_KZ_BINS, &status);
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
@@ -867,23 +867,23 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
             sqrt(inverse_fisher_matrix_sum[(1 + bins::TOTAL_KZ_BINS) * i_kz]);
     }
 
-    fits_write_col(fits_file, TDOUBLE, 6, 1, 1, bins::TOTAL_KZ_BINS,
+    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
                    tmpvec_ptr + bins::TOTAL_KZ_BINS, &status);
-    fits_write_col(fits_file, TDOUBLE, 7, 1, 1, bins::TOTAL_KZ_BINS,
+    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
                    tmpvec_ptr + 2 * bins::TOTAL_KZ_BINS, &status);
-    fits_write_col(fits_file, TDOUBLE, 8, 1, 1, bins::TOTAL_KZ_BINS,
+    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
                    tmpvec_ptr + 3 * bins::TOTAL_KZ_BINS, &status);
 
-    for (int c = 0; c < 3; ++c)
-        fits_write_col(fits_file, TDOUBLE, 9 + c, 1, 1, bins::TOTAL_KZ_BINS,
+    for (int c = 0; c < NDBT; ++c)
+        fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
                        dbt_estimate_fisher_weighted_vector[c].get(), &status);
 
-    fits_write_col(fits_file, TDOUBLE, 12, 1, 1, bins::TOTAL_KZ_BINS, tmpvec_ptr, &status);
-    fits_write_col(fits_file, TDOUBLE, 13, 1, 1, bins::TOTAL_KZ_BINS,
+    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS, tmpvec_ptr, &status);
+    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
                    current_power_estimate_vector.get(), &status);
 
     for (int c = 0; c < 3; ++c)
-        fits_write_col(fits_file, TDOUBLE, 14 + c, 1, 1, bins::TOTAL_KZ_BINS,
+        fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
                        dbt_estimate_sum_before_fisher_vector[c].get(), &status);
 
     fits_flush_file(fits_file, &status);
@@ -892,7 +892,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
 
 void OneDQuadraticPowerEstimate::initializeIteration()
 {
-    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+    for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
         std::fill_n(
             dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
             bins::TOTAL_KZ_BINS, 0);

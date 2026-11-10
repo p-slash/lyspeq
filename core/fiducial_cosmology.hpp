@@ -59,6 +59,10 @@ namespace fidcosmo
 
     namespace pd13
     {
+        // Defined values for PD fit
+        // K_0 in s km^-1
+        const static double K_0 = 0.009, Z_0 = 3.0;
+
         // Fitting function has the form in Palanque-Delabrouille et al. 2013
         // Added a Lorentzian decay to suppress small scale power
         typedef struct

@@ -157,13 +157,18 @@ SQLookupTable::SQLookupTable(ConfigFile &config)
     DIR = config.get("LookUpTableDir", ".");
     S_BASE = config.get("SignalLookUpTableBase", "signal");
     Q_BASE = config.get("DerivativeSLookUpTableBase", "deriv");
-
     std::string frlist = config.get("FileNameRList");
-    if (frlist.empty())
-        throw std::invalid_argument("Must pass FileNameRList.");
 
-    NUMBER_OF_R_VALUES = ioh::readListRdv(frlist.c_str(), R_DV_VALUES);
+    if (specifics::USE_RESOLUTION_MATRIX) {
+        NUMBER_OF_R_VALUES = 1;
+        R_DV_VALUES.push_back(std::make_pair(1000000, 0.0));
+    }
+    else {
+        if (frlist.empty())
+            throw std::invalid_argument("Must pass FileNameRList.");
 
+        NUMBER_OF_R_VALUES = ioh::readListRdv(frlist.c_str(), R_DV_VALUES);
+    }
     LOG::LOGGER.STD("Number of R-dv pairs: %d\n", NUMBER_OF_R_VALUES);
 
     LINEAR_V_ARRAY = sqhelper::allocLinearlySpacedArray(
@@ -291,16 +296,28 @@ void SQLookupTable::computeTables(bool force_rewrite)
 
             struct sq_integrand_params integration_parameters = {
                 &fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
-            
-            rft->zero_field_k();
-            for (int i = 0; i < rft->size_k(); ++i) {
-                if (rft->k[i] < k1 || rft->k[i] >= k2)
-                    continue;
-                rft->field_k[i] = MY_PI * q_matrix_integrand(
-                    rft->k[i], &integration_parameters);
-                }
 
-            rft->fftK2X();
+            if (specifics::USE_RESOLUTION_MATRIX) {
+                // Exact calculation
+                double dk = k2 - k1, kc = 0.5 * (k1 + k2);
+                rft->field_x[0] = dk / MY_PI;
+                #pragma omp parallel for
+                for (auto i = 1; i < rft->x.size(); ++i) {
+                    double x = rft->x[i], y = 0.5 * dk * x;
+                    rft->field_x[i] = 2.0 / (MY_PI * x) * cos(kc * x) * sin(y);
+                }
+            } else {
+                #pragma omp parallel for
+                for (int i = 0; i < rft->size_k(); ++i) {
+                    if (rft->k[i] < k1 || rft->k[i] >= k2)
+                        rft->field_k[i] = 0.0;
+                    else
+                        rft->field_k[i] = MY_PI * q_matrix_integrand(
+                            rft->k[i], &integration_parameters);
+                }
+                rft->fftK2X();
+            }
+            #pragma omp parallel for
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
                 int xy = nv + kn * N_V_POINTS;
                 signal_array[xy] = rft->field_x[RFT_M * nv];
@@ -332,12 +349,13 @@ void SQLookupTable::computeTables(bool force_rewrite)
             // z_first + z_length * nz / (Nz - 1.);
             win_params.z_ij = LINEAR_Z_ARRAY[nz];
 
+            #pragma omp parallel for
             for (int i = 0; i < rft->size_k(); ++i)
                 rft->field_k[i] = MY_PI * signal_matrix_integrand(
                     rft->k[i], &integration_parameters);
 
             rft->fftK2X();
-
+            #pragma omp parallel for
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
                 int xy = nz + N_Z_POINTS_OF_S * nv;
                 signal_array[xy] = rft->field_x[RFT_M * nv];

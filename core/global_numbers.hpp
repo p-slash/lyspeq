@@ -74,7 +74,8 @@ namespace specifics
 {
     extern bool
         TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
-        REDSHIFT_GROWTH_ON, USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP,
+        REDSHIFT_GROWTH_ON, KDEPENDENT_REDSHIFT_GROWTH,
+        USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP,
         SAVE_BOOTREALIZATIONS, AUTO_FISHER_DAMPING;
     extern double CHISQ_CONVERGENCE_EPS;
     extern int
@@ -90,7 +91,8 @@ namespace specifics
         {"ResoMatDeconvolutionM", "-1"}, {"OversampleRmat", "-1"},
         {"DynamicChunkNumber", "1"}, {"TurnOffBaseline", "-1"},
         {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "1e-2"},
-        {"RedshiftGrowthOn", "-1"}, {"AutoFisherDamping", "-1"},
+        {"RedshiftGrowthOn", "-1"}, {"KdependentRedshiftGrowth", "-1"},
+        {"AutoFisherDamping", "-1"},
         {"MaximumForestLength", "3.5e4"}, {"MaximumMeanPixelSize", "150.0"},
         {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
         {"PrecomputedFisher", ""}, {"Targetids2Ignore", ""},
