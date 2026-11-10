@@ -136,14 +136,14 @@ namespace mxhelp
     }
 
     double divide_and_conquer_dot(int N, const double *x, const double *y) {
-        #define BLOCK_SIZE 128
+        constexpr int BLOCK_SIZE = 1024;
         if (N <= BLOCK_SIZE)
             return cblas_ddot(N, x, 1, y, 1);
 
         // Split on a block boundary so leaves stay full-sized
         int nblocks = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
         int half = (nblocks / 2) * BLOCK_SIZE;
-        #undef BLOCK_SIZE
+
         return divide_and_conquer_dot(half, x, y)
                + divide_and_conquer_dot(N - half, x + half, y + half);
     }
