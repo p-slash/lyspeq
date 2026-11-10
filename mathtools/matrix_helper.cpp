@@ -135,7 +135,7 @@ namespace mxhelp
         return result;
     }
 
-    double stable_dot(int N, const double *x, const double *y) {
+    double divide_and_conquer_dot(int N, const double *x, const double *y) {
         #define BLOCK_SIZE 128
         if (N <= BLOCK_SIZE)
             return cblas_ddot(N, x, 1, y, 1);
@@ -144,8 +144,19 @@ namespace mxhelp
         int nblocks = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
         int half = (nblocks / 2) * BLOCK_SIZE;
         #undef BLOCK_SIZE
-        return stable_dot(half, x, y)
-               + stable_dot(N - half, x + half, y + half);
+        return divide_and_conquer_dot(half, x, y)
+               + divide_and_conquer_dot(N - half, x + half, y + half);
+    }
+
+    double kahansum_dot(int N, const double *x, const double *y) {
+        double sum = 0.0, c = 0.0;
+        for (int i = 0; i < N; ++i) {
+            double y_val = x[i] * y[i] - c;
+            double temp = sum + y_val;
+            c = (temp - sum) - y_val;
+            sum = temp;
+        }
+        return sum;
     }
 
     double my_cblas_dsymvdot(
