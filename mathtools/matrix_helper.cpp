@@ -135,6 +135,29 @@ namespace mxhelp
         return result;
     }
 
+    double divide_and_conquer_dot(int N, const double *x, const double *y) {
+        constexpr int BLOCK_SIZE = 1024;
+        if (N == 0) return 0.0;
+
+        if (N <= BLOCK_SIZE)
+            return cblas_ddot(N, x, 1, y, 1);
+
+        int half = N / 2;
+        return divide_and_conquer_dot(half, x, y)
+               + divide_and_conquer_dot(N - half, x + half, y + half);
+    }
+
+    double kahansum_dot(int N, const double *x, const double *y) {
+        double sum = 0.0, c = 0.0;
+        for (int i = 0; i < N; ++i) {
+            double y_val = x[i] * y[i] - c;
+            double temp = sum + y_val;
+            c = (temp - sum) - y_val;
+            sum = temp;
+        }
+        return sum;
+    }
+
     double my_cblas_dsymvdot(
             const double *v, const double *S, double *temp_vector, int N
     ) {

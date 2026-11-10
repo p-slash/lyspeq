@@ -5,6 +5,7 @@
 #include "core/sq_table.hpp"
 
 #include "mathtools/smoother.hpp"
+#include "mathtools/kahan_summer.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
 
@@ -49,6 +50,9 @@ namespace glmemory {
 
     shared_interp_2d interp2d_signal_matrix;
     std::vector<shared_interp_1d> interp_derivative_matrix;
+
+    std::unique_ptr<KahanVectorSummer2D> kahan_fisher_sum;
+    std::vector<std::unique_ptr<KahanVectorSummer>> kahan_dbt_sum_vector;
 
     void setMaxSizes(int size, int matrix_n, int nqdim, bool onsamp) {
         max_size = std::max(size, max_size);
@@ -114,6 +118,15 @@ namespace glmemory {
         }
 
         interp_derivative_matrix.resize(bins::NUMBER_OF_K_BANDS);
+
+        // Allocate Kahan sums for dbt and Fisher matrix
+        kahan_fisher_sum = std::make_unique<KahanVectorSummer2D>(
+            bins::TOTAL_KZ_BINS
+        );
+        kahan_dbt_sum_vector.reserve(NDBT);
+        for (int i = 0; i < NDBT; ++i)
+            kahan_dbt_sum_vector.push_back(
+                std::make_unique<KahanVectorSummer>(bins::TOTAL_KZ_BINS));
     }
 
     void dealloc() {
@@ -130,7 +143,8 @@ namespace glmemory {
 
         interp2d_signal_matrix.reset();
         interp_derivative_matrix.clear();
-
+        kahan_fisher_sum.reset();
+        kahan_dbt_sum_vector.clear();
         process::updateMemory(memUsed);
     }
 
@@ -716,7 +730,8 @@ void Chunk::computePSbeforeFvector()
     // Get Noise contribution: Tr(C-1 Qi C-1 N)
     #pragma omp parallel for
     for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        nk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_noise_matrix, 1);
+        nk0[i_kz] = mxhelp::divide_and_conquer_dot(
+            DATA_SIZE_2, Q_ikz_matrix, weighted_noise_matrix);
 
     // Fiducial matrix, Sfid C-1
     if (!specifics::TURN_OFF_SFID) {
@@ -733,7 +748,8 @@ void Chunk::computePSbeforeFvector()
 
         #pragma omp parallel for
         for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-            tk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_sfid_matrix, 1);
+            tk0[i_kz] = mxhelp::divide_and_conquer_dot(
+                DATA_SIZE_2, Q_ikz_matrix, weighted_sfid_matrix);
     }
 
     // Do not compute fisher matrix if it is precomputed
@@ -759,7 +775,8 @@ void Chunk::computePSbeforeFvector()
             #endif
 
             fisher_matrix[jqt->first + idx_fji_0] = 
-                cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, jqt->second, 1);
+                mxhelp::divide_and_conquer_dot(
+                    DATA_SIZE_2, Q_ikz_matrix_T, jqt->second);
         }
     }
 
@@ -822,17 +839,16 @@ void Chunk::oneQSOiteration(
         setInvertCovarianceMatrix(ps_estimate);
         computePSbeforeFvector();
 
-        double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * fisher_index_start;
-        #pragma omp parallel for collapse(2)
-        for (int i = 0; i < N_Q_MATRICES; ++i)
-            for (int j = i; j < N_Q_MATRICES; ++j)
-                outfisher[j + i * bins::TOTAL_KZ_BINS] += fisher_matrix[j + i * N_Q_MATRICES];
+        glmemory::kahan_fisher_sum->add(
+            fisher_matrix.get(), N_Q_MATRICES, fisher_sum,
+            (bins::TOTAL_KZ_BINS + 1) * fisher_index_start
+        );
 
         for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
-            cblas_daxpy(
-                N_Q_MATRICES,
-                1, dbt_estimate_before_fisher_vector[dbt_i].get(), 1,
-                dbt_sum_vector[dbt_i].get() + fisher_index_start, 1);
+            glmemory::kahan_dbt_sum_vector[dbt_i]->add(
+                dbt_estimate_before_fisher_vector[dbt_i].get(), N_Q_MATRICES,
+                dbt_sum_vector[dbt_i].get(), fisher_index_start
+            );
     }
     catch (std::exception& e) {
         LOG::LOGGER.ERR(

@@ -50,6 +50,12 @@ namespace mxhelp
         for (int i = 0; i < N; ++i)
             out[i] = x[i] * y[i];
     }
+    
+    /* Pairwise (divide-and-conquer) dot product. Leaves of size <= BLOCK_SIZE
+       are computed with cblas_ddot, then block sums are combined pairwise.
+       Rounding error grows as O(log(N / BLOCK_SIZE)) instead of O(N). */
+    double divide_and_conquer_dot(int N, const double *x, const double *y);
+    double kahansum_dot(int N, const double *x, const double *y);
 
     inline void normalize_vector(int N, double *x) {
         double norm = 1.0 / cblas_dnrm2(N, x, 1);
