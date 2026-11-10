@@ -478,7 +478,13 @@ void OneDQuadraticPowerEstimate::iterate()
 {
     std::vector<std::string> filepaths_all = _readQsoFileList();
     try {
-        timingRun(filepaths_all);
+        if (specifics::PERFORM_TIMINGS_RUN)
+            timingRun(filepaths_all);
+        else
+            LOG::LOGGER.STD(LOG::getLineTextFromVector(
+                mytime::scalingCoefficients,
+                "Using built-in time scaling coeffs:").c_str()
+            );
     }
     catch (std::exception& e) {
         LOG::LOGGER.STD("%s.\n", e.what());

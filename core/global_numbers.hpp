@@ -230,7 +230,7 @@ namespace mytime
     extern double time_spent_on_q_interp, time_spent_on_q_copy;
     extern long   number_of_times_called_setq, number_of_times_called_setsfid;
 
-    extern double scalingCoefficients[4];
+    extern std::vector<double> scalingCoefficients;
     extern std::vector<double> one_chunk_times, one_chunk_coefficients;
 
     void printfTimeSpentDetails();

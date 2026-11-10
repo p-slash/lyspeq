@@ -484,7 +484,7 @@ namespace mytime
     double   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
     long     number_of_times_called_setq = 0, number_of_times_called_setsfid = 0;
 
-    double scalingCoefficients[4] = {19.0, 1.0, 3.5, 0.0};
+    std::vector<double> scalingCoefficients = {0.30086, 0.491204, -0.050832, 0.063697};
     std::vector<double> one_chunk_times, one_chunk_coefficients;
 
     void printfTimeSpentDetails()
