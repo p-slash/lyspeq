@@ -716,7 +716,8 @@ void Chunk::computePSbeforeFvector()
     // Get Noise contribution: Tr(C-1 Qi C-1 N)
     #pragma omp parallel for
     for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        nk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_noise_matrix, 1);
+        nk0[i_kz] = mxhelp::divide_and_conquer_dot(
+            DATA_SIZE_2, Q_ikz_matrix, weighted_noise_matrix);
 
     // Fiducial matrix, Sfid C-1
     if (!specifics::TURN_OFF_SFID) {
@@ -733,7 +734,8 @@ void Chunk::computePSbeforeFvector()
 
         #pragma omp parallel for
         for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-            tk0[i_kz] = cblas_ddot(DATA_SIZE_2, Q_ikz_matrix, 1, weighted_sfid_matrix, 1);
+            tk0[i_kz] = mxhelp::divide_and_conquer_dot(
+                DATA_SIZE_2, Q_ikz_matrix, weighted_sfid_matrix);
     }
 
     // Do not compute fisher matrix if it is precomputed
@@ -759,7 +761,8 @@ void Chunk::computePSbeforeFvector()
             #endif
 
             fisher_matrix[jqt->first + idx_fji_0] = 
-                cblas_ddot(DATA_SIZE_2, Q_ikz_matrix_T, 1, jqt->second, 1);
+                mxhelp::divide_and_conquer_dot(
+                    DATA_SIZE_2, Q_ikz_matrix_T, jqt->second);
         }
     }
 
