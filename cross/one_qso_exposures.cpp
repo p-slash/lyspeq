@@ -102,14 +102,29 @@ namespace xeutils {
         DEBUG_LOG("OneQsoExposures::_setVZMatrix\n");
 
         double *l1 = q1->wave(), *l2 = q2->wave();
-
+        double *logl1 = glmemory::temp_vectors[0].get(),
+               *logl2 = glmemory::temp_vectors[1].get();
+        #pragma omp parallel for simd
+        for (int i = 0; i < N1; ++i)
+            logl1[i] = SPEED_OF_LIGHT * log(l1[i]);
+        #pragma omp parallel for simd
+        for (int i = 0; i < N2; ++i)
+            logl2[i] = SPEED_OF_LIGHT * log(l2[i]);
         #pragma omp parallel for simd collapse(2)
-        for (int i = 0; i < N1; ++i) {
-            for (int j = 0; j < N2; ++j) {
-                _vmatrix[j + i * N2] = SPEED_OF_LIGHT * fabs(log(l2[j] / l1[i]));
-                _zmatrix[j + i * N2] = sqrt(l2[j] * l1[i]) - 1.;
-            }
-        }
+        for (int i = 0; i < N1; ++i)
+            for (int j = 0; j < N2; ++j)
+                _vmatrix[j + i * N2] = fabs(logl2[j] - logl1[i]);
+        
+        #pragma omp parallel for simd
+        for (int i = 0; i < N1; ++i)
+            logl1[i] = sqrt(l1[i]);
+        #pragma omp parallel for simd
+        for (int i = 0; i < N2; ++i)
+            logl2[i] = sqrt(l2[i]);
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < N1; ++i)
+            for (int j = 0; j < N2; ++j)
+                _zmatrix[j + i * N2] = logl1[i] * logl2[j] - 1.;
     }
 
 
