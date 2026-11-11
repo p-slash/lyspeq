@@ -221,13 +221,14 @@ target_link_libraries(lyspeqBootStats PRIVATE AllObjLibs)
 ## ---------
 ## Test exes
 ## ---------
-
+set_source_files_properties(tests/test_utils.cpp PROPERTIES
+    COMPILE_DEFINITIONS "SRCDIR_M=${CMAKE_SOURCE_DIR}"
+)
 add_executable(cblas_tests
     tests/cblas_tests.cpp tests/test_utils.cpp
     mathtools/matrix_helper.cpp mathtools/real_field.cpp
     mathtools/discrete_interpolation.cpp
 )
-target_compile_definitions(cblas_tests PRIVATE SRCDIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(cblas_tests PUBLIC
     OpenMP::OpenMP_CXX GSL::gsl MY_BLAS_INTERFACE MY_FFTW3_INTERFACE)
 
