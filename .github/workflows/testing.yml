@@ -17,22 +17,20 @@ jobs:
       run: |
         sudo apt-get -y install build-essential libgsl-dev \
         libopenblas-dev liblapacke liblapacke-dev \
-        libcfitsio-dev libfftw3-dev
+        libcfitsio-dev libfftw3-dev pkg-config
     - name: Set up Python 3.14
       uses: actions/setup-python@v7
       with:
         python-version: 3.14
     - name: Install NumPy
       run: pip install numpy fitsio
-    - name: configure
-      run: ./configure --build=github --enable-openmp
-    - name: make
-      run: make
-    - name: make test
-      run: make test
-    # - name: cmake
-    #   run: |
-    #     mkdir myls-build-aux ; cd myls-build-aux
-    #     cmake .. -DENABLE_MPI=OFF
-    #     cmake --build .
-    #     ctest .
+    - name: Test cmake build
+      run: |
+        mkdir myls-build-aux ; cd myls-build-aux
+        cmake .. -DENABLE_MPI=OFF
+        cmake --build . -j 2
+        ctest .
+    - name: Test Legacy configure
+      run: |
+        ./configure --build=github --enable-openmp
+        make && make test
