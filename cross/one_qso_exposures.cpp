@@ -176,13 +176,12 @@ namespace xeutils {
         bins::getFisherMatrixBinNoFromIndex(fi_kz, kn, zm);
         bins::setRedshiftBinningFunction(zm);
 
-        std::fill_n(m, CROSS_SIZE_2, 0);
         const auto *idkn = glmemory::interp_derivative_matrix[kn].get();
 
         #pragma omp parallel for schedule(dynamic, 4)
         for (int i = 0; i < N1; ++i) {
             int idx = i * N2, l1, u1;
-
+            std::fill_n(m + idx, N2, 0);
             bins::redshiftBinningFunction(
                 _zmatrix + idx, N2, zm,
                 m + idx, l1, u1);
@@ -364,7 +363,7 @@ void OneQsoExposures::xQmlEstimate() {
                 CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 xeutils::N1, xeutils::N2, xeutils::N1, 1.,
                 expo1->getInverseCov(), xeutils::N1,
-                qi, xeutils::N2, 0,
+                qi, xeutils::N2, 0.,
                 glmemory::temp_matrices[0].get(), xeutils::N2);
 
             cblas_dgemm(
@@ -416,10 +415,12 @@ void OneQsoExposures::xQmlEstimate() {
         mytime::time_spent_set_fisher += mytime::timer.getTime() - t;;
     }
 
-    cblas_dscal(ndim, 2.0, dk0, 1);
-    cblas_dscal(ndim, 2.0, tk0, 1);
-    for (int i = 0; i < ndim; ++i)
+    #pragma omp parallel for simd
+    for (int i = 0; i < ndim; ++i) {
+        dk0[i] *= 2.0;
+        tk0[i] *= 2.0;
         theta_vector[i] = dk0[i] - tk0[i];
+    }
 }
 
 
