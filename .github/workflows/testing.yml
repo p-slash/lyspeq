@@ -17,7 +17,7 @@ jobs:
       run: |
         sudo apt-get -y install build-essential libgsl-dev \
         libopenblas-dev liblapacke liblapacke-dev \
-        libcfitsio-dev libfftw3-dev pkg-config
+        libcfitsio-dev libfftw3-dev pkg-config cmake
     - name: Set up Python 3.14
       uses: actions/setup-python@v7
       with:
