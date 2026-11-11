@@ -27,7 +27,7 @@
 #include "core/mpi_merge_sort.cpp"
 #endif
 
-#define NDBT 3
+
 std::pair<bool, double> damping_pair {false, 0.};
 void saveChunkTimings();
 void _saveChunkResults(
@@ -78,9 +78,9 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
             "wrong noise and signal biases!\n");
 
     // Allocate memory
-    dbt_estimate_sum_before_fisher_vector.reserve(NDBT);
-    dbt_estimate_fisher_weighted_vector.reserve(NDBT);
-    for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
+    dbt_estimate_sum_before_fisher_vector.reserve(specifics::NDBT);
+    dbt_estimate_fisher_weighted_vector.reserve(specifics::NDBT);
+    for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
     {
         dbt_estimate_sum_before_fisher_vector.push_back(
             std::make_unique<double[]>(bins::TOTAL_KZ_BINS));
@@ -325,7 +325,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
         current_power_estimate_vector.get() + bins::TOTAL_KZ_BINS, 
         previous_power_estimate_vector.get());
 
-    for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
+    for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
     {
         cblas_dgemv(
             CblasRowMajor, CblasNoTrans, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
@@ -563,7 +563,7 @@ void OneDQuadraticPowerEstimate::iterate()
         if (!specifics::USE_PRECOMPUTED_FISHER)
             mympi::allreduceInplace(fisher_matrix_sum.get(), bins::FISHER_SIZE);
 
-        for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
+        for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
             mympi::allreduceInplace(
                 dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
                 bins::TOTAL_KZ_BINS);
@@ -880,7 +880,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
                    tmpvec_ptr + 3 * bins::TOTAL_KZ_BINS, &status);
 
-    for (int c = 0; c < NDBT; ++c)
+    for (int c = 0; c < specifics::NDBT; ++c)
         fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
                        dbt_estimate_fisher_weighted_vector[c].get(), &status);
 
@@ -898,7 +898,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
 
 void OneDQuadraticPowerEstimate::initializeIteration()
 {
-    for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
+    for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
         std::fill_n(
             dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
             bins::TOTAL_KZ_BINS, 0);

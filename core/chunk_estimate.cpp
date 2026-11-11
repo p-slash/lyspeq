@@ -5,7 +5,6 @@
 #include "core/sq_table.hpp"
 
 #include "mathtools/smoother.hpp"
-#include "mathtools/kahan_summer.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
 
@@ -17,7 +16,6 @@
 #include <sstream>
 #include <stdexcept>
 
-#define NDBT 3
 #ifdef DEBUG
     void CHECK_ISNAN(double *mat, int size, std::string msg)
     {
@@ -123,8 +121,8 @@ namespace glmemory {
         kahan_fisher_sum = std::make_unique<KahanVectorSummer2D>(
             bins::TOTAL_KZ_BINS
         );
-        kahan_dbt_sum_vector.reserve(NDBT);
-        for (int i = 0; i < NDBT; ++i)
+        kahan_dbt_sum_vector.reserve(specifics::NDBT);
+        for (int i = 0; i < specifics::NDBT; ++i)
             kahan_dbt_sum_vector.push_back(
                 std::make_unique<KahanVectorSummer>(bins::TOTAL_KZ_BINS));
     }
@@ -210,7 +208,7 @@ Chunk::Chunk(const qio::QSOFile &qmaster, int i1, int i2, bool shallow)
     _setStoredMatrices();
     glmemory::setMaxSizes(size(), _matrix_n, stored_ikz_qi.size(), on_oversampling);
 
-    for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
+    for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
         dbt_estimate_before_fisher_vector.push_back(
             std::make_unique<double[]>(N_Q_MATRICES));
 
@@ -844,7 +842,7 @@ void Chunk::oneQSOiteration(
             (bins::TOTAL_KZ_BINS + 1) * fisher_index_start
         );
 
-        for (int dbt_i = 0; dbt_i < NDBT; ++dbt_i)
+        for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
             glmemory::kahan_dbt_sum_vector[dbt_i]->add(
                 dbt_estimate_before_fisher_vector[dbt_i].get(), N_Q_MATRICES,
                 dbt_sum_vector[dbt_i].get(), fisher_index_start
