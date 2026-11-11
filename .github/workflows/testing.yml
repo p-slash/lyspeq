@@ -12,16 +12,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Install dependencies
       run: |
         sudo apt-get -y install build-essential libgsl-dev \
         libopenblas-dev liblapacke liblapacke-dev \
         libcfitsio-dev libfftw3-dev
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v7
       with:
-        python-version: 3.11
+        python-version: 3.14
     - name: Install NumPy
       run: pip install numpy fitsio
     - name: configure
