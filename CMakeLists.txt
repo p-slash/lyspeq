@@ -77,6 +77,25 @@ else()
     find_package(BLAS REQUIRED)
     find_package(LAPACK REQUIRED)
     target_link_libraries(MY_BLAS_INTERFACE INTERFACE BLAS::BLAS LAPACK::LAPACK)
+
+    # FindLAPACK does not cover the C interface (LAPACKE). Some builds
+    # (e.g. Homebrew/conda OpenBLAS) bundle it; Debian/Ubuntu ship it separately.
+    include(CheckFunctionExists)
+    set(CMAKE_REQUIRED_LIBRARIES ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+    check_function_exists(LAPACKE_dsyevr LAPACK_HAS_LAPACKE)
+    unset(CMAKE_REQUIRED_LIBRARIES)
+
+    if (NOT LAPACK_HAS_LAPACKE)
+        find_library(LAPACKE_LIBRARY NAMES lapacke REQUIRED)
+        find_path(LAPACKE_INCLUDE_DIR NAMES lapacke.h
+                  PATH_SUFFIXES openblas lapacke)
+        message(STATUS "Found LAPACKE: ${LAPACKE_LIBRARY}")
+        # lapacke must precede LAPACK on the link line
+        target_link_libraries(MY_BLAS_INTERFACE BEFORE INTERFACE ${LAPACKE_LIBRARY})
+        if (LAPACKE_INCLUDE_DIR)
+            target_include_directories(MY_BLAS_INTERFACE INTERFACE ${LAPACKE_INCLUDE_DIR})
+        endif()
+    endif()
 endif()
 
 # ===
