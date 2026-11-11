@@ -45,7 +45,9 @@ CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 core: LyaPowerEstimate LyaPowerxQmlExposure LyaPower3DEstimate CreateSQLookUpTable lyspeqBootStats
 
 test: core cblas_tests testSQCMatrices
+ifneq ($(srcdir), .)
 	cp -r $(srcdir)/tests .
+endif
 	mkdir -p $(srcdir)/tests/output
 
 	@echo "Testing CBLAS functions...."
