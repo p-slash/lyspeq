@@ -533,18 +533,19 @@ void Chunk::_addMarginalizations() {
     DEBUG_LOG("Adding marginalizations...\n");
     static auto svals = std::make_unique<double[]>(specifics::CONT_NVECS);
     double *marg_mat = temp_matrix[0];
+    const int Ndata = size();
 
-    std::fill_n(marg_mat, size(), 1. / sqrt(size()));  // Zeroth order
-    marg_mat += size();
+    std::fill_n(marg_mat, Ndata, 1. / sqrt(Ndata));  // Zeroth order
+    marg_mat += Ndata;
 
     for (int cmo = 1; cmo <= specifics::CONT_LOGLAM_MARG_ORDER; ++cmo) {
-        _getUnitVectorLogLam(qFile->wave(), size(), cmo, marg_mat);
-        marg_mat += size();
+        _getUnitVectorLogLam(qFile->wave(), Ndata, cmo, marg_mat);
+        marg_mat += Ndata;
     }
 
     for (int cmo = 1; cmo <= specifics::CONT_LAM_MARG_ORDER; ++cmo) {
-        _getUnitVectorLam(qFile->wave(), size(), cmo, marg_mat);
-        marg_mat += size();
+        _getUnitVectorLam(qFile->wave(), Ndata, cmo, marg_mat);
+        marg_mat += Ndata;
     }
 
     // Roll back to initial position
@@ -554,16 +555,16 @@ void Chunk::_addMarginalizations() {
         DEBUG_LOG("Mags before:");
         for (int i = 0; i < specifics::CONT_NVECS; ++i) {
             double tt = mxhelp::my_cblas_dsymvdot(
-                marg_mat + i * size(), inverse_covariance_matrix,
-                glmemory::temp_vectors[0].get(), size());
+                marg_mat + i * Ndata, inverse_covariance_matrix,
+                glmemory::temp_vectors[0].get(), Ndata);
             DEBUG_LOG("  %.3e", tt);
         } DEBUG_LOG("\n");
-        std::copy_n(marg_mat, size() * specifics::CONT_NVECS, temp_matrix[1]);
+        std::copy_n(marg_mat, Ndata * specifics::CONT_NVECS, temp_matrix[1]);
     #endif
 
     // SVD to get orthogonal marg vectors
-    mxhelp::LAPACKE_svd(marg_mat, svals.get(), size(), specifics::CONT_NVECS);
-    double eps_svd = size() * DOUBLE_EPSILON * svals[0];
+    mxhelp::LAPACKE_svd(marg_mat, svals.get(), Ndata, specifics::CONT_NVECS);
+    double eps_svd = Ndata * DOUBLE_EPSILON * svals[0];
 
     int nvecs_to_use = specifics::CONT_NVECS;
     while (nvecs_to_use > 0) {
@@ -574,7 +575,7 @@ void Chunk::_addMarginalizations() {
 
     for (int i = 0; i < nvecs_to_use; ++i)
         _remShermanMorrison(
-            marg_mat + i * size(), size(),
+            marg_mat + i * Ndata, Ndata,
             glmemory::temp_vectors[0].get(), inverse_covariance_matrix);
 
     #ifdef DEBUG
@@ -585,8 +586,8 @@ void Chunk::_addMarginalizations() {
                   nvecs_to_use, specifics::CONT_NVECS);
         for (int i = 0; i < specifics::CONT_NVECS; ++i) {
             double tt = mxhelp::my_cblas_dsymvdot(
-                temp_matrix[1] + i * size(), inverse_covariance_matrix,
-                glmemory::temp_vectors[0].get(), size());
+                temp_matrix[1] + i * Ndata, inverse_covariance_matrix,
+                glmemory::temp_vectors[0].get(), Ndata);
             DEBUG_LOG("  %.3e", tt);
         } DEBUG_LOG("\n");
     #endif
