@@ -9,7 +9,7 @@
 #---------------------------------------
 # WARNING: You (probably) should not change anything below
 DIRS=$(addprefix $(srcdir)/, core cross io mathtools qu3d tests programs)
-DEPDIR=$(addprefix $(srcdir)/, dep)
+DEPDIR=dep
 $(shell mkdir -p $(DEPDIR))
 SRCEXT=cpp
 VPATH=$(srcdir):$(DIRS)
@@ -45,8 +45,9 @@ CXXFLAGS=$(OPT) $(GSLRECFLAGS)
 core: LyaPowerEstimate LyaPowerxQmlExposure LyaPower3DEstimate CreateSQLookUpTable lyspeqBootStats
 
 test: core cblas_tests testSQCMatrices
+	cp -r $(srcdir)/tests .
 	mkdir -p $(srcdir)/tests/output
-	
+
 	@echo "Testing CBLAS functions...."
 	@${exec}cblas_tests
 
@@ -77,13 +78,13 @@ lyspeqBootStats: lyspeqBootStats.o $(filter-out quadratic_estimate.o, $(NONX_OBJ
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 test_utils.o: test_utils.cpp
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" -c $^ -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR_M="$(srcdir)" -c $^ -o $@
 
 cblas_tests: cblas_tests.o matrix_helper.o real_field.o test_utils.o discrete_interpolation.o
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testSQCMatrices: testSQCMatrices.o test_utils.o $(NONX_OBJECTS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -DSRCDIR="$(srcdir)" $^ -o $@ $(LDFLAGS) $(LDLIBS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
 
 testPointRef: testPointRef.o
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)

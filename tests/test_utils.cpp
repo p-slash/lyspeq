@@ -4,6 +4,13 @@
 #include <cstdio>
 #include <algorithm>
 
+#ifndef SRCDIR_M
+#error "SRCDIR_M is not defined. Please run configure script first."
+#endif
+#define AUX_STR(x) #x
+#define TO_STRING(x) AUX_STR(x)
+std::string SRCDIR = TO_STRING(SRCDIR_M);
+
 bool isClose(double a, double b, double relerr, double abserr)
 {
     double mag = std::max(fabs(a),fabs(b));
