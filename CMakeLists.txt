@@ -199,20 +199,22 @@ add_custom_target(print_genex
 # Executables
 # ===========
 
-add_executable(LyaPowerEstimate LyaPowerEstimate.cpp)
+add_executable(LyaPowerEstimate programs/LyaPowerEstimate.cpp)
 target_link_libraries(LyaPowerEstimate PRIVATE AllObjLibs)
 
 add_executable(LyaPowerxQmlExposure
-    LyaPowerxQmlExposure.cpp cross/cross_exposure.cpp cross/one_qso_exposures.cpp)
+    programs/LyaPowerxQmlExposure.cpp
+    cross/cross_exposure.cpp
+    cross/one_qso_exposures.cpp)
 target_link_libraries(LyaPowerxQmlExposure PRIVATE AllObjLibs)
 
-add_executable(LyaPower3DEstimate)
+add_executable(LyaPower3DEstimate programs/LyaPower3DEstimate.cpp)
 target_link_libraries(LyaPower3DEstimate PRIVATE GlobalObjLibs Qu3dObjLibs)
 
-add_executable(CreateSQLookUpTable CreateSQLookUpTable.cpp)
+add_executable(CreateSQLookUpTable programs/CreateSQLookUpTable.cpp)
 target_link_libraries(CreateSQLookUpTable PRIVATE GlobalObjLibs SqTableObjLibs)
 
-add_executable(lyspeqBootStats lyspeqBootStats.cpp)
+add_executable(lyspeqBootStats programs/lyspeqBootStats.cpp)
 #    $<FILTER:$<TARGET_OBJECTS:CoreObjLibs>,EXCLUDE,/quadratic_estimate.cpp.o>)
 target_link_libraries(lyspeqBootStats PRIVATE AllObjLibs)
 
