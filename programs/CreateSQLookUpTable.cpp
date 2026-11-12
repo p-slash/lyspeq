@@ -4,14 +4,7 @@
 #include <cstring> // strcmp
 #include <stdexcept>
 
-// prevent gsl_cblas.h from being included
-#define  __GSL_CBLAS_H__
-
-#ifdef USE_MKL_CBLAS
-#include "mkl_cblas.h"
-#else
-#include "cblas.h"
-#endif
+#include "mathtools/my_cblas_lapacke.h"
 
 #include <gsl/gsl_errno.h>
 

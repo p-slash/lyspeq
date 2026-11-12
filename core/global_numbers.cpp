@@ -65,8 +65,9 @@ namespace specifics
 {
     double CHISQ_CONVERGENCE_EPS = 0.01;
     bool TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX,
-         REDSHIFT_GROWTH_ON, USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP,
-         SAVE_BOOTREALIZATIONS;
+         REDSHIFT_GROWTH_ON, KDEPENDENT_REDSHIFT_GROWTH,
+         USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP,
+         SAVE_BOOTREALIZATIONS, AUTO_FISHER_DAMPING, PERFORM_TIMINGS_RUN;
     int CONT_LOGLAM_MARG_ORDER = 1, CONT_LAM_MARG_ORDER = 1, 
         CONT_NVECS = 3, NUMBER_OF_CHUNKS = 1, NUMBER_OF_BOOTS = 0;
     double RESOMAT_DECONVOLUTION_M = 0, MIN_SNR_CUT = 0,
@@ -98,40 +99,41 @@ namespace specifics
 
         MIN_SNR_CUT = config.getDouble("MinimumSnrCut");
         RESOMAT_DECONVOLUTION_M = config.getDouble("ResoMatDeconvolutionM");
-        OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat", -1);
-        NUMBER_OF_CHUNKS = std::max(1, config.getInteger("DynamicChunkNumber", 1));
+        OVERSAMPLING_FACTOR = config.getInteger("OversampleRmat");
+        NUMBER_OF_CHUNKS = std::max(1, config.getInteger("DynamicChunkNumber"));
         NUMBER_OF_BOOTS = config.getInteger("NumberOfBoots");
 
-        MAX_FOREST_LENGTH_V = config.getDouble("MaximumForestLength", 3.5e4);
+        MAX_FOREST_LENGTH_V = config.getDouble("MaximumForestLength");
         MAX_FOREST_LENGTH_V /= NUMBER_OF_CHUNKS;
         MIN_FOREST_LENGTH_V = 0.90 / 2 * MAX_FOREST_LENGTH_V;
-        MAX_PIXEL_LENGTH_V = config.getDouble("MaximumMeanPixelSize", 120.0);
+        MAX_PIXEL_LENGTH_V = config.getDouble("MaximumMeanPixelSize");
 
         double temp_chisq = config.getDouble("ChiSqConvergence");
         if (temp_chisq > 0)
             CHISQ_CONVERGENCE_EPS = temp_chisq;
 
         // Continuum marginalization order. Pass <=0 to turn off
-        CONT_LOGLAM_MARG_ORDER = config.getInteger(
-            "ContinuumLogLambdaMargOrder", 1);
-        CONT_LAM_MARG_ORDER = config.getInteger(
-            "ContinuumLambdaMargOrder", 0);
+        CONT_LOGLAM_MARG_ORDER = config.getInteger("ContinuumLogLambdaMargOrder");
+        CONT_LAM_MARG_ORDER = config.getInteger("ContinuumLambdaMargOrder");
 
         // char tmp_ps_fname[320];
         // sprintf(tmp_ps_fname, "%s/tmppsfileXXXXXX", TMP_FOLDER);
         // TODO: Test access here
+        PERFORM_TIMINGS_RUN = config.getInteger("PerformTimingsRun") > 0;
 
-        TURN_OFF_SFID = config.getInteger("TurnOffBaseline", -1) > 0;
-        SMOOTH_LOGK_LOGP = config.getInteger("SmoothLnkLnP", 1) > 0;
-        USE_RESOLUTION_MATRIX = config.getInteger("UseResoMatrix", -1) > 0;
+        TURN_OFF_SFID = config.getInteger("TurnOffBaseline") > 0;
+        SMOOTH_LOGK_LOGP = config.getInteger("SmoothLnkLnP") > 0;
+        USE_RESOLUTION_MATRIX = config.getInteger("UseResoMatrix") > 0;
         RFWHM_ROUNDING = config.getInteger("RfwhmRoundingFactor", 100);
-        REDSHIFT_GROWTH_ON = config.getInteger("RedshiftGrowthOn", -1) > 0;
+        REDSHIFT_GROWTH_ON = config.getInteger("RedshiftGrowthOn") > 0;
+        KDEPENDENT_REDSHIFT_GROWTH = config.getInteger("KdependentRedshiftGrowth") > 0;
+        AUTO_FISHER_DAMPING = config.getInteger("AutoFisherDamping") > 0;
         std::string precomp_fisher_str = config.get("PrecomputedFisher");
         USE_PRECOMPUTED_FISHER = !precomp_fisher_str.empty();
         FAST_BOOTSTRAP = config.getInteger("FastBootstrap") > 0;
         SAVE_BOOTREALIZATIONS = config.getInteger("SaveBootstrapRealizations") > 0;
 
-        if (config.getInteger("InputIsPicca", -1) > 0)
+        if (config.getInteger("InputIsPicca") > 0)
             INPUT_QSO_FILE = qio::Picca;
 
         if (INPUT_QSO_FILE != qio::Picca && USE_RESOLUTION_MATRIX)
@@ -202,7 +204,7 @@ namespace bins
         });
 
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
-        FISHER_SIZE, NewDegreesOfFreedom, NKLIN, NKLOG;
+        FISHER_SIZE, NewDegreesOfFreedom, NKLIN, NKLOG, NZ_MINUS_ONE;
     std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE, K0, DKLIN, DKLOG;
     BinningMethod Z_BINNING_METHOD = TriangleBinningMethod;
@@ -248,7 +250,7 @@ namespace bins
             ZBIN_CENTERS.push_back(z0 + Z_BIN_WIDTH * zm);
 
         Z_LOWER_EDGE = ZBIN_CENTERS[0] - Z_BIN_WIDTH/2.;
-        Z_UPPER_EDGE = ZBIN_CENTERS[NUMBER_OF_Z_BINS-1] + Z_BIN_WIDTH/2.;
+        Z_UPPER_EDGE = ZBIN_CENTERS[NZ_MINUS_ONE] + Z_BIN_WIDTH/2.;
     }
 
     /* This function reads following keys from config file:
@@ -289,6 +291,7 @@ namespace bins
         Z_0 = config.getDouble("FirstRedshiftBinCenter");
         Z_BIN_WIDTH = config.getDouble("RedshiftBinWidth");
         NUMBER_OF_Z_BINS = config.getInteger("NumberOfRedshiftBins");
+        NZ_MINUS_ONE = NUMBER_OF_Z_BINS - 1;
 
         if (NKLIN > 0 && !(DKLIN > 0))
             throw std::invalid_argument(
@@ -311,7 +314,7 @@ namespace bins
         if (NUMBER_OF_Z_BINS <= 0)
             throw std::invalid_argument("NumberOfRedshiftBins must be > 0.");
 
-        switch (config.getInteger("RedshiftBinningMethod", 1)) {
+        switch (config.getInteger("RedshiftBinningMethod")) {
         case 0:
             Z_BINNING_METHOD = TophatBinningMethod;
             break;
@@ -385,8 +388,8 @@ namespace bins
         }
         else
         {
-            if (zm == NUMBER_OF_Z_BINS - 1) return 1.;
-            else                            return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
+            if (zm == NZ_MINUS_ONE) return 1.;
+            else                    return (zm_center + Z_BIN_WIDTH - z) / Z_BIN_WIDTH;
         }
     }
 
@@ -411,7 +414,7 @@ namespace bins
     void zBinTriangular2(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
-        double zc = ZBIN_CENTERS[NUMBER_OF_Z_BINS - 1];
+        double zc = ZBIN_CENTERS[NZ_MINUS_ONE];
 
         low = std::lower_bound(z, z + N, zc - Z_BIN_WIDTH) - z;
         up = std::upper_bound(z, z + N, zc) - z;
@@ -463,7 +466,7 @@ namespace bins
                 redshiftBinningFunction = &zBinTopHat;
             else if (zm == 0)
                 redshiftBinningFunction = &zBinTriangular1;
-            else if (zm == NUMBER_OF_Z_BINS - 1)
+            else if (zm == NZ_MINUS_ONE)
                 redshiftBinningFunction = &zBinTriangular2;
             else
                 redshiftBinningFunction = &zBinTriangular;
@@ -481,6 +484,9 @@ namespace mytime
 
     double   time_spent_on_q_interp = 0, time_spent_on_q_copy = 0;
     long     number_of_times_called_setq = 0, number_of_times_called_setsfid = 0;
+
+    std::vector<double> scalingCoefficients = {0.30086, 0.491204, -0.050832, 0.063697};
+    std::vector<double> one_chunk_times, one_chunk_coefficients;
 
     void printfTimeSpentDetails()
     {
@@ -506,6 +512,26 @@ namespace mytime
     {
         LOG::LOGGER.TIME("| %2s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s | %9s |\n", 
         "i", "T_i", "T_tot", "T_Cinv", "T_Finv", "T_Sfid", "N_Sfid", "T_Q", "N_Q", "T_Qmod", "T_F", "DChi2", "DMean");
+    }
+
+    void getScalingCoefficients(double Nq, double Nd, double p[4])
+    {
+        double Nd1 = Nd / 200.0, Nd2 = Nd1 * Nd1, Nd3 = Nd1 * Nd2;
+        double Nk = Nq / 100.0;
+        p[0] = Nk * Nd3;
+        p[1] = Nk * Nk * Nd2;
+        p[2] = Nk * Nd2;
+        p[3] = 1.0;
+    }
+
+    double timeScalingFunction(int Nd, int Nq)
+    {
+        double p[4];
+        getScalingCoefficients(Nq, Nd, p);
+        return scalingCoefficients[0] * p[0]
+               + scalingCoefficients[1] * p[1]
+               + scalingCoefficients[2] * p[2]
+               + scalingCoefficients[3] * p[3];
     }
 }
 

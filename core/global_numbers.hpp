@@ -9,7 +9,7 @@
 
 #include "io/config_file.hpp"
 
-#define __LYSPEQ_VERSION__ "6.1.0"
+#define __LYSPEQ_VERSION__ "6.1.1"
 
 // Debugging flags. Comment out to turn off
 // #define DEBUG_MATRIX_OUT
@@ -72,10 +72,12 @@ namespace process
 
 namespace specifics
 {
+    constexpr int NDBT = 3;
     extern bool
         TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
-        REDSHIFT_GROWTH_ON, USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP,
-        SAVE_BOOTREALIZATIONS;
+        REDSHIFT_GROWTH_ON, KDEPENDENT_REDSHIFT_GROWTH,
+        USE_PRECOMPUTED_FISHER, FAST_BOOTSTRAP,
+        SAVE_BOOTREALIZATIONS, AUTO_FISHER_DAMPING, PERFORM_TIMINGS_RUN;
     extern double CHISQ_CONVERGENCE_EPS;
     extern int
         CONT_LOGLAM_MARG_ORDER, CONT_LAM_MARG_ORDER, CONT_NVECS,
@@ -87,17 +89,19 @@ namespace specifics
     extern double MAX_FOREST_LENGTH_V, MIN_FOREST_LENGTH_V, MAX_PIXEL_LENGTH_V;
 
     const config_map specifics_default_parameters ({
-        {"MinimumSnrCut", "0"}, {"InputIsPicca", "-1"}, {"UseResoMatrix", "-1"},
+        {"MinimumSnrCut", "0"}, {"InputIsPicca", "1"}, {"UseResoMatrix", "1"},
         {"ResoMatDeconvolutionM", "-1"}, {"OversampleRmat", "-1"},
         {"DynamicChunkNumber", "1"}, {"TurnOffBaseline", "-1"},
         {"SmoothLnkLnP", "1"}, {"ChiSqConvergence", "1e-2"},
-        {"RedshiftGrowthOn", "-1"},
+        {"RedshiftGrowthOn", "-1"}, {"KdependentRedshiftGrowth", "-1"},
+        {"AutoFisherDamping", "-1"},
         {"MaximumForestLength", "3.5e4"}, {"MaximumMeanPixelSize", "150.0"},
         {"ContinuumLogLambdaMargOrder", "1"}, {"ContinuumLambdaMargOrder", "-1"},
         {"PrecomputedFisher", ""}, {"Targetids2Ignore", ""},
         {"NumberOfBoots", "20000"}, {"FastBootstrap", "1"},
-        {"SaveBootstrapRealizations", "0"}, {"RfwhmRoundingFactor", "100"}
-    });
+        {"SaveBootstrapRealizations", "0"}, {"RfwhmRoundingFactor", "100"},
+        {"PerformTimingsRun", "-1"}
+     });
 
     /* This function reads following keys from config file:
     MinimumSnrCut: double, default: 0
@@ -128,6 +132,8 @@ namespace specifics
         Criteria for chi square convergance. Valid when > 0. Default is 1e-2
     RedshiftGrowthOn: int, default: -1
         Multiply derivative matrices with a power scaling of redshift.
+    AutoFisherDamping: int, default: -1
+        If > 0, automatically add a damping term to the Fisher matrix to stabilize the inversion
     MaximumForestLength: double, default: 3.5e4
         Maximum length of the forest to use in dynamic chunking. Accurate
         values enable a consistent maximum length of each chunk. The max
@@ -150,6 +156,8 @@ namespace specifics
         Fast bootstrap method. Does not recalculates the Fisher matrix. Default 1
     SaveBootstrapRealizations: int
         Saves bootstrap realizations. Default 0
+    PerformTimingsRun: int
+        If > 0, performs a timing run. Default -1.
     */
     void readSpecifics(ConfigFile &config);
 
@@ -171,7 +179,7 @@ namespace bins
     // TOTAL_KZ_BINS = NUMBER_OF_K_BANDS * NUMBER_OF_Z_BINS
     extern int
         NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, FISHER_SIZE, TOTAL_KZ_BINS,
-        NewDegreesOfFreedom, NKLIN, NKLOG;
+        NewDegreesOfFreedom, NKLIN, NKLOG,  NZ_MINUS_ONE;
     extern std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     extern double Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE, K0, DKLIN, DKLOG;
     extern BinningMethod Z_BINNING_METHOD;
@@ -234,8 +242,18 @@ namespace mytime
     extern double time_spent_on_q_interp, time_spent_on_q_copy;
     extern long   number_of_times_called_setq, number_of_times_called_setsfid;
 
+    extern std::vector<double> scalingCoefficients;
+    extern std::vector<double> one_chunk_times, one_chunk_coefficients;
+
     void printfTimeSpentDetails();
     void writeTimeLogHeader();
+
+    static void reserveChunkTimeVectors(int N) {
+        one_chunk_times.reserve(N);
+        one_chunk_coefficients.reserve(N * 4);
+    }
+    void getScalingCoefficients(double Nq, double Nd, double p[4]);
+    double timeScalingFunction(int Nd, int Nq);
 
     class Timer
     {

@@ -29,7 +29,7 @@
 
 
 std::pair<bool, double> damping_pair {false, 0.};
-
+void saveChunkTimings();
 void _saveChunkResults(
         std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
 ) {
@@ -49,7 +49,8 @@ void _saveChunkResults(
                 one_chunk->fisher_matrix.get(), ndim,
                 one_chunk->fisher_index_start,
                 one_chunk->qFile->id, one_chunk->qFile->z_qso,
-                one_chunk->qFile->ra, one_chunk->qFile->dec);
+                one_chunk->qFile->ra, one_chunk->qFile->dec,
+                one_chunk->qFile->snr);
         }
     }
 }
@@ -77,9 +78,9 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
             "wrong noise and signal biases!\n");
 
     // Allocate memory
-    dbt_estimate_sum_before_fisher_vector.reserve(3);
-    dbt_estimate_fisher_weighted_vector.reserve(3);
-    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+    dbt_estimate_sum_before_fisher_vector.reserve(specifics::NDBT);
+    dbt_estimate_fisher_weighted_vector.reserve(specifics::NDBT);
+    for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
     {
         dbt_estimate_sum_before_fisher_vector.push_back(
             std::make_unique<double[]>(bins::TOTAL_KZ_BINS));
@@ -112,62 +113,82 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
         throw std::invalid_argument("Must pass FileNameList.");
     if (findir.empty())
         throw std::invalid_argument("Must pass FileInputDir.");
+    _readTargetids2Ignore();
+    
+    std::string fname = "!" + process::FNAME_BASE + "_detailed_results.fits";
+    if (mympi::this_pe == 0)
+        fitsfile_ptr = ioh::create_unique_fitsfile_ptr(fname);
+    LOG::LOGGER.STD("Results will be saved to %s.\n", fname.c_str());
 }
 
+
 std::vector<std::string>
-OneDQuadraticPowerEstimate::_readQSOFiles()
+OneDQuadraticPowerEstimate::_readQsoFileList()
 {
-    std::string flist  = config.get("FileNameList"),
-                findir = config.get("FileInputDir"),
-                fname_t2ig = config.get("Targetids2Ignore");
+     std::string flist  = config.get("FileNameList"),
+                 findir = config.get("FileInputDir");
     if (findir.back() != '/')
         findir += '/';
 
     double t1, t2;
     std::vector<std::string> filepaths;
-    std::vector< std::pair<double, int> > cpu_fname_vector;
-
-    LOG::LOGGER.STD(
-        "Initial reading of quasar spectra and estimating CPU time.\n");
 
     NUMBER_OF_QSOS = ioh::readList(flist.c_str(), filepaths);
     // Add parent directory to file path
     for (auto &fq : filepaths)
         fq.insert(0, findir);
+    
+    return filepaths;
+}
 
-    std::vector<long> targetid_to_remove;
+void OneDQuadraticPowerEstimate::_readTargetids2Ignore()
+{
+    std::string fname_t2ig = config.get("Targetids2Ignore");
     if (!fname_t2ig.empty()) {
-        ioh::readList(fname_t2ig.c_str(), targetid_to_remove, false);
+        ioh::readList(fname_t2ig.c_str(), targetids_to_ignore, false);
         LOG::LOGGER.STD("Reading TARGETIDs to remove. There are %zu items.\n",
-                        targetid_to_remove.size());
-        std::sort(targetid_to_remove.begin(), targetid_to_remove.end());
+                        targetids_to_ignore.size());
+        std::sort(targetids_to_ignore.begin(), targetids_to_ignore.end());
     }
+}
+
+bool OneDQuadraticPowerEstimate::_isTargetidIgnored(long targetid) {
+    return std::binary_search(
+        targetids_to_ignore.cbegin(), targetids_to_ignore.cend(), targetid
+    );
+}
+
+std::vector<std::string>
+OneDQuadraticPowerEstimate::_getLoadBalancedLocalFilelist(
+        const std::vector<std::string> &filepaths
+) {
+    LOG::LOGGER.STD(
+        "Initial reading of quasar spectra and estimating CPU time.\n");
+    
+    int Nfiles = filepaths.size();
+    std::vector< std::pair<double, int> > cpu_fname_vector;
+    cpu_fname_vector.reserve(Nfiles);
 
     // Each PE reads a different section of files
     // They sort individually, then merge in pairs
     // Finally, the master PE broadcasts the sorted full array
-    int delta_nfiles = NUMBER_OF_QSOS / mympi::total_pes,
+    int delta_nfiles = Nfiles / mympi::total_pes,
         fstart_this  = delta_nfiles * mympi::this_pe,
         fend_this    = delta_nfiles * (mympi::this_pe + 1);
     
     if (mympi::this_pe == mympi::total_pes - 1)
-        fend_this = NUMBER_OF_QSOS;
+        fend_this = Nfiles;
 
-    t2 = mytime::timer.getTime();
-
-    // Create vector for QSOs & read
-    cpu_fname_vector.reserve(NUMBER_OF_QSOS);
+    double t1 = mytime::timer.getTime();
 
     for (int findex = fstart_this; findex < fend_this; ++findex)
     {
-        int zbin;
-        long targetid;
-        double cpu_t_temp = OneQSOEstimate::getComputeTimeEst(
-            filepaths[findex], zbin, targetid);
+        OneQSOEstimate one_qso(filepaths[findex], Chunk::SHALLOW);
+        int zbin = one_qso.zbin;
+        long targetid = one_qso.targetid;
+        double cpu_t_temp = one_qso.getComputeTimeEst();
 
-        if (std::binary_search(targetid_to_remove.cbegin(), targetid_to_remove.cend(), targetid)) {
-            zbin = -1; cpu_t_temp = 0;
-        }
+        if (_isTargetidIgnored(targetid)) { zbin = -1; cpu_t_temp = 0; }
 
         ++Z_BIN_COUNTS[zbin+1];
 
@@ -179,8 +200,9 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
         qio::PiccaFile::clearCache();
 
     // Print out time it took to read all files into vector
+    t1 = mytime::timer.getTime() - t1;
+    LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1);
     t1 = mytime::timer.getTime();
-    LOG::LOGGER.STD("Reading QSO files took %.2f m.\n", t1-t2);
 
     mympi::reduceInplace(Z_BIN_COUNTS.data(), bins::NUMBER_OF_Z_BINS + 2);
 
@@ -202,8 +224,7 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
     #endif
 
     // Print out time it took to sort files wrt CPU time
-    t2 = mytime::timer.getTime();
-    LOG::LOGGER.STD("Sorting took %.2f m.\n", t2-t1);
+    LOG::LOGGER.STD("Sorting took %.2f m.\n", mytime::timer.getTime() - t1);
 
     if (cpu_fname_vector.empty())
         throw std::runtime_error("No spectrum in queue. Check files & redshift range.");
@@ -212,7 +233,7 @@ OneDQuadraticPowerEstimate::_readQSOFiles()
 }
 
 std::vector<std::string> OneDQuadraticPowerEstimate::_loadBalancing(
-        std::vector<std::string> &filepaths,
+        const std::vector<std::string> &filepaths,
         std::vector< std::pair<double, int> > &cpu_fname_vector
 ) {
     LOG::LOGGER.STD(
@@ -269,12 +290,20 @@ void OneDQuadraticPowerEstimate::invertTotalFisherMatrix()
         fisher_matrix_sum.get(), bins::FISHER_SIZE,
         solver_invfisher_matrix.get());
 
+    damping_pair.first = false;
     damping_pair.second = 0;
-    status = mxhelp::stableInvertSym(
-        solver_invfisher_matrix, inverse_fisher_matrix_sum,
-        bins::TOTAL_KZ_BINS, bins::NewDegreesOfFreedom, damping_pair.second);
-
-    damping_pair.first = status != 0;
+    if (specifics::AUTO_FISHER_DAMPING) {
+        status = mxhelp::stableInvertSym(
+            solver_invfisher_matrix, inverse_fisher_matrix_sum,
+            bins::TOTAL_KZ_BINS, bins::NewDegreesOfFreedom, damping_pair.second);
+        damping_pair.first = status != 0;
+    }
+    else {
+        bins::NewDegreesOfFreedom = mxhelp::LAPACKE_InvertMatrixLU_safe(
+            solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS);
+        std::copy_n(solver_invfisher_matrix.get(), bins::FISHER_SIZE,
+                    inverse_fisher_matrix_sum.get());
+    }
 
     if (damping_pair.first)
         LOG::LOGGER.STD(
@@ -296,7 +325,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
         current_power_estimate_vector.get() + bins::TOTAL_KZ_BINS, 
         previous_power_estimate_vector.get());
 
-    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+    for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
     {
         cblas_dgemv(
             CblasRowMajor, CblasNoTrans, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
@@ -395,17 +424,81 @@ void OneDQuadraticPowerEstimate::_smoothPowerSpectra()
     remove(tmp_smooth_fname.c_str());
 }
 
+void OneDQuadraticPowerEstimate::timingRun(
+        const std::vector<std::string> &filepaths
+) {
+    if (mympi::total_pes < 8)
+        throw std::runtime_error("Not tuning timing scalings for less than 8 PEs.\n");
+
+    if (filepaths.size() < mympi::total_pes)
+        throw std::runtime_error("Not enough QSO files for timing run.");
+
+    // Run this small batch on all PEs to estimate time for each PE
+    LOG::LOGGER.STD("Timing run to fit for scaling relation.\n");
+    try {
+        std::string fpath = filepaths[mympi::this_pe];
+        OneQSOEstimate one_qso(fpath, !Chunk::SHALLOW);
+        glmemory::allocMemory();
+        one_qso.oneQSOiteration(
+            powerspectra_fits.get(), 
+            dbt_estimate_sum_before_fisher_vector,
+            fisher_matrix_sum.get()
+        );
+        // used_indices.push_back(mympi::this_pe);
+    }
+    catch (std::exception& e) {
+        LOG::LOGGER.ERR("Caught exception in timing run: %s.\n", e.what());
+    }
+    glmemory::dealloc();
+
+    // Fit Nq, Nd and timing relations
+    std::vector<double> time_all_pes, coeffs;
+    mympi::gatherv(mytime::one_chunk_times, time_all_pes);
+    mympi::gatherv(mytime::one_chunk_coefficients, coeffs);
+
+    if (mympi::this_pe == 0)
+        mxhelp::LAPACKE_lstsq(coeffs.data(), mympi::total_pes, 4,
+                              time_all_pes.data());
+    time_all_pes.resize(4);
+    mympi::bcast(time_all_pes.data(), 4);
+    LOG::LOGGER.STD(LOG::getLineTextFromVector(
+        time_all_pes, "Time scaling coeffs:").c_str());
+    // Use this to load balance the actual run
+    for (int i = 0; i < 4; ++i)
+        mytime::scalingCoefficients[i] = time_all_pes[i];
+    mytime::one_chunk_times.clear();
+    mytime::one_chunk_coefficients.clear();
+
+    // std::vector<int> all_used_indices;
+    // mympi::allgatherv(used_indices, all_used_indices);
+    // return all_used_indices;
+}
+
 void OneDQuadraticPowerEstimate::iterate()
 {
-    double total_time = 0, total_time_1it = mytime::timer.getTime();;
-    std::vector<std::string> local_fpaths = _readQSOFiles();
+    std::vector<std::string> filepaths_all = _readQsoFileList();
+    try {
+        if (specifics::PERFORM_TIMINGS_RUN)
+            timingRun(filepaths_all);
+        else
+            LOG::LOGGER.STD(LOG::getLineTextFromVector(
+                mytime::scalingCoefficients,
+                "Using built-in time scaling coeffs:").c_str()
+            );
+    }
+    catch (std::exception& e) {
+        LOG::LOGGER.STD("%s.\n", e.what());
+    }
+    double total_time = 0, total_time_1it = mytime::timer.getTime();
+    std::vector<std::string> local_fpaths =
+        _getLoadBalancedLocalFilelist(filepaths_all);
 
     // Construct local queue
     // Emplace_back with vector<OneQSOEstimate> leaks memory!!
     std::vector<std::unique_ptr<OneQSOEstimate>> local_queue;
     local_queue.reserve(local_fpaths.size());
     for (const auto &fpath : local_fpaths) {
-        auto one_qso = std::make_unique<OneQSOEstimate>(fpath);
+        auto one_qso = std::make_unique<OneQSOEstimate>(fpath, !Chunk::SHALLOW);
         if (!one_qso->chunks.empty())
             local_queue.push_back(std::move(one_qso));
     }
@@ -423,6 +516,7 @@ void OneDQuadraticPowerEstimate::iterate()
         time_all_pes.resize(mympi::total_pes);
 
     glmemory::allocMemory();
+    mytime::reserveChunkTimeVectors(local_queue.size() * specifics::NUMBER_OF_CHUNKS);
 
     for (int iteration = 0; iteration < NUMBER_OF_ITERATIONS; iteration++)
     {
@@ -469,7 +563,7 @@ void OneDQuadraticPowerEstimate::iterate()
         if (!specifics::USE_PRECOMPUTED_FISHER)
             mympi::allreduceInplace(fisher_matrix_sum.get(), bins::FISHER_SIZE);
 
-        for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+        for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
             mympi::allreduceInplace(
                 dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
                 bins::TOTAL_KZ_BINS);
@@ -528,6 +622,7 @@ void OneDQuadraticPowerEstimate::iterate()
     }
 
     glmemory::dealloc();
+    saveChunkTimings();
 
     // Save chunk estimates to a file
     if (process::SAVE_EACH_CHUNK_RESULT)
@@ -535,7 +630,8 @@ void OneDQuadraticPowerEstimate::iterate()
 
     if (specifics::NUMBER_OF_BOOTS > 0) {
         PoissonBootstrapper pbooter(
-            specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get());
+            specifics::NUMBER_OF_BOOTS, solver_invfisher_matrix.get(),
+            fitsfile_ptr.get());
 
         LOG::LOGGER.STD("Collapsing local queue.\n");
         for (auto one_qso = local_queue.begin(); one_qso != local_queue.end(); ++one_qso)
@@ -621,6 +717,43 @@ void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
     LOG::LOGGER.STD("Fisher matrix saved as %s.\n", fname);
 }
 
+
+double estimateZeff(int kn, int zm, double tk)
+{
+    double zc = bins::ZBIN_CENTERS[zm];
+    double kc = bins::KBAND_CENTERS[kn];
+    if (specifics::TURN_OFF_SFID)  return zc;
+    if (tk <= 0)  return zc;
+
+    constexpr int N_STEPS = 100, N_LOOPS = 10;
+    double zstart = zc - bins::Z_BIN_WIDTH,
+           Deltaz = 2.0 * bins::Z_BIN_WIDTH / N_STEPS,
+           min_tk_diff = 1e10,
+           tolerance = 1e-8 + tk * 1e-6,
+           zsolution = zc;
+
+    for (int loop = 0; loop < N_LOOPS; ++loop) {
+        for (int i = 0; i < N_STEPS; ++i) {
+            double zi = zstart + i * Deltaz;
+            double delta_t = fabs(fidcosmo::fiducialPowerSpectrum(
+                kc, zi, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk);
+            if (delta_t < min_tk_diff) {
+                min_tk_diff = delta_t;
+                zsolution = zi;
+            }
+            else  break;
+        }
+
+        if (min_tk_diff < tolerance)  break;
+
+        zstart = zsolution - 2.0 * Deltaz;
+        Deltaz *= 4.0 / N_STEPS;
+        min_tk_diff = 1e10;
+    }
+    
+    return zsolution;
+}
+
 void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 {
     FILE *toWrite;
@@ -642,6 +775,7 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
         
         z = bins::ZBIN_CENTERS[zm];
+        // z = estimateZeff(kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
         k = bins::KBAND_CENTERS[kn];
         p = current_power_estimate_vector[i_kz] + powerSpectrumFiducial(kn, zm);
         e = sqrt(inverse_fisher_matrix_sum[i_kz+bins::TOTAL_KZ_BINS*i_kz]);
@@ -655,104 +789,116 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
     LOG::LOGGER.STD("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
 }
 
-void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(const char *fname)
-{
-    FILE *toWrite = ioh::open_file(fname, "w");
+void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
+        fitsfile *fits_file, const std::string ext
+) {
+    int status = 0;
 
-    specifics::printBuildSpecifics(toWrite);
-    config.writeConfig(toWrite);
+    /* define the name, datatype, and physical units for columns */
+    const int ncolumns = 16;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+    char *column_names[] = {
+        "Z", "ZEFF_FIT", "K1", "K2", "K", "PLYA", "PLYA_EFF",
+        "E_PK", "PRAW", "PNOISE", "PFID", "PINPUT",
+        "ThetaP", "Fd", "Fb", "Ft"
+    };
+    char *column_types[] = {
+        "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D",
+        "1D", "1D", "1D", "1D", "1D", "1D"
+    };
+    char *column_units[] = {
+        "", "", "s km^-1", "s km^-1", "s km^-1", "km s^-1", "km s^-1",
+        "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1",
+        "s km^-1", "s km^-1", "s km^-1"
+    };
+    #pragma GCC diagnostic pop
 
-    fprintf(toWrite, "# Fiducial Power Spectrum\n"
-        "# Pfid(k, z) = (A*pi/k0) * q^(2+n+alpha*ln(q)+beta*ln(x)) * x^B / (1 + lambda * k^2)\n"
-        "# k0=0.009 s km^-1, z0=3.0 and q=k/k0, x=(1+z)/(1+z0)\n"
-        "# Parameters set by config file:\n");
-    fprintf(toWrite, "# A      = %15e\n"
-        "# n      = %15e\n"
-        "# alpha  = %15e\n"
-        "# B      = %15e\n"
-        "# beta   = %15e\n"
-        "# lambda = %15e\n", 
-        fidpd13::FIDUCIAL_PD13_PARAMS.A, fidpd13::FIDUCIAL_PD13_PARAMS.n, 
-        fidpd13::FIDUCIAL_PD13_PARAMS.alpha, fidpd13::FIDUCIAL_PD13_PARAMS.B, 
-        fidpd13::FIDUCIAL_PD13_PARAMS.beta, fidpd13::FIDUCIAL_PD13_PARAMS.lambda);
-    fprintf(toWrite, "# -----------------------------------------------------------------\n"
-        "# File Template\n"
-        "# Nz Nk\n"
-        "# n[0] n[1] ... n[Nz] n[Nz+1]\n"
-        "# z | k1 | k2 | kc | Pfid | ThetaP | Pest | ErrorP | d | b | t\n"
-        "# Nz     : Number of redshift bins\n"
-        "# Nk     : Number of k bins\n"
-        "# n[i]   : Spectral chunk count in redshift bin i. Left-most and right-most are out of range\n"
-        "# z      : Redshift bin center\n"
-        "# k1     : Lower edge of the k bin [s km^-1]\n"
-        "# k2     : Upper edge of the k bin [s km^-1]\n"
-        "# kc     : Center of the k bin [s km^-1]\n"
-        "# Pfid   : Fiducial power at kc [km s^-1]\n"
-        "# ThetaP : Deviation from Pfid found by quadratic estimator = d - b - t [km s^-1]\n"
-        "# Pest   : Pfid + ThetaP [km s^-1]\n"
-        "# ErrorP : Error estimated from diagonal terms of the inverse Fisher matrix [km s^-1]\n"
-        "# d      : Power estimate before noise (b) and fiducial power (t) subtracted [km s^-1]\n"
-        "# b      : Noise estimate [km s^-1]\n"
-        "# t      : Fiducial power estimate [km s^-1]\n"
-        "# Fd     : d before Fisher\n"
-        "# Fb     : b before Fisher\n"
-        "# Ft     : t before Fisher\n"
-        "# -----------------------------------------------------------------\n");
+    fits_create_tbl(
+        fits_file, BINARY_TBL, bins::TOTAL_KZ_BINS, ncolumns,
+        column_names, column_types, column_units, ext.c_str(), &status);
+    ioh::checkFitsStatus(status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_A", &fidpd13::FIDUCIAL_PD13_PARAMS.A,
+        nullptr, &status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_N", &fidpd13::FIDUCIAL_PD13_PARAMS.n,
+        nullptr, &status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_ALP", &fidpd13::FIDUCIAL_PD13_PARAMS.alpha,
+        nullptr, &status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_B", &fidpd13::FIDUCIAL_PD13_PARAMS.B,
+        nullptr, &status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_BET", &fidpd13::FIDUCIAL_PD13_PARAMS.beta,
+        nullptr, &status);
+    fits_write_key(
+        fits_file, TDOUBLE, "PFID_LAM", &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,
+        nullptr, &status);
 
-    if (damping_pair.first)
-        fprintf(toWrite, "# Damped: True\n");
-    else
-        fprintf(toWrite, "# Damped: False\n");
+    fits_write_key(fits_file, TINT, "NZ", &bins::NUMBER_OF_Z_BINS, nullptr, &status);
+    fits_write_key(fits_file, TINT, "NK", &bins::NUMBER_OF_K_BANDS, nullptr, &status);
+    fits_write_key(fits_file, TINT, "ISDAMPED", &damping_pair.first, nullptr, &status);
+    fits_write_key(fits_file, TDOUBLE, "DAMP_CON", &damping_pair.second, nullptr, &status);
+    ioh::checkFitsStatus(status);
 
-    fprintf(toWrite, "# Damping constant: %.3e\n", damping_pair.second);
-    fprintf(toWrite, "# %d %d\n# ", bins::NUMBER_OF_Z_BINS, bins::NUMBER_OF_K_BANDS);
+    int kn = 0, zm = 0, colnum = 1;
+    std::vector<double> tmpvec(5 * bins::TOTAL_KZ_BINS);
+    double *tmpvec_ptr = tmpvec.data();
 
-    for (int i = 0; i <= bins::NUMBER_OF_Z_BINS + 1; ++i)
-        fprintf(toWrite, "%d ", Z_BIN_COUNTS[i]);
-
-    fprintf(toWrite, "\n");
-    fprintf(
-        toWrite,
-        "%5s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n", 
-        "z", "k1", "k2", "kc", "Pfid", "ThetaP", "Pest", "ErrorP",
-        "d", "b", "t", "Fd", "Fb", "Ft");
-
-    int kn = 0, zm = 0;
-    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
-    {
-        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);   
-        double
-            z = bins::ZBIN_CENTERS[zm],
-            k1 = bins::KBAND_EDGES[kn],
-            k2 = bins::KBAND_EDGES[kn + 1],
-            kc = bins::KBAND_CENTERS[kn],
-
-            Pfid = powerSpectrumFiducial(kn, zm),
-            ThetaP = current_power_estimate_vector[i_kz],
-            ErrorP = sqrt(inverse_fisher_matrix_sum[(1 + bins::TOTAL_KZ_BINS) * i_kz]),
-
-            dk = dbt_estimate_fisher_weighted_vector[0][i_kz],
-            bk = dbt_estimate_fisher_weighted_vector[1][i_kz],
-            tk = dbt_estimate_fisher_weighted_vector[2][i_kz],
-
-            Fdk = dbt_estimate_sum_before_fisher_vector[0][i_kz],
-            Fbk = dbt_estimate_sum_before_fisher_vector[1][i_kz],
-            Ftk = dbt_estimate_sum_before_fisher_vector[2][i_kz];
-
-        fprintf(
-            toWrite,
-            "%5.3lf %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e %14e\n", 
-            z, k1, k2, kc, Pfid, ThetaP, Pfid + ThetaP, ErrorP,
-            dk, bk, tk, Fdk, Fbk, Ftk);
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);
+        tmpvec_ptr[i_kz] = bins::ZBIN_CENTERS[zm];
+        tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] = estimateZeff(
+            kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
+        tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn];
+        tmpvec_ptr[i_kz + 3 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn + 1];
+        tmpvec_ptr[i_kz + 4 * bins::TOTAL_KZ_BINS] = bins::KBAND_CENTERS[kn];
     }
 
-    fclose(toWrite);
-    LOG::LOGGER.STD("Quadratic 1D Power Spectrum estimate saved as %s.\n", fname);
+    for (int c = 0; c < 5; ++c)
+        fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
+                       tmpvec_ptr + c * bins::TOTAL_KZ_BINS, &status);
+
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
+        bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);  
+        tmpvec_ptr[i_kz] = powerSpectrumFiducial(kn, zm);
+        tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] =
+            current_power_estimate_vector[i_kz] + tmpvec_ptr[i_kz];
+        tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] =
+            current_power_estimate_vector[i_kz]
+            + dbt_estimate_fisher_weighted_vector[2][i_kz];
+        tmpvec_ptr[i_kz + 3 * bins::TOTAL_KZ_BINS] =
+            sqrt(inverse_fisher_matrix_sum[(1 + bins::TOTAL_KZ_BINS) * i_kz]);
+    }
+
+    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
+                   tmpvec_ptr + bins::TOTAL_KZ_BINS, &status);
+    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
+                   tmpvec_ptr + 2 * bins::TOTAL_KZ_BINS, &status);
+    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
+                   tmpvec_ptr + 3 * bins::TOTAL_KZ_BINS, &status);
+
+    for (int c = 0; c < specifics::NDBT; ++c)
+        fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
+                       dbt_estimate_fisher_weighted_vector[c].get(), &status);
+
+    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS, tmpvec_ptr, &status);
+    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
+                   current_power_estimate_vector.get(), &status);
+
+    for (int c = 0; c < 3; ++c)
+        fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
+                       dbt_estimate_sum_before_fisher_vector[c].get(), &status);
+
+    fits_flush_file(fits_file, &status);
+    ioh::checkFitsStatus(status);
 }
 
 void OneDQuadraticPowerEstimate::initializeIteration()
 {
-    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
+    for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
         std::fill_n(
             dbt_estimate_sum_before_fisher_vector[dbt_i].get(),
             bins::TOTAL_KZ_BINS, 0);
@@ -800,32 +946,69 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     if (mympi::this_pe != 0)
         return;
 
-    std::ostringstream buffer(process::FNAME_BASE, std::ostringstream::ate);
+    fitsfile *fits_file = fitsfile_ptr.get();
+    int status = 0;
+
+    if (it == 0) {
+        const int ncolumns = 2, nrows = bins::NUMBER_OF_Z_BINS + 2;
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wwrite-strings"
+        char *column_names[] = {"Z", "NQSO"};
+        char *column_types[] = {"1E", "1J"};
+        #pragma GCC diagnostic pop
+
+        fits_create_tbl(
+            fits_file, BINARY_TBL, nrows, ncolumns,
+            column_names, column_types, nullptr, "NQSO_Z", &status);
+        ioh::checkFitsStatus(status);
+        auto zbins_ = std::make_unique<double[]>(nrows);
+        zbins_[0] = 0;  zbins_[nrows - 1] = 10.0;
+        for (int i = 0; i < bins::NUMBER_OF_Z_BINS; ++i)
+            zbins_[i + 1] = bins::ZBIN_CENTERS[i];
+
+        fits_write_col(fits_file, TDOUBLE, 1, 1, 1, nrows, zbins_.get(), &status);
+        fits_write_col(fits_file, TINT, 2, 1, 1, nrows, Z_BIN_COUNTS.data(), &status);
+        fits_flush_file(fits_file, &status);
+        ioh::checkFitsStatus(status);
+    }
+
+    std::ostringstream buffer(std::ostringstream::ate);
+    buffer << "P1D";
+    if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
+
     printfSpectra();
+    writeDetailedSpectrumEstimates(fits_file, buffer.str());
 
-    buffer << "_it" << it+1 << "_quadratic_power_estimate_detailed.txt";
-    writeDetailedSpectrumEstimates(buffer.str().c_str());
+    long naxis = 2, size = bins::FISHER_SIZE,  // _naxes[1] = {0},
+         naxes[2] = { bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS };
 
-    buffer.str(process::FNAME_BASE);
-    buffer << "_it" << it+1 << "_fisher_matrix.txt";
-    mxhelp::fprintfMatrix(
-        buffer.str().c_str(), fisher_matrix_sum.get(),
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    buffer.str("FISHER");
+    if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
 
-    buffer.str(process::FNAME_BASE);
-    buffer << "_it" << it+1 << "_inversefisher_matrix.txt";
-    mxhelp::fprintfMatrix(
-        buffer.str().c_str(), inverse_fisher_matrix_sum.get(),
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
+    fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
+    fits_write_img(
+        fits_file, TDOUBLE, 1, size, (void *) fisher_matrix_sum.get(), &status);
 
-    buffer.str(process::FNAME_BASE);
-    buffer << "_it" << it+1 << "_solver_invfishermatrix.txt";
-    mxhelp::fprintfMatrix(
-        buffer.str().c_str(), solver_invfisher_matrix.get(),
-        bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
-    LOG::LOGGER.STD(
-        "Fisher matrix and inverse are saved as %s.\n",
-        buffer.str().c_str());
+    buffer.str("COVARIANCE");
+    if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
+
+    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
+    fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
+    fits_write_img(
+        fits_file, TDOUBLE, 1, size, (void *) inverse_fisher_matrix_sum.get(),
+        &status);
+
+    buffer.str("SOLV_INVF");
+    if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
+
+    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
+    fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
+    fits_write_img(
+        fits_file, TDOUBLE, 1, size, (void *) solver_invfisher_matrix.get(),
+        &status);
+    fits_flush_file(fits_file, &status);
+    ioh::checkFitsStatus(status);
 
     LOG::LOGGER.STD(
         "----------------------------------\n"
@@ -894,3 +1077,50 @@ void OneDQuadraticPowerEstimate::_savePEResult()
     return;
 }
 #endif
+
+void saveChunkTimings() {
+    std::vector<double> time_all_pes, coeffs;
+    mympi::gatherv(mytime::one_chunk_times, time_all_pes);
+    mympi::gatherv(mytime::one_chunk_coefficients, coeffs);
+    if (mympi::this_pe != 0)
+        return;
+
+    std::string fname = "!" + process::FNAME_BASE + "_chunk_timings.fits";
+    const std::string ext = "CHUNK_TIMINGS";
+    auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(fname);
+    fitsfile *fits_file = fitsfile_ptr.get();
+    int status = 0;
+
+    /* define the name, datatype, and physical units for columns */
+    const int ncolumns = 5;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+    char *column_names[] = {"NkNd3", "Nk2Nd2", "NkNd2", "C", "Time"};
+    char *column_types[] = {"1D", "1D", "1D", "1D", "1D"};
+    char *column_units[] = {"", "", "", "", ""};
+    #pragma GCC diagnostic pop
+
+    int nrows = time_all_pes.size();
+    
+    fits_create_tbl(
+        fits_file, BINARY_TBL, nrows, ncolumns,
+        column_names, column_types, column_units, ext.c_str(),
+        &status);
+    ioh::checkFitsStatus(status);
+    for (int i = 0; i < 4; ++i) {
+        fits_write_key(
+            fits_file, TDOUBLE, ("a" + std::to_string(i)).c_str(),
+            &mytime::scalingCoefficients[i], nullptr, &status);
+    }
+    ioh::checkFitsStatus(status);
+
+    auto tmp = std::make_unique<double[]>(nrows);
+    for (int i = 0; i < 4; ++i) {
+        for (auto j = 0; j < nrows; ++j)
+            tmp[j] = coeffs[4 * j + i];
+        fits_write_col(fits_file, TDOUBLE, i + 1, 1, 1, nrows, tmp.get(), &status);
+    }
+    fits_write_col(fits_file, TDOUBLE, 5, 1, 1, nrows, time_all_pes.data(), &status);
+    fits_flush_file(fits_file, &status);
+    ioh::checkFitsStatus(status);
+}

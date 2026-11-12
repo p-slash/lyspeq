@@ -55,8 +55,8 @@ namespace mytime
 
 class PoissonBootstrapper {
 public:
-    PoissonBootstrapper(int num_boots, double *ifisher)
-            : nboots(num_boots), remaining_boots(num_boots), invfisher(ifisher)
+    PoissonBootstrapper(int num_boots, double *ifisher, fitsfile *fout)
+        : nboots(num_boots), remaining_boots(num_boots), invfisher(ifisher), fits_file(fout)
     {
         process::updateMemory(-getMinMemUsage());
         pgenerator = std::make_unique<PoissonRNG>(mympi::this_pe);
@@ -165,6 +165,7 @@ private:
     std::unique_ptr<PoissonRNG> pgenerator;
     std::unique_ptr<double[]> temppower, tempfisher, allpowers, pcoeff, slvF;
     // std::unique_ptr<bool[]> outlier;
+    fitsfile *fits_file;
 
     double getMinMemUsage() {
         double memfull = process::getMemoryMB(nboots * bins::TOTAL_KZ_BINS);
@@ -184,9 +185,9 @@ private:
             const std::vector<std::unique_ptr<OneQSOEstimate>> &local_queue
     ) {
         /* After this function call,
-            - On main task: pcoeff and temppower memories are swapped, such that
-            pcoeff is size of nboot * Nkz and temppower is size of Nkz
-            - On other tasks, pcoeff and temppower are released.
+            - pcoeff is released such that median stats cannot be used anymore.
+            - On main task: temppower is size of Nkz
+            - On other tasks: temppower is released.
         */
         double t1 = mytime::timer.getTime(), t2 = 0;
         // std::fill_n(temppower.get(), nboots * bins::TOTAL_KZ_BINS, 0);
@@ -197,19 +198,16 @@ private:
             one_qso->addBootPowerOnly(nboots, pcoeff.get(), temppower.get());
             ++prog_tracker;
         }
-
+        pcoeff.reset();
         t2 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_loop += t2 - t1;
 
         mympi::reduceToOther(
             temppower.get(), allpowers.get(), nboots * bins::TOTAL_KZ_BINS);
 
-        if (mympi::this_pe == 0) {
-            temppower.swap(pcoeff);
-        } else {
-            temppower.reset();
-            pcoeff.reset();
-        }
+        temppower.reset();
+        if (mympi::this_pe == 0)
+            temppower = std::make_unique<double[]>(bins::TOTAL_KZ_BINS);
 
         t1 = mytime::timer.getTime();
         mytime::time_spent_on_oneboot_mpi += t1 - t2;
@@ -419,30 +417,32 @@ private:
 
 
     void _saveData(const std::string &t) {
-        std::string buffer = 
-            process::FNAME_BASE + std::string("_bootstrap_") + t
-            + std::string(".txt");
-        mxhelp::fprintfMatrix(
-            buffer.c_str(), temppower.get(),
-            1, bins::TOTAL_KZ_BINS);
+        int status = 0;
+        long naxis = 2, size = bins::FISHER_SIZE,  // _naxes[1] = {0},
+             naxes[2] = { bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS };
+
+        fits_create_img(fits_file, DOUBLE_IMG, 1, naxes, &status);
+        fits_update_key_str(fits_file, "EXTNAME", "BOOT_MEAN", nullptr, &status);
+        fits_write_img(fits_file, TDOUBLE, 1, bins::TOTAL_KZ_BINS,
+                       (void *) temppower.get(), &status);
 
         if (specifics::FAST_BOOTSTRAP) {
-            buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
-                     + std::string("_fisher_matrix.txt");
-
             cblas_dscal(bins::FISHER_SIZE, 0.25, tempfisher.get(), 1);
-            mxhelp::fprintfMatrix(
-                buffer.c_str(), tempfisher.get(),
-                bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+
+            fits_create_img(fits_file, DOUBLE_IMG, 1, naxes, &status);
+            fits_update_key_str(
+                fits_file, "EXTNAME", "BOOT_FISHER", nullptr, &status);
+            fits_write_img(fits_file, TDOUBLE, 1, bins::TOTAL_KZ_BINS,
+                           (void *) tempfisher.get(), &status);
 
             _sandwichInvFisher();
         }
 
-        buffer = process::FNAME_BASE + std::string("_bootstrap_") + t
-                 + std::string("_covariance.txt");
-        mxhelp::fprintfMatrix(
-            buffer.c_str(), tempfisher.get(),
-            bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS);
+        fits_create_img(fits_file, DOUBLE_IMG, 1, naxes, &status);
+        fits_update_key_str(fits_file, "EXTNAME", "BOOT_COVARIANCE", nullptr, &status);
+        fits_write_img(fits_file, TDOUBLE, 1, bins::TOTAL_KZ_BINS,
+                       (void *) tempfisher.get(), &status);
+        fits_flush_file(fits_file, &status);
     }
 
     /* Find outliers not useful.

@@ -4,6 +4,13 @@
 #include <cstdio>
 #include <algorithm>
 
+#ifndef SRCDIR_M
+#error "SRCDIR_M is not defined. Please run configure script first."
+#endif
+#define AUX_STR(x) #x
+#define TO_STRING(x) AUX_STR(x)
+std::string SRCDIR = TO_STRING(SRCDIR_M);
+
 bool isClose(double a, double b, double relerr, double abserr)
 {
     double mag = std::max(fabs(a),fabs(b));
@@ -18,6 +25,24 @@ bool allClose(
     for (int i = 0; i < size; ++i)
         result &= isClose(a[i], b[i], relerr, abserr);
     return result;
+}
+
+void getMaxDiffWithIndex(
+        const double *a, const double *b, int size,
+        double &max_diff, int &max_index
+) {
+    max_diff = 0.;
+    max_index = -1;
+
+    for (int i = 0; i < size; ++i)
+    {
+        double diff = fabs(a[i] - b[i]);
+        if (diff > max_diff)
+        {
+            max_diff = diff;
+            max_index = i;
+        }
+    }
 }
 
 void printValues(double truth, double result)

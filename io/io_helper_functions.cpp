@@ -1,6 +1,7 @@
 #include "io/io_helper_functions.hpp"
 
 #include <iostream>
+#include <filesystem>
 #include <string>
 
 #include <algorithm>
@@ -9,17 +10,8 @@
 
 bool ioh::file_exists(const char *fname)
 {
-    FILE *toCheck;
-
-    toCheck = fopen(fname, "r");
-
-    if (toCheck == NULL)
-    {
-        return false;
-    }
-
-    fclose(toCheck);
-    return true;
+    std::filesystem::path path(fname);
+    return std::filesystem::exists(path);
 }
 
 void ioh::create_tmp_file(char *fname, const std::string &TMP_FOLDER, size_t n)
@@ -132,6 +124,26 @@ int ioh::readList(const char *fname, std::vector<T> &list_values, bool hdr)
 template int ioh::readList(const char *fname, std::vector<int> &list_values, bool hdr);
 template int ioh::readList(const char *fname, std::vector<long> &list_values, bool hdr);
 template int ioh::readList(const char *fname, std::vector<std::string> &list_values, bool hdr);
+
+template <class T>
+void ioh::writeList(const char *fname, const std::vector<T> &list_values, bool hdr)
+{
+    std::ofstream toWrite = ioh::open_fstream<std::ofstream>(fname);
+
+    if (hdr) {
+        toWrite << list_values.size() << std::endl;
+    }
+
+    for (const auto &value : list_values) {
+        toWrite << value << std::endl;
+    }
+
+    toWrite.close();
+}
+
+template void ioh::writeList(const char *fname, const std::vector<int> &list_values, bool hdr);
+template void ioh::writeList(const char *fname, const std::vector<long> &list_values, bool hdr);
+template void ioh::writeList(const char *fname, const std::vector<std::string> &list_values, bool hdr);
 
 int ioh::readListRdv(const char *fname, std::vector<std::pair<int, double>> &list_values)
 {

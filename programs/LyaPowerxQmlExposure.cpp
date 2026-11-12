@@ -8,8 +8,9 @@
 #include "core/global_numbers.hpp"
 #include "core/mpi_manager.hpp"
 #include "core/sq_table.hpp"
-#include "core/quadratic_estimate.hpp"
 #include "core/fiducial_cosmology.hpp"
+
+#include "cross/cross_exposure.hpp"
 
 #include "mathtools/smoother.hpp"
 
@@ -34,7 +35,7 @@ int main(int argc, char *argv[])
     gsl_set_error_handler_off();
 
     ConfigFile config = ConfigFile();
-    std::unique_ptr<OneDQuadraticPowerEstimate> qps;
+    std::unique_ptr<OneDCrossExposureQMLE> qps;
 
     // Let all PEs to read config at the same time.
     try
@@ -109,12 +110,12 @@ int main(int argc, char *argv[])
 
     try
     {
-        qps = std::make_unique<OneDQuadraticPowerEstimate>(config);
+        qps = std::make_unique<OneDCrossExposureQMLE>(config);
         config.checkUnusedKeys();
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("Error while Quadratic Estimator contructed: %s\n", e.what());
+        LOG::LOGGER.ERR("Error while OneDCrossExposureQMLE contructed: %s\n", e.what());
         mympi::abort();
 
         return 1;
@@ -122,19 +123,12 @@ int main(int argc, char *argv[])
 
     try
     {
-        qps->iterate();
+        qps->xQmlEstimate();
     }
     catch (std::exception& e)
     {
-        LOG::LOGGER.ERR("Error while Iteration: %s\n", e.what());
+        LOG::LOGGER.ERR("Error while xQmlEstimate: %s\n", e.what());
         qps->printfSpectra();
-
-        std::string buf = process::FNAME_BASE + "_error_dump_quadratic_power_estimate_detailed.dat";
-        qps->writeDetailedSpectrumEstimates(buf.c_str());
-        
-        buf = process::FNAME_BASE + "_error_dump_fisher_matrix.dat";
-        qps->writeFisherMatrix(buf.c_str());
-
         mympi::abort();
 
         return 1;

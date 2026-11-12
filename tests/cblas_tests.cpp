@@ -5,15 +5,7 @@
 #include <algorithm>
 #include <cassert>
 
-#ifdef USE_MKL_CBLAS
-#include "mkl_lapacke.h"
-#else
-// These three lines somehow fix OpenBLAS compilation error on macos
-// #include <complex.h>
-// #define lapack_complex_float    float _Complex
-// #define lapack_complex_double   double _Complex
-#include "lapacke.h"
-#endif
+#include "mathtools/my_cblas_lapacke.h"
 
 #include "mathtools/matrix_helper.hpp"
 #include "tests/test_utils.hpp"
@@ -126,9 +118,9 @@ int test_cblas_dsymv_2()
     int nrows, ncols;
 
     const std::string
-    fname_matrix = std::string(SRCDIR) + "/tests/input/test_symmatrix.txt",
-    fname_vector = std::string(SRCDIR) + "/tests/input/test_diagonal_ddiagmv.txt",
-    fname_truth  = std::string(SRCDIR) + "/tests/truth/truth_dsymv.txt";
+    fname_matrix = SRCDIR + "/tests/input/test_symmatrix.txt",
+    fname_vector = SRCDIR + "/tests/input/test_diagonal_ddiagmv.txt",
+    fname_truth  = SRCDIR + "/tests/truth/truth_dsymv.txt";
 
     A = mxhelp::fscanfMatrix(fname_matrix.c_str(), nrows, ncols);
     assert(nrows == ndim);
@@ -210,8 +202,8 @@ int test_trace_ddiagmv_2()
     int nrows, ncols;
 
     const std::string
-    fname_matrix = std::string(SRCDIR) + "/tests/input/test_matrix_ddiagmv.txt",
-    fname_vector = std::string(SRCDIR) + "/tests/input/test_diagonal_ddiagmv.txt";
+    fname_matrix = SRCDIR + "/tests/input/test_matrix_ddiagmv.txt",
+    fname_vector = SRCDIR + "/tests/input/test_diagonal_ddiagmv.txt";
     A = mxhelp::fscanfMatrix(fname_matrix.c_str(), nrows, ncols);
     assert(nrows == ndim);
     assert(ncols == ndim);
@@ -261,8 +253,8 @@ int test_LAPACKE_InvertMatrixLU_2()
     int nrows, ncols;
 
     const std::string
-    fname_matrix = std::string(SRCDIR) + "/tests/input/test_symmatrix.txt",
-    fname_truth  = std::string(SRCDIR) + "/tests/truth/truth_inverse_matrix.txt";
+    fname_matrix = SRCDIR + "/tests/input/test_symmatrix.txt",
+    fname_truth  = SRCDIR + "/tests/truth/truth_inverse_matrix.txt";
 
     A = mxhelp::fscanfMatrix(fname_matrix.c_str(), nrows, ncols);
     assert(nrows == ndim);
@@ -405,6 +397,7 @@ int test_OversampledMatrix_multiplications()
         r += 1;
     }
 
+    std::fill(mtrxB2.begin(), mtrxB2.end(), 0);
     ovrmat.multiplyRight(mtrxB1.data(), mtrxB2.data());
     if (!allClose(truth_oversample_right_multiplication, mtrxB2.data(), mtrxB2.size()))
     {
@@ -414,6 +407,7 @@ int test_OversampledMatrix_multiplications()
         r += 1;
     }
 
+    std::fill(mtrxB2.begin(), mtrxB2.end(), 0);
     ovrmat.sandwich(oversample_multiplier_A, mtrxB2.data());
     if (!allClose(truth_oversample_right_multiplication, mtrxB2.data(), mtrxB2.size()))
     {
@@ -925,6 +919,7 @@ int test_lowerupper_bound() {
 
 int main()
 {
+    printf("SRCDIR: %s\n", SRCDIR.c_str());
     int r = 0;
     r += test_cblas_nrm2();
     r += test_cblas_ddot();

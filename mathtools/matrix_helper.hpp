@@ -4,20 +4,7 @@
 #include <memory>
 #include <vector>
 
-#define  __GSL_CBLAS_H__
-
-#ifdef USE_MKL_CBLAS
-#include "mkl_cblas.h"
-#include "mkl_lapacke.h"
-#else
-#include "cblas.h"
-// These three lines somehow fix OpenBLAS compilation error on macos
-// #include <complex.h>
-// #define lapack_complex_float    float _Complex
-// #define lapack_complex_double   double _Complex
-#include "lapacke.h"
-#endif
-
+#include "mathtools/my_cblas_lapacke.h"
 #include "core/omp_manager.hpp"
 
 namespace glmemory {
@@ -50,10 +37,34 @@ namespace mxhelp
         for (int i = 0; i < N; ++i)
             out[i] = x[i] * y[i];
     }
+    
+    /* Pairwise (divide-and-conquer) dot product. Leaves of size <= BLOCK_SIZE
+       are computed with cblas_ddot, then block sums are combined pairwise.
+       Rounding error grows as O(log(N / BLOCK_SIZE)) instead of O(N). */
+    double divide_and_conquer_dot(int N, const double *x, const double *y);
+    double kahansum_dot(int N, const double *x, const double *y);
 
     inline void normalize_vector(int N, double *x) {
         double norm = 1.0 / cblas_dnrm2(N, x, 1);
         cblas_dscal(N, norm, x, 1);
+    }
+    
+    inline void diagonal_sandwich_upper_triangle(
+            int N, const double *v, double *S
+    ) {
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < N; ++i)
+            for (int j = i; j < N; ++j)
+                S[j + i * N] *= v[i] * v[j];
+    }
+
+    inline void diagonal_sandwich_full(
+            int N, const double *v, double *A
+    ) {
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < N; ++i)
+            for (int j = 0; j < N; ++j)
+                A[j + i * N] *= v[i] * v[j];
     }
 
     // Trace of A.B
@@ -118,6 +129,7 @@ namespace mxhelp
     // A is assumed to have n vectors in its rows.
     // vector size is m, which is npixels in spectrum
     void LAPACKE_svd(double *A, double *svals, int m, int n);
+    void LAPACKE_lstsq(double *A, int m, int n, double *b);
 
     class DiaMatrix
     {
@@ -207,7 +219,7 @@ namespace mxhelp
 
         double getMinMemUsage() { return (double)sizeof(double) * size / 1048576.; };
         double getBufMemUsage() {
-            return (double)sizeof(double) * nrows * myomp::getMaxNumThreads() / 1048576.;
+            return (double)sizeof(double) * ncols * myomp::getMaxNumThreads() / 1048576.;
         };
 
         void fprintfMatrix(const char *fname);

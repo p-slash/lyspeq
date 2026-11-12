@@ -28,6 +28,8 @@ namespace ioh
     // Returns number of elements
     template <class T>
     int readList(const char *fname, std::vector<T> &list_values, bool hdr=true);
+    template <class T>
+    void writeList(const char *fname, const std::vector<T> &list_values, bool hdr=true);
 
     // Reads for 2 column separated by space into vector of pairs
     // Returns number of elements

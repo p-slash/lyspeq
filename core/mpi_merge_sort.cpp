@@ -71,6 +71,7 @@ namespace mpisort
             // If childless, carry on to the next cycle
             if (child_pe >= mympi::total_pes)
             {
+                MPI_Type_free(&MY_MPI_PAIR);
                 mergeSortedArrays(height+1, next_Npe, id, local_cpu_ind_vec);
                 return;
             }

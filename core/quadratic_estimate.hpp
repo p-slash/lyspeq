@@ -7,6 +7,7 @@
 
 #include "mathtools/stats.hpp"
 #include "io/config_file.hpp"
+#include "io/myfitsio.hpp"
 
 // This umbrella class manages the quadratic estimator by 
 //      storing the total Fisher matrix and its inverse,
@@ -26,8 +27,10 @@ class OneDQuadraticPowerEstimate
 {
 protected:
     ConfigFile &config;
+    ioh::unique_fitsfile_ptr fitsfile_ptr;
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, NUMBER_OF_ITERATIONS;
     std::vector<int> Z_BIN_COUNTS;
+    std::vector<long> targetids_to_ignore;
 
     // 3 TOTAL_KZ_BINS sized vectors
     std::vector<std::unique_ptr<double[]>>
@@ -48,14 +51,22 @@ protected:
 
     bool isFisherInverted;
 
+    std::vector<std::string> _readQsoFileList();
+    // Filename: config.get("Targetids2Ignore")
+    void _readTargetids2Ignore();
+    bool _isTargetidIgnored(long targetid);
     // reads all qso files, load balances
     // Returns local_fpaths
-    std::vector<std::string> _readQSOFiles();
+    std::vector<std::string> _getLoadBalancedLocalFilelist(
+        const std::vector<std::string> &filepaths);
     // Performs a load balancing operation based on N^3 estimation
     // Returns local_fpaths
     std::vector<std::string>
-    _loadBalancing(std::vector<std::string> &filepaths, 
-        std::vector< std::pair<double, int> > &cpu_fname_vector);
+    _loadBalancing(
+        const std::vector<std::string> &filepaths, 
+        std::vector< std::pair<double, int> > &cpu_fname_vector
+    );
+    void timingRun(const std::vector<std::string> &filepaths);
     void _savePEResult();
 
     // The next 2 functions call Python scripts.
@@ -102,7 +113,7 @@ public:
     // Does not write the last bin since it is ignored when LAST_K_EDGE defined
     // You can find that value in logs--printfSpectra prints all
     void writeSpectrumEstimates(const char *fname);
-    void writeDetailedSpectrumEstimates(const char *fname);
+    void writeDetailedSpectrumEstimates(fitsfile *fits_file, const std::string ext);
     void iterationOutput(
         int it, double t1, double tot,
         std::vector<double> &times_all_pes);

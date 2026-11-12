@@ -135,6 +135,29 @@ namespace mxhelp
         return result;
     }
 
+    double divide_and_conquer_dot(int N, const double *x, const double *y) {
+        constexpr int BLOCK_SIZE = 1024;
+        if (N == 0) return 0.0;
+
+        if (N <= BLOCK_SIZE)
+            return cblas_ddot(N, x, 1, y, 1);
+
+        int half = N / 2;
+        return divide_and_conquer_dot(half, x, y)
+               + divide_and_conquer_dot(N - half, x + half, y + half);
+    }
+
+    double kahansum_dot(int N, const double *x, const double *y) {
+        double sum = 0.0, c = 0.0;
+        for (int i = 0; i < N; ++i) {
+            double y_val = x[i] * y[i] - c;
+            double temp = sum + y_val;
+            c = (temp - sum) - y_val;
+            sum = temp;
+        }
+        return sum;
+    }
+
     double my_cblas_dsymvdot(
             const double *v, const double *S, double *temp_vector, int N
     ) {
@@ -444,6 +467,17 @@ namespace mxhelp
 
         if (info != 0)
             LAPACKErrorHandle("ERROR in SVD.", info);
+    }
+
+    void LAPACKE_lstsq(double *A, int m, int n, double *b)
+    {
+        lapack_int M = m, N = n, NRHS = 1, LDA = N, LDB = 1, info;
+        info = LAPACKE_dgels(
+            LAPACK_ROW_MAJOR, 'N', M, N, NRHS,
+            A, LDA, b, LDB);
+
+        if (info != 0)
+            LAPACKErrorHandle("ERROR in least squares.", info);
     }
 
     void printfMatrix(const double *A, int nrows, int ncols)
@@ -879,11 +913,14 @@ namespace mxhelp
         double *sandwich_buffer = glmemory::getSandwichBuffer(
             myomp::getMaxNumThreads() * ncols);
  
-        #pragma omp parallel for schedule(static, 1)
+        // Row cost decreases with i. Dynamic chunks in increasing i keep the
+        // load balanced and let a thread reuse neighboring rows of S in cache.
+        #pragma omp parallel for schedule(dynamic, 4)
         for (int i = 0; i < nrows; ++i) {
             const double *As = S + i * oversampling * (ncols + 1);
             const double *row = values + i * nelem_per_row;
             double *v = sandwich_buffer + myomp::getThreadNum() * ncols;
+            double *Bi = B + i * (nrows + 1);
 
             cblas_dgemv(
                 CblasRowMajor, CblasTrans,
@@ -892,10 +929,19 @@ namespace mxhelp
                 row, 1,
                 0, v, 1);
 
-            for (int j = 0; j < nrows - i; ++j)
-                B[j + i * (nrows + 1)] = cblas_ddot(
-                    nelem_per_row, v + j * oversampling, 1,
-                    row + j * nelem_per_row, 1);
+            // Inlined dot products; cblas_ddot call overhead dominates for
+            // short (nelem_per_row) vectors.
+            for (int j = 0; j < nrows - i; ++j) {
+                const double *vj = v + j * oversampling,
+                             *rj = row + j * nelem_per_row;
+                double sum = 0;
+
+                #pragma omp simd reduction(+:sum)
+                for (int k = 0; k < nelem_per_row; ++k)
+                    sum += vj[k] * rj[k];
+
+                Bi[j] = sum;
+            }
         }
 
         copyUpperToLower(B, nrows);

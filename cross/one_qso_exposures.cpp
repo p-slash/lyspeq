@@ -51,8 +51,8 @@ namespace xeutils {
                b1 = q2->wave()[0], b2 = q2->wave()[N2 - 1];
 
         double zmin = sqrt(a1 * b1) - 1., zmax = sqrt(a2 * b2) - 1.;
-        int ZBIN_LOW = bins::findRedshiftBin(zmin),
-            ZBIN_UPP = bins::findRedshiftBin(zmax);
+        int ZBIN_LOW = std::clamp(bins::findRedshiftBin(zmin), 0, bins::NZ_MINUS_ONE),
+            ZBIN_UPP = std::clamp(bins::findRedshiftBin(zmax), 0, bins::NZ_MINUS_ONE);
 
         N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
         fisher_index_start = bins::getFisherMatrixIndex(0, ZBIN_LOW);
@@ -65,7 +65,7 @@ namespace xeutils {
                 fisher_index_start -= bins::NUMBER_OF_K_BANDS;
             }
             // If we need to distribute high end to righter bin
-            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < zmax) && (ZBIN_UPP < (bins::NUMBER_OF_Z_BINS-1)))
+            if ((bins::ZBIN_CENTERS[ZBIN_UPP] < zmax) && (ZBIN_UPP < bins::NZ_MINUS_ONE))
                 ++N_Q_MATRICES;
         }
 
@@ -102,14 +102,29 @@ namespace xeutils {
         DEBUG_LOG("OneQsoExposures::_setVZMatrix\n");
 
         double *l1 = q1->wave(), *l2 = q2->wave();
-
+        double *logl1 = glmemory::temp_vectors[0].get(),
+               *logl2 = glmemory::temp_vectors[1].get();
+        #pragma omp parallel for simd
+        for (int i = 0; i < N1; ++i)
+            logl1[i] = SPEED_OF_LIGHT * log(l1[i]);
+        #pragma omp parallel for simd
+        for (int i = 0; i < N2; ++i)
+            logl2[i] = SPEED_OF_LIGHT * log(l2[i]);
         #pragma omp parallel for simd collapse(2)
-        for (int i = 0; i < N1; ++i) {
-            for (int j = 0; j < N2; ++j) {
-                _vmatrix[j + i * N2] = SPEED_OF_LIGHT * fabs(log(l2[j] / l1[i]));
-                _zmatrix[j + i * N2] = sqrt(l2[j] * l1[i]) - 1.;
-            }
-        }
+        for (int i = 0; i < N1; ++i)
+            for (int j = 0; j < N2; ++j)
+                _vmatrix[j + i * N2] = fabs(logl2[j] - logl1[i]);
+        
+        #pragma omp parallel for simd
+        for (int i = 0; i < N1; ++i)
+            logl1[i] = sqrt(l1[i]);
+        #pragma omp parallel for simd
+        for (int i = 0; i < N2; ++i)
+            logl2[i] = sqrt(l2[i]);
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < N1; ++i)
+            for (int j = 0; j < N2; ++j)
+                _zmatrix[j + i * N2] = logl1[i] * logl2[j] - 1.;
     }
 
 
@@ -161,38 +176,19 @@ namespace xeutils {
         bins::getFisherMatrixBinNoFromIndex(fi_kz, kn, zm);
         bins::setRedshiftBinningFunction(zm);
 
-        std::function<double(double)> eval_deriv_kn;
+        const auto *idkn = glmemory::interp_derivative_matrix[kn].get();
 
-        if (specifics::USE_RESOLUTION_MATRIX) {
-            double kc = bins::KBAND_CENTERS[kn],
-                   dk = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn];
-
-            eval_deriv_kn = [kc, dk](double v) {
-                if (v == 0)
-                    return dk / MY_PI;
-
-                double x = dk * v / 2;
-                return (dk / MY_PI) * cos(kc * v) * (sin(x) / x);
-            };
-        } else {
-            eval_deriv_kn = [idkn = glmemory::interp_derivative_matrix[kn]](double v) {
-                return idkn->evaluate(v);
-            };
-        }
-
-        std::fill_n(m, CROSS_SIZE_2, 0);
-
-        #pragma omp parallel for schedule(static, 1)
+        #pragma omp parallel for schedule(dynamic, 4)
         for (int i = 0; i < N1; ++i) {
             int idx = i * N2, l1, u1;
-
+            std::fill_n(m + idx, N2, 0);
             bins::redshiftBinningFunction(
                 _zmatrix + idx, N2, zm,
                 m + idx, l1, u1);
 
             #pragma omp simd
             for (int j = l1; j < u1; ++j)
-                m[j + idx] *= eval_deriv_kn(_vmatrix[j + idx]);
+                m[j + idx] *= idkn->evaluate(_vmatrix[j + idx]);
         }
 
         t_interp = mytime::timer.getTime() - t;
@@ -233,7 +229,7 @@ namespace xeutils {
 
 OneQsoExposures::OneQsoExposures(const std::string &f_qso) : OneQSOEstimate() {
     try {
-        std::unique_ptr<qio::QSOFile> qFile = _readQsoFile(f_qso);
+        std::unique_ptr<qio::QSOFile> qFile = _readQsoFile(f_qso, !Chunk::SHALLOW);
 
         targetid = qFile->id;
         z_qso = qFile->z_qso;
@@ -356,17 +352,18 @@ void OneQsoExposures::xQmlEstimate() {
         int diff_idx = xeutils::fisher_index_start - istart;
 
         double t = mytime::timer.getTime();
+
         for (auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi) {
             dk0[i_kz + diff_idx] += mxhelp::my_cblas_dgemvdot(
                 expo1->getWeightedData(), xeutils::N1,
                 expo2->getWeightedData(), xeutils::N2,
-                qi, glmemory::temp_vector.get());
+                qi, glmemory::temp_vectors[0].get());
 
             cblas_dgemm(
                 CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 xeutils::N1, xeutils::N2, xeutils::N1, 1.,
                 expo1->getInverseCov(), xeutils::N1,
-                qi, xeutils::N2, 0,
+                qi, xeutils::N2, 0.,
                 glmemory::temp_matrices[0].get(), xeutils::N2);
 
             cblas_dgemm(
@@ -382,8 +379,8 @@ void OneQsoExposures::xQmlEstimate() {
         if (!specifics::TURN_OFF_SFID) {
             #pragma omp parallel for
             for (const auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi)
-                tk0[i_kz + diff_idx] += cblas_ddot(
-                    xeutils::CROSS_SIZE_2, qwi, 1, glmemory::stored_sfid.get(), 1);
+                tk0[i_kz + diff_idx] += mxhelp::divide_and_conquer_dot(
+                    xeutils::CROSS_SIZE_2, qwi, glmemory::stored_sfid.get());
         }
 
         if (specifics::USE_PRECOMPUTED_FISHER)
@@ -393,7 +390,7 @@ void OneQsoExposures::xQmlEstimate() {
 
         diff_idx *= ndim + 1;
         // I think this is still symmetric
-        #pragma omp parallel for schedule(static, 1)
+        #pragma omp parallel for schedule(dynamic, 1)
         for (   auto iqt = xeutils::stored_ikz_qi_qwi.cbegin();
                 iqt != xeutils::stored_ikz_qi_qwi.cend(); ++iqt
         ) {
@@ -411,17 +408,19 @@ void OneQsoExposures::xQmlEstimate() {
                 #endif
 
                 fisher_matrix[j_kz + ndim * i_kz + diff_idx] += 
-                    cblas_ddot(xeutils::CROSS_SIZE_2, qwi, 1, qjT, 1);
+                    mxhelp::divide_and_conquer_dot(xeutils::CROSS_SIZE_2, qwi, qjT);
             }
         }
 
         mytime::time_spent_set_fisher += mytime::timer.getTime() - t;;
     }
 
-    cblas_dscal(ndim, 2.0, dk0, 1);
-    cblas_dscal(ndim, 2.0, tk0, 1);
-    for (int i = 0; i < ndim; ++i)
+    #pragma omp parallel for simd
+    for (int i = 0; i < ndim; ++i) {
+        dk0[i] *= 2.0;
+        tk0[i] *= 2.0;
         theta_vector[i] = dk0[i] - tk0[i];
+    }
 }
 
 
@@ -473,7 +472,7 @@ int OneQsoExposures::oneQSOiteration(
     for (auto &expo : exposures) {
         try {
             expo->initMatrices();
-            expo->setInvertCovarianceMatrix();
+            expo->setInvertCovarianceMatrix(nullptr);
             expo->weightDataVector();
         }
         catch (std::exception& e) {
@@ -510,16 +509,16 @@ int OneQsoExposures::oneQSOiteration(
         return 0;
     #endif
 
-    double *outfisher = fisher_sum + (bins::TOTAL_KZ_BINS + 1) * istart;
+    glmemory::kahan_fisher_sum->add(
+        fisher_matrix.get(), ndim, fisher_sum,
+        (bins::TOTAL_KZ_BINS + 1) * istart
+    );
 
-    for (int i = 0; i < ndim; ++i)
-        for (int j = i; j < ndim; ++j)
-            outfisher[j + i * bins::TOTAL_KZ_BINS] += fisher_matrix[j + i * ndim];
-
-    for (int i = 0; i < 3; ++i)
-        cblas_daxpy(
-            ndim, 1, dbt_estimate_before_fisher_vector[i].get(), 1,
-            dt_sum_vector[i].get() + istart, 1);
+    for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
+        glmemory::kahan_dbt_sum_vector[dbt_i]->add(
+            dbt_estimate_before_fisher_vector[dbt_i].get(), ndim,
+            dt_sum_vector[dbt_i].get(), istart
+        );
 
     return numcombos;
 }
