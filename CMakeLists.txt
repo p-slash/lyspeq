@@ -67,7 +67,7 @@ if (USE_OPENBLAS_BREW)
     target_link_directories(MY_BLAS_INTERFACE INTERFACE ${BLAS_LIBRARY_DIRS})
     target_link_libraries(MY_BLAS_INTERFACE INTERFACE ${BLAS_LIBRARIES})
 elseif (USE_MKL_LIB)
-    add_definitions(-DUSE_MKL_CBLAS)
+    add_definitions(-DUSE_MKL)
     find_package(MKL CONFIG REQUIRED PATHS $ENV{MKLROOT})
     message(STATUS "Imported oneMKL targets: ${MKL_IMPORTED_TARGETS}")
 
