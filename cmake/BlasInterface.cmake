@@ -15,20 +15,26 @@ if (USE_OPENBLAS_BREW)
     target_compile_options(MY_BLAS_INTERFACE INTERFACE ${BLAS_CFLAGS})
     target_link_directories(MY_BLAS_INTERFACE INTERFACE ${BLAS_LIBRARY_DIRS})
     target_link_libraries(MY_BLAS_INTERFACE INTERFACE ${BLAS_LIBRARIES})
-elseif (USE_MKL_LIB)
-    add_definitions(-DUSE_MKL)
-    find_package(MKL CONFIG REQUIRED PATHS $ENV{MKLROOT})
-    message(STATUS "Imported oneMKL targets: ${MKL_IMPORTED_TARGETS}")
-
-    target_compile_options(MY_BLAS_INTERFACE INTERFACE
-        $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
-    target_include_directories(MY_BLAS_INTERFACE INTERFACE
-        $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
-    target_link_libraries(MY_BLAS_INTERFACE INTERFACE $<LINK_ONLY:MKL::MKL>)
 else()
     find_package(BLAS REQUIRED)
     find_package(LAPACK REQUIRED)
     set(MY_LAPACKE_LIB "")
+
+    if(BLAS_LIBRARIES MATCHES "mkl")
+        add_definitions(-DUSE_MKL)
+        find_package(MKL CONFIG REQUIRED PATHS $ENV{MKLROOT})
+        message(STATUS "Imported oneMKL targets: ${MKL_IMPORTED_TARGETS}")
+
+        target_compile_options(MY_BLAS_INTERFACE INTERFACE
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+        target_include_directories(MY_BLAS_INTERFACE INTERFACE
+            $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+        target_link_libraries(MY_BLAS_INTERFACE INTERFACE $<LINK_ONLY:MKL::MKL>)
+    elseif(BLAS_LIBRARIES MATCHES "Accelerate")
+        message(STATUS "Using Accelerate framework")
+        add_definitions(-DUSE_ACCELERATE)
+        add_definitions(-DACCELERATE_NEW_LAPACK)
+    endif()
 
     # FindLAPACK does not cover the C interface (LAPACKE). Some builds
     # (e.g. Homebrew/conda OpenBLAS) bundle it; Debian/Ubuntu ship it separately.
