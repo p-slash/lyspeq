@@ -5,7 +5,6 @@ project(lyspeq)
 option(ENABLE_OPENMP "Enable OpenMP" ON)
 option(ENABLE_MPI "Enable MPI" ON)
 option(USE_OPENBLAS_BREW "Use OpenBlas brew" OFF)
-option(USE_MKL_LIB "Use MKL library" OFF)
 option(DEBUG "Compile with debugging options" OFF)
 option(TURN_OFF_SPECTRO_WINDOW "Turn of spectrograph window function in 3D." OFF)
 option(KILL_15MPC_POWER "Suppresses power below 15 Mpc in 3D." OFF)
@@ -52,32 +51,7 @@ set_property(TARGET GSL::gsl PROPERTY INTERFACE_LINK_LIBRARIES "")
 # =======================
 # Create a BLAS interface 
 # =======================
-
-add_library(MY_BLAS_INTERFACE INTERFACE)
-if (USE_OPENBLAS_BREW)
-    # set(ENV{CMAKE_PREFIX_PATH} "/opt/homebrew/opt/openblas")
-    # set(BLA_VENDOR OpenBLAS)
-    set(ENV{PKG_CONFIG_PATH} "/opt/homebrew/opt/openblas/lib/pkgconfig")
-    pkg_check_modules(BLAS REQUIRED openblas)
-
-    target_compile_options(MY_BLAS_INTERFACE INTERFACE ${BLAS_CFLAGS})
-    target_link_directories(MY_BLAS_INTERFACE INTERFACE ${BLAS_LIBRARY_DIRS})
-    target_link_libraries(MY_BLAS_INTERFACE INTERFACE ${BLAS_LIBRARIES})
-elseif (USE_MKL_LIB)
-    add_definitions(-DUSE_MKL_CBLAS)
-    find_package(MKL CONFIG REQUIRED PATHS $ENV{MKLROOT})
-    message(STATUS "Imported oneMKL targets: ${MKL_IMPORTED_TARGETS}")
-
-    target_compile_options(MY_BLAS_INTERFACE INTERFACE
-        $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
-    target_include_directories(MY_BLAS_INTERFACE INTERFACE
-        $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
-    target_link_libraries(MY_BLAS_INTERFACE INTERFACE $<LINK_ONLY:MKL::MKL>)
-else()
-    find_package(BLAS REQUIRED)
-    find_package(LAPACK REQUIRED)
-    target_link_libraries(MY_BLAS_INTERFACE INTERFACE BLAS::BLAS LAPACK::LAPACK)
-endif()
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/BlasInterface.cmake)
 
 # ===
 # MPI
@@ -199,33 +173,36 @@ add_custom_target(print_genex
 # Executables
 # ===========
 
-add_executable(LyaPowerEstimate LyaPowerEstimate.cpp)
+add_executable(LyaPowerEstimate programs/LyaPowerEstimate.cpp)
 target_link_libraries(LyaPowerEstimate PRIVATE AllObjLibs)
 
 add_executable(LyaPowerxQmlExposure
-    LyaPowerxQmlExposure.cpp cross/cross_exposure.cpp cross/one_qso_exposures.cpp)
+    programs/LyaPowerxQmlExposure.cpp
+    cross/cross_exposure.cpp
+    cross/one_qso_exposures.cpp)
 target_link_libraries(LyaPowerxQmlExposure PRIVATE AllObjLibs)
 
-add_executable(LyaPower3DEstimate)
+add_executable(LyaPower3DEstimate programs/LyaPower3DEstimate.cpp)
 target_link_libraries(LyaPower3DEstimate PRIVATE GlobalObjLibs Qu3dObjLibs)
 
-add_executable(CreateSQLookUpTable CreateSQLookUpTable.cpp)
+add_executable(CreateSQLookUpTable programs/CreateSQLookUpTable.cpp)
 target_link_libraries(CreateSQLookUpTable PRIVATE GlobalObjLibs SqTableObjLibs)
 
-add_executable(lyspeqBootStats lyspeqBootStats.cpp)
+add_executable(lyspeqBootStats programs/lyspeqBootStats.cpp)
 #    $<FILTER:$<TARGET_OBJECTS:CoreObjLibs>,EXCLUDE,/quadratic_estimate.cpp.o>)
 target_link_libraries(lyspeqBootStats PRIVATE AllObjLibs)
 
 ## ---------
 ## Test exes
 ## ---------
-
+set_source_files_properties(tests/test_utils.cpp PROPERTIES
+    COMPILE_DEFINITIONS "SRCDIR_M=${CMAKE_SOURCE_DIR}"
+)
 add_executable(cblas_tests
     tests/cblas_tests.cpp tests/test_utils.cpp
     mathtools/matrix_helper.cpp mathtools/real_field.cpp
     mathtools/discrete_interpolation.cpp
 )
-target_compile_definitions(cblas_tests PRIVATE SRCDIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(cblas_tests PUBLIC
     OpenMP::OpenMP_CXX GSL::gsl MY_BLAS_INTERFACE MY_FFTW3_INTERFACE)
 

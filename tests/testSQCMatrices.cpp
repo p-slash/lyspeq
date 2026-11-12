@@ -40,7 +40,7 @@ int TestOneQSOEstimate::test_setFiducialSignalMatrix()
     chunks[0]->_setFiducialSignalMatrix(chunks[0]->covariance_matrix);
 
     const std::string
-    fname_sfid_matrix = std::string(SRCDIR) + "/tests/truth/signal_matrix.txt";
+    fname_sfid_matrix = SRCDIR + "/tests/truth/signal_matrix.txt";
     const int ndim = 488;
 
     std::vector<double> A, vec;
@@ -51,7 +51,7 @@ int TestOneQSOEstimate::test_setFiducialSignalMatrix()
     assert(ncols == ndim);
     assert(chunks[0]->qFile->size() == ndim);
 
-    std::string outst = std::string(SRCDIR) + "/tests/output/signal_matrix.txt";
+    std::string outst = SRCDIR + "/tests/output/signal_matrix.txt";
     mxhelp::fprintfMatrix(outst.c_str(), chunks[0]->covariance_matrix, nrows, ncols);
 
     if (not allClose(A.data(), chunks[0]->covariance_matrix, ndim))
@@ -74,7 +74,7 @@ int TestOneQSOEstimate::test_setQiMatrix()
     chunks[0]->_applyRedshiftInterp();
 
     const std::string
-    fname_q0_matrix = std::string(SRCDIR) + "/tests/truth/q0_matrix.txt";
+    fname_q0_matrix = SRCDIR + "/tests/truth/q0_matrix.txt";
     const int ndim = 488;
 
     std::vector<double> A;
@@ -85,7 +85,7 @@ int TestOneQSOEstimate::test_setQiMatrix()
     assert(ncols == ndim);
     assert(chunks[0]->qFile->size() == ndim);
 
-    // std::string outst = std::string(SRCDIR) + "/tests/output/q0_matrix.txt";
+    // std::string outst = SRCDIR + "/tests/output/q0_matrix.txt";
     // mxhelp::fprintfMatrix(outst.c_str(), chunks[0]->stored_ikz_qi[0].second, nrows, ncols);
 
     if (not allClose(A.data(), chunks[0]->stored_ikz_qi[0].second, ndim))
@@ -106,7 +106,7 @@ int test_SQLookupTable(const ConfigFile &config)
 {
     int r = 0;
     // Allocate truth
-    const std::string truth_dir = std::string(SRCDIR) + "/tests/truth/";
+    const std::string truth_dir = SRCDIR + "/tests/truth/";
     const config_map truth_sq_map ({{"OutputDir", truth_dir}});
 
     ConfigFile truth_config(truth_sq_map);

@@ -4,10 +4,12 @@ CTestTestfile.cmake
 DartConfiguration.tcl
 CMakeCache.txt
 .DS_Store
+.vscode/
 *.o
 *.log
 backup/
 build-aux/
+build-make/
 dep/
 wiki/
 tests/output/*

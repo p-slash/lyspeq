@@ -7,11 +7,7 @@
 #include <numeric>  // std::accumulate
 #include <vector>
 
-#ifdef USE_MKL_CBLAS
-#include "mkl_cblas.h"
-#else
-#include "cblas.h"
-#endif
+#include "mathtools/my_cblas_lapacke.h"
 
 #define VAR_THRESHOLD 1e8
 #define VAR_MASK_VALUE 1e99

@@ -49,7 +49,7 @@ function set_config_options()
             --enable-mpi )
                 ENABLE_MPI="-DENABLE_MPI";;
             --use-mkl-cblas )
-                USE_MKL_CBLAS="-DUSE_MKL_CBLAS";;
+                USE_MKL_CBLAS="-DUSE_MKL";;
             --enable-openmp )
                 CPPFLAGS_OMP="-fopenmp"
                 ENABLE_OMP="-DENABLE_OMP";;
@@ -104,11 +104,11 @@ function set_prebuild_system()
             ;;
         x64-linux-gnu-mklxe18 )
             CXX="g++"
-            USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
+            USE_MKL_CBLAS="-DUSE_MKL"
             ;;
         x64-linux-icpc-mklxe18 )
             CXX="icpc"
-            USE_MKL_CBLAS="-DUSE_MKL_CBLAS"
+            USE_MKL_CBLAS="-DUSE_MKL"
             ;;
         x64-macos-clang-openblas )
             CXX="clang++"
@@ -120,8 +120,8 @@ function set_prebuild_system()
             CBLAS_DIR="/opt/homebrew/opt/openblas"
             FFTW_ROOT="/opt/homebrew/opt/fftw"
             ;;
-        arm-macos-gcc14-openblas )
-            CXX="g++-14"
+        arm-macos-gcc16-openblas )
+            CXX="g++-16"
             CFITSIO_DIR="/opt/homebrew/opt/cfitsio"
             CBLAS_DIR="/opt/homebrew/opt/openblas"
             FFTW_ROOT="/opt/homebrew/opt/fftw"
@@ -375,7 +375,7 @@ function set_fftw3_inc_lib()
 # -----------------------------------------------------------------------------
 # CBLAS and LAPACKE settings
 # CBLAS_DIR is the only variable
-cblas_test_text='#ifdef USE_MKL_CBLAS
+cblas_test_text='#ifdef USE_MKL
 #include "mkl_cblas.h"
 #include "mkl_lapacke.h"
 #else

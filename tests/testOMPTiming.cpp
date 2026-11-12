@@ -3,11 +3,7 @@
 #include <random>
 #include <string>
 
-#ifdef USE_MKL_CBLAS
-#include "mkl_cblas.h"
-#else
-#include "cblas.h"
-#endif
+#include "mathtools/my_cblas_lapacke.h"
 
 #include "core/omp_manager.hpp"
 #include "mathtools/discrete_interpolation.hpp"
