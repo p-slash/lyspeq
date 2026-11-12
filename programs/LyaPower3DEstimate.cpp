@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <filesystem>
 #include <string>
 
 #include <gsl/gsl_errno.h>
@@ -27,7 +28,43 @@ int main(int argc, char *argv[]) {
 
     try {
         config.readFile(FNAME_CONFIG);
-        LOG::LOGGER.open(config.get("OutputDir", "."), mympi::this_pe);
+
+        const std::string output_dir = config.get("OutputDir", ".");
+        bool output_dir_ready = true;
+
+        if (mympi::this_pe == 0) {
+            std::error_code ec;
+            const bool output_dir_exists = std::filesystem::exists(output_dir, ec);
+
+            if (ec) {
+                fprintf(stderr,
+                        "Cannot access output directory '%s': %s\n",
+                        output_dir.c_str(), ec.message().c_str());
+                output_dir_ready = false;
+            }
+            else if (!output_dir_exists) {
+                if (!std::filesystem::create_directories(output_dir, ec)) {
+                    fprintf(stderr,
+                            "Cannot create output directory '%s': %s\n",
+                            output_dir.c_str(), ec.message().c_str());
+                    output_dir_ready = false;
+                }
+            }
+            else if (!std::filesystem::is_directory(output_dir, ec)) {
+                fprintf(stderr,
+                        "Output path '%s' is not a directory.\n",
+                        output_dir.c_str());
+                output_dir_ready = false;
+            }
+        }
+
+        mympi::bcast(&output_dir_ready);
+        if (!output_dir_ready)
+            throw std::runtime_error("Output directory is not available.");
+
+        mympi::barrier();
+
+        LOG::LOGGER.open(output_dir, mympi::this_pe);
         specifics::printBuildSpecifics();
         mytime::writeTimeLogHeader();
     }
@@ -52,7 +89,6 @@ int main(int argc, char *argv[]) {
     }
 
     Qu3DEstimator qps(config);
-    bool test_gaussian_field = config.getInteger("TestGaussianField") > 0;
     bool test_symmetry = config.getInteger("TestSymmetry") > 0;
     bool test_hsqrt = config.getInteger("TestHsqrt") > 0;
     config.checkUnusedKeys();
@@ -66,7 +102,7 @@ int main(int argc, char *argv[]) {
     if (test_hsqrt)
         qps.testCovSqrt();
 
-    if (test_gaussian_field) {
+    if (qps.test_gaussian_field) {
         if (qps.mock_grid_res_factor > 1) {
             qps.replaceDeltasWithHighResGaussianField();
             goto EndOptimalQu3DNormally;
