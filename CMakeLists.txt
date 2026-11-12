@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.18)
 enable_testing()
 project(lyspeq)
 
+include(CheckFunctionExists)
+include(CMakePushCheckState)
+
 option(ENABLE_OPENMP "Enable OpenMP" ON)
 option(ENABLE_MPI "Enable MPI" ON)
 option(USE_OPENBLAS_BREW "Use OpenBlas brew" OFF)
@@ -76,26 +79,29 @@ elseif (USE_MKL_LIB)
 else()
     find_package(BLAS REQUIRED)
     find_package(LAPACK REQUIRED)
-    target_link_libraries(MY_BLAS_INTERFACE INTERFACE BLAS::BLAS LAPACK::LAPACK)
+    set(MY_LAPACKE_LIB "")
 
     # FindLAPACK does not cover the C interface (LAPACKE). Some builds
     # (e.g. Homebrew/conda OpenBLAS) bundle it; Debian/Ubuntu ship it separately.
-    include(CheckFunctionExists)
-    set(CMAKE_REQUIRED_LIBRARIES ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
-    check_function_exists(LAPACKE_dsyevr LAPACK_HAS_LAPACKE)
-    unset(CMAKE_REQUIRED_LIBRARIES)
+    cmake_push_check_state(RESET)
+        set(CMAKE_REQUIRED_LIBRARIES ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES})
+        check_function_exists(LAPACKE_dsyevr LAPACK_HAS_LAPACKE)
+    cmake_pop_check_state()
 
     if (NOT LAPACK_HAS_LAPACKE)
         find_library(LAPACKE_LIBRARY NAMES lapacke REQUIRED)
         find_path(LAPACKE_INCLUDE_DIR NAMES lapacke.h
                   PATH_SUFFIXES openblas lapacke)
         message(STATUS "Found LAPACKE: ${LAPACKE_LIBRARY}")
-        # lapacke must precede LAPACK on the link line
-        target_link_libraries(MY_BLAS_INTERFACE BEFORE INTERFACE ${LAPACKE_LIBRARY})
+        set(MY_LAPACKE_LIB ${LAPACKE_LIBRARY})
         if (LAPACKE_INCLUDE_DIR)
             target_include_directories(MY_BLAS_INTERFACE INTERFACE ${LAPACKE_INCLUDE_DIR})
         endif()
     endif()
+
+    # lapacke must precede LAPACK on the link line
+    target_link_libraries(MY_BLAS_INTERFACE INTERFACE
+        ${MY_LAPACKE_LIB} LAPACK::LAPACK BLAS::BLAS)
 endif()
 
 # ===
