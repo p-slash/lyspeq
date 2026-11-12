@@ -9,6 +9,7 @@
 #include "core/mpi_manager.hpp"
 #include "core/progress.hpp"
 #include "mathtools/stats.hpp"
+#include "mathtools/fourier_integrator.hpp"
 #include "io/logger.hpp"
 
 namespace specifics {
@@ -16,18 +17,18 @@ namespace specifics {
     double MIN_KPERP = 0, MIN_KZ = 0;
 }
 
+const double deg2rad = MY_PI / 180.0, rad2deg = 1.0 / deg2rad;
 // Assume 2-4 threads will not encounter race conditions
-#ifndef RINTERP_NTHREADS
-#define RINTERP_NTHREADS 3
-#endif
+int RINTERP_NTHREADS = 3;
 
-#define OFFDIAGONAL_ORDER 8
+
 #define KMAX_EDGE bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]
 
 /* Timing map */
 std::unordered_map<std::string, std::pair<int, double>> timings{
     {"rInterp", std::make_pair(0, 0.0)}, {"interp", std::make_pair(0, 0.0)},
     {"CGD", std::make_pair(0, 0.0)}, {"mDeriv", std::make_pair(0, 0.0)},
+    {"mDerivBD", std::make_pair(0, 0.0)},
     {"mCov", std::make_pair(0, 0.0)}, {"PPcomp", std::make_pair(0, 0.0)},
     {"GenGauss", std::make_pair(0, 0.0)}, {"mIpH", std::make_pair(0, 0.0)},
     {"cgdIpH", std::make_pair(0, 0.0)}, {"Marg", std::make_pair(0, 0.0)}
@@ -40,10 +41,101 @@ const fidcosmo::FlatLCDM *cosmo;
 std::unique_ptr<fidcosmo::ArinyoP3DModel> p3d_model;
 std::unique_ptr<ioh::ContMargFile> ioh::continuumMargFileHandler;
 
-int NUMBER_OF_P_BANDS = 0;
-double DK_BIN = 0;
-bool verbose = true, CONT_MARG_ENABLED = false;
+bool verbose = true, CONT_MARG_ENABLED = false, KEEP_MATRICES_IN_MEMORY = false;
 constexpr bool INPLACE_FFT = true;
+
+// Binning functions for Pell(k)
+namespace bins {
+    int NUMBER_OF_MULTIPOLES = 0, NUMBER_OF_P_BANDS = 0, N_KNPELL = 0;
+    double DK_BIN = 0;
+    bool BINNING_IS_TOPHAT = true;
+    std::function<void(double, double, double, double*)> pellBinningFunction;
+    std::function<double(int, double)> getBinWeight;
+    inline double knpower(double k) {
+        return N_KNPELL == 0 ? 1.0 : std::pow(k, N_KNPELL);
+    }
+
+    // The following binning functions assume you have checked for boundary!
+    void _tophat_binning(double val, double kt, double mu, double *output) {
+        int ik = (kt - KBAND_EDGES[0]) / DK_BIN;
+
+        val /= knpower(kt);
+        for (int ell = 0; ell < NUMBER_OF_MULTIPOLES; ++ell)
+            output[ik + ell * NUMBER_OF_K_BANDS] += val * legendre(2 * ell, mu);
+    }
+
+    void _triangular_binning(double val, double kt, double mu, double *output) {
+        int ik, ik2;
+        double bin1_weight, bin2_weight;
+
+        ik = (kt - KBAND_EDGES[0]) / DK_BIN;
+
+        if (kt > KBAND_CENTERS[ik])
+            ik2 = std::min(NUMBER_OF_K_BANDS - 1, ik + 1);
+        else
+            ik2 = std::max(0, ik - 1);
+
+        bin2_weight = fabs(kt - KBAND_CENTERS[ik]) / DK_BIN;
+        bin1_weight = 1.0 - bin2_weight;
+
+        val /= knpower(kt);
+        for (int ell = 0; ell < NUMBER_OF_MULTIPOLES; ++ell) {
+            double val_ellmu = val * legendre(2 * ell, mu);
+            output[ik  + ell * NUMBER_OF_K_BANDS] += val_ellmu * bin1_weight;
+            output[ik2 + ell * NUMBER_OF_K_BANDS] += val_ellmu * bin2_weight;
+        }
+    }
+
+    double _tophat_binweight(int ik, double kt) {
+        const double kcenter = KBAND_CENTERS[ik];
+        double t = fabs(kt - kcenter);
+        if (t < (DK_BIN / 2))
+            return 1.0 / knpower(kt);
+
+        return 0.0;
+    }
+
+    double _triangular_binweight(int ik, double kt) {
+        const double kcenter = KBAND_CENTERS[ik];
+        double iknpower = 1.0 / knpower(kt);
+        bool is_last_k_bin = ik == (NUMBER_OF_K_BANDS - 1),
+             is_first_k_bin = ik == 0;
+
+        if (is_last_k_bin && (kt > kcenter))
+            return iknpower;
+        else if (is_first_k_bin && (kt < kcenter))
+            return iknpower;
+        else
+            return iknpower * (1.0 - fabs(kt - kcenter) / DK_BIN);
+    }
+
+    void setBinningFunctions(int j, int m_pellkm) {
+        BINNING_IS_TOPHAT = j == 0;
+        N_KNPELL = m_pellkm;
+        LOG::LOGGER.STD("Setting Pell(k) binning function to %s. "
+                        "Estimating k^%d Pell(k).\n",
+                        BINNING_IS_TOPHAT ? "tophat" : "triangular", N_KNPELL);
+        if (BINNING_IS_TOPHAT) {
+            pellBinningFunction = _tophat_binning;
+            getBinWeight = _tophat_binweight;
+        }
+        else {
+            pellBinningFunction = _triangular_binning;
+            getBinWeight = _triangular_binweight;
+        }
+    }
+
+    void getKBinMinMax(int ik, double &kmin, double &kmax) {
+        if (BINNING_IS_TOPHAT) {
+            kmin = KBAND_EDGES[ik];
+            kmax = KBAND_EDGES[ik + 1];
+        }
+        else {
+            kmin = std::max(KBAND_CENTERS[ik] - DK_BIN, KBAND_EDGES[0]);
+            kmax = std::min(KBAND_CENTERS[ik] + DK_BIN, KMAX_EDGE);
+        }
+    }
+}
 
 
 #ifdef DEBUG
@@ -104,34 +196,50 @@ void logTimings() {
 }
 
 
-inline bool hasConverged(double norm, double tolerance) {
+inline bool hasConverged(
+        double norm, double base, double tolerance, double drate=0
+) {
+    double rel_norm = norm / base;
+
     if (verbose)
         LOG::LOGGER.STD(
-            "    Current norm(residuals) / norm(initial residuals) is %.8e. "
+            "    Current ||r|| / ||b|| = %.3e / %.3e = %.3e. "
             "Conjugate Gradient converges when this is < %.2e\n",
-            norm, tolerance);
+            norm, base, rel_norm, tolerance);
 
-    return norm < tolerance;
+    if (verbose && drate > 0)
+        LOG::LOGGER.STD("    Smoothed descent rate is %.3f.\n", drate);
+
+    return (norm < 1e-2 * tolerance) || (rel_norm < tolerance);
 }
 
 
-void _shiftByMedianDec(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
-    std::vector<double> decs;
-    decs.reserve(quasars.size());
+void _rotateToCentroid(std::vector<std::unique_ptr<CosmicQuasar>> &quasars) {
+    double u[] = {0, 0, 0};
+    Vec3 mean_vec;
 
+    #pragma omp parallel for num_threads(8) reduction(+:u[:3])
     for (const auto &qso : quasars)
-        decs.push_back(qso->angles[1]);
+        for (int axis = 0; axis < 3; ++axis)
+            u[axis] += qso->vec.r[axis];
 
-    double median_dec = stats::medianOfUnsortedVector(decs);
+    for (int axis = 0; axis < 3; ++axis)
+        u[axis] /= quasars.size();
 
-    LOG::LOGGER.STD("Shifting quasar DECs by %.4f radians\n", median_dec);
+    mean_vec.setVector(u);
 
-    for (auto &qso : quasars) {
-        qso->angles[0] -= specifics::MIN_RA;
-        qso->angles[1] -= median_dec;
-        qso->cos_dec = cos(qso->angles[1]);
-        qso->sin_dec = sin(qso->angles[1]);
-    }
+    LOG::LOGGER.STD(
+        "Rotating to the central pointing (theta(dec): %.4f (%.4f), phi: %.4f) deg\n",
+        mean_vec.theta * rad2deg, 90.0 - mean_vec.theta * rad2deg, mean_vec.phi * rad2deg);
+
+    const auto rot_mat = Vec3::getRotationMatrix(mean_vec);
+    #pragma omp parallel for num_threads(8)
+    for (auto &qso : quasars)
+        #ifdef USE_SPHERICAL_DIST
+        qso->vec.rotate(rot_mat);
+        #else
+        qso->vec.setAngles(qso->vec.theta - mean_vec.theta, qso->vec.phi - mean_vec.phi);
+        #endif
 }
 
 
@@ -146,11 +254,13 @@ double _setCosmologicalCoordinates(
 
     sum_chi_weights /= sum_weights;
 
-    LOG::LOGGER.STD("Effective radial distance is %.3f Mpc.\n", sum_chi_weights);
+    LOG::LOGGER.STD("Effective radial distance is %.3f Mpc/h.\n", sum_chi_weights);
+    if (p3d_model->growth_off)
+        LOG::LOGGER.STD("Note that redshift evolution is turned OFF.\n");
 
     #pragma omp parallel for num_threads(8)
     for (auto &qso : quasars)
-        qso->setComovingDistances(cosmo, sum_chi_weights);
+        qso->setComovingDistances(p3d_model.get(), sum_chi_weights);
 
     return sum_chi_weights;
 }
@@ -170,9 +280,11 @@ void _setSpectroMeanParams(
     mean_delta_r /= quasars.size();
 
     LOG::LOGGER.STD(
-        "Mean spectro window params: s=%.2f Mpc and Delta r=%.2f\n",
+        "Mean spectro window params: s=%.2f Mpc/h and Delta r=%.2f Mpc/h.\n",
         mean_sigma, mean_delta_r);
     p3d_model->setSpectroParams(mean_sigma, mean_delta_r);
+    if (p3d_model->spectro_off)
+        LOG::LOGGER.STD("Note that spectrograph correction is turned OFF.\n");
 }
 
 
@@ -254,7 +366,7 @@ void Qu3DEstimator::_readQSOFiles(
         LOG::LOGGER.STD("Removed %d quasars using TARGETID list.\n", nerased);
     }
 
-    _shiftByMedianDec(quasars);
+    _rotateToCentroid(quasars);
     effective_chi = _setCosmologicalCoordinates(quasars);
     _setSpectroMeanParams(quasars);
 
@@ -262,7 +374,13 @@ void Qu3DEstimator::_readQSOFiles(
 
     int max_qN = 0;
     #pragma omp parallel for reduction(+:num_all_pixels) reduction(max:max_qN)
-    for (const auto &qso : quasars) {
+    for (auto &qso : quasars) {
+        // Dropping pixels with ivar=0 after setting spectro parameters may
+        // help with better estimation of spectro window parameters. Also,
+        // these pixels do not contribute to the signal and may cause numerical
+        // issues in some cases.
+        if (!test_gaussian_field)
+            qso->dropIvar0Pixels();
         num_all_pixels += qso->N;
         max_qN = std::max(qso->N, max_qN);
     }
@@ -277,86 +395,106 @@ void Qu3DEstimator::_readQSOFiles(
 }
 
 
-void Qu3DEstimator::_calculateBoxDimensions(float L[3], float &z0) {
-    float lymin = 1e15, lzmin = 1e15, lymax = 0, lzmax = 0;
+void Qu3DEstimator::_calculateBoxDimensions(float L[3], float xyz0[3]) {
+    float lxmin = 1e15, lymin = 1e15, lzmin = 1e15,
+          lxmax = -1e15, lymax = -1e15, lzmax = -1e15;
 
-    #pragma omp parallel for reduction(min:lymin, lzmin) \
-                             reduction(max:lymax, lzmax)
+    #pragma omp parallel for reduction(min:lxmin, lymin, lzmin) \
+                             reduction(max:lxmax, lymax, lzmax)
     for (auto it = quasars.cbegin(); it != quasars.cend(); ++it) {
-        const CosmicQuasar *qso = it->get();
-        lzmin = std::min(lzmin, qso->r[2]);
-        lzmax = std::max(lzmax, qso->r[3 * qso->N - 1]);
+        const CosmicQuasar *qso = it->get();        
+        lxmin = std::min(lxmin, std::min(qso->r[0], qso->r[3 * qso->N - 3]));
+        lxmax = std::max(lxmax, std::max(qso->r[0], qso->r[3 * qso->N - 3]));
 
-        lymin = std::min(lymin, qso->r[1]);
-        lymax = std::max(lymax, qso->r[1]);
+        lymin = std::min(lymin, std::min(qso->r[1], qso->r[3 * qso->N - 2]));
+        lymax = std::max(lymax, std::max(qso->r[1], qso->r[3 * qso->N - 2]));
+
+        lzmin = std::min(lzmin, std::min(qso->r[2], qso->r[3 * qso->N - 1]));
+        lzmax = std::max(lzmax, std::max(qso->r[2], qso->r[3 * qso->N - 1]));
     }
 
-    L[0] = effective_chi * (specifics::MAX_RA - specifics::MIN_RA);
+    L[0] = lxmax - lxmin;
     L[1] = lymax - lymin;
     L[2] = lzmax - lzmin;
-    z0 = lzmin;
+    xyz0[0] = lxmin;
+    xyz0[1] = lymin;
+    xyz0[2] = lzmin;
 }
 
 
-void Qu3DEstimator::_setupMesh(double radius) {
-    double t1 = mytime::timer.getTime(), t2 = 0;
+void Qu3DEstimator::_setupMesh(double radius, double minboxlength) {
+    double t1 = mytime::timer.getTime(), t2 = 0, extra_l = 0;
 
-    _calculateBoxDimensions(mesh.length, mesh.z0);
+    _calculateBoxDimensions(mesh.length, mesh.xyz0);
+    LOG::LOGGER.STD(
+        "Initial box dimensions are as follows: "
+        "L = (%.0f, %.0f, %.0f) Mpc/h, XYZ0 = (%.0f, %.0f, %.0f) Mpc/h.\n",
+        mesh.length[0], mesh.length[1], mesh.length[2],
+        mesh.xyz0[0], mesh.xyz0[1], mesh.xyz0[2]);
 
     mesh.ngrid[0] = config.getInteger("NGRID_X");
     mesh.ngrid[1] = config.getInteger("NGRID_Y");
     mesh.ngrid[2] = config.getInteger("NGRID_Z");
 
-    double x0 = 0,
-           dx = mesh.length[0] / mesh.ngrid[0],
+    auto padMesh = [this](double dL, int a) {
+        mesh.length[a] += dL;
+        mesh.xyz0[a] -= dL / 2.0;
+    };
+
+    double dx = mesh.length[0] / mesh.ngrid[0],
            dy = mesh.length[1] / mesh.ngrid[1],
            dz = mesh.length[2] / mesh.ngrid[2];
 
+    #ifdef USE_SPHERICAL_DIST
+    if (true) {
+    #else
     double delta_rad = specifics::MAX_RA - specifics::MIN_RA - 2 * MY_PI;
     if (fabs(delta_rad) > (2 * MY_PI * DOUBLE_EPSILON)) {
+    #endif
         mesh.disablePeriodicityX();
-        mesh.length[0] += 10.0 * dx;
-        x0 -= 5.0 * dx;
+        padMesh(std::max(10.0 * dx, minboxlength - mesh.length[0]), 0);
     }
 
-    mesh.length[1] += 10.0 * dy;
-    mesh.length[2] += 10.0 * dz;
-    mesh.z0 -= 5.0 * dz;
+    padMesh(std::max(10.0 * dy, minboxlength - mesh.length[1]), 1);
+    padMesh(std::max(10.0 * dz, minboxlength - mesh.length[2]), 2);
+    dx = mesh.length[0] / mesh.ngrid[0];
+    dy = mesh.length[1] / mesh.ngrid[1];
 
-    double dyl = mesh.length[0] / mesh.ngrid[0] - mesh.length[1] / mesh.ngrid[1];
+    double dyl = dx - dy;
     if (dyl > 0) {
-        mesh.length[1] += dyl * mesh.ngrid[1];
+        dyl *= mesh.ngrid[1];
+        padMesh(dyl, 1);
     }
     else {
         dyl = fabs(dyl) * mesh.ngrid[0];
-        mesh.length[0] += dyl;
-        x0 -= dyl / 2.0;
+        padMesh(dyl, 0);
     }
 
     if (config.getInteger("MatchCellSizeOfZToXY") > 0) {
-        double dzl = (
-            mesh.length[0] / mesh.ngrid[0] + mesh.length[1] / mesh.ngrid[1]
-        ) / 2 - (mesh.length[2] / mesh.ngrid[2]);
+        dx = mesh.length[0] / mesh.ngrid[0];
+        dy = mesh.length[1] / mesh.ngrid[1];
+        dz = mesh.length[2] / mesh.ngrid[2];
+        double dzl = (dx + dy) / 2 - dz;
 
         if (dzl > 0) {
-            double extra_lz = dzl * mesh.ngrid[2];
+            dzl *= mesh.ngrid[2];
             LOG::LOGGER.STD(
                 "Automatically padding z axis to match cell length in x & y "
-                "directions by %.3f Mpc.\n", extra_lz);
-            mesh.length[2] += extra_lz;
-            mesh.z0 -= extra_lz / 2.0;
+                "directions by %.3f /h.\n", dzl);
+            padMesh(dzl, 2);
         }
     }
-
+    
     LOG::LOGGER.STD(
-        "Box dimensions are as follows: "
-        "LX = %.0f Mpc, LY = %.0f Mpc, LZ = %.0f Mpc, Z0: %.0f Mpc.\n",
-        mesh.length[0], mesh.length[1], mesh.length[2], mesh.z0);
+        "Final box dimensions are as follows: "
+        "L = (%.0f, %.0f, %.0f) Mpc/h, XYZ0 = (%.0f, %.0f, %.0f) Mpc/h.\n",
+        mesh.length[0], mesh.length[1], mesh.length[2],
+        mesh.xyz0[0], mesh.xyz0[1], mesh.xyz0[2]);
 
     mesh.construct(INPLACE_FFT);
 
     LOG::LOGGER.STD("Mesh cell dimensions are as follows: "
-                    "dx = %.3f Mpc, dy = %.3f Mpc, dz = %.3f Mpc.\n",
+                    "dx = (%.3f, %.3f, %.3f) Mpc/h.\n",
                     mesh.dx[0], mesh.dx[1], mesh.dx[2]);
 
     // Shift coordinates of quasars
@@ -364,9 +502,9 @@ void Qu3DEstimator::_setupMesh(double radius) {
     #pragma omp parallel for
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            qso->r[0 + 3 * i] -= x0;
-            qso->r[1 + 3 * i] += mesh.length[1] / 2;
-            qso->r[2 + 3 * i] -= mesh.z0;
+            qso->r[0 + 3 * i] -= mesh.xyz0[0];
+            qso->r[1 + 3 * i] -= mesh.xyz0[1];
+            qso->r[2 + 3 * i] -= mesh.xyz0[2];
         }
     }
 
@@ -570,7 +708,6 @@ void Qu3DEstimator::_readNeighbors(const std::string &neighbors_file) {
 
 
 void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
-    /* This function needs z1 to be 1 + z */
     double t1 = mytime::timer.getTime(), t2 = 0;
     LOG::LOGGER.STD("Calculating R_D matrices for continuum marginalization. ");
     ioh::continuumMargFileHandler = std::make_unique<ioh::ContMargFile>(
@@ -608,6 +745,13 @@ void Qu3DEstimator::_createRmatFiles(const std::string &prefix) {
     }
 
     ioh::continuumMargFileHandler->openAllReaders();
+    if (KEEP_MATRICES_IN_MEMORY) {
+        #pragma omp parallel for schedule(static, 8)
+        for (auto &qso : quasars)
+            ioh::continuumMargFileHandler->read(
+                qso->N, qso->qFile->id, qso->_rrmat.get());
+        ioh::continuumMargFileHandler->closeAllReaders();
+    }
     t2 = mytime::timer.getTime();
     LOG::LOGGER.STD("It took %.2f m.\n", t2 - t1);
 }
@@ -622,7 +766,7 @@ void Qu3DEstimator::_openResultsFile() {
     double *k_grid = raw_power.get(),
            *pfid_grid = raw_bias.get();
 
-    for (int imu = 0; imu < number_of_multipoles; ++imu) {
+    for (int imu = 0; imu < bins::NUMBER_OF_MULTIPOLES; ++imu) {
         for (int ik = 0; ik < bins::NUMBER_OF_K_BANDS; ++ik) {
             size_t i = ik + bins::NUMBER_OF_K_BANDS * imu;
             k_grid[i] = bins::KBAND_CENTERS[ik];
@@ -630,23 +774,24 @@ void Qu3DEstimator::_openResultsFile() {
         }
     }
 
-    result_file->write(k_grid, NUMBER_OF_P_BANDS, "K");
-    result_file->write(pfid_grid, NUMBER_OF_P_BANDS, "PFID");
+    result_file->write(k_grid, bins::NUMBER_OF_P_BANDS, "K");
+    result_file->write(pfid_grid, bins::NUMBER_OF_P_BANDS, "PFID");
     result_file->flush();
-    std::fill_n(k_grid, NUMBER_OF_P_BANDS, 0);
-    std::fill_n(pfid_grid, NUMBER_OF_P_BANDS, 0);
+    std::fill_n(k_grid, bins::NUMBER_OF_P_BANDS, 0);
+    std::fill_n(pfid_grid, bins::NUMBER_OF_P_BANDS, 0);
 }
 
 
 Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     config.addDefaults(qu3d_default_parameters);
-    double deg2rad = MY_PI / 180.0;
+
     specifics::MIN_RA = config.getDouble("MinimumRa") * deg2rad;
     specifics::MAX_RA = config.getDouble("MaximumRa") * deg2rad;
     specifics::MIN_DEC = config.getDouble("MinimumDec") * deg2rad;
     specifics::MAX_DEC = config.getDouble("MaximumDec") * deg2rad;
     specifics::MIN_KPERP = config.getDouble("MinimumKperp");
     specifics::MIN_KZ = std::max(0.0, config.getDouble("MinimumKlos"));
+    double minboxlength = config.getDouble("MinBoxLength");
 
     LOG::LOGGER.STD(
         "Sky cut: RA %.3f-%.3f & DEC %.3f-%.3f in radians.\n",
@@ -670,8 +815,12 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
 
     pp_enabled = config.getInteger("TurnOnPpCovariance") > 0;
     max_conj_grad_steps = config.getInteger("MaxConjGradSteps");
+    predeconvolve_cic_window = config.getInteger("DeconvolveCICWindow") > 0;
+    int use_tsc_interpolation = config.getInteger("UseTscInterpolation") > 0;
+    RINTERP_NTHREADS = config.getInteger("ReverseInterpolationThreadNum");
     max_monte_carlos = config.getInteger("MaxMonteCarlos");
     mock_grid_res_factor = config.getInteger("MockGridResolutionFactor");
+    test_gaussian_field = config.getInteger("TestGaussianField") > 0;
     pade_order = config.getInteger("PadeOrder");
     tolerance = config.getDouble("ConvergenceTolerance");
     mc_tol = tolerance;
@@ -679,6 +828,9 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     specifics::DOWNSAMPLE_FACTOR = config.getInteger("DownsampleFactor");
     radius = config.getDouble("LongScale");
     rscale_factor = config.getDouble("ScaleFactor");
+    mixture_factor_for_as = std::clamp(
+        config.getDouble("MixtureFactorForAs"), 0.0, 1.0);
+
     // if (rscale_factor > fidcosmo::ArinyoP3DModel::MAX_R_FACTOR)
     //     throw std::invalid_argument(
     //         "ScaleFactor cannot exceed "
@@ -689,8 +841,13 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     noise_bias_enabled = config.getInteger("EstimateNoiseBias") > 0;
     fisher_direct_enabled = config.getInteger("EstimateFisherDirectly") > 0;
     max_eval_enabled = config.getInteger("EstimateMaxEigenValues") > 0;
-    number_of_multipoles = config.getInteger("NumberOfMultipoles");
+    bins::NUMBER_OF_MULTIPOLES = config.getInteger("NumberOfMultipoles");
+    shrink_factor_for_sqrt = config.getDouble("ShrinkFactorForSqrt");
     CONT_MARG_ENABLED = specifics::CONT_LOGLAM_MARG_ORDER > -1;
+    KEEP_MATRICES_IN_MEMORY = config.getInteger("KeepMatricesInMemory") > 0;
+    bins::setBinningFunctions(
+        config.getInteger("PowerSpectrumBinningMethod"),
+        config.getInteger("EstimateKtoNPower"));
 
     if (CONT_MARG_ENABLED && unique_prefix.empty())
         throw std::invalid_argument("Need UniquePrefixTmp when marginalizing.");
@@ -702,14 +859,14 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     cosmo = p3d_model->getCosmoPtr();
     logCosmoDist(); logCosmoHubble(); 
 
-    NUMBER_OF_P_BANDS = bins::NUMBER_OF_K_BANDS * number_of_multipoles;
-    DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
-    bins::FISHER_SIZE = NUMBER_OF_P_BANDS * NUMBER_OF_P_BANDS;
+    bins::NUMBER_OF_P_BANDS = bins::NUMBER_OF_K_BANDS * bins::NUMBER_OF_MULTIPOLES;
+    bins::DK_BIN = bins::KBAND_CENTERS[1] - bins::KBAND_CENTERS[0];
+    bins::FISHER_SIZE = bins::NUMBER_OF_P_BANDS * bins::NUMBER_OF_P_BANDS;
 
-    raw_power = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    filt_power = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    raw_bias = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    filt_bias = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    raw_power = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    filt_power = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    raw_bias = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    filt_bias = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
     fisher = std::make_unique<double[]>(bins::FISHER_SIZE);
     covariance = std::make_unique<double[]>(bins::FISHER_SIZE);
 
@@ -721,9 +878,13 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
     LOG::LOGGER.STD("VarLSS: %.3e.\n", p3d_model->getVarLss());
     logPmodel();
 
+
     _openResultsFile();
 
-    _setupMesh(radius);
+    if (use_tsc_interpolation)
+        mesh.useTscInterpolation();
+
+    _setupMesh(radius, minboxlength);
     _constructMap();
     radius *= rscale_factor;
 
@@ -733,14 +894,16 @@ Qu3DEstimator::Qu3DEstimator(ConfigFile &configg) : config(configg) {
         else  _readNeighbors(neighbors_file);
     }
 
-    bool end_imm = (config.getInteger("TestGaussianField") > 0)
-                   && (mock_grid_res_factor > 1);
+    if (KEEP_MATRICES_IN_MEMORY)
+        for (auto &qso : quasars)
+            qso->allocRmatAndCovMatrices();
+
+    bool end_imm = (test_gaussian_field && (mock_grid_res_factor > 1));
     if (CONT_MARG_ENABLED && !end_imm)
         _createRmatFiles(unique_prefix);
-
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        qso->transformZ1toG(p3d_model.get());
+    
+    if (config.getInteger("SubtractBDDerivatives") > 0)
+        constructInterpsDerivBD();
 }
 
 void Qu3DEstimator::reverseInterpolate(RealField3D &m) {
@@ -750,7 +913,7 @@ void Qu3DEstimator::reverseInterpolate(RealField3D &m) {
     #pragma omp parallel for num_threads(RINTERP_NTHREADS)
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            m.reverseInterpolateCIC(qso->r.get() + 3 * i, qso->in[i]);
+            m.reverseInterpolate(qso->r.get() + 3 * i, qso->in[i]);
     }
 
     dt = mytime::timer.getTime() - dt;
@@ -766,8 +929,8 @@ void Qu3DEstimator::reverseInterpolateZ(RealField3D &m) {
     #pragma omp parallel for num_threads(RINTERP_NTHREADS)
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            m.reverseInterpolateCIC(
-                qso->r.get() + 3 * i, qso->in[i] * qso->z1[i]);
+            m.reverseInterpolate(
+                qso->r.get() + 3 * i, qso->in[i] * qso->growth[i]);
     }
 
     dt = mytime::timer.getTime() - dt;
@@ -783,7 +946,7 @@ void Qu3DEstimator::reverseInterpolateIsig(RealField3D &m) {
     #pragma omp parallel for num_threads(RINTERP_NTHREADS)
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            m.reverseInterpolateCIC(qso->r.get() + 3 * i, qso->in_isig[i]);
+            m.reverseInterpolate(qso->r.get() + 3 * i, qso->in_isig[i]);
     }
 
     dt = mytime::timer.getTime() - dt;
@@ -796,7 +959,7 @@ void Qu3DEstimator::multMeshComp() {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
     reverseInterpolateIsig(mesh);
-    mesh.convolvePk(p3d_model->interp2d_pL);
+    mesh.convolvePk(p3d_model->interp2d_pL, predeconvolve_cic_window);
 
     double dt = mytime::timer.getTime();
     // Interpolate and Weight by isig
@@ -813,12 +976,12 @@ void Qu3DEstimator::multMeshComp() {
 }
 
 
-void Qu3DEstimator::multParticleComp() {
+void Qu3DEstimator::multParticleComp(bool neighbors_only) {
     double t1 = mytime::timer.getTime(), dt = 0;
 
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
-        qso->multCovNeighbors(p3d_model.get(), effective_chi);
+        qso->multCovNeighbors(p3d_model.get(), effective_chi, !neighbors_only);
 
     dt = mytime::timer.getTime() - t1;
     ++timings["PPcomp"].first;
@@ -866,7 +1029,7 @@ void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
         multParticleComp();
 
     // Evolve out with redshift growth
-    // Multiply out with isig (These are saved to z1)
+    // Multiply out with isig (These are saved to in_isig)
     // Multiply out with marg. matrix if enabled
     // Add I.y to out
     if (CONT_MARG_ENABLED) {
@@ -875,9 +1038,9 @@ void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
-                qso->out[i] *= qso->isig[i] * qso->z1[i];
+                qso->out[i] *= qso->isig[i] * qso->growth[i];
 
-            qso->multInputWithMarg(qso->out);
+            qso->multInputWithMarg(qso->out);  // output is in_isig
             std::swap(qso->out, qso->in_isig);
 
             #pragma omp simd
@@ -892,7 +1055,7 @@ void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
         #pragma omp parallel for
         for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i) {
-                qso->out[i] *= qso->isig[i] * qso->z1[i];
+                qso->out[i] *= qso->isig[i] * qso->growth[i];
                 qso->out[i] += qso->in[i];
             }
         }
@@ -904,18 +1067,22 @@ void Qu3DEstimator::multiplyCovVector(bool mesh_enabled) {
 }
 
 
-double Qu3DEstimator::updateY(double residual_norm2) {
+double Qu3DEstimator::updateY(double residual_norm2, bool check_curvature) {
     double t1 = mytime::timer.getTime(), t2 = 0;
 
-    double pTCp = 0, alpha = 0, new_residual_norm = 0;
+    double pTCp = 0, norm_p = 0, norm_Cp = 0,
+           alpha = 0, new_residual_norm = 0;
 
     /* Multiply C x search into Cy => C. p(in) = out*/
     updateYMatrixVectorFunction();
 
     // Get pT . C . p
-    #pragma omp parallel for reduction(+:pTCp)
-    for (const auto &qso : quasars)
-        pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+    #pragma omp parallel for reduction(+:pTCp, norm_p, norm_Cp)
+    for (const auto &qso : quasars) {
+        norm_p += myQsoDot(qso, in, in);
+        norm_Cp += myQsoDot(qso, out, out);
+        pTCp += myQsoDot(qso, in, out);
+    }
 
     if (pTCp <= 0) {
         LOG::LOGGER.ERR("Negative pTCp = %.9e (All), ", pTCp);
@@ -927,9 +1094,9 @@ double Qu3DEstimator::updateY(double residual_norm2) {
         #pragma omp parallel for reduction(+:pTCp, alpha)
         for (auto &qso : quasars) {
             for (int i = 0; i < qso->N; ++i)
-                qso->out[i] *= qso->isig[i] * qso->z1[i];
-            pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
-            alpha += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+                qso->out[i] *= qso->isig[i] * qso->growth[i];
+            pTCp += myQsoDot(qso, in, out);
+            alpha += myQsoDot(qso, in, in);
         }
 
         LOG::LOGGER.ERR("pTp = %.9e, pTS_Lp = %.9e, ", alpha, pTCp);
@@ -939,13 +1106,17 @@ double Qu3DEstimator::updateY(double residual_norm2) {
             std::fill_n(qso->out, qso->N, 0);
             qso->multCovNeighbors(p3d_model.get(), effective_chi);
             for (int i = 0; i < qso->N; ++i)
-                qso->out[i] *= qso->isig[i] * qso->z1[i];
-            pTCp += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+                qso->out[i] *= qso->isig[i] * qso->growth[i];
+            pTCp += myQsoDot(qso, in, out);
         }
 
         LOG::LOGGER.ERR("pTS_Sp = %.9e.\n", pTCp);
         return 0;
     }
+
+    // Zero Curvature check
+    norm_p = 1e-14 * sqrt(norm_p * norm_Cp);
+    if (check_curvature && (pTCp < norm_p))  return -1.0;
 
     alpha = residual_norm2 / pTCp;
 
@@ -957,8 +1128,7 @@ double Qu3DEstimator::updateY(double residual_norm2) {
         cblas_daxpy(qso->N, alpha, qso->in, 1, qso->y.get(), 1);
         cblas_daxpy(qso->N, -alpha, qso->out, 1, qso->residual.get(), 1);
 
-        new_residual_norm += cblas_ddot(
-            qso->N, qso->residual.get(), 1, qso->residual.get(), 1);
+        new_residual_norm += myQsoDot(qso, residual.get(), residual.get());
     }
 
     t2 = mytime::timer.getTime() - t1;
@@ -966,6 +1136,81 @@ double Qu3DEstimator::updateY(double residual_norm2) {
         LOG::LOGGER.STD("    updateY took %.2f s.\n", 60.0 * t2);
 
     return sqrt(new_residual_norm);
+}
+
+
+bool Qu3DEstimator::calculateExactResidual(
+        double &true_residual_norm, double threshold
+) {
+    if (verbose)  LOG::LOGGER.STD("    Exact calculation of residuals. ");
+    bool init_verbose = verbose;
+    verbose = false;
+
+    for (auto &qso : quasars)
+        qso->in = qso->y.get();
+
+    updateYMatrixVectorFunction();
+
+    true_residual_norm = 0;
+    double drift_norm = 0;
+
+    #pragma omp parallel for reduction(+:true_residual_norm, drift_norm)
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i) {
+            double r = qso->truth[i] - qso->out[i];
+            qso->out[i] = qso->residual[i] - r;
+            qso->residual[i] = r;
+        }
+
+        true_residual_norm += myQsoDot(qso, residual.get(), residual.get());
+        drift_norm += myQsoDot(qso, out, out);
+        qso->in = qso->search.get();
+    }
+    true_residual_norm = sqrt(true_residual_norm);
+    drift_norm = sqrt(drift_norm) / true_residual_norm;
+    bool restart = drift_norm > threshold;
+
+    verbose = init_verbose;
+
+    if (verbose)
+        LOG::LOGGER.STD("Drift: %.2e. %s\n", drift_norm,
+            restart ? "RESTARTING!!!" : "Continuing...");
+
+    return restart;
+}
+
+
+std::function<
+    void(std::unique_ptr<CosmicQuasar> &qso, const double *in, double *o)
+> Qu3DEstimator::getPreconditioner(bool small_scale, double mp, double s) {
+    std::function<void(
+        std::unique_ptr<CosmicQuasar> &qso, const double *in, double *o
+    )> preconditioner;
+
+    if (KEEP_MATRICES_IN_MEMORY) {
+        #pragma omp parallel for schedule(static, 8)
+        for (auto &qso : quasars)
+            qso->cacheCholeskyCov(p3d_model.get(), CONT_MARG_ENABLED,
+                                  small_scale, mp, s);
+
+        preconditioner = [](
+                std::unique_ptr<CosmicQuasar> &qso,
+                const double *input, double *output
+        ) {
+            qso->solveCachedCholesky(input, output);
+        };
+    }
+    else {
+        fidcosmo::ArinyoP3DModel *p = p3d_model.get();
+        preconditioner = [p, small_scale, mp, s](
+                std::unique_ptr<CosmicQuasar> &qso,
+                const double *input, double *output
+        ) {
+            qso->multInvCov(p, input, output, small_scale, mp, s);
+        };
+    }
+
+    return preconditioner;
 }
 
 
@@ -977,9 +1222,10 @@ void Qu3DEstimator::preconditionerSolution() {
         #pragma omp parallel for schedule(static, 8)
         for (auto &qso : quasars) {
             double *rrmat = qso->multInputWithMarg(qso->truth);
-            qso->multInvCov(p3d_model.get(), qso->in_isig, qso->truth, pp_enabled);
+            qso->multInvCov(p3d_model.get(), qso->in_isig, qso->search.get());
             cblas_dsymv(CblasRowMajor, CblasUpper, qso->N, 1.0,
-                        rrmat, qso->N, qso->truth, 1, 0, qso->in, 1);
+                        rrmat, qso->N, qso->search.get(), 1,
+                        0, qso->in, 1);
             qso->multIsigInVector();
         }
         ioh::continuumMargFileHandler->rewind();
@@ -989,7 +1235,7 @@ void Qu3DEstimator::preconditionerSolution() {
     else {
         #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars) {
-            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
+            qso->multInvCov(p3d_model.get(), qso->truth, qso->in);
             qso->multIsigInVector();
         }
     }
@@ -1011,16 +1257,34 @@ void Qu3DEstimator::conjugateGradientDescent() {
 
     double dt = mytime::timer.getTime();
     int niter = 1;
+    bool restart = false;
 
     double init_residual_norm = 0, old_residual_prec = 0,
-           new_residual_norm = 0;
+           new_residual_norm = 0, truth_norm = 0;
 
     std::vector<double> conv_vec;
     conv_vec.reserve(max_conj_grad_steps + 1);
     updateYMatrixVectorFunction = [this]() { this->multiplyCovVector(); };
 
+    auto calculateDescentRate = [&conv_vec](int window=10) {
+        if (conv_vec.size() < 2) return 0.0;
+
+        size_t i0 = (conv_vec.size() > window) ? conv_vec.size() - window : 1;
+
+        double sum = 0.0, weights = 0.0;
+        for (size_t i = i0; i < conv_vec.size(); ++i) {
+            if (conv_vec[i] < 0)  continue;
+            double w = (i - i0 + 1.0);
+            sum += exp(-log(conv_vec[i]) / i) * w;
+            weights += w;
+        }
+        return sum / weights;
+    };
+
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientDescent.\n");
+    
+    auto preconditioner = getPreconditioner();
 
     if (CONT_MARG_ENABLED) {
         /* Marginalize. Then, initial guess */
@@ -1028,7 +1292,7 @@ void Qu3DEstimator::conjugateGradientDescent() {
         for (auto &qso : quasars) {
             qso->multInputWithMarg(qso->truth);
             std::swap(qso->truth, qso->in_isig);
-            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
+            preconditioner(qso, qso->truth, qso->in);
         }
         ioh::continuumMargFileHandler->rewind();
         ++timings["Marg"].first;
@@ -1038,12 +1302,12 @@ void Qu3DEstimator::conjugateGradientDescent() {
         /* Initial guess */
         #pragma omp parallel for schedule(dynamic, 8)
         for (auto &qso : quasars)
-            qso->multInvCov(p3d_model.get(), qso->truth, qso->in, pp_enabled);
+            preconditioner(qso, qso->truth, qso->in);
     }
 
     multiplyCovVector();
 
-    #pragma omp parallel for reduction(+:init_residual_norm, old_residual_prec)
+    #pragma omp parallel for reduction(+:init_residual_norm, old_residual_prec, truth_norm)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
             qso->residual[i] = qso->truth[i] - qso->out[i];
@@ -1052,26 +1316,36 @@ void Qu3DEstimator::conjugateGradientDescent() {
         qso->in = qso->search.get();
 
         // set search = InvCov . residual
-        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in,
-                        pp_enabled);
+        preconditioner(qso, qso->residual.get(), qso->in);
 
-        init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                         qso->residual.get(), 1);
-        old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                        qso->in, 1);
+        init_residual_norm += myQsoDot(qso, residual.get(), residual.get());
+        old_residual_prec += myQsoDot(qso, residual.get(), in);
+        truth_norm += myQsoDot(qso, truth, truth);
     }
 
     init_residual_norm = sqrt(init_residual_norm);
+    truth_norm = std::max(sqrt(truth_norm), init_residual_norm);
     conv_vec.push_back(init_residual_norm);
-    if (hasConverged(init_residual_norm, tolerance))
+    if (absolute_tolerance) truth_norm = 1;
+
+    if (hasConverged(init_residual_norm, truth_norm, tolerance))
         goto endconjugateGradientDescent;
 
-    if (absolute_tolerance) init_residual_norm = 1;
-
     for (; niter <= max_conj_grad_steps; ++niter) {
-        new_residual_norm = updateY(old_residual_prec) / init_residual_norm;
-        conv_vec.push_back(new_residual_norm);
-        bool end_iter = hasConverged(new_residual_norm, tolerance);
+        restart = false;
+        new_residual_norm = updateY(old_residual_prec);
+        restart = new_residual_norm == -1;
+
+        if (restart && verbose)
+            LOG::LOGGER.STD("    WARNING: Flat curvature. Restarting.\n");
+
+        if (niter % 100 == 0)
+            restart |= calculateExactResidual(new_residual_norm);
+
+        conv_vec.push_back(new_residual_norm / truth_norm);
+        double descent_rate = calculateDescentRate();
+        bool end_iter = hasConverged(
+            new_residual_norm, truth_norm, tolerance, descent_rate);
 
         if (end_iter)
             goto endconjugateGradientDescent;
@@ -1081,13 +1355,11 @@ void Qu3DEstimator::conjugateGradientDescent() {
         #pragma omp parallel for reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = InvCov . residual
-            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out,
-                            pp_enabled);
-            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                            qso->out, 1);
+            preconditioner(qso, qso->residual.get(), qso->out);
+            new_residual_prec += myQsoDot(qso, residual.get(), out);
         }
 
-        double beta = new_residual_prec / old_residual_prec;
+        double beta = restart ? 0 : new_residual_prec / old_residual_prec;
         old_residual_prec = new_residual_prec;
 
         // New direction using preconditioned z = InvCov . residual
@@ -1143,13 +1415,8 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
     double t1 = mytime::timer.getTime();
     int imu = i / bins::NUMBER_OF_K_BANDS, ik = i % bins::NUMBER_OF_K_BANDS;
-
-    double kmin = std::max(bins::KBAND_CENTERS[ik] - DK_BIN,
-                           bins::KBAND_EDGES[0]),
-           kmax = std::min(bins::KBAND_CENTERS[ik] + DK_BIN,
-                           bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]);
-    bool is_last_k_bin = ik == (bins::NUMBER_OF_K_BANDS - 1),
-         is_first_k_bin = ik == 0;
+    double kmin, kmax;
+    bins::getKBinMinMax(ik, kmin, kmax);
 
     std::function<double(double)> legendre_w;
     switch (imu) {
@@ -1176,24 +1443,22 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
         kperp *= kperp;
         for (size_t jz = mesh_kz_min; jz < mesh_kz_max; ++jz) {
-            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
-                   alpha, mu;
+            if (jz == 0 && jxy == 0)
+                continue;
+
+            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp);
 
             if (kt < kmin)  continue;
             else if (kt >= kmax)  break;
-            if (kt != 0)  mu = kz / kt;
-            else          mu = 0.0;
 
-            if (is_last_k_bin && (kt > bins::KBAND_CENTERS[ik]))
-                alpha = 1.0;
-            else if (is_first_k_bin && (kt < bins::KBAND_CENTERS[0]))
-                alpha = 1.0;
-            else
-                alpha = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
+            double mu = kz / kt,
+                   alpha = bins::getBinWeight(ik, kt) * legendre_w(mu);
+            /* These are handled before in estimateFisherDirect
+                     * mesh.invtotalvol
+                     * p3d_model->getSpectroWindow2(kz)
+                     * mesh.iasgn_window_xy2[jxy]
+                     * mesh.iasgn_window_z2[jz]; */
 
-            alpha *= legendre_w(mu) * mesh.invtotalvol
-                     * p3d_model->getSpectroWindow2(kz);
-            // multDerivMatrixVec does not need deconvolution
             #ifdef RL_COMP_DERIV
             kt *= radius / rscale_factor;
             alpha *= exp(-kt * kt);
@@ -1204,9 +1469,19 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
     mesh.rawFftK2X();
 
-    #pragma omp parallel for
-    for (auto &qso : quasars)
-        qso->interpMesh2TruthIsig(mesh);
+    if (!interps1d_deriv_bd.empty()) {
+        auto interp = interps1d_deriv_bd[i].get();
+
+        // Will need the input +- 1 x growth here which is in residual
+        #pragma omp parallel for schedule(dynamic, 4)
+        for (auto &qso : quasars)
+            qso->subtractDerivBDFromTruthIsig(mesh, interp);
+    }
+    else {
+        #pragma omp parallel for schedule(dynamic, 4)
+        for (auto &qso : quasars)
+            qso->interpMesh2TruthIsig(mesh);
+    }
 
     ++timings["mDerivMatVec"].first;
     timings["mDerivMatVec"].second += mytime::timer.getTime() - t1;
@@ -1214,7 +1489,7 @@ void Qu3DEstimator::multDerivMatrixVec(int i) {
 
 
 void Qu3DEstimator::multiplyDerivVectors(
-        double *o1, double *o2, double *lout, const RealField3D &other
+        double *o1, double *o2, double *lout, const RealField3D *other
 ) {
     /* Adds current results into o1 (+=). If o2 is nullptr, the operations is
        directly performed on o1. Otherwise, current results first saved into
@@ -1226,7 +1501,14 @@ void Qu3DEstimator::multiplyDerivVectors(
     mesh_kz_max = std::min(
         size_t(ceil(KMAX_EDGE / mesh.k_fund[2])), mesh.ngrid_kz),
     mesh_kz_min = ceil(specifics::MIN_KZ / mesh.k_fund[2]);
-    static auto _lout = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    static auto _lout = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    static auto _spectroWindow2 = [this]() {
+        auto ptr = std::make_unique<double[]>(mesh.ngrid_kz);
+        for (size_t i = 0; i < mesh.ngrid_kz; ++i) {
+            ptr[i] = p3d_model->getSpectroWindow2(i * mesh.k_fund[2]);
+        }
+        return ptr;
+    }();
 
     double dt = mytime::timer.getTime();
 
@@ -1237,74 +1519,44 @@ void Qu3DEstimator::multiplyDerivVectors(
     if (lout == nullptr)
         lout = (o2 == nullptr) ? o1 : _lout.get();
 
-    std::fill_n(lout, NUMBER_OF_P_BANDS, 0);
+    std::fill_n(lout, bins::NUMBER_OF_P_BANDS, 0);
 
-    std::function<double(size_t)> my_norm;
-    if (&other == &mesh) {
-        my_norm = [this](size_t jj) { return std::norm(mesh.field_k[jj]); };
-    }
-    else {
-        my_norm = [this, &other](size_t jj) {
-            return mesh.field_k[jj].real() * other.field_k[jj].real()
-               + mesh.field_k[jj].imag() * other.field_k[jj].imag();
-        };
-    }
+    std::function<double(size_t, size_t)> my_norm = RealField3D::getNormFunc(
+        &mesh, other, predeconvolve_cic_window);
 
-    #pragma omp parallel for reduction(+:lout[0:NUMBER_OF_P_BANDS]) \
-                             schedule(dynamic, 4)
+    const int nmax = bins::NUMBER_OF_P_BANDS;
+    #pragma omp parallel for reduction(+:lout[:nmax]) schedule(dynamic, 4)
     for (size_t jxy = 0; jxy < mesh.ngrid_xy; ++jxy) {
-        double kx, ky, temp, temp2, temp3;
+        double kx, ky;
         double kperp = mesh.getKperpFromIperp(jxy, kx, ky);
-        int ik, ik2;
 
-        if (fabs(kx) < specifics::MIN_KPERP || fabs(ky) < specifics::MIN_KPERP)
+        if ((fabs(kx) < specifics::MIN_KPERP) || (fabs(ky) < specifics::MIN_KPERP))
             continue;
         if (kperp >= KMAX_EDGE)
             continue;
 
-        size_t jj = mesh.ngrid_kz * jxy;
         kperp *= kperp;
-        for (size_t k = mesh_kz_min; k < mesh_kz_max; ++k) {
-            double kz = k * mesh.k_fund[2], kt = sqrt(kz * kz + kperp),
-                   mu;
+        for (size_t jz = mesh_kz_min; jz < mesh_kz_max; ++jz) {
+            if ((jz == 0) && (jxy == 0))
+                continue;
+
+            double kz = jz * mesh.k_fund[2], kt = sqrt(kz * kz + kperp), mu;
             if (kt < bins::KBAND_EDGES[0])  continue;
             if (kt >= KMAX_EDGE)  break;
-            if (kt != 0)  mu = kz / kt;
-            else          mu = 0.0;
 
-            ik = (kt - bins::KBAND_EDGES[0]) / DK_BIN;
-
-            if (kt > bins::KBAND_CENTERS[ik])
-                ik2 = std::min(bins::NUMBER_OF_K_BANDS - 1, ik + 1);
-            else
-                ik2 = std::max(0, ik - 1);
-
-            temp = (1.0 + (k != 0)) * my_norm(k + jj)
-                   * p3d_model->getSpectroWindow2(kz);
-            temp2 = (1.0 - fabs(kt - bins::KBAND_CENTERS[ik]) / DK_BIN);
-            #ifdef DECONV_CIC_WINDOW
-            temp *= mesh.iasgn_window_xy[jxy] * mesh.iasgn_window_z[k];
-            #endif
-            #ifdef RL_COMP_DERIV
-            kt *= radius / rscale_factor;
-            temp *= exp(-kt * kt);
-            #endif
-
-            temp3 = temp * (1.0 - temp2);
-            temp *= temp2;
-
-            for (int ell = 0; ell < number_of_multipoles; ++ell) {
-                temp2 = legendre(2 * ell, mu);
-                lout[ik + ell * bins::NUMBER_OF_K_BANDS] += temp2 * temp;
-                lout[ik2 + ell * bins::NUMBER_OF_K_BANDS] += temp2 * temp3;
-            }
+            mu = kz / kt;
+            double val = (1.0 + (jz != 0)) * my_norm(jxy, jz) * _spectroWindow2[jz];
+            bins::pellBinningFunction(val, kt, mu, lout);
         }
     }
 
-    cblas_dscal(NUMBER_OF_P_BANDS, mesh.invtotalvol, lout, 1);
+    cblas_dscal(bins::NUMBER_OF_P_BANDS, mesh.invtotalvol, lout, 1);
+
+    if (!interps1d_deriv_bd.empty())
+        subtractDerivBD(lout);
 
     if (o2 != nullptr) {
-        for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
+        for (int i = 0; i < bins::NUMBER_OF_P_BANDS; ++i) {
             o1[i] += lout[i];
             o2[i] += lout[i] * lout[i];
         }
@@ -1313,6 +1565,33 @@ void Qu3DEstimator::multiplyDerivVectors(
     dt = mytime::timer.getTime() - dt;
     ++timings["mDeriv"].first;
     timings["mDeriv"].second += dt;
+}
+
+
+void Qu3DEstimator::subtractDerivBD(double *mesh_estimate) {
+    static auto _lout = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    double dt = mytime::timer.getTime();
+    double *lout = _lout.get();
+    std::fill_n(lout, bins::NUMBER_OF_P_BANDS, 0);
+
+    const int nmax = bins::NUMBER_OF_P_BANDS;
+    #pragma omp parallel for reduction(+:lout[:nmax]) schedule(dynamic, 4)
+    for (auto &qso : quasars) {
+        for (int i = 0; i < qso->N; ++i)
+            qso->in_isig[i] = qso->in[i] * qso->growth[i];
+
+        for (int i = 0; i < bins::NUMBER_OF_P_BANDS; ++i) {
+            auto interp = interps1d_deriv_bd[i].get();
+            lout[i] += qso->multDerivativeBD(interp);
+        }
+    }
+
+    for (int i = 0; i < bins::NUMBER_OF_P_BANDS; ++i)
+        mesh_estimate[i] -= lout[i];
+
+    dt = mytime::timer.getTime() - dt;
+    ++timings["mDerivBD"].first;
+    timings["mDerivBD"].second += dt;
 }
 
 
@@ -1325,7 +1604,7 @@ void Qu3DEstimator::estimatePower() {
     /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
     multiplyDerivVectors(raw_power.get(), nullptr);
 
-    result_file->write(raw_power.get(), NUMBER_OF_P_BANDS, "FPOWER");
+    result_file->write(raw_power.get(), bins::NUMBER_OF_P_BANDS, "FPOWER");
     result_file->flush();
     logTimings();
 }
@@ -1336,16 +1615,16 @@ void Qu3DEstimator::filter() {
         return;
 
     std::copy_n(fisher.get(), bins::FISHER_SIZE, covariance.get());
-    mxhelp::LAPACKE_InvertMatrixLU(covariance.get(), NUMBER_OF_P_BANDS);
+    mxhelp::LAPACKE_InvertMatrixLU(covariance.get(), bins::NUMBER_OF_P_BANDS);
     cblas_dgemv(
-        CblasRowMajor, CblasNoTrans, NUMBER_OF_P_BANDS, NUMBER_OF_P_BANDS,
-        0.5, covariance.get(), NUMBER_OF_P_BANDS,
+        CblasRowMajor, CblasNoTrans, bins::NUMBER_OF_P_BANDS, bins::NUMBER_OF_P_BANDS,
+        0.5, covariance.get(), bins::NUMBER_OF_P_BANDS,
         raw_power.get(), 1,
         0, filt_power.get(), 1);
 
     cblas_dgemv(
-        CblasRowMajor, CblasNoTrans, NUMBER_OF_P_BANDS, NUMBER_OF_P_BANDS,
-        0.5, covariance.get(), NUMBER_OF_P_BANDS,
+        CblasRowMajor, CblasNoTrans, bins::NUMBER_OF_P_BANDS, bins::NUMBER_OF_P_BANDS,
+        0.5, covariance.get(), bins::NUMBER_OF_P_BANDS,
         raw_bias.get(), 1,
         0, filt_bias.get(), 1);
 }
@@ -1373,12 +1652,12 @@ void Qu3DEstimator::write() {
         "# File Template\n# Nk\n"
         "# kperp | kz | P3D | e_P3D | Pfid | d | b | Fd | Fb\n"
         "# Nk     : Number of k bins\n"
-        "# k      : k bin [Mpc^-1]\n"
+        "# k      : k bin [h Mpc^-1]\n"
         "# l      : Multipole\n"
-        "# P3D    : Estimated P3D [Mpc^3]\n"
-        "# e_P3D  : Gaussian error in estimated P3D [Mpc^3]\n"
-        "# d      : Power estimate before noise (b) subtracted [Mpc^3]\n"
-        "# b      : Noise estimate [Mpc^3]\n"
+        "# P3D    : Estimated P3D [h^-3 Mpc^3]\n"
+        "# e_P3D  : Gaussian error in estimated P3D [h^-3 Mpc^3]\n"
+        "# d      : Power estimate before noise (b) subtracted [h^-3 Mpc^3]\n"
+        "# b      : Noise estimate [h^-3 Mpc^3]\n"
         "# Fd     : d before Fisher\n"
         "# Fb     : b before Fisher\n"
         "# -----------------------------------------------------------------\n"
@@ -1396,13 +1675,13 @@ void Qu3DEstimator::write() {
         "%14s %s %14s %14s %14s %14s %14s %14s\n", 
         "k", "l", "P3D", "e_P3D", "d", "b", "Fd", "Fb");
 
-    for (int imu = 0; imu < number_of_multipoles; ++imu) {
+    for (int imu = 0; imu < bins::NUMBER_OF_MULTIPOLES; ++imu) {
         for (int ik = 0; ik < bins::NUMBER_OF_K_BANDS; ++ik) {
             size_t i = ik + bins::NUMBER_OF_K_BANDS * imu;
             int l = 2 * imu;
             double k = bins::KBAND_CENTERS[ik],
                    P3D = filt_power[i] - filt_bias[i],
-                   e_P3D = sqrt(covariance[i * (NUMBER_OF_P_BANDS + 1)]),
+                   e_P3D = sqrt(covariance[i * (bins::NUMBER_OF_P_BANDS + 1)]),
                    d = filt_power[i],
                    b = filt_bias[i],
                    Fd = raw_power[i],
@@ -1419,7 +1698,7 @@ void Qu3DEstimator::write() {
     fname = _getFname("_fisher");
     mxhelp::fprintfMatrix(
         fname.c_str(), fisher.get(),
-        NUMBER_OF_P_BANDS, NUMBER_OF_P_BANDS);
+        bins::NUMBER_OF_P_BANDS, bins::NUMBER_OF_P_BANDS);
 
     LOG::LOGGER.STD("Fisher matrix saved as %s.\n", fname.c_str());
 }

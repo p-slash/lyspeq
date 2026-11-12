@@ -11,13 +11,56 @@
 #include "qu3d/cosmic_quasar.hpp"
 #include "qu3d/qu3d_file.hpp"
 
+/**
+ * Default configuration parameters for Qu3DEstimator.
+ *
+ * Parameters:
+ *   NGRID_X, NGRID_Y, NGRID_Z: Number of mesh grid points in X, Y, Z axes.
+ *   MatchCellSizeOfZToXY: If >0, pad Z axis to match cell size of X/Y.
+ *   UseTscInterpolation: If >0, use TSC interpolation.
+ *   DeconvolveCICWindow: If >0, deconvolve CIC or TSC kernels.
+ *   TurnOnPpCovariance: Enable particle-particle covariance if >0.
+ *   NumberOfMultipoles: Number of multipole moments to estimate.
+ *   MaxConjGradSteps: Maximum conjugate gradient steps.
+ *   MaxMonteCarlos: Maximum Monte Carlo iterations.
+ *   MinimumRa, MaximumRa: RA range (degrees).
+ *   MinimumDec, MaximumDec: DEC range (degrees).
+ *   MinBoxLength: Minimum mesh box length.
+ *   MinimumKperp, MinimumKlos: Minimum k values for estimation.
+ *   ConvergenceTolerance: CG convergence threshold.
+ *   AbsoluteTolerance: Use absolute tolerance if >0.
+ *   LongScale: Exponential scale for long range correlations (Mpc/h).
+ *   ScaleFactor: Radius scaling factor for including neighbors: Inclusion radius = LongScale * ScaleFactor.
+ *   DownsampleFactor: Downsampling factor for spectra.
+ *   TestGaussianField: If >0, use mock Gaussian field.
+ *   MockGridResolutionFactor: Resolution factor for mock grid.
+ *   EstimateTotalBias, EstimateTotalBiasDirectly: Enable bias estimation.
+ *   EstimateNoiseBias: Enable noise bias estimation.
+ *   EstimateFisherDirectly: Enable direct Fisher estimation.
+ *   EstimateMaxEigenValues: Enable max eigenvalue estimation.
+ *   TestSymmetry: Perform symmetry test.
+ *   Seed: Random seed for reproducibility.
+ *   PadeOrder: Order for Pade approximation.
+ *   ShrinkFactorForSqrt: Shrink factor for sqrt operations.
+ *      * 0 uses max diagonal of A.
+ *      * -1 uses max eigenvalue of A.
+ *      * -2 uses geometric mean of min/max eigenvalues of A.
+ *      * -3 uses Frobenius norm of A.
+ *      * >0 uses that value.
+ *   TestHsqrt: Perform Hsqrt test.
+ *   UniquePrefixTmp: Unique prefix for temporary files.
+ *   NeighborsCache: Path to neighbors cache file.
+ *   ReverseInterpolationThreadNum: Number of threads for reverse interpolation.
+ *   PowerSpectrumBinningMethod: (int) 0: Tophat, 1: Triangular
+ */
 const config_map qu3d_default_parameters ({
     {"NGRID_X", "1024"}, {"NGRID_Y", "256"}, {"NGRID_Z", "64"},
-    {"MatchCellSizeOfZToXY", "-1"},
+    {"MatchCellSizeOfZToXY", "-1"}, {"UseTscInterpolation", "-1"},
     {"TurnOnPpCovariance", "-1"}, {"NumberOfMultipoles", "4"},
+    {"SubtractBDDerivatives", "-1"},
     {"MaxConjGradSteps", "5"}, {"MaxMonteCarlos", "100"},
     {"MinimumRa", "0.0"}, {"MaximumRa", "360.0"},
-    {"MinimumDec", "-90.0"}, {"MaximumDec", "90.0"},
+    {"MinimumDec", "-90.0"}, {"MaximumDec", "90.0"}, {"MinBoxLength", "0"},
     {"MinimumKperp", "0"}, {"MinimumKlos", "0"},
     {"ConvergenceTolerance", "1e-6"}, {"AbsoluteTolerance", "-1"},
     {"LongScale", "50"}, {"ScaleFactor", "4"},
@@ -26,8 +69,11 @@ const config_map qu3d_default_parameters ({
     {"EstimateTotalBias", "1"}, {"EstimateTotalBiasDirectly", "1"},
     {"EstimateNoiseBias", "1"}, {"EstimateFisherDirectly", "-1"},
     {"EstimateMaxEigenValues", "-1"}, {"TestSymmetry", "-1"}, {"Seed", "6722"},
-    {"PadeOrder", "4"},
-    {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""}
+    {"PadeOrder", "4"}, {"ShrinkFactorForSqrt", "0.0"},
+    {"TestHsqrt", "-1"}, {"UniquePrefixTmp", ""}, {"NeighborsCache", ""},
+    {"DeconvolveCICWindow", "-1"}, {"MixtureFactorForAs", "1.0"},
+    {"ReverseInterpolationThreadNum", "3"}, {"KeepMatricesInMemory", "0"},
+    {"PowerSpectrumBinningMethod", "1"}, {"EstimateKtoNPower", "2"}
 });
 
 
@@ -35,10 +81,10 @@ class Qu3DEstimator
 {
     ConfigFile &config;
 
-    bool pp_enabled, absolute_tolerance;
-    int max_conj_grad_steps, max_monte_carlos, number_of_multipoles,
-        pade_order;
+    bool pp_enabled, absolute_tolerance, predeconvolve_cic_window;
+    int max_conj_grad_steps, max_monte_carlos, pade_order;
     double tolerance, mc_tol, radius, rscale_factor, effective_chi;
+    double shrink_factor_for_sqrt, mixture_factor_for_as;
     size_t num_all_pixels;
 
     std::function<void()> updateYMatrixVectorFunction;
@@ -49,6 +95,9 @@ class Qu3DEstimator
 
     std::vector<MyRNG> rngs;
     RealField3D mesh, mesh_rnd, mesh_fh;
+    std::vector<
+        std::unique_ptr<DiscreteCubicInterpolation1D>
+    > interps1d_deriv_bd;
 
     std::unique_ptr<double[]>
         mc1, mc2, mesh_z1_values,
@@ -69,8 +118,8 @@ class Qu3DEstimator
     void _readQSOFiles(const std::string &flist, const std::string &findir);
     void _openResultsFile();
 
-    void _calculateBoxDimensions(float L[3], float &z0);
-    void _setupMesh(double radius);
+    void _calculateBoxDimensions(float L[3], float xyz0[3]);
+    void _setupMesh(double radius, double minboxlength);
     void _constructMap();
     void _findNeighbors();
     void _saveNeighbors();
@@ -80,10 +129,19 @@ class Qu3DEstimator
     bool _syncMonteCarlo(int nmc, double *o1, double *o2,
                          int ndata, const std::string &ext);
 
+    /* Block-diagonal preconditioner. This returns a function that should be
+    used as follows (schematically)
+        #pragma omp parallel for
+        for (auto &qso : quasars)
+            preconditioner(qso, qso->(input), qso->(output));
+    */
+    std::function<
+        void(std::unique_ptr<CosmicQuasar> &qso, const double *in, double *o)
+    > getPreconditioner(bool small_scale=false, double mp=0, double s=1);
 public:
     int mock_grid_res_factor;
     bool total_bias_enabled, total_bias_direct_enabled, noise_bias_enabled,
-         fisher_direct_enabled, max_eval_enabled;
+         fisher_direct_enabled, max_eval_enabled, test_gaussian_field;
 
     /* This function reads following keys from config file:
     FileNameList: string
@@ -99,7 +157,7 @@ public:
     double findMaxDiagonalAs();
     void conjugateGradientIpH(double m, double s=1.0);
     void multiplyCovSmallSqrt();
-    void multiplyCovSmallSqrtPade(int pade_order);
+    void multiplyCovSmallSqrtPade();
     void replaceDeltasWithGaussianField();
     void replaceDeltasWithHighResGaussianField();
     void estimateNoiseBiasMc();
@@ -113,8 +171,9 @@ public:
     void multiplyAsVector(double m=0, double s=1.0);
     void multiplyNewtonSchulzY(int n, double s);
     void multiplyNewtonSchulzZ(int n, double s);
-    double estimateMaxEvalAs(double m=0);
+    double estimateMaxEvalAs(double m=0, bool return_geometric_mean=false);
     void multiplyCovSmallSqrtNewtonSchulz(int order);
+    double estimateMaxEvalFnc(std::function<void()> &fnc, double subtract_diag=0);
 
     // These functions are in extra.cpp
     /* This is called only for small-scale direct multiplication. */
@@ -124,21 +183,23 @@ public:
     void dumpSearchDirection();
     void testSymmetry();
     void estimateMaxEvals();
-    double estimateFrobeniusNormAs();
+    void estimateMinMaxEvalsAs();
+    void constructInterpsDerivBD();
+    double estimateFrobeniusNormAs(double m=0);
 
     // These are in original source file
     void multMeshComp();
-    void multParticleComp();
+    void multParticleComp(bool neighbors_only=false);
     // from mesh_rnd to *truth
     void multDerivMatrixVec(int i);
     /* Multiply each quasar's *in pointer and save to *out pointer.
        (I + N^-1/2 S N^-1/2) z = out */
     void multiplyCovVector(bool mesh_enabled=true);
     void multiplyDerivVectors(
-        double *o1, double *o2, double *lout, const RealField3D &other);
-    void multiplyDerivVectors(double *o1, double *o2, double *lout=nullptr) {
-        multiplyDerivVectors(o1, o2, lout, mesh);
-    };
+        double *o1, double *o2,
+        double *lout=nullptr, const RealField3D *other=nullptr
+    );
+    void subtractDerivBD(double *mesh_estimate);
 
     /* Reverse interopates qso->in onto the mesh */
     void reverseInterpolate(RealField3D &m);
@@ -146,7 +207,12 @@ public:
     void reverseInterpolateZ(RealField3D &m);
     /* Reverse interopates qso->in x qso->isig onto the mesh */
     void reverseInterpolateIsig(RealField3D &m);
-    double updateY(double residual_norm2);
+    /* Returns -1 for zero-curvature check */
+    double updateY(double residual_norm2, bool check_curvature=false);
+    /* Uses qso->y.get() as input to updateYMatrixVectorFunction. 
+    Then swaps back to qso->seach.get(). Returns true to restart.
+    */
+    bool calculateExactResidual(double &true_residual_norm, double threshold=0.01);
     /* Solve (I + N^-1/2 S N^-1/2) z = m, until z converges,
     where y = N^-1/2 z and m = truth = N^-1/2 delta. Then get y if z2y=true.
     */

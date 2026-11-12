@@ -15,12 +15,13 @@
 #include "io/logger.hpp"
 #include "io/qso_file.hpp"
 #include "mathtools/real_field_3d.hpp"
+#include "mathtools/vec3.hpp"
 
 #include "qu3d/cosmology_3d.hpp"
 #include "qu3d/contmarg_file.hpp"
 
-// The shift of RA to have continous regions in the sky (for eBOSS)
-constexpr double ra_shift = 1.0;
+// The shift of RA to have continous regions in the sky (for eBOSS: 1.0)
+constexpr double ra_shift = 0.0;
 
 namespace specifics {
     extern double MIN_RA, MAX_RA, MIN_DEC, MAX_DEC;
@@ -34,19 +35,22 @@ struct CompareCosmicQuasarPtr {
     }
 };
 
+#define myQsoDot(Q, X, Y) cblas_ddot(Q->N, Q->X, 1, Q->Y, 1);
+
 class CosmicQuasar {
 private:
     double _quasar_dist;
 public:
     std::unique_ptr<qio::QSOFile> qFile;
     int N, fidx;
-    /* z1: 1 + z */
+    /* qFile->wave becomes 1 + z */
     /* Cov . in = out, out should be compared to truth for inversion. */
-    double *z1, *isig, angles[3], *in, *out, *truth, *in_isig, *sc_eta;
-    double cos_dec, sin_dec;
-    std::unique_ptr<float[]> r;
+    double *isig, *in, *out, *truth, *in_isig, *sc_eta;
+    Vec3 vec;
+    std::unique_ptr<float[]> r, chi;
     std::unique_ptr<double[]> y, Cy, residual, search, y_isig,
-                              sod_cinv_eta, _z1_mem;
+                              sod_cinv_eta, growth;
+    std::unique_ptr<double[]> _rrmat, _icov;
 
     std::set<size_t> grid_indices;
     std::set<const CosmicQuasar*, CompareCosmicQuasarPtr<CosmicQuasar>> neighbors;
@@ -65,21 +69,17 @@ public:
             throw std::runtime_error(err_msg.str());
         }
 
-        angles[0] = qFile->ra + ra_shift;
-        if (angles[0] >= 2 * MY_PI)
-            angles[0] -= 2 * MY_PI;
+        /* Will be reset in _shiftByMedianDec in optimal_qu3d.cpp */
+        vec.setAngles(MY_PI / 2.0 - qFile->dec, qFile->ra + ra_shift);
 
-        angles[1] = qFile->dec;
-        angles[2] = 1;
-
-        if ((angles[0] > specifics::MAX_RA) || (angles[0] < specifics::MIN_RA)) {
+        if ((vec.phi > specifics::MAX_RA) || (vec.phi < specifics::MIN_RA)) {
             std::ostringstream err_msg;
             err_msg << "CosmicQuasar::CosmicQuasar::Outside RA range in TARGETID "
                     << qFile->id;
             throw std::runtime_error(err_msg.str());
         }
 
-        if ((angles[1] > specifics::MAX_DEC) || (angles[1] < specifics::MIN_DEC)) {
+        if ((qFile->dec > specifics::MAX_DEC) || (qFile->dec < specifics::MIN_DEC)) {
             std::ostringstream err_msg;
             err_msg << "CosmicQuasar::CosmicQuasar::Outside DEC range in TARGETID "
                     << qFile->id;
@@ -117,25 +117,20 @@ public:
         isig = qFile->ivar();
 
         r = std::make_unique<float[]>(3 * N);
+        chi = std::make_unique<float[]>(N);
         y = std::make_unique<double[]>(N);
         y_isig = std::make_unique<double[]>(N);
         Cy = std::make_unique<double[]>(N);
         residual = std::make_unique<double[]>(N);
         search = std::make_unique<double[]>(N);
         sod_cinv_eta = std::make_unique<double[]>(N);
-        _z1_mem = std::make_unique<double[]>(N);
-        z1 = _z1_mem.get();
+        growth = std::make_unique<double[]>(N);
 
         // Convert to inverse sigma and weight deltas
         for (int i = 0; i < N; ++i) {
             isig[i] = sqrt(isig[i]);
             qFile->delta()[i] *= isig[i];
-            z1[i] = qFile->wave()[i];
         }
-
-        /* Will be reset in _shiftByMedianDec in optimal_qu3d.cpp */
-        cos_dec = cos(angles[1]);
-        sin_dec = sin(angles[1]);
 
         in = y.get();
         in_isig = y_isig.get();
@@ -145,6 +140,10 @@ public:
     }
     CosmicQuasar(CosmicQuasar &&rhs) = delete;
     CosmicQuasar(const CosmicQuasar &rhs) = delete;
+    void allocRmatAndCovMatrices() {
+        _rrmat = std::make_unique<double[]>(N * N);
+        _icov = std::make_unique<double[]>(N * N);
+    }
 
     void project(double varlss, int order) {
         /* Assumes isig is ivar. */
@@ -155,7 +154,7 @@ public:
         auto log_lambda = std::make_unique<double[]>(N);
 
         for (int i = 0; i < N; ++i) {
-            weights[i] = isig[i] / (1.0 + isig[i] * varlss * z1[i] * z1[i]);
+            weights[i] = isig[i] / (1.0 + isig[i] * varlss * growth[i] * growth[i]);
             sum_weights += weights[i];
             mean_delta += truth[i] * weights[i];
         }
@@ -232,13 +231,27 @@ public:
         ioh::checkFitsStatus(status);
     }
 
-    void setComovingDistances(const fidcosmo::FlatLCDM *cosmo, double radial) {
+    void setComovingDistances(
+            const fidcosmo::ArinyoP3DModel *p3d_model, double radial
+    ) {
+        const fidcosmo::FlatLCDM *cosmo = p3d_model->getCosmoPtr();
         _quasar_dist = cosmo->getComovingDist(qFile->z_qso + 1.0);
-        /* Equirectangular projection */
+
         for (int i = 0; i < N; ++i) {
-            r[0 + 3 * i] = angles[0] * radial;
-            r[1 + 3 * i] = angles[1] * radial;
-            r[2 + 3 * i] = cosmo->getComovingDist(z1[i]);
+            double z1 = qFile->wave()[i];
+            growth[i] = p3d_model->getRedshiftEvolution(z1);
+            chi[i] = cosmo->getComovingDist(z1);
+            #ifdef USE_SPHERICAL_DIST
+            /* Spherical projection */
+            r[0 + 3 * i] = chi[i] * vec.r[0];
+            r[1 + 3 * i] = chi[i] * vec.r[1];
+            r[2 + 3 * i] = chi[i] * vec.r[2];
+            #else
+            /* Equirectangular projection */
+            r[0 + 3 * i] = vec.phi * radial;
+            r[1 + 3 * i] = vec.theta * radial;
+            r[2 + 3 * i] = chi[i];
+            #endif
         }
     }
 
@@ -246,10 +259,45 @@ public:
             const fidcosmo::FlatLCDM *cosmo, double &sigma, double &delta_r
     ) {
         /* Spectrograph window function params. Assumes r is set. */
-        double mean_z1 = std::accumulate(z1, z1 + N, 0.0) / N,
-               Mpc2kms = cosmo->getHubble(mean_z1) / mean_z1;
-        sigma = qFile->R_kms / Mpc2kms;
-        delta_r = (r[3 * N - 1] - r[2]) / (N - 1);
+        double mean_z1 = std::accumulate(qFile->wave(), qFile->wave() + N, 0.0) / N,
+               Mpch2kms = cosmo->getHubble(mean_z1) / mean_z1;
+        sigma = qFile->R_kms / Mpch2kms;
+        delta_r = (chi[N - 1] - chi[0]) / (N - 1);
+    }
+
+    void dropIvar0Pixels() {
+        // Dropping pixels with ivar=0 after setting spectro parameters may
+        // help with better estimation of spectro window parameters. Also,
+        // these pixels do not contribute to the signal and may cause numerical
+        // issues in some cases. This is why this function is not called in
+        // the constructor.
+        std::vector<int> isig_zero_indices;
+        for (int i = 0; i < N; ++i)
+            if (isig[i] == 0)
+                isig_zero_indices.push_back(i);
+
+        if (isig_zero_indices.empty())
+            return;
+
+        int write = 0;
+        for (int read = 0; read < N; ++read) {
+            if (isig_zero_indices.end() == std::find(
+                    isig_zero_indices.begin(), isig_zero_indices.end(),
+                    read)
+            ) {
+                // keep this element
+                isig[write] = isig[read];
+                truth[write] = truth[read];
+                growth[write] = growth[read];
+                qFile->wave()[write] = qFile->wave()[read];
+                chi[write] = chi[read];
+                r[0 + 3 * write] = r[0 + 3 * read];
+                r[1 + 3 * write] = r[1 + 3 * read];
+                r[2 + 3 * write] = r[2 + 3 * read];
+                ++write;
+            }
+        }
+        N -= isig_zero_indices.size();
     }
 
     void getSumRadialDistance(
@@ -258,19 +306,14 @@ public:
     ) {
         for (int i = 0; i < N; ++i) {
             double ivar = isig[i] * isig[i];
-            sum_chi_weights += cosmo->getComovingDist(z1[i]) * ivar;
+            sum_chi_weights += cosmo->getComovingDist(qFile->wave()[i]) * ivar;
             sum_weights += ivar;
         }
     }
 
-    void transformZ1toG(const fidcosmo::ArinyoP3DModel *p3d_model) {
-        for (int i = 0; i < N; ++i)
-            z1[i] = p3d_model->getRedshiftEvolution(z1[i]);
-    }
-
     void setInIsigNoMarg() {
         for (int i = 0; i < N; ++i)
-            in_isig[i] = in[i] * isig[i] * z1[i];
+            in_isig[i] = in[i] * isig[i] * growth[i];
     }
 
     void setInIsigWithMarg() {
@@ -280,12 +323,14 @@ public:
         #endif
         // -- core function
             double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-            ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
+            if (_rrmat)  rrmat = _rrmat.get();
+            else  ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
+
             cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                         rrmat, N, in, 1, 0, in_isig, 1);
 
             for (int i = 0; i < N; ++i)
-                in_isig[i] *= isig[i] * z1[i];
+                in_isig[i] *= isig[i] * growth[i];
         // --
         #ifdef DEBUG_IO
         }
@@ -305,7 +350,8 @@ public:
         #endif
         // -- core function
             double *rrmat = GL_RMAT[myomp::getThreadNum()].get();
-            ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
+            if (_rrmat)  rrmat = _rrmat.get();
+            else  ioh::continuumMargFileHandler->read(N, qFile->id, rrmat);
             cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
                         rrmat, N, input, 1, 0, in_isig, 1);
         // --
@@ -323,50 +369,123 @@ public:
 
     void multInvCov(
             const fidcosmo::ArinyoP3DModel *p3d_model,
-            const double *input, double *output, bool pp,
+            const double *input, double *output,
             bool small_scale=false, double alpha=0, double s=1.0
     ) {
         double varlss = p3d_model->getVarLss();
         auto appDiagonalEst = [this, &varlss](const double *x_, double *y_) {
             for (int i = 0; i < N; ++i) {
-                double isigG = isig[i] * z1[i];
+                double isigG = isig[i] * growth[i];
                 y_[i] = x_[i] / (1.0 + isigG * isigG * varlss);
             }
         };
 
-        if (!pp) {
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+        if (small_scale)
+            setCov_S(p3d_model, ccov, alpha, s);
+        else
+            setCov(p3d_model, ccov);
+
+        std::copy_n(input, N, output);
+        lapack_int info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1,
+                                        ccov, N, output, 1);
+        if (info != 0) {
+            LOG::LOGGER.STD("Error in CosmicQuasar::multInvCov::LAPACKE_dposv.\n");
             appDiagonalEst(input, output);
         }
-        else {
-            double *ccov = GL_CCOV[myomp::getThreadNum()].get();
-            if (small_scale)
-                setCov_S(p3d_model, ccov, alpha, s);
-            else
-                setCov(p3d_model, ccov);
+    }
 
-            std::copy_n(input, N, output);
-            lapack_int info = LAPACKE_dposv(LAPACK_ROW_MAJOR, 'U', N, 1,
-                                            ccov, N, output, 1);
-            if (info != 0) {
-                LOG::LOGGER.STD("Error in CosmicQuasar::multInvCov::LAPACKE_dposv");
-                appDiagonalEst(input, output);
+    double multDerivativeBD(
+            const DiscreteCubicInterpolation1D *interp
+    ) {
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+        double dia = interp->get()[0];
+        for (int i = 0; i < N; ++i) {
+            ccov[i * (N + 1)] = dia;
+            for (int j = i + 1; j < N; ++j) {
+                float rz = chi[j] - chi[i];
+                ccov[j + i * N] = interp->evaluate(rz);
             }
         }
+        return mxhelp::my_cblas_dsymvdot(in_isig, ccov, search.get(), N);
+    }
+
+    void subtractDerivBDFromTruthIsig(
+            const RealField3D &mesh, const DiscreteCubicInterpolation1D *interp
+    ) {
+        for (int i = 0; i < N; ++i)
+            truth[i] = mesh.forwardInterpolate(r.get() + 3 * i);
+
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+        double dia = interp->get()[0];
+        for (int i = 0; i < N; ++i) {
+            ccov[i * (N + 1)] = dia;
+            for (int j = i + 1; j < N; ++j) {
+                float rz = chi[j] - chi[i];
+                ccov[j + i * N] = interp->evaluate(rz);
+            }
+        }
+        // Will need the input +- 1 x growth here which is in residual
+        cblas_dsymv(CblasRowMajor, CblasUpper, N, -1.0,
+                    ccov, N, residual.get(), 1, 1.0, truth, 1);
+
+        for (int i = 0; i < N; ++i)
+            truth[i] *= isig[i] * growth[i];
+
+    }
+
+    void cacheCholeskyCov(
+            const fidcosmo::ArinyoP3DModel *p3d_model, bool cmarg=false,
+            bool small_scale=false, double alpha=0, double s=1.0
+    ) {
+        double *ccov = _icov.get();
+        if (small_scale)  setCov_S(p3d_model, ccov, alpha, s);
+        else  setCov(p3d_model, ccov);
+
+        if (cmarg) {
+            double di = small_scale ? alpha - 1.0 / s : 1.0;
+            for (int i = 0; i < N; ++i)
+                ccov[(N + 1) * i] -= di;
+            mxhelp::copyUpperToLower(ccov, N);
+
+            cblas_dsymm(
+                CblasRowMajor, CblasLeft, CblasUpper,
+                N, N, 1., _rrmat.get(), N,
+                ccov, N,
+                0, GL_CCOV[myomp::getThreadNum()].get(), N);
+            cblas_dsymm(
+                CblasRowMajor, CblasRight, CblasUpper,
+                N, N, 1., _rrmat.get(), N,
+                GL_CCOV[myomp::getThreadNum()].get(), N,
+                0, ccov, N);
+
+            for (int i = 0; i < N; ++i)
+                ccov[(N + 1) * i] += di;
+        }
+
+        lapack_int info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
+        if (info != 0)
+            LOG::LOGGER.ERR("Error in CosmicQuasar::cacheCholeskyCov::LAPACKE_dpotrf.\n");
+    }
+
+    void solveCachedCholesky(const double *input, double *output) {
+        std::copy_n(input, N, output);
+        LAPACKE_dpotrs(LAPACK_ROW_MAJOR, 'U', N, 1, _icov.get(), N, output, 1);
     }
 
     void interpMesh2Out(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
-            out[i] = mesh.interpolate(r.get() + 3 * i);
+            out[i] = mesh.forwardInterpolate(r.get() + 3 * i);
     }
 
     void interpMesh2TruthIsig(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
-            truth[i] = isig[i] * z1[i] * mesh.interpolate(r.get() + 3 * i);
+            truth[i] = isig[i] * growth[i] * mesh.forwardInterpolate(r.get() + 3 * i);
     }
 
     void interpAddMesh2TruthIsig(const RealField3D &mesh) {
         for (int i = 0; i < N; ++i)
-            truth[i] += isig[i] * z1[i] * mesh.interpolate(r.get() + 3 * i);
+            truth[i] += isig[i] * growth[i] * mesh.forwardInterpolate(r.get() + 3 * i);
     }
 
     /* overwrite qFile->delta */
@@ -376,15 +495,27 @@ public:
 
     void blockRandom(MyRNG &rng, const fidcosmo::ArinyoP3DModel *p3d_model) {
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
-
         setCov(p3d_model, ccov);
+        rng.fillVectorNormal(truth, N);
+        LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
+        cblas_dtrmv(CblasRowMajor, CblasUpper, CblasNoTrans, CblasNonUnit,
+                    N, ccov, N, truth, 1);
+    }
+
+    void addBlockRandom(MyRNG &rng, const fidcosmo::ArinyoP3DModel *p3d_model) {
+        double *ccov = GL_CCOV[myomp::getThreadNum()].get();
+
+        setCov_S(p3d_model, ccov);
         LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'U', N, ccov, N);
         /*if (info != 0) {
             LOG::LOGGER.STD("Error in CosmicQuasar::blockRandom::LAPACKE_dpotrf");
         }*/
-        rng.fillVectorNormal(truth, N);
+        rng.fillVectorNormal(sc_eta, N);
         cblas_dtrmv(CblasRowMajor, CblasUpper, CblasNoTrans, CblasNonUnit,
-                    N, ccov, N, truth, 1);
+                    N, ccov, N, sc_eta, 1);
+
+        for (int i = 0; i < N; ++i)
+            truth[i] += sc_eta[i];
     }
 
     void multSqrtCov(const fidcosmo::ArinyoP3DModel *p3d_model) {
@@ -440,7 +571,7 @@ public:
     void trimNeighbors(
             double radius2, double radial,
             float ratio=0.1, double sep_arcsec=20.0,
-            float dist_Mpc=60.0, bool remove_low_overlap=false,
+            float dist_Mpch=40.0, bool remove_low_overlap=false,
             bool remove_identicals=false
     ) {
         /* Removes neighbors with low overlap and self. Also removes neighbors
@@ -451,16 +582,13 @@ public:
         neighbors.erase(this);
 
         if (remove_identicals) {
-            auto isSameQuasar = [this, &sep_arcsec, &dist_Mpc](
+            auto isSameQuasar = [this, &sep_arcsec, &dist_Mpch](
                     const CosmicQuasar* const &q
             ) {
-                double sep = acos(
-                    sin_dec * q->sin_dec
-                    + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0])
-                ) * 3600.0 * 180.0 / MY_PI;
+                double sep = acos(vec.cos_angle(q->vec)) * 3600.0 * 180.0 / MY_PI;
 
                 double delta_dis = fabs(_quasar_dist - q->_quasar_dist);
-                return (sep < sep_arcsec) && (delta_dis < dist_Mpc);
+                return (sep < sep_arcsec) && (delta_dis < dist_Mpch);
             };
 
             std::erase_if(neighbors, isSameQuasar);
@@ -474,12 +602,11 @@ public:
             std::set<int> jdxs;
 
             #ifdef USE_SPHERICAL_DIST
-                double cos_sep =
-                    sin_dec * q->sin_dec
-                    + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
+                double cos_sep_m1 = vec.cos_angle(q->vec);
+                cos_sep_m1 = 2.0 * (1.0 - cos_sep_m1);
             #else
-                double ddec = angles[0] - q->angles[0],
-                       dra = angles[1] - q->angles[1];
+                double ddec = vec.theta - q->vec.theta,
+                       dra = vec.phi - q->vec.phi;
                 double rperp2 = radial * radial * (ddec * ddec + dra * dra);
                 if (rperp2 > radius2)
                     return true;
@@ -490,10 +617,10 @@ public:
                 bool _in_i = false;
                 for (int j = 0; j < M; ++j) {
                     #ifdef USE_SPHERICAL_DIST
-                        double r2 = (
-                            q->r[3 * j + 2] * q->r[3 * j + 2]
-                            + r[3 * i + 2] * r[3 * i + 2]
-                            - 2.0 * r[3 * i + 2] * q->r[3 * j + 2] * cos_sep);
+                        double dChi = chi[i] - q->chi[j],
+                               eChi = chi[i] * q->chi[j];
+                        double r2 = eChi * (dChi * dChi / eChi + cos_sep_m1);
+
                         if (r2 <= radius2) {
                             jdxs.insert(j);
                             _in_i = true;
@@ -528,6 +655,7 @@ public:
 
         double *ccov = GL_CCOV[myomp::getThreadNum()].get(),
                *rrmat = GL_RMAT[myomp::getThreadNum()].get();
+
         auto Emat = std::make_unique<double[]>(nvecs * nvecs);
         std::vector<std::unique_ptr<double[]>> uvecs(nvecs);
         for (int a = 0; a < nvecs; ++a)
@@ -536,7 +664,7 @@ public:
         std::copy_n(isig, N, uvecs[0].get());  // Zeroth order
         for (int a = 1; a < nvecs; ++a)
             for (int i = 0; i < N; ++i)
-                uvecs[a][i] = isig[i] * pow(log(z1[i]), a);
+                uvecs[a][i] = isig[i] * pow(log(qFile->wave()[i]), a);
 
         for (int a = 0; a < nvecs; ++a)
             mxhelp::normalize_vector(N, uvecs[a].get());
@@ -570,77 +698,86 @@ public:
 
     void setCov(const fidcosmo::ArinyoP3DModel *p3d_model, double *ccov) {
         for (int i = 0; i < N; ++i) {
-            double isigG = isig[i] * z1[i];
+            double isigG = isig[i] * growth[i];
 
             ccov[i * (N + 1)] = 1.0 + p3d_model->getVarLss() * isigG * isigG;
 
             for (int j = i + 1; j < N; ++j) {
-                float rz = r[3 * j + 2] - r[3 * i + 2];
-                double isigG_ij = isigG * isig[j] * z1[j];
+                float rz = chi[j] - chi[i];
+                double isigG_ij = isigG * isig[j] * growth[j];
                 ccov[j + i * N] = p3d_model->evalCorrFunc1dT(rz) * isigG_ij;
             }
         }
     }
 
+    /**
+     * @brief Construct the small-scale covariance matrix for this quasar's pixels.
+     *
+     * This function fills the provided ccov array with the covariance matrix for the quasar's pixels,
+     * using a small-scale model ("S"), as defined by the provided cosmological model.
+     * The diagonal and off-diagonal elements are set using the 1D small-scale correlation function.
+     *
+     * @param p3d_model Pointer to the cosmological model providing correlation functions and variances.
+     * @param ccov Pointer to a pre-allocated (N x N) array to be filled with the covariance matrix.
+     * @param alpha Optional additive constant for the diagonal (default 0).
+     * @param s Optional scaling factor for the entire matrix (default 1.0).
+     *
+     * Diagonal: ccov[i * (N + 1)] = alpha + (1 + Var1dS * isig[i]^2 * growth[i]^2) / s
+     * Off-diagonal: ccov[j + i * N] = CorrFunc1dS(chi[j] - chi[i]) * isig[i] * growth[i] * isig[j] * growth[j] / s
+     */
     void setCov_S(
             const fidcosmo::ArinyoP3DModel *p3d_model, double *ccov,
             double alpha=0, double s=1.0
     ) {
         for (int i = 0; i < N; ++i) {
-            double isigG = isig[i] * z1[i];
+            double isigG = isig[i] * growth[i];
 
             ccov[i * (N + 1)] =
                 alpha + (1.0 + p3d_model->getVar1dS() * isigG * isigG) / s;
 
             for (int j = i + 1; j < N; ++j) {
-                float rz = r[3 * j + 2] - r[3 * i + 2];
-                double isigG_ij = isigG * isig[j] * z1[j];
+                float rz = chi[j] - chi[i];
+                double isigG_ij = isigG * isig[j] * growth[j];
                 ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz) * isigG_ij / s;
             }
         }
     }
 
-    #ifdef USE_SPHERICAL_DIST
     void setCrossCov(
             const CosmicQuasar *q, const fidcosmo::ArinyoP3DModel *p3d_model,
             double radial, double *ccov
     ) const {
         int M = q->N;
-        double cos_sep =
-            sin_dec * q->sin_dec
-            + cos_dec * q->cos_dec * cos(q->angles[0] - angles[0]);
+
+        #ifdef USE_SPHERICAL_DIST
+        double cos_sep = vec.cos_angle(q->vec);
         float cos_half = sqrt((1.0 + cos_sep) / 2.0),
               sin_half = sqrt((1.0 - cos_sep) / 2.0);
 
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < M; ++j) {
-                float rperp = (q->r[3 * j + 2] + r[3 * i + 2]) * sin_half,
-                      rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]) * cos_half;
+                float rperp = (q->chi[j] + chi[i]) * sin_half,
+                      rz = fabsf(q->chi[j] - chi[i]) * cos_half;
                 ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
         }
-    }
-    #else
-    void setCrossCov(
-            const CosmicQuasar *q, const fidcosmo::ArinyoP3DModel *p3d_model,
-            double radial, double *ccov
-    ) const {
-        int M = q->N;
-        double ddec = angles[0] - q->angles[0],
-               dra = angles[1] - q->angles[1];
+        #else
+        double ddec = vec.theta - q->vec.theta,
+               dra = vec.phi - q->vec.phi;
         float rperp = radial * sqrt(ddec * ddec + dra * dra);
 
         for (int i = 0; i < N; ++i) {
             for (int j = 0; j < M; ++j) {
-                float rz = fabsf(q->r[3 * j + 2] - r[3 * i + 2]);
+                float rz = fabsf(q->chi[j] - chi[i]);
                 ccov[j + i * M] = p3d_model->evalCorrFunc2dS(rperp, rz);
             }
         }
+        #endif
     }
-    #endif
 
     void multCovNeighbors(
-            const fidcosmo::ArinyoP3DModel *p3d_model, double radial
+            const fidcosmo::ArinyoP3DModel *p3d_model, double radial,
+            bool include_self=true
     ) {
         /* We cannot use symmetry (update neighbor's out with C^T) here
            since it will cause race condition for the neighboring quasar.
@@ -655,17 +792,18 @@ public:
         double *ccov = GL_CCOV[myomp::getThreadNum()].get();
 
         /* Multiply self */
-        for (int i = 0; i < N; ++i) {
-            ccov[i * (N + 1)] = p3d_model->getVar1dS();
+        if (include_self) {
+            for (int i = 0; i < N; ++i) {
+                ccov[i * (N + 1)] = p3d_model->getVar1dS();
 
-            for (int j = i + 1; j < N; ++j) {
-                float rz = r[3 * j + 2] - r[3 * i + 2];
-                ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz);
+                for (int j = i + 1; j < N; ++j) {
+                    float rz = chi[j] - chi[i];
+                    ccov[j + i * N] = p3d_model->evalCorrFunc1dS(rz);
+                }
             }
+            cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
+                        ccov, N, in_isig, 1, 1.0, out, 1);
         }
-
-        cblas_dsymv(CblasRowMajor, CblasUpper, N, 1.0,
-                    ccov, N, in_isig, 1, 1.0, out, 1);
 
         /* Multiply others */
         for (const CosmicQuasar* q : neighbors) {

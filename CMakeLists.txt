@@ -6,10 +6,8 @@ option(ENABLE_OPENMP "Enable OpenMP" ON)
 option(ENABLE_MPI "Enable MPI" ON)
 option(USE_OPENBLAS_BREW "Use OpenBlas brew" OFF)
 option(DEBUG "Compile with debugging options" OFF)
-option(TURN_OFF_SPECTRO_WINDOW "Turn of spectrograph window function in 3D." OFF)
+option(USE_SPHERICAL_DISTANCES "Use spherical distances in 3D." OFF)
 option(KILL_15MPC_POWER "Suppresses power below 15 Mpc in 3D." OFF)
-option(RL_COMP_DERIV "Multiply deriv. matrices with e^-k^2R_L^2 term" OFF)
-option(DECONV_CIC_WINDOW "Deconvolve CIC window" OFF)
 option(ASSERT_MESH_IDX "Assert mesh indices lie within boundary" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -22,6 +20,10 @@ set(intel_like_cxx "$<COMPILE_LANG_AND_ID:CXX,Intel,IntelLLVM>")
 # if (APPLE)
 #     message(aplle)
 # endif()
+
+if (USE_SPHERICAL_DISTANCES)
+    add_definitions(-DUSE_SPHERICAL_DIST)
+endif()
 
 add_compile_options(-std=c++20)
 add_library(MY_OMP_MPI INTERFACE)
@@ -144,24 +146,17 @@ add_library(Qu3dObjLibs OBJECT
     mathtools/matrix_helper.cpp mathtools/interpolation.cpp
     mathtools/interpolation_2d.cpp mathtools/discrete_interpolation.cpp
     mathtools/stats.cpp mathtools/smoother.cpp mathtools/fftlog.cpp
+    mathtools/fourier_integrator.cpp
     mathtools/multipole_interpolation.cpp io/qso_file.cpp)
 target_link_libraries(Qu3dObjLibs PUBLIC
     MY_OMP_MPI MY_BLAS_INTERFACE MY_FITSIO_INTERFACE
     MY_FFTW3_INTERFACE GSL::gsl)
-if (TURN_OFF_SPECTRO_WINDOW)
-    target_compile_definitions(Qu3dObjLibs PUBLIC TURN_OFF_SPECTRO_WINDOW)
-endif()
+
 if (KILL_15MPC_POWER)
     target_compile_definitions(Qu3dObjLibs PUBLIC KILL_15MPC_POWER)
 endif()
-if (RL_COMP_DERIV)
-    target_compile_definitions(Qu3dObjLibs PUBLIC RL_COMP_DERIV)
-endif()
 if (ASSERT_MESH_IDX)
     target_compile_definitions(Qu3dObjLibs PUBLIC ASSERT_MESH_IDX)
-endif()
-if (DECONV_CIC_WINDOW)
-    target_compile_definitions(Qu3dObjLibs PUBLIC DECONV_CIC_WINDOW)
 endif()
 
 # custom target to test filtering. Usage: cmake --build . --target print_genex
@@ -213,6 +208,14 @@ add_executable(testMPIMergeSort tests/testMPIMergeSort.cpp)
 target_include_directories(testMPIMergeSort PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(testMPIMergeSort PRIVATE MY_OMP_MPI)
 
+add_executable(testRealField3DInterpolation
+    tests/test_real_field_interpolation.cpp tests/test_utils.cpp
+    mathtools/real_field_3d.cpp mathtools/real_field.cpp
+    mathtools/matrix_helper.cpp mathtools/discrete_interpolation.cpp
+)
+target_link_libraries(testRealField3DInterpolation PUBLIC
+    OpenMP::OpenMP_CXX GSL::gsl MY_BLAS_INTERFACE MY_FFTW3_INTERFACE)
+
 # ===========
 # Installation
 # ===========
@@ -234,6 +237,7 @@ if (ENABLE_MPI)
 else()
     add_test(NAME TestMPIMergeSort COMMAND testMPIMergeSort)
 endif()
+add_test(NAME TestRealField3DInterpolation COMMAND testRealField3DInterpolation)
 add_test(NAME TestQmle COMMAND LyaPowerEstimate tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 add_test(NAME TestxQmle COMMAND LyaPowerxQmlExposure tests/input/test-xqmle.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 add_test(NAME NumericalAccuracy COMMAND python tests/compareTestResults.py . WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

@@ -1,4 +1,4 @@
-double Qu3DEstimator::estimateFrobeniusNormAs() {
+double Qu3DEstimator::estimateFrobeniusNormAs(double m) {
     // Trace (C C)
     constexpr int M_MCS = 5;
     verbose = false;
@@ -14,7 +14,7 @@ double Qu3DEstimator::estimateFrobeniusNormAs() {
         for (auto &qso : quasars)
             rngs[myomp::getThreadNum()].fillVectorOnes(qso->in, qso->N);
 
-        multiplyAsVector();
+        multiplyAsVector(m);
 
         #pragma omp parallel for reduction(+:cur_total)
         for (auto &qso : quasars)
@@ -121,7 +121,7 @@ void Qu3DEstimator::conjugateGradientSampler() {
 
     init_residual_norm = sqrt(old_residual_norm2);
 
-    if (hasConverged(init_residual_norm, tolerance))
+    if (hasConverged(init_residual_norm, 1.0, tolerance))
         goto endconjugateGradientSampler;
 
     if (absolute_tolerance) init_residual_norm = 1;
@@ -130,7 +130,7 @@ void Qu3DEstimator::conjugateGradientSampler() {
         double new_residual_norm2 = updateRng(old_residual_norm2);
 
         bool end_iter = hasConverged(
-            sqrt(new_residual_norm2) / init_residual_norm, tolerance);
+            sqrt(new_residual_norm2), init_residual_norm, tolerance);
 
         if (end_iter)
             goto endconjugateGradientSampler;
@@ -163,6 +163,73 @@ endconjugateGradientSampler:
 }
 
 
+struct bd_mu_integrand_params {
+    double k;
+    std::function<double(double)> legendre_w;
+};
+
+double bd_mu_integrand(double mu, void *params) {
+    bd_mu_integrand_params *p = static_cast<bd_mu_integrand_params*>(params);
+    double window = p3d_model->getSpectroWindow2(p->k * mu);
+    return window * p->legendre_w(mu);
+}
+
+void Qu3DEstimator::constructInterpsDerivBD() {
+    const int nkpoints = 101, Nrp = 500;
+    const double rmax = 500.0, dr = rmax / Nrp;
+    LOG::LOGGER.STD("Constructing interps for derivative of BD. ");
+    double t1 = mytime::timer.getTime();
+
+    interps1d_deriv_bd.reserve(bins::NUMBER_OF_P_BANDS);
+    auto out = std::make_unique<double[]>(Nrp);
+
+    for (int jj = 0; jj < bins::NUMBER_OF_P_BANDS; ++jj) {
+        int ell = jj / bins::NUMBER_OF_K_BANDS, ik = jj % bins::NUMBER_OF_K_BANDS;
+        double kmin, kmax, dk_integrand;
+        bins::getKBinMinMax(ik, kmin, kmax);
+        dk_integrand = (kmax - kmin) / (nkpoints - 1);
+
+        std::function<double(double)> legendre_w;
+        switch (ell) {
+            case 0: legendre_w = legendre0; break;
+            case 1: legendre_w = legendre2; break;
+            case 2: legendre_w = legendre4; break;
+            case 3: legendre_w = legendre6; break;
+            default: legendre_w = std::bind(legendre, 2 * ell, std::placeholders::_1);
+        }
+
+        #pragma omp parallel for schedule(dynamic, 4)
+        for (int ir = 0; ir < Nrp; ++ir) {
+            double r = ir * dr;
+            auto kintegrand = std::make_unique<double[]>(nkpoints);
+            struct bd_mu_integrand_params inparams = {kmin, legendre_w};
+            FourierIntegrator integrator(
+                GSL_INTEG_COSINE, bd_mu_integrand, &inparams,
+                /*table_size=*/50);
+
+            for (int q = 0; q < nkpoints; ++q) {
+                double kt = kmin + q * dk_integrand, y = kt * r;
+                if (kt == 0) {
+                    kintegrand[q] = 0;
+                    continue;
+                }
+                inparams.k = kt;
+                kintegrand[q] = integrator.evaluate(
+                    0, 1, y,/*epsabs=*/1e-8,/*epsrel=*/1e-5);
+                kintegrand[q] *= kt * kt;  /* / (2 * MY_PI * MY_PI); */
+                kintegrand[q] *= bins::getBinWeight(ik, kt);
+            }
+            out[ir] = trapz(kintegrand.get(), nkpoints, dk_integrand);
+            out[ir] /= 2 * MY_PI * MY_PI;
+        }
+
+        interps1d_deriv_bd.push_back(
+            std::make_unique<DiscreteCubicInterpolation1D>(0, dr, Nrp, out.get())
+        );
+    }
+    double t2 = mytime::timer.getTime();
+    LOG::LOGGER.STD("Finished constructing interps for derivative of BD in %.2f mins.\n", t2 - t1);
+}
 /* void Qu3DEstimator::cgsGetY() {
     if (CONT_MARG_ENABLED) {
         #pragma omp parallel for schedule(dynamic, 8)
@@ -200,29 +267,26 @@ void Qu3DEstimator::dumpSearchDirection() {
     #pragma GCC diagnostic ignored "-Wwrite-strings"
     char *column_names[] = {"Gz", "Chi", "Search", "AxSearch"};
     char *column_types[] = {"1D", "1E", "1D", "1D"};
-    char *column_units[] = { "A", "Mpc", "\0", "\0"};
+    char *column_units[] = { "A", "Mpch", "\0", "\0"};
     #pragma GCC diagnostic pop
 
     for (const auto &qso : quasars) {
         int nrows = qso->N;
-        auto chi = std::make_unique<float[]>(nrows);
-        for (int i = 0; i < nrows; ++i)
-            chi[i] = qso->r[3 * i + 2];
-
+        double dec = MY_PI / 2.0 - qso->vec.theta;
         fits_create_tbl(
             fits_file, BINARY_TBL, nrows, ncolumns, column_names, column_types,
             column_units, std::to_string(qso->qFile->id).c_str(), &status);
         ioh::checkFitsStatus(status);
         fits_write_key(
-            fits_file, TDOUBLE, "RA", &qso->angles[0], nullptr, &status);
+            fits_file, TDOUBLE, "RA", &qso->vec.phi, nullptr, &status);
         fits_write_key(
-            fits_file, TDOUBLE, "DEC", &qso->angles[1], nullptr, &status);
+            fits_file, TDOUBLE, "DEC", &dec, nullptr, &status);
         fits_write_key(
             fits_file, TDOUBLE, "MEAN_SNR", &qso->qFile->snr, nullptr, &status);
         int nmbrs = qso->neighbors.size();
         fits_write_key(fits_file, TINT, "NUM_NEIG", &nmbrs, nullptr, &status);
-        fits_write_col(fits_file, TDOUBLE, 1, 1, 1, nrows, qso->z1, &status);
-        fits_write_col(fits_file, TFLOAT, 2, 1, 1, nrows, chi.get(), &status);
+        fits_write_col(fits_file, TDOUBLE, 1, 1, 1, nrows, qso->growth.get(), &status);
+        fits_write_col(fits_file, TFLOAT, 2, 1, 1, nrows, qso->chi.get(), &status);
         fits_write_col(
             fits_file, TDOUBLE, 3, 1, 1, nrows, qso->search.get(), &status);
         fits_write_col(fits_file, TDOUBLE, 4, 1, 1, nrows, qso->out, &status);
@@ -246,7 +310,7 @@ void Qu3DEstimator::testSymmetry() {
     #pragma omp parallel for reduction(+:uTAv)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            qso->out[i] *= qso->isig[i] * qso->z1[i];
+            qso->out[i] *= qso->isig[i] * qso->growth[i];
         uTAv += cblas_ddot(qso->N, qso->truth, 1, qso->out, 1);
     }
     LOG::LOGGER.STD("uTS_Lv = %.9e, ", uTAv);
@@ -261,7 +325,7 @@ void Qu3DEstimator::testSymmetry() {
     #pragma omp parallel for reduction(+:vTAu)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
-            qso->out[i] *= qso->isig[i] * qso->z1[i];
+            qso->out[i] *= qso->isig[i] * qso->growth[i];
         vTAu += cblas_ddot(qso->N, qso->truth, 1, qso->out, 1);
     }
     LOG::LOGGER.STD("vTS_Lu = %.9e. Diff: %.9e\n", vTAu, vTAu - uTAv);
@@ -273,7 +337,7 @@ void Qu3DEstimator::testSymmetry() {
         std::fill_n(qso->out, qso->N, 0);
         qso->multCovNeighbors(p3d_model.get(), effective_chi);
         for (int i = 0; i < qso->N; ++i)
-            qso->out[i] *= qso->isig[i] * qso->z1[i];
+            qso->out[i] *= qso->isig[i] * qso->growth[i];
         uTAv += cblas_ddot(qso->N, qso->truth, 1, qso->out, 1);
     }
     LOG::LOGGER.STD("uTS_Sv = %.9e, ", uTAv);
@@ -289,13 +353,62 @@ void Qu3DEstimator::testSymmetry() {
         std::fill_n(qso->out, qso->N, 0);
         qso->multCovNeighbors(p3d_model.get(), effective_chi);
         for (int i = 0; i < qso->N; ++i)
-            qso->out[i] *= qso->isig[i] * qso->z1[i];
+            qso->out[i] *= qso->isig[i] * qso->growth[i];
         vTAu += cblas_ddot(qso->N, qso->truth, 1, qso->out, 1);
     }
     LOG::LOGGER.STD("vTS_Su = %.9e. Diff: %.9e\n", vTAu, vTAu - uTAv);
 }
 
 
+double Qu3DEstimator::estimateMaxEvalFnc(
+        std::function<void()> &fnc, double subtract_diag
+) {
+    constexpr int burn_in = 10, n_check = 5;
+    int niter = 1;
+    double n_in, n_out, n_inout, new_eval_max, old_eval_max = 1e-12;
+    bool is_converged = false;
+
+    #pragma omp parallel for
+    for (auto &qso : quasars)
+        rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
+
+    for (; niter <= max_conj_grad_steps; ++niter) {
+        fnc();
+
+        n_in = 0;  n_out = 0;  n_inout = 0;
+        #pragma omp parallel for reduction(+:n_in, n_out, n_inout)
+        for (const auto &qso : quasars) {
+            for (int i = 0; i < qso->N; ++i)
+                qso->out[i] -= subtract_diag * qso->in[i];
+            n_in += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+            n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
+            n_inout += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+        }
+
+        new_eval_max = n_inout / n_in;
+        bool check_convergence =
+            (niter >= burn_in)
+            && ((niter % n_check == 0) || (niter == max_conj_grad_steps));
+
+        if (check_convergence && isClose(old_eval_max, new_eval_max, tolerance)) {
+            is_converged = true;  break;
+        }
+
+        old_eval_max = new_eval_max;
+        n_out = sqrt(n_out);
+        for (auto &qso : quasars)
+            for (int i = 0; i < qso->N; ++i)
+                qso->in[i] = qso->out[i] / n_out;
+    }
+    new_eval_max += subtract_diag;
+
+    if (is_converged)  LOG::LOGGER.STD(" Converged: ");
+    else  LOG::LOGGER.STD(" NOT converged: ");
+
+    LOG::LOGGER.STD(" %.5e (number of iterations: %d)\n", new_eval_max, niter);
+
+    return new_eval_max;
+}
 
 void Qu3DEstimator::estimateMaxEvals() {
     int niter = 1;
@@ -348,7 +461,7 @@ void Qu3DEstimator::estimateMaxEvals() {
                 continue;
 
             for (int i = 0; i < qso->N; ++i)
-                qso->in[i] *= qso->z1[i];
+                qso->in[i] *= qso->growth[i];
         }
 
         n_in = 0;  n_out = 0;  n_inout = 0;
@@ -435,7 +548,7 @@ void Qu3DEstimator::estimateMaxEvals() {
                 continue;
 
             for (int i = 0; i < qso->N; ++i)
-                qso->in[i] *= qso->z1[i];
+                qso->in[i] *= qso->growth[i];
         }
 
         n_in = 0;  n_out = 0;  n_inout = 0;

@@ -1,11 +1,11 @@
 void Qu3DEstimator::multiplyAsVector(double m, double s) {
-    /* m I + s^-1 (I + N^-1/2 G^1/2 (S_S) G^1/2 N^-1/2)
+    /* m I + s^-1 [I . mix + (N^-1/2 G^1/2) (S_S) (G^1/2 N^-1/2)]
+       (m + mix / s) I + s^-1 (N^-1/2 G^1/2) (S_S) (G^1/2 N^-1/2)
         input is const *in, output is *out
         uses: *in_isig
     */
     double dt = mytime::timer.getTime();
 
-    /* A_BD^-1. Might not be true if pp_enabled=false */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         qso->setInIsigNoMarg();
@@ -19,13 +19,12 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
     if (pp_enabled)  multParticleComp();
     // (B)
 
+    double mp = m + mixture_factor_for_as / s;
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            qso->out[i] *= qso->isig[i] * qso->z1[i];
-            qso->out[i] += qso->in[i];
-            qso->out[i] /= s;
-            qso->out[i] += m * qso->in[i];
+            qso->out[i] *= qso->isig[i] * qso->growth[i] / s;
+            qso->out[i] += mp * qso->in[i];
         }
     }
 
@@ -35,62 +34,35 @@ void Qu3DEstimator::multiplyAsVector(double m, double s) {
 }
 
 
-double Qu3DEstimator::estimateMaxEvalAs(double m) {
-    int niter = 1;
-    double n_in, n_out, n_inout, new_eval_max, old_eval_max = 1e-12;
-    bool is_converged = false, init_verbose = verbose;
+double Qu3DEstimator::estimateMaxEvalAs(double m, bool return_geometric_mean) {
+    double max_eval, min_eval;
+    bool init_verbose = verbose;
     LOG::LOGGER.STD("Estimating maximum eigenvalue of As: ");
+    verbose = false;
 
     std::vector<double*> init_ins;
     init_ins.reserve(quasars.size());
-    for (const auto &qso : quasars)
+    for (const auto &qso : quasars) {
         init_ins.push_back(qso->in);
-
-    // find max_eval
-    #pragma omp parallel for
-    for (auto &qso : quasars) {
-        rngs[myomp::getThreadNum()].fillVectorNormal(qso->sc_eta, qso->N);
         qso->in = qso->sc_eta;
     }
 
-    verbose = false;
-    for (; niter <= max_conj_grad_steps; ++niter) {
-        multiplyAsVector(m);
-        n_in = 0;  n_out = 0;  n_inout = 0;
+    std::function<void()> fnc = [this, m]() { multiplyAsVector(m); };
 
-        #pragma omp parallel for reduction(+:n_in, n_out, n_inout)
-        for (const auto &qso : quasars) {
-            n_in += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
-            n_out += cblas_ddot(qso->N, qso->out, 1, qso->out, 1);
-            n_inout += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
-        }
+    max_eval = estimateMaxEvalFnc(fnc);
+    LOG::LOGGER.STD("Estimating minimum eigenvalue of As: ");
+    min_eval = estimateMaxEvalFnc(fnc, max_eval);
 
-        new_eval_max = n_inout / n_in;
-        if (isClose(old_eval_max, new_eval_max, tolerance)) {
-            is_converged = true;  break;
-        }
+    if (return_geometric_mean)
+        max_eval = sqrt(max_eval * min_eval);
 
-        old_eval_max = new_eval_max;
-        n_out = sqrt(n_out);
-        for (auto &qso : quasars)
-            for (int i = 0; i < qso->N; ++i)
-                qso->in[i] = qso->out[i] / n_out;
-    }
-
-    if (is_converged)
-        LOG::LOGGER.STD(" Converged: ");
-    else
-        LOG::LOGGER.STD(" NOT converged: ");
-
-    new_eval_max -= m;
-    LOG::LOGGER.STD(" %.5e (number of iterations: %d)\n", new_eval_max, niter);
     verbose = init_verbose;
 
     for (size_t i = 0; i < quasars.size(); ++i) {
         auto &qso = quasars[i];
         qso->in = init_ins[i];
     }
-    return new_eval_max;
+    return max_eval;
 }
 
 
@@ -100,7 +72,7 @@ double Qu3DEstimator::findMaxDiagonalAs() {
     #pragma omp parallel for reduction(max:max_diag) schedule(dynamic, 4)
     for (const auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
-            double isigG = qso->isig[i] * qso->z1[i];
+            double isigG = qso->isig[i] * qso->growth[i];
             isigG *= isigG;
             max_diag = std::max(max_diag, 1.0 + varlss_S * isigG);
         }
@@ -116,23 +88,26 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
     int niter = 1;
 
     double init_residual_norm = 0, old_residual_prec = 0,
-           new_residual_norm = 0;
+           new_residual_norm = 0, truth_norm = 0;
 
     updateYMatrixVectorFunction = [this, m, s]() { multiplyAsVector(m, s); };
 
+    // Remove mixture from m for preconditioner
+    double mp = m - (1.0 - mixture_factor_for_as) / s;
     if (verbose)
         LOG::LOGGER.STD("  Entered conjugateGradientIpH.\n");
+    
+    auto preconditioner = getPreconditioner(true, mp, s);
 
     /* Initial guess */
     #pragma omp parallel for schedule(dynamic, 4)
     for (auto &qso : quasars)
-        qso->multInvCov(
-            p3d_model.get(), qso->truth, qso->in, pp_enabled, true, m, s);
+        preconditioner(qso, qso->truth, qso->in);
 
     multiplyAsVector(m, s);
 
     #pragma omp parallel for schedule(dynamic, 4) \
-                             reduction(+:init_residual_norm, old_residual_prec)
+                             reduction(+:init_residual_norm, old_residual_prec, truth_norm)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i)
             qso->residual[i] = qso->truth[i] - qso->out[i];
@@ -141,26 +116,24 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
         qso->in = qso->search.get();
 
         // set search = PreCon . residual
-        qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->in,
-                        pp_enabled, true, m, s);
+        preconditioner(qso, qso->residual.get(), qso->in);
 
-        init_residual_norm += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                         qso->residual.get(), 1);
-        old_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                        qso->in, 1);
+        init_residual_norm += myQsoDot(qso, residual.get(), residual.get());
+        old_residual_prec += myQsoDot(qso, residual.get(), in);
+        truth_norm += myQsoDot(qso, truth, truth);
     }
 
     init_residual_norm = sqrt(init_residual_norm);
+    truth_norm = std::max(sqrt(truth_norm), init_residual_norm);
+    if (absolute_tolerance) truth_norm = 1;
 
-    if (hasConverged(init_residual_norm, tolerance))
+    if (hasConverged(init_residual_norm, truth_norm, tolerance))
         goto endconjugateGradientIpH;
 
-    if (absolute_tolerance) init_residual_norm = 1;
-
     for (; niter <= max_conj_grad_steps; ++niter) {
-        new_residual_norm = updateY(old_residual_prec) / init_residual_norm;
+        new_residual_norm = updateY(old_residual_prec);
 
-        bool end_iter = hasConverged(new_residual_norm, tolerance);
+        bool end_iter = hasConverged(new_residual_norm, truth_norm, tolerance);
 
         if (end_iter)
             goto endconjugateGradientIpH;
@@ -171,10 +144,8 @@ void Qu3DEstimator::conjugateGradientIpH(double m, double s) {
                                  reduction(+:new_residual_prec)
         for (auto &qso : quasars) {
             // set z (out) = PreCon . residual
-            qso->multInvCov(p3d_model.get(), qso->residual.get(), qso->out,
-                            pp_enabled, true, m, s);
-            new_residual_prec += cblas_ddot(qso->N, qso->residual.get(), 1,
-                                            qso->out, 1);
+            preconditioner(qso, qso->residual.get(), qso->out);
+            new_residual_prec += myQsoDot(qso, residual.get(), out);
         }
 
         double beta = new_residual_prec / old_residual_prec;
@@ -239,30 +210,63 @@ void Qu3DEstimator::multiplyCovSmallSqrt() {
 }
 #endif
 
+void _measure_print_power(RealField3D &mesh) {
+    /* Destructive operation! */
+    mesh.fftX2K();
+    auto power_uniform = RealField3D::estimateIsotropicPower(mesh, 100);
+    LOG::LOGGER.STD("P       cellvol\n");
+    for (size_t i = 0; i < 100; i++)
+        LOG::LOGGER.STD("%12.8e %12.8e\n", power_uniform[i], mesh.cellvol);
+}
+
 
 void Qu3DEstimator::replaceDeltasWithGaussianField() {
-    if (verbose)
-        LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
-
     double t1 = mytime::timer.getTime(), t2 = 0;
-    #pragma omp parallel for schedule(dynamic, 4)
-    for (auto &qso : quasars)
-        rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
 
-    multiplyCovSmallSqrtPade(pade_order);
+    if (verbose)  LOG::LOGGER.STD("Replacing deltas with Gaussian. ");
 
-    mesh.fillRndNormal(rngs);
-    mesh.convolveSqrtPk(p3d_model->interp2d_pL);
-    #pragma omp parallel for schedule(dynamic, 4)
-    for (auto &qso : quasars)
-        qso->interpAddMesh2TruthIsig(mesh);
+    if (max_conj_grad_steps <= 0) {
+        if (verbose) LOG::LOGGER.STD( "Using block randoms. ");
+
+        #pragma omp parallel for schedule(dynamic, 4)
+        for (auto &qso : quasars)
+            qso->blockRandom(rngs[myomp::getThreadNum()], p3d_model.get());
+    }
+    else {
+        if (verbose)
+            LOG::LOGGER.STD("Mixture factor of As is %.1e. ",
+                            mixture_factor_for_as);
+
+        #pragma omp parallel for schedule(dynamic, 4)
+        for (auto &qso : quasars)
+            rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
+
+        // S_X
+        if (pp_enabled)  multiplyCovSmallSqrtPade();
+
+        // Add I
+        if (pp_enabled && (mixture_factor_for_as != 1.0)) {
+            #pragma omp parallel for schedule(dynamic, 4)
+            for (auto &qso : quasars) {
+                rngs[myomp::getThreadNum()].fillVectorNormal(qso->in, qso->N);
+                cblas_daxpy(qso->N, 1.0 - mixture_factor_for_as, qso->in, 1,
+                            qso->truth, 1);
+            }
+        }
+
+        mesh.fillRndNormal(rngs);
+        // _measure_print_power(mesh);
+        mesh.convolveSqrtPk(p3d_model->interp2d_pL, predeconvolve_cic_window);
+        #pragma omp parallel for schedule(dynamic, 4)
+        for (auto &qso : quasars)
+            qso->interpAddMesh2TruthIsig(mesh);
+    }
 
     t2 = mytime::timer.getTime() - t1;
     ++timings["GenGauss"].first;
     timings["GenGauss"].second += t2;
 
-    if (verbose)
-        LOG::LOGGER.STD("It took %.2f m.\n", t2);
+    if (verbose)  LOG::LOGGER.STD("It took %.2f m.\n", t2);
 }
 
 
@@ -276,12 +280,13 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
         mesh_rnd.ngrid[axis] *= mock_grid_res_factor;
     mesh_rnd.construct(INPLACE_FFT);
     mesh_rnd.fillRndNormal(rngs);
-    mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pT);
+    mesh_rnd.convolveSqrtPk(p3d_model->interp2d_pT, predeconvolve_cic_window);
     double varlss = p3d_model->getVar1dT();
 
     std::vector<ioh::unique_fitsfile_ptr> file_writers;
-    file_writers.reserve(myomp::getMaxNumThreads());
-    for (int i = 0; i < myomp::getMaxNumThreads(); ++i) {
+    int nthreads = std::min(8, myomp::getMaxNumThreads());
+    file_writers.reserve(nthreads);
+    for (int i = 0; i < nthreads; ++i) {
         std::string out_fname =
             "!" + process::FNAME_BASE + "-deltas-v"
             + std::to_string(mympi::this_pe) + "-" + std::to_string(i)
@@ -289,11 +294,11 @@ void Qu3DEstimator::replaceDeltasWithHighResGaussianField() {
         file_writers.push_back(ioh::create_unique_fitsfile_ptr(out_fname));
     }
 
-    #pragma omp parallel for schedule(static, 8)
+    #pragma omp parallel for schedule(static, 8) num_threads(nthreads)
     for (auto &qso : quasars) {
         for (int i = 0; i < qso->N; ++i) {
             if (qso->isig[i] != 0) {
-                qso->truth[i] =  qso->z1[i] * mesh_rnd.interpolate(
+                qso->truth[i] =  qso->growth[i] * mesh_rnd.forwardInterpolate(
                     qso->r.get() + 3 * i
                     ) + rngs[myomp::getThreadNum()].normal() / qso->isig[i];
             }
@@ -357,8 +362,8 @@ bool Qu3DEstimator::_syncMonteCarlo(
 void Qu3DEstimator::estimateTotalBiasDirect() {
     constexpr int M_MCS = 5;
     verbose = false;
-    mc1 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    mc2 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    mc1 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    mc2 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
     int nmc = 1;
     bool converged = false;
 
@@ -369,13 +374,25 @@ void Qu3DEstimator::estimateTotalBiasDirect() {
     Progress prog_tracker(max_monte_carlos, 10);
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* Generate z = +-1 per forest. */
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            rngs[myomp::getThreadNum()].fillVectorOnes(qso->in, qso->N);
+        if (nmc % 2 == 1) {
+            #pragma omp parallel for
+            for (auto &qso : quasars) {
+                rngs[myomp::getThreadNum()].fillVectorOnes(qso->sc_eta, qso->N);
+                std::copy_n(qso->sc_eta, qso->N, qso->in);
+            }
+        } else {
+            /* Antithetic variates */
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                for (int i = 0; i < qso->N; ++i)
+                    qso->in[i] = -1.0 * qso->sc_eta[i];
+        }
 
         /* (Right hand side) Save this on mesh_rnd */
         reverseInterpolateZ(mesh_rnd);
         mesh_rnd.rawFftX2K();
+        // No need to sharpen for forward and reverse interpolation windows
+        // here. They are applied in multiplyDerivVectors.
 
         /* (Left hand side) CGD requires *truth to be mult'd by N^-1/2
            Swapping ptrs could be buggy:
@@ -389,14 +406,14 @@ void Qu3DEstimator::estimateTotalBiasDirect() {
         /* calculate C^-1 . z into *in */
         conjugateGradientDescent();
 
-        multiplyDerivVectors(mc1.get(), mc2.get(), nullptr, mesh_rnd);
+        multiplyDerivVectors(mc1.get(), mc2.get(), nullptr, &mesh_rnd);
         ++prog_tracker;
 
         if ((nmc % M_MCS != 0) && (nmc != max_monte_carlos))
             continue;
 
         converged = _syncMonteCarlo(
-            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_P_BANDS,
+            nmc, raw_bias.get(), filt_bias.get(), bins::NUMBER_OF_P_BANDS,
             "FTOTALBIAS-D");
 
         if (converged)
@@ -411,8 +428,8 @@ void Qu3DEstimator::estimateTotalBiasMc() {
        post-processed to get the Fisher matrix. */
     constexpr int M_MCS = 5;
 
-    mc1 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    mc2 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    mc1 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    mc2 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
     int nmc = 1;
     bool converged = false;
 
@@ -422,13 +439,20 @@ void Qu3DEstimator::estimateTotalBiasMc() {
     ioh::Qu3dFile monte_carlos_file(
         process::FNAME_BASE + "-montecarlos-" + std::to_string(mympi::this_pe),
         0);
-    auto all_mcs = std::make_unique<double[]>(M_MCS * NUMBER_OF_P_BANDS);
+    auto all_mcs = std::make_unique<double[]>(M_MCS * bins::NUMBER_OF_P_BANDS);
 
     Progress prog_tracker(max_monte_carlos, 10);
     for (; nmc <= max_monte_carlos; ++nmc) {
         verbose = nmc == 1;
         /* generate random Gaussian vector into truth */
-        replaceDeltasWithGaussianField();
+        if (nmc % 2 == 1) {
+            replaceDeltasWithGaussianField();
+        } else {
+            /* Antithetic variates */
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                cblas_dscal(qso->N, -1.0, qso->truth, 1);
+        }
 
         verbose = false;
         /* calculate Cinv . n into y */
@@ -438,7 +462,7 @@ void Qu3DEstimator::estimateTotalBiasMc() {
         /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
         multiplyDerivVectors(
             mc1.get(), mc2.get(),
-            all_mcs.get() + jj * NUMBER_OF_P_BANDS
+            all_mcs.get() + jj * bins::NUMBER_OF_P_BANDS
         );
 
         ++prog_tracker;
@@ -447,12 +471,12 @@ void Qu3DEstimator::estimateTotalBiasMc() {
             continue;
 
         monte_carlos_file.write(
-            all_mcs.get(), (jj + 1) * NUMBER_OF_P_BANDS,
+            all_mcs.get(), (jj + 1) * bins::NUMBER_OF_P_BANDS,
             "TOTBIAS_MCS-" + std::to_string(nmc), jj + 1);
         monte_carlos_file.flush();
 
         converged = _syncMonteCarlo(
-            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_P_BANDS,
+            nmc, raw_bias.get(), filt_bias.get(), bins::NUMBER_OF_P_BANDS,
             "FTOTALBIAS-MC");
 
         if (converged)
@@ -500,20 +524,20 @@ void Qu3DEstimator::testCovSqrt() {
         for (auto &qso : quasars) {
             rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
             std::copy_n(qso->truth, qso->N, qso->in);
-            xTx += cblas_ddot(qso->N, qso->in, 1, qso->in, 1);
+            xTx += myQsoDot(qso, in, in);
         }
 
         multiplyAsVector();
 
         #pragma omp parallel for reduction(+:xTHx)
         for (auto &qso : quasars)
-            xTHx += cblas_ddot(qso->N, qso->in, 1, qso->out, 1);
+            xTHx += myQsoDot(qso, in, out);
 
-        multiplyCovSmallSqrtPade(pade_order);
+        multiplyCovSmallSqrtPade();
         // multiplyCovSmallSqrtNewtonSchulz(pade_order);
         #pragma omp parallel for reduction(+:yTy)
         for (auto &qso : quasars)
-            yTy += cblas_ddot(qso->N, qso->truth, 1, qso->truth, 1);
+            yTy += myQsoDot(qso, truth, truth);
 
         xTx_arr[i - 1] = xTx;  xTHx_arr[i - 1] = xTHx;  yTy_arr[i - 1] = yTy;
         ++prog_tracker;
@@ -540,18 +564,24 @@ void Qu3DEstimator::testCovSqrt() {
 void Qu3DEstimator::estimateNoiseBiasMc() {
     LOG::LOGGER.STD("Estimating noise bias.\n");
     verbose = false;
-    mc1 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
-    mc2 = std::make_unique<double[]>(NUMBER_OF_P_BANDS);
+    mc1 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
+    mc2 = std::make_unique<double[]>(bins::NUMBER_OF_P_BANDS);
 
     Progress prog_tracker(max_monte_carlos, 10);
     int nmc = 1;
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* generate random Gaussian vector into truth */
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
-            // qso->fillRngNoise(rngs[myomp::getThreadNum()]);
+        if (nmc % 2 == 1) {
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                rngs[myomp::getThreadNum()].fillVectorNormal(qso->truth, qso->N);
+        } else {
+            /* Antithetic variates */
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                cblas_dscal(qso->N, -1.0, qso->truth, 1);
+        }
 
         /* calculate Cinv . n into y */
         conjugateGradientDescent();
@@ -564,7 +594,7 @@ void Qu3DEstimator::estimateNoiseBiasMc() {
             continue;
 
         converged = _syncMonteCarlo(
-            nmc, raw_bias.get(), filt_bias.get(), NUMBER_OF_P_BANDS, "FBIAS");
+            nmc, raw_bias.get(), filt_bias.get(), bins::NUMBER_OF_P_BANDS, "FBIAS");
 
         if (converged)
             break;
@@ -585,6 +615,7 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
     4. Reverse interpolate to mesh.
     5. Multiply with Qk' on mesh.
     */
+    throw std::runtime_error("estimateFisherFromRndDeriv is not deprecated and may be buggy. Use with caution.");
     LOG::LOGGER.STD("Estimating Fisher with random C,k.\n");
     verbose = false;
     mc1 = std::make_unique<double[]>(bins::FISHER_SIZE);
@@ -613,14 +644,14 @@ void Qu3DEstimator::estimateFisherFromRndDeriv() {
         mesh_rnd.fftX2K();
         LOG::LOGGER.STD("  Generated random numbers & FFT.\n");
 
-        for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
+        for (int i = 0; i < bins::NUMBER_OF_P_BANDS; ++i) {
             multDerivMatrixVec(i);
 
             /* calculate C^-1 . qk into in */
             conjugateGradientDescent();
             /* Evolve with Z, save C^-1 . v (in) into mesh  & FFT */
-            multiplyDerivVectors(mc1.get() + i * NUMBER_OF_P_BANDS,
-                                 mc2.get() + i * NUMBER_OF_P_BANDS);
+            multiplyDerivVectors(mc1.get() + i * bins::NUMBER_OF_P_BANDS,
+                                 mc2.get() + i * bins::NUMBER_OF_P_BANDS);
         }
 
         ++prog_tracker;
@@ -660,21 +691,47 @@ void Qu3DEstimator::estimateFisherDirect() {
     LOG::LOGGER.STD("  Constructing two other meshes for randoms.\n");
     if (!mesh_rnd) { mesh_rnd.copy(mesh); mesh_rnd.construct(INPLACE_FFT); }
     if (!mesh_fh) { mesh_fh.copy(mesh); mesh_fh.construct(INPLACE_FFT); }
+    // Cache windows on mesh_rnd for direct Fisher estimation.
+    // This would not work predeconvolve is false
+    for (size_t jz = 0; jz < mesh_rnd.ngrid_kz; ++jz)
+        mesh_rnd.iasgn_window_z2[jz] *=
+            mesh_rnd.invtotalvol
+            * p3d_model->getSpectroWindow2(jz * mesh.k_fund[2]);
 
     LOG::LOGGER.STD("  Using preconditioner as solution.\n");
 
-    Progress prog_tracker(max_monte_carlos * NUMBER_OF_P_BANDS, 5);
+    Progress prog_tracker(max_monte_carlos * bins::NUMBER_OF_P_BANDS, 5);
     int nmc = 1;
     bool converged = false;
     for (; nmc <= max_monte_carlos; ++nmc) {
         /* Generate z = +-1 per forest. */
-        #pragma omp parallel for
-        for (auto &qso : quasars)
-            rngs[myomp::getThreadNum()].fillVectorOnes(qso->in, qso->N);
+        if (nmc % 2 == 1) {
+            #pragma omp parallel for
+            for (auto &qso : quasars) {
+                rngs[myomp::getThreadNum()].fillVectorOnes(qso->sc_eta, qso->N);
+                std::copy_n(qso->sc_eta, qso->N, qso->in);
+            }
+        } else {
+            /* Antithetic variates */
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                for (int i = 0; i < qso->N; ++i)
+                    qso->in[i] = -1.0 * qso->sc_eta[i];
+        }
 
         /* (Right hand side) Save this on mesh_rnd */
         reverseInterpolateZ(mesh_rnd);
         mesh_rnd.rawFftX2K();
+        // Handle forward and reverse interpolation windows here
+        // Note mesh_rnd.iasgn_window_z2 is update in the beginning of this
+        // function with correct normalization.
+        mesh_rnd.sharpen2();
+        if (!interps1d_deriv_bd.empty()) {
+            // Save in * growth into residual for later access in multDerivMatrixVec
+            #pragma omp parallel for
+            for (auto &qso : quasars)
+                mxhelp::vector_multiply(qso->N, qso->in, qso->growth.get(), qso->residual.get());
+        }
 
         /* (Left hand side ) CGD requires *truth to be multiplied by N^-1/2 */
         #pragma omp parallel for
@@ -687,14 +744,14 @@ void Qu3DEstimator::estimateFisherDirect() {
         reverseInterpolateZ(mesh_fh);
         mesh_fh.rawFftX2K();
 
-        for (int i = 0; i < NUMBER_OF_P_BANDS; ++i) {
+        for (int i = 0; i < bins::NUMBER_OF_P_BANDS; ++i) {
             multDerivMatrixVec(i);
 
             /* calculate C^-1 . qk into in */
             preconditionerSolution();
-            multiplyDerivVectors(mc1.get() + i * NUMBER_OF_P_BANDS,
-                                 mc2.get() + i * NUMBER_OF_P_BANDS,
-                                 nullptr, mesh_fh);
+            multiplyDerivVectors(mc1.get() + i * bins::NUMBER_OF_P_BANDS,
+                                 mc2.get() + i * bins::NUMBER_OF_P_BANDS,
+                                 nullptr, &mesh_fh);
             ++prog_tracker;
         }
 

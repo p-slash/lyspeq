@@ -6,12 +6,19 @@
 #include "io/io_helper_functions.hpp"
 #include "mathtools/interpolation.hpp"
 #include "qu3d/ps2cf_2d.hpp"
+#include "core/omp_manager.hpp"
 
 
 constexpr double SAFE_ZERO = 1E-300;
 constexpr double TWO_PI2 = 2 * MY_PI * MY_PI;
-constexpr double KMIN = 1E-6, KMAX = 2E2;
-constexpr int Nhankel = 2048, ltrunc = 512;
+constexpr double KMIN = 1E-5, KMAX = 2E2;
+/* Quasar forest length can be a maximum of 650 Mpc.
+Truncating 1e-6--1e6 logspaced array of 1536 points by 380 on each end,
+Truncating 1e-6--1e6 logspaced array of 2048 points by 512 on each end,
+Truncating 1e-5--1e5 logspaced array of 2048 points by 410 on each end,
+Truncating 1e-4--1e4 logspaced array of 1536 points by 190 on each end,
+gives approximately 1e-3--1e3 Mpc span. */
+constexpr int Nhankel = 2048, ltrunc = 410;
 const double LNKMIN = log(KMIN), LNKMAX = log(KMAX);
 
 using namespace fidcosmo;
@@ -28,11 +35,11 @@ double _nu_relative_density(
 }
 
 
-/* in km/s/Mpc */
+/* (km/s) / (Mpc/h) */
 double _calcHubble(double z1, struct CosmoParams *params) {
     double z3 = z1 * z1 * z1;
     double nu = 1.0 + _nu_relative_density(z1);
-    return params->H0 * sqrt(
+    return 100.0 * sqrt(
             params->Omega_L + (params->Omega_m + params->Omega_r * nu * z1) * z3
     );
 }
@@ -127,12 +134,59 @@ void FlatLCDM::_integrateLinearGrowth(
 #undef REL_ERROR
 #undef WORKSPACE_SIZE
 
+void FlatLCDM::_readFile(const std::string &fname) {
+    int status = 0;
+    auto fitsfile_ptr = ioh::open_unique_fitsfile_ptr(fname, READONLY);
+    fitsfile *fits_file = fitsfile_ptr.get();
+
+    char extname[] = "PLINEAR";
+    fits_movnam_hdu(fits_file, BINARY_TBL, extname, 0, &status);
+    ioh::checkFitsStatus(status);
+
+    int N = 0;
+    fits_read_key(fits_file, TINT, "NAXIS2", &N, NULL, &status);
+    fits_read_key(fits_file, TDOUBLE, "zpivot", &z_pivot, nullptr, &status);
+    fits_read_key(fits_file, TDOUBLE, "Om", &cosmo_params.Omega_m, nullptr, &status);
+    fits_read_key(fits_file, TDOUBLE, "Or", &cosmo_params.Omega_r, nullptr, &status);
+    fits_read_key(fits_file, TDOUBLE, "hubble", &cosmo_params.h, nullptr, &status);
+    ioh::checkFitsStatus(status);
+
+    char lnk_colname[] = "LNK", lnp_colname[] = "LNP";
+    int lnk_colnum = 0, lnp_colnum = 0, nonull = 0;
+    fits_get_colnum(fits_file, CASEINSEN, lnk_colname, &lnk_colnum, &status);
+    fits_get_colnum(fits_file, CASEINSEN, lnp_colname, &lnp_colnum, &status);
+    ioh::checkFitsStatus(status);
+
+    std::vector<double> lnk, lnP;
+    lnk.resize(N);  lnP.resize(N);
+    fits_read_col(
+        fits_file, TDOUBLE, lnk_colnum, 1, 1, N, 0, lnk.data(), &nonull, 
+        &status);
+    fits_read_col(
+        fits_file, TDOUBLE, lnp_colnum, 1, 1, N, 0, lnP.data(), &nonull, 
+        &status);
+    ioh::checkFitsStatus(status);
+
+    double dlnk = lnk[1] - lnk[0];
+
+    for (int i = 1; i < N - 1; ++i)
+        if (fabs(lnk[i + 1] - lnk[i] - dlnk) > 1e-8)
+            throw std::runtime_error(
+                "Input PlinearFilename does not have equal ln k spacing.");
+
+    double x;
+    auto appendLnp = _appendLinearExtrapolation(
+        lnk[0], lnk.back(), dlnk, N, lnP, x);
+    interp_lnp_linear = std::make_unique<DiscreteCubicInterpolation1D>(
+        x, dlnk, appendLnp.size(), appendLnp.data());
+}
 
 FlatLCDM::FlatLCDM(ConfigFile &config) {
-    config.addDefaults(planck18_default_parameters);
-    cosmo_params.H0 = config.getDouble("Hubble");
-    cosmo_params.Omega_m = config.getDouble("OmegaMatter");
-    cosmo_params.Omega_r = config.getDouble("OmegaRadiation");
+    std::string fname = config.get("CosmologyFilename");
+    if (fname.empty())
+        throw std::invalid_argument("Must pass CosmologyFilename.");
+    
+        _readFile(fname);
     cosmo_params.Omega_L =
         1.0 - cosmo_params.Omega_m
         - cosmo_params.Omega_r * (1 + _nu_relative_density(1));
@@ -169,7 +223,7 @@ FlatLCDM::FlatLCDM(ConfigFile &config) {
 }
 
 
-std::vector<double> LinearPowerInterpolator::_appendLinearExtrapolation(
+std::vector<double> FlatLCDM::_appendLinearExtrapolation(
         double lnk1, double lnk2, double dlnk, int N,
         const std::vector<double> &lnP, double &newlnk1
 ) {
@@ -194,35 +248,9 @@ std::vector<double> LinearPowerInterpolator::_appendLinearExtrapolation(
 }
 
 
-void LinearPowerInterpolator::_readFile(const std::string &fname) {
-    std::ifstream toRead = ioh::open_fstream<std::ifstream>(fname);
-    std::vector<double> lnk, lnP;
-    double lnk1, lnP1;
 
-    while (toRead >> lnk1 >> lnP1) {
-        lnk.push_back(lnk1);
-        lnP.push_back(lnP1);
-    }
-
-    toRead.close();
-
-    int N = lnk.size();
-    double dlnk = lnk[1] - lnk[0];
-
-    for (int i = 1; i < N - 1; ++i)
-        if (fabs(lnk[i + 1] - lnk[i] - dlnk) > 1e-8)
-            throw std::runtime_error(
-                "Input PlinearFilename does not have equal ln k spacing.");
-
-    auto appendLnp = _appendLinearExtrapolation(
-        lnk[0], lnk.back(), dlnk, N, lnP, lnk1);
-    interp_lnp = std::make_unique<DiscreteCubicInterpolation1D>(
-        lnk1, dlnk, appendLnp.size(), appendLnp.data());
-}
-
-
-void LinearPowerInterpolator::write(ioh::Qu3dFile *out) {
-    out->write(interp_lnp->get(), interp_lnp->size(), "PLIN_APPD");
+void FlatLCDM::write(ioh::Qu3dFile *out) {
+    out->write(interp_lnp_linear->get(), interp_lnp_linear->size(), "PLIN_APPD");
 }
 
 
@@ -234,6 +262,10 @@ const std::unordered_map<std::string, double> metal_line_map ({
 ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     config.addDefaults(arinyo_default_parameters);
     config.addDefaults(metals_default_parameters);
+    config.addDefaults(other_settings_default_parameters);
+
+    _sigma_mpc = 0;
+    _deltar_mpc = 0;
     b_F = config.getDouble("b_F");
     alpha_F = config.getDouble("alpha_F");
     beta_F = config.getDouble("beta_F");
@@ -247,15 +279,27 @@ ArinyoP3DModel::ArinyoP3DModel(ConfigFile &config) : _varlss(0) {
     L_HCD = config.getDouble("L_HCD");
     beta_metal = config.getDouble("beta_metal");
     sigma_v = config.getDouble("sigma_v");
+    spectro_off = config.getInteger("TurnoffSpectrographResolution") > 0;
+    growth_off = config.getInteger("TurnoffRedshiftEvolution") > 0;
 
     KMAX_HALO = std::min(1.5, k_p);
-    interp_p = std::make_unique<LinearPowerInterpolator>(config);
     cosmo = std::make_unique<fidcosmo::FlatLCDM>(config);
     rscale_long = config.getDouble("LongScale");
     rmax = rscale_long * config.getDouble("ScaleFactor");
-    _z1_pivot = 1.0 + interp_p->z_pivot;
-    _sigma_mpc = 0;
-    _deltar_mpc = 0;
+    _z1_pivot = 1.0 + cosmo->z_pivot;
+
+    _D_pivot = cosmo->getLinearGrowth(_z1_pivot);
+    constexpr int nz = 401;
+    constexpr double dz = 0.01, z1_i = 2.9;
+    double growth[nz];
+
+    for (int i = 0; i < nz; ++i) {
+        double z1 = z1_i + dz * i;
+        growth[i] = cosmo->getLinearGrowth(z1) / _D_pivot
+                    * pow(z1 / 3.4, alpha_F);
+    }
+    interp_growth = std::make_unique<DiscreteCubicInterpolation1D>(
+        z1_i, dz, nz, &growth[0]);
 
     for (const auto &[key, wave_m] : metal_line_map) {
         double b = config.getDouble(key);
@@ -281,41 +325,25 @@ void ArinyoP3DModel::construct() {
     _cacheInterp2D();
     _getCorrFunc2dS();
     _calcMultipoles();
-
-    _D_pivot = cosmo->getLinearGrowth(_z1_pivot);
-    constexpr int nz = 401;
-    constexpr double dz = 0.01, z1_i = 2.9;
-    double growth[nz];
-
-    for (int i = 0; i < nz; ++i) {
-        double z1 = z1_i + dz * i;
-        growth[i] = cosmo->getLinearGrowth(z1) / _D_pivot
-                    * pow(z1 / 3.4, alpha_F);
-    }
-    interp_growth = std::make_unique<DiscreteCubicInterpolation1D>(
-        z1_i, dz, nz, &growth[0]);
 }
 
 
 double ArinyoP3DModel::getSpectroWindow2(double kz) const {
-    #ifdef TURN_OFF_SPECTRO_WINDOW
-    return 1.0;
-
-    #else
+    if (spectro_off)
+        return 1.0;
+    
     if (kz == 0)  return 1;
     double kr = kz * _sigma_mpc, kv = kz * _deltar_mpc / 2.0;
     kr *= kr;
     kv = sin(kv) / kv;
     return exp(-kr) * kv * kv;
-
-    #endif
 }
 
 
 void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
-    constexpr int nlnk = 6001;
+    constexpr int nlnk = 32*188/*=6016*/;
     const double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1);
-    double powers_kz[nlnk], powers_kperp[nlnk];
+    double powers_kperp[nlnk];
 
     std::function<double(double)> eval_ls_supp;
     if (pp_enabled)
@@ -329,7 +357,9 @@ void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
         };
     }
 
+    #pragma omp parallel for
     for (int i = 0; i < nlnk; ++i) {
+        double powers_kz[nlnk];
         double kperp2 = exp(LNKMIN + i * dlnk);
         kperp2 *= kperp2;
         for (int j = 0; j < nlnk; ++j) {
@@ -346,13 +376,14 @@ void ArinyoP3DModel::calcVarLss(bool pp_enabled) {
 
 
 void ArinyoP3DModel::_cacheInterp2D() {
-    constexpr double dlnk = 0.02;
-    const int N = ceil((LNKMAX - LNKMIN) / dlnk);
+    constexpr int N = 1024;
+    const double dlnk = (LNKMAX - LNKMIN) / (N - 1);
     auto lnP_L = std::make_unique<double[]>(N * N),
          lnP_S = std::make_unique<double[]>(N * N),
          lnP_T = std::make_unique<double[]>(N * N);
 
     /* Large-scale and small-scale 2Ds */
+    #pragma omp parallel for
     for (int iperp = 0; iperp < N; ++iperp) {
         double kperp = exp(LNKMIN + iperp * dlnk);
 
@@ -379,6 +410,7 @@ void ArinyoP3DModel::_cacheInterp2D() {
     interp2d_pT.setInterp2D(LNKMIN, dlnk, LNKMIN, dlnk, lnP_T.get(), N, N);
 
     /* Large-scale and small-scale 1Ds */
+    #pragma omp parallel for
     for (int i = 0; i < N; ++i) {
         double k = exp(LNKMIN + i * dlnk), k_rL = k * rscale_long;
         k_rL *= -k_rL;
@@ -420,7 +452,7 @@ double ArinyoP3DModel::evalP1d(double kz) const {
 
 
 void ArinyoP3DModel::_construcP1D() {
-    constexpr int nlnk = 10001;
+    constexpr int nlnk = 312*32/*=9984*/;
     const double dlnk = (LNKMAX - LNKMIN) / (nlnk - 1), dlnk2 = 0.02;
     const int nlnk2 = ceil((LNKMAX - LNKMIN) / dlnk2);
     double p1d_integrand[nlnk], p1d[nlnk2];
@@ -428,6 +460,7 @@ void ArinyoP3DModel::_construcP1D() {
     for (int i = 0; i < nlnk2; ++i) {
         double kz = exp(LNKMIN + i * dlnk2);
 
+        #pragma omp parallel for
         for (int j = 0; j < nlnk; ++j) {
             double kperp2 = exp(LNKMIN + j * dlnk);
             kperp2 *= kperp2;
@@ -444,6 +477,7 @@ void ArinyoP3DModel::_construcP1D() {
     /* Quasar forest length can be a maximum of 650 Mpc.
        Truncating 1e-6--1e6 logspaced array of 1536 points by 380 on each end,
        Truncating 1e-6--1e6 logspaced array of 2048 points by 512 on each end,
+       Truncating 1e-5--1e5 logspaced array of 2048 points by 410 on each end,
        Truncating 1e-4--1e4 logspaced array of 1536 points by 190 on each end,
        gives approximately 1e-3--1e3 Mpc span. */
     const double log2_e = log2(exp(1.0)), SQRT_2PI = sqrt(2.0 * MY_PI);
@@ -474,6 +508,7 @@ void ArinyoP3DModel::_getCorrFunc2dS() {
     auto psarr = std::make_unique<double[]>(Nhankel * Nhankel);
     const double *kperparr = hankel.getKperp(), *kzarr = hankel.getKz();
 
+    #pragma omp parallel for
     for (int iperp = 0; iperp < Nhankel; ++iperp) {
         double kperp2 = kperparr[iperp] * kperparr[iperp];
 
@@ -509,10 +544,12 @@ void ArinyoP3DModel::_calcMultipoles() {
     constexpr int nmu = 501;
     constexpr double dmu = 1.0 / (nmu - 1), dlnk = 0.02;
     const int nlnk = ceil((LNKMAX - LNKMIN) / dlnk);
-    double p3d_l_integrand[nmu], p3d_l[nlnk];
+    double p3d_l[nlnk];
 
     for (int l = 0; l < p3d_ell_T.getNell(); ++l) {
+        #pragma omp parallel for
         for (int i = 0; i < nlnk; ++i) {
+            double p3d_l_integrand[nmu];
             double k = exp(LNKMIN + i * dlnk);
 
             for (int j = 0; j < nmu; ++j) {
@@ -592,7 +629,7 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
         return 0;
 
     double
-    plin = interp_p->evaluate(k),
+    plin = cosmo->getLinearPower(k),
     delta2_L = plin * k * k * k / TWO_PI2,
     k_kp = k / k_p,
     mu = kz / k, mu2 = mu * mu,
@@ -628,14 +665,13 @@ double ArinyoP3DModel::evalExplicit(double k, double kz) const {
     result *= exp(-kill_cut_ * kill_cut_);
     #endif
 
-    #ifdef TURN_OFF_SPECTRO_WINDOW
-    return result;
-    #else
+    if (spectro_off)
+        return result;
+
     if ((_sigma_mpc == 0) && (_deltar_mpc == 0))
         return result;
 
     return result * getSpectroWindow2(kz);
-    #endif
 }
 
 
@@ -644,7 +680,7 @@ void ArinyoP3DModel::write(ioh::Qu3dFile *out) {
     const double dlnk = (LNKMAX - LNKMIN) / (nlnk - 2);
     double karr[nlnk], pmarr[nlnk2];
 
-    interp_p->write(out);
+    cosmo->write(out);
 
     for (int i = 0; i < nlnk; ++i) {
         karr[i] = 2.9 + i * 0.008;

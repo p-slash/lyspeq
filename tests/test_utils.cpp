@@ -47,8 +47,8 @@ void getMaxDiffWithIndex(
 
 void printValues(double truth, double result)
 {
-    printf("Result: %13.5e\n", result);
-    printf("VS\nTruth : %13.5e\n", truth);
+    printf("Result: %13.8e\n", result);
+    printf("VS\nTruth : %13.8e\n", truth);
     printf("===========================================\n\n");
 }
 

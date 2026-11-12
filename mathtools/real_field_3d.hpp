@@ -37,19 +37,28 @@ class RealField3D {
     fftw_plan p_x2k;
     fftw_plan p_k2x;
 
-    bool _inplace, _periodic_x;
+    bool _inplace, _periodic_x, _use_cic_interpolation;
     std::unique_ptr<double[]> _field_x;
     void _setAssignmentWindows();
 public:
+    static std::function<double(size_t, size_t)> getNormFunc(
+            const RealField3D *mesh, const RealField3D *other=nullptr,
+            bool predeconvolve=false
+    );
+
+    static std::unique_ptr<double[]> estimateIsotropicPower(
+        const RealField3D &mesh, int nbins);
+
     size_t size_complex, size_real, ngrid_xy, ngrid_z, ngrid_kz;
     int ngrid[3];
-    float dx[3], length[3], z0;
-    double k_fund[3], cellvol, invtotalvol, invsqrtcellvol;
+    float dx[3], length[3], xyz0[3];
+    double k_fund[3], cellvol, invtotalvol, invsqrtcellvol, celldiag;
     std::unique_ptr<std::complex<double>[]> field_k;
-    std::unique_ptr<double[]>  iasgn_window_xy, iasgn_window_z;
+    std::unique_ptr<double[]>  iasgn_window_xy, iasgn_window_xy2,
+                               iasgn_window_z, iasgn_window_z2;
     double *field_x;
 
-    RealField3D();
+    RealField3D(bool cic=true);
     RealField3D(const RealField3D &rhs) = delete;
     RealField3D(RealField3D &&rhs) = delete;
     explicit operator bool() const { return p_x2k != nullptr; }
@@ -58,6 +67,20 @@ public:
     void copy(const RealField3D &rhs);
     void construct(bool inp=true);
     void disablePeriodicityX() { _periodic_x = false; };
+    void useTscInterpolation() {
+        _use_cic_interpolation = false;
+        forwardInterpolate = [this](float coord[3]) { return this->forwardInterpolateTSC(coord); };
+        reverseInterpolate = [this](float coord[3], double val) { this->reverseInterpolateTSC(coord, val); };
+    }
+
+    void useCicInterpolation() {
+        _use_cic_interpolation = true;
+        forwardInterpolate = [this](float coord[3]) { return this->forwardInterpolateCIC(coord); };
+        reverseInterpolate = [this](float coord[3], double val) { this->reverseInterpolateCIC(coord, val); };
+    }
+
+    std::function<double(float[3])> forwardInterpolate;
+    std::function<void(float[3], double)> reverseInterpolate;
 
     ~RealField3D() {
         fftw_destroy_plan(p_x2k);
@@ -67,6 +90,7 @@ public:
     void free() {
         field_k.reset();  _field_x.reset();
         iasgn_window_xy.reset();  iasgn_window_z.reset();
+        iasgn_window_xy2.reset();  iasgn_window_z2.reset();
         fftw_destroy_plan(p_x2k);
         fftw_destroy_plan(p_k2x);
         p_x2k = nullptr;  p_k2x = nullptr;
@@ -97,21 +121,37 @@ public:
     void rawFftK2X() { fftw_execute(p_k2x); }
     void fftX2K();
     void fftK2X();
+    void sharpen1() {
+        #pragma omp parallel for
+        for (size_t ij = 0; ij < ngrid_xy; ++ij)
+            for (size_t k = 0; k < ngrid_kz; ++k)
+                field_k[k + ngrid_kz * ij] *=
+                    iasgn_window_xy[ij] * iasgn_window_z[k];
+    }
+    void sharpen2() {
+        #pragma omp parallel for
+        for (size_t ij = 0; ij < ngrid_xy; ++ij)
+            for (size_t k = 0; k < ngrid_kz; ++k)
+                field_k[k + ngrid_kz * ij] *=
+                    iasgn_window_xy2[ij] * iasgn_window_z2[k];
+    }
 
     template<class T1, class T2>
-    void convolvePk(const DiscreteLogLogInterpolation2D<T1, T2> &Pk) {
+    void convolvePk(
+            const DiscreteLogLogInterpolation2D<T1, T2> &Pk,
+            bool predeconvolve=false
+    ) {
         // S . x multiplication
         // Normalization including cellvol and N^3 yields inverse total volume
         fftw_execute(p_x2k);
+
+        if (predeconvolve)  sharpen2();
+
         #pragma omp parallel for
         for (size_t ij = 0; ij < ngrid_xy; ++ij) {
             double kperp = getKperpFromIperp(ij);
 
             for (size_t k = 0; k < ngrid_kz; ++k) {
-                // #ifdef DECONV_CIC_WINDOW
-                // field_k[k + ngrid_kz * ij] *=
-                //     iasgn_window_xy[ij] * iasgn_window_z[k];
-                // #endif
                 field_k[k + ngrid_kz * ij] *=
                     invtotalvol * Pk.evaluate(kperp, k * k_fund[2]);
             }
@@ -120,10 +160,15 @@ public:
     }
 
     template<class T1, class T2>
-    void convolveSqrtPk(const DiscreteLogLogInterpolation2D<T1, T2> &Pk) {
+    void convolveSqrtPk(
+            const DiscreteLogLogInterpolation2D<T1, T2> &Pk,
+            bool predeconvolve=false
+    ) {
         double norm = cellvol * invsqrtcellvol * invtotalvol;
-
         fftw_execute(p_x2k);
+
+        if (predeconvolve)  sharpen1();
+
         #pragma omp parallel for
         for (size_t ij = 0; ij < ngrid_xy; ++ij) {
             double kperp = getKperpFromIperp(ij);
@@ -152,9 +197,14 @@ public:
     std::unique_ptr<double[]> getKperpArray() const;
 
     std::vector<size_t> findNeighboringPixels(size_t i, double radius) const;
-    double interpolate(float coord[3]) const;
     double interpolateLanczos(float coord[3]) const;
+
     void reverseInterpolateCIC(float coord[3], double val);
+    double forwardInterpolateCIC(float coord[3]) const;
+
+    void reverseInterpolateTSC(float coord[3], double val);
+    double forwardInterpolateTSC(float coord[3]) const;
+
     void reverseInterpolateNGP(float coord[3], double val) {
         field_x[getNgpIndex(coord)] += val;
     }

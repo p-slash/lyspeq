@@ -197,9 +197,9 @@ public:
     virtual double evaluate(double x, double y) const {
         if ((x == 0) && (y == 0))
             return 0;
-        else if (x == 0)
+        if (x == 0)
             return interp_y->evaluate(log(y));
-        else if (y == 0)
+        if (y == 0)
             return interp_x->evaluate(log(x));
 
         return interp_2d->evaluateHermite2(log(y), log(x));
@@ -208,9 +208,9 @@ public:
     virtual double evaluateSqrt(double x, double y) const {
         if ((x == 0) && (y == 0))
             return 0;
-        else if (x == 0)
+        if (x == 0)
             return sqrt(interp_y->evaluate(log(y)));
-        else if (y == 0)
+        if (y == 0)
             return sqrt(interp_x->evaluate(log(x)));
 
         return sqrt(interp_2d->evaluateHermite2(log(y), log(x)));
@@ -224,11 +224,15 @@ public:
         interp_y = std::make_unique<T1>(x1, dx, N, y);
     }
 
+    /* Note z should be y-first indexed (ny + Ny * nx) as opposed to 
+    DiscreteBicubicSpline and others. I am keeping this probably for performance
+    purposes.
+    */
     void setInterp2D(
             double x1, double dx, double y1, double dy, double *z,
             int Nx, int Ny
     ) {
-        interp_2d = std::make_unique<T2>(x1, dx, y1, dy, z, Nx, Ny);
+        interp_2d = std::make_unique<T2>(y1, dy, x1, dx, z, Ny, Nx);
     }
 };
 
@@ -244,9 +248,9 @@ public:
     double evaluate(double x, double y) const override {
         if ((x == 0) && (y == 0))
             return 0;
-        else if (x == 0)
+        if (x == 0)
             return exp(this->interp_y->evaluate(log(y)));
-        else if (y == 0)
+        if (y == 0)
             return exp(this->interp_x->evaluate(log(x)));
 
         return exp(this->interp_2d->evaluateHermite2(log(y), log(x)));
@@ -255,9 +259,9 @@ public:
     double evaluateSqrt(double x, double y) const override {
         if ((x == 0) && (y == 0))
             return 0;
-        else if (x == 0)
+        if (x == 0)
             return exp(0.5 * this->interp_y->evaluate(log(y)));
-        else if (y == 0)
+        if (y == 0)
             return exp(0.5 * this->interp_x->evaluate(log(x)));
 
         return exp(0.5 * this->interp_2d->evaluateHermite2(log(y), log(x)));
