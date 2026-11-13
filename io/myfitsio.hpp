@@ -1,6 +1,7 @@
 #ifndef MYFITSIO_H
 #define MYFITSIO_H
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
@@ -9,6 +10,12 @@
 
 
 namespace ioh {
+    template<class T> inline int fitsioDataType();
+    template<> inline int fitsioDataType<double>() { return TDOUBLE; }
+    template<> inline int fitsioDataType<int>() { return TINT; }
+    template<> inline int fitsioDataType<bool>() { return TLOGICAL; }
+    template<> inline int fitsioDataType<long>() { return TLONG; }
+
     inline void checkFitsStatus(int status) {
         if (status == 0)
             return;
@@ -55,40 +62,102 @@ namespace ioh {
     }
 
     static std::vector<std::string> readHeaderKeys(
-            unique_fitsfile_ptr &fts, int &status
+            fitsfile *fts, int &status
     ) {
         int nkeys;
         char keyname[FLEN_KEYWORD], value[FLEN_VALUE];
         std::vector<std::string> header_keys;
 
-        fits_get_hdrspace(fts.get(), &nkeys, NULL, &status);
+        fits_get_hdrspace(fts, &nkeys, NULL, &status);
         header_keys.reserve(nkeys);
 
         for (int i = 1; i <= nkeys; ++i) {
-            fits_read_keyn(fts.get(), i, keyname, value, NULL, &status);
+            fits_read_keyn(fts, i, keyname, value, NULL, &status);
             header_keys.push_back(std::string(keyname));
         }
         return header_keys;
     }
 
     static std::vector<std::string> readColumnNAmes(
-            unique_fitsfile_ptr &fts, int &status
+            fitsfile *fts, int &status
     ) {
         int ncols;
         char keyname[FLEN_KEYWORD], colname[FLEN_VALUE];
         std::vector<std::string> colnames;
 
-        fits_get_num_cols(fts.get(), &ncols, &status);
+        fits_get_num_cols(fts, &ncols, &status);
         colnames.reserve(ncols);
 
         for (int i = 1; i <= ncols; i++) {
             fits_make_keyn("TTYPE", i, keyname, &status); /* make keyword */
-            fits_read_key(fts.get(), TSTRING, keyname, colname, NULL, &status);
+            fits_read_key(fts, TSTRING, keyname, colname, NULL, &status);
 
             colnames.push_back(std::string(colname));
         }
         return colnames;
     }
+
+    template<class T>
+    inline void readFitsKey(fitsfile *fts, const char *key, T &value, int &status) {
+        fits_read_key(fts, fitsioDataType<T>(), key, &value, NULL, &status);
+    }
+
+    class FitsFileSlim {
+        fitsfile *fits_file;
+        int status;
+        std::vector<std::string> header_keys, colnames;
+    public:
+        FitsFileSlim() : fits_file(nullptr), status(0) {};
+        FitsFileSlim(fitsfile *fptr) : fits_file(fptr), status(0) {};
+        void open(const std::string &fname, int mode=READONLY) {
+            fits_open_file(&fits_file, fname.c_str(), mode, &status);
+        }
+        void close() { fits_close_file(fits_file, &status); }
+        void handleStatus() const { checkFitsStatus(status); }
+        int getNumHdus() {
+            int nhdus;
+            fits_get_num_hdus(fits_file, &nhdus, &status);
+            return nhdus;
+        }
+        void moveToHdu(int hdunum, int &hdutype) {
+            fits_movabs_hdu(fits_file, hdunum, &hdutype, &status);
+        }
+        void readHeaderKeys() { header_keys = ioh::readHeaderKeys(fits_file, status); }
+        void readColumnNames() { colnames = ioh::readColumnNAmes(fits_file, status); }
+        int getColumnNumber(char *colname) {
+            int colnum;
+            fits_get_colnum(fits_file, CASEINSEN, colname, &colnum, &status);
+            return colnum;
+        }
+        const std::vector<std::string>& getHeaderKeys() const { return header_keys; }
+        const std::vector<std::string>& getColumnNames() const { return colnames; }
+
+        bool isHeaderKey(const std::string &key) const {
+            return std::any_of(header_keys.begin(), header_keys.end(),
+                [key](const std::string &elem) { return elem == key; });
+        }
+        bool isColumnName(const std::string &key) const {
+            return std::any_of(colnames.begin(), colnames.end(),
+                [key](const std::string &elem) { return elem == key; });
+        }
+        template<class T>
+        void readKey(const char *key, T &value) {
+            readFitsKey(fits_file, key, value, status);
+        }
+        template<class T>
+        void readKeyFallback(const char *key, T &value, int fallback=-1) {
+            if (isHeaderKey(key))  readKey(key, value);
+            else value = fallback;
+        }
+        template<class T>
+        void readColumn(int colnum, long nelements, T *data) {
+            fits_read_col(fits_file, fitsioDataType<T>(), colnum, 1, 1, nelements,
+                0, data, 0, &status);
+        }
+        void readTDIM(int colnum, long nelements, int &naxis, long *naxes) {
+            fits_read_tdim(fits_file, colnum, nelements, &naxis, naxes, &status);
+        }
+    };
 }
 
 #endif
