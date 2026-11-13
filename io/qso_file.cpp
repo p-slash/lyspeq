@@ -387,11 +387,11 @@ std::string decomposeFname(const std::string &fname, int &hdunum)
 }
 
 // Statics
-std::map<std::string, ioh::FitsFileSlim*> PiccaFile::cache;
+std::map<std::string, fitsfile*> PiccaFile::cache;
 void PiccaFile::clearCache()
 {
     for (auto &it : cache)
-        it.second->close();
+        ioh::safeFitsClose(it.second);
     cache.clear();
 }
 
@@ -419,16 +419,16 @@ PiccaFile::PiccaFile(const std::string &fname_qso)
     if (PiccaFile::use_cache) {
         auto it = cache.find(basefname);
         if (it != cache.end()) {
-            fits_file.set(it->second->get());
+            fits_file.set(it->second);
         }
         else {
             if (cache.size() == MAX_NO_FILES) {
-                cache.begin()->second->close();
+                ioh::safeFitsClose(cache.begin()->second);
                 cache.erase(cache.begin());
             }
 
             fits_file.open(fname_qso);
-            cache[basefname] = &fits_file;
+            cache[basefname] = fits_file.get();
             no_spectra = fits_file.getNumHdus() - 1;
         }
     }

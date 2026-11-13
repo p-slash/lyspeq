@@ -36,6 +36,7 @@ namespace ioh {
             checkFitsStatus(status);
         }
     };
+    static fitsfile_deleter safeFitsClose;
 
     using unique_fitsfile_ptr = std::unique_ptr<fitsfile, fitsfile_deleter>;
 

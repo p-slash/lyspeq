@@ -54,7 +54,7 @@ public:
 
 class PiccaFile
 {
-    static std::map<std::string, ioh::FitsFileSlim*> cache;
+    static std::map<std::string, fitsfile*> cache;
 
     ioh::FitsFileSlim fits_file;
     // int hdunum;
