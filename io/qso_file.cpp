@@ -419,7 +419,7 @@ PiccaFile::PiccaFile(const std::string &fname_qso)
     if (PiccaFile::use_cache) {
         auto it = cache.find(basefname);
         if (it != cache.end()) {
-            fits_file = *(it->second);
+            fits_file.set(it->second->get());
         }
         else {
             if (cache.size() == MAX_NO_FILES) {
@@ -452,9 +452,9 @@ PiccaFile::PiccaFile(const std::string &fname_qso)
 
 
 PiccaFile::PiccaFile(const PiccaFile *pf, int hdunum)
-        : fits_file(pf->fits_file) 
 {
     int hdutype;
+    fits_file.set(pf->fits_file.get());
     fits_file.moveToHdu(hdunum + 1, hdutype);
 
     if (hdutype != BINARY_TBL)
