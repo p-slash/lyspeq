@@ -437,7 +437,7 @@ PiccaFile::PiccaFile(const std::string &fname_qso)
         no_spectra = fits_file.getNumHdus() - 1;
     }
 
-    fits_file.moveToHdu(hdunum, hdutype);
+    fits_file.moveToHdu(hdunum, &hdutype);
 
     if (hdutype != BINARY_TBL)
         throw std::runtime_error("HDU type is not BINARY!");
@@ -455,7 +455,7 @@ PiccaFile::PiccaFile(const PiccaFile *pf, int hdunum)
 {
     int hdutype;
     fits_file.set(pf->fits_file.get());
-    fits_file.moveToHdu(hdunum + 1, hdutype);
+    fits_file.moveToHdu(hdunum + 1, &hdutype);
 
     if (hdutype != BINARY_TBL)
         throw std::runtime_error("HDU type is not BINARY!");

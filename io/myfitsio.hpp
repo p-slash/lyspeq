@@ -125,8 +125,8 @@ namespace ioh {
             fits_get_num_hdus(fits_file, &nhdus, &status);
             return nhdus;
         }
-        void moveToHdu(int hdunum, int &hdutype) {
-            fits_movabs_hdu(fits_file, hdunum, &hdutype, &status);
+        void moveToHdu(int hdunum, int *hdutype) {
+            fits_movabs_hdu(fits_file, hdunum, hdutype, &status);
         }
         void moveToHdu(char *extname, int hdutype=BINARY_TBL) {
             fits_movnam_hdu(fits_file, hdutype, extname, 0, &status);
