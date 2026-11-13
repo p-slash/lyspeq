@@ -54,23 +54,12 @@ public:
 
 class PiccaFile
 {
-    static std::map<std::string, fitsfile*> cache;
+    static std::map<std::string, ioh::FitsFileSlim*> cache;
 
-    fitsfile *fits_file;
+    ioh::FitsFileSlim fits_file;
     // int hdunum;
-    int no_spectra, status;
+    int no_spectra;
     int curr_N, curr_elem_per_row;
-
-    std::vector<std::string> header_keys, colnames;
-
-    int _getColNo(char *tmplt);
-    void _handleStatus();
-
-    void _setHeaderKeys();
-    void _setColumnNames();
-    bool _isHeaderKey(const std::string &key);
-    bool _isColumnName(const std::string &key);
-    void _readOptionalInt(const std::string &key, int &output);
 
 public:
     /* Default is true. For thread safety, set use_cache = false */
@@ -86,7 +75,7 @@ public:
 
     /* Only call this from the master copy of the file
        AND if use_cache is false. */
-    void closeFile() { fits_close_file(fits_file, &status); }
+    void closeFile() { fits_file.close(); }
 
     int getNumberSpectra() const {return no_spectra;};
 

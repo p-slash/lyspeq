@@ -387,13 +387,11 @@ std::string decomposeFname(const std::string &fname, int &hdunum)
 }
 
 // Statics
-std::map<std::string, fitsfile*> PiccaFile::cache;
+std::map<std::string, ioh::FitsFileSlim*> PiccaFile::cache;
 void PiccaFile::clearCache()
 {
-    int status=0;
     for (auto &it : cache)
-        fits_close_file(it.second, &status);
-
+        it.second->close();
     cache.clear();
 }
 
@@ -413,7 +411,7 @@ bool PiccaFile::use_cache = true;
 
 // Normals
 // Assume fname to be ..fits.gz[1]
-PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
+PiccaFile::PiccaFile(const std::string &fname_qso)
 {
     int hdunum, hdutype;
     std::string basefname = decomposeFname(fname_qso, hdunum);
@@ -421,36 +419,32 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
     if (PiccaFile::use_cache) {
         auto it = cache.find(basefname);
         if (it != cache.end()) {
-            fits_file = it->second;
+            fits_file = *(it->second);
         }
         else {
             if (cache.size() == MAX_NO_FILES) {
-                fits_close_file(cache.begin()->second, &status);
+                cache.begin()->second->close();
                 cache.erase(cache.begin());
             }
 
-            fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
-            cache[basefname] = fits_file;
-            fits_get_num_hdus(fits_file, &no_spectra, &status);
-            no_spectra--;
+            fits_file.open(fname_qso);
+            cache[basefname] = &fits_file;
+            no_spectra = fits_file.getNumHdus() - 1;
         }
     }
     else {
-        fits_open_file(&fits_file, fname_qso.c_str(), READONLY, &status);
-        fits_get_num_hdus(fits_file, &no_spectra, &status);
-        no_spectra--;
+        fits_file.open(fname_qso);
+        no_spectra = fits_file.getNumHdus() - 1;
     }
 
-    fits_movabs_hdu(fits_file, hdunum, &hdutype, &status);
+    fits_file.moveToHdu(hdunum, hdutype);
 
     if (hdutype != BINARY_TBL)
         throw std::runtime_error("HDU type is not BINARY!");
 
-    _setHeaderKeys();
-    _setColumnNames();
-
-    if (status != 0)
-        _handleStatus();
+    fits_file.readHeaderKeys();
+    fits_file.readColumnNames();
+    fits_file.handleStatus();
 
     // fits_get_hdu_num(fits_file, &curr_spec_index);
     // _move(fname_qso[fname_qso.size-2] - '0');
@@ -458,194 +452,99 @@ PiccaFile::PiccaFile(const std::string &fname_qso) : status(0)
 
 
 PiccaFile::PiccaFile(const PiccaFile *pf, int hdunum)
-        : fits_file(pf->fits_file), status(0) 
+        : fits_file(pf->fits_file) 
 {
     int hdutype;
-    fits_movabs_hdu(fits_file, hdunum + 1, &hdutype, &status);
+    fits_file.moveToHdu(hdunum + 1, hdutype);
 
     if (hdutype != BINARY_TBL)
         throw std::runtime_error("HDU type is not BINARY!");
 
-    _setHeaderKeys();
-    _setColumnNames();
-
-    if (status != 0)
-        _handleStatus();
+    fits_file.readHeaderKeys();
+    fits_file.readColumnNames();
+    fits_file.handleStatus();
 }
 
-
-void PiccaFile::_handleStatus()
-{
-    char fits_msg[50];
-    fits_get_errstatus(status, fits_msg);
-    std::string error_msg = std::string("FITS ERROR ") + std::string(fits_msg);
-
-    throw std::runtime_error(error_msg);
-}
-
-void PiccaFile::_setHeaderKeys()
-{
-    int nkeys;
-    char keyname[FLEN_KEYWORD], value[FLEN_VALUE];
-
-    fits_get_hdrspace(fits_file, &nkeys, NULL, &status);
-    header_keys.reserve(nkeys);
-
-    for (int i = 1; i <= nkeys; ++i)
-    {
-        fits_read_keyn(fits_file, i, keyname, value, NULL, &status);
-        header_keys.push_back(std::string(keyname));
-    }
-}
-
-void PiccaFile::_setColumnNames()
-{
-    int ncols;
-    char keyname[FLEN_KEYWORD], colname[FLEN_VALUE];
-
-    fits_get_num_cols(fits_file, &ncols, &status);
-    colnames.reserve(ncols);
-
-    for (int i = 1; i <= ncols; i++)
-    {
-        fits_make_keyn("TTYPE", i, keyname, &status); /* make keyword */
-        fits_read_key(fits_file, TSTRING, keyname, colname, NULL, &status);
-
-        colnames.push_back(std::string(colname));
-    }
-}
-
-bool PiccaFile::_isHeaderKey(const std::string &key)
-{
-    return std::any_of(header_keys.begin(), header_keys.end(), 
-        [key](const std::string &elem) { return elem == key; });
-}
-
-bool PiccaFile::_isColumnName(const std::string &key)
-{
-    return std::any_of(colnames.begin(), colnames.end(), 
-        [key](const std::string &elem) { return elem == key; });
-}
-
-void PiccaFile::_readOptionalInt(const std::string &key, int &output) {
-    if (_isHeaderKey(key))
-        fits_read_key(fits_file, TINT, key.c_str(), &output, NULL, &status);
-    else
-        output = -1;
-}
 
 void PiccaFile::readParameters(
         long &thid, int &N, double &z, double &dec, double &ra,
         double &R_kms, double &sig2noi, double &dv_kms, double &dlambda,
         int &expid, int &night, int &fiber, int &petal
 ) {
-    status = 0;
     curr_elem_per_row = -1;
 
     // This is not ndiags in integer, but length in bytes that includes other columns
     // fits_read_key(fits_file, TINT, "NAXIS1", &curr_ndiags, NULL, &status);
     // fits_get_num_rows(fits_file, &curr_N, &status);
-    fits_read_key(fits_file, TINT, "NAXIS2", &curr_N, NULL, &status);
+    fits_file.readKey("NAXIS2", curr_N);
     N = curr_N;
 
-    if (_isHeaderKey("TARGETID"))
-        fits_read_key(fits_file, TLONG, "TARGETID", &thid, NULL, &status);
-    else if (_isHeaderKey("THING_ID"))
-        fits_read_key(fits_file, TLONG, "THING_ID", &thid, NULL, &status);
+    if (fits_file.isHeaderKey("TARGETID"))
+        fits_file.readKey("TARGETID", thid);
+    else if (fits_file.isHeaderKey("THING_ID"))
+        fits_file.readKey("THING_ID", thid);
     else
         throw std::runtime_error("Header must have TARGETID  or THING_ID!");
 
+    fits_file.readKey("Z", z);
+    fits_file.readKey("RA", ra);
+    fits_file.readKey("DEC", dec);
+    fits_file.readKey("MEANRESO", R_kms);
+    fits_file.readKey("MEANSNR", sig2noi);
 
-    fits_read_key(fits_file, TDOUBLE, "Z", &z, NULL, &status);
-    fits_read_key(fits_file, TDOUBLE, "RA", &ra, NULL, &status);
-    fits_read_key(fits_file, TDOUBLE, "DEC", &dec, NULL, &status);
-
-    fits_read_key(fits_file, TDOUBLE, "MEANRESO", &R_kms, NULL, &status);
-
-    fits_read_key(fits_file, TDOUBLE, "MEANSNR", &sig2noi, NULL, &status);
-
-    const double LN10 = 2.30258509299;
+    constexpr double LN10 = 2.30258509299;
     // Soft read DLL, if not present set to -1 to be fixed later while reading data
-    if (_isHeaderKey("DLL"))
-    {
-        fits_read_key(fits_file, TDOUBLE, "DLL", &dv_kms, NULL, &status);
-        dv_kms = dv_kms*SPEED_OF_LIGHT*LN10;
-    }
-    else
-        dv_kms = -1;
+    fits_file.readKeyFallback("DLL", dv_kms);
+    fits_file.readKeyFallback("DLAMBDA", dlambda);
+    if (dv_kms > 0)
+        dv_kms *= SPEED_OF_LIGHT * LN10;
 
-    // Soft read DLAMBDA, if not present set to -1 to be fixed later while reading data
-    if (_isHeaderKey("DLAMBDA"))
-        fits_read_key(fits_file, TDOUBLE, "DLAMBDA", &dlambda, NULL, &status);
-    else
-        dlambda = -1;
-
-    _readOptionalInt("EXPID", expid);
-    _readOptionalInt("NIGHT", night);
-    _readOptionalInt("FIBER", fiber);
-    _readOptionalInt("PETAL_LOC", petal);
-
-    if (status != 0)
-        _handleStatus();
+    fits_file.readKeyFallback("EXPID", expid);
+    fits_file.readKeyFallback("NIGHT", night);
+    fits_file.readKeyFallback("FIBER", fiber);
+    fits_file.readKeyFallback("PETAL_LOC", petal);
+    fits_file.handleStatus();
 }
 
-int PiccaFile::_getColNo(char *tmplt)
-{
-    int colnum;
-    status = 0;
-    fits_get_colnum(fits_file, CASEINSEN, tmplt, &colnum, &status);
-    
-    if (status != 0)
-        _handleStatus();
-
-    return colnum;
-}
 
 void PiccaFile::readData(double *lambda, double *delta, double *ivar)
 {
     int nonull, colnum;
-    status = 0;
 
     // Read wavelength
     char logtmp[]="LOGLAM", lambtmp[]="LAMBDA";
     // Soft call if LOGLAM column exists
-    if (_isColumnName(logtmp))
+    if (fits_file.isColumnName(logtmp))
     {
-        colnum = _getColNo(logtmp);
-        fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
-            &status);
+        colnum = fits_file.getColumnNumber(logtmp);
+        fits_file.readColumn(colnum, curr_N, lambda);
         std::for_each(lambda, lambda+curr_N, [](double &ld) { ld = pow(10, ld); });
     }
     // If not, look for LAMBDA column
-    else if (_isColumnName(lambtmp))
+    else if (fits_file.isColumnName(lambtmp))
     {
-        colnum = _getColNo(lambtmp);
-        fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, lambda, &nonull, 
-            &status);
+        colnum = fits_file.getColumnNumber(lambtmp);
+        fits_file.readColumn(colnum, curr_N, lambda);
     }
     else
         throw std::runtime_error("Wavelength must be in LOGLAM or LAMBDA!");
 
     // Read deltas
     char deltmp[]="DELTA", deltmpblind[]="DELTA_BLIND";
-    if (_isColumnName(deltmp))
-        colnum = _getColNo(deltmp);
-    else if (_isColumnName(deltmpblind))
-        colnum = _getColNo(deltmpblind);
+    if (fits_file.isColumnName(deltmp))
+        colnum = fits_file.getColumnNumber(deltmp);
+    else if (fits_file.isColumnName(deltmpblind))
+        colnum = fits_file.getColumnNumber(deltmpblind);
     else
         throw std::runtime_error("Deltas must be in DELTA or DELTA_BLIND!");
 
-    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, delta, &nonull, 
-        &status);
+    fits_file.readColumn(colnum, curr_N, delta);
 
     // Read inverse variance
     char ivartmp[]="IVAR";
-    colnum = _getColNo(ivartmp);
-    fits_read_col(fits_file, TDOUBLE, colnum, 1, 1, curr_N, 0, ivar, &nonull, 
-        &status);
-
-    if (status != 0)
-        _handleStatus();
+    colnum = fits_file.getColumnNumber(ivartmp);
+    fits_file.readColumn(colnum, curr_N, ivar);
+    fits_file.handleStatus();
 }
 
 std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix() {
@@ -653,22 +552,16 @@ std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix() {
     int nonull, naxis, colnum;
     long naxes[2];
     char resotmp[] = "RESOMAT";
-    colnum = _getColNo(resotmp);
+    colnum = fits_file.getColumnNumber(resotmp);
 
-    status = 0;
-    fits_read_tdim(fits_file, colnum, curr_N, &naxis, &naxes[0], &status);
-    if (status != 0)
-        _handleStatus();
+    fits_file.readTDIM(colnum, curr_N, naxis, naxes);
+    fits_file.handleStatus();
 
     curr_elem_per_row = naxes[0];
     Rmat = std::make_unique<mxhelp::Resolution>(curr_N, curr_elem_per_row);
 
-    fits_read_col(
-        fits_file, TDOUBLE, colnum, 1, 1, curr_N * curr_elem_per_row, 0, 
-        Rmat->matrix(), &nonull, &status);
-
-    if (status != 0)
-        _handleStatus();
+    fits_file.readColumn(colnum, curr_N * curr_elem_per_row, Rmat->matrix());
+    fits_file.handleStatus();
 
     Rmat->orderTranspose();
 
