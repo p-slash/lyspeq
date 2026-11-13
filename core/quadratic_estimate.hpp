@@ -28,6 +28,7 @@ class OneDQuadraticPowerEstimate
 protected:
     ConfigFile &config;
     ioh::unique_fitsfile_ptr fitsfile_ptr;
+    ioh::FitsFileSlim fits_file;
     int NUMBER_OF_QSOS, NUMBER_OF_QSOS_OUT, NUMBER_OF_ITERATIONS;
     std::vector<int> Z_BIN_COUNTS;
     std::vector<long> targetids_to_ignore;
@@ -113,7 +114,7 @@ public:
     // Does not write the last bin since it is ignored when LAST_K_EDGE defined
     // You can find that value in logs--printfSpectra prints all
     void writeSpectrumEstimates(const char *fname);
-    void writeDetailedSpectrumEstimates(fitsfile *fits_file, const std::string ext);
+    void writeDetailedSpectrumEstimates(const std::string ext);
     void iterationOutput(
         int it, double t1, double tot,
         std::vector<double> &times_all_pes);
