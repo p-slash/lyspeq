@@ -109,11 +109,12 @@ namespace ioh {
     public:
         FitsFileSlim() : fits_file(nullptr), status(0) {};
         FitsFileSlim(fitsfile *fptr) : fits_file(fptr), status(0) {};
+        fitsfile* get() const { return fits_file; }
         void open(const std::string &fname, int mode=READONLY) {
             fits_open_file(&fits_file, fname.c_str(), mode, &status);
         }
         void close() { fits_close_file(fits_file, &status); }
-        void handleStatus() const { checkFitsStatus(status); }
+        void check() const { checkFitsStatus(status); }
         int getNumHdus() {
             int nhdus;
             fits_get_num_hdus(fits_file, &nhdus, &status);
@@ -121,6 +122,9 @@ namespace ioh {
         }
         void moveToHdu(int hdunum, int &hdutype) {
             fits_movabs_hdu(fits_file, hdunum, &hdutype, &status);
+        }
+        void moveToHdu(char *extname, int hdutype=BINARY_TBL) {
+            fits_movnam_hdu(fits_file, hdutype, extname, 0, &status);
         }
         void readHeaderKeys() { header_keys = ioh::readHeaderKeys(fits_file, status); }
         void readColumnNames() { colnames = ioh::readColumnNAmes(fits_file, status); }
