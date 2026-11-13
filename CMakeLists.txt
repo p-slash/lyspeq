@@ -204,6 +204,9 @@ target_link_libraries(cblas_tests PUBLIC
 add_executable(testSQCMatrices tests/testSQCMatrices.cpp tests/test_utils.cpp)
 target_link_libraries(testSQCMatrices PRIVATE AllObjLibs)
 
+add_executable(testRedshiftBinning tests/testRedshiftBinning.cpp)
+target_link_libraries(testRedshiftBinning PRIVATE AllObjLibs)
+
 add_executable(testMPIMergeSort tests/testMPIMergeSort.cpp)
 target_include_directories(testMPIMergeSort PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(testMPIMergeSort PRIVATE MY_OMP_MPI)
@@ -229,6 +232,7 @@ install(PROGRAMS py/smbivspline.py DESTINATION bin)
 file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/output)
 add_test(NAME TestCBLAS COMMAND cblas_tests)
 add_test(NAME TestSqMatrices COMMAND testSQCMatrices tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+add_test(NAME TestRedshiftBinning COMMAND testRedshiftBinning)
 if (ENABLE_MPI)
     foreach(np 1 2 3 5)
         add_test(NAME TestMPIMergeSort_np${np}
