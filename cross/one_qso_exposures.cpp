@@ -68,6 +68,16 @@ namespace xeutils {
             if ((bins::ZBIN_CENTERS[ZBIN_UPP] < zmax) && (ZBIN_UPP < bins::NZ_MINUS_ONE))
                 ++N_Q_MATRICES;
         }
+        else if (bins::Z_BINNING_METHOD == bins::TSCBinningMethod) {
+            // TSC kernel reaches 1.5 bin widths, i.e. one more bin on each side
+            if (ZBIN_LOW != 0)
+            {
+                ++N_Q_MATRICES;
+                fisher_index_start -= bins::NUMBER_OF_K_BANDS;
+            }
+            if (ZBIN_UPP < bins::NZ_MINUS_ONE)
+                ++N_Q_MATRICES;
+        }
 
         N_Q_MATRICES *= bins::NUMBER_OF_K_BANDS;
         DEBUG_LOG(
