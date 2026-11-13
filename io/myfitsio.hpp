@@ -160,8 +160,9 @@ namespace ioh {
         }
         template<class T>
         void readColumn(int colnum, long nelements, T *data) {
+            int nonull;
             fits_read_col(fits_file, fitsioDataType<T>(), colnum, 1, 1, nelements,
-                0, data, 0, &status);
+                0, data, &nonull, &status);
         }
         void readTDIM(int colnum, long nelements, int &naxis, long *naxes) {
             fits_read_tdim(fits_file, colnum, nelements, &naxis, naxes, &status);
