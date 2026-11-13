@@ -116,8 +116,10 @@ OneDQuadraticPowerEstimate::OneDQuadraticPowerEstimate(ConfigFile &con)
     _readTargetids2Ignore();
     
     std::string fname = "!" + process::FNAME_BASE + "_detailed_results.fits";
-    if (mympi::this_pe == 0)
+    if (mympi::this_pe == 0) {
         fitsfile_ptr = ioh::create_unique_fitsfile_ptr(fname);
+        fits_file.set(fitsfile_ptr.get());
+    }
     LOG::LOGGER.STD("Results will be saved to %s.\n", fname.c_str());
 }
 
@@ -790,10 +792,8 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 }
 
 void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
-        fitsfile *fits_file, const std::string ext
+        const std::string ext
 ) {
-    int status = 0;
-
     /* define the name, datatype, and physical units for columns */
     const int ncolumns = 16;
     #pragma GCC diagnostic push
@@ -814,34 +814,21 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     };
     #pragma GCC diagnostic pop
 
-    fits_create_tbl(
-        fits_file, BINARY_TBL, bins::TOTAL_KZ_BINS, ncolumns,
-        column_names, column_types, column_units, ext.c_str(), &status);
-    ioh::checkFitsStatus(status);
-    fits_write_key(
-        fits_file, TDOUBLE, "PFID_A", &fidpd13::FIDUCIAL_PD13_PARAMS.A,
-        nullptr, &status);
-    fits_write_key(
-        fits_file, TDOUBLE, "PFID_N", &fidpd13::FIDUCIAL_PD13_PARAMS.n,
-        nullptr, &status);
-    fits_write_key(
-        fits_file, TDOUBLE, "PFID_ALP", &fidpd13::FIDUCIAL_PD13_PARAMS.alpha,
-        nullptr, &status);
-    fits_write_key(
-        fits_file, TDOUBLE, "PFID_B", &fidpd13::FIDUCIAL_PD13_PARAMS.B,
-        nullptr, &status);
-    fits_write_key(
-        fits_file, TDOUBLE, "PFID_BET", &fidpd13::FIDUCIAL_PD13_PARAMS.beta,
-        nullptr, &status);
-    fits_write_key(
-        fits_file, TDOUBLE, "PFID_LAM", &fidpd13::FIDUCIAL_PD13_PARAMS.lambda,
-        nullptr, &status);
-
-    fits_write_key(fits_file, TINT, "NZ", &bins::NUMBER_OF_Z_BINS, nullptr, &status);
-    fits_write_key(fits_file, TINT, "NK", &bins::NUMBER_OF_K_BANDS, nullptr, &status);
-    fits_write_key(fits_file, TINT, "ISDAMPED", &damping_pair.first, nullptr, &status);
-    fits_write_key(fits_file, TDOUBLE, "DAMP_CON", &damping_pair.second, nullptr, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.createTable(bins::TOTAL_KZ_BINS, ncolumns,
+                          column_names, column_types, column_units,
+                          ext.c_str());
+    fits_file.check();
+    fits_file.writeKey("PFID_A", fidpd13::FIDUCIAL_PD13_PARAMS.A);
+    fits_file.writeKey("PFID_N", fidpd13::FIDUCIAL_PD13_PARAMS.n);
+    fits_file.writeKey("PFID_ALP", fidpd13::FIDUCIAL_PD13_PARAMS.alpha);
+    fits_file.writeKey("PFID_B", fidpd13::FIDUCIAL_PD13_PARAMS.B);
+    fits_file.writeKey("PFID_BET", fidpd13::FIDUCIAL_PD13_PARAMS.beta);
+    fits_file.writeKey("PFID_LAM", fidpd13::FIDUCIAL_PD13_PARAMS.lambda);
+    fits_file.writeKey("NZ", bins::NUMBER_OF_Z_BINS);
+    fits_file.writeKey("NK", bins::NUMBER_OF_K_BANDS);
+    fits_file.writeKey("ISDAMPED", damping_pair.first);
+    fits_file.writeKey("DAMP_CON", damping_pair.second);
+    fits_file.check();
 
     int kn = 0, zm = 0, colnum = 1;
     std::vector<double> tmpvec(5 * bins::TOTAL_KZ_BINS);
@@ -858,8 +845,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     }
 
     for (int c = 0; c < 5; ++c)
-        fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
-                       tmpvec_ptr + c * bins::TOTAL_KZ_BINS, &status);
+        fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS,
+                              tmpvec_ptr + c * bins::TOTAL_KZ_BINS);
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);  
@@ -873,27 +860,23 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
             sqrt(inverse_fisher_matrix_sum[(1 + bins::TOTAL_KZ_BINS) * i_kz]);
     }
 
-    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
-                   tmpvec_ptr + bins::TOTAL_KZ_BINS, &status);
-    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
-                   tmpvec_ptr + 2 * bins::TOTAL_KZ_BINS, &status);
-    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
-                   tmpvec_ptr + 3 * bins::TOTAL_KZ_BINS, &status);
+    fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS, tmpvec_ptr + bins::TOTAL_KZ_BINS);
+    fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS, tmpvec_ptr + 2 * bins::TOTAL_KZ_BINS);
+    fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS, tmpvec_ptr + 3 * bins::TOTAL_KZ_BINS);
 
     for (int c = 0; c < specifics::NDBT; ++c)
-        fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
-                       dbt_estimate_fisher_weighted_vector[c].get(), &status);
+        fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS,
+                              dbt_estimate_fisher_weighted_vector[c].get());
 
-    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS, tmpvec_ptr, &status);
-    fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
-                   current_power_estimate_vector.get(), &status);
+    fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS, tmpvec_ptr);
+    fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS, current_power_estimate_vector.get());
 
     for (int c = 0; c < 3; ++c)
-        fits_write_col(fits_file, TDOUBLE, colnum++, 1, 1, bins::TOTAL_KZ_BINS,
-                       dbt_estimate_sum_before_fisher_vector[c].get(), &status);
+        fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS,
+                              dbt_estimate_sum_before_fisher_vector[c].get());
 
-    fits_flush_file(fits_file, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.flush();
+    fits_file.check();
 }
 
 void OneDQuadraticPowerEstimate::initializeIteration()
@@ -946,9 +929,6 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     if (mympi::this_pe != 0)
         return;
 
-    fitsfile *fits_file = fitsfile_ptr.get();
-    int status = 0;
-
     if (it == 0) {
         const int ncolumns = 2, nrows = bins::NUMBER_OF_Z_BINS + 2;
         #pragma GCC diagnostic push
@@ -957,19 +937,18 @@ void OneDQuadraticPowerEstimate::iterationOutput(
         char *column_types[] = {"1E", "1J"};
         #pragma GCC diagnostic pop
 
-        fits_create_tbl(
-            fits_file, BINARY_TBL, nrows, ncolumns,
-            column_names, column_types, nullptr, "NQSO_Z", &status);
-        ioh::checkFitsStatus(status);
+        fits_file.createTable(
+            nrows, ncolumns, column_names, column_types, nullptr, "NQSO_Z");
+        fits_file.check();
         auto zbins_ = std::make_unique<double[]>(nrows);
         zbins_[0] = 0;  zbins_[nrows - 1] = 10.0;
         for (int i = 0; i < bins::NUMBER_OF_Z_BINS; ++i)
             zbins_[i + 1] = bins::ZBIN_CENTERS[i];
 
-        fits_write_col(fits_file, TDOUBLE, 1, 1, 1, nrows, zbins_.get(), &status);
-        fits_write_col(fits_file, TINT, 2, 1, 1, nrows, Z_BIN_COUNTS.data(), &status);
-        fits_flush_file(fits_file, &status);
-        ioh::checkFitsStatus(status);
+        fits_file.writeColumn(1, nrows, zbins_.get());
+        fits_file.writeColumn(2, nrows, Z_BIN_COUNTS.data());
+        fits_file.flush();
+        fits_file.check();
     }
 
     std::ostringstream buffer(std::ostringstream::ate);
@@ -977,7 +956,7 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
 
     printfSpectra();
-    writeDetailedSpectrumEstimates(fits_file, buffer.str());
+    writeDetailedSpectrumEstimates(buffer.str());
 
     long naxis = 2, size = bins::FISHER_SIZE,  // _naxes[1] = {0},
          naxes[2] = { bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS };
@@ -985,30 +964,22 @@ void OneDQuadraticPowerEstimate::iterationOutput(
     buffer.str("FISHER");
     if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
 
-    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
-    fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
-    fits_write_img(
-        fits_file, TDOUBLE, 1, size, (void *) fisher_matrix_sum.get(), &status);
+    fits_file.createImage(naxis, naxes, buffer.str().c_str());
+    fits_file.writeImage(size, fisher_matrix_sum.get());
 
     buffer.str("COVARIANCE");
     if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
 
-    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
-    fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
-    fits_write_img(
-        fits_file, TDOUBLE, 1, size, (void *) inverse_fisher_matrix_sum.get(),
-        &status);
+    fits_file.createImage(naxis, naxes, buffer.str().c_str());
+    fits_file.writeImage(size, inverse_fisher_matrix_sum.get());
 
     buffer.str("SOLV_INVF");
     if (NUMBER_OF_ITERATIONS != 1)  buffer << '_' << it + 1;
 
-    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
-    fits_update_key_str(fits_file, "EXTNAME", buffer.str().c_str(), nullptr, &status);
-    fits_write_img(
-        fits_file, TDOUBLE, 1, size, (void *) solver_invfisher_matrix.get(),
-        &status);
-    fits_flush_file(fits_file, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.createImage(naxis, naxes, buffer.str().c_str());
+    fits_file.writeImage(size, solver_invfisher_matrix.get());
+    fits_file.flush();
+    fits_file.check();
 
     LOG::LOGGER.STD(
         "----------------------------------\n"
@@ -1088,8 +1059,7 @@ void saveChunkTimings() {
     std::string fname = "!" + process::FNAME_BASE + "_chunk_timings.fits";
     const std::string ext = "CHUNK_TIMINGS";
     auto fitsfile_ptr = ioh::create_unique_fitsfile_ptr(fname);
-    fitsfile *fits_file = fitsfile_ptr.get();
-    int status = 0;
+    ioh::FitsFileSlim fts(fitsfile_ptr.get());
 
     /* define the name, datatype, and physical units for columns */
     const int ncolumns = 5;
@@ -1097,30 +1067,25 @@ void saveChunkTimings() {
     #pragma GCC diagnostic ignored "-Wwrite-strings"
     char *column_names[] = {"NkNd3", "Nk2Nd2", "NkNd2", "C", "Time"};
     char *column_types[] = {"1D", "1D", "1D", "1D", "1D"};
-    char *column_units[] = {"", "", "", "", ""};
     #pragma GCC diagnostic pop
 
     int nrows = time_all_pes.size();
-    
-    fits_create_tbl(
-        fits_file, BINARY_TBL, nrows, ncolumns,
-        column_names, column_types, column_units, ext.c_str(),
-        &status);
-    ioh::checkFitsStatus(status);
+    fts.createTable(nrows, ncolumns, column_names, column_types, nullptr, ext.c_str());
+    fts.check();
     for (int i = 0; i < 4; ++i) {
-        fits_write_key(
-            fits_file, TDOUBLE, ("a" + std::to_string(i)).c_str(),
-            &mytime::scalingCoefficients[i], nullptr, &status);
+        fts.writeKey(
+            ("a" + std::to_string(i)).c_str(),
+            mytime::scalingCoefficients[i]);
     }
-    ioh::checkFitsStatus(status);
+    fts.check();
 
     auto tmp = std::make_unique<double[]>(nrows);
     for (int i = 0; i < 4; ++i) {
         for (auto j = 0; j < nrows; ++j)
             tmp[j] = coeffs[4 * j + i];
-        fits_write_col(fits_file, TDOUBLE, i + 1, 1, 1, nrows, tmp.get(), &status);
+        fts.writeColumn(i + 1, nrows, tmp.get());
     }
-    fits_write_col(fits_file, TDOUBLE, 5, 1, 1, nrows, time_all_pes.data(), &status);
-    fits_flush_file(fits_file, &status);
-    ioh::checkFitsStatus(status);
+    fts.writeColumn(5, nrows, time_all_pes.data());
+    fts.flush();
+    fts.check();
 }

@@ -135,37 +135,32 @@ void FlatLCDM::_integrateLinearGrowth(
 #undef WORKSPACE_SIZE
 
 void FlatLCDM::_readFile(const std::string &fname) {
-    int status = 0;
     auto fitsfile_ptr = ioh::open_unique_fitsfile_ptr(fname, READONLY);
-    fitsfile *fits_file = fitsfile_ptr.get();
+    ioh::FitsFileSlim fits_file(fitsfile_ptr.get());
 
     char extname[] = "PLINEAR";
-    fits_movnam_hdu(fits_file, BINARY_TBL, extname, 0, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.moveToHdu(extname);
+    fits_file.check();
 
     int N = 0;
-    fits_read_key(fits_file, TINT, "NAXIS2", &N, NULL, &status);
-    fits_read_key(fits_file, TDOUBLE, "zpivot", &z_pivot, nullptr, &status);
-    fits_read_key(fits_file, TDOUBLE, "Om", &cosmo_params.Omega_m, nullptr, &status);
-    fits_read_key(fits_file, TDOUBLE, "Or", &cosmo_params.Omega_r, nullptr, &status);
-    fits_read_key(fits_file, TDOUBLE, "hubble", &cosmo_params.h, nullptr, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.readKey("NAXIS2", N);
+    fits_file.readKey("zpivot", z_pivot);
+    fits_file.readKey("Om", cosmo_params.Omega_m);
+    fits_file.readKey("Or", cosmo_params.Omega_r);
+    fits_file.readKey("hubble", cosmo_params.h);
+    fits_file.check();
 
     char lnk_colname[] = "LNK", lnp_colname[] = "LNP";
     int lnk_colnum = 0, lnp_colnum = 0, nonull = 0;
-    fits_get_colnum(fits_file, CASEINSEN, lnk_colname, &lnk_colnum, &status);
-    fits_get_colnum(fits_file, CASEINSEN, lnp_colname, &lnp_colnum, &status);
-    ioh::checkFitsStatus(status);
+    lnk_colnum = fits_file.getColumnNumber(lnk_colname);
+    lnp_colnum = fits_file.getColumnNumber(lnp_colname);
+    fits_file.check();
 
     std::vector<double> lnk, lnP;
     lnk.resize(N);  lnP.resize(N);
-    fits_read_col(
-        fits_file, TDOUBLE, lnk_colnum, 1, 1, N, 0, lnk.data(), &nonull, 
-        &status);
-    fits_read_col(
-        fits_file, TDOUBLE, lnp_colnum, 1, 1, N, 0, lnP.data(), &nonull, 
-        &status);
-    ioh::checkFitsStatus(status);
+    fits_file.readColumn(lnk_colnum, N, lnk.data());
+    fits_file.readColumn(lnp_colnum, N, lnP.data());
+    fits_file.check();
 
     double dlnk = lnk[1] - lnk[0];
 
