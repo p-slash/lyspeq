@@ -200,7 +200,8 @@ namespace bins
     std::unordered_map<BinningMethod, std::string>
         BINNING_METHOD_TEXT_MAP({
             {TophatBinningMethod, "TopHat"},
-            {TriangleBinningMethod, "Triangular"}
+            {TriangleBinningMethod, "Triangular"},
+            {TSCBinningMethod, "TSC"}
         });
 
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
@@ -321,6 +322,8 @@ namespace bins
         case 1:
             Z_BINNING_METHOD = TriangleBinningMethod;
             break;
+        case 2:
+            Z_BINNING_METHOD = TSCBinningMethod;
         default:
             LOG::LOGGER.STD(
                 "Invalid RedshiftBinningMethod argument. Fallback to 1.\n");
@@ -451,6 +454,27 @@ namespace bins
         std::fill(out + up, out + N, 0);
     }
 
+    inline double tsc1(double x) {
+        if (x < 0.5)
+            return 0.75 - x * x;
+        if (x < 1.5) {
+            x = 1.5 - fabs(x);
+            return 0.5 * x * x;
+        }
+        return 0;
+    }
+    void zBinTSC(const double *z, int N, int zm, double *out, int &low, int &up)
+    {
+        double zc = ZBIN_CENTERS[zm];
+        low = std::lower_bound(z, z + N, zc - 1.5 * Z_BIN_WIDTH) - z;
+        up = std::upper_bound(z, z + N, zc + 1.5 * Z_BIN_WIDTH) - z;
+
+        // std::fill_n(out, N, 0);
+        #pragma omp simd
+        for (int i = low; i < up; ++i)
+            out[i] = tsc1((z[i] - zc) / Z_BIN_WIDTH);
+    }
+
     void (*redshiftBinningFunction)(
         const double *z, int N, int zm, double *out, int &low, int &up
     ) = &zBinTopHat;
@@ -470,6 +494,9 @@ namespace bins
                 redshiftBinningFunction = &zBinTriangular2;
             else
                 redshiftBinningFunction = &zBinTriangular;
+            break;
+        case TSCBinningMethod:
+            redshiftBinningFunction = &zBinTSC;
             break;
         }
     }
