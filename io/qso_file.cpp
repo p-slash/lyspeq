@@ -444,7 +444,7 @@ PiccaFile::PiccaFile(const std::string &fname_qso)
 
     fits_file.readHeaderKeys();
     fits_file.readColumnNames();
-    fits_file.handleStatus();
+    fits_file.check();
 
     // fits_get_hdu_num(fits_file, &curr_spec_index);
     // _move(fname_qso[fname_qso.size-2] - '0');
@@ -462,7 +462,7 @@ PiccaFile::PiccaFile(const PiccaFile *pf, int hdunum)
 
     fits_file.readHeaderKeys();
     fits_file.readColumnNames();
-    fits_file.handleStatus();
+    fits_file.check();
 }
 
 
@@ -503,7 +503,7 @@ void PiccaFile::readParameters(
     fits_file.readKeyFallback("NIGHT", night);
     fits_file.readKeyFallback("FIBER", fiber);
     fits_file.readKeyFallback("PETAL_LOC", petal);
-    fits_file.handleStatus();
+    fits_file.check();
 }
 
 
@@ -544,7 +544,7 @@ void PiccaFile::readData(double *lambda, double *delta, double *ivar)
     char ivartmp[]="IVAR";
     colnum = fits_file.getColumnNumber(ivartmp);
     fits_file.readColumn(colnum, curr_N, ivar);
-    fits_file.handleStatus();
+    fits_file.check();
 }
 
 std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix() {
@@ -555,13 +555,13 @@ std::unique_ptr<mxhelp::Resolution> PiccaFile::readAllocResolutionMatrix() {
     colnum = fits_file.getColumnNumber(resotmp);
 
     fits_file.readTDIM(colnum, curr_N, naxis, naxes);
-    fits_file.handleStatus();
+    fits_file.check();
 
     curr_elem_per_row = naxes[0];
     Rmat = std::make_unique<mxhelp::Resolution>(curr_N, curr_elem_per_row);
 
     fits_file.readColumn(colnum, curr_N * curr_elem_per_row, Rmat->matrix());
-    fits_file.handleStatus();
+    fits_file.check();
 
     Rmat->orderTranspose();
 
