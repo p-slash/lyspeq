@@ -101,6 +101,10 @@ namespace ioh {
     inline void readFitsKey(fitsfile *fts, const char *key, T &value, int &status) {
         fits_read_key(fts, fitsioDataType<T>(), key, &value, NULL, &status);
     }
+    template<class T>
+    inline void writeFitsKey(fitsfile *fts, const char *key, T value, int &status) {
+        fits_write_key(fts, fitsioDataType<T>(), key, &value, NULL, &status);
+    }
 
     class FitsFileSlim {
         fitsfile *fits_file;
@@ -109,6 +113,7 @@ namespace ioh {
     public:
         FitsFileSlim() : fits_file(nullptr), status(0) {};
         FitsFileSlim(fitsfile *fptr) : fits_file(fptr), status(0) {};
+        void set(fitsfile *fptr) { fits_file = fptr; status = 0; }
         fitsfile* get() const { return fits_file; }
         void open(const std::string &fname, int mode=READONLY) {
             fits_open_file(&fits_file, fname.c_str(), mode, &status);
@@ -161,6 +166,34 @@ namespace ioh {
         void readTDIM(int colnum, long nelements, int &naxis, long *naxes) {
             fits_read_tdim(fits_file, colnum, nelements, &naxis, naxes, &status);
         }
+
+        /* Writing */
+        void createTable(
+                int nrows, int ncols, char **colnames, char **coltypes,
+                char **colunits=nullptr, const char *extname=nullptr
+        ) {
+            fits_create_tbl(
+                fits_file, BINARY_TBL, nrows, ncols,
+                colnames, coltypes, colunits, extname, &status);
+        }
+        template<class T>
+        void writeKey(const char *key, T value) {
+            writeFitsKey(fits_file, key, value, status);
+        }
+        template<class T>
+        void writeColumn(int colnum, long nelements, T *data) {
+            fits_write_col(fits_file, fitsioDataType<T>(), colnum, 1, 1,
+                           nelements, data, &status);
+        }
+        void createImage(int naxis, long *naxes, const char *extname=nullptr) {
+            fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
+            if (extname != nullptr)
+                fits_update_key_str(fits_file, "EXTNAME", extname, nullptr, &status);
+        }
+        void writeImage(long nelements, const double *data) {
+            fits_write_img(fits_file, TDOUBLE, 1, nelements, (void *) data, &status);
+        }
+        void flush() { fits_flush_file(fits_file, &status); }
     };
 }
 
