@@ -268,15 +268,17 @@ std::vector<std::string> OneDQuadraticPowerEstimate::_loadBalancing(
             qio::PiccaFile::compareFnames
         );
 
-    double med_offset, max_diff_offset;
+    double med_offset, max_diff_offset, esttime;
+    esttime = *std::max_element(bucket_time.begin(), bucket_time.end());
     stats::medianOffBalanceStats(bucket_time, med_offset, max_diff_offset);
 
     load_balance_time = mytime::timer.getTime() - load_balance_time;
     LOG::LOGGER.STD(
         "Absolute median offset: %.1e\n"
         "High-Low offset difference: %.1e\n"
-        "Load balancing took %.2f sec.\n",
-        med_offset, max_diff_offset, load_balance_time * 60.);
+        "Load balancing took %.2f sec.\n"
+        "Estimated time: %.2f min.\n",
+        med_offset, max_diff_offset, load_balance_time * 60., esttime / 100.);
 
     return local_fpaths;
 }

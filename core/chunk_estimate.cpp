@@ -263,12 +263,12 @@ void Chunk::_copyQSOFile(const qio::QSOFile &qmaster, int i1, int i2, bool shall
 
 
 // For a top hat redshift bin, only access 1 redshift bin for each pixel
-// For triangular z bins, access 2 redshift bins for each pixel
+// For linear z bins, access 2 redshift bins for each pixel
 void Chunk::_setNQandFisherIndex() {   
     N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
     fisher_index_start = bins::getFisherMatrixIndex(0, ZBIN_LOW);
 
-    if (bins::Z_BINNING_METHOD == bins::TriangleBinningMethod) {
+    if (bins::Z_BINNING_METHOD == bins::LinearBinningMethod) {
         // If we need to distribute low end to a lefter bin
         if ((LOWER_REDSHIFT < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
         {

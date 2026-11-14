@@ -60,8 +60,8 @@ int main() {
     for (int nz : {1, 2, 3, 4, 5, 8}) {
         setBins(nz, 2.2, 0.2, bins::TSCBinningMethod);
         r += checkPartitionOfUnity("TSC");
-        setBins(nz, 2.2, 0.2, bins::TriangleBinningMethod);
-        r += checkPartitionOfUnity("Triangular");
+        setBins(nz, 2.2, 0.2, bins::LinearBinningMethod);
+        r += checkPartitionOfUnity("Linear");
     }
 
     if (r == 0)
