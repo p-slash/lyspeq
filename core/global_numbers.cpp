@@ -200,7 +200,8 @@ namespace bins
     std::unordered_map<BinningMethod, std::string>
         BINNING_METHOD_TEXT_MAP({
             {TophatBinningMethod, "TopHat"},
-            {TriangleBinningMethod, "Triangular"}
+            {TriangleBinningMethod, "Triangular"},
+            {TSCBinningMethod, "TSC"}
         });
 
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
@@ -320,6 +321,9 @@ namespace bins
             break;
         case 1:
             Z_BINNING_METHOD = TriangleBinningMethod;
+            break;
+        case 2:
+            Z_BINNING_METHOD = TSCBinningMethod;
             break;
         default:
             LOG::LOGGER.STD(
@@ -451,6 +455,88 @@ namespace bins
         std::fill(out + up, out + N, 0);
     }
 
+    // single bin absorbs everything
+    void zBinUnity(const double *z, int N, int zm, double *out, int &low, int &up)
+    {
+        int zmm __attribute__((unused)) = zm;
+        const double *zz __attribute__((unused)) = z;
+        std::fill_n(out, N, 1);
+        low = 0;
+        up = N;
+    }
+
+    inline double tsc1(double x) {
+        x = fabs(x);
+        if (x < 0.5)
+            return 0.75 - x * x;
+        if (x < 1.5) {
+            x = 1.5 - x;
+            return 0.5 * x * x;
+        }
+        return 0;
+    }
+
+    // Sum of tsc1 over all bins at or beyond the edge, as a function of the
+    // distance x = (z - z_edge) / W measured towards the inside of the range.
+    // Equals 1 for x < -0.5, so weights sum to 1 where bins do not exist.
+    inline double tscEdge(double x) {
+        if (x < -0.5)
+            return 1.;
+        if (x < 0.5) {
+            x += 0.5;
+            return 1. - 0.5 * x * x;
+        }
+        if (x < 1.5) {
+            x = 1.5 - x;
+            return 0.5 * x * x;
+        }
+        return 0;
+    }
+
+    // binning function for zm=0, absorbs weights of bins below
+    void zBinTSC1(const double *z, int N, int zm, double *out, int &low, int &up)
+    {
+        int zmm __attribute__((unused)) = zm;
+        double zc = ZBIN_CENTERS[0];
+
+        low = std::lower_bound(z, z + N, zc - 0.5 * Z_BIN_WIDTH) - z;
+        up = std::upper_bound(z, z + N, zc + 1.5 * Z_BIN_WIDTH) - z;
+
+        std::fill(out, out + low, 1);
+        #pragma omp simd
+        for (int i = low; i < up; ++i)
+            out[i] = tscEdge((z[i] - zc) / Z_BIN_WIDTH);
+        low = 0;
+    }
+
+    // binning function for last zm, absorbs weights of bins above
+    void zBinTSC2(const double *z, int N, int zm, double *out, int &low, int &up)
+    {
+        int zmm __attribute__((unused)) = zm;
+        double zc = ZBIN_CENTERS[NZ_MINUS_ONE];
+
+        low = std::lower_bound(z, z + N, zc - 1.5 * Z_BIN_WIDTH) - z;
+        up = std::upper_bound(z, z + N, zc + 0.5 * Z_BIN_WIDTH) - z;
+
+        #pragma omp simd
+        for (int i = low; i < up; ++i)
+            out[i] = tscEdge((zc - z[i]) / Z_BIN_WIDTH);
+        std::fill(out + up, out + N, 1);
+        up = N;
+    }
+
+    void zBinTSC(const double *z, int N, int zm, double *out, int &low, int &up)
+    {
+        double zc = ZBIN_CENTERS[zm];
+        low = std::lower_bound(z, z + N, zc - 1.5 * Z_BIN_WIDTH) - z;
+        up = std::upper_bound(z, z + N, zc + 1.5 * Z_BIN_WIDTH) - z;
+
+        // std::fill_n(out, N, 0);
+        #pragma omp simd
+        for (int i = low; i < up; ++i)
+            out[i] = tsc1((z[i] - zc) / Z_BIN_WIDTH);
+    }
+
     void (*redshiftBinningFunction)(
         const double *z, int N, int zm, double *out, int &low, int &up
     ) = &zBinTopHat;
@@ -463,13 +549,23 @@ namespace bins
             break;
         case TriangleBinningMethod:
             if (NUMBER_OF_Z_BINS == 1)
-                redshiftBinningFunction = &zBinTopHat;
+                redshiftBinningFunction = &zBinUnity;
             else if (zm == 0)
                 redshiftBinningFunction = &zBinTriangular1;
             else if (zm == NZ_MINUS_ONE)
                 redshiftBinningFunction = &zBinTriangular2;
             else
                 redshiftBinningFunction = &zBinTriangular;
+            break;
+        case TSCBinningMethod:
+            if (NUMBER_OF_Z_BINS == 1)
+                redshiftBinningFunction = &zBinUnity;
+            else if (zm == 0)
+                redshiftBinningFunction = &zBinTSC1;
+            else if (zm == NZ_MINUS_ONE)
+                redshiftBinningFunction = &zBinTSC2;
+            else
+                redshiftBinningFunction = &zBinTSC;
             break;
         }
     }
