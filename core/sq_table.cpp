@@ -291,12 +291,15 @@ void SQLookupTable::computeTables(bool force_rewrite)
         s_table_file.writeMeta(tmp_hdr);
 
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
-            double kc = bins::KBAND_CENTERS[kn], Dk1, Dk2;
+            double kc = bins::KBAND_CENTERS[kn], klo, khi;
 
-            if (kn == 0)  Dk1 = 0;
-            else  Dk1 = kc - bins::KBAND_CENTERS[kn - 1];
-            if (kn == bins::NUMBER_OF_K_BANDS - 1)  Dk2 = 0;
-            else  Dk2 = bins::KBAND_CENTERS[kn + 1] - kc;
+            if (kn == 0)  klo = bins::KBAND_EDGES[0];
+            else          klo = bins::KBAND_CENTERS[kn - 1];
+
+            if (kn == bins::NUMBER_OF_K_BANDS - 1)
+                khi = bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS];
+            else
+                khi = bins::KBAND_CENTERS[kn + 1];
 
             struct spectrograph_windowfn_params win_params = {0, 0, dvthis, Rkms};
             struct sq_integrand_params intpars = {
@@ -307,20 +310,16 @@ void SQLookupTable::computeTables(bool force_rewrite)
                 double k = rft->k[i];
                 rft->field_k[i] = MY_PI * q_matrix_integrand(k, &intpars);
 
-                if (k < bins::KBAND_EDGES[0])
-                    rft->field_k[i] = 0.0;
-                else if (k >= bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS])
+                if (k < klo || k > khi)
                     rft->field_k[i] = 0.0;
                 else if (kn == 0 && k <= kc)
                     continue;
                 else if (kn == bins::NUMBER_OF_K_BANDS - 1 && k >= kc)
                     continue;
-                else {
-                    if (k < kc)
-                        rft->field_k[i] *= (1.0 - (kc - k) / Dk1);
-                    else
-                        rft->field_k[i] *= (1.0 - (k - kc) / Dk2);
-                }
+                else if (k < kc)
+                    rft->field_k[i] *= (k - klo) / (kc - klo);
+                else
+                    rft->field_k[i] *= (khi - k) / (khi - kc);
             }
             rft->fftK2X();
 
