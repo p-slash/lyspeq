@@ -338,6 +338,9 @@ namespace bins
         case 1:
             K_BINNING_METHOD = LinearBinningMethod;
             break;
+        case 2:
+            K_BINNING_METHOD = HanningBinningMethod;
+            break;
         default:
             LOG::LOGGER.STD(
                 "Invalid KBinningMethod argument. Fallback to 0.\n");

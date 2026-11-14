@@ -303,7 +303,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
                 klo = bins::KBAND_EDGES[kn];
                 khi = bins::KBAND_EDGES[kn + 1];
             }
-            else if (bins::K_BINNING_METHOD == bins::LinearBinningMethod) {
+            else {
                 if (kn == 0)  klo = bins::KBAND_EDGES[0];
                 else          klo = bins::KBAND_CENTERS[kn - 1];
 
@@ -311,9 +311,6 @@ void SQLookupTable::computeTables(bool force_rewrite)
                     khi = bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS];
                 else
                     khi = bins::KBAND_CENTERS[kn + 1];
-            }
-            else {
-                throw std::invalid_argument("Unknown K binning method.");
             }
 
             #pragma omp parallel for
@@ -328,13 +325,25 @@ void SQLookupTable::computeTables(bool force_rewrite)
                     continue;
                 if (kn == 0 && k <= kc)
                     continue;
-                else if (kn == bins::NUMBER_OF_K_BANDS - 1 && k >= kc)
+                if (kn == bins::NUMBER_OF_K_BANDS - 1 && k >= kc)
                     continue;
 
-                if (k < kc)
-                    rft.field_k[i] *= (k - klo) / (kc - klo);
-                else
-                    rft.field_k[i] *= (khi - k) / (khi - kc);
+                double theta = 0.0;
+                if (k < kc)  theta = (k - klo) / (kc - klo);
+                else         theta = (khi - k) / (khi - kc);
+
+                switch (bins::K_BINNING_METHOD) {
+                    case bins::LinearBinningMethod:
+                        rft.field_k[i] *= theta;
+                    case bins::HanningBinningMethod:
+                        theta -= 1.0;
+                        theta = 0.5 * (1.0 + cos(MY_PI * theta));
+                        rft.field_k[i] *= theta;
+                        break;
+                    default:
+                        throw std::invalid_argument(
+                            "Invalid K_BINNING_METHOD in computeTables.");
+                }
             }
             rft.fftK2X();
 

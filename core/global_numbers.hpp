@@ -173,7 +173,9 @@ namespace specifics
 namespace bins
 {
     enum BinningMethod {
-        TophatBinningMethod, LinearBinningMethod, TSCBinningMethod };
+        TophatBinningMethod, LinearBinningMethod, TSCBinningMethod,
+        HanningBinningMethod
+    };
     // Binning numbers
     // One last bin is created when LAST_K_EDGE is set in config to absorb high k power such as alias effect.
     // This last bin is calculated into covariance matrix, smooth power spectrum fitting or convergence test.
@@ -208,7 +210,7 @@ namespace bins
         0: Top-hat, 1: Linear, 2: TSC. Edge bins absorb the weights of
         non-existent bins so that weights sum to 1 for every z.
     KBinningMethod: int
-        0: Top-hat, 1: Linear. Default is Tophat.
+        0: Top-hat, 1: Linear, 2: Hanning. Default is Tophat.
     FirstRedshiftBinCenter: double
     RedshiftBinWidth: double
     NumberOfRedshiftBins: double
