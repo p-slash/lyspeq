@@ -208,7 +208,7 @@ namespace bins
         FISHER_SIZE, NewDegreesOfFreedom, NKLIN, NKLOG, NZ_MINUS_ONE;
     std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE, K0, DKLIN, DKLOG;
-    BinningMethod Z_BINNING_METHOD = LinearBinningMethod;
+    BinningMethod Z_BINNING_METHOD, K_BINNING_METHOD;
 
     void setUpBins(
             double k0, int nlin, double dklin, int nlog, double dklog,
@@ -329,6 +329,19 @@ namespace bins
             LOG::LOGGER.STD(
                 "Invalid RedshiftBinningMethod argument. Fallback to 1.\n");
             Z_BINNING_METHOD = LinearBinningMethod;
+        }
+        
+        switch (config.getInteger("KBinningMethod")) {
+        case 0:
+            K_BINNING_METHOD = TophatBinningMethod;
+            break;
+        case 1:
+            K_BINNING_METHOD = LinearBinningMethod;
+            break;
+        default:
+            LOG::LOGGER.STD(
+                "Invalid KBinningMethod argument. Fallback to 0.\n");
+            K_BINNING_METHOD = TophatBinningMethod;
         }
 
         // Redshift and wavenumber bins are constructed

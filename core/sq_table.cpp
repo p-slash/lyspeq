@@ -289,34 +289,47 @@ void SQLookupTable::computeTables(bool force_rewrite)
         buf_fnames.insert(0, "!");
         sqhelper::SQLookupTableFile s_table_file(buf_fnames, true);
         s_table_file.writeMeta(tmp_hdr);
+        bool TOPHAT = bins::K_BINNING_METHOD == bins::TophatBinningMethod;
 
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
             double kc = bins::KBAND_CENTERS[kn], klo, khi;
-
-            if (kn == 0)  klo = bins::KBAND_EDGES[0];
-            else          klo = bins::KBAND_CENTERS[kn - 1];
-
-            if (kn == bins::NUMBER_OF_K_BANDS - 1)
-                khi = bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS];
-            else
-                khi = bins::KBAND_CENTERS[kn + 1];
-
             struct spectrograph_windowfn_params win_params = {0, 0, dvthis, Rkms};
             struct sq_integrand_params intpars = {
                 &fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
 
+            if (TOPHAT) {
+                klo = bins::KBAND_EDGES[kn];
+                khi = bins::KBAND_EDGES[kn + 1];
+            }
+            else if (bins::K_BINNING_METHOD == bins::LinearBinningMethod) {
+                if (kn == 0)  klo = bins::KBAND_EDGES[0];
+                else          klo = bins::KBAND_CENTERS[kn - 1];
+
+                if (kn == bins::NUMBER_OF_K_BANDS - 1)
+                    khi = bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS];
+                else
+                    khi = bins::KBAND_CENTERS[kn + 1];
+            }
+            else {
+                throw std::invalid_argument("Unknown K binning method.");
+            }
+
             #pragma omp parallel for
             for (int i = 0; i < rft->size_k(); ++i) {
                 double k = rft->k[i];
-                rft->field_k[i] = MY_PI * q_matrix_integrand(k, &intpars);
-
                 if (k < klo || k > khi)
                     rft->field_k[i] = 0.0;
-                else if (kn == 0 && k <= kc)
+                else
+                    rft->field_k[i] = MY_PI * q_matrix_integrand(k, &intpars);
+
+                if (TOPHAT)
+                    continue;
+                if (kn == 0 && k <= kc)
                     continue;
                 else if (kn == bins::NUMBER_OF_K_BANDS - 1 && k >= kc)
                     continue;
-                else if (k < kc)
+
+                if (k < kc)
                     rft->field_k[i] *= (k - klo) / (kc - klo);
                 else
                     rft->field_k[i] *= (khi - k) / (khi - kc);

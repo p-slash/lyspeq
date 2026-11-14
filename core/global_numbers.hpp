@@ -183,10 +183,11 @@ namespace bins
         NewDegreesOfFreedom, NKLIN, NKLOG,  NZ_MINUS_ONE;
     extern std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     extern double Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE, K0, DKLIN, DKLOG;
-    extern BinningMethod Z_BINNING_METHOD;
+    extern BinningMethod Z_BINNING_METHOD, K_BINNING_METHOD;
 
     const config_map bins_default_parameters ({
-        {"K0", "0"}, {"LastKEdge", "-1"}, {"RedshiftBinningMethod", "1"}
+        {"K0", "0"}, {"LastKEdge", "-1"}, {"KBinningMethod", "0"},
+        {"RedshiftBinningMethod", "1"}
     });
     /* This function reads following keys from config file:
     K0: double
@@ -206,6 +207,8 @@ namespace bins
     RedshiftBinningMethod: int
         0: Top-hat, 1: Linear, 2: TSC. Edge bins absorb the weights of
         non-existent bins so that weights sum to 1 for every z.
+    KBinningMethod: int
+        0: Top-hat, 1: Linear. Default is Tophat.
     FirstRedshiftBinCenter: double
     RedshiftBinWidth: double
     NumberOfRedshiftBins: double
