@@ -229,7 +229,12 @@ install(PROGRAMS py/smbivspline.py DESTINATION bin)
 # ===========
 # Testing
 # ===========
-file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/output)
+add_test(
+    NAME clean_test_contents
+    COMMAND ${CMAKE_COMMAND} -DTARGET_DIR=${CMAKE_SOURCE_DIR}/tests/output -P "${CMAKE_SOURCE_DIR}/cmake/SetupTestDir.cmake"
+)
+set_tests_properties(clean_test_contents PROPERTIES FIXTURES_SETUP TestDirFixture)
+
 add_test(NAME TestCBLAS COMMAND cblas_tests)
 add_test(NAME TestSqMatrices COMMAND testSQCMatrices tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 add_test(NAME TestRedshiftBinning COMMAND testRedshiftBinning)
