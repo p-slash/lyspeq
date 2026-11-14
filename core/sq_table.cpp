@@ -291,32 +291,39 @@ void SQLookupTable::computeTables(bool force_rewrite)
         s_table_file.writeMeta(tmp_hdr);
 
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
-            double k1 = bins::KBAND_EDGES[kn], k2 = bins::KBAND_EDGES[kn + 1];
-            struct spectrograph_windowfn_params win_params = {0, 0, dvthis, Rkms};
+            double kc = bins::KBAND_CENTERS[kn], Dk1, Dk2;
 
-            struct sq_integrand_params integration_parameters = {
+            if (kn == 0)  Dk1 = 0;
+            else  Dk1 = kc - bins::KBAND_CENTERS[kn - 1];
+            if (kn == bins::NUMBER_OF_K_BANDS - 1)  Dk2 = 0;
+            else  Dk2 = bins::KBAND_CENTERS[kn + 1] - kc;
+
+            struct spectrograph_windowfn_params win_params = {0, 0, dvthis, Rkms};
+            struct sq_integrand_params intpars = {
                 &fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
 
-            if (specifics::USE_RESOLUTION_MATRIX) {
-                // Exact calculation
-                double dk = k2 - k1, kc = 0.5 * (k1 + k2);
-                rft->field_x[0] = dk / MY_PI;
-                #pragma omp parallel for
-                for (auto i = 1; i < rft->x.size(); ++i) {
-                    double x = rft->x[i], y = 0.5 * dk * x;
-                    rft->field_x[i] = 2.0 / (MY_PI * x) * cos(kc * x) * sin(y);
-                }
-            } else {
-                #pragma omp parallel for
-                for (int i = 0; i < rft->size_k(); ++i) {
-                    if (rft->k[i] < k1 || rft->k[i] >= k2)
-                        rft->field_k[i] = 0.0;
+            #pragma omp parallel for
+            for (int i = 0; i < rft->size_k(); ++i) {
+                double k = rft->k[i];
+                rft->field_k[i] = MY_PI * q_matrix_integrand(k, &intpars);
+
+                if (k < bins::KBAND_EDGES[0])
+                    rft->field_k[i] = 0.0;
+                else if (k >= bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS])
+                    rft->field_k[i] = 0.0;
+                else if (kn == 0 && k <= kc)
+                    continue;
+                else if (kn == bins::NUMBER_OF_K_BANDS - 1 && k >= kc)
+                    continue;
+                else {
+                    if (k < kc)
+                        rft->field_k[i] *= (1.0 - (kc - k) / Dk1);
                     else
-                        rft->field_k[i] = MY_PI * q_matrix_integrand(
-                            rft->k[i], &integration_parameters);
+                        rft->field_k[i] *= (1.0 - (k - kc) / Dk2);
                 }
-                rft->fftK2X();
             }
+            rft->fftK2X();
+
             #pragma omp parallel for
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
                 int xy = nv + kn * N_V_POINTS;
