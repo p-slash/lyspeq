@@ -256,13 +256,15 @@ void SQLookupTable::computeTables(bool force_rewrite)
     if (mympi::this_pe == mympi::total_pes-1)
         r_end_this = NUMBER_OF_R_VALUES;
 
-    std::unique_ptr<RealField> rft;
-    #define RFT_M 2  // Oversample factor for the RFT grid.
-    #define RFT_PAD 16 // Padding factor for the RFT grid.
+    constexpr int
+        RFT_M = 2,  /* Oversample factor for the RFT grid. */
+        RFT_PAD = 16; /* Padding factor for the RFT grid. */
     int nrft = RFT_PAD * RFT_M * exp2(ceil(log2(N_V_POINTS)));
-    LOG::LOGGER.STD("RealField number of points %d\n", nrft);
     double itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
-    rft = std::make_unique<RealField>(nrft, itp_dv / RFT_M);
+    double SCALE = bins::DKLIN / MY_PI;
+    RealField rft(nrft, itp_dv / RFT_M);
+    LOG::LOGGER.STD("RealField number of points %d over %.0e km/s\n",
+                    nrft, nrft * itp_dv / RFT_M);
 
     for (int r = r_start_this; r < r_end_this; ++r)
     {
@@ -315,12 +317,12 @@ void SQLookupTable::computeTables(bool force_rewrite)
             }
 
             #pragma omp parallel for
-            for (int i = 0; i < rft->size_k(); ++i) {
-                double k = rft->k[i];
+            for (int i = 0; i < rft.size_k(); ++i) {
+                double k = rft.k[i];
                 if (k < klo || k > khi)
-                    rft->field_k[i] = 0.0;
+                    rft.field_k[i] = 0.0;
                 else
-                    rft->field_k[i] = MY_PI * q_matrix_integrand(k, &intpars);
+                    rft.field_k[i] = MY_PI * q_matrix_integrand(k, &intpars) / SCALE;
 
                 if (TOPHAT)
                     continue;
@@ -330,16 +332,16 @@ void SQLookupTable::computeTables(bool force_rewrite)
                     continue;
 
                 if (k < kc)
-                    rft->field_k[i] *= (k - klo) / (kc - klo);
+                    rft.field_k[i] *= (k - klo) / (kc - klo);
                 else
-                    rft->field_k[i] *= (khi - k) / (khi - kc);
+                    rft.field_k[i] *= (khi - k) / (khi - kc);
             }
-            rft->fftK2X();
+            rft.fftK2X();
 
             #pragma omp parallel for
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
                 int xy = nv + kn * N_V_POINTS;
-                signal_array[xy] = rft->field_x[RFT_M * nv];
+                signal_array[xy] = SCALE * rft.field_x[RFT_M * nv];
             }
         }
 
@@ -369,19 +371,18 @@ void SQLookupTable::computeTables(bool force_rewrite)
             win_params.z_ij = LINEAR_Z_ARRAY[nz];
 
             #pragma omp parallel for
-            for (int i = 0; i < rft->size_k(); ++i)
-                rft->field_k[i] = MY_PI * signal_matrix_integrand(
-                    rft->k[i], &integration_parameters);
+            for (int i = 0; i < rft.size_k(); ++i)
+                rft.field_k[i] = MY_PI * signal_matrix_integrand(
+                    rft.k[i], &integration_parameters);
 
-            rft->fftK2X();
+            rft.fftK2X();
             #pragma omp parallel for
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
                 int xy = nz + N_Z_POINTS_OF_S * nv;
-                signal_array[xy] = rft->field_x[RFT_M * nv];
+                signal_array[xy] = rft.field_x[RFT_M * nv];
             }
         }
 
-        #undef RFT_M
         s_table_file.writeSignal(signal_array.get());
         time_spent_table_sfid = mytime::timer.getTime() - time_spent_table_sfid;
 
