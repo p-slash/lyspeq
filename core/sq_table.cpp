@@ -150,6 +150,9 @@ SQLookupTable::SQLookupTable(ConfigFile &config)
     N_V_POINTS = config.getInteger("NumberVPoints");
     N_Z_POINTS_OF_S = config.getInteger("NumberZPoints");
     LENGTH_V = config.getDouble("VelocityLength");
+    // Adjust LENGTH_V such that kfund is a multiple of DKLIN.
+    double kfund = 2 * MY_PI / LENGTH_V;
+    LENGTH_V = kfund * round(bins::DKLIN / kfund + 0.41);
     LENGTH_Z_OF_S = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
     itp_v1 = 0;
     itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
