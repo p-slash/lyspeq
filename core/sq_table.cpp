@@ -149,10 +149,13 @@ SQLookupTable::SQLookupTable(ConfigFile &config)
 {
     N_V_POINTS = config.getInteger("NumberVPoints");
     N_Z_POINTS_OF_S = config.getInteger("NumberZPoints");
-    LENGTH_V = config.getDouble("VelocityLength");
+    double input_velocity_length = config.getDouble("VelocityLength");
     // Adjust LENGTH_V such that kfund is a multiple of DKLIN.
-    double kfund = 2 * MY_PI / LENGTH_V;
-    LENGTH_V = kfund * round(bins::DKLIN / kfund + 0.41);
+    double LD = 2 * MY_PI / bins::DKLIN;
+    LENGTH_V = LD * std::max(1.0, round(input_velocity_length / LD + 0.41));
+    LOG::LOGGER.STD(
+        "Adjusted LENGTH_V from %.2e to %.2e f km/s for DKLIN=%.3e.\n",
+        input_velocity_length, LENGTH_V, bins::DKLIN);
     LENGTH_Z_OF_S = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
     itp_v1 = 0;
     itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
