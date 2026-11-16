@@ -801,7 +801,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wwrite-strings"
     char *column_names[] = {
-        "Z", "ZEFF_FIT", "K1", "K2", "K", "PLYA", "PLYA_EFF",
+        "Z", "ZEFF", "K1", "K2", "K", "PLYA", "PLYA_EFF",
         "E_PK", "PRAW", "PNOISE", "PFID", "PINPUT",
         "ThetaP", "Fd", "Fb", "Ft"
     };
@@ -839,8 +839,9 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);
         tmpvec_ptr[i_kz] = bins::ZBIN_CENTERS[zm];
-        tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] = estimateZeff(
-            kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
+        tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] = 
+            dbt_estimate_fisher_weighted_vector[3][i_kz];
+        // estimateZeff(kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
         tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn];
         tmpvec_ptr[i_kz + 3 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn + 1];
         tmpvec_ptr[i_kz + 4 * bins::TOTAL_KZ_BINS] = bins::KBAND_CENTERS[kn];
@@ -866,7 +867,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS, tmpvec_ptr + 2 * bins::TOTAL_KZ_BINS);
     fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS, tmpvec_ptr + 3 * bins::TOTAL_KZ_BINS);
 
-    for (int c = 0; c < specifics::NDBT; ++c)
+    for (int c = 0; c < 3; ++c)
         fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS,
                               dbt_estimate_fisher_weighted_vector[c].get());
 

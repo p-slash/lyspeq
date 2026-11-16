@@ -672,8 +672,8 @@ void Chunk::computePSbeforeFvector()
     const int Ndata = size();
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
            *nk0 = dbt_estimate_before_fisher_vector[1].get(),
-           *tk0 = dbt_estimate_before_fisher_vector[2].get();
-        //    *zeff0 = dbt_estimate_before_fisher_vector[3].get();
+           *tk0 = dbt_estimate_before_fisher_vector[2].get(),
+           *zeff0 = dbt_estimate_before_fisher_vector[3].get();
 
     // C-1 . flux
     cblas_dsymv(
@@ -699,7 +699,6 @@ void Chunk::computePSbeforeFvector()
             iqt->second, Ndata, 0, temp_matrix[0], Ndata);
         // temp_matrix[0] is now C-1 Qi, iqt->second is Qi
 
-        /* Turn off zeff propagation
         // Set upper triangle of z matrix in temp_matrix[1]
         _setZMatrixUpperTriangle(qFile->wave(), Ndata, temp_matrix[1]);
         // Element-wise multiply Qi with z matrix to get Qzi
@@ -712,8 +711,9 @@ void Chunk::computePSbeforeFvector()
             CblasRowMajor, CblasLeft, CblasUpper,
             Ndata, Ndata, 1., iqt->second, Ndata,
             inverse_covariance_matrix, Ndata, 0, temp_matrix[1], Ndata);
-        zeff0[iqt->first] = cblas_ddot(DATA_SIZE_2, temp_matrix[1], 1, temp_matrix[0], 1);
-        */
+        zeff0[iqt->first] = mxhelp::divide_and_conquer_dot(
+            DATA_SIZE_2, temp_matrix[1], temp_matrix[0]);
+
         // Swap temp matrix (C-1 Qi) with Q matrix (Qi) instead of copying
         std::swap(temp_matrix[0], iqt->second);
     }

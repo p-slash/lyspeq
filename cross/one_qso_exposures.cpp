@@ -303,7 +303,7 @@ void OneQsoExposures::setAllocPowerSpMemory() {
 
     fisher_matrix = std::make_unique<double[]>(ndim * ndim);
     theta_vector = std::make_unique<double[]>(ndim);
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < specifics::NDBT; ++i)
         dbt_estimate_before_fisher_vector.push_back(
             std::make_unique<double[]>(ndim));
 }
@@ -327,7 +327,8 @@ void OneQsoExposures::xQmlEstimate() {
     xeutils::_vmatrix = glmemory::temp_matrices[0].get();
     xeutils::_zmatrix = glmemory::temp_matrices[1].get();
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
-           *tk0 = dbt_estimate_before_fisher_vector[2].get();
+           *tk0 = dbt_estimate_before_fisher_vector[2].get(),
+           *zeff0 = dbt_estimate_before_fisher_vector[3].get();
 
     // For each combo calculate derivatives
     for (const auto &[expo1, expo2] : exposure_combos) {
@@ -393,36 +394,48 @@ void OneQsoExposures::xQmlEstimate() {
                     xeutils::CROSS_SIZE_2, qwi, glmemory::stored_sfid.get());
         }
 
-        if (specifics::USE_PRECOMPUTED_FISHER)
-            continue;
+        if (!specifics::USE_PRECOMPUTED_FISHER) {
+            t = mytime::timer.getTime();
 
-        t = mytime::timer.getTime();
+            diff_idx *= ndim + 1;
+            // I think this is still symmetric
+            #pragma omp parallel for schedule(dynamic, 1)
+            for (   auto iqt = xeutils::stored_ikz_qi_qwi.cbegin();
+                    iqt != xeutils::stored_ikz_qi_qwi.cend(); ++iqt
+            ) {
+                int i_kz = 0, j_kz = 0;
+                double *qwi = nullptr, *qjT = nullptr;
+                std::tie(i_kz, std::ignore, qwi) = *iqt;
 
-        diff_idx *= ndim + 1;
-        // I think this is still symmetric
-        #pragma omp parallel for schedule(dynamic, 1)
-        for (   auto iqt = xeutils::stored_ikz_qi_qwi.cbegin();
-                iqt != xeutils::stored_ikz_qi_qwi.cend(); ++iqt
-        ) {
-            int i_kz = 0, j_kz = 0;
-            double *qwi = nullptr, *qjT = nullptr;
-            std::tie(i_kz, std::ignore, qwi) = *iqt;
+                for (auto jqt = iqt; jqt != xeutils::stored_ikz_qi_qwi.cend(); ++jqt) {
+                    std::tie(j_kz, qjT, std::ignore) = *jqt;
 
-            for (auto jqt = iqt; jqt != xeutils::stored_ikz_qi_qwi.cend(); ++jqt) {
-                std::tie(j_kz, qjT, std::ignore) = *jqt;
+                    #ifdef FISHER_OPTIMIZATION
+                    int diff_ji = abs(j_kz - i_kz);
+                    if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
+                        continue;
+                    #endif
 
-                #ifdef FISHER_OPTIMIZATION
-                int diff_ji = abs(j_kz - i_kz);
-                if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
-                    continue;
-                #endif
-
-                fisher_matrix[j_kz + ndim * i_kz + diff_idx] += 
-                    mxhelp::divide_and_conquer_dot(xeutils::CROSS_SIZE_2, qwi, qjT);
+                    fisher_matrix[j_kz + ndim * i_kz + diff_idx] += 
+                        mxhelp::divide_and_conquer_dot(xeutils::CROSS_SIZE_2, qwi, qjT);
+                }
             }
+
+            mytime::time_spent_set_fisher += mytime::timer.getTime() - t;
         }
 
-        mytime::time_spent_set_fisher += mytime::timer.getTime() - t;;
+        #pragma omp parallel for schedule(dynamic, 1)
+        for (auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi) {
+            // _zmatrix should be untouched in temp_matrix[1]
+            // Element-wise multiply Qi with z matrix to get Qzi
+            #pragma omp parallel for simd collapse(2)
+            for (int i = 0; i < xeutils::N1; ++i)
+                for (int j = 0; j < xeutils::N2; ++j)
+                    qi[j + i * xeutils::N2] *= xeutils::_zmatrix[j + i * xeutils::N2];
+            // QW (Qzi)
+            zeff0[i_kz + diff_idx] = mxhelp::divide_and_conquer_dot(
+                xeutils::CROSS_SIZE_2, qwi, qi);
+        }
     }
 
     #pragma omp parallel for simd
