@@ -689,7 +689,7 @@ void Chunk::computePSbeforeFvector()
            *tk0 = dbt_estimate_before_fisher_vector[2].get(),
            *gk0 = dbt_estimate_before_fisher_vector[5].get();
 
-    // Variables related to zeff
+    // Variables related to zeff = Sum Wij Zij, where Wij = C-1 Qi C-1
     double *zeff0 = dbt_estimate_before_fisher_vector[3].get(),
            *wzeff0 = dbt_estimate_before_fisher_vector[4].get(),
            *weighted_zeff0 = _zmatrix;
@@ -730,6 +730,7 @@ void Chunk::computePSbeforeFvector()
         // Swap temp matrix (C-1 Qi) with Q matrix (Qi) instead of copying
         std::swap(temp_matrix[0], iqt->second);
 
+        // Tr (C-1 Qi . C-1) = Sum of weights for zeff
         wzeff0[iqt->first] = mxhelp::divide_and_conquer_dot(
             DATA_SIZE_2, iqt->second, inverse_covariance_matrix);
     }
