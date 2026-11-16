@@ -329,7 +329,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
         current_power_estimate_vector.get() + bins::TOTAL_KZ_BINS, 
         previous_power_estimate_vector.get());
 
-    for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
+    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
     {
         cblas_dgemv(
             CblasRowMajor, CblasNoTrans, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
@@ -348,6 +348,16 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
     cblas_daxpy(
         bins::TOTAL_KZ_BINS, -1, dbt_estimate_fisher_weighted_vector[2].get(), 1,
         current_power_estimate_vector.get(), 1);
+    
+    if (specifics::NDBT == 3)
+        return;
+    
+    double *zeff0 = dbt_estimate_sum_before_fisher_vector[3].get(),
+           *wzeff0 = dbt_estimate_sum_before_fisher_vector[4].get(),
+           *zeff = dbt_estimate_fisher_weighted_vector[3].get();
+
+    for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
+        zeff[i_kz] = zeff0[i_kz] / wzeff0[i_kz] - 1.0;
 }
 
 void OneDQuadraticPowerEstimate::_readScriptOutput(const char *fname, void *itsfits)
