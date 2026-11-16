@@ -868,7 +868,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     char *column_units[] = {
         "", "", "s km^-1", "s km^-1", "s km^-1", /**/
         "s km^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1",  /**/
-        "km s^-1", "km s^-1", "km s^-1", "km s^-1", , "km s^-1", /**/
+        "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1", /**/
         "s km^-1", "s km^-1",  "s km^-1"
     };
     #pragma GCC diagnostic pop
