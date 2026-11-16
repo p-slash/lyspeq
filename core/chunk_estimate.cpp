@@ -699,6 +699,11 @@ void Chunk::computePSbeforeFvector()
         CblasRowMajor, CblasUpper, Ndata, 1.,
         inverse_covariance_matrix, Ndata, qFile->delta(), 1,
         0, glmemory::weighted_data_vector.get(), 1);
+    // C-1 . (1 + z)
+    cblas_dsymv(
+        CblasRowMajor, CblasUpper, Ndata, 1.,
+        inverse_covariance_matrix, Ndata, qFile->wave(), 1,
+        0, weighted_zeff0, 1);
 
     double t = mytime::timer.getTime();
     int nmats = glmemory::temp_matrices.size();
