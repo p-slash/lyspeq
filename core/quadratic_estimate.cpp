@@ -850,22 +850,26 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
         const std::string ext
 ) {
     /* define the name, datatype, and physical units for columns */
-    const int ncolumns = 17;
+    const int ncolumns = 18;
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wwrite-strings"
     char *column_names[] = {
-        "Z", "ZEFF", "K1", "K2", "K", "KEFF", "PLYA", "PLYA_EFF",
-        "E_PK", "PRAW", "PNOISE", "PFID", "PGUIDE", "PINPUT",
-        "ThetaP", "Fd", "Fb", "Ft"
+        "Z", "ZEFF", "K1", "K2", "K", /**/
+        "KEFF", "PLYA", "PLYA_EFF", "E_PK", "PRAW", /**/
+        "PNOISE", "PFID", "PGUIDE", "PINPUT", "ThetaP", /**/
+        "Fd", "Fb", "Ft"
     };
     char *column_types[] = {
-        "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D",
-        "1D", "1D", "1D", "1D", "1D", "1D"
+        "1D", "1D", "1D", "1D", "1D", /**/
+        "1D", "1D", "1D", "1D", "1D", /**/
+        "1D", "1D", "1D", "1D", "1D", /**/
+        "1D", "1D", "1D"
     };
     char *column_units[] = {
-        "", "", "s km^-1", "s km^-1", "s km^-1", "s km^-1", "km s^-1", "km s^-1",
-        "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1",
-        "s km^-1", "s km^-1", "s km^-1"
+        "", "", "s km^-1", "s km^-1", "s km^-1", /**/
+        "s km^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1",  /**/
+        "km s^-1", "km s^-1", "km s^-1", "km s^-1", , "km s^-1", /**/
+        "s km^-1", "s km^-1",  "s km^-1"
     };
     #pragma GCC diagnostic pop
 
@@ -902,7 +906,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
             kn, dbt_estimate_fisher_weighted_vector[5][i_kz]);
     }
 
-    for (int c = 0; c < 5; ++c)
+    for (int c = 0; c < 6; ++c)
         fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS,
                               tmpvec_ptr + c * bins::TOTAL_KZ_BINS);
 
