@@ -358,6 +358,15 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz)
         zeff[i_kz] = zeff0[i_kz] / wzeff0[i_kz] - 1.0;
+    
+    if (specifics::NDBT == 5)
+        return;
+
+    cblas_dgemv(
+        CblasRowMajor, CblasNoTrans, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
+        0.5, solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS,
+        dbt_estimate_sum_before_fisher_vector[5].get(), 1,
+        0, dbt_estimate_fisher_weighted_vector[5].get(), 1);
 }
 
 void OneDQuadraticPowerEstimate::_readScriptOutput(const char *fname, void *itsfits)
@@ -732,10 +741,9 @@ void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
 }
 
 
-double estimateZeff(int kn, int zm, double tk)
+double estimateZeff(int zm, double keff, double tk)
 {
     double zc = bins::ZBIN_CENTERS[zm];
-    double kc = bins::KBAND_CENTERS[kn];
     if (specifics::TURN_OFF_SFID)  return zc;
     if (tk <= 0)  return zc;
 
@@ -750,7 +758,7 @@ double estimateZeff(int kn, int zm, double tk)
         for (int i = 0; i < N_STEPS; ++i) {
             double zi = zstart + i * Deltaz;
             double delta_t = fabs(fidcosmo::fiducialPowerSpectrum(
-                kc, zi, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk);
+                keff, zi, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk);
             if (delta_t < min_tk_diff) {
                 min_tk_diff = delta_t;
                 zsolution = zi;
@@ -766,6 +774,41 @@ double estimateZeff(int kn, int zm, double tk)
     }
     
     return zsolution;
+}
+
+double estimateKeff(int kn, double gk)
+{
+    double kc = bins::KBAND_CENTERS[kn];
+    if (specifics::TURN_OFF_SFID)  return kc;
+    if (gk <= 0)  return kc;
+
+    constexpr int N_STEPS = 100, N_LOOPS = 10;
+    double kstart = bins::KBAND_EDGES[kn],
+           Deltak = (bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn]) / N_STEPS,
+           min_gk_diff = 1e10,
+           tolerance = 1e-8 + gk * 1e-6,
+           ksolution = kc;
+
+    for (int loop = 0; loop < N_LOOPS; ++loop) {
+        for (int i = 0; i < N_STEPS; ++i) {
+            double ki = kstart + i * Deltak;
+            double delta_t = fabs(fidcosmo::fiducialPowerSpectrum(
+                ki, specifics::GUIDE_ZEFF, &fidpd13::FIDUCIAL_PD13_PARAMS) - gk);
+            if (delta_t < min_gk_diff) {
+                min_gk_diff = delta_t;
+                ksolution = ki;
+            }
+            else  break;
+        }
+
+        if (min_gk_diff < tolerance)  break;
+
+        kstart = ksolution - 2.0 * Deltak;
+        Deltak *= 4.0 / N_STEPS;
+        min_gk_diff = 1e10;
+    }
+    
+    return ksolution;
 }
 
 void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
@@ -807,12 +850,12 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
         const std::string ext
 ) {
     /* define the name, datatype, and physical units for columns */
-    const int ncolumns = 16;
+    const int ncolumns = 17;
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wwrite-strings"
     char *column_names[] = {
-        "Z", "ZEFF", "K1", "K2", "K", "PLYA", "PLYA_EFF",
-        "E_PK", "PRAW", "PNOISE", "PFID", "PINPUT",
+        "Z", "ZEFF", "K1", "K2", "K", "KEFF", "PLYA", "PLYA_EFF",
+        "E_PK", "PRAW", "PNOISE", "PFID", "PGUIDE", "PINPUT",
         "ThetaP", "Fd", "Fb", "Ft"
     };
     char *column_types[] = {
@@ -820,7 +863,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
         "1D", "1D", "1D", "1D", "1D", "1D"
     };
     char *column_units[] = {
-        "", "", "s km^-1", "s km^-1", "s km^-1", "km s^-1", "km s^-1",
+        "", "", "s km^-1", "s km^-1", "s km^-1", "s km^-1", "km s^-1", "km s^-1",
         "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1",
         "s km^-1", "s km^-1", "s km^-1"
     };
@@ -843,7 +886,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     fits_file.check();
 
     int kn = 0, zm = 0, colnum = 1;
-    std::vector<double> tmpvec(5 * bins::TOTAL_KZ_BINS);
+    std::vector<double> tmpvec(6 * bins::TOTAL_KZ_BINS);
     double *tmpvec_ptr = tmpvec.data();
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
@@ -855,6 +898,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
         tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn];
         tmpvec_ptr[i_kz + 3 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn + 1];
         tmpvec_ptr[i_kz + 4 * bins::TOTAL_KZ_BINS] = bins::KBAND_CENTERS[kn];
+        tmpvec_ptr[i_kz + 5 * bins::TOTAL_KZ_BINS] = estimateKeff(
+            kn, dbt_estimate_fisher_weighted_vector[5][i_kz]);
     }
 
     for (int c = 0; c < 5; ++c)
@@ -880,6 +925,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     for (int c = 0; c < 3; ++c)
         fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS,
                               dbt_estimate_fisher_weighted_vector[c].get());
+    fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS,
+                          dbt_estimate_fisher_weighted_vector[5].get());
 
     fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS, tmpvec_ptr);
     fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS, current_power_estimate_vector.get());

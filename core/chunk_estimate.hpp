@@ -30,9 +30,10 @@ matrices. This scheme speeds up the algorithm.
 namespace glmemory {
     extern int max_size_2;
     extern std::unique_ptr<double[]>
-        covariance_matrix, weighted_data_vector,
+        covariance_matrix, weighted_data_vector, guide_sfid,
         stored_sfid, matrix_lambda, finer_matrix, v_matrix, z_matrix;
-    extern std::vector<std::unique_ptr<double[]>> stored_ikz_qi, temp_matrices, temp_vectors;
+    extern std::vector<std::unique_ptr<double[]>>
+        stored_ikz_qi, temp_matrices, temp_vectors;
 
     extern shared_interp_2d interp2d_signal_matrix;
     extern std::vector<shared_interp_1d> interp_derivative_matrix;
@@ -79,7 +80,7 @@ protected:
     void _initMatrices();
     // void _saveIndividualResult();
 
-    void _setFiducialSignalMatrix(double *sm);
+    void _setFiducialSignalMatrix(double *sm, double fixed_z=-1.0);
     void _setVZMatrices();
     void _setQiMatrix(double *qi, int i_kz);
     void _applyRedshiftInterp();

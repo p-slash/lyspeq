@@ -42,7 +42,7 @@ namespace glmemory {
     bool on_oversampling = false;
     double memUsed = 0;
     std::unique_ptr<double[]>
-        covariance_matrix, weighted_data_vector,
+        covariance_matrix, weighted_data_vector, guide_sfid,
         stored_sfid, matrix_lambda, finer_matrix, v_matrix, z_matrix;
     std::vector<std::unique_ptr<double[]>> stored_ikz_qi, temp_matrices, temp_vectors;
 
@@ -65,7 +65,7 @@ namespace glmemory {
         double A = process::getMemoryMB(max_size);
         memUsed += 2 * A;
         A *= max_size;
-        memUsed += (1 + !specifics::TURN_OFF_SFID + max_nqdim) * A;
+        memUsed += (1 + 2 * !specifics::TURN_OFF_SFID + max_nqdim) * A;
 
         if (on_oversampling) {
             highsize = max_matrix_n * max_matrix_n;
@@ -101,8 +101,10 @@ namespace glmemory {
             temp_vectors.push_back(std::make_unique<double[]>(max_size));
         }
 
-        if (!specifics::TURN_OFF_SFID)
+        if (!specifics::TURN_OFF_SFID) {
             stored_sfid = std::make_unique<double[]>(max_size_2);
+            guide_sfid = std::make_unique<double[]>(max_size_2);
+        }
 
         stored_ikz_qi.reserve(max_nqdim);
         for (int i = 0; i < max_nqdim; ++i)
@@ -133,6 +135,7 @@ namespace glmemory {
         temp_vectors.clear();
         temp_matrices.clear();
         stored_sfid.reset();
+        guide_sfid.reset();
         stored_ikz_qi.clear();
         matrix_lambda.reset();
         finer_matrix.reset();
@@ -298,7 +301,7 @@ void Chunk::_setStoredMatrices()
 {
     double size_m1 = process::getMemoryMB(DATA_SIZE_2);
 
-    int n_spec_mat = 3 + stored_ikz_qi.size() + (!specifics::TURN_OFF_SFID);
+    int n_spec_mat = 3 + stored_ikz_qi.size() + (2 * !specifics::TURN_OFF_SFID);
     double remain_mem = process::MEMORY_ALLOC,
            needed_mem = n_spec_mat * size_m1;
 
@@ -337,19 +340,30 @@ void Chunk::_setVZMatrices() {
     _setZMatrixUpperTriangle(_matrix_lambda, _matrix_n, _zmatrix);
 }
 
-void Chunk::_setFiducialSignalMatrix(double *sm)
+void Chunk::_setFiducialSignalMatrix(double *sm, double fixed_z)
 {
     ++mytime::number_of_times_called_setsfid;
 
     double t = mytime::timer.getTime();
     double *inter_mat = (on_oversampling) ? glmemory::finer_matrix.get() : sm;
 
-    #pragma omp parallel for simd collapse(2)
-    for (int i = 0; i < _matrix_n; ++i) {
-        for (int j = i; j < _matrix_n; ++j) {
-            int idx = j + i * _matrix_n;
-            inter_mat[idx] = glmemory::interp2d_signal_matrix->evaluate(
-                _zmatrix[idx], _vmatrix[idx]);
+    if (fixed_z <= 0) {
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < _matrix_n; ++i) {
+            for (int j = i; j < _matrix_n; ++j) {
+                int idx = j + i * _matrix_n;
+                inter_mat[idx] = glmemory::interp2d_signal_matrix->evaluate(
+                    _zmatrix[idx], _vmatrix[idx]);
+            }
+        }
+    } else {
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < _matrix_n; ++i) {
+            for (int j = i; j < _matrix_n; ++j) {
+                int idx = j + i * _matrix_n;
+                inter_mat[idx] = glmemory::interp2d_signal_matrix->evaluate(
+                    fixed_z, _vmatrix[idx]);
+            }
         }
     }
 
@@ -672,7 +686,8 @@ void Chunk::computePSbeforeFvector()
     const int Ndata = size();
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
            *nk0 = dbt_estimate_before_fisher_vector[1].get(),
-           *tk0 = dbt_estimate_before_fisher_vector[2].get();
+           *tk0 = dbt_estimate_before_fisher_vector[2].get(),
+           *gk0 = dbt_estimate_before_fisher_vector[5].get();
 
     // Variables related to zeff
     double *zeff0 = dbt_estimate_before_fisher_vector[3].get(),
@@ -755,6 +770,17 @@ void Chunk::computePSbeforeFvector()
         for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
             tk0[i_kz] = mxhelp::divide_and_conquer_dot(
                 DATA_SIZE_2, Q_ikz_matrix, weighted_sfid_matrix);
+
+        // Set Guide signal matrix at const z = 3.0
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans,
+            Ndata, Ndata, Ndata, 1., glmemory::guide_sfid.get(), Ndata,
+            inverse_covariance_matrix, Ndata, 0, weighted_sfid_matrix, Ndata);
+
+        #pragma omp parallel for
+        for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
+            gk0[i_kz] = mxhelp::divide_and_conquer_dot(
+                DATA_SIZE_2, Q_ikz_matrix, weighted_sfid_matrix);
     }
 
     // Do not compute fisher matrix if it is precomputed
@@ -831,8 +857,10 @@ void Chunk::oneQSOiteration(
 
     // Preload fiducial signal matrix if memory allows
     // !! Keep it here. _vmatrix will be destroyed by dgemm later !!
-    if (!specifics::TURN_OFF_SFID)
+    if (!specifics::TURN_OFF_SFID) {
         _setFiducialSignalMatrix(glmemory::stored_sfid.get());
+        _setFiducialSignalMatrix(glmemory::guide_sfid.get(), specifics::GUIDE_ZEFF);
+    }
 
     _applyRedshiftInterp();
 
