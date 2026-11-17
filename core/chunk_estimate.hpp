@@ -37,6 +37,7 @@ namespace glmemory {
 
     extern shared_interp_2d interp2d_signal_matrix;
     extern std::vector<shared_interp_1d> interp_derivative_matrix;
+    extern shared_interp_1d interp_guide_matrix;
 
     extern std::unique_ptr<KahanVectorSummer2D> kahan_fisher_sum;
     extern std::vector<std::unique_ptr<KahanVectorSummer>> kahan_dbt_sum_vector;
@@ -80,7 +81,8 @@ protected:
     void _initMatrices();
     // void _saveIndividualResult();
 
-    void _setFiducialSignalMatrix(double *sm, double fixed_z=-1.0);
+    void _setGuideMatrix(double *g);
+    void _setFiducialSignalMatrix(double *sm);
     void _setVZMatrices();
     void _setQiMatrix(double *qi, int i_kz);
     void _applyRedshiftInterp();
