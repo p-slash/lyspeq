@@ -737,23 +737,48 @@ double estimateZeff(int zm, double keff, double tk)
     double zc = bins::ZBIN_CENTERS[zm];
     if (specifics::TURN_OFF_SFID)  return zc;
     if (tk <= 0)  return zc;
+    int status = 0;
 
-    return simpleCurveFit1D(
-        [keff](double zi) {
+    double zsol = rootBisection(
+        [keff, tk](double zi) {
             return fidcosmo::fiducialPowerSpectrum(
-                keff, zi, &fidpd13::FIDUCIAL_PD13_PARAMS);
-        }, tk, zc - bins::Z_BIN_WIDTH, zc + bins::Z_BIN_WIDTH
+                keff, zi, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk;
+        }, zc - bins::Z_BIN_WIDTH, zc + bins::Z_BIN_WIDTH, &status
     );
+    if (status == -1) {
+        LOG::LOGGER.ERR("WARNING: estimateZeff failed for zc=%.1f.\n", zc);
+        zsol = bins::ZBIN_CENTERS[zm];
+    }
+    if (status == 1) {
+        LOG::LOGGER.ERR(
+            "WARNING: estimateZeff failed to converge for zc=%.1f, zsol:%.2f.\n",
+            zc, zsol
+        );
+    }
+    return zsol;
 }
 
 double estimateKeff(int kn, double gk)
 {
     double kc = bins::KBAND_CENTERS[kn];
     if (gk <= 0)  return kc;
+    int status = 0;
 
-    return simpleCurveFit1D(
-        fidcosmo::guidePower, gk, bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1]
+    double ksol = rootBisection(
+        [gk](double ki) { return fidcosmo::guidePower(ki) - gk;},
+        bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1], &status
     );
+    if (status == -1) {
+        LOG::LOGGER.ERR("WARNING: estimateKeff failed for kc=%.5e.\n", kc);
+        ksol = bins::KBAND_CENTERS[kn];
+    }
+    if (status == 1) {
+        LOG::LOGGER.ERR(
+            "WARNING: estimateKeff failed to converge for kc=%.5e, ksol:%.5e.\n",
+            kc, ksol
+        );
+    }
+    return ksol;
 }
 
 void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)

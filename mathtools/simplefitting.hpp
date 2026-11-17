@@ -33,4 +33,34 @@ double simpleCurveFit1D(
     return soln;
 }
 
+
+double rootBisection(
+        std::function<double(double)> func, double x1, double x2,
+        int *status=nullptr, int max_iter=1000, double rtol=1.49012e-08
+) {
+    double xsol = (x1 + x2) / 2.0;
+    double f1 = func(x1), f2 = func(x2);
+    if (f1 * f2 > 0) {
+        if (status) *status = -1; // No root in the interval
+        return xsol;
+    }
+
+    for (int i = 0; i < max_iter; i++) {
+        double fsol = func(xsol);
+        if (fsol == 0.0 || (x2 - x1) / 2.0 < rtol) {
+            *status = 0;
+            return xsol;
+        }
+
+        if (f1 * fsol < 0) {
+            x2 = xsol;
+            f2 = fsol;
+        } else {
+            x1 = xsol;
+            f1 = fsol;
+        }
+    }
+    if (status) *status = 1; // Max iterations reached
+    return xsol;
+}
 #endif
