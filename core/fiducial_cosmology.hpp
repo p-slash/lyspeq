@@ -40,7 +40,7 @@ namespace fidcosmo
 
     #define KMAX_GUIDE bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]
     inline double guidePower(double k, double kmax) {
-        double x = k / kmax, kcut = 1.25 * kmax;
+        double x = k / kmax, kcut = 2.0 * kmax;
         if (k > kcut)
             return 0.0;
 
