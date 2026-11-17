@@ -38,7 +38,8 @@ namespace fidcosmo
     extern double (*fiducialPowerGrowthFactor)(double z_ij, double k_kn, double z_zm, void *params);
     extern double FID_LOWEST_K, FID_HIGHEST_K;
 
-    inline double guidePower(double k, double kF=5e-4) {
+    inline double guidePower(double k) {
+        constexpr double kF = 5e-4;
         return kF / (k * k + kF * kF);
     }
     inline
