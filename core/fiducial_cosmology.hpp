@@ -37,9 +37,32 @@ namespace fidcosmo
     // Currently growth factor is always given Palanqu Delabrouille fit.
     extern double (*fiducialPowerGrowthFactor)(double z_ij, double k_kn, double z_zm, void *params);
     extern double FID_LOWEST_K, FID_HIGHEST_K;
+    namespace pd13
+    {
+        // Defined values for PD fit
+        // K_0 in s km^-1
+        const static double K_0 = 0.009, Z_0 = 3.0;
 
-    #define KMAX_GUIDE bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]
-    inline double guidePower(double k, double kmax) {
+        // Fitting function has the form in Palanque-Delabrouille et al. 2013
+        // Added a Lorentzian decay to suppress small scale power
+        typedef struct
+        {
+            double A;
+            double n;
+            double alpha;
+
+            double B;
+            double beta;
+
+            double lambda;
+        } pd13_fit_params;
+    
+        // Default parameters are fit parameters if not specified in config file.
+        extern pd13_fit_params FIDUCIAL_PD13_PARAMS;
+    }
+
+    /*#define KMAX_GUIDE bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]
+    inline double guidePowerLinExp(double k, double kmax) {
         double x = k / kmax, kcut = 2.0 * kmax;
         if (k > kcut)
             return 0.0;
@@ -50,6 +73,10 @@ namespace fidcosmo
             r *= 0.5 * (1.0 + cos(3.14159265 * theta));
         }
         return r;
+    }*/
+    inline double guidePower(double k) {
+        constexpr double Z0 = 3.0;
+        return fiducialPowerSpectrum(k, Z0, &pd13::FIDUCIAL_PD13_PARAMS);
     }
     inline
     double spectralWindowFunc2(double k, double dv_kms, double R_kms) {
@@ -79,30 +106,6 @@ namespace fidcosmo
     // finally power values as doubles.
     // Power is ordered for each redshift bin
     void setFiducialPowerFromFile(const std::string &fname);
-
-    namespace pd13
-    {
-        // Defined values for PD fit
-        // K_0 in s km^-1
-        const static double K_0 = 0.009, Z_0 = 3.0;
-
-        // Fitting function has the form in Palanque-Delabrouille et al. 2013
-        // Added a Lorentzian decay to suppress small scale power
-        typedef struct
-        {
-            double A;
-            double n;
-            double alpha;
-
-            double B;
-            double beta;
-
-            double lambda;
-        } pd13_fit_params;
-    
-        // Default parameters are fit parameters if not specified in config file.
-        extern pd13_fit_params FIDUCIAL_PD13_PARAMS;
-    }
 }
 
 namespace fidpd13 = fidcosmo::pd13;

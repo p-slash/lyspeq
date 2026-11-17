@@ -371,7 +371,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
         #pragma omp parallel for
         for (int i = 0; i < rft.size_k(); ++i) {
             rft.field_k[i] = fidcosmo::spectralWindowFunc2(rft.k[i], dvthis, Rkms)
-                             * fidcosmo::guidePower(rft.k[i], KMAX_GUIDE);
+                             * fidcosmo::guidePower(rft.k[i]);
         }
         rft.fftK2X();
         #pragma omp parallel for
