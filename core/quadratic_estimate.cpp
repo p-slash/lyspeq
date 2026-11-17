@@ -749,14 +749,10 @@ double estimateZeff(int zm, double keff, double tk)
 double estimateKeff(int kn, double gk)
 {
     double kc = bins::KBAND_CENTERS[kn];
-    if (specifics::TURN_OFF_SFID)  return kc;
     if (gk <= 0)  return kc;
 
     return simpleCurveFit1D(
-        [](double ki) {
-            return fidcosmo::fiducialPowerSpectrum(
-                ki, specifics::GUIDE_ZEFF, &fidpd13::FIDUCIAL_PD13_PARAMS);
-        }, gk, bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1]
+        fidcosmo::guidePower, gk, bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1]
     );
 }
 
