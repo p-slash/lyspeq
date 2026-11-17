@@ -687,23 +687,13 @@ void Chunk::computePSbeforeFvector()
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
            *nk0 = dbt_estimate_before_fisher_vector[1].get(),
            *tk0 = dbt_estimate_before_fisher_vector[2].get(),
-           *gk0 = dbt_estimate_before_fisher_vector[5].get();
-
-    // Variables related to zeff = Sum Wij Zij, where Wij = C-1 Qi C-1
-    double *zeff0 = dbt_estimate_before_fisher_vector[3].get(),
-           *wzeff0 = dbt_estimate_before_fisher_vector[4].get(),
-           *weighted_zeff0 = _zmatrix;
+           *gk0 = dbt_estimate_before_fisher_vector[3].get();
 
     // C-1 . flux
     cblas_dsymv(
         CblasRowMajor, CblasUpper, Ndata, 1.,
         inverse_covariance_matrix, Ndata, qFile->delta(), 1,
         0, glmemory::weighted_data_vector.get(), 1);
-    // C-1 . (1 + z)
-    cblas_dsymv(
-        CblasRowMajor, CblasUpper, Ndata, 1.,
-        inverse_covariance_matrix, Ndata, qFile->wave(), 1,
-        0, weighted_zeff0, 1);
 
     double t = mytime::timer.getTime();
     int nmats = glmemory::temp_matrices.size();
@@ -714,9 +704,6 @@ void Chunk::computePSbeforeFvector()
         dk0[iqt->first] = mxhelp::my_cblas_dsymvdot(
             glmemory::weighted_data_vector.get(), 
             iqt->second, glmemory::temp_vectors[0].get(), Ndata);
-        zeff0[iqt->first] = mxhelp::my_cblas_dsymvdot(
-            weighted_zeff0,  iqt->second, glmemory::temp_vectors[0].get(),
-            Ndata);
 
         // Transform q matrices to weighted matrices inplace
         // Get weighted derivative matrix ikz: C-1 Qi
@@ -729,10 +716,6 @@ void Chunk::computePSbeforeFvector()
 
         // Swap temp matrix (C-1 Qi) with Q matrix (Qi) instead of copying
         std::swap(temp_matrix[0], iqt->second);
-
-        // Tr (C-1 Qi . C-1) = Sum of weights for zeff
-        wzeff0[iqt->first] = mxhelp::divide_and_conquer_dot(
-            DATA_SIZE_2, iqt->second, inverse_covariance_matrix);
     }
 
     mytime::time_spent_set_modqs += mytime::timer.getTime() - t;

@@ -72,7 +72,7 @@ namespace process
 
 namespace specifics
 {
-    constexpr int NDBT = 6;
+    constexpr int NDBT = 4;
     constexpr double GUIDE_ZEFF = 3.0;
     extern bool
         TURN_OFF_SFID, SMOOTH_LOGK_LOGP, USE_RESOLUTION_MATRIX, 
