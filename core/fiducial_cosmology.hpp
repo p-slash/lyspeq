@@ -45,9 +45,10 @@ namespace fidcosmo
     inline
     double spectralWindowFunc2(double k, double dv_kms, double R_kms) {
         if (k == 0)  return 1.;
-        double kr = k * R_kms, x = k * dv_kms / 2.;
-        double r = (sin(x) / x) * exp(-kr * kr / 2.);
-        return r * r;
+        double kr = k * R_kms, r = exp(-kr * kr), x = k * dv_kms / 2.;
+        if (dv_kms == 0)  return r;
+        x = sin(x) / x;
+        return x * x * r;
     }
 
     /* This function reads following keys from config file:
