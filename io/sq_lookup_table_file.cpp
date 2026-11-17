@@ -168,7 +168,38 @@ void SQLookupTableFile::writeSignal(const double *data) {
     fits_write_img(fits_file, TDOUBLE, 1, size, (void *) data, &status);
     ioh::checkFitsStatus(status);
 }
+
+void SQLookupTableFile::readGuide(double *data) {
+    char extname[] = "GUIDE";
+    int status = 0, nfound;
+    long naxes[1];
+
+    fits_movnam_hdu(fits_file, IMAGE_HDU, extname, 0, &status);
+    ioh::checkFitsStatus(status);
+
+    fits_read_keys_lng(fits_file, "NAXIS", 1, 1, naxes, &nfound, &status);
+
+    if (naxes[0] != meta.nvpoints)
+        throw std::runtime_error("SQLookupTableFile::readGuide::Inconsistent Nv.");
+
+    long size = naxes[0];
+    fits_read_img(fits_file, TDOUBLE, 1, size, &_nullval, data, nullptr, &status);
+    ioh::checkFitsStatus(status);
 }
 
+void SQLookupTableFile::writeGuide(const double *data) {
+    char extname[] = "GUIDE";
+    int status = 0;
+    long naxis = 1, naxes[1] = { meta.nvpoints };
+    long size = naxes[0];
+
+    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
+    ioh::checkFitsStatus(status);
+
+    fits_update_key_str(fits_file, "EXTNAME", extname, nullptr, &status);
+    fits_write_img(fits_file, TDOUBLE, 1, size, (void *) data, &status);
+    ioh::checkFitsStatus(status);
+}
+}
 
 
