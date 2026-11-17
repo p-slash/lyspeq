@@ -222,17 +222,20 @@ void SQLookupTable::readTables()
     if (!specifics::TURN_OFF_SFID)
         interp2d_signal_matrices.reserve(NUMBER_OF_R_VALUES);
     interp_derivative_matrices.reserve(NUMBER_OF_R_VALUES * bins::NUMBER_OF_K_BANDS);
+    interp_guide_matrices.reserve(NUMBER_OF_R_VALUES);
 
+    shared_interp_1d gint;
     shared_interp_2d sint;
     std::vector<shared_interp_1d> dints;
     dints.resize(bins::NUMBER_OF_K_BANDS);
     for (int r = 0; r < NUMBER_OF_R_VALUES; ++r) {
-        _allocReadSQFile(r, sint, dints);
+        _allocReadSQFile(r, sint, dints, gint);
         if (!specifics::TURN_OFF_SFID)
             interp2d_signal_matrices.push_back(sint);
 
         interp_derivative_matrices.insert(
             interp_derivative_matrices.end(), dints.begin(), dints.end());
+        interp_guide_matrices.push_back(gint);
     }
 
     deallocateSignalAndDerivArrays();
@@ -364,6 +367,19 @@ void SQLookupTable::computeTables(bool force_rewrite)
             "Time spent on derivative matrix table R=%d, dv=%.1f is %.2f mins.\n",
             Rthis, dvthis, time_spent_table_q);
 
+        /* Calc and write Guide */
+        #pragma omp parallel for
+        for (int i = 0; i < rft.size_k(); ++i) {
+            rft.field_k[i] = fidcosmo::spectralWindowFunc2(rft.k[i], dvthis, Rkms)
+                             * fidcosmo::guidePower(rft.k[i]);
+        }
+        rft.fftK2X();
+        #pragma omp parallel for
+        for (int nv = 0; nv < N_V_POINTS; ++nv)
+            signal_array[nv] = SCALE * rft.field_x[RFT_M * nv];
+        s_table_file.writeGuide(signal_array.get());
+
+        /* Signal Fiducial */
         if (specifics::TURN_OFF_SFID)  continue;
 
         time_spent_table_sfid = mytime::timer.getTime();
@@ -403,7 +419,8 @@ void SQLookupTable::computeTables(bool force_rewrite)
 
 void SQLookupTable::_allocReadSQFile(
         int r_index, shared_interp_2d& sint,
-        std::vector<shared_interp_1d> &dints
+        std::vector<shared_interp_1d> &dints,
+        shared_interp_1d &gint
 ) {
     int Rthis = R_DV_VALUES[r_index].first;
     double dvthis = R_DV_VALUES[r_index].second;
@@ -419,12 +436,23 @@ void SQLookupTable::_allocReadSQFile(
     sqhelper::_checkHeaderConsistency(
         tmp_hdr, N_V_POINTS, N_Z_POINTS_OF_S, 
         LENGTH_V, itp_z1, LENGTH_Z_OF_S, Rthis, dvthis);
+    itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
 
     // Allocate memory before reading further
     if (!signal_array)
         allocateSignalAndDerivArrays();
 
-    // Start reading data and set to interp pointer
+    s_table_file.readDeriv(signal_array.get());
+    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
+        dints[kn] = std::make_shared<DiscreteInterpolation1D>(
+            itp_v1, itp_dv, N_V_POINTS, signal_array.get() + kn * N_V_POINTS
+        );
+    
+    s_table_file.readGuide(signal_array.get());
+    gint = std::make_shared<DiscreteInterpolation1D>(
+        itp_v1, itp_dv, N_V_POINTS, signal_array.get()
+    );
+
     if (!specifics::TURN_OFF_SFID)
     {
         s_table_file.readSignal(signal_array.get());
@@ -435,33 +463,25 @@ void SQLookupTable::_allocReadSQFile(
             itp_z1, itp_dz, itp_v1, itp_dv,
             signal_array.get(), N_Z_POINTS_OF_S, N_V_POINTS);
     }
-
-    s_table_file.readDeriv(signal_array.get());
-
-    itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
-
-    for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
-        dints[kn] = std::make_shared<DiscreteInterpolation1D>(
-            itp_v1, itp_dv, N_V_POINTS, signal_array.get() + kn * N_V_POINTS
-        );
 }
 
 
 void SQLookupTable::readSQforR(
         int r_index, shared_interp_2d &s,
-        std::vector<shared_interp_1d> &q, bool alloc
+        std::vector<shared_interp_1d> &q,
+        shared_interp_1d &g,
+        bool alloc
 ) {
     if (alloc || interp2d_signal_matrices.empty()) {
-        _allocReadSQFile(r_index, s, q);
+        _allocReadSQFile(r_index, s, q, g);
         return;
     }
 
-    // Skip this section if fiducial signal matrix is turned off.
-    if (!specifics::TURN_OFF_SFID)
-        s = getSignalMatrixInterp(r_index);
-
     for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn)
         q[kn] = getDerivativeMatrixInterp(kn, r_index);
+    g = getGuideMatrixInterp(r_index);
+    if (!specifics::TURN_OFF_SFID)
+        s = getSignalMatrixInterp(r_index);
 }
 
 int SQLookupTable::findSpecResIndex(int spec_res, double dv) const
@@ -478,11 +498,12 @@ int SQLookupTable::findSpecResIndex(int spec_res, double dv) const
 double SQLookupTable::getOneSetMemUsage()
 {
     double s = process::getMemoryMB(N_V_POINTS * N_Z_POINTS_OF_S),
-           q = process::getMemoryMB(N_V_POINTS * bins::NUMBER_OF_K_BANDS);
+           q = process::getMemoryMB(N_V_POINTS * bins::NUMBER_OF_K_BANDS),
+           g = process::getMemoryMB(N_V_POINTS);
 
     if (specifics::TURN_OFF_SFID) s = 0;
 
-    return s+q;
+    return s+q+g;
 }
 
 double SQLookupTable::getMaxMemUsage()

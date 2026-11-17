@@ -40,6 +40,7 @@ class SQLookupTable
 
     std::vector<shared_interp_2d> interp2d_signal_matrices;
     std::vector<shared_interp_1d> interp_derivative_matrices;
+    std::vector<shared_interp_1d> interp_guide_matrices;
 
     double itp_v1, itp_dv, itp_z1, itp_dz; 
 
@@ -51,7 +52,8 @@ class SQLookupTable
 
     void _allocReadSQFile(
         int r_index, shared_interp_2d& sint,
-        std::vector<shared_interp_1d> &dints);
+        std::vector<shared_interp_1d> &dints,
+        shared_interp_1d &gint);
 
 public:
     SQLookupTable(ConfigFile &config);
@@ -61,7 +63,8 @@ public:
     bool allFilesExist() const;
     void readSQforR(
         int r_index, shared_interp_2d &s,
-        std::vector<shared_interp_1d>  &q, 
+        std::vector<shared_interp_1d>  &q,
+        shared_interp_1d &g,
         bool alloc=false);
 
     void readTables();
@@ -78,6 +81,11 @@ public:
     inline
     shared_interp_2d getSignalMatrixInterp(int r_index) const {
         return interp2d_signal_matrices[r_index];
+    }
+
+    inline
+    shared_interp_1d getGuideMatrixInterp(int r_index) const {
+        return interp_guide_matrices[r_index];
     }
 
     double getOneSetMemUsage();
