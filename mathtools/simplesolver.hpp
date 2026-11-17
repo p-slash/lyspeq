@@ -38,7 +38,7 @@ double rootBisection(
         std::function<double(double)> func, double x1, double x2,
         int *status=nullptr, int max_iter=1000, double rtol=1.49012e-08
 ) {
-    double xsol_old = (x1 + x2) / 2.0;
+    double xsol_old = x1;
     double f1 = func(x1), f2 = func(x2);
     if (f1 * f2 > 0) {
         if (status) *status = -1; // No root in the interval
