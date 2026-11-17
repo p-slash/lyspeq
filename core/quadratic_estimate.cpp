@@ -18,7 +18,7 @@
 #include "core/progress.hpp"
 
 #include "mathtools/matrix_helper.hpp"
-#include "mathtools/simplefitting.hpp"
+#include "mathtools/simplesolver.hpp"
 
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
@@ -746,11 +746,11 @@ double estimateZeff(int zm, double keff, double tk)
         }, zc - bins::Z_BIN_WIDTH, zc + bins::Z_BIN_WIDTH, &status
     );
     if (status == -1) {
-        LOG::LOGGER.ERR("WARNING: estimateZeff failed for zc=%.1f.\n", zc);
+        LOG::LOGGER.STD("WARNING: estimateZeff failed for zc=%.1f.\n", zc);
         zsol = bins::ZBIN_CENTERS[zm];
     }
     if (status == 1) {
-        LOG::LOGGER.ERR(
+        LOG::LOGGER.STD(
             "WARNING: estimateZeff failed to converge for zc=%.1f, zsol:%.2f.\n",
             zc, zsol
         );
