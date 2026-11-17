@@ -301,9 +301,6 @@ void SQLookupTable::computeTables(bool force_rewrite)
 
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
             double kc = bins::KBAND_CENTERS[kn], klo, khi;
-            struct spectrograph_windowfn_params win_params = {0, 0, dvthis, Rkms};
-            struct sq_integrand_params intpars = {
-                &fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
 
             if (TOPHAT) {
                 klo = bins::KBAND_EDGES[kn];
@@ -325,7 +322,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
                 if (k < klo || k > khi)
                     rft.field_k[i] = 0.0;
                 else
-                    rft.field_k[i] = MY_PI * q_matrix_integrand(k, &intpars) / SCALE;
+                    rft.field_k[i] = fidcosmo::spectralWindowFunc2(k, dvthis, Rkms) / SCALE;
 
                 if (TOPHAT)
                     continue;
@@ -375,20 +372,14 @@ void SQLookupTable::computeTables(bool force_rewrite)
             " R=%d (%.2f km/s), dv=%.1f.\n",
             Rthis, Rkms, dvthis);
 
-        struct spectrograph_windowfn_params win_params = {
-                0, 0, dvthis, Rkms};
-
-        struct sq_integrand_params integration_parameters = {
-            &fidpd13::FIDUCIAL_PD13_PARAMS, &win_params};
-
         for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz) {
             // z_first + z_length * nz / (Nz - 1.);
-            win_params.z_ij = LINEAR_Z_ARRAY[nz];
-
             #pragma omp parallel for
             for (int i = 0; i < rft.size_k(); ++i)
-                rft.field_k[i] = MY_PI * signal_matrix_integrand(
-                    rft.k[i], &integration_parameters);
+                rft.field_k[i] = fidcosmo::spectralWindowFunc2(rft.k[i], dvthis, Rkms)
+                               * fidcosmo::fiducialPowerSpectrum(
+                                rft.k[i], LINEAR_Z_ARRAY[nz],
+                                &fidpd13::FIDUCIAL_PD13_PARAMS);
 
             rft.fftK2X();
             #pragma omp parallel for
