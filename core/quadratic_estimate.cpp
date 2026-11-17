@@ -18,6 +18,7 @@
 #include "core/progress.hpp"
 
 #include "mathtools/matrix_helper.hpp"
+#include "mathtools/simplesolver.hpp"
 
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
@@ -329,7 +330,7 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
         current_power_estimate_vector.get() + bins::TOTAL_KZ_BINS, 
         previous_power_estimate_vector.get());
 
-    for (int dbt_i = 0; dbt_i < specifics::NDBT; ++dbt_i)
+    for (int dbt_i = 0; dbt_i < 3; ++dbt_i)
     {
         cblas_dgemv(
             CblasRowMajor, CblasNoTrans, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
@@ -348,6 +349,15 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
     cblas_daxpy(
         bins::TOTAL_KZ_BINS, -1, dbt_estimate_fisher_weighted_vector[2].get(), 1,
         current_power_estimate_vector.get(), 1);
+    
+    if (specifics::NDBT == 3)
+        return;
+
+    cblas_dgemv(
+        CblasRowMajor, CblasNoTrans, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
+        0.5, solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS,
+        dbt_estimate_sum_before_fisher_vector[3].get(), 1,
+        0, dbt_estimate_fisher_weighted_vector[3].get(), 1);
 }
 
 void OneDQuadraticPowerEstimate::_readScriptOutput(const char *fname, void *itsfits)
@@ -722,40 +732,53 @@ void OneDQuadraticPowerEstimate::writeFisherMatrix(const char *fname)
 }
 
 
-double estimateZeff(int kn, int zm, double tk)
+double estimateZeff(int zm, double keff, double tk)
 {
     double zc = bins::ZBIN_CENTERS[zm];
-    double kc = bins::KBAND_CENTERS[kn];
     if (specifics::TURN_OFF_SFID)  return zc;
     if (tk <= 0)  return zc;
+    int status = 0;
 
-    constexpr int N_STEPS = 100, N_LOOPS = 10;
-    double zstart = zc - bins::Z_BIN_WIDTH,
-           Deltaz = 2.0 * bins::Z_BIN_WIDTH / N_STEPS,
-           min_tk_diff = 1e10,
-           tolerance = 1e-8 + tk * 1e-6,
-           zsolution = zc;
-
-    for (int loop = 0; loop < N_LOOPS; ++loop) {
-        for (int i = 0; i < N_STEPS; ++i) {
-            double zi = zstart + i * Deltaz;
-            double delta_t = fabs(fidcosmo::fiducialPowerSpectrum(
-                kc, zi, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk);
-            if (delta_t < min_tk_diff) {
-                min_tk_diff = delta_t;
-                zsolution = zi;
-            }
-            else  break;
-        }
-
-        if (min_tk_diff < tolerance)  break;
-
-        zstart = zsolution - 2.0 * Deltaz;
-        Deltaz *= 4.0 / N_STEPS;
-        min_tk_diff = 1e10;
+    double zsol = rootBisection(
+        [keff, tk](double zi) {
+            return fidcosmo::fiducialPowerSpectrum(
+                keff, zi, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk;
+        }, zc - bins::Z_BIN_WIDTH, zc + bins::Z_BIN_WIDTH, &status
+    );
+    if (status == -1) {
+        LOG::LOGGER.STD("WARNING: estimateZeff failed for zc=%.1f.\n", zc);
+        zsol = bins::ZBIN_CENTERS[zm];
     }
-    
-    return zsolution;
+    if (status == 1) {
+        LOG::LOGGER.STD(
+            "WARNING: estimateZeff failed to converge for zc=%.1f, zsol:%.2f.\n",
+            zc, zsol
+        );
+    }
+    return zsol;
+}
+
+double estimateKeff(int kn, double gk)
+{
+    double kc = bins::KBAND_CENTERS[kn];
+    if (gk <= 0)  return kc;
+    int status = 0;
+
+    double ksol = rootBisection(
+        [gk](double ki) { return fidcosmo::guidePower(ki) - gk;},
+        bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1], &status
+    );
+    if (status == -1) {
+        LOG::LOGGER.ERR("WARNING: estimateKeff failed for kc=%.5e.\n", kc);
+        ksol = bins::KBAND_CENTERS[kn];
+    }
+    if (status == 1) {
+        LOG::LOGGER.ERR(
+            "WARNING: estimateKeff failed to converge for kc=%.5e, ksol:%.5e.\n",
+            kc, ksol
+        );
+    }
+    return ksol;
 }
 
 void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
@@ -797,22 +820,26 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
         const std::string ext
 ) {
     /* define the name, datatype, and physical units for columns */
-    const int ncolumns = 16;
+    const int ncolumns = 18;
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wwrite-strings"
     char *column_names[] = {
-        "Z", "ZEFF_FIT", "K1", "K2", "K", "PLYA", "PLYA_EFF",
-        "E_PK", "PRAW", "PNOISE", "PFID", "PINPUT",
-        "ThetaP", "Fd", "Fb", "Ft"
+        "Z", "ZEFF", "K1", "K2", "K", /**/
+        "KEFF", "PLYA", "PLYA_EFF", "E_PK", "PRAW", /**/
+        "PNOISE", "PFID", "PGUIDE", "PINPUT", "ThetaP", /**/
+        "Fd", "Fb", "Ft"
     };
     char *column_types[] = {
-        "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D", "1D",
-        "1D", "1D", "1D", "1D", "1D", "1D"
+        "1D", "1D", "1D", "1D", "1D", /**/
+        "1D", "1D", "1D", "1D", "1D", /**/
+        "1D", "1D", "1D", "1D", "1D", /**/
+        "1D", "1D", "1D"
     };
     char *column_units[] = {
-        "", "", "s km^-1", "s km^-1", "s km^-1", "km s^-1", "km s^-1",
-        "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1",
-        "s km^-1", "s km^-1", "s km^-1"
+        "", "", "s km^-1", "s km^-1", "s km^-1", /**/
+        "s km^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1",  /**/
+        "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1", /**/
+        "s km^-1", "s km^-1",  "s km^-1"
     };
     #pragma GCC diagnostic pop
 
@@ -833,20 +860,23 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     fits_file.check();
 
     int kn = 0, zm = 0, colnum = 1;
-    std::vector<double> tmpvec(5 * bins::TOTAL_KZ_BINS);
+    std::vector<double> tmpvec(6 * bins::TOTAL_KZ_BINS);
     double *tmpvec_ptr = tmpvec.data();
+    double keff, zeff;
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);
+        keff = estimateKeff(kn, dbt_estimate_fisher_weighted_vector[3][i_kz]);
+        zeff = estimateZeff(zm, keff, dbt_estimate_fisher_weighted_vector[2][i_kz]);
         tmpvec_ptr[i_kz] = bins::ZBIN_CENTERS[zm];
-        tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] = estimateZeff(
-            kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
+        tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] = zeff;
         tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn];
         tmpvec_ptr[i_kz + 3 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn + 1];
         tmpvec_ptr[i_kz + 4 * bins::TOTAL_KZ_BINS] = bins::KBAND_CENTERS[kn];
+        tmpvec_ptr[i_kz + 5 * bins::TOTAL_KZ_BINS] = keff;
     }
 
-    for (int c = 0; c < 5; ++c)
+    for (int c = 0; c < 6; ++c)
         fits_file.writeColumn(colnum++, bins::TOTAL_KZ_BINS,
                               tmpvec_ptr + c * bins::TOTAL_KZ_BINS);
 

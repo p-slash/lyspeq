@@ -33,7 +33,8 @@ protected:
     std::vector<int> Z_BIN_COUNTS;
     std::vector<long> targetids_to_ignore;
 
-    // 3 TOTAL_KZ_BINS sized vectors
+    // TOTAL_KZ_BINS sized vectors
+    // Index 3 is for Guide signal matrix to derive keff
     std::vector<std::unique_ptr<double[]>>
                 dbt_estimate_sum_before_fisher_vector,
                 dbt_estimate_fisher_weighted_vector;
