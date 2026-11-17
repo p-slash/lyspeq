@@ -18,6 +18,7 @@
 #include "core/progress.hpp"
 
 #include "mathtools/matrix_helper.hpp"
+#include "mathtools/simplefitting.hpp"
 
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
@@ -737,33 +738,12 @@ double estimateZeff(int zm, double keff, double tk)
     if (specifics::TURN_OFF_SFID)  return zc;
     if (tk <= 0)  return zc;
 
-    constexpr int N_STEPS = 100, N_LOOPS = 10;
-    double zstart = zc - bins::Z_BIN_WIDTH,
-           Deltaz = 2.0 * bins::Z_BIN_WIDTH / N_STEPS,
-           min_tk_diff = 1e10,
-           tolerance = 1e-8 + tk * 1e-6,
-           zsolution = zc;
-
-    for (int loop = 0; loop < N_LOOPS; ++loop) {
-        for (int i = 0; i < N_STEPS; ++i) {
-            double zi = zstart + i * Deltaz;
-            double delta_t = fabs(fidcosmo::fiducialPowerSpectrum(
-                keff, zi, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk);
-            if (delta_t < min_tk_diff) {
-                min_tk_diff = delta_t;
-                zsolution = zi;
-            }
-            else  break;
-        }
-
-        if (min_tk_diff < tolerance)  break;
-
-        zstart = zsolution - 2.0 * Deltaz;
-        Deltaz *= 4.0 / N_STEPS;
-        min_tk_diff = 1e10;
-    }
-    
-    return zsolution;
+    return simpleCurveFit1D(
+        [keff](double zi) {
+            return fidcosmo::fiducialPowerSpectrum(
+                keff, zi, &fidpd13::FIDUCIAL_PD13_PARAMS);
+        }, tk, zc - bins::Z_BIN_WIDTH, zc + bins::Z_BIN_WIDTH
+    );
 }
 
 double estimateKeff(int kn, double gk)
@@ -772,33 +752,12 @@ double estimateKeff(int kn, double gk)
     if (specifics::TURN_OFF_SFID)  return kc;
     if (gk <= 0)  return kc;
 
-    constexpr int N_STEPS = 100, N_LOOPS = 10;
-    double kstart = bins::KBAND_EDGES[kn],
-           Deltak = (bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn]) / N_STEPS,
-           min_gk_diff = 1e10,
-           tolerance = 1e-8 + gk * 1e-6,
-           ksolution = kc;
-
-    for (int loop = 0; loop < N_LOOPS; ++loop) {
-        for (int i = 0; i < N_STEPS; ++i) {
-            double ki = kstart + i * Deltak;
-            double delta_t = fabs(fidcosmo::fiducialPowerSpectrum(
-                ki, specifics::GUIDE_ZEFF, &fidpd13::FIDUCIAL_PD13_PARAMS) - gk);
-            if (delta_t < min_gk_diff) {
-                min_gk_diff = delta_t;
-                ksolution = ki;
-            }
-            else  break;
-        }
-
-        if (min_gk_diff < tolerance)  break;
-
-        kstart = ksolution - 2.0 * Deltak;
-        Deltak *= 4.0 / N_STEPS;
-        min_gk_diff = 1e10;
-    }
-    
-    return ksolution;
+    return simpleCurveFit1D(
+        [](double ki) {
+            return fidcosmo::fiducialPowerSpectrum(
+                ki, specifics::GUIDE_ZEFF, &fidpd13::FIDUCIAL_PD13_PARAMS);
+        }, gk, bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1]
+    );
 }
 
 void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
