@@ -38,16 +38,24 @@ double rootBisection(
         std::function<double(double)> func, double x1, double x2,
         int *status=nullptr, int max_iter=1000, double rtol=1.49012e-08
 ) {
-    double xsol = (x1 + x2) / 2.0;
+    double xsol_old = (x1 + x2) / 2.0;
     double f1 = func(x1), f2 = func(x2);
     if (f1 * f2 > 0) {
         if (status) *status = -1; // No root in the interval
-        return xsol;
+        return xsol_old;
     }
 
+    double xsol, fsol;
+    bool converged = false;
     for (int i = 0; i < max_iter; i++) {
-        double fsol = func(xsol);
-        if (fsol == 0.0 || (x2 - x1) / 2.0 < rtol) {
+        xsol = (x1 + x2) / 2.0;
+        fsol = func(xsol);
+        converged = fsol == 0.0;
+        if (xsol != 0.0)
+            converged |= fabs(xsol_old / xsol - 1.0) < rtol;
+        else
+            converged |= fabs(xsol - xsol_old) < rtol;
+        if (converged) {
             *status = 0;
             return xsol;
         }
