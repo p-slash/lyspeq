@@ -892,18 +892,18 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     int kn = 0, zm = 0, colnum = 1;
     std::vector<double> tmpvec(6 * bins::TOTAL_KZ_BINS);
     double *tmpvec_ptr = tmpvec.data();
+    double keff, zeff;
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);
+        keff = estimateKeff(kn, dbt_estimate_fisher_weighted_vector[5][i_kz]);
+        zeff = estimateZeff(zm, keff, dbt_estimate_fisher_weighted_vector[2][i_kz]);
         tmpvec_ptr[i_kz] = bins::ZBIN_CENTERS[zm];
-        tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] = 
-            dbt_estimate_fisher_weighted_vector[3][i_kz];
-        // estimateZeff(kn, zm, dbt_estimate_fisher_weighted_vector[2][i_kz]);
+        tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] = zeff;
         tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn];
         tmpvec_ptr[i_kz + 3 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn + 1];
         tmpvec_ptr[i_kz + 4 * bins::TOTAL_KZ_BINS] = bins::KBAND_CENTERS[kn];
-        tmpvec_ptr[i_kz + 5 * bins::TOTAL_KZ_BINS] = estimateKeff(
-            kn, dbt_estimate_fisher_weighted_vector[5][i_kz]);
+        tmpvec_ptr[i_kz + 5 * bins::TOTAL_KZ_BINS] = keff;
     }
 
     for (int c = 0; c < 6; ++c)
