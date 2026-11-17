@@ -752,7 +752,8 @@ double estimateKeff(int kn, double gk)
     if (gk <= 0)  return kc;
 
     return simpleCurveFit1D(
-        fidcosmo::guidePower, gk, bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1]
+        [](double ki) {return fidcosmo::guidePower(ki, KMAX_GUIDE);},
+        gk, bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1]
     );
 }
 

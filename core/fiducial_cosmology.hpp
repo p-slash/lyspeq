@@ -38,9 +38,10 @@ namespace fidcosmo
     extern double (*fiducialPowerGrowthFactor)(double z_ij, double k_kn, double z_zm, void *params);
     extern double FID_LOWEST_K, FID_HIGHEST_K;
 
-    inline double guidePower(double k) {
-        constexpr double kF = 5e-4;
-        return kF / (k * k + kF * kF);
+    #define KMAX_GUIDE 2 * bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]
+    inline double guidePower(double k, double kmax) {
+        double x = k / kmax;
+        return k * exp(-x * x / 2.0);
     }
     inline
     double spectralWindowFunc2(double k, double dv_kms, double R_kms) {
