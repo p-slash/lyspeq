@@ -214,36 +214,40 @@ namespace xeutils {
     }
 
 
-    void _setFiducialSignalMatrix(double *sm, double fixed_z=-1.0) {
+    void _setFiducialSignalMatrix(double *sm) {
         ++mytime::number_of_times_called_setsfid;
-
         double t = mytime::timer.getTime();
 
-        if (fixed_z <= 0) {
-            #pragma omp parallel for simd collapse(2)
-            for (int i = 0; i < N1; ++i) {
-                for (int j = 0; j < N2; ++j) {
-                    int idx = j + i * N2;
-                    sm[idx] = glmemory::interp2d_signal_matrix->evaluate(
-                        _zmatrix[idx], _vmatrix[idx]);
-                }
-            }
-        } else {
-            #pragma omp parallel for simd collapse(2)
-            for (int i = 0; i < N1; ++i) {
-                for (int j = 0; j < N2; ++j) {
-                    int idx = j + i * N2;
-                    sm[idx] = glmemory::interp2d_signal_matrix->evaluate(
-                        fixed_z, _vmatrix[idx]);
-                }
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < N1; ++i) {
+            for (int j = 0; j < N2; ++j) {
+                int idx = j + i * N2;
+                sm[idx] = glmemory::interp2d_signal_matrix->evaluate(
+                    _zmatrix[idx], _vmatrix[idx]);
             }
         }
-
         if (specifics::USE_RESOLUTION_MATRIX)
             _doubleRmatSandwich(sm);
 
         t = mytime::timer.getTime() - t;
+        mytime::time_spent_on_set_sfid += t;
+    }
 
+    void _setGuideMatrix(double *g) {
+        ++mytime::number_of_times_called_setsfid;
+        double t = mytime::timer.getTime();
+
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < N1; ++i) {
+            for (int j = 0; j < N2; ++j) {
+                int idx = j + i * N2;
+                g[idx] = glmemory::interp_guide_matrix->evaluate(_vmatrix[idx]);
+            }
+        }
+        if (specifics::USE_RESOLUTION_MATRIX)
+            _doubleRmatSandwich(g);
+
+        t = mytime::timer.getTime() - t;
         mytime::time_spent_on_set_sfid += t;
     }
 }
@@ -366,12 +370,10 @@ void OneQsoExposures::xQmlEstimate() {
         for (auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi)
             xeutils::_setQiMatrix(qi, i_kz + xeutils::fisher_index_start);
 
+        xeutils::_setGuideMatrix(glmemory::guide_sfid.get());
         // keep it here. _vmatrix will be destroyed by dgemm later!
-        if (!specifics::TURN_OFF_SFID) {
+        if (!specifics::TURN_OFF_SFID)
             xeutils::_setFiducialSignalMatrix(glmemory::stored_sfid.get());
-            xeutils::_setFiducialSignalMatrix(
-                glmemory::guide_sfid.get(),  specifics::GUIDE_ZEFF);
-        }
 
         // Calculate
         int diff_idx = xeutils::fisher_index_start - istart;
@@ -400,15 +402,16 @@ void OneQsoExposures::xQmlEstimate() {
         }
 
         mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
+        #pragma omp parallel for
+        for (const auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi)
+            gk0[i_kz + diff_idx] += mxhelp::divide_and_conquer_dot(
+                xeutils::CROSS_SIZE_2, qi, glmemory::guide_sfid.get());
 
         if (!specifics::TURN_OFF_SFID) {
             #pragma omp parallel for
-            for (const auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi) {
+            for (const auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi)
                 tk0[i_kz + diff_idx] += mxhelp::divide_and_conquer_dot(
                     xeutils::CROSS_SIZE_2, qwi, glmemory::stored_sfid.get());
-                gk0[i_kz + diff_idx] += mxhelp::divide_and_conquer_dot(
-                    xeutils::CROSS_SIZE_2, qi, glmemory::guide_sfid.get());
-            }
         }
 
         if (specifics::USE_PRECOMPUTED_FISHER)
