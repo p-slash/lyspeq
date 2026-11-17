@@ -376,7 +376,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
         rft.fftK2X();
         #pragma omp parallel for
         for (int nv = 0; nv < N_V_POINTS; ++nv)
-            signal_array[nv] = SCALE * rft.field_x[RFT_M * nv];
+            signal_array[nv] = rft.field_x[RFT_M * nv];
         s_table_file.writeGuide(signal_array.get());
 
         /* Signal Fiducial */
