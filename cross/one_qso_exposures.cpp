@@ -214,17 +214,28 @@ namespace xeutils {
     }
 
 
-    void _setFiducialSignalMatrix(double *sm) {
+    void _setFiducialSignalMatrix(double *sm, double fixed_z=-1.0) {
         ++mytime::number_of_times_called_setsfid;
 
         double t = mytime::timer.getTime();
 
-        #pragma omp parallel for simd collapse(2)
-        for (int i = 0; i < N1; ++i) {
-            for (int j = 0; j < N2; ++j) {
-                int idx = j + i * N2;
-                sm[idx] = glmemory::interp2d_signal_matrix->evaluate(
-                    _zmatrix[idx], _vmatrix[idx]);
+        if (fixed_z <= 0) {
+            #pragma omp parallel for simd collapse(2)
+            for (int i = 0; i < N1; ++i) {
+                for (int j = 0; j < N2; ++j) {
+                    int idx = j + i * N2;
+                    sm[idx] = glmemory::interp2d_signal_matrix->evaluate(
+                        _zmatrix[idx], _vmatrix[idx]);
+                }
+            }
+        } else {
+            #pragma omp parallel for simd collapse(2)
+            for (int i = 0; i < N1; ++i) {
+                for (int j = 0; j < N2; ++j) {
+                    int idx = j + i * N2;
+                    sm[idx] = glmemory::interp2d_signal_matrix->evaluate(
+                        fixed_z, _vmatrix[idx]);
+                }
             }
         }
 
@@ -328,7 +339,7 @@ void OneQsoExposures::xQmlEstimate() {
     xeutils::_zmatrix = glmemory::temp_matrices[1].get();
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
            *tk0 = dbt_estimate_before_fisher_vector[2].get(),
-           *zeff0 = dbt_estimate_before_fisher_vector[3].get();
+           *gk0 = dbt_estimate_before_fisher_vector[3].get();
 
     // For each combo calculate derivatives
     for (const auto &[expo1, expo2] : exposure_combos) {
@@ -356,8 +367,11 @@ void OneQsoExposures::xQmlEstimate() {
             xeutils::_setQiMatrix(qi, i_kz + xeutils::fisher_index_start);
 
         // keep it here. _vmatrix will be destroyed by dgemm later!
-        if (!specifics::TURN_OFF_SFID)
+        if (!specifics::TURN_OFF_SFID) {
             xeutils::_setFiducialSignalMatrix(glmemory::stored_sfid.get());
+            xeutils::_setFiducialSignalMatrix(
+                glmemory::guide_sfid.get(),  specifics::GUIDE_ZEFF);
+        }
 
         // Calculate
         int diff_idx = xeutils::fisher_index_start - istart;
@@ -389,59 +403,51 @@ void OneQsoExposures::xQmlEstimate() {
 
         if (!specifics::TURN_OFF_SFID) {
             #pragma omp parallel for
-            for (const auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi)
+            for (const auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi) {
                 tk0[i_kz + diff_idx] += mxhelp::divide_and_conquer_dot(
                     xeutils::CROSS_SIZE_2, qwi, glmemory::stored_sfid.get());
-        }
-
-        if (!specifics::USE_PRECOMPUTED_FISHER) {
-            t = mytime::timer.getTime();
-
-            diff_idx *= ndim + 1;
-            // I think this is still symmetric
-            #pragma omp parallel for schedule(dynamic, 1)
-            for (   auto iqt = xeutils::stored_ikz_qi_qwi.cbegin();
-                    iqt != xeutils::stored_ikz_qi_qwi.cend(); ++iqt
-            ) {
-                int i_kz = 0, j_kz = 0;
-                double *qwi = nullptr, *qjT = nullptr;
-                std::tie(i_kz, std::ignore, qwi) = *iqt;
-
-                for (auto jqt = iqt; jqt != xeutils::stored_ikz_qi_qwi.cend(); ++jqt) {
-                    std::tie(j_kz, qjT, std::ignore) = *jqt;
-
-                    #ifdef FISHER_OPTIMIZATION
-                    int diff_ji = abs(j_kz - i_kz);
-                    if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
-                        continue;
-                    #endif
-
-                    fisher_matrix[j_kz + ndim * i_kz + diff_idx] += 
-                        mxhelp::divide_and_conquer_dot(xeutils::CROSS_SIZE_2, qwi, qjT);
-                }
+                gk0[i_kz + diff_idx] += mxhelp::divide_and_conquer_dot(
+                    xeutils::CROSS_SIZE_2, qi, glmemory::guide_sfid.get());
             }
-
-            mytime::time_spent_set_fisher += mytime::timer.getTime() - t;
         }
 
+        if (specifics::USE_PRECOMPUTED_FISHER)
+            continue;
+
+        t = mytime::timer.getTime();
+
+        diff_idx *= ndim + 1;
+        // I think this is still symmetric
         #pragma omp parallel for schedule(dynamic, 1)
-        for (auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi) {
-            // _zmatrix should be untouched in temp_matrix[1]
-            // Element-wise multiply Qi with z matrix to get Qzi
-            #pragma omp parallel for simd collapse(2)
-            for (int i = 0; i < xeutils::N1; ++i)
-                for (int j = 0; j < xeutils::N2; ++j)
-                    qi[j + i * xeutils::N2] *= xeutils::_zmatrix[j + i * xeutils::N2];
-            // QW (Qzi)
-            zeff0[i_kz + diff_idx] = mxhelp::divide_and_conquer_dot(
-                xeutils::CROSS_SIZE_2, qwi, qi);
+        for (   auto iqt = xeutils::stored_ikz_qi_qwi.cbegin();
+                iqt != xeutils::stored_ikz_qi_qwi.cend(); ++iqt
+        ) {
+            int i_kz = 0, j_kz = 0;
+            double *qwi = nullptr, *qjT = nullptr;
+            std::tie(i_kz, std::ignore, qwi) = *iqt;
+
+            for (auto jqt = iqt; jqt != xeutils::stored_ikz_qi_qwi.cend(); ++jqt) {
+                std::tie(j_kz, qjT, std::ignore) = *jqt;
+
+                #ifdef FISHER_OPTIMIZATION
+                int diff_ji = abs(j_kz - i_kz);
+                if ((diff_ji > 5) && (abs(diff_ji - bins::NUMBER_OF_K_BANDS) > 2))
+                    continue;
+                #endif
+
+                fisher_matrix[j_kz + ndim * i_kz + diff_idx] += 
+                    mxhelp::divide_and_conquer_dot(xeutils::CROSS_SIZE_2, qwi, qjT);
+            }
         }
+
+        mytime::time_spent_set_fisher += mytime::timer.getTime() - t;
     }
 
     #pragma omp parallel for simd
     for (int i = 0; i < ndim; ++i) {
         dk0[i] *= 2.0;
         tk0[i] *= 2.0;
+        gk0[i] *= 2.0;
         theta_vector[i] = dk0[i] - tk0[i];
     }
 }
