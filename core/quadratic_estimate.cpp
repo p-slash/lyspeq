@@ -739,11 +739,14 @@ double estimateZeff(int zm, double keff, double tk)
     if (tk <= 0)  return zc;
     int status = 0;
 
-    double zsol = rootBisection(
+    double zsol = rootBrent(
         [keff, tk](double zi) {
             return fidcosmo::fiducialPowerSpectrum(
                 keff, zi, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk;
-        }, zc - bins::Z_BIN_WIDTH, zc + bins::Z_BIN_WIDTH, &status, 10000
+        },
+        std::max(bins::Z_LOWER_EDGE, zc - bins::Z_BIN_WIDTH),
+        std::min(bins::Z_UPPER_EDGE, zc + bins::Z_BIN_WIDTH),
+        &status
     );
     if (status == -1) {
         LOG::LOGGER.STD(
@@ -760,25 +763,28 @@ double estimateZeff(int zm, double keff, double tk)
     return zsol;
 }
 
-double estimateKeff(int kn, double gk)
+double estimateKeff(int kn, int zm, double gk)
 {
     double kc = bins::KBAND_CENTERS[kn];
     if (gk <= 0)  return kc;
     int status = 0;
 
-    double ksol = rootBisection(
+    double ksol = rootBrent(
         [gk](double ki) { return fidcosmo::guidePower(ki) - gk; },
-        bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1], &status
+        std::max(0.0, bins::KBAND_EDGES[kn] - 2 * bins::DKLIN),
+        bins::KBAND_EDGES[kn + 1] + 2 * bins::DKLIN,
+        &status
     );
     if (status == -1) {
-        LOG::LOGGER.ERR("WARNING: estimateKeff failed for kc=%.5e.\n", kc);
+        LOG::LOGGER.ERR(
+            "WARNING: estimateKeff failed for kc=%.5e at z=%.1f for gk=%.5e.\n",
+            kc, bins::ZBIN_CENTERS[zm], gk);
         ksol = bins::KBAND_CENTERS[kn];
     }
     if (status == 1) {
         LOG::LOGGER.ERR(
             "WARNING: estimateKeff failed to converge for kc=%.5e, ksol:%.5e.\n",
-            kc, ksol
-        );
+            kc, ksol);
     }
     return ksol;
 }
@@ -868,7 +874,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
 
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);
-        keff = estimateKeff(kn, dbt_estimate_fisher_weighted_vector[3][i_kz]);
+        keff = estimateKeff(kn, zm, dbt_estimate_fisher_weighted_vector[3][i_kz]);
         zeff = estimateZeff(zm, keff, dbt_estimate_fisher_weighted_vector[2][i_kz]);
         tmpvec_ptr[i_kz] = bins::ZBIN_CENTERS[zm];
         tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] = zeff;
