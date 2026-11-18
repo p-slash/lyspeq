@@ -159,6 +159,9 @@ namespace glmemory {
 
 void _setVMatrixUpperTriangle(const double *wave, int size, double *out);
 void _setZMatrixUpperTriangle(const double *wave, int size, double *out);
+void _setOneZInterpMatrix(
+    const double *_zmatrix, int zm, int size, double *out
+);
 
 void Chunk::_selectionCriteria()
 {
@@ -428,8 +431,6 @@ void Chunk::_setQiMatrix(double *qi, int i_kz) {
 
 void Chunk::_applyRedshiftInterp() {
     double t = mytime::timer.getTime();
-
-    int zm_new = 0, low = 0, up = 0, tmp;
     int Nz = stored_ikz_qi.size() / KBIN_UPP;
 
     if (on_oversampling) {
@@ -442,23 +443,8 @@ void Chunk::_applyRedshiftInterp() {
         qFile->wave()[i] -= 1.0;
 
     for (int iz = 0; iz < Nz; ++iz) {
-        zm_new = fisher_index_start / bins::NUMBER_OF_K_BANDS + iz;
-        bins::setRedshiftBinningFunction(zm_new);
-        bins::redshiftBinningFunction(
-            qFile->wave(), size(), zm_new,
-            glmemory::temp_vectors[0].get(), low, up);
-
-        std::fill_n(temp_matrix[0], DATA_SIZE_2, 0);
-
-        #pragma omp parallel for schedule(dynamic, 4)
-        for (int i = 0; i < up; ++i) {
-            int row_low, row_up;
-            bins::redshiftBinningFunction(
-                _zmatrix + i * (size() + 1), size() - i, zm_new,
-                temp_matrix[0] + i * (size() + 1), row_low, row_up);
-        }
-
-        mxhelp::copyUpperToLower(temp_matrix[0], size());
+        int zm_new = fisher_index_start / bins::NUMBER_OF_K_BANDS + iz;
+        _setOneZInterpMatrix(_zmatrix, zm_new, size(), temp_matrix[0]);
 
         auto stk = stored_ikz_qi.begin() + KBIN_UPP * iz;
         #pragma omp parallel for
@@ -984,6 +970,21 @@ void _setVMatrixUpperTriangle(const double *wave, int size, double *out) {
     for (int i = 1; i < size; ++i)
         for (int j = i; j < size; ++j)
             out[j + i * size] = out[j] - out[i];
+}
+
+void _setOneZInterpMatrix(
+        const double *_zmatrix, int zm, int size, double *out
+) {
+    bins::setRedshiftBinningFunction(zm);
+    #pragma omp parallel for schedule(dynamic, 4)
+    for (int i = 0; i < size; ++i) {
+        int row_low, row_up;
+        std::fill_n(out + i * (size + 1), size - i, 0);
+        bins::redshiftBinningFunction(
+            _zmatrix + i * (size + 1), size - i, zm,
+            out + i * (size + 1), row_low, row_up);
+    }
+    mxhelp::copyUpperToLower(out, size);
 }
 
 
