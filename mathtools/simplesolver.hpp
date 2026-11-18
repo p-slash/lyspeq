@@ -52,7 +52,7 @@ double rootBisection(
         fsol = func(xsol);
         converged = fsol == 0.0;
         if (xsol != 0.0)
-            converged |= fabs(xsol_old / xsol - 1.0) < rtol;
+            converged |= fabs(xsol_old - xsol) < rtol * fabs(xsol);
         else
             converged |= fabs(xsol - xsol_old) < rtol;
         if (converged) {

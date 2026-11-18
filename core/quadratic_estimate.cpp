@@ -743,17 +743,19 @@ double estimateZeff(int zm, double keff, double tk)
         [keff, tk](double zi) {
             return fidcosmo::fiducialPowerSpectrum(
                 keff, zi, &fidpd13::FIDUCIAL_PD13_PARAMS) - tk;
-        }, zc - bins::Z_BIN_WIDTH, zc + bins::Z_BIN_WIDTH, &status
+        }, zc - bins::Z_BIN_WIDTH, zc + bins::Z_BIN_WIDTH, &status, 10000
     );
     if (status == -1) {
-        LOG::LOGGER.STD("WARNING: estimateZeff failed for zc=%.1f.\n", zc);
+        LOG::LOGGER.STD(
+            "WARNING: estimateZeff failed for zc=%.1f for keff=%.5e. "
+            "Falling back to zc.\n",
+            zc, keff);
         zsol = bins::ZBIN_CENTERS[zm];
     }
     if (status == 1) {
         LOG::LOGGER.STD(
             "WARNING: estimateZeff failed to converge for zc=%.1f, zsol:%.2f.\n",
-            zc, zsol
-        );
+            zc, zsol);
     }
     return zsol;
 }
@@ -765,7 +767,7 @@ double estimateKeff(int kn, double gk)
     int status = 0;
 
     double ksol = rootBisection(
-        [gk](double ki) { return fidcosmo::guidePower(ki) - gk;},
+        [gk](double ki) { return fidcosmo::guidePower(ki) - gk; },
         bins::KBAND_EDGES[kn], bins::KBAND_EDGES[kn + 1], &status
     );
     if (status == -1) {
