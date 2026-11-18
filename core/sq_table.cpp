@@ -376,18 +376,21 @@ void SQLookupTable::computeTables(bool force_rewrite)
                 sqhelper::q_integrand,
                 &intpars
             );
-            double Delta_k = khi - klo,
-                   windowc = fidcosmo::spectralWindowFunc2(kc, dvthis, Rkms);
+            double Delta_k = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn],
+                   /* This work better than khi - klo */
+                   windowc = fidcosmo::spectralWindowFunc2(kc, dvthis, Rkms),
+                   abseps = 0.0;
             /* intpars.scaling is the factor which approximately makes the
-             * the integral result unity. It is the multiplication of window
-             * function at kc and the exact solution without window function */
+             * the integral result unity. */
+            intpars.scaling = windowc * Delta_k / MY_PI;
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
                 double vij = LINEAR_V_ARRAY[nv];
-                intpars.scaling = windowc * Delta_k / MY_PI * (
-                    1e-12 + cos(kc * vij) * sqhelper::sinc(Delta_k * vij / 2.0)
-                );
+                /* Approximate solution for the tophat window */
+                abseps = intpars.scaling * cos(kc * vij)
+                       * sqhelper::sinc(Delta_k * vij / 2.0);
+                abseps = 1e-7 * fabs(abseps) + 1e-12;
                 signal_array[nv + kn * N_V_POINTS] =
-                    intpars.scaling * fint.evaluate(klo, khi, vij, 1e-12, 1e-7);
+                    intpars.scaling * fint.evaluate(klo, khi, vij, abseps, 0);
             }
         }
 
