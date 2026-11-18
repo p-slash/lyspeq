@@ -71,4 +71,71 @@ double rootBisection(
     if (status) *status = 1; // Max iterations reached
     return xsol;
 }
+
+double rootBrent(
+        std::function<double(double)> func, double x1, double x2,
+        int *status=nullptr, int max_iter=10000, double rtol=1e-6
+) {
+    double f1 = func(x1), f2 = func(x2);
+    if (fabs(f1) < fabs(f2)) {
+        std::swap(x1, x2);
+        std::swap(f1, f2);
+    }
+
+    if (f1 * f2 > 0) {
+        if (status) *status = -1; // No root in the interval
+        return x1;
+    }
+
+    double c = x1, d, xsol, fsol;
+    bool converged = false, mflag = true;
+    for (int i = 0; i < max_iter; i++) {
+        double fc = func(c);
+        if (f1 != fc && f2 != fc) {  // Inverse quadratic interpolation
+            xsol = (x1 * f2 * fc) / ((f1 - f2) * (f1 - fc))
+                 + (x2 * f1 * fc) / ((f2 - f1) * (f2 - fc))
+                 + (c * f1 * f2) / ((fc - f1) * (fc - f2));
+        } else {  // Secant method
+            xsol = x2 - f2 * (x2 - x1) / (f2 - f1);
+        }
+        double delta = 2 * rtol * fabs(xsol) + rtol / 2.0;
+
+        bool do_bisection = false;
+        do_bisection |= !(((3 * x1 + x2) / 4  < xsol && xsol < x2));
+        do_bisection |= (mflag && fabs(xsol - x2) >= fabs(x2 - c) / 2);
+        do_bisection |= (!mflag && fabs(xsol - x2) >= fabs(c - d) / 2);
+        do_bisection |= (mflag && fabs(x2 - c) < delta);
+        do_bisection |= (!mflag && fabs(c - d) < delta);
+        if (do_bisection) {
+            xsol = (x1 + x2) / 2;
+            mflag = true;
+        } else {
+            mflag = false;
+        }
+
+        fsol = func(xsol);
+        if (fsol == 0.0 || fabs(x2 - x1) < delta) {
+            *status = 0;
+            break;
+        }
+
+        d = c;
+        c = x2;
+
+        if (f1 * fsol < 0) {
+            x2 = xsol;
+            f2 = fsol;
+        } else {
+            x1 = xsol;
+            f1 = fsol;
+        }
+        if (fabs(f1) < fabs(f2)) {
+            std::swap(x1, x2);
+            std::swap(f1, f2);
+        }
+    }
+    if (status) *status = 1; // Max iterations reached
+    return xsol;
+}
+
 #endif
