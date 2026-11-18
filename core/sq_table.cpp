@@ -16,6 +16,7 @@
 
 std::unique_ptr<SQLookupTable> process::sq_private_table;
 
+int _NV_, _NZ_;
 std::unique_ptr<double[]>
 LINEAR_V_ARRAY, LINEAR_Z_ARRAY, signal_array;
 
@@ -175,6 +176,28 @@ namespace sqhelper
     //     if (x == 0)  return 1.0;
     //     return sin(x) / x;
     // }
+    void _computeDerivatives(
+        double dvkms, double Rkms, SQLookupTableFile &s_table_file
+    );
+    void _computeSignal(
+        double dvkms, double Rkms, SQLookupTableFile &s_table_file
+    );
+    void _computeGuide(
+        double dvkms, double Rkms, SQLookupTableFile &s_table_file
+    );
+
+    constexpr int
+        RFT_M = 2,  /* Oversample factor for the RFT grid. */
+        RFT_PAD = 16; /* Padding factor for the RFT grid. */
+    std::unique_ptr<RealField> rft;
+    void constructRFFT(double LENGTH_V, int N_V_POINTS) {
+        int nrft = RFT_PAD * RFT_M * exp2(ceil(log2(N_V_POINTS)));
+        double itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
+
+        rft = std::make_unique<RealField>(nrft, itp_dv / RFT_M);
+        LOG::LOGGER.STD("RealField number of points %d over %.0e km/s\n",
+                        nrft, nrft * itp_dv / RFT_M);
+    }
 }
 // ---------------------------------------
 
@@ -226,10 +249,12 @@ SQLookupTable::SQLookupTable(ConfigFile &config)
 
     LINEAR_V_ARRAY = sqhelper::allocLinearlySpacedArray(
         itp_v1, LENGTH_V, N_V_POINTS);
-    
+    _NV_ = N_V_POINTS;
     if (!specifics::TURN_OFF_SFID)
         LINEAR_Z_ARRAY = sqhelper::allocLinearlySpacedArray(
             itp_z1, LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
+    _NZ_ = N_Z_POINTS_OF_S;
+    sqhelper::constructRFFT(LENGTH_V, N_V_POINTS);
 }
 
 bool SQLookupTable::allFilesExist() const
@@ -291,8 +316,6 @@ void SQLookupTable::readTables()
 void SQLookupTable::computeTables(bool force_rewrite)
 {
     std::string buf_fnames;
-    double time_spent_table_sfid, time_spent_table_q;
-
     sqhelper::SQ_IO_Header tmp_hdr = {
         N_V_POINTS, N_Z_POINTS_OF_S, LENGTH_V, itp_z1, LENGTH_Z_OF_S, 
         0, 0, bins::K0, bins::DKLIN, bins::DKLOG, bins::NKLIN, bins::NKLOG};
@@ -312,30 +335,11 @@ void SQLookupTable::computeTables(bool force_rewrite)
     if (mympi::this_pe == mympi::total_pes-1)
         r_end_this = NUMBER_OF_R_VALUES;
 
-    constexpr int
-        RFT_M = 2,  /* Oversample factor for the RFT grid. */
-        RFT_PAD = 16; /* Padding factor for the RFT grid. */
-    int nrft = RFT_PAD * RFT_M * exp2(ceil(log2(N_V_POINTS)));
-    double itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
-
-    RealField rft(nrft, itp_dv / RFT_M);
-    LOG::LOGGER.STD("RealField number of points %d over %.0e km/s\n",
-                    nrft, nrft * itp_dv / RFT_M);
-
     for (int r = r_start_this; r < r_end_this; ++r)
     {
-        time_spent_table_q = mytime::timer.getTime();
-
         int Rthis = R_DV_VALUES[r].first;
         double dvthis = R_DV_VALUES[r].second,
                Rkms = SPEED_OF_LIGHT / Rthis / ONE_SIGMA_2_FWHM;
-
-        tmp_hdr.spectrograph_resolution = Rthis;
-        tmp_hdr.pixel_width = dvthis;
-
-        LOG::LOGGER.STD(
-            "Creating look up tables for derivative matrices:"
-            " R=%d (%.2f km/s), dv=%.1f.\n", Rthis, Rkms, dvthis);
 
         buf_fnames = sqhelper::SQTableFileNameConvention(DIR, S_BASE, Rthis, dvthis);
 
@@ -343,106 +347,20 @@ void SQLookupTable::computeTables(bool force_rewrite)
             LOG::LOGGER.STD("File %s already exists. Skip to next.\n", buf_fnames.c_str());
             continue;
         }
+        LOG::LOGGER.STD(
+        "Creating look up tables: R=%d (%.2f km/s), dv=%.1f.\n",
+        Rthis, Rkms, dvthis);
 
         buf_fnames.insert(0, "!");
         sqhelper::SQLookupTableFile s_table_file(buf_fnames, true);
+
+        tmp_hdr.spectrograph_resolution = Rthis;
+        tmp_hdr.pixel_width = dvthis;
         s_table_file.writeMeta(tmp_hdr);
-        bool TOPHAT = bins::K_BINNING_METHOD == bins::TophatBinningMethod;
 
-        #pragma omp parallel for
-        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
-            double kc = bins::KBAND_CENTERS[kn], klo, khi;
-
-            if (TOPHAT) {
-                klo = bins::KBAND_EDGES[kn];
-                khi = bins::KBAND_EDGES[kn + 1];
-            }
-            else {
-                if (kn == 0)  klo = bins::KBAND_EDGES[0];
-                else          klo = bins::KBAND_CENTERS[kn - 1];
-
-                if (kn == bins::NUMBER_OF_K_BANDS - 1)
-                    khi = bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS];
-                else
-                    khi = bins::KBAND_CENTERS[kn + 1];
-            }
-
-            /* RFFT does not reach desired accuracy due to ringing etc. */
-            struct sqhelper::IntegrandParams intpars = {
-                dvthis, Rkms, kn, kc, klo, khi, 1
-            };
-            FourierIntegrator fint(
-                GSL_INTEG_COSINE,
-                sqhelper::q_integrand,
-                &intpars
-            );
-            double Delta_k = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn],
-                   /* This work better than khi - klo */
-                   windowc = fidcosmo::spectralWindowFunc2(kc, dvthis, Rkms);
-            /* intpars.scaling is the factor which approximately makes the
-             * the integral result unity. */
-            intpars.scaling = windowc * Delta_k / MY_PI;
-            for (int nv = 0; nv < N_V_POINTS; ++nv) {
-                double vij = LINEAR_V_ARRAY[nv];
-                /* Approximate solution for the tophat window */
-                // abseps = cos(kc * vij) * sqhelper::sinc(Delta_k * vij / 2.0);
-                // abseps = 1e-7 * fabs(abseps) + 1e-12;
-                signal_array[nv + kn * N_V_POINTS] =
-                    intpars.scaling * fint.evaluate(klo, khi, vij, 1e-12, 1e-7);
-            }
-        }
-
-        s_table_file.writeDeriv(signal_array.get());
-        
-        time_spent_table_q = mytime::timer.getTime() - time_spent_table_q;
-        LOG::LOGGER.STD(
-            "Time spent on derivative matrix table R=%d, dv=%.1f is %.2f mins.\n",
-            Rthis, dvthis, time_spent_table_q);
-
-        /* Calc and write Guide */
-        #pragma omp parallel for
-        for (int i = 0; i < rft.size_k(); ++i) {
-            rft.field_k[i] = fidcosmo::spectralWindowFunc2(rft.k[i], dvthis, Rkms)
-                             * fidcosmo::guidePower(rft.k[i]);
-        }
-        rft.fftK2X();
-        #pragma omp parallel for
-        for (int nv = 0; nv < N_V_POINTS; ++nv)
-            signal_array[nv] = rft.field_x[RFT_M * nv];
-        s_table_file.writeGuide(signal_array.get());
-
-        /* Signal Fiducial */
-        if (specifics::TURN_OFF_SFID)  continue;
-
-        time_spent_table_sfid = mytime::timer.getTime();
-        LOG::LOGGER.STD(
-            "Creating look up table for signal matrix:"
-            " R=%d (%.2f km/s), dv=%.1f.\n",
-            Rthis, Rkms, dvthis);
-
-        for (int nz = 0; nz < N_Z_POINTS_OF_S; ++nz) {
-            // z_first + z_length * nz / (Nz - 1.);
-            #pragma omp parallel for
-            for (int i = 0; i < rft.size_k(); ++i)
-                rft.field_k[i] = fidcosmo::spectralWindowFunc2(rft.k[i], dvthis, Rkms)
-                               * fidcosmo::fiducialPowerSpectrum(
-                                rft.k[i], LINEAR_Z_ARRAY[nz],
-                                &fidpd13::FIDUCIAL_PD13_PARAMS);
-
-            rft.fftK2X();
-            #pragma omp parallel for
-            for (int nv = 0; nv < N_V_POINTS; ++nv) {
-                int xy = nz + N_Z_POINTS_OF_S * nv;
-                signal_array[xy] = rft.field_x[RFT_M * nv];
-            }
-        }
-
-        s_table_file.writeSignal(signal_array.get());
-        time_spent_table_sfid = mytime::timer.getTime() - time_spent_table_sfid;
-
-        LOG::LOGGER.STD(
-            "Time spent on fiducial signal matrix table R=%d, dv=%.1f is %.2f mins.\n",
-            Rthis, dvthis, time_spent_table_sfid);
+        sqhelper::_computeDerivatives(dvthis, Rkms, s_table_file);
+        sqhelper::_computeGuide(dvthis, Rkms, s_table_file);
+        sqhelper::_computeSignal(dvthis, Rkms, s_table_file);
     }
 
     LOG::LOGGER.STD("Deallocating arrays...\n");
@@ -549,4 +467,111 @@ void SQLookupTable::allocateSignalAndDerivArrays()
 {
     signal_array = std::make_unique<double[]>(
         N_V_POINTS * std::max(N_Z_POINTS_OF_S, bins::NUMBER_OF_K_BANDS));
+}
+
+
+namespace sqhelper {
+    void _computeDerivatives(
+            double dvkms, double Rkms, SQLookupTableFile &s_table_file
+    ) {
+        double time_spent_table_q = mytime::timer.getTime();
+
+        #pragma omp parallel for
+        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
+            double kc = bins::KBAND_CENTERS[kn], klo, khi;
+
+            if (bins::K_BINNING_METHOD == bins::TophatBinningMethod) {
+                klo = bins::KBAND_EDGES[kn];
+                khi = bins::KBAND_EDGES[kn + 1];
+            }
+            else {
+                if (kn == 0)  klo = bins::KBAND_EDGES[0];
+                else          klo = bins::KBAND_CENTERS[kn - 1];
+
+                if (kn == bins::NUMBER_OF_K_BANDS - 1)
+                    khi = bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS];
+                else
+                    khi = bins::KBAND_CENTERS[kn + 1];
+            }
+
+            /* RFFT does not reach desired accuracy due to ringing etc. */
+            struct IntegrandParams intpars = {
+                dvkms, Rkms, kn, kc, klo, khi, 1
+            };
+            FourierIntegrator fint(
+                GSL_INTEG_COSINE,
+                q_integrand,
+                &intpars
+            );
+            double Delta_k = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn],
+                    /* This work better than khi - klo */
+                    windowc = fidcosmo::spectralWindowFunc2(kc, dvkms, Rkms);
+            /* intpars.scaling is the factor which approximately makes the
+                * the integral result unity. */
+            intpars.scaling = windowc * Delta_k / MY_PI;
+            for (int nv = 0; nv < _NV_; ++nv) {
+                double vij = LINEAR_V_ARRAY[nv];
+                /* Approximate solution for the tophat window */
+                // abseps = cos(kc * vij) * sinc(Delta_k * vij / 2.0);
+                // abseps = 1e-7 * fabs(abseps) + 1e-12;
+                signal_array[nv + kn * _NV_] =
+                    intpars.scaling * fint.evaluate(klo, khi, vij, 1e-12, 1e-7);
+            }
+        }
+
+        s_table_file.writeDeriv(signal_array.get());
+        
+        time_spent_table_q = mytime::timer.getTime() - time_spent_table_q;
+        LOG::LOGGER.STD(
+            "Time spent on derivative matrix table is %.2f mins.\n",
+            time_spent_table_q);
+    }
+
+    void _computeGuide(
+            double dvkms, double Rkms, SQLookupTableFile &s_table_file
+    ) {
+        #pragma omp parallel for
+        for (int i = 0; i < rft->size_k(); ++i) {
+            rft->field_k[i] = fidcosmo::spectralWindowFunc2(rft->k[i], dvkms, Rkms)
+                             * fidcosmo::guidePower(rft->k[i]);
+        }
+        rft->fftK2X();
+        #pragma omp parallel for
+        for (int nv = 0; nv < _NV_; ++nv)
+            signal_array[nv] = rft->field_x[RFT_M * nv];
+        s_table_file.writeGuide(signal_array.get());
+    }
+
+    void _computeSignal(
+            double dvkms, double Rkms, SQLookupTableFile &s_table_file
+    ) {
+        if (specifics::TURN_OFF_SFID)
+            return;
+
+        double time_spent_table_sfid = mytime::timer.getTime();
+        for (int nz = 0; nz < _NZ_; ++nz) {
+            #pragma omp parallel for
+            for (int i = 0; i < rft->size_k(); ++i)
+                rft->field_k[i] = fidcosmo::spectralWindowFunc2(
+                    rft->k[i], dvkms, Rkms
+                ) * fidcosmo::fiducialPowerSpectrum(
+                        rft->k[i], LINEAR_Z_ARRAY[nz],
+                        &fidpd13::FIDUCIAL_PD13_PARAMS
+                );
+
+            rft->fftK2X();
+            #pragma omp parallel for
+            for (int nv = 0; nv < _NV_; ++nv) {
+                int xy = nz + _NZ_ * nv;
+                signal_array[xy] = rft->field_x[RFT_M * nv];
+            }
+        }
+
+        s_table_file.writeSignal(signal_array.get());
+        time_spent_table_sfid = mytime::timer.getTime() - time_spent_table_sfid;
+
+        LOG::LOGGER.STD(
+            "Time spent on fiducial signal matrix table is %.2f mins.\n",
+            time_spent_table_sfid);
+    }
 }
