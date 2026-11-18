@@ -34,6 +34,28 @@ double simpleCurveFit1D(
 }
 
 
+int findBracket(
+        std::function<double(double)> func, double &x1, double &x2, int nsteps=10
+) {
+    double dx = (x2 - x1) / nsteps;
+    double a = x1, fa = func(x1), b, fb;
+    if (fa == 0) { x2 = a; return 0; }
+
+    for (int i = 1; i <= nsteps; ++i) {
+        b = a + dx;
+        fb = func(b);
+        if (fb == 0 || fa * fb < 0) {
+            x1 = a;
+            x2 = b;
+            return 0;
+        }
+        a = b;
+        fa = fb;
+    }
+    return -1;
+}
+
+
 double rootBisection(
         std::function<double(double)> func, double x1, double x2,
         int *status=nullptr, int max_iter=1000, double rtol=1.49012e-08
@@ -76,6 +98,11 @@ double rootBrent(
         std::function<double(double)> func, double x1, double x2,
         int *status=nullptr, int max_iter=10000, double rtol=1e-6
 ) {
+    int s = findBracket(func, x1, x2);
+    if (s != 0) {
+        if (status) *status = -1; // No root in the interval
+        return x1;
+    }
     double f1 = func(x1), f2 = func(x2);
     if (fabs(f1) < fabs(f2)) {
         std::swap(x1, x2);
