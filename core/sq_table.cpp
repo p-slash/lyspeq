@@ -254,7 +254,6 @@ SQLookupTable::SQLookupTable(ConfigFile &config)
         LINEAR_Z_ARRAY = sqhelper::allocLinearlySpacedArray(
             itp_z1, LENGTH_Z_OF_S, N_Z_POINTS_OF_S);
     _NZ_ = N_Z_POINTS_OF_S;
-    sqhelper::constructRFFT(LENGTH_V, N_V_POINTS);
 }
 
 bool SQLookupTable::allFilesExist() const
@@ -332,6 +331,8 @@ void SQLookupTable::computeTables(bool force_rewrite)
         return;
     }
 
+    sqhelper::constructRFFT(LENGTH_V, N_V_POINTS);
+
     if (mympi::this_pe == mympi::total_pes-1)
         r_end_this = NUMBER_OF_R_VALUES;
 
@@ -365,6 +366,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
 
     LOG::LOGGER.STD("Deallocating arrays...\n");
     deallocateSignalAndDerivArrays();
+    sqhelper::rft.reset();
 }
 
 void SQLookupTable::_allocReadSQFile(
