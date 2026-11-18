@@ -61,22 +61,11 @@ namespace fidcosmo
         extern pd13_fit_params FIDUCIAL_PD13_PARAMS;
     }
 
-    /*#define KMAX_GUIDE bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS]
-    inline double guidePowerLinExp(double k, double kmax) {
-        double x = k / kmax, kcut = 2.0 * kmax;
-        if (k > kcut)
-            return 0.0;
-
-        double r = (k / 5e-4) * exp(-x * x / 2.0);
-        if (k > kmax) {
-            double theta = (k - kmax) / (kcut - kmax);
-            r *= 0.5 * (1.0 + cos(3.14159265 * theta));
-        }
-        return r;
-    }*/
     inline double guidePower(double k) {
-        constexpr double Z0 = 3.0;
-        return fiducialPowerSpectrum(k, Z0, &pd13::FIDUCIAL_PD13_PARAMS);
+        // constexpr double Z0 = 3.0;
+        // return fiducialPowerSpectrum(k, Z0, &pd13::FIDUCIAL_PD13_PARAMS);
+        constexpr double kF = 5e-4;
+        return kF / (k * k + kF * kF);
     }
     inline
     double spectralWindowFunc2(double k, double dv_kms, double R_kms) {
