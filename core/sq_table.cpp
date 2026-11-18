@@ -171,10 +171,10 @@ namespace sqhelper
         return window;
     }
 
-    double sinc(double x) {
-        if (x == 0)  return 1.0;
-        return sin(x) / x;
-    }
+    // double sinc(double x) {
+    //     if (x == 0)  return 1.0;
+    //     return sin(x) / x;
+    // }
 }
 // ---------------------------------------
 
@@ -378,19 +378,17 @@ void SQLookupTable::computeTables(bool force_rewrite)
             );
             double Delta_k = bins::KBAND_EDGES[kn + 1] - bins::KBAND_EDGES[kn],
                    /* This work better than khi - klo */
-                   windowc = fidcosmo::spectralWindowFunc2(kc, dvthis, Rkms),
-                   abseps = 0.0;
+                   windowc = fidcosmo::spectralWindowFunc2(kc, dvthis, Rkms);
             /* intpars.scaling is the factor which approximately makes the
              * the integral result unity. */
             intpars.scaling = windowc * Delta_k / MY_PI;
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
                 double vij = LINEAR_V_ARRAY[nv];
                 /* Approximate solution for the tophat window */
-                abseps = intpars.scaling * cos(kc * vij)
-                       * sqhelper::sinc(Delta_k * vij / 2.0);
-                abseps = 1e-7 * fabs(abseps) + 1e-12;
+                // abseps = cos(kc * vij) * sqhelper::sinc(Delta_k * vij / 2.0);
+                // abseps = 1e-7 * fabs(abseps) + 1e-12;
                 signal_array[nv + kn * N_V_POINTS] =
-                    intpars.scaling * fint.evaluate(klo, khi, vij, abseps, 0);
+                    intpars.scaling * fint.evaluate(klo, khi, vij, 1e-12, 1e-7);
             }
         }
 
