@@ -130,6 +130,51 @@ namespace sqhelper
             LOG::LOGGER.ERR(msg.c_str());
         }
     }
+
+    struct IntegrandParams {
+        double dv_kms, Rkms;
+        int kn;
+        double kc, klo, khi;
+        double scaling;
+    };
+    double q_integrand(double k, void *params)
+    {
+        IntegrandParams *p = (IntegrandParams *) params;
+        int kn = p->kn;
+        double kc = p->kc, klo = p->klo, khi = p->khi, scaling = p->scaling;
+
+        double window = fidcosmo::spectralWindowFunc2(k, p->dv_kms, p->Rkms)
+                        / scaling / MY_PI;
+        if (bins::K_BINNING_METHOD == bins::TophatBinningMethod)
+            return window;
+        if (kn == 0 && k <= kc)
+            return window;
+        if (kn == bins::NUMBER_OF_K_BANDS - 1 && k >= kc)
+            return window;
+
+        double theta = 0.0;
+        if (k < kc)  theta = (k - klo) / (kc - klo);
+        else         theta = (khi - k) / (khi - kc);
+
+        switch (bins::K_BINNING_METHOD) {
+            case bins::LinearBinningMethod:
+                window *= theta;
+            case bins::HanningBinningMethod:
+                theta -= 1.0;
+                theta = 0.5 * (1.0 + cos(MY_PI * theta));
+                window *= theta;
+                break;
+            default:
+                throw std::invalid_argument(
+                    "Invalid K_BINNING_METHOD in computeTables.");
+        }
+        return window;
+    }
+
+    double sinc(double x) {
+        if (x == 0)  return 1.0;
+        return sin(x) / x;
+    }
 }
 // ---------------------------------------
 
@@ -149,13 +194,15 @@ SQLookupTable::SQLookupTable(ConfigFile &config)
 {
     N_V_POINTS = config.getInteger("NumberVPoints");
     N_Z_POINTS_OF_S = config.getInteger("NumberZPoints");
-    double input_velocity_length = config.getDouble("VelocityLength");
-    // Adjust LENGTH_V such that kfund is a multiple of DKLIN.
-    double LD = 2 * MY_PI / bins::DKLIN;
-    LENGTH_V = LD * std::max(1.0, round(input_velocity_length / LD + 0.41));
-    LOG::LOGGER.STD(
-        "Adjusted LENGTH_V from %.2e to %.2e f km/s for DKLIN=%.3e.\n",
-        input_velocity_length, LENGTH_V, bins::DKLIN);
+    /* Adjust LENGTH_V such that kfund is a multiple of DKLIN.
+     * This was necessary for the RFFT to work correctly.
+     * double input_velocity_length = config.getDouble("VelocityLength");
+     * double LD = 2 * MY_PI / bins::DKLIN;
+     * LENGTH_V = LD * std::max(1.0, round(input_velocity_length / LD + 0.41));
+     *  LOG::LOGGER.STD(
+     *       "Adjusted LENGTH_V from %.2e to %.2e f km/s for DKLIN=%.3e.\n",
+     *       input_velocity_length, LENGTH_V, bins::DKLIN); */
+    LENGTH_V = config.getDouble("VelocityLength");
     LENGTH_Z_OF_S = bins::Z_BIN_WIDTH * (bins::NUMBER_OF_Z_BINS+1);
     itp_v1 = 0;
     itp_z1 = bins::ZBIN_CENTERS[0] - bins::Z_BIN_WIDTH;
@@ -270,7 +317,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
         RFT_PAD = 16; /* Padding factor for the RFT grid. */
     int nrft = RFT_PAD * RFT_M * exp2(ceil(log2(N_V_POINTS)));
     double itp_dv = sqhelper::getLinearSpacing(LENGTH_V, N_V_POINTS);
-    double SCALE = bins::DKLIN / MY_PI;
+
     RealField rft(nrft, itp_dv / RFT_M);
     LOG::LOGGER.STD("RealField number of points %d over %.0e km/s\n",
                     nrft, nrft * itp_dv / RFT_M);
@@ -302,6 +349,7 @@ void SQLookupTable::computeTables(bool force_rewrite)
         s_table_file.writeMeta(tmp_hdr);
         bool TOPHAT = bins::K_BINNING_METHOD == bins::TophatBinningMethod;
 
+        #pragma omp parallel for
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
             double kc = bins::KBAND_CENTERS[kn], klo, khi;
 
@@ -319,44 +367,27 @@ void SQLookupTable::computeTables(bool force_rewrite)
                     khi = bins::KBAND_CENTERS[kn + 1];
             }
 
-            #pragma omp parallel for
-            for (int i = 0; i < rft.size_k(); ++i) {
-                double k = rft.k[i];
-                if (k < klo || k > khi)
-                    rft.field_k[i] = 0.0;
-                else
-                    rft.field_k[i] = fidcosmo::spectralWindowFunc2(k, dvthis, Rkms) / SCALE;
-
-                if (TOPHAT)
-                    continue;
-                if (kn == 0 && k <= kc)
-                    continue;
-                if (kn == bins::NUMBER_OF_K_BANDS - 1 && k >= kc)
-                    continue;
-
-                double theta = 0.0;
-                if (k < kc)  theta = (k - klo) / (kc - klo);
-                else         theta = (khi - k) / (khi - kc);
-
-                switch (bins::K_BINNING_METHOD) {
-                    case bins::LinearBinningMethod:
-                        rft.field_k[i] *= theta;
-                    case bins::HanningBinningMethod:
-                        theta -= 1.0;
-                        theta = 0.5 * (1.0 + cos(MY_PI * theta));
-                        rft.field_k[i] *= theta;
-                        break;
-                    default:
-                        throw std::invalid_argument(
-                            "Invalid K_BINNING_METHOD in computeTables.");
-                }
-            }
-            rft.fftK2X();
-
-            #pragma omp parallel for
+            /* RFFT does not reach desired accuracy due to ringing etc. */
+            struct sqhelper::IntegrandParams intpars = {
+                dvthis, Rkms, kn, kc, klo, khi, 1
+            };
+            FourierIntegrator fint(
+                GSL_INTEG_COSINE,
+                sqhelper::q_integrand,
+                &intpars
+            );
+            double Delta_k = khi - klo,
+                   windowc = fidcosmo::spectralWindowFunc2(kc, dvthis, Rkms);
+            /* intpars.scaling is the factor which approximately makes the
+             * the integral result unity. It is the multiplication of window
+             * function at kc and the exact solution without window function */
             for (int nv = 0; nv < N_V_POINTS; ++nv) {
-                int xy = nv + kn * N_V_POINTS;
-                signal_array[xy] = SCALE * rft.field_x[RFT_M * nv];
+                double vij = LINEAR_V_ARRAY[nv];
+                intpars.scaling = windowc * Delta_k / MY_PI * (
+                    1e-12 + cos(kc * vij) * sqhelper::sinc(Delta_k * vij / 2.0)
+                );
+                signal_array[nv + kn * N_V_POINTS] =
+                    intpars.scaling * fint.evaluate(klo, khi, vij, 1e-12, 1e-7);
             }
         }
 
