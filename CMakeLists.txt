@@ -207,6 +207,9 @@ target_link_libraries(testSQCMatrices PRIVATE AllObjLibs)
 add_executable(testRedshiftBinning tests/testRedshiftBinning.cpp)
 target_link_libraries(testRedshiftBinning PRIVATE AllObjLibs)
 
+add_executable(testRootBrent tests/testRootBrent.cpp)
+target_include_directories(testRootBrent PRIVATE ${CMAKE_SOURCE_DIR})
+
 add_executable(testMPIMergeSort tests/testMPIMergeSort.cpp)
 target_include_directories(testMPIMergeSort PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(testMPIMergeSort PRIVATE MY_OMP_MPI)
@@ -238,6 +241,7 @@ set_tests_properties(clean_test_contents PROPERTIES FIXTURES_SETUP TestDirFixtur
 add_test(NAME TestCBLAS COMMAND cblas_tests)
 add_test(NAME TestSqMatrices COMMAND testSQCMatrices tests/input/test.config WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 add_test(NAME TestRedshiftBinning COMMAND testRedshiftBinning)
+add_test(NAME TestRootBrent COMMAND testRootBrent)
 if (ENABLE_MPI)
     foreach(np 1 2 3 5)
         add_test(NAME TestMPIMergeSort_np${np}
