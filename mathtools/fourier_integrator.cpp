@@ -7,7 +7,7 @@
 
 const int
 MY_WORKSPACE_SIZE = 3000,
-MY_TABLE_SIZE = 300;
+MY_TABLE_SIZE = 100;
 
 FourierIntegrator::FourierIntegrator(
         gsl_integration_qawo_enum sin_cos, double (*integrand_function)(double, void*),
