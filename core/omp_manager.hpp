@@ -1,7 +1,7 @@
 #ifndef OMP_MANAGER_H
 #define OMP_MANAGER_H
 
-#if defined(ENABLE_OMP)
+#ifdef _OPENMP
 #include "omp.h"
 
 namespace myomp {

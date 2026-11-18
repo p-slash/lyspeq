@@ -457,7 +457,7 @@ void time_transpose_copy() {
 
 
 int main(int argc, char *argv[]) {
-    #if !defined(ENABLE_OMP)
+    #ifndef _OPENMP
     #error "testOMPTiming needs --enable-openmp to compile."
     #endif
 

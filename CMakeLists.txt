@@ -41,7 +41,6 @@ endif()
 find_package(PkgConfig REQUIRED)
 if (ENABLE_OPENMP)
     find_package(OpenMP REQUIRED)
-    add_definitions(-DENABLE_OMP)
     target_link_libraries(MY_OMP_MPI INTERFACE OpenMP::OpenMP_CXX)
 endif()
 
