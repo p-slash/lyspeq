@@ -57,7 +57,7 @@ namespace xeutils {
         N_Q_MATRICES = ZBIN_UPP - ZBIN_LOW + 1;
         fisher_index_start = bins::getFisherMatrixIndex(0, ZBIN_LOW);
 
-        if (bins::Z_BINNING_METHOD == bins::TriangleBinningMethod) {
+        if (bins::Z_BINNING_METHOD == bins::LinearBinningMethod) {
             // If we need to distribute low end to a lefter bin
             if ((zmin < bins::ZBIN_CENTERS[ZBIN_LOW]) && (ZBIN_LOW != 0))
             {
@@ -216,7 +216,6 @@ namespace xeutils {
 
     void _setFiducialSignalMatrix(double *sm) {
         ++mytime::number_of_times_called_setsfid;
-
         double t = mytime::timer.getTime();
 
         #pragma omp parallel for simd collapse(2)
@@ -227,12 +226,28 @@ namespace xeutils {
                     _zmatrix[idx], _vmatrix[idx]);
             }
         }
-
         if (specifics::USE_RESOLUTION_MATRIX)
             _doubleRmatSandwich(sm);
 
         t = mytime::timer.getTime() - t;
+        mytime::time_spent_on_set_sfid += t;
+    }
 
+    void _setGuideMatrix(double *g) {
+        ++mytime::number_of_times_called_setsfid;
+        double t = mytime::timer.getTime();
+
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < N1; ++i) {
+            for (int j = 0; j < N2; ++j) {
+                int idx = j + i * N2;
+                g[idx] = glmemory::interp_guide_matrix->evaluate(_vmatrix[idx]);
+            }
+        }
+        if (specifics::USE_RESOLUTION_MATRIX)
+            _doubleRmatSandwich(g);
+
+        t = mytime::timer.getTime() - t;
         mytime::time_spent_on_set_sfid += t;
     }
 }
@@ -303,7 +318,7 @@ void OneQsoExposures::setAllocPowerSpMemory() {
 
     fisher_matrix = std::make_unique<double[]>(ndim * ndim);
     theta_vector = std::make_unique<double[]>(ndim);
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < specifics::NDBT; ++i)
         dbt_estimate_before_fisher_vector.push_back(
             std::make_unique<double[]>(ndim));
 }
@@ -327,7 +342,8 @@ void OneQsoExposures::xQmlEstimate() {
     xeutils::_vmatrix = glmemory::temp_matrices[0].get();
     xeutils::_zmatrix = glmemory::temp_matrices[1].get();
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
-           *tk0 = dbt_estimate_before_fisher_vector[2].get();
+           *tk0 = dbt_estimate_before_fisher_vector[2].get(),
+           *gk0 = dbt_estimate_before_fisher_vector[3].get();
 
     // For each combo calculate derivatives
     for (const auto &[expo1, expo2] : exposure_combos) {
@@ -354,6 +370,7 @@ void OneQsoExposures::xQmlEstimate() {
         for (auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi)
             xeutils::_setQiMatrix(qi, i_kz + xeutils::fisher_index_start);
 
+        xeutils::_setGuideMatrix(glmemory::guide_sfid.get());
         // keep it here. _vmatrix will be destroyed by dgemm later!
         if (!specifics::TURN_OFF_SFID)
             xeutils::_setFiducialSignalMatrix(glmemory::stored_sfid.get());
@@ -385,6 +402,10 @@ void OneQsoExposures::xQmlEstimate() {
         }
 
         mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
+        #pragma omp parallel for
+        for (const auto &[i_kz, qi, qwi] : xeutils::stored_ikz_qi_qwi)
+            gk0[i_kz + diff_idx] += mxhelp::divide_and_conquer_dot(
+                xeutils::CROSS_SIZE_2, qi, glmemory::guide_sfid.get());
 
         if (!specifics::TURN_OFF_SFID) {
             #pragma omp parallel for
@@ -422,13 +443,14 @@ void OneQsoExposures::xQmlEstimate() {
             }
         }
 
-        mytime::time_spent_set_fisher += mytime::timer.getTime() - t;;
+        mytime::time_spent_set_fisher += mytime::timer.getTime() - t;
     }
 
     #pragma omp parallel for simd
     for (int i = 0; i < ndim; ++i) {
         dk0[i] *= 2.0;
         tk0[i] *= 2.0;
+        gk0[i] *= 2.0;
         theta_vector[i] = dk0[i] - tk0[i];
     }
 }

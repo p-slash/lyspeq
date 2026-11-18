@@ -1,0 +1,8 @@
+file(MAKE_DIRECTORY ${TARGET_DIR})
+file(GLOB TEST_DIR_FILES "${TARGET_DIR}/*")
+message(STATUS "Dir ${TARGET_DIR}")
+message(STATUS "Files ${TEST_DIR_FILES}")
+if(TEST_DIR_FILES)
+    file(REMOVE_RECURSE ${TEST_DIR_FILES})
+    message(STATUS "Deleted" ${TEST_DIR_FILES})
+endif()

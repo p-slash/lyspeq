@@ -52,6 +52,9 @@ namespace sqhelper
         // data size should be nzpoints * nvpoints
         void readSignal(double *data);
         void writeSignal(const double *data);
+        // data size should be nvpoints
+        void readGuide(double *data);
+        void writeGuide(const double *data);
     };
 }
 

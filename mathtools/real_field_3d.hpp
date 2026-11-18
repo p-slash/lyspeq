@@ -11,7 +11,7 @@
 #include "mathtools/my_random.hpp"
 #include "mathtools/discrete_interpolation.hpp"
 
-#if defined(ENABLE_OMP)
+#ifdef _OPENMP
 namespace myomp {
     inline void init_fftw() {
         fftw_init_threads();

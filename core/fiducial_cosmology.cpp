@@ -5,7 +5,6 @@
 #include "io/io_helper_functions.hpp"
 #include "io/logger.hpp"
 
-#include <cmath>
 #include <numeric> // std::accumulate
 #include <algorithm> // std::for_each & transform
 #include <iostream>
@@ -287,43 +286,6 @@ namespace fidcosmo
             return pow(xm, pfp->B + pfp->beta  * log(q0));
         }
     }
-}
-
-// Signal and Derivative Integrands and Window Function
-inline
-double sinc(double x) {
-    if (x == 0)
-        return 1.;
-
-    return sin(x) / x;
-}
-
-inline
-double spectral_response_window_fn(
-        double k, struct spectrograph_windowfn_params *spec_params
-) {
-    double R = spec_params->spectrograph_res, dv_kms = spec_params->pixel_width;
-
-    double kr = k * R;
-    return sinc(k * dv_kms / 2.) * exp(-kr * kr / 2.);
-}
-
-double signal_matrix_integrand(double k, void *params)
-{
-    struct sq_integrand_params *sqip = (struct sq_integrand_params*) params;
-
-    double result = spectral_response_window_fn(k, sqip->spec_window_params);
-
-    return result * result * fidcosmo::fiducialPowerSpectrum(
-        k, sqip->spec_window_params->z_ij, sqip->fiducial_pd_params) / MY_PI;
-}
-
-double q_matrix_integrand(double k, void *params)
-{
-    struct sq_integrand_params *sqip = (struct sq_integrand_params*) params;
-
-    double result = spectral_response_window_fn(k, sqip->spec_window_params);
-    return result * result / MY_PI;
 }
 
 

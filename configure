@@ -52,7 +52,6 @@ function set_config_options()
                 USE_MKL_CBLAS="-DUSE_MKL";;
             --enable-openmp )
                 CPPFLAGS_OMP="-fopenmp"
-                ENABLE_OMP="-DENABLE_OMP";;
             --enable-tbb )
                 CPPFLAGS_OMP="-tbb";;
             --debug )
@@ -535,7 +534,6 @@ MORECPPFLAGS=""
 
 OPT="-O3"
 ENABLE_MPI=""
-ENABLE_OMP=""
 ENABLE_FISHER_OPTIMIZATION=""
 USE_MKL_CBLAS=""
 ENABLE_DEBUG=""
@@ -578,7 +576,7 @@ fi
 
 update_makefile_vars "" "" "${suffix_libs}"
 
-MORECPPFLAGS="${ENABLE_MPI} ${ENABLE_OMP} ${USE_MKL_CBLAS} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_DEBUG}"
+MORECPPFLAGS="${ENABLE_MPI} ${USE_MKL_CBLAS} ${ENABLE_FISHER_OPTIMIZATION} ${ENABLE_DEBUG}"
 MORECPPFLAGS=$(echo $MORECPPFLAGS | sed 's/ *$//')
 
 # Save makefile

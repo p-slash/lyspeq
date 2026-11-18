@@ -200,7 +200,7 @@ namespace bins
     std::unordered_map<BinningMethod, std::string>
         BINNING_METHOD_TEXT_MAP({
             {TophatBinningMethod, "TopHat"},
-            {TriangleBinningMethod, "Triangular"},
+            {LinearBinningMethod, "Linear"},
             {TSCBinningMethod, "TSC"}
         });
 
@@ -208,7 +208,7 @@ namespace bins
         FISHER_SIZE, NewDegreesOfFreedom, NKLIN, NKLOG, NZ_MINUS_ONE;
     std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
     double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE, K0, DKLIN, DKLOG;
-    BinningMethod Z_BINNING_METHOD = TriangleBinningMethod;
+    BinningMethod Z_BINNING_METHOD, K_BINNING_METHOD;
 
     void setUpBins(
             double k0, int nlin, double dklin, int nlog, double dklog,
@@ -320,7 +320,7 @@ namespace bins
             Z_BINNING_METHOD = TophatBinningMethod;
             break;
         case 1:
-            Z_BINNING_METHOD = TriangleBinningMethod;
+            Z_BINNING_METHOD = LinearBinningMethod;
             break;
         case 2:
             Z_BINNING_METHOD = TSCBinningMethod;
@@ -328,7 +328,23 @@ namespace bins
         default:
             LOG::LOGGER.STD(
                 "Invalid RedshiftBinningMethod argument. Fallback to 1.\n");
-            Z_BINNING_METHOD = TriangleBinningMethod;
+            Z_BINNING_METHOD = LinearBinningMethod;
+        }
+        
+        switch (config.getInteger("KBinningMethod")) {
+        case 0:
+            K_BINNING_METHOD = TophatBinningMethod;
+            break;
+        case 1:
+            K_BINNING_METHOD = LinearBinningMethod;
+            break;
+        case 2:
+            K_BINNING_METHOD = HanningBinningMethod;
+            break;
+        default:
+            LOG::LOGGER.STD(
+                "Invalid KBinningMethod argument. Fallback to 0.\n");
+            K_BINNING_METHOD = TophatBinningMethod;
         }
 
         // Redshift and wavenumber bins are constructed
@@ -398,7 +414,7 @@ namespace bins
     }
 
     // binning functio for zm=0
-    void zBinTriangular1(const double *z, int N, int zm, double *out, int &low, int &up)
+    void zBinLinear1(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
         double zc = ZBIN_CENTERS[0];
@@ -415,7 +431,7 @@ namespace bins
     }
 
     // binning function for last zm
-    void zBinTriangular2(const double *z, int N, int zm, double *out, int &low, int &up)
+    void zBinLinear2(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         int zmm __attribute__((unused)) = zm;
         double zc = ZBIN_CENTERS[NZ_MINUS_ONE];
@@ -432,7 +448,7 @@ namespace bins
     }
 
     // binning functio for non-boundary zm
-    void zBinTriangular(const double *z, int N, int zm, double *out, int &low, int &up)
+    void zBinLinear(const double *z, int N, int zm, double *out, int &low, int &up)
     {
         double zc = ZBIN_CENTERS[zm];
         low = std::lower_bound(z, z + N, zc - Z_BIN_WIDTH) - z;
@@ -547,15 +563,15 @@ namespace bins
         case TophatBinningMethod:
             redshiftBinningFunction = &zBinTopHat;
             break;
-        case TriangleBinningMethod:
+        case LinearBinningMethod:
             if (NUMBER_OF_Z_BINS == 1)
                 redshiftBinningFunction = &zBinUnity;
             else if (zm == 0)
-                redshiftBinningFunction = &zBinTriangular1;
+                redshiftBinningFunction = &zBinLinear1;
             else if (zm == NZ_MINUS_ONE)
-                redshiftBinningFunction = &zBinTriangular2;
+                redshiftBinningFunction = &zBinLinear2;
             else
-                redshiftBinningFunction = &zBinTriangular;
+                redshiftBinningFunction = &zBinLinear;
             break;
         case TSCBinningMethod:
             if (NUMBER_OF_Z_BINS == 1)

@@ -1,6 +1,7 @@
 #ifndef FIDUCIAL_COSMOLOGY_H
 #define FIDUCIAL_COSMOLOGY_H
 
+#include <cmath>
 #include <string>
 #include "io/config_file.hpp"
 
@@ -36,27 +37,6 @@ namespace fidcosmo
     // Currently growth factor is always given Palanqu Delabrouille fit.
     extern double (*fiducialPowerGrowthFactor)(double z_ij, double k_kn, double z_zm, void *params);
     extern double FID_LOWEST_K, FID_HIGHEST_K;
-
-    /* This function reads following keys from config file:
-    FiducialPowerFile: string
-        File for the fiducial power spectrum. Off by default.
-    FiducialAmplitude: double
-    FiducialSlope: double
-    FiducialCurvature: double
-    FiducialRedshiftPower: double
-    FiducialRedshiftCurvature: double
-    FiducialLorentzianLambda: double
-    */
-    void readFiducialCosmo(ConfigFile &config);
-
-    // Assume binary file starts with 
-    // two integers, 
-    // then redshift values as doubles, 
-    // k values as doubles,
-    // finally power values as doubles.
-    // Power is ordered for each redshift bin
-    void setFiducialPowerFromFile(const std::string &fname);
-
     namespace pd13
     {
         // Defined values for PD fit
@@ -80,26 +60,43 @@ namespace fidcosmo
         // Default parameters are fit parameters if not specified in config file.
         extern pd13_fit_params FIDUCIAL_PD13_PARAMS;
     }
+
+    inline double guidePower(double k) {
+        // constexpr double Z0 = 3.0;
+        // return fiducialPowerSpectrum(k, Z0, &pd13::FIDUCIAL_PD13_PARAMS);
+        constexpr double kF = 5e-4;
+        return kF / (k * k + kF * kF);
+    }
+    inline
+    double spectralWindowFunc2(double k, double dv_kms, double R_kms) {
+        if (k == 0)  return 1.;
+        double kr = k * R_kms, r = exp(-kr * kr), x = k * dv_kms / 2.;
+        if (dv_kms == 0)  return r;
+        x = sin(x) / x;
+        return x * x * r;
+    }
+
+    /* This function reads following keys from config file:
+    FiducialPowerFile: string
+        File for the fiducial power spectrum. Off by default.
+    FiducialAmplitude: double
+    FiducialSlope: double
+    FiducialCurvature: double
+    FiducialRedshiftPower: double
+    FiducialRedshiftCurvature: double
+    FiducialLorentzianLambda: double
+    */
+    void readFiducialCosmo(ConfigFile &config);
+
+    // Assume binary file starts with 
+    // two integers, 
+    // then redshift values as doubles, 
+    // k values as doubles,
+    // finally power values as doubles.
+    // Power is ordered for each redshift bin
+    void setFiducialPowerFromFile(const std::string &fname);
 }
 
 namespace fidpd13 = fidcosmo::pd13;
-
-// Data structures to integrate signal and derivative matrix expressions
-struct spectrograph_windowfn_params
-{
-    double delta_v_ij;
-    double z_ij;
-    double pixel_width;
-    double spectrograph_res;    // This is 1 sigma km/s resolution
-};
-
-struct sq_integrand_params
-{
-    fidpd13::pd13_fit_params            *fiducial_pd_params;
-    struct spectrograph_windowfn_params *spec_window_params;
-};
-
-double q_matrix_integrand(double k, void *params);
-double signal_matrix_integrand(double k, void *params);
 
 #endif
