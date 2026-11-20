@@ -34,7 +34,7 @@ namespace sqhelper
 
     class SQLookupTableFile {
         ioh::unique_fitsfile_ptr fitsfile_ptr;
-        fitsfile *fits_file;
+        ioh::FitsFileSlim fits_file;
 
         std::string file_name;
         SQ_IO_Header meta;
