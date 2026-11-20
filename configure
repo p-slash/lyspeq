@@ -51,7 +51,7 @@ function set_config_options()
             --use-mkl-cblas )
                 USE_MKL_CBLAS="-DUSE_MKL";;
             --enable-openmp )
-                CPPFLAGS_OMP="-fopenmp"
+                CPPFLAGS_OMP="-fopenmp";;
             --enable-tbb )
                 CPPFLAGS_OMP="-tbb";;
             --debug )
@@ -603,7 +603,7 @@ echo "If you are doing iterations, also run 'make install'."
 echo "This will copy files to ${bindir}."
 
 cat > config.status << EOF
-./configure ${CONFIGURE_ARGS}
+${srcdir}/configure ${CONFIGURE_ARGS}
 EOF
 
 
