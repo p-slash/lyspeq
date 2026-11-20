@@ -21,7 +21,12 @@
  *   DeconvolveCICWindow: If >0, deconvolve CIC or TSC kernels.
  *   TurnOnPpCovariance: Enable particle-particle covariance if >0.
  *   NumberOfMultipoles: Number of multipole moments to estimate.
+ *   SubtractBDDerivatives: If >0, subtract block-diagonal derivatives.
+ *      This is the cross-forest estimator when used with block-diagonal
+ *      estimator (preconditioner only, no CG iterations). See MaxConjGradSteps.
  *   MaxConjGradSteps: Maximum conjugate gradient steps.
+ *      <= 0 uses the preconditioner only, without CG iterations, i.e.,
+ *      Block-Diagonal estimator.
  *   MaxMonteCarlos: Maximum Monte Carlo iterations.
  *   MinimumRa, MaximumRa: RA range (degrees).
  *   MinimumDec, MaximumDec: DEC range (degrees).
