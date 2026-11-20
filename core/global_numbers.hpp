@@ -216,6 +216,8 @@ namespace bins
     NumberOfRedshiftBins: double
     */
     void readBins(ConfigFile &config);
+    void getKBinLoCeHi(int kn, double &klo, double &khi, double &kc);
+    double getKBinKernel(double k, int kn, double klo, double khi, double kc);
     // void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0);
 
     // returns -1 if below, NUMBER_OF_Z_BINS if above

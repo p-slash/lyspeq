@@ -365,6 +365,54 @@ namespace bins
         LOG::LOGGER.STD("NumberOfRedshiftBins %d\n\n", NUMBER_OF_Z_BINS);
     }
 
+    void getKBinLoCeHi(int kn, double &klo, double &khi, double &kc)
+    {
+        kc = KBAND_CENTERS[kn];
+
+        if (K_BINNING_METHOD == TophatBinningMethod) {
+            klo = KBAND_EDGES[kn];
+            khi = KBAND_EDGES[kn + 1];
+        }
+        else {
+            if (kn == 0)  klo = KBAND_EDGES[0];
+            else          klo = KBAND_CENTERS[kn - 1];
+
+            if (kn == NUMBER_OF_K_BANDS - 1)
+                khi = KBAND_EDGES[NUMBER_OF_K_BANDS];
+            else
+                khi = KBAND_CENTERS[kn + 1];
+        }
+    }
+
+    double getKBinKernel(double k, int kn, double klo, double khi, double kc)
+    {
+        double kernel = 1.0;
+        if (K_BINNING_METHOD == TophatBinningMethod)
+            return kernel;
+        if (kn == 0 && k <= kc)
+            return kernel;
+        if (kn == NUMBER_OF_K_BANDS - 1 && k >= kc)
+            return kernel;
+
+        double theta = 0.0;
+        if (k < kc)  theta = (k - klo) / (kc - klo);
+        else         theta = (khi - k) / (khi - kc);
+
+        switch (K_BINNING_METHOD) {
+            case LinearBinningMethod:
+                kernel *= theta;
+            case HanningBinningMethod:
+                theta -= 1.0;
+                theta = 0.5 * (1.0 + cos(MY_PI * theta));
+                kernel *= theta;
+                break;
+            default:
+                throw std::invalid_argument(
+                    "Invalid K_BINNING_METHOD in computeTables.");
+        }
+        return kernel;
+    }
+
     int findRedshiftBin(double z)
     {
         if (z < Z_LOWER_EDGE)

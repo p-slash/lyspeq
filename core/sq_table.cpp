@@ -146,30 +146,8 @@ namespace sqhelper
 
         double window = fidcosmo::spectralWindowFunc2(k, p->dv_kms, p->Rkms)
                         / scaling / MY_PI;
-        if (bins::K_BINNING_METHOD == bins::TophatBinningMethod)
-            return window;
-        if (kn == 0 && k <= kc)
-            return window;
-        if (kn == bins::NUMBER_OF_K_BANDS - 1 && k >= kc)
-            return window;
-
-        double theta = 0.0;
-        if (k < kc)  theta = (k - klo) / (kc - klo);
-        else         theta = (khi - k) / (khi - kc);
-
-        switch (bins::K_BINNING_METHOD) {
-            case bins::LinearBinningMethod:
-                window *= theta;
-            case bins::HanningBinningMethod:
-                theta -= 1.0;
-                theta = 0.5 * (1.0 + cos(MY_PI * theta));
-                window *= theta;
-                break;
-            default:
-                throw std::invalid_argument(
-                    "Invalid K_BINNING_METHOD in computeTables.");
-        }
-        return window;
+        double kernel = bins::getKBinKernel(k, kn, klo, khi, kc);
+        return window * kernel;
     }
 
     // double sinc(double x) {
@@ -480,21 +458,8 @@ namespace sqhelper {
 
         #pragma omp parallel for
         for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
-            double kc = bins::KBAND_CENTERS[kn], klo, khi;
-
-            if (bins::K_BINNING_METHOD == bins::TophatBinningMethod) {
-                klo = bins::KBAND_EDGES[kn];
-                khi = bins::KBAND_EDGES[kn + 1];
-            }
-            else {
-                if (kn == 0)  klo = bins::KBAND_EDGES[0];
-                else          klo = bins::KBAND_CENTERS[kn - 1];
-
-                if (kn == bins::NUMBER_OF_K_BANDS - 1)
-                    khi = bins::KBAND_EDGES[bins::NUMBER_OF_K_BANDS];
-                else
-                    khi = bins::KBAND_CENTERS[kn + 1];
-            }
+            double kc, klo, khi;
+            bins::getKBinLoCeHi(kn, klo, khi, kc);
 
             /* RFFT does not reach desired accuracy due to ringing etc. */
             struct IntegrandParams intpars = {
