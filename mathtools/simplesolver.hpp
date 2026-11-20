@@ -3,6 +3,7 @@
 
 #include "functional"
 
+static
 double simpleCurveFit1D(
         std::function<double(double)> func, double y, double x1, double x2,
         double rtol=1.49012e-08
@@ -34,6 +35,7 @@ double simpleCurveFit1D(
 }
 
 
+static
 int findBracket(
         std::function<double(double)> func, double &x1, double &x2, int nsteps=10
 ) {
@@ -56,6 +58,7 @@ int findBracket(
 }
 
 
+static
 double rootBisection(
         std::function<double(double)> func, double x1, double x2,
         int *status=nullptr, int max_iter=1000, double rtol=1.49012e-08
@@ -94,6 +97,7 @@ double rootBisection(
     return xsol;
 }
 
+static
 double rootBrent(
         std::function<double(double)> func, double x1, double x2,
         int *status=nullptr, int max_iter=10000, double rtol=1e-6

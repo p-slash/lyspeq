@@ -154,6 +154,12 @@ namespace ioh {
         void readKey(const char *key, T &value) {
             readFitsKey(fits_file, key, value, status);
         }
+        void readLongKey(std::vector<long> &naxes, int nfound, int nstart=1, int nmax=3, const char *key="NAXIS") {
+            if (naxes.empty())  naxes.resize(nmax);
+            nmax = naxes.size();
+            fits_read_keys_lng(fits_file, key, nstart, nmax, naxes.data(), &nfound, &status);
+            naxes.resize(nfound);
+        }
         template<class T>
         void readKeyFallback(const char *key, T &value, int fallback=-1) {
             if (isHeaderKey(key))  readKey(key, value);
@@ -164,6 +170,10 @@ namespace ioh {
             int nonull;
             fits_read_col(fits_file, fitsioDataType<T>(), colnum, 1, 1, nelements,
                 0, data, &nonull, &status);
+        }
+        template<class T>
+        void readImage(T *data, long nelements, long firstelem=1, double nullval=0) {
+            fits_read_img(fits_file, fitsioDataType<T>(), firstelem, nelements, &nullval, data, nullptr, &status);
         }
         void readTDIM(int colnum, long nelements, int &naxis, long *naxes) {
             fits_read_tdim(fits_file, colnum, nelements, &naxis, naxes, &status);

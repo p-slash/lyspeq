@@ -183,7 +183,8 @@ namespace bins
     extern int
         NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, FISHER_SIZE, TOTAL_KZ_BINS,
         NewDegreesOfFreedom, NKLIN, NKLOG,  NZ_MINUS_ONE;
-    extern std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
+    extern std::vector<double>
+        KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS, KCENTER_CORRECTIONS;
     extern double Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE, K0, DKLIN, DKLOG;
     extern BinningMethod Z_BINNING_METHOD, K_BINNING_METHOD;
 
@@ -216,6 +217,8 @@ namespace bins
     NumberOfRedshiftBins: double
     */
     void readBins(ConfigFile &config);
+    void getKBinLoCeHi(int kn, double &klo, double &khi, double &kc);
+    double getKBinKernel(double k, int kn, double klo, double khi, double kc);
     // void setUpBins(double k0, int nlin, double dklin, int nlog, double dklog, double klast, double z0);
 
     // returns -1 if below, NUMBER_OF_Z_BINS if above

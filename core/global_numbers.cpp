@@ -206,7 +206,8 @@ namespace bins
 
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
         FISHER_SIZE, NewDegreesOfFreedom, NKLIN, NKLOG, NZ_MINUS_ONE;
-    std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
+    std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS,
+                        KCENTER_CORRECTIONS;
     double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE, K0, DKLIN, DKLOG;
     BinningMethod Z_BINNING_METHOD, K_BINNING_METHOD;
 
@@ -228,6 +229,7 @@ namespace bins
 
         KBAND_EDGES.reserve(NUMBER_OF_K_BANDS + 1);
         KBAND_CENTERS.reserve(NUMBER_OF_K_BANDS);
+        KCENTER_CORRECTIONS.assign(NUMBER_OF_K_BANDS, 1.0);
 
         // Linearly spaced bins
         for (int i = 0; i < nlin + 1; i++)
@@ -363,6 +365,54 @@ namespace bins
         LOG::LOGGER.STD("FirstRedshiftBinCenter %.3e\n", Z_0);
         LOG::LOGGER.STD("RedshiftBinWidth %.3e\n", Z_BIN_WIDTH);
         LOG::LOGGER.STD("NumberOfRedshiftBins %d\n\n", NUMBER_OF_Z_BINS);
+    }
+
+    void getKBinLoCeHi(int kn, double &klo, double &khi, double &kc)
+    {
+        kc = KBAND_CENTERS[kn];
+
+        if (K_BINNING_METHOD == TophatBinningMethod) {
+            klo = KBAND_EDGES[kn];
+            khi = KBAND_EDGES[kn + 1];
+        }
+        else {
+            if (kn == 0)  klo = KBAND_EDGES[0];
+            else          klo = KBAND_CENTERS[kn - 1];
+
+            if (kn == NUMBER_OF_K_BANDS - 1)
+                khi = KBAND_EDGES[NUMBER_OF_K_BANDS];
+            else
+                khi = KBAND_CENTERS[kn + 1];
+        }
+    }
+
+    double getKBinKernel(double k, int kn, double klo, double khi, double kc)
+    {
+        double kernel = 1.0;
+        if (K_BINNING_METHOD == TophatBinningMethod)
+            return kernel;
+        if (kn == 0 && k <= kc)
+            return kernel;
+        if (kn == NUMBER_OF_K_BANDS - 1 && k >= kc)
+            return kernel;
+
+        double theta = 0.0;
+        if (k < kc)  theta = (k - klo) / (kc - klo);
+        else         theta = (khi - k) / (khi - kc);
+
+        switch (K_BINNING_METHOD) {
+            case LinearBinningMethod:
+                kernel *= theta;
+            case HanningBinningMethod:
+                theta -= 1.0;
+                theta = 0.5 * (1.0 + cos(MY_PI * theta));
+                kernel *= theta;
+                break;
+            default:
+                throw std::invalid_argument(
+                    "Invalid K_BINNING_METHOD in computeTables.");
+        }
+        return kernel;
     }
 
     int findRedshiftBin(double z)

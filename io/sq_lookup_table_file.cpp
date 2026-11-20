@@ -29,36 +29,31 @@ SQLookupTableFile::SQLookupTableFile(const std::string &fname, bool towrite)
     else
         fitsfile_ptr = ioh::open_unique_fitsfile_ptr(file_name, READONLY);
 
-    fits_file = fitsfile_ptr.get();
+    fits_file.set(fitsfile_ptr.get());
 }
 
 
 SQ_IO_Header SQLookupTableFile::readMeta() {
     char extname[] = "METADATA";
-    int status = 0;
     SQ_IO_Header hdr;
+    
+    fits_file.moveToHdu(extname, IMAGE_HDU);
+    fits_file.check();
 
-    fits_movnam_hdu(fits_file, IMAGE_HDU, extname, 0, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.readKey("NVPTS", hdr.nvpoints);
+    fits_file.readKey("NZPTS", hdr.nzpoints);
+    fits_file.readKey("LENV", hdr.v_length);
+    fits_file.readKey("Z1", hdr.z1);
+    fits_file.readKey("LENZ", hdr.z_length);
+    fits_file.readKey("RFWHM", hdr.spectrograph_resolution);
+    fits_file.readKey("DV", hdr.pixel_width);
+    fits_file.readKey("K1", hdr.k1);
+    fits_file.readKey("DKLIN", hdr.dklin);
+    fits_file.readKey("DKLOG", hdr.dklog);
+    fits_file.readKey("NKLIN", hdr.nklin);
+    fits_file.readKey("NKLOG", hdr.nklog);
 
-    fits_read_key(fits_file, TINT, "NVPTS", &hdr.nvpoints, nullptr, &status);
-    fits_read_key(fits_file, TINT, "NZPTS", &hdr.nzpoints, nullptr, &status);
-
-    fits_read_key(fits_file, TDOUBLE, "LENV", &hdr.v_length, nullptr, &status);
-    fits_read_key(fits_file, TDOUBLE, "Z1", &hdr.z1, nullptr, &status);
-    fits_read_key(fits_file, TDOUBLE, "LENZ", &hdr.z_length, nullptr, &status);
-
-    fits_read_key(fits_file, TINT, "RFWHM", &hdr.spectrograph_resolution, nullptr, &status);
-    fits_read_key(fits_file, TDOUBLE, "DV", &hdr.pixel_width, nullptr, &status);
-
-    fits_read_key(fits_file, TDOUBLE, "K1", &hdr.k1, nullptr, &status);
-    fits_read_key(fits_file, TDOUBLE, "DKLIN", &hdr.dklin, nullptr, &status);
-    fits_read_key(fits_file, TDOUBLE, "DKLOG", &hdr.dklog, nullptr, &status);
-
-    fits_read_key(fits_file, TINT, "NKLIN", &hdr.nklin, nullptr, &status);
-    fits_read_key(fits_file, TINT, "NKLOG", &hdr.nklog, nullptr, &status);
-
-    ioh::checkFitsStatus(status);
+    fits_file.check();
     meta = hdr;
 
     return hdr;
@@ -67,44 +62,36 @@ SQ_IO_Header SQLookupTableFile::readMeta() {
 
 void SQLookupTableFile::writeMeta(SQ_IO_Header &hdr) {
     char extname[] = "METADATA";
-    int status = 0;
     long naxis = 1, size = 0, naxes[1] = { 0 };
 
-    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.createImage(naxis, naxes, extname);
+    fits_file.check();
 
-    fits_update_key_str(fits_file, "EXTNAME", extname, nullptr, &status);
-    fits_write_key(fits_file, TINT, "NVPTS", &hdr.nvpoints, nullptr, &status);
-    fits_write_key(fits_file, TINT, "NZPTS", &hdr.nzpoints, nullptr, &status);
-
-    fits_write_key(fits_file, TDOUBLE, "LENV", &hdr.v_length, nullptr, &status);
-    fits_write_key(fits_file, TDOUBLE, "Z1", &hdr.z1, nullptr, &status);
-    fits_write_key(fits_file, TDOUBLE, "LENZ", &hdr.z_length, nullptr, &status);
-
-    fits_write_key(fits_file, TINT, "RFWHM", &hdr.spectrograph_resolution, nullptr, &status);
-    fits_write_key(fits_file, TDOUBLE, "DV", &hdr.pixel_width, nullptr, &status);
-
-    fits_write_key(fits_file, TDOUBLE, "K1", &hdr.k1, nullptr, &status);
-    fits_write_key(fits_file, TDOUBLE, "DKLIN", &hdr.dklin, nullptr, &status);
-    fits_write_key(fits_file, TDOUBLE, "DKLOG", &hdr.dklog, nullptr, &status);
-
-    fits_write_key(fits_file, TINT, "NKLIN", &hdr.nklin, nullptr, &status);
-    fits_write_key(fits_file, TINT, "NKLOG", &hdr.nklog, nullptr, &status);
-
-    ioh::checkFitsStatus(status);
+    fits_file.writeKey("NVPTS", hdr.nvpoints);
+    fits_file.writeKey("NZPTS", hdr.nzpoints);
+    fits_file.writeKey("LENV", hdr.v_length);
+    fits_file.writeKey("Z1", hdr.z1);
+    fits_file.writeKey("LENZ", hdr.z_length);
+    fits_file.writeKey("RFWHM", hdr.spectrograph_resolution);
+    fits_file.writeKey("DV", hdr.pixel_width);
+    fits_file.writeKey("K1", hdr.k1);
+    fits_file.writeKey("DKLIN", hdr.dklin);
+    fits_file.writeKey("DKLOG", hdr.dklog);
+    fits_file.writeKey("NKLIN", hdr.nklin);
+    fits_file.writeKey("NKLOG", hdr.nklog);
+    fits_file.check();
     meta = hdr;
 }
 
 
 void SQLookupTableFile::readDeriv(double *data) {
     char extname[] = "DERIVATIVE";
-    int status = 0, nfound;
-    long naxes[2];
+    int nfound;
+    std::vector<long> naxes(2);
 
-    fits_movnam_hdu(fits_file, IMAGE_HDU, extname, 0, &status);
-    ioh::checkFitsStatus(status);
-
-    fits_read_keys_lng(fits_file, "NAXIS", 1, 2, naxes, &nfound, &status);
+    fits_file.moveToHdu(extname, IMAGE_HDU);
+    fits_file.check();
+    fits_file.readLongKey(naxes, nfound);
 
     if (naxes[0] != (meta.nklin + meta.nklog))
         throw std::runtime_error("SQLookupTableFile::readDeriv::Inconsistent Nk.");
@@ -113,35 +100,33 @@ void SQLookupTableFile::readDeriv(double *data) {
         throw std::runtime_error("SQLookupTableFile::readDeriv::Inconsistent Nv.");
 
     long size = naxes[0] * naxes[1];
-    fits_read_img(fits_file, TDOUBLE, 1, size, &_nullval, data, nullptr, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.readImage(data, size);
+    fits_file.check();
 }
 
 
 void SQLookupTableFile::writeDeriv(const double *data) {
     char extname[] = "DERIVATIVE";
-    int status = 0;
     long naxis = 2, naxes[2] = { meta.nklin + meta.nklog, meta.nvpoints };
     long size = naxes[0] * naxes[1];
 
-    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.createImage(naxis, naxes, extname);
+    fits_file.check();
 
-    fits_update_key_str(fits_file, "EXTNAME", extname, nullptr, &status);
-    fits_write_img(fits_file, TDOUBLE, 1, size, (void *) data, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.writeImage(size, data);
+    fits_file.check();
 }
 
 
 void SQLookupTableFile::readSignal(double *data) {
     char extname[] = "SIGNAL";
-    int status = 0, nfound;
-    long naxes[2];
+    int nfound;
+    std::vector<long> naxes(2);
 
-    fits_movnam_hdu(fits_file, IMAGE_HDU, extname, 0, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.moveToHdu(extname, IMAGE_HDU);
+    fits_file.check();
 
-    fits_read_keys_lng(fits_file, "NAXIS", 1, 2, naxes, &nfound, &status);
+    fits_file.readLongKey(naxes, nfound);
 
     if (naxes[0] != meta.nzpoints)
         throw std::runtime_error("SQLookupTableFile::readSignal::Inconsistent Nz.");
@@ -150,55 +135,88 @@ void SQLookupTableFile::readSignal(double *data) {
         throw std::runtime_error("SQLookupTableFile::readSignal::Inconsistent Nv.");
 
     long size = naxes[0] * naxes[1];
-    fits_read_img(fits_file, TDOUBLE, 1, size, &_nullval, data, nullptr, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.readImage(data, size);
+    fits_file.check();
 }
 
 
 void SQLookupTableFile::writeSignal(const double *data) {
     char extname[] = "SIGNAL";
-    int status = 0;
     long naxis = 2, naxes[2] = { meta.nzpoints, meta.nvpoints };
     long size = naxes[0] * naxes[1];
 
-    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
-    ioh::checkFitsStatus(status);
-
-    fits_update_key_str(fits_file, "EXTNAME", extname, nullptr, &status);
-    fits_write_img(fits_file, TDOUBLE, 1, size, (void *) data, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.createImage(naxis, naxes, extname);
+    fits_file.check();
+    fits_file.writeImage(size, data);
+    fits_file.check();
 }
 
 void SQLookupTableFile::readGuide(double *data) {
     char extname[] = "GUIDE";
-    int status = 0, nfound;
-    long naxes[1];
+    int nfound;
+    std::vector<long> naxes(1);
 
-    fits_movnam_hdu(fits_file, IMAGE_HDU, extname, 0, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.moveToHdu(extname, IMAGE_HDU);
+    fits_file.check();
 
-    fits_read_keys_lng(fits_file, "NAXIS", 1, 1, naxes, &nfound, &status);
+    fits_file.readLongKey(naxes, nfound);
 
     if (naxes[0] != meta.nvpoints)
         throw std::runtime_error("SQLookupTableFile::readGuide::Inconsistent Nv.");
 
     long size = naxes[0];
-    fits_read_img(fits_file, TDOUBLE, 1, size, &_nullval, data, nullptr, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.readImage(data, size);
+    fits_file.check();
 }
 
 void SQLookupTableFile::writeGuide(const double *data) {
     char extname[] = "GUIDE";
-    int status = 0;
     long naxis = 1, naxes[1] = { meta.nvpoints };
     long size = naxes[0];
 
-    fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.createImage(naxis, naxes, extname);
+    fits_file.check();
 
-    fits_update_key_str(fits_file, "EXTNAME", extname, nullptr, &status);
-    fits_write_img(fits_file, TDOUBLE, 1, size, (void *) data, &status);
-    ioh::checkFitsStatus(status);
+    fits_file.writeImage(size, data);
+    fits_file.check();
+}
+
+void SQLookupTableFile::writeKbinCorrection(
+    const double *kcenters, const double *kkernel,
+    const double *kguide, const double *kcorrection
+) {
+    const int ncolumns = 4;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+    char *column_names[] = {"KC", "KKERNEL", "KGUIDE", "CORRECTION"};
+    char *column_types[] = {"1D", "1D", "1D", "1D"};
+    char *column_units[] = {"s km^-1", "s km^-1", "s km^-1", ""};
+    #pragma GCC diagnostic pop
+
+    int Nk = meta.nklin + meta.nklog;
+    char extname[] = "KCORRECTION";
+    fits_file.createTable(
+        Nk, ncolumns, column_names, column_types, column_units, extname);
+    fits_file.check();
+    int colnum = 1;
+    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kcenters));
+    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kkernel));
+    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kguide));
+    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kcorrection));
+    fits_file.check();
+    fits_file.flush();
+}
+
+void SQLookupTableFile::readKbinCorrection(double *kcorrection) {
+    const int ncolumns = 4;
+    char extname[] = "KCORRECTION";
+    fits_file.moveToHdu(extname);
+    fits_file.check();
+
+    int colnum = 4;  // Correction is the 4th column
+    long nelements = meta.nklin + meta.nklog;
+    fits_file.readColumn(colnum, nelements, kcorrection);
+    fits_file.check();
 }
 }
 
