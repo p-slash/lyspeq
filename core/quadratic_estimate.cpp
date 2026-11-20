@@ -776,13 +776,13 @@ double estimateKeff(int kn, int zm, double gk)
         &status
     );
     if (status == -1) {
-        LOG::LOGGER.ERR(
+        LOG::LOGGER.STD(
             "WARNING: estimateKeff failed for kc=%.5e at z=%.1f for gk=%.5e.\n",
             kc, bins::ZBIN_CENTERS[zm], gk);
         ksol = bins::KBAND_CENTERS[kn];
     }
     if (status == 1) {
-        LOG::LOGGER.ERR(
+        LOG::LOGGER.STD(
             "WARNING: estimateKeff failed to converge for kc=%.5e, ksol:%.5e.\n",
             kc, ksol);
     }
