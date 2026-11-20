@@ -373,7 +373,7 @@ public:
             bool small_scale=false, double alpha=0, double s=1.0
     ) {
         double varlss = p3d_model->getVarLss();
-        auto appDiagonalEst = [this, &varlss](const double *x_, double *y_) {
+        auto appDiagonalEst = [this, varlss](const double *x_, double *y_) {
             for (int i = 0; i < N; ++i) {
                 double isigG = isig[i] * growth[i];
                 y_[i] = x_[i] / (1.0 + isigG * isigG * varlss);
