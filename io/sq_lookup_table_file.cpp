@@ -180,6 +180,44 @@ void SQLookupTableFile::writeGuide(const double *data) {
     fits_file.writeImage(size, data);
     fits_file.check();
 }
+
+void SQLookupTableFile::writeKbinCorrection(
+    const double *kcenters, const double *kkernel,
+    const double *kguide, const double *kcorrection
+) {
+    const int ncolumns = 4;
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wwrite-strings"
+    char *column_names[] = {"KC", "KKERNEL", "KGUIDE", "CORRECTION"};
+    char *column_types[] = {"1D", "1D", "1D", "1D"};
+    char *column_units[] = {"s km^-1", "s km^-1", "s km^-1", ""};
+    #pragma GCC diagnostic pop
+
+    int Nk = meta.nklin + meta.nklog;
+    char extname[] = "KCORRECTION";
+    fits_file.createTable(
+        Nk, ncolumns, column_names, column_types, column_units, extname);
+    fits_file.check();
+    int colnum = 1;
+    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kcenters));
+    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kkernel));
+    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kguide));
+    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kcorrection));
+    fits_file.check();
+    fits_file.flush();
+}
+
+void SQLookupTableFile::readKbinCorrection(double *kcorrection) {
+    const int ncolumns = 4;
+    char extname[] = "KCORRECTION";
+    fits_file.moveToHdu(extname);
+    fits_file.check();
+
+    int colnum = 4;  // Correction is the 4th column
+    long nelements = meta.nklin + meta.nklog;
+    fits_file.readColumn(colnum, nelements, kcorrection);
+    fits_file.check();
+}
 }
 
 
