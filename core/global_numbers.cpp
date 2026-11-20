@@ -206,7 +206,8 @@ namespace bins
 
     int NUMBER_OF_K_BANDS, NUMBER_OF_Z_BINS, TOTAL_KZ_BINS, 
         FISHER_SIZE, NewDegreesOfFreedom, NKLIN, NKLOG, NZ_MINUS_ONE;
-    std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS;
+    std::vector<double> KBAND_EDGES, KBAND_CENTERS, ZBIN_CENTERS,
+                        KCENTER_CORRECTIONS;
     double  Z_BIN_WIDTH, Z_LOWER_EDGE, Z_UPPER_EDGE, K0, DKLIN, DKLOG;
     BinningMethod Z_BINNING_METHOD, K_BINNING_METHOD;
 
@@ -228,6 +229,7 @@ namespace bins
 
         KBAND_EDGES.reserve(NUMBER_OF_K_BANDS + 1);
         KBAND_CENTERS.reserve(NUMBER_OF_K_BANDS);
+        KCENTER_CORRECTIONS.assign(NUMBER_OF_K_BANDS, 1.0);
 
         // Linearly spaced bins
         for (int i = 0; i < nlin + 1; i++)
