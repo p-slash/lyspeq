@@ -786,7 +786,7 @@ double estimateKeff(int kn, int zm, double gk)
             "WARNING: estimateKeff failed to converge for kc=%.5e, ksol:%.5e.\n",
             kc, ksol);
     }
-    return ksol;
+    return ksol * bins::KCENTER_CORRECTIONS[kn];
 }
 
 void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)

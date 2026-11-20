@@ -10,6 +10,8 @@
 #include "core/omp_manager.hpp"
 #include "mathtools/fourier_integrator.hpp"
 #include "mathtools/real_field.hpp"
+#include "mathtools/mathutils.hpp"
+#include "mathtools/simplesolver.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/sq_lookup_table_file.hpp"
 #include "io/logger.hpp"
@@ -382,6 +384,7 @@ void SQLookupTable::_allocReadSQFile(
     gint = std::make_shared<DiscreteInterpolation1D>(
         itp_v1, itp_dv, N_V_POINTS, signal_array.get()
     );
+    s_table_file.readKbinCorrection(bins::KCENTER_CORRECTIONS.data());
 
     if (!specifics::TURN_OFF_SFID)
     {
@@ -507,6 +510,55 @@ namespace sqhelper {
         for (int nv = 0; nv < _NV_; ++nv)
             signal_array[nv] = rft->field_x[RFT_M * nv];
         s_table_file.writeGuide(signal_array.get());
+
+        // Compute the guide correction
+        std::vector<double> kKernel(bins::NUMBER_OF_K_BANDS), 
+                            kGuide(bins::NUMBER_OF_K_BANDS);
+        constexpr int NN = 512;
+        #pragma omp parallel for
+        for (int kn = 0; kn < bins::NUMBER_OF_K_BANDS; ++kn) {
+            double kc, klo, khi, dk;
+            bins::getKBinLoCeHi(kn, klo, khi, kc);
+            dk = (khi - klo) / (NN - 1);
+            auto kern = std::make_unique<double[]>(NN);
+            auto y = std::make_unique<double[]>(NN);
+
+            for (int i = 0; i < NN; ++i)
+                kern[i] = bins::getKBinKernel(klo + dk * i, kn, klo, khi, kc);
+            double kernel_norm = trapz(kern.get(), NN) * dk;
+
+            // Calculate the center of the kernel
+            // This is different from kc at kn=0, -1 for linear binning.
+            // We do not want to correct for that.
+            for (int i = 0; i < NN; ++i)
+                y[i] = kern[i] * (klo + dk * i);
+            kKernel[kn] = trapz(y.get(), NN) * dk / kernel_norm;
+
+            for (int i = 0; i < NN; ++i)
+                y[i] = kern[i] * fidcosmo::guidePower(klo + dk * i);
+            double gk = trapz(y.get(), NN) * dk / kernel_norm;
+            // Solve for root
+            int status = 0;
+
+            kGuide[kn] = rootBrent(
+                [gk](double ki) { return fidcosmo::guidePower(ki) - gk; },
+                klo, khi, &status
+            );
+            if (status == -1) {
+                LOG::LOGGER.ERR("WARNING: Guiding k failed for kn=%d.\n", kn);
+                kGuide[kn] = bins::KBAND_CENTERS[kn];
+            }
+            if (status == 1)
+                LOG::LOGGER.ERR(
+                    "WARNING: Guiding k failed to converge for kn=%d, ksol:%.5e.\n",
+                    kn, kGuide[kn]);
+            // Set correction factor
+            bins::KCENTER_CORRECTIONS[kn] = kKernel[kn] / kGuide[kn];
+        }
+        s_table_file.writeKbinCorrection(
+            bins::KBAND_CENTERS.data(), kKernel.data(), kGuide.data(),
+            bins::KCENTER_CORRECTIONS.data()
+        );
     }
 
     void _computeSignal(
