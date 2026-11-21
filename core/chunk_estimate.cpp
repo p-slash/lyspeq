@@ -679,7 +679,8 @@ void Chunk::computePSbeforeFvector()
     double *dk0 = dbt_estimate_before_fisher_vector[0].get(),
            *nk0 = dbt_estimate_before_fisher_vector[1].get(),
            *tk0 = dbt_estimate_before_fisher_vector[2].get(),
-           *gk0 = dbt_estimate_before_fisher_vector[3].get();
+           *gk0 = dbt_estimate_before_fisher_vector[3].get(),
+           *zk0 = dbt_estimate_before_fisher_vector[4].get();
 
     // C-1 . flux
     cblas_dsymv(
@@ -712,38 +713,31 @@ void Chunk::computePSbeforeFvector()
 
     mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
 
-    // N C-1
-    double *weighted_noise_matrix = temp_matrix[0];
-    #pragma omp parallel for
-    for (int i = 0; i < Ndata; ++i) {
-        std::fill_n(weighted_noise_matrix + i * Ndata, Ndata, 0);
-        double iv = qFile->ivar()[i];
-        if (iv == 0)
-            continue;
-
-        iv = 1.0 / iv;
-        cblas_daxpy(
-            Ndata, iv,
-            inverse_covariance_matrix + i * Ndata, 1,
-            weighted_noise_matrix + i * Ndata, 1);
-    }
-
     // Get Noise contribution: Tr(C-1 Qi C-1 N)
     #pragma omp parallel for
-    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        nk0[i_kz] = mxhelp::divide_and_conquer_dot(
-            DATA_SIZE_2, Q_ikz_matrix, weighted_noise_matrix);
+    for (int i = 0; i < Ndata; ++i) {
+        double iv = qFile->ivar()[i];
+        if (iv == 0)  glmemory::temp_vectors[0][i] = 0;
+        else          glmemory::temp_vectors[0][i] = 1.0 / iv;
+    }
+    mxhelp::my_cblas_DiaDense(
+        Ndata, glmemory::temp_vectors[0].get(), inverse_covariance_matrix,
+        temp_matrix[0]);  // N C-1
+    _traceQA(temp_matrix[0], nk0);
 
     // Set Guide matrix
     cblas_dgemm(
         CblasRowMajor, CblasNoTrans, CblasNoTrans,
         Ndata, Ndata, Ndata, 1., glmemory::guide_sfid.get(), Ndata,
         inverse_covariance_matrix, Ndata, 0, temp_matrix[0], Ndata);
-
-    #pragma omp parallel for
-    for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-        gk0[i_kz] = mxhelp::divide_and_conquer_dot(
-            DATA_SIZE_2, Q_ikz_matrix, temp_matrix[0]);
+    _traceQA(temp_matrix[0], gk0);
+    
+    // Simple zeff propagation: Tr(C-1 Qi C-1 Z), where Z is diagonal matrix of (1+z)
+    // First calculate Z C-1, note qFile->wave() is 1+z
+    mxhelp::my_cblas_DiaDense(
+        Ndata, qFile->wave(), inverse_covariance_matrix,
+        temp_matrix[0]);
+    _traceQA(temp_matrix[0], zk0);
 
     // Fiducial matrix, Sfid C-1
     if (!specifics::TURN_OFF_SFID) {
@@ -756,12 +750,8 @@ void Chunk::computePSbeforeFvector()
         cblas_dgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
             Ndata, Ndata, Ndata, 1., glmemory::stored_sfid.get(), Ndata,
-            inverse_covariance_matrix, Ndata, 0, weighted_sfid_matrix, Ndata);
-
-        #pragma omp parallel for
-        for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
-            tk0[i_kz] = mxhelp::divide_and_conquer_dot(
-                DATA_SIZE_2, Q_ikz_matrix, weighted_sfid_matrix);
+            inverse_covariance_matrix, Ndata, 0, temp_matrix[0], Ndata);
+        _traceQA(temp_matrix[0], tk0);
     }
 
     // Do not compute fisher matrix if it is precomputed
