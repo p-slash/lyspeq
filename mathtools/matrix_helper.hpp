@@ -67,6 +67,15 @@ namespace mxhelp
                 A[j + i * N] *= v[i] * v[j];
     }
 
+    inline
+    void my_cblas_DiaDense(
+        int N, const double *diaV, const double *A, double *out
+    ) {
+        #pragma omp parallel for simd collapse(2)
+        for (int i = 0; i < N; ++i)
+            for (int j = 0; j < N; ++j)
+                out[j + i * N] = diaV[i] * A[j + i * N];
+    }
     // Trace of A.B
     // Both are assumed to general and square NxN
     double trace_dgemm(const double *A, const double *B, int N);
