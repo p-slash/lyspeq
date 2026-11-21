@@ -713,7 +713,7 @@ void Chunk::computePSbeforeFvector()
 
     mytime::time_spent_set_modqs += mytime::timer.getTime() - t;
 
-    // Get Noise contribution: Tr(C-1 Qi C-1 N)
+   // Get Noise contribution: Tr(C-1 Qi C-1 N)
     #pragma omp parallel for
     for (int i = 0; i < Ndata; ++i) {
         double iv = qFile->ivar()[i];
@@ -749,7 +749,6 @@ void Chunk::computePSbeforeFvector()
 
     // Fiducial matrix, Sfid C-1
     if (!specifics::TURN_OFF_SFID) {
-        double *weighted_sfid_matrix = temp_matrix[0];
         // cblas_dsymm(
         //     CblasRowMajor, CblasLeft, CblasUpper,
         //     size(), size(), 1., stored_sfid, size(),
