@@ -831,26 +831,26 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
         const std::string ext
 ) {
     /* define the name, datatype, and physical units for columns */
-    const int ncolumns = 18;
+    const int ncolumns = 19;
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wwrite-strings"
     char *column_names[] = {
         "Z", "ZEFF", "K1", "K2", "K", /**/
         "KEFF", "PLYA", "PLYA_EFF", "E_PK", "PRAW", /**/
-        "PNOISE", "PFID", "PGUIDE", "PINPUT", "ThetaP", /**/
-        "Fd", "Fb", "Ft"
+        "PNOISE", "PFID", "PGUIDE", "PZEFF", "PINPUT", /**/
+        "ThetaP", "Fd", "Fb", "Ft"
     };
     char *column_types[] = {
         "1D", "1D", "1D", "1D", "1D", /**/
         "1D", "1D", "1D", "1D", "1D", /**/
         "1D", "1D", "1D", "1D", "1D", /**/
-        "1D", "1D", "1D"
+        "1D", "1D", "1D", "1D"
     };
     char *column_units[] = {
         "", "", "s km^-1", "s km^-1", "s km^-1", /**/
         "s km^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1",  /**/
         "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1", /**/
-        "s km^-1", "s km^-1",  "s km^-1"
+        "km s^-1", "s km^-1", "s km^-1",  "s km^-1"
     };
     #pragma GCC diagnostic pop
 
@@ -878,8 +878,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);
         keff = estimateKeff(kn, zm, dbt_estimate_fisher_weighted_vector[3][i_kz]);
-        // zeff = estimateZeff(zm, keff, dbt_estimate_fisher_weighted_vector[2][i_kz]);
-        zeff = dbt_estimate_fisher_weighted_vector[4][i_kz];
+        zeff = estimateZeff(zm, keff, dbt_estimate_fisher_weighted_vector[2][i_kz]);
+        // zeff = dbt_estimate_fisher_weighted_vector[4][i_kz];
         tmpvec_ptr[i_kz] = bins::ZBIN_CENTERS[zm];
         tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] = zeff;
         tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn];
