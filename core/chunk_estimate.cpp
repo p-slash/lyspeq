@@ -732,10 +732,18 @@ void Chunk::computePSbeforeFvector()
         inverse_covariance_matrix, Ndata, 0, temp_matrix[0], Ndata);
     _traceQA(temp_matrix[0], gk0);
     
-    // Simple zeff propagation: Tr(C-1 Qi C-1 Z), where Z is diagonal matrix of (1+z)
-    // First calculate Z C-1, note qFile->wave() is 1+z
+    // Simple zeff propagation: Tr(C-1 Qi C-1 Z), where Z is diagonal matrix of (1+z)^2
+    // First calculate Z C-1, note qFile->wave() is 1+z. Note the correction
+    // factor of the pixel size.
+    const double dA = qFile->dlambda / LYA_REST / 2;
+    #pragma omp parallel for
+    for (int i = 0; i < Ndata; ++i) {
+        double z1 = qFile->wave()[i];
+        double dv = SPEED_OF_LIGHT * log((z1 + dA) / (z1 - dA));
+        glmemory::temp_vectors[0][i] = z1 * z1 / dv;
+    }
     mxhelp::my_cblas_DiaDense(
-        Ndata, qFile->wave(), inverse_covariance_matrix,
+        Ndata, glmemory::temp_vectors[0].get(), inverse_covariance_matrix,
         temp_matrix[0]);
     _traceQA(temp_matrix[0], zk0);
 
