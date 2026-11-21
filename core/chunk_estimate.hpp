@@ -89,6 +89,13 @@ protected:
     void _scaleDerivativesWithRedshiftGrowth();
     void _addMarginalizations();
     void _appendTiming();
+    inline
+    void _traceQA(const double *A, double *out) {
+        #pragma omp parallel for
+        for (const auto &[i_kz, Q_ikz_matrix] : stored_ikz_qi)
+            out[i_kz] = mxhelp::divide_and_conquer_dot(
+                DATA_SIZE_2, Q_ikz_matrix, A);
+    }
 
     friend class TestOneQSOEstimate;
 
