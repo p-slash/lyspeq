@@ -1,5 +1,6 @@
 #include <unordered_map>
 #include <string>
+#include <vector>
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
@@ -917,6 +918,53 @@ int test_lowerupper_bound() {
 }
 
 
+int test_copyUpperToLower()
+{
+    // N not a multiple of BLOCK_SIZE (32) to hit partial blocks
+    int r = 0;
+    for (int N : {1, 5, 32, 33, 70}) {
+        std::vector<double> A(N * N, -1.0), truth(N * N);
+        for (int i = 0; i < N; ++i) {
+            for (int j = 0; j < N; ++j) {
+                double v = (i <= j) ? 100.0 * i + j : 100.0 * j + i;
+                truth[j + i * N] = v;
+                if (i <= j)  A[j + i * N] = v;  // fill upper only (row-major)
+            }
+        }
+
+        mxhelp::copyUpperToLower(A.data(), N);
+        if (!allClose(truth.data(), A.data(), N * N)) {
+            fprintf(stderr, "ERROR copyUpperToLower(N=%d).\n", N);
+            r += 1;
+        }
+    }
+    return r;
+}
+
+int test_transpose_copy()
+{
+    int r = 0;
+    const int dims[][2] = {{1, 1}, {3, 5}, {32, 32}, {33, 70}, {70, 33}};
+    for (const auto &d : dims) {
+        const int M = d[0], N = d[1];
+        std::vector<double> A(M * N), B(M * N, -1.0), truth(M * N);
+        for (int i = 0; i < M; ++i)
+            for (int j = 0; j < N; ++j)
+                A[j + i * N] = 1000.0 * i + j;  // A is M x N, row-major
+
+        for (int i = 0; i < M; ++i)
+            for (int j = 0; j < N; ++j)
+                truth[i + j * M] = A[j + i * N];  // B is N x M
+
+        mxhelp::transpose_copy(A.data(), B.data(), M, N);
+        if (!allClose(truth.data(), B.data(), M * N)) {
+            fprintf(stderr, "ERROR transpose_copy(M=%d, N=%d).\n", M, N);
+            r += 1;
+        }
+    }
+    return r;
+}
+
 int main()
 {
     printf("SRCDIR: %s\n", SRCDIR.c_str());
@@ -946,6 +994,8 @@ int main()
     r += test_lowerupper_bound();
     r += test_eigenvalue_decomp();
     r += test_sqrt_matrix();
+    r += test_copyUpperToLower();
+    r += test_transpose_copy();
 
     if (r == 0)
         printf("Matrix operations work!\n");
