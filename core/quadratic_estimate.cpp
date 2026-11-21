@@ -353,11 +353,14 @@ void OneDQuadraticPowerEstimate::computePowerSpectrumEstimates()
     if (specifics::NDBT == 3)
         return;
 
-    cblas_dgemv(
-        CblasRowMajor, CblasNoTrans, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
-        0.5, solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS,
-        dbt_estimate_sum_before_fisher_vector[3].get(), 1,
-        0, dbt_estimate_fisher_weighted_vector[3].get(), 1);
+    for (int dbt_i = 3; dbt_i < specifics::NDBT; ++dbt_i)
+    {
+        cblas_dgemv(
+            CblasRowMajor, CblasNoTrans, bins::TOTAL_KZ_BINS, bins::TOTAL_KZ_BINS,
+            0.5, solver_invfisher_matrix.get(), bins::TOTAL_KZ_BINS,
+            dbt_estimate_sum_before_fisher_vector[dbt_i].get(), 1,
+            0, dbt_estimate_fisher_weighted_vector[dbt_i].get(), 1);
+    }
 }
 
 void OneDQuadraticPowerEstimate::_readScriptOutput(const char *fname, void *itsfits)
@@ -875,7 +878,8 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     for (int i_kz = 0; i_kz < bins::TOTAL_KZ_BINS; ++i_kz) {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);
         keff = estimateKeff(kn, zm, dbt_estimate_fisher_weighted_vector[3][i_kz]);
-        zeff = estimateZeff(zm, keff, dbt_estimate_fisher_weighted_vector[2][i_kz]);
+        // zeff = estimateZeff(zm, keff, dbt_estimate_fisher_weighted_vector[2][i_kz]);
+        zeff = dbt_estimate_fisher_weighted_vector[4][i_kz];
         tmpvec_ptr[i_kz] = bins::ZBIN_CENTERS[zm];
         tmpvec_ptr[i_kz + bins::TOTAL_KZ_BINS] = zeff;
         tmpvec_ptr[i_kz + 2 * bins::TOTAL_KZ_BINS] = bins::KBAND_EDGES[kn];

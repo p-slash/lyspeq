@@ -35,6 +35,7 @@ protected:
 
     // TOTAL_KZ_BINS sized vectors
     // Index 3 is for Guide signal matrix to derive keff
+    // Index 4 is for simple zeff propagation
     std::vector<std::unique_ptr<double[]>>
                 dbt_estimate_sum_before_fisher_vector,
                 dbt_estimate_fisher_weighted_vector;
