@@ -10,11 +10,11 @@
 
 
 namespace ioh {
-    template<class T> inline int fitsioDataType();
-    template<> inline int fitsioDataType<double>() { return TDOUBLE; }
-    template<> inline int fitsioDataType<int>() { return TINT; }
-    template<> inline int fitsioDataType<bool>() { return TLOGICAL; }
-    template<> inline int fitsioDataType<long>() { return TLONG; }
+    template<class T> inline constexpr int fitsioDataType = -1;
+    template<> inline constexpr int fitsioDataType<double> = TDOUBLE;
+    template<> inline constexpr int fitsioDataType<int> = TINT;
+    template<> inline constexpr int fitsioDataType<bool> = TLOGICAL;
+    template<> inline constexpr int fitsioDataType<long> = TLONG;
 
     inline void checkFitsStatus(int status) {
         if (status == 0)
@@ -100,11 +100,11 @@ namespace ioh {
 
     template<class T>
     inline void readFitsKey(fitsfile *fts, const char *key, T &value, int &status) {
-        fits_read_key(fts, fitsioDataType<T>(), key, &value, NULL, &status);
+        fits_read_key(fts, fitsioDataType<T>, key, &value, NULL, &status);
     }
     template<class T>
     inline void writeFitsKey(fitsfile *fts, const char *key, T value, int &status) {
-        fits_write_key(fts, fitsioDataType<T>(), key, &value, NULL, &status);
+        fits_write_key(fts, fitsioDataType<T>, key, &value, NULL, &status);
     }
 
     class FitsFileSlim {
@@ -168,12 +168,12 @@ namespace ioh {
         template<class T>
         void readColumn(int colnum, long nelements, T *data) {
             int nonull;
-            fits_read_col(fits_file, fitsioDataType<T>(), colnum, 1, 1, nelements,
+            fits_read_col(fits_file, fitsioDataType<T>, colnum, 1, 1, nelements,
                 0, data, &nonull, &status);
         }
         template<class T>
         void readImage(T *data, long nelements, long firstelem=1, double nullval=0) {
-            fits_read_img(fits_file, fitsioDataType<T>(), firstelem, nelements, &nullval, data, nullptr, &status);
+            fits_read_img(fits_file, fitsioDataType<T>, firstelem, nelements, &nullval, data, nullptr, &status);
         }
         void readTDIM(int colnum, long nelements, int &naxis, long *naxes) {
             fits_read_tdim(fits_file, colnum, nelements, &naxis, naxes, &status);
@@ -194,7 +194,7 @@ namespace ioh {
         }
         template<class T>
         void writeColumn(int colnum, long nelements, T *data) {
-            fits_write_col(fits_file, fitsioDataType<T>(), colnum, 1, 1,
+            fits_write_col(fits_file, fitsioDataType<T>, colnum, 1, 1,
                            nelements, data, &status);
         }
         void createImage(int naxis, long *naxes, const char *extname=nullptr) {
