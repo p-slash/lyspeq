@@ -855,7 +855,7 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
     fits_file.writeKey("DAMP_CON", damping_pair.second);
     fits_file.check();
 
-    int kn = 0, zm = 0, colnum = 1;
+    int kn = 0, zm = 0;
     const int NKZ = bins::TOTAL_KZ_BINS;
     std::vector<double> tmpvec(6 * NKZ);
     std::vector<int> statuses(2 * NKZ);
@@ -880,9 +880,10 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
         tmpvec_ptr[i_kz + 5 * NKZ] = keff;
     }
 
+    constexpr const char *bin_colnames[] = {
+        "Z", "ZEFF", "K1", "K2", "K", "KEFF"};
     for (int c = 0; c < 6; ++c)
-        fits_file.writeColumn(colnum++, NKZ,
-                              tmpvec_ptr + c * NKZ);
+        fits_file.writeColumn(bin_colnames[c], NKZ, tmpvec_ptr + c * NKZ);
 
     for (int i_kz = 0; i_kz < NKZ; ++i_kz) {
         bins::getFisherMatrixBinNoFromIndex(i_kz, kn, zm);  
@@ -896,23 +897,26 @@ void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
             sqrt(inverse_fisher_matrix_sum[(1 + NKZ) * i_kz]);
     }
 
-    fits_file.writeColumn(colnum++, NKZ, tmpvec_ptr + NKZ);
-    fits_file.writeColumn(colnum++, NKZ, tmpvec_ptr + 2 * NKZ);
-    fits_file.writeColumn(colnum++, NKZ, tmpvec_ptr + 3 * NKZ);
+    fits_file.writeColumn("PLYA", NKZ, tmpvec_ptr + NKZ);
+    fits_file.writeColumn("PLYA_EFF", NKZ, tmpvec_ptr + 2 * NKZ);
+    fits_file.writeColumn("E_PK", NKZ, tmpvec_ptr + 3 * NKZ);
 
+    constexpr const char *dbt_colnames[specifics::NDBT] = {
+        "PRAW", "PNOISE", "PFID", "PGUIDE"};
     for (int c = 0; c < specifics::NDBT; ++c)
-        fits_file.writeColumn(colnum++, NKZ,
+        fits_file.writeColumn(dbt_colnames[c], NKZ,
                               dbt_estimate_fisher_weighted_vector[c].get());
 
-    fits_file.writeColumn(colnum++, NKZ, tmpvec_ptr);
-    fits_file.writeColumn(colnum++, NKZ, current_power_estimate_vector.get());
+    fits_file.writeColumn("PINPUT", NKZ, tmpvec_ptr);
+    fits_file.writeColumn("ThetaP", NKZ, current_power_estimate_vector.get());
 
+    constexpr const char *fvec_colnames[] = {"Fd", "Fb", "Ft"};
     for (int c = 0; c < 3; ++c)
-        fits_file.writeColumn(colnum++, NKZ,
+        fits_file.writeColumn(fvec_colnames[c], NKZ,
                               dbt_estimate_sum_before_fisher_vector[c].get());
 
-    fits_file.writeColumn(colnum++, NKZ, statuses.data());
-    fits_file.writeColumn(colnum++, NKZ, statuses.data() + NKZ);
+    fits_file.writeColumn("KeffStatus", NKZ, statuses.data());
+    fits_file.writeColumn("ZeffStatus", NKZ, statuses.data() + NKZ);
     fits_file.flush();
     fits_file.check();
 }

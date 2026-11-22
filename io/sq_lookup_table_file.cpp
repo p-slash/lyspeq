@@ -197,11 +197,10 @@ void SQLookupTableFile::writeKbinCorrection(
     char extname[] = "KCORRECTION";
     fits_file.createTable(Nk, columns, extname);
     fits_file.check();
-    int colnum = 1;
-    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kcenters));
-    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kkernel));
-    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kguide));
-    fits_file.writeColumn(colnum++, Nk, const_cast<double*>(kcorrection));
+    fits_file.writeColumn("KC", Nk, kcenters);
+    fits_file.writeColumn("KKERNEL", Nk, kkernel);
+    fits_file.writeColumn("KGUIDE", Nk, kguide);
+    fits_file.writeColumn("CORRECTION", Nk, kcorrection);
     fits_file.check();
     fits_file.flush();
 }
