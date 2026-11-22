@@ -67,6 +67,16 @@ namespace fidcosmo
         constexpr double kF = 5e-4;
         return kF / (k * k + kF * kF);
     }
+    inline double solveGuidePower(double gk, int &status) {
+        constexpr double kF = 5e-4;
+        double keff2 = kF / gk - kF * kF;
+        if (keff2 < 0) {
+            status = -1;
+            return 0;
+        }
+        status = 0;
+        return sqrt(keff2);
+    }
     inline
     double spectralWindowFunc2(double k, double dv_kms, double R_kms) {
         if (k == 0)  return 1.;
