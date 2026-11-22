@@ -11,7 +11,6 @@
 #include "mathtools/fourier_integrator.hpp"
 #include "mathtools/real_field.hpp"
 #include "mathtools/mathutils.hpp"
-#include "mathtools/simplesolver.hpp"
 #include "io/io_helper_functions.hpp"
 #include "io/sq_lookup_table_file.hpp"
 #include "io/logger.hpp"
@@ -540,18 +539,11 @@ namespace sqhelper {
             // Solve for root
             int status = 0;
 
-            kGuide[kn] = rootBrent(
-                [gk](double ki) { return fidcosmo::guidePower(ki) - gk; },
-                klo, khi, &status
-            );
+            kGuide[kn] = fidcosmo::solveGuidePower(gk, status);
             if (status == -1) {
                 LOG::LOGGER.ERR("WARNING: Guiding k failed for kn=%d.\n", kn);
                 kGuide[kn] = bins::KBAND_CENTERS[kn];
             }
-            if (status == 1)
-                LOG::LOGGER.ERR(
-                    "WARNING: Guiding k failed to converge for kn=%d, ksol:%.5e.\n",
-                    kn, kGuide[kn]);
             // Set correction factor
             bins::KCENTER_CORRECTIONS[kn] = kKernel[kn] / kGuide[kn];
         }
