@@ -817,33 +817,31 @@ void OneDQuadraticPowerEstimate::writeSpectrumEstimates(const char *fname)
 void OneDQuadraticPowerEstimate::writeDetailedSpectrumEstimates(
         const std::string ext
 ) {
-    /* define the name, datatype, and physical units for columns */
-    const int ncolumns = 20;
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wwrite-strings"
-    char *column_names[] = {
-        "Z", "ZEFF", "K1", "K2", "K", /**/
-        "KEFF", "PLYA", "PLYA_EFF", "E_PK", "PRAW", /**/
-        "PNOISE", "PFID", "PGUIDE", "PINPUT", "ThetaP", /**/
-        "Fd", "Fb", "Ft", "KeffStatus", "ZeffStatus"
+    constexpr const char *VEL_UNIT = "km s^-1", INV_VEL_UNIT[] = "s km^-1";
+    const std::vector<ioh::FitsColumn> columns = {
+        {"Z", ioh::fitsioTForm<double>, ""},
+        {"ZEFF", ioh::fitsioTForm<double>, ""},
+        {"K1", ioh::fitsioTForm<double>, INV_VEL_UNIT},
+        {"K2", ioh::fitsioTForm<double>, INV_VEL_UNIT},
+        {"K", ioh::fitsioTForm<double>, INV_VEL_UNIT},
+        {"KEFF", ioh::fitsioTForm<double>, INV_VEL_UNIT},
+        {"PLYA", ioh::fitsioTForm<double>, VEL_UNIT},
+        {"PLYA_EFF", ioh::fitsioTForm<double>, VEL_UNIT},
+        {"E_PK", ioh::fitsioTForm<double>, VEL_UNIT},
+        {"PRAW", ioh::fitsioTForm<double>, VEL_UNIT},
+        {"PNOISE", ioh::fitsioTForm<double>, VEL_UNIT},
+        {"PFID", ioh::fitsioTForm<double>, VEL_UNIT},
+        {"PGUIDE", ioh::fitsioTForm<double>, VEL_UNIT},
+        {"PINPUT", ioh::fitsioTForm<double>, VEL_UNIT},
+        {"ThetaP", ioh::fitsioTForm<double>, VEL_UNIT},
+        {"Fd", ioh::fitsioTForm<double>, INV_VEL_UNIT},
+        {"Fb", ioh::fitsioTForm<double>, INV_VEL_UNIT},
+        {"Ft", ioh::fitsioTForm<double>, INV_VEL_UNIT},
+        {"KeffStatus", ioh::fitsioTForm<int>, ""},
+        {"ZeffStatus", ioh::fitsioTForm<int>, ""}
     };
-    char *column_types[] = {
-        "1D", "1D", "1D", "1D", "1D", /**/
-        "1D", "1D", "1D", "1D", "1D", /**/
-        "1D", "1D", "1D", "1D", "1D", /**/
-        "1D", "1D", "1D", "1J", "1J"
-    };
-    char *column_units[] = {
-        "", "", "s km^-1", "s km^-1", "s km^-1", /**/
-        "s km^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1",  /**/
-        "km s^-1", "km s^-1", "km s^-1", "km s^-1", "km s^-1", /**/
-        "s km^-1", "s km^-1",  "s km^-1", "", ""
-    };
-    #pragma GCC diagnostic pop
 
-    fits_file.createTable(bins::TOTAL_KZ_BINS, ncolumns,
-                          column_names, column_types, column_units,
-                          ext.c_str());
+    fits_file.createTable(bins::TOTAL_KZ_BINS, columns, ext.c_str());
     fits_file.check();
     fits_file.writeKey("PFID_A", fidpd13::FIDUCIAL_PD13_PARAMS.A);
     fits_file.writeKey("PFID_N", fidpd13::FIDUCIAL_PD13_PARAMS.n);
@@ -971,14 +969,12 @@ void OneDQuadraticPowerEstimate::iterationOutput(
 
     if (it == 0) {
         const int ncolumns = 2, nrows = bins::NUMBER_OF_Z_BINS + 2;
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wwrite-strings"
-        char *column_names[] = {"Z", "NQSO"};
-        char *column_types[] = {"1E", "1J"};
-        #pragma GCC diagnostic pop
+        const std::vector<ioh::FitsColumn> columns = {
+            {"Z", ioh::fitsioTForm<double>, ""},
+            {"NQSO", ioh::fitsioTForm<long>, ""}
+        };
 
-        fits_file.createTable(
-            nrows, ncolumns, column_names, column_types, nullptr, "NQSO_Z");
+        fits_file.createTable(nrows, columns, "NQSO_Z");
         fits_file.check();
         auto zbins_ = std::make_unique<double[]>(nrows);
         zbins_[0] = 0;  zbins_[nrows - 1] = 10.0;
@@ -1102,15 +1098,16 @@ void saveChunkTimings() {
     ioh::FitsFileSlim fts(fitsfile_ptr.get());
 
     /* define the name, datatype, and physical units for columns */
-    const int ncolumns = 5;
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wwrite-strings"
-    char *column_names[] = {"NkNd3", "Nk2Nd2", "NkNd2", "C", "Time"};
-    char *column_types[] = {"1D", "1D", "1D", "1D", "1D"};
-    #pragma GCC diagnostic pop
+    const std::vector<ioh::FitsColumn> columns = {
+        {"NkNd3", ioh::fitsioTForm<double>, ""},
+        {"Nk2Nd2", ioh::fitsioTForm<double>, ""},
+        {"NkNd2", ioh::fitsioTForm<double>, ""},
+        {"C", ioh::fitsioTForm<double>, ""},
+        {"Time", ioh::fitsioTForm<double>, "100 min"}
+    };
 
     int nrows = time_all_pes.size();
-    fts.createTable(nrows, ncolumns, column_names, column_types, nullptr, ext.c_str());
+    fts.createTable(nrows, columns, ext.c_str());
     fts.check();
     for (int i = 0; i < 4; ++i) {
         fts.writeKey(
