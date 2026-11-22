@@ -222,12 +222,12 @@ namespace ioh {
             writeFitsKey(fits_file, key, value, status);
         }
         template<class T>
-        void writeColumn(int colnum, long nelements, T *data) {
+        void writeColumn(int colnum, long nelements, const T *data) {
             fits_write_col(fits_file, fitsioDataType<T>, colnum, 1, 1,
-                           nelements, data, &status);
+                           nelements, const_cast<T*>(data), &status);
         }
         template<class T>
-        void writeColumn(const char *colname, long nelements, T *data) {
+        void writeColumn(const char *colname, long nelements, const T *data) {
             int colnum = getColumnNumber(colname);
             writeColumn(colnum, nelements, data);
         }
