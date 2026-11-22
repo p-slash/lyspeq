@@ -137,14 +137,15 @@ namespace ioh {
         void moveToHdu(int hdunum, int *hdutype) {
             fits_movabs_hdu(fits_file, hdunum, hdutype, &status);
         }
-        void moveToHdu(char *extname, int hdutype=BINARY_TBL) {
-            fits_movnam_hdu(fits_file, hdutype, extname, 0, &status);
+        void moveToHdu(const char *extname, int hdutype=BINARY_TBL) {
+            fits_movnam_hdu(fits_file, hdutype, const_cast<char*>(extname), 0, &status);
         }
         void readHeaderKeys() { header_keys = ioh::readHeaderKeys(fits_file, status); }
         void readColumnNames() { colnames = ioh::readColumnNAmes(fits_file, status); }
-        int getColumnNumber(char *colname) {
+        int getColumnNumber(const char *colname) {
             int colnum;
-            fits_get_colnum(fits_file, CASEINSEN, colname, &colnum, &status);
+            fits_get_colnum(fits_file, CASEINSEN, const_cast<char*>(colname),
+                            &colnum, &status);
             return colnum;
         }
         const std::vector<std::string>& getHeaderKeys() const { return header_keys; }
@@ -224,6 +225,11 @@ namespace ioh {
         void writeColumn(int colnum, long nelements, T *data) {
             fits_write_col(fits_file, fitsioDataType<T>, colnum, 1, 1,
                            nelements, data, &status);
+        }
+        template<class T>
+        void writeColumn(const char *colname, long nelements, T *data) {
+            int colnum = getColumnNumber(colname);
+            writeColumn(colnum, nelements, data);
         }
         void createImage(int naxis, long *naxes, const char *extname=nullptr) {
             fits_create_img(fits_file, DOUBLE_IMG, naxis, naxes, &status);
