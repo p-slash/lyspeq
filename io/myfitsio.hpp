@@ -10,11 +10,19 @@
 
 
 namespace ioh {
-    template<class T> inline constexpr int fitsioDataType = -1;
+    template<typename T> inline constexpr int fitsioDataType = -1;
     template<> inline constexpr int fitsioDataType<double> = TDOUBLE;
     template<> inline constexpr int fitsioDataType<int> = TINT;
     template<> inline constexpr int fitsioDataType<bool> = TLOGICAL;
     template<> inline constexpr int fitsioDataType<long> = TLONG;
+
+    template<typename T> inline constexpr const char* fitsioTForm = "";
+    template<> inline constexpr const char* fitsioTForm<double> = "1D";
+    template<> inline constexpr const char* fitsioTForm<int> = "1J";
+    template<> inline constexpr const char* fitsioTForm<bool> = "1L";
+    template<> inline constexpr const char* fitsioTForm<long> = "1K";
+
+    struct FitsColumn { const char *name, *tform, *unit; };
 
     inline void checkFitsStatus(int status) {
         if (status == 0)
@@ -187,6 +195,26 @@ namespace ioh {
             fits_create_tbl(
                 fits_file, BINARY_TBL, nrows, ncols,
                 colnames, coltypes, colunits, extname, &status);
+        }
+        void createTable(
+                int nrows, const std::vector<ioh::FitsColumn> &columns,
+                const char *extname=nullptr
+        ) {
+            int ncols = columns.size();
+            char **colnames = new char*[ncols];
+            char **coltypes = new char*[ncols];
+            char **colunits = new char*[ncols];
+            for (int i = 0; i < ncols; i++) {
+                colnames[i] = const_cast<char*>(columns[i].name);
+                coltypes[i] = const_cast<char*>(columns[i].tform);
+                colunits[i] = const_cast<char*>(columns[i].unit);
+            }
+            fits_create_tbl(
+                fits_file, BINARY_TBL, nrows, ncols,
+                colnames, coltypes, colunits, extname, &status);
+            delete[] colnames;
+            delete[] coltypes;
+            delete[] colunits;
         }
         template<class T>
         void writeKey(const char *key, T value) {
